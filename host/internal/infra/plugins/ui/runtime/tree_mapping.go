@@ -4,21 +4,22 @@ import (
 	"errors"
 	"fmt"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 // mapTreeFrame maps tree query, navigation, and label completion frames.
-func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
+func mapTreeFrame(frame controllerui.Frame) (*uiv1.HostCompleted, bool, error) {
 	request := new(uiv1.HostCompleted)
 	switch frame.Kind {
-	case domainui.FrameSessionTree:
+	case controllerui.FrameSessionTree:
 		tree, present := frame.SessionTree.Get()
 		if !present {
 			return nil, true, errors.New("map UI tree frame: tree is required")
@@ -31,7 +32,7 @@ func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 		result.SetTree(mapped)
 		request.SetSessionTree(result)
 		return request, true, nil
-	case domainui.FrameEntryLabelSet:
+	case controllerui.FrameEntryLabelSet:
 		tree, present := frame.SessionTree.Get()
 		if !present {
 			return nil, true, errors.New("map UI entry label frame: tree is required")
@@ -44,7 +45,7 @@ func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 		result.SetTree(mapped)
 		request.SetEntryLabelSet(result)
 		return request, true, nil
-	case domainui.FrameSessionTreeNavigation:
+	case controllerui.FrameSessionTreeNavigation:
 		navigation, present := frame.TreeNavigation.Get()
 		if !present {
 			return nil, true, errors.New("map UI tree navigation: result is required")
@@ -55,12 +56,12 @@ func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 		}
 		request.SetSessionTreeNavigation(mapped)
 		return request, true, nil
-	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
-		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
-		domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
-		domainui.FrameSessionTreeNavigationProgress,
-		domainui.FrameSessionForked, domainui.FrameSessionCloned, domainui.FrameSubmitCompleted,
-		domainui.FrameAuthenticationCompleted, domainui.FrameSessionEntryAdded, domainui.FrameExtensionIssue:
+	case controllerui.FrameLifecycle, controllerui.FrameAuthorization,
+		controllerui.FrameModelSelectionChanged,
+		controllerui.FrameSessionList, controllerui.FrameSessionChanged, controllerui.FrameSessionInformation,
+		controllerui.FrameSessionTreeNavigationProgress,
+		controllerui.FrameSessionForked, controllerui.FrameSessionCloned, controllerui.FrameSubmitCompleted,
+		controllerui.FrameAuthenticationCompleted:
 		return nil, false, nil
 	default:
 		return nil, false, nil
@@ -69,7 +70,7 @@ func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 
 // mapTreeNavigationProgress maps committed state for operation progress.
 func mapTreeNavigationProgress(
-	progress domainui.TreeNavigationProgress,
+	progress controllerui.TreeNavigationProgress,
 ) (*uiv1.SessionTreeNavigationProgress, error) {
 	tree, err := mapSessionTree(progress.Tree)
 	if err != nil {
@@ -86,10 +87,10 @@ func mapTreeNavigationProgress(
 }
 
 // mapTreeNavigation maps terminal metadata or cancellation without speculative fields.
-func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uiv1.SessionTreeNavigationResult, error) {
+func mapTreeNavigation(navigation controllerui.TreeNavigationResult) (*uiv1.SessionTreeNavigationResult, error) {
 	wire := new(uiv1.SessionTreeNavigationResult)
 	switch navigation.Status {
-	case domainui.TreeNavigationStatusCommitted:
+	case controllerui.TreeNavigationStatusCommitted:
 		committed, present := navigation.Committed.Get()
 		if !present {
 			return nil, errors.New("map UI tree navigation: committed state is absent")
@@ -111,12 +112,12 @@ func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uiv1.SessionT
 		if nextInput, nextInputPresent := committed.NextInput.Get(); nextInputPresent {
 			wire.SetNextInput(nextInput)
 		}
-	case domainui.TreeNavigationStatusCanceled:
+	case controllerui.TreeNavigationStatusCanceled:
 		if navigation.Committed.IsSome() {
 			return nil, errors.New("map UI tree navigation: canceled result contains committed state")
 		}
 		wire.SetStatus(uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED)
-	case domainui.TreeNavigationStatusUnspecified:
+	case controllerui.TreeNavigationStatusUnspecified:
 		return nil, errors.New("map UI tree navigation: status is unspecified")
 	default:
 		return nil, fmt.Errorf("map UI tree navigation: unknown status %d", navigation.Status)
@@ -126,8 +127,8 @@ func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uiv1.SessionT
 }
 
 // mapOperationIssues maps safe ordered navigation issues to the UI contract.
-func mapOperationIssues(issues []domainui.OperationIssue) []*uiv1.OperationIssue {
-	return lo.Map(issues, func(value domainui.OperationIssue, _ int) *uiv1.OperationIssue {
+func mapOperationIssues(issues []controllerui.OperationIssue) []*uiv1.OperationIssue {
+	return lo.Map(issues, func(value controllerui.OperationIssue, _ int) *uiv1.OperationIssue {
 		issue := new(uiv1.OperationIssue)
 		issue.SetCode(uiv1.OperationIssueCode(value.Code))
 		issue.SetExtensionId(value.ExtensionID)
@@ -138,10 +139,10 @@ func mapOperationIssues(issues []domainui.OperationIssue) []*uiv1.OperationIssue
 }
 
 // mapSessionTree maps every tree entry in persistence order.
-func mapSessionTree(tree domainui.SessionTree) (*uiv1.SessionTree, error) {
+func mapSessionTree(tree controllerui.SessionTree) (*uiv1.SessionTree, error) {
 	entries, err := lo.MapErr(
 		tree.Entries,
-		func(entry domainui.SessionTreeEntry, index int) (*uiv1.SessionTreeEntry, error) {
+		func(entry controllerui.SessionTreeEntry, index int) (*uiv1.SessionTreeEntry, error) {
 			mapped, mapErr := mapSessionTreeEntry(entry)
 			if mapErr != nil {
 				return nil, fmt.Errorf("map UI tree entry %d: %w", index, mapErr)
@@ -163,7 +164,7 @@ func mapSessionTree(tree domainui.SessionTree) (*uiv1.SessionTree, error) {
 // mapSessionTreeEntry maps one closed public tree payload.
 //
 //nolint:gocyclo // The closed tree union requires one explicit mapping for each payload.
-func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntry, error) {
+func mapSessionTreeEntry(entry controllerui.SessionTreeEntry) (*uiv1.SessionTreeEntry, error) {
 	wire := new(uiv1.SessionTreeEntry)
 	wire.SetId(entry.ID)
 	if parentID, present := entry.ParentID.Get(); present {
@@ -172,31 +173,35 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 	wire.SetCreatedTime(timestamppb.New(entry.CreatedAt))
 	wire.SetLabel(entry.Label)
 	switch entry.Kind {
-	case domainui.SessionTreeEntryUser, domainui.SessionTreeEntryModel, domainui.SessionTreeEntryToolResult:
-		public := domainui.SessionEntry{
-			ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryKind(entry.Kind),
-			User: entry.User, Model: entry.Model, ToolResult: entry.ToolResult,
-			BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.None[domainui.
-					ExtensionMessage](),
+	case controllerui.SessionTreeEntryUser, controllerui.SessionTreeEntryModel, controllerui.SessionTreeEntryToolResult:
+		public := controllerui.SessionEntry{
+			ID:               entry.ID,
+			CreatedAt:        entry.CreatedAt,
+			Kind:             controllerui.SessionEntryKind(entry.Kind),
+			User:             entry.User,
+			Model:            entry.Model,
+			ToolResult:       entry.ToolResult,
+			BranchSummary:    mo.None[controllerui.BranchSummary](),
+			ExtensionMessage: mo.None[controllerui.ExtensionMessage](),
 		}
-		mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{public})
+		mapped, err := mapRestoredSessionEntries([]controllerui.SessionEntry{public})
 		if err != nil {
 			return nil, err
 		}
 		switch entry.Kind {
-		case domainui.SessionTreeEntryUser:
+		case controllerui.SessionTreeEntryUser:
 			wire.SetUser(mapped[0].GetUser())
-		case domainui.SessionTreeEntryModel:
+		case controllerui.SessionTreeEntryModel:
 			wire.SetModel(mapped[0].GetModel())
-		case domainui.SessionTreeEntryToolResult:
+		case controllerui.SessionTreeEntryToolResult:
 			wire.SetToolResult(mapped[0].GetToolResult())
-		case domainui.SessionTreeEntryUnspecified, domainui.SessionTreeEntryExtension,
-			domainui.SessionTreeEntryBranchSummary, domainui.SessionTreeEntryExtensionMessage:
+		case controllerui.SessionTreeEntryUnspecified, controllerui.SessionTreeEntryExtension,
+			controllerui.SessionTreeEntryBranchSummary, controllerui.SessionTreeEntryExtensionMessage:
 			return nil, errors.New("tree entry kind cannot use transcript mapping")
 		default:
 			return nil, fmt.Errorf("unknown transcript tree entry kind %d", entry.Kind)
 		}
-	case domainui.SessionTreeEntryExtension:
+	case controllerui.SessionTreeEntryExtension:
 		extension, present := entry.Extension.Get()
 		if !present {
 			return nil, errors.New("extension metadata is absent")
@@ -205,13 +210,13 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 		mapped.SetExtensionId(extension.ExtensionID)
 		mapped.SetEntryType(extension.EntryType)
 		wire.SetExtension(mapped)
-	case domainui.SessionTreeEntryExtensionMessage:
+	case controllerui.SessionTreeEntryExtensionMessage:
 		message, present := entry.ExtensionMessage.Get()
 		if !present {
 			return nil, errors.New("extension message is absent")
 		}
 		wire.SetExtensionMessage(mapExtensionMessage(message))
-	case domainui.SessionTreeEntryBranchSummary:
+	case controllerui.SessionTreeEntryBranchSummary:
 		summary, present := entry.BranchSummary.Get()
 		if !present {
 			return nil, errors.New("branch summary is absent")
@@ -221,7 +226,7 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 			return nil, err
 		}
 		wire.SetBranchSummary(mapped)
-	case domainui.SessionTreeEntryUnspecified:
+	case controllerui.SessionTreeEntryUnspecified:
 		return nil, errors.New("tree entry kind is unspecified")
 	default:
 		return nil, fmt.Errorf("unknown tree entry kind %d", entry.Kind)
@@ -230,7 +235,7 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 }
 
 // mapExtensionMessage maps exact message content and client visibility.
-func mapExtensionMessage(message domainui.ExtensionMessage) *uiv1.ExtensionMessage {
+func mapExtensionMessage(message controllerui.ExtensionMessage) *uiv1.ExtensionMessage {
 	visibility := uiv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE
 	if message.Visibility == session.ClientVisibilityHidden {
 		visibility = uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN
@@ -242,7 +247,7 @@ func mapExtensionMessage(message domainui.ExtensionMessage) *uiv1.ExtensionMessa
 }
 
 // mapBranchSummary maps one persisted summary and optional accounting.
-func mapBranchSummary(summary domainui.BranchSummary) (*uiv1.BranchSummary, error) {
+func mapBranchSummary(summary controllerui.BranchSummary) (*uiv1.BranchSummary, error) {
 	if err := summary.Source.Validate(); err != nil {
 		return nil, err
 	}

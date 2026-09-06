@@ -1,53 +1,19 @@
 package runtime
 
 import (
-	"context"
 	"errors"
-	"sync"
-	"sync/atomic"
 
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/internal/operation"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 const (
-	initializationOperationID    = "host-initialize"
-	rejectionCodeInvalidArgument = "INVALID_ARGUMENT"
-	rejectionCodeBusy            = "BUSY"
-	rejectionCodeNotReady        = "NOT_READY"
-	rejectionCodeTargetNotActive = "TARGET_NOT_ACTIVE"
-	failureCodeInternal          = "INTERNAL"
-	failureCodeAuthentication    = "AUTHENTICATION_FAILED"
+	initializationOperationID = "host-initialize"
 )
 
-// channel maps provider-neutral Host state onto the UI operation stream.
-type channel struct {
-	// stream is the generated bidirectional UI stream.
-	stream uiv1.UIService_OpenClient
-	// cancel stops the stream context.
-	cancel context.CancelFunc
-	// closed reports whether the channel was closed.
-	closed atomic.Bool
-	// mutex serializes stream sends and active operation state.
-	mutex sync.Mutex
-	// ready reports that initialization completed successfully.
-	ready bool
-	// writer serializes operation-mode Host messages.
-	writer *operation.Writer[*uiv1.OpenRequest]
-	// progressReporter routes asynchronous Host progress through the operation owner.
-	progressReporter operation.Reporter[domainui.Frame]
-	// progressBound reports that an operation reporter is active.
-	progressBound bool
-	// failConnection closes the active operation stream after outbound failure.
-	failConnection func(error)
-}
-
-var _ hostui.Channel = (*channel)(nil)
-
 // Send writes one Host connection event or operation progress event.
-func (c *channel) Send(frame domainui.Frame) error {
+func (c *Service) sendFrame(frame controllerui.Frame) error {
 	mapped, err := mapFrame(frame)
 	if err != nil {
 		return err
@@ -73,44 +39,22 @@ func (c *channel) Send(frame domainui.Frame) error {
 	return err
 }
 
-// SendAcknowledged enqueues one connection event and returns its transport acknowledgement.
-func (c *channel) SendAcknowledged(frame domainui.Frame) (*operation.Acknowledgement, error) {
-	if isOperationProgress(frame) {
-		return nil, errors.New("acknowledged UI send requires a connection event")
-	}
-	mapped, err := mapFrame(frame)
-	if err != nil {
-		return nil, err
-	}
-	c.mutex.Lock()
-	writer := c.writer
-	c.mutex.Unlock()
-	if writer == nil {
-		return nil, errors.New("send acknowledged UI frame: operation writer is not running")
-	}
-	acknowledgement, err := writer.EnqueueAcknowledged(mapped)
-	if err != nil && !errors.Is(err, operation.ErrClosed) {
-		c.reportDeliveryFailure(err)
-	}
-	return acknowledgement, err
-}
-
 // BindProgress associates asynchronous Host progress with one operation reporter.
-func (c *channel) BindProgress(reporter operation.Reporter[domainui.Frame]) func() {
+func (c *Service) BindProgress(reporter operation.Reporter[controllerui.Frame]) func() {
 	c.mutex.Lock()
 	c.progressReporter = reporter
 	c.progressBound = true
 	c.mutex.Unlock()
 	return func() {
 		c.mutex.Lock()
-		c.progressReporter = operation.Reporter[domainui.Frame]{}
+		c.progressReporter = operation.Reporter[controllerui.Frame]{}
 		c.progressBound = false
 		c.mutex.Unlock()
 	}
 }
 
 // reportDeliveryFailure closes the operation stream after outbound failure.
-func (c *channel) reportDeliveryFailure(err error) {
+func (c *Service) reportDeliveryFailure(err error) {
 	c.mutex.Lock()
 	fail := c.failConnection
 	c.mutex.Unlock()
@@ -120,22 +64,14 @@ func (c *channel) reportDeliveryFailure(err error) {
 }
 
 // isOperationProgress reports whether one frame belongs to a running operation.
-func isOperationProgress(frame domainui.Frame) bool {
-	if frame.Kind == domainui.FrameAuthorization || frame.Kind == domainui.FrameSessionTreeNavigationProgress {
+func isOperationProgress(frame controllerui.Frame) bool {
+	if frame.Kind == controllerui.FrameAuthorization || frame.Kind == controllerui.FrameSessionTreeNavigationProgress {
 		return true
 	}
-	if frame.Kind != domainui.FrameLifecycle {
+	if frame.Kind != controllerui.FrameLifecycle {
 		return false
 	}
-	lifecycle, present := frame.Lifecycle.Get()
-	return present && lifecycle.Type != domainui.LifecycleAvailabilityChanged
-}
-
-// Close cancels the stream context to unblock pending operations.
-func (c *channel) Close() {
-	if c.closed.CompareAndSwap(false, true) {
-		c.cancel()
-	}
+	return true
 }
 
 // hostEventRequest constructs one Host lifecycle event envelope.

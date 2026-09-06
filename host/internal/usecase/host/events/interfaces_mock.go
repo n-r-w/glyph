@@ -13,7 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
-	run "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,7 +42,7 @@ func (m *MockObserver) EXPECT() *MockObserverMockRecorder {
 }
 
 // Observe mocks base method.
-func (m *MockObserver) Observe(arg0 context.Context, arg1 run.Event) error {
+func (m *MockObserver) Observe(arg0 context.Context, arg1 agent.Event) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Observe", arg0, arg1)
 	ret0, _ := ret[0].(error)

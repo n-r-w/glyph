@@ -81,8 +81,8 @@ func testCallItem(call model.ToolCall) model.Content {
 }
 
 // eventTypes extracts observable event order for compact assertions.
-func eventTypes(events []Event) []EventType {
-	return lo.Map(events, func(event Event, _ int) EventType {
+func eventTypes(events []agent.Event) []agent.EventType {
+	return lo.Map(events, func(event agent.Event, _ int) agent.EventType {
 		return event.Type
 	})
 }

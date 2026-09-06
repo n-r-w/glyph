@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build integration
 
 package operationgate_test
 
@@ -6,6 +6,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	programmaticoutput "github.com/n-r-w/glyph/host/internal/infra/programmatic/output"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -97,8 +99,8 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 	gate := operationgate.New()
 	control := sessioncontrol.New(active, sessioncontrol.NewMockNavigator(controller), gate.TryAcquire)
 	service := programmatic.New(
-		nil, nil, func() agentrun.State { return agentrun.State{} },
-		func() []agent.HistoryEntry { return nil }, control, programmatic.NewDelivery(),
+		nil, nil, programmatic.NewMockStateQuery(controller),
+		func() []agent.HistoryEntry { return nil }, control, programmaticoutput.New(),
 	)
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)

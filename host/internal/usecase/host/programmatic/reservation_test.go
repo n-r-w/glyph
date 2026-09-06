@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -53,7 +52,7 @@ func (s *ServiceSuite) TestSessionMutationOwnsGate() {
 			if test.acquired {
 				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, test.mutationErr)
 			}
-			service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+			service := New(nil, nil, testStateQuery(s.T(), false), emptyHistorySnapshot, control, testRunOutput(s.T()))
 
 			// Act through Programmatic preparation and operation execution.
 			prepared, err := service.Prepare(
@@ -85,7 +84,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
-	service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
+	service := New(coordinator, nil, testStateQuery(s.T(), false), emptyHistorySnapshot, nil, testRunOutput(s.T()))
 	var prepareBarrier sync.WaitGroup
 	prepareBarrier.Add(2)
 	var runNumber atomic.Int64
@@ -101,7 +100,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	// Act by submitting both requests concurrently.
 	type result struct {
 		response  controller.Response
-		operation *activeRun
+		operation *runPrepared
 		err       error
 	}
 	results := make([]result, 2)
@@ -141,6 +140,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 		case controller.ResponseUserRequestCompleted:
 			accepted++
 			s.Require().NotNil(result.operation)
+			result.operation.Release()
 		case controller.ResponseRejected:
 			rejected++
 			s.Equal(controller.RejectionBusy, result.response.Rejection.OrEmpty().Code)
@@ -164,7 +164,6 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	}
 	s.Equal(1, accepted)
 	s.Equal(1, rejected)
-	s.Require().NoError(cancelActiveTestRun(service))
 }
 
 // TestQueriesReturnPublicSnapshotsDuringAcceptedRun verifies live queries expose complete owned public history.
@@ -173,40 +172,12 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
-	delivery := NewDelivery()
-	state := run.State{
-		Status: run.StatusRunning,
-		RunID:  mo.Some("run-active"),
-		PartialResponse: mo.Some(
-			model.Response{
-				Content: []model.Content{
-					{
-						Kind:            model.ContentText,
-						Text:            mo.Some("partial"),
-						Final:           false,
-						ProviderContext: mo.None[model.ProviderContext](),
-						ToolCall:        mo.None[model.ToolCall](),
-					},
-				},
-				Outcome:       mo.None[model.Outcome](),
-				ErrorMessage:  mo.None[string](),
-				Provider:      mo.None[model.ProviderID](),
-				Model:         mo.None[model.ID](),
-				ResponseModel: mo.None[model.ID](),
-				ResponseID:    mo.None[string](),
-				Usage:         mo.None[model.Usage](),
-				Diagnostics:   nil,
-			},
-		),
-		ToolPreviews: map[string]model.ToolCallPreview{
-			"preview": {CallID: "preview", Name: "", Position: 0, Provisional: false, Fields: nil},
-		},
-	}
+	delivery := testRunOutput(s.T())
 	var history []agent.HistoryEntry
 	service := New(
 		coordinator,
 		nil,
-		func() run.State { return state },
+		testStateQuery(s.T(), true),
 		func() []agent.HistoryEntry { return history },
 		nil,
 		delivery,
@@ -230,7 +201,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	})
 	s.Require().NoError(err)
 	s.Require().NotNil(operation)
-	defer func() { s.Require().NoError(cancelActiveTestRun(service)) }()
+	defer operation.Release()
 
 	response, returnedOperation, err := service.handle(
 		s.T().Context(),

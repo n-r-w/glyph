@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,21 +19,17 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
-// TestMapEveryRetainedFrame verifies every retained Host frame maps to an operation-stream envelope.
-func TestMapEveryRetainedFrame(t *testing.T) {
+// TestMapOperationFrames verifies each operation frame maps to an operation-stream envelope.
+func TestMapOperationFrames(t *testing.T) {
 	t.Parallel()
 
-	// Arrange every retained Host frame category.
-	frames := []domainui.Frame{
-		testInitializationFrame(),
+	// Arrange each operation frame category.
+	frames := []controllerui.Frame{
 		testLifecycleFrame(),
-		testSimpleFrame(domainui.FrameAuthorization, "https://auth.example"),
-		testSimpleFrame(domainui.FrameInformation, "information"),
-		testErrorFrame(),
+		testSimpleFrame(controllerui.FrameAuthorization, "https://auth.example"),
 		testModelSelectionFrame(),
 	}
 
@@ -44,76 +42,6 @@ func TestMapEveryRetainedFrame(t *testing.T) {
 		require.NotNil(t, mapped)
 		assert.NotEqual(t, uiv1.OpenRequest_Content_not_set_case, mapped.WhichContent())
 	}
-}
-
-// TestMapSessionEntryAddedUsesConnectionEvent verifies committed messages have no operation identifier.
-func TestMapSessionEntryAddedUsesConnectionEvent(t *testing.T) {
-	t.Parallel()
-
-	// Arrange one exact hidden-client extension message frame.
-	frame := domainui.NewFrame(domainui.FrameSessionEntryAdded)
-	frame.SessionEntryAdded = mo.Some(domainui.SessionTreeEntry{
-		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(1, 0).UTC(), Label: "",
-		Kind: domainui.SessionTreeEntryExtensionMessage,
-		User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
-		ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[domainui.ExtensionEntry](),
-		BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.Some(domainui.ExtensionMessage{
-			ExtensionID: "example", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityHidden,
-		}),
-	})
-
-	// Act through the UI transport mapper.
-	mapped, err := mapFrame(frame)
-
-	// Assert the event has no operation ID and preserves exact message data.
-	require.NoError(t, err)
-	assert.Empty(t, mapped.GetOperationId())
-	entry := mapped.GetConnectionEvent().GetSessionEntryAdded().GetEntry()
-	assert.Equal(t, "message", entry.GetId())
-	assert.Equal(t, "exact text", entry.GetExtensionMessage().GetText())
-	assert.Equal(t, uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN, entry.GetExtensionMessage().GetVisibility())
-}
-
-// TestMapExtensionIssueUsesTypedConnectionEvent verifies observer identity and complete text.
-func TestMapExtensionIssueUsesTypedConnectionEvent(t *testing.T) {
-	t.Parallel()
-
-	// Arrange one nonterminal observer issue frame.
-	frame := domainui.NewFrame(domainui.FrameExtensionIssue)
-	frame.ExtensionIssue = mo.Some(domainui.ExtensionIssue{
-		ExtensionID: "example", HandlerID: "observer", Code: "OBSERVER_ERROR", Text: "complete cause",
-	})
-
-	// Act through the UI transport mapper.
-	mapped, err := mapFrame(frame)
-
-	// Assert the public connection event retains every diagnostic field.
-	require.NoError(t, err)
-	issue := mapped.GetConnectionEvent().GetExtensionIssue()
-	assert.Empty(t, mapped.GetOperationId())
-	assert.Equal(t, "example", issue.GetExtensionId())
-	assert.Equal(t, "observer", issue.GetHandlerId())
-	assert.Equal(t, "OBSERVER_ERROR", issue.GetCode())
-	assert.Equal(t, "complete cause", issue.GetText())
-}
-
-// TestMapExtensionRuntimeFailureUsesConnectionCategory verifies idle extension failure semantics.
-func TestMapExtensionRuntimeFailureUsesConnectionCategory(t *testing.T) {
-	t.Parallel()
-
-	// Arrange one classified idle extension-process failure.
-	frame := domainui.NewFrame(domainui.FrameError)
-	frame.Text = mo.Some("extension tools unavailable: process exited")
-	frame.ErrorCode = mo.Some("EXTENSION_UNAVAILABLE")
-
-	// Act through the Host UI transport mapper.
-	mapped, err := mapFrame(frame)
-
-	// Assert the connection event has no operation identifier and preserves category and text.
-	require.NoError(t, err)
-	assert.Empty(t, mapped.GetOperationId())
-	assert.Equal(t, "EXTENSION_UNAVAILABLE", mapped.GetConnectionEvent().GetError().GetCode())
-	assert.Equal(t, frame.Text.OrEmpty(), mapped.GetConnectionEvent().GetError().GetText())
 }
 
 // TestRestoredSessionImageDataPresence verifies restored image presence and ownership after UI serialization.
@@ -142,14 +70,14 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 				inputData = mo.Some(bytes.Clone(data))
 			}
 			// Act by mapping and serializing a restored user image.
-			mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{{
-				ID: "user", CreatedAt: time.Unix(1, 0), Kind: domainui.SessionEntryUser,
+			mapped, err := mapRestoredSessionEntries([]controllerui.SessionEntry{{
+				ID: "user", CreatedAt: time.Unix(1, 0), Kind: controllerui.SessionEntryUser,
 				User: mo.Some(model.Message{Content: []model.InputContent{{
 					Kind: model.InputContentImage, Text: mo.None[string](),
 					MediaType: mo.Some("image/png"), Data: inputData,
 				}}}),
-				Model: mo.None[domainui.ModelResponse](), ToolResult: mo.None[agent.ToolResult](),
-				BranchSummary: mo.None[domainui.BranchSummary](),
+				Model: mo.None[controllerui.ModelResponse](), ToolResult: mo.None[agent.ToolResult](),
+				BranchSummary: mo.None[controllerui.BranchSummary](),
 			}})
 
 			// Assert validation, oneof selection, presence, bytes, and ownership.
@@ -185,16 +113,16 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 				image = mo.Some(tool.ResultImage{MediaType: "image/png", Data: data})
 			}
 			// Act by mapping and serializing a restored tool-result image.
-			mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{{
-				ID: "tool", CreatedAt: time.Unix(1, 0), Kind: domainui.SessionEntryToolResult,
-				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
+			mapped, err := mapRestoredSessionEntries([]controllerui.SessionEntry{{
+				ID: "tool", CreatedAt: time.Unix(1, 0), Kind: controllerui.SessionEntryToolResult,
+				User: mo.None[model.Message](), Model: mo.None[controllerui.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "render", IsError: false,
 					Contents: []tool.ResultContent{{
 						Kind: tool.ResultContentImage, Text: mo.None[string](), Image: image,
 					}},
 				}),
-				BranchSummary: mo.None[domainui.BranchSummary](),
+				BranchSummary: mo.None[controllerui.BranchSummary](),
 			}})
 
 			// Assert absent images stay absent and present image bytes retain presence and ownership.
@@ -225,7 +153,7 @@ func TestRestoredSessionBranchSummaryMapsCompletePayload(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one complete branch-summary transcript entry.
-	summary := domainui.BranchSummary{
+	summary := controllerui.BranchSummary{
 		Summary: "branch context", FirstEntryID: "first", LastEntryID: "last",
 		Source: session.BranchSummarySource{
 			ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
@@ -244,19 +172,19 @@ func TestRestoredSessionBranchSummaryMapsCompletePayload(t *testing.T) {
 			Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10,
 		}),
 	}
-	entry := domainui.SessionEntry{
+	entry := controllerui.SessionEntry{
 		ID:               "summary",
 		CreatedAt:        time.Unix(1, 0),
-		Kind:             domainui.SessionEntryBranchSummary,
+		Kind:             controllerui.SessionEntryBranchSummary,
 		User:             mo.None[model.Message](),
-		Model:            mo.None[domainui.ModelResponse](),
+		Model:            mo.None[controllerui.ModelResponse](),
 		ToolResult:       mo.None[agent.ToolResult](),
 		BranchSummary:    mo.Some(summary),
-		ExtensionMessage: mo.None[domainui.ExtensionMessage](),
+		ExtensionMessage: mo.None[controllerui.ExtensionMessage](),
 	}
 
 	// Act by mapping the restored entry to the generated UI contract.
-	mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{entry})
+	mapped, err := mapRestoredSessionEntries([]controllerui.SessionEntry{entry})
 
 	// Assert the oneof and complete summary payload survive mapping.
 	require.NoError(t, err)

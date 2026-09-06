@@ -129,9 +129,9 @@ func TestServiceRunToolUse(t *testing.T) {
 			},
 		)
 	}
-	delivered := make([]Event, 0, 18)
+	delivered := make([]agent.Event, 0, 18)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, event Event) error {
+		func(_ context.Context, event agent.Event) error {
 			delivered = append(delivered, event)
 			return nil
 		},
@@ -150,17 +150,31 @@ func TestServiceRunToolUse(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, []string{"provider", "call-1", "call-2", "provider"}, order)
-	assert.Equal(t, []EventType{
-		EventAgentStart,
-		EventTurnStart, EventMessageStart,
-		EventToolCallStart, EventToolCallDelta, EventToolCallEnd,
-		EventToolCallStart, EventToolCallDelta, EventToolCallEnd,
-		EventMessageEnd,
-		EventToolExecutionStart, EventToolExecutionUpdate, EventToolExecutionEnd, EventToolResult,
-		EventToolExecutionStart, EventToolExecutionUpdate, EventToolExecutionEnd, EventToolResult,
-		EventTurnEnd,
-		EventTurnStart, EventMessageStart, EventMessageEnd, EventTurnEnd,
-		EventAgentEnd,
+	assert.Equal(t, []agent.EventType{
+		agent.EventAgentStart,
+		agent.EventTurnStart,
+		agent.EventMessageStart,
+		agent.EventToolCallStart,
+		agent.EventToolCallDelta,
+		agent.EventToolCallEnd,
+		agent.EventToolCallStart,
+		agent.EventToolCallDelta,
+		agent.EventToolCallEnd,
+		agent.EventMessageEnd,
+		agent.EventToolExecutionStart,
+		agent.EventToolExecutionUpdate,
+		agent.EventToolExecutionEnd,
+		agent.EventToolResult,
+		agent.EventToolExecutionStart,
+		agent.EventToolExecutionUpdate,
+		agent.EventToolExecutionEnd,
+		agent.EventToolResult,
+		agent.EventTurnEnd,
+		agent.EventTurnStart,
+		agent.EventMessageStart,
+		agent.EventMessageEnd,
+		agent.EventTurnEnd,
+		agent.EventAgentEnd,
 	}, eventTypes(delivered))
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
@@ -401,8 +415,8 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
 	deliveryErr := errors.New("tool progress delivery failed")
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, event Event) error {
-			if event.Type == EventToolExecutionUpdate {
+		func(_ context.Context, event agent.Event) error {
+			if event.Type == agent.EventToolExecutionUpdate {
 				return deliveryErr
 			}
 			return nil

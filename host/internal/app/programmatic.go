@@ -15,14 +15,13 @@ import (
 
 	controllerprogrammatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 
-	"github.com/n-r-w/glyph/host/internal/domain/extension"
-
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 
 	settingstore "github.com/n-r-w/glyph/host/internal/infra/persistence/settings"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
 
+	programmaticoutput "github.com/n-r-w/glyph/host/internal/infra/programmatic/output"
 	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
 
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -51,18 +50,9 @@ func runProgrammaticWithPaths(
 		return fmt.Errorf("load Glyph settings: %w", err)
 	}
 
+	delivery := programmaticoutput.New()
 	extensionFactory := extensionruntime.NewFactory()
-	extensions := extensionmanager.New(catalog.New(), extensionFactory, func(
-		reportContext context.Context,
-		failure extension.RuntimeFailure,
-	) error {
-		message, runtimeErr := failure.Message()
-		slog.ErrorContext(reportContext, message,
-			"plugin_id", failure.PluginID,
-			"error", runtimeErr,
-		)
-		return nil
-	})
+	extensions := extensionmanager.New(catalog.New(), extensionFactory, delivery.ReportRuntimeFailure)
 	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
@@ -96,7 +86,6 @@ func runProgrammaticWithPaths(
 	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
-	delivery := hostprogrammatic.NewDelivery()
 	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
@@ -105,21 +94,14 @@ func runProgrammaticWithPaths(
 	session := hostprogrammatic.New(
 		coordinator,
 		providerCatalog,
-		agentCore.State,
+		agentCore,
 		sessionServices.active.ClientSnapshot,
 		sessionServices.control,
 		delivery,
 	)
-	controller := controllerprogrammatic.New(ctx, session)
-	session.BindConnectionPublisher(controller.PublishSessionEntry)
-	lifecycleObservers.BindIssueDelivery(
-		lifecycleIssueDeliveryFunc(func(ctx context.Context, issue lifecycle.Issue) error {
-			return controller.PublishExtensionIssue(ctx, controllerprogrammatic.ExtensionIssue{
-				ExtensionID: issue.ExtensionID, HandlerID: issue.HandlerID, Code: issue.Code, Text: issue.Err.Error(),
-			})
-		}),
-	)
-	contexts.BindMessagePublisher(session.PublishSessionEntry)
+	controller := controllerprogrammatic.New(ctx, session, delivery)
+	lifecycleObservers.BindIssueDelivery(delivery)
+	contexts.BindMessagePublisher(delivery.PublishSessionEntry)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))
 	programmaticv1.RegisterProgrammaticControlServiceServer(server, controller)
 

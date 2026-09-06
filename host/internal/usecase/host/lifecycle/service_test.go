@@ -17,17 +17,23 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
 // lifecycleEvent creates one payload-free source event for observer policy tests.
-func lifecycleEvent(eventType run.EventType) run.Event {
-	return run.Event{
-		Type: eventType, RunID: "run", Position: mo.None[int](), Content: mo.None[model.Content](),
-		Message: mo.None[model.Response](), Preview: mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](), Progress: mo.None[tool.Progress](),
-		ToolResult: mo.None[agent.ToolResult](), Turn: mo.None[run.TurnSummary](), Agent: mo.None[run.AgentSummary](),
+func lifecycleEvent(eventType agent.EventType) agent.Event {
+	return agent.Event{
+		Type:       eventType,
+		RunID:      "run",
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[agent.TurnSummary](),
+		Agent:      mo.None[agent.RunSummary](),
 	}
 }
 
@@ -37,34 +43,34 @@ func TestServiceObservesEveryLifecycleGroup(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		eventType run.EventType
+		eventType agent.EventType
 		kind      startup.RawHandlerKind
 	}{
-		{name: "agent start", eventType: run.EventAgentStart, kind: startup.RawHandlerKindAgentStart},
-		{name: "agent end", eventType: run.EventAgentEnd, kind: startup.RawHandlerKindAgentEnd},
-		{name: "turn start", eventType: run.EventTurnStart, kind: startup.RawHandlerKindTurnStart},
-		{name: "turn end", eventType: run.EventTurnEnd, kind: startup.RawHandlerKindTurnEnd},
-		{name: "message start", eventType: run.EventMessageStart, kind: startup.RawHandlerKindMessageStart},
-		{name: "content start", eventType: run.EventContentStart, kind: startup.RawHandlerKindMessageUpdate},
-		{name: "text delta", eventType: run.EventTextDelta, kind: startup.RawHandlerKindMessageUpdate},
-		{name: "content end", eventType: run.EventContentEnd, kind: startup.RawHandlerKindMessageUpdate},
-		{name: "tool call start", eventType: run.EventToolCallStart, kind: startup.RawHandlerKindMessageUpdate},
-		{name: "tool call delta", eventType: run.EventToolCallDelta, kind: startup.RawHandlerKindMessageUpdate},
-		{name: "tool call end", eventType: run.EventToolCallEnd, kind: startup.RawHandlerKindMessageUpdate},
-		{name: "message end", eventType: run.EventMessageEnd, kind: startup.RawHandlerKindMessageEnd},
+		{name: "agent start", eventType: agent.EventAgentStart, kind: startup.RawHandlerKindAgentStart},
+		{name: "agent end", eventType: agent.EventAgentEnd, kind: startup.RawHandlerKindAgentEnd},
+		{name: "turn start", eventType: agent.EventTurnStart, kind: startup.RawHandlerKindTurnStart},
+		{name: "turn end", eventType: agent.EventTurnEnd, kind: startup.RawHandlerKindTurnEnd},
+		{name: "message start", eventType: agent.EventMessageStart, kind: startup.RawHandlerKindMessageStart},
+		{name: "content start", eventType: agent.EventContentStart, kind: startup.RawHandlerKindMessageUpdate},
+		{name: "text delta", eventType: agent.EventTextDelta, kind: startup.RawHandlerKindMessageUpdate},
+		{name: "content end", eventType: agent.EventContentEnd, kind: startup.RawHandlerKindMessageUpdate},
+		{name: "tool call start", eventType: agent.EventToolCallStart, kind: startup.RawHandlerKindMessageUpdate},
+		{name: "tool call delta", eventType: agent.EventToolCallDelta, kind: startup.RawHandlerKindMessageUpdate},
+		{name: "tool call end", eventType: agent.EventToolCallEnd, kind: startup.RawHandlerKindMessageUpdate},
+		{name: "message end", eventType: agent.EventMessageEnd, kind: startup.RawHandlerKindMessageEnd},
 		{
 			name:      "tool execution start",
-			eventType: run.EventToolExecutionStart,
+			eventType: agent.EventToolExecutionStart,
 			kind:      startup.RawHandlerKindToolExecutionStart,
 		},
 		{
 			name:      "tool execution update",
-			eventType: run.EventToolExecutionUpdate,
+			eventType: agent.EventToolExecutionUpdate,
 			kind:      startup.RawHandlerKindToolExecutionUpdate,
 		},
 		{
 			name:      "tool execution end",
-			eventType: run.EventToolExecutionEnd,
+			eventType: agent.EventToolExecutionEnd,
 			kind:      startup.RawHandlerKindToolExecutionEnd,
 		},
 	}
@@ -218,7 +224,7 @@ func TestServiceContinuesAfterOrdinaryObserverError(t *testing.T) {
 	)
 
 	// Act by observing one event.
-	err := service.Observe(t.Context(), lifecycleEvent(run.EventAgentStart))
+	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
 	// Assert the issue is nonterminal and later observers still run in order.
 	require.NoError(t, err)
@@ -295,7 +301,7 @@ func TestServiceTreatsIndependentObserverCancellationAsIssue(t *testing.T) {
 	)
 
 	// Act through one synchronous observer chain.
-	err := service.Observe(t.Context(), lifecycleEvent(run.EventAgentStart))
+	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
 	// Assert successful issue delivery makes independent cancellation nonterminal.
 	require.NoError(t, err)
@@ -335,7 +341,7 @@ func TestServicePreservesCallerCancellationDuringInvocation(t *testing.T) {
 	)
 
 	// Act while the runtime observes caller cancellation during invocation.
-	err := service.Observe(ctx, lifecycleEvent(run.EventAgentStart))
+	err := service.Observe(ctx, lifecycleEvent(agent.EventAgentStart))
 
 	// Assert caller cancellation remains terminal and no observer issue is emitted.
 	require.ErrorIs(t, err, context.Canceled)
@@ -361,7 +367,7 @@ func TestServiceSkipsContextRaceAfterRuntimeExit(t *testing.T) {
 	runtime.EXPECT().HandlerRuntimeAvailable("extension").Return(false)
 
 	// Act by delivering one event across the runtime-exit race.
-	err := service.Observe(t.Context(), lifecycleEvent(run.EventAgentStart))
+	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
 	// Assert extension runtime ownership absorbs the unavailable observer without failing Agent Core.
 	require.NoError(t, err)
@@ -423,7 +429,7 @@ func TestServiceContinuesAfterRuntimeUnavailability(t *testing.T) {
 	)
 
 	// Act by delivering one event through the observer chain.
-	err := service.Observe(t.Context(), lifecycleEvent(run.EventAgentStart))
+	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
 	// Assert runtime reporting owns the failure and the later observer still completes.
 	require.NoError(t, err)
@@ -445,7 +451,7 @@ func TestServiceCancellationStopsObserverAdmission(t *testing.T) {
 	cancel()
 
 	// Act by attempting lifecycle delivery after caller cancellation.
-	err := service.Observe(ctx, lifecycleEvent(run.EventAgentStart))
+	err := service.Observe(ctx, lifecycleEvent(agent.EventAgentStart))
 
 	// Assert cancellation is preserved and no observer work starts.
 	require.ErrorIs(t, err, context.Canceled)
@@ -489,7 +495,7 @@ func TestServiceReturnsObserverAndIssueDeliveryCauses(t *testing.T) {
 	issues.EXPECT().DeliverExtensionIssue(t.Context(), gomock.Any()).Return(deliveryErr)
 
 	// Act by observing one event.
-	err := service.Observe(t.Context(), lifecycleEvent(run.EventAgentStart))
+	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
 	// Assert both complete causes remain discoverable.
 	require.ErrorIs(t, err, observerErr)

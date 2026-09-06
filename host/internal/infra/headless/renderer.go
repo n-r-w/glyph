@@ -1,3 +1,4 @@
+// Package headless renders one-shot Host output and startup diagnostics.
 package headless
 
 import (
@@ -7,13 +8,15 @@ import (
 	"io"
 	"strings"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+
 	"github.com/samber/lo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
@@ -32,7 +35,10 @@ const (
 	extensionIssueFormat = "[extension:issue] extension=%s handler=%s code=%s %s"
 )
 
-var _ startup.Reporter = (*Renderer)(nil)
+var (
+	_ startup.Reporter        = (*Renderer)(nil)
+	_ lifecycle.IssueDelivery = (*Renderer)(nil)
+)
 
 // NewRenderer creates the headless output recipient.
 func NewRenderer(stdout, stderr io.Writer) *Renderer {
@@ -62,18 +68,18 @@ func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure extension.Run
 }
 
 // DeliverExtensionIssue renders one typed nonterminal observer issue.
-func (r *Renderer) DeliverExtensionIssue(extensionID, handlerID, code string, issueErr error) error {
+func (r *Renderer) DeliverExtensionIssue(_ context.Context, issue lifecycle.Issue) error {
 	return writeText(r.stderr, fmt.Sprintf(
-		extensionIssueFormat, extensionID, handlerID, code, issueErr.Error(),
+		extensionIssueFormat, issue.ExtensionID, issue.HandlerID, issue.Code, issue.Err.Error(),
 	)+"\n")
 }
 
 // DeliverAgent renders one Agent Core lifecycle event synchronously.
-func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
+func (r *Renderer) DeliverAgent(_ context.Context, event agent.Event) error {
 	switch event.Type {
-	case run.EventTextDelta:
+	case agent.EventTextDelta:
 		return r.renderTextDelta(event)
-	case run.EventMessageEnd:
+	case agent.EventMessageEnd:
 		if !r.modelLineOpen {
 			return nil
 		}
@@ -82,24 +88,24 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 		}
 		r.modelLineOpen = false
 		return nil
-	case run.EventToolExecutionStart:
+	case agent.EventToolExecutionStart:
 		return r.renderToolExecutionStart(event)
-	case run.EventToolExecutionUpdate:
+	case agent.EventToolExecutionUpdate:
 		return r.renderToolExecutionUpdate(event)
-	case run.EventToolExecutionEnd:
+	case agent.EventToolExecutionEnd:
 		return r.renderToolExecutionEnd(event)
-	case run.EventToolResult:
+	case agent.EventToolResult:
 		return r.renderToolResult(event)
-	case run.EventAgentStart,
-		run.EventTurnStart,
-		run.EventMessageStart,
-		run.EventContentStart,
-		run.EventContentEnd,
-		run.EventToolCallStart,
-		run.EventToolCallDelta,
-		run.EventToolCallEnd,
-		run.EventTurnEnd,
-		run.EventAgentEnd:
+	case agent.EventAgentStart,
+		agent.EventTurnStart,
+		agent.EventMessageStart,
+		agent.EventContentStart,
+		agent.EventContentEnd,
+		agent.EventToolCallStart,
+		agent.EventToolCallDelta,
+		agent.EventToolCallEnd,
+		agent.EventTurnEnd,
+		agent.EventAgentEnd:
 		return nil
 	default:
 		return fmt.Errorf("render unknown Agent Core event type %d", event.Type)
@@ -107,7 +113,7 @@ func (r *Renderer) DeliverAgent(_ context.Context, event run.Event) error {
 }
 
 // renderTextDelta writes visible model text after validating its selected payload.
-func (r *Renderer) renderTextDelta(event run.Event) error {
+func (r *Renderer) renderTextDelta(event agent.Event) error {
 	content, present := event.Content.Get()
 	if !present {
 		return errors.New("render text delta event: content is required")
@@ -127,7 +133,7 @@ func (r *Renderer) renderTextDelta(event run.Event) error {
 }
 
 // renderToolExecutionStart writes the selected tool name.
-func (r *Renderer) renderToolExecutionStart(event run.Event) error {
+func (r *Renderer) renderToolExecutionStart(event agent.Event) error {
 	call, present := event.ToolCall.Get()
 	if !present {
 		return errors.New("render tool execution start event: tool call is required")
@@ -136,7 +142,7 @@ func (r *Renderer) renderToolExecutionStart(event run.Event) error {
 }
 
 // renderToolExecutionUpdate writes one selected progress payload.
-func (r *Renderer) renderToolExecutionUpdate(event run.Event) error {
+func (r *Renderer) renderToolExecutionUpdate(event agent.Event) error {
 	progress, present := event.Progress.Get()
 	if !present {
 		return errors.New("render tool execution update event: progress is required")
@@ -145,7 +151,7 @@ func (r *Renderer) renderToolExecutionUpdate(event run.Event) error {
 }
 
 // renderToolExecutionEnd writes the selected tool and terminal status.
-func (r *Renderer) renderToolExecutionEnd(event run.Event) error {
+func (r *Renderer) renderToolExecutionEnd(event agent.Event) error {
 	call, hasCall := event.ToolCall.Get()
 	result, hasResult := event.ToolResult.Get()
 	if !hasCall || !hasResult {
@@ -159,7 +165,7 @@ func (r *Renderer) renderToolExecutionEnd(event run.Event) error {
 }
 
 // renderToolResult writes each selected tool result content block.
-func (r *Renderer) renderToolResult(event run.Event) error {
+func (r *Renderer) renderToolResult(event agent.Event) error {
 	result, present := event.ToolResult.Get()
 	if !present {
 		return errors.New("render tool result event: requires tool result")

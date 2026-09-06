@@ -9,7 +9,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
 // ExtensionLoadIssue contains one isolated extension startup failure.
@@ -46,8 +45,8 @@ func BuildInitialization(
 	report ExtensionLoadReport,
 	selectionIssues []SelectionIssue,
 	modelCatalog ModelCatalog,
-) domainui.Initialization {
-	content := make([]domainui.StartupContent, 0, len(report.Issues)+len(selectionIssues)+1)
+) Initialization {
+	content := make([]StartupContent, 0, len(report.Issues)+len(selectionIssues)+1)
 	for _, issue := range report.Issues {
 		identity := "extension"
 		if len(issue.PluginIDs) > 0 {
@@ -56,22 +55,22 @@ func BuildInitialization(
 		if issue.Path != "" {
 			identity += " at " + issue.Path
 		}
-		content = append(content, domainui.StartupContent{
-			Severity: domainui.ContentSeverityError,
+		content = append(content, StartupContent{
+			Severity: ContentSeverityError,
 			Text:     fmt.Sprintf("%s startup failure: %v", identity, issue.Err),
 		})
 	}
 	for _, issue := range selectionIssues {
 		content = append(content, issue.Warning())
 	}
-	extensions := make([]domainui.ExtensionAvailability, 0, len(report.Extensions))
+	extensions := make([]ExtensionAvailability, 0, len(report.Extensions))
 	summaryParts := []string{"UI " + selectedUIID}
 	if len(report.Extensions) == 0 {
 		summaryParts = append(summaryParts, "extensions: none")
 	}
 	for _, extension := range report.Extensions {
 		tools := extension.Tools
-		extensions = append(extensions, domainui.ExtensionAvailability{
+		extensions = append(extensions, ExtensionAvailability{
 			PluginID: extension.ID, Path: extension.Path, Tools: tools,
 		})
 		toolSummary := "no tools"
@@ -80,36 +79,20 @@ func BuildInitialization(
 		}
 		summaryParts = append(summaryParts, "extension "+extension.ID+" at "+extension.Path+": "+toolSummary)
 	}
-	content = append(content, domainui.StartupContent{
-		Severity: domainui.ContentSeverityInformation,
+	content = append(content, StartupContent{
+		Severity: ContentSeverityInformation,
 		Text:     strings.Join(summaryParts, "; "),
 	})
-	models := lo.Map(
-		modelCatalog.Models(),
-		func(descriptor model.Descriptor, _ int) domainui.ConfiguredModel {
-			choices := lo.Map(
-				descriptor.ReasoningCapabilities.Choices,
-				func(choice model.ReasoningChoice, _ int) domainui.ReasoningChoice {
-					return reasoningChoiceToUI(choice)
-				},
-			)
-			return domainui.ConfiguredModel{
-				ProviderID: string(descriptor.Provider), ModelID: string(descriptor.Model),
-				Reasoning: domainui.ReasoningCapabilities{
-					Supported: descriptor.ReasoningCapabilities.Supported,
-					Choices:   choices,
-					Default:   reasoningChoiceToUI(descriptor.ReasoningCapabilities.Default),
-				},
-			}
-		},
-	)
-	return domainui.Initialization{
+	models := lo.Map(modelCatalog.Models(), func(descriptor model.Descriptor, _ int) model.Descriptor {
+		return descriptor.Clone()
+	})
+	return Initialization{
 		SelectedUIID:   selectedUIID,
 		StartupContent: content,
 		Extensions:     extensions,
-		Availability:   domainui.AvailabilityCheckingAuthentication,
+		Availability:   AvailabilityCheckingAuthentication,
 		Models:         models,
-		ModelSelection: mo.Some(selectionToUI(modelCatalog.ActiveSelection())),
+		ModelSelection: mo.Some(modelCatalog.ActiveSelection()),
 		SessionInfo:    session.Info{},
 	}
 }

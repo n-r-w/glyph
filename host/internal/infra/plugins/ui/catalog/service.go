@@ -11,7 +11,6 @@ import (
 	"slices"
 
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
@@ -26,16 +25,16 @@ func New() *Service {
 }
 
 // Discover returns the valid executable candidates in the effective directory.
-func (*Service) Discover(ctx context.Context, directory domainui.Directory) (domainui.Discovery, error) {
+func (*Service) Discover(ctx context.Context, directory hostui.Directory) (hostui.Discovery, error) {
 	if err := ctx.Err(); err != nil {
-		return domainui.Discovery{}, fmt.Errorf("discover UI catalog: %w", err)
+		return hostui.Discovery{}, fmt.Errorf("discover UI catalog: %w", err)
 	}
 	entries, err := os.ReadDir(filepath.Clean(directory.Path))
 	if err != nil {
-		return domainui.Discovery{}, fmt.Errorf("read UI directory %q: %w", directory.Path, err)
+		return hostui.Discovery{}, fmt.Errorf("read UI directory %q: %w", directory.Path, err)
 	}
 
-	groups := make(map[string][]domainui.Candidate)
+	groups := make(map[string][]hostui.Candidate)
 	var catalogErr error
 	for _, entry := range entries {
 		info, infoErr := entry.Info()
@@ -46,7 +45,7 @@ func (*Service) Discover(ctx context.Context, directory domainui.Directory) (dom
 		if !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
 			continue
 		}
-		candidate := domainui.Candidate{
+		candidate := hostui.Candidate{
 			ID:   pluginid.Normalize(entry.Name()),
 			Path: filepath.Join(directory.Path, entry.Name()),
 		}
@@ -60,7 +59,7 @@ func (*Service) Discover(ctx context.Context, directory domainui.Directory) (dom
 		groups[candidate.ID] = append(groups[candidate.ID], candidate)
 	}
 
-	candidates := make([]domainui.Candidate, 0, len(groups))
+	candidates := make([]hostui.Candidate, 0, len(groups))
 	for id, group := range groups {
 		if len(group) > 1 {
 			catalogErr = errors.Join(catalogErr, fmt.Errorf("UI candidate duplicate normalized ID %q", id))
@@ -69,10 +68,10 @@ func (*Service) Discover(ctx context.Context, directory domainui.Directory) (dom
 		candidates = append(candidates, group[0])
 	}
 	if catalogErr != nil {
-		return domainui.Discovery{}, fmt.Errorf("validate UI catalog: %w", catalogErr)
+		return hostui.Discovery{}, fmt.Errorf("validate UI catalog: %w", catalogErr)
 	}
-	slices.SortFunc(candidates, func(left, right domainui.Candidate) int {
+	slices.SortFunc(candidates, func(left, right hostui.Candidate) int {
 		return cmp.Compare(left.ID, right.ID)
 	})
-	return domainui.Discovery{Candidates: candidates}, nil
+	return hostui.Discovery{Candidates: candidates}, nil
 }

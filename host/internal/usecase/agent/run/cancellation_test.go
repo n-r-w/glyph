@@ -51,16 +51,19 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 				},
 			)
 			var messageEnd model.Response
-			var agentEnd AgentSummary
-			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
-				if event.Type == EventMessageEnd {
-					messageEnd = event.Message.OrEmpty()
-				}
-				if event.Type == EventAgentEnd {
-					agentEnd = event.Agent.OrEmpty()
-				}
-				return nil
-			}).AnyTimes()
+			var agentEnd agent.RunSummary
+			events.EXPECT().
+				Deliver(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(_ context.Context, event agent.Event) error {
+					if event.Type == agent.EventMessageEnd {
+						messageEnd = event.Message.OrEmpty()
+					}
+					if event.Type == agent.EventAgentEnd {
+						agentEnd = event.Agent.OrEmpty()
+					}
+					return nil
+				}).
+				AnyTimes()
 			service := newTestService(
 				t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh,
 				provider, tools, events,
@@ -156,16 +159,19 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 					}, context.Canceled)
 				},
 			)
-			var agentEnd AgentSummary
-			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
-				if event.Type == EventAgentEnd {
-					agentEnd = event.Agent.OrEmpty()
-				}
-				if test.failure == "delivery" && event.Type == EventMessageEnd {
-					return siblingErr
-				}
-				return nil
-			}).AnyTimes()
+			var agentEnd agent.RunSummary
+			events.EXPECT().
+				Deliver(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(_ context.Context, event agent.Event) error {
+					if event.Type == agent.EventAgentEnd {
+						agentEnd = event.Agent.OrEmpty()
+					}
+					if test.failure == "delivery" && event.Type == agent.EventMessageEnd {
+						return siblingErr
+					}
+					return nil
+				}).
+				AnyTimes()
 			service := New(testInstructions, runtime, tools, events, store)
 
 			// Act by running the canceled provider through terminal finalization.
@@ -227,8 +233,8 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 			},
 		)
 		events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(deliveryContext context.Context, event Event) error {
-				if event.Type >= EventMessageEnd && deliveryContext.Err() != nil {
+			func(deliveryContext context.Context, event agent.Event) error {
+				if event.Type >= agent.EventMessageEnd && deliveryContext.Err() != nil {
 					return terminalContextErr
 				}
 				return nil

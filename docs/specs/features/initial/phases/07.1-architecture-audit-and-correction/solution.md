@@ -8,11 +8,11 @@ The [ticket](ticket.md) defines PHS-07.1. The [audit](audit.md) records nine gro
 
 ### Status and scope
 
-This is a proposed correction plan, not an implementation record. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`.
+The user approved this correction plan and its implementation. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
 
 Core implements Host consumer contracts with implementation-package assertions. It remains logically independent of concrete Host implementations, Host state, and Host policy. No assertion exception or forwarding Core adapter is required.
 
-All structural corrections preserve the public behavior defined by the implemented phases. Error-text corrections, the source-backed run-persistence distinction, and cancellation settlement recovery are [approved behavior decisions](#approved-behavior-decisions), not implemented corrections. Approval of the complete correction plan and implementation remains pending. PHS-07 stays paused until the ticket's acceptance criteria pass. PHS-06 retry/compaction/model execution and PHS-12 provider migration are not brought into this plan.
+All structural corrections preserve the public behavior defined by the implemented phases. Error-text corrections, the source-backed run-persistence distinction, and cancellation settlement recovery are [approved behavior decisions](#approved-behavior-decisions), not implemented corrections. Implementation remains subject to the verification and acceptance gates below. PHS-07 stays paused until the ticket's acceptance criteria pass. PHS-06 retry/compaction/model execution and PHS-12 provider migration are not brought into this plan.
 
 ### Responsibility changes
 
@@ -192,7 +192,7 @@ The target owner graph was checked against the retained baseline package imports
 
 ### Execution order
 
-The corrections below are dependency slices, not feature releases. No compatibility path, feature flag or dual-run implementation is introduced. Each slice updates the complete affected input-to-result path and reuses behavioral tests. Source-only restructuring does not need an artificial failing test. The approved behavioral parts of run control and the error slices require RED, GREEN, then structural cleanup. They do not waive approval of the complete implementation plan.
+The corrections below are dependency slices, not feature releases. No compatibility path, feature flag or dual-run implementation is introduced. Each slice updates the complete affected input-to-result path and reuses behavioral tests. Source-only restructuring does not need an artificial failing test. The approved behavioral parts of run control and the error slices require RED, GREEN, then structural cleanup. The user approved the complete implementation plan.
 
 #### 1. Host client input and output
 
@@ -306,6 +306,42 @@ After the implementation slices:
 
 The audit's cached baseline tests are not implementation evidence. Record exact commands, exit status, generation result, covered behavior and remaining failures when implementation is approved and performed.
 
+### Implementation evidence
+
+#### U1: Host client input and output
+
+Correction 1 is implemented. The [architecture components](../../architecture.md#components) describe the resulting input and output owners. The old domain UI package and Host delivery implementations are removed. Core supplies the Programmatic activity predicate through its consumer interface. Corrections 2 through 8 and independent whole-product review remain open.
+
+All commands below exited 0 on the U1 implementation:
+
+- `task fmt`; `task fix_dry_run` with no proposals; `task lint`; `task test`; `task itest`; `task test-coverage`; `task build`; `git diff --check`.
+- `go test -race -count=1 ./host/... ./internal/operation`.
+- `go test -race -tags=integration -p 1 -parallel 1 -count=1 ./host/internal/app ./host/internal/infra/headless ./host/internal/infra/plugins/ui/runtime ./host/internal/infra/programmatic/output ./host/internal/usecase/host/operationgate`.
+- Two `go generate ./...` runs produced identical SHA-256 snapshots for all 66 generated Go files.
+
+After comment refinement, the project checks passed again. The last coverage result was 83.5%, above the 80.0% threshold. Main-agent uncached tests passed for UI and Programmatic controllers, Programmatic output, both client Host usecases, and `internal/operation`. The dependency-closure check found no Host usecase or infrastructure dependency in those input controllers and no Core or concrete output dependency in either client Host usecase. The changed handwritten source contains no workflow labels or temporary-work markers. Main-agent source verification covered prepared cleanup, output correlation, initialization/activation, selected-process reuse, and requested/failed connection closure.
+
+### Execution control
+
+The user selected `final_only`. Execute corrections 1 through 8 in the stated order, with no concurrent source changes in the shared checkout. Each correction is one implementation unit, U1 through U8, and has one separate local commit after its checks pass. Do not push. Rework of a committed unit produces a corrective commit. Overall user review follows integrated verification.
+
+The [execution order](#execution-order) defines each unit's inputs, affected components, expected result, dependencies, risks, tests, and exit criteria. U1 establishes client contracts used by U2 and U3; U4 uses U1 through U3. U5 is independent of the Host structural changes but runs sequentially to avoid checkout interference. U6 corrects error paths at the owners established by the structural units. U7 uses run control, client mappings, and TUI ownership from U1, U2, and U5. U8 closes the combined result. Sequential execution is not an additional architectural dependency.
+
+For each unit, inspect workflow-artifact residue before verification and commit. Task identifiers and stage names belong in execution records, not production names or comments. Reuse behavioral tests for structure-only changes. U2, U6, and U7 require the [behavioral regressions](#behavioral-regression-cases). Run the project verification sequence before committing code changes, and record uncached targeted results. Repeat generation when source contracts or mocks change.
+
+| Workflow stage | Atomic work and instance allocation | Inputs and output | Main-agent verification and role rationale |
+| --- | --- | --- | --- |
+| `plan_guard` | No subagent. Main agent checks approvals, commit baseline, dependencies, and modification scope. | Approved plan, clean worktree, baseline evidence; execution may start. | This is approval ownership, not a separate analysis task. |
+| `unit_1` through `unit_5` | One fresh `SubAgentCoderComplex` instance per unit, labelled `implement-U1` through `implement-U5`. Run sequentially. | The corresponding correction and preceding source state; complete path changes, tests, and check evidence. | Inspect changed owners, references, imports, behavior, and raw check results. These changes cross component boundaries; a regular coder is insufficient for ownership decisions. |
+| `unit_6` | One fresh `SubAgentCoderRegular` instance labelled `implement-U6`. | Approved complete-text cases and corrected owners; RED/GREEN error preservation and verification evidence. | Inspect source-to-client cause preservation and continuation behavior. The approved fixes are bounded and need no new architectural choice. |
+| `unit_7` | One fresh `SubAgentCoderComplex` instance labelled `implement-U7`. | Shared history-persistence source, client contracts, and TUI mapping; RED/GREEN semantic classification and updated error-contract documents. | Trace both client paths and presentation cleanup. Cross-component classification requires more than a local mapper change. |
+| `unit_8` | One fresh `SubAgentCoderComplex` instance labelled `implement-U8`. | U1 through U7 diffs and audit dispositions; removed residue, complete assertions, and architecture/status documents. | Check all nine finding groups against source and ensure no wrapper hides a dependency. A coder can correct remaining code as well as documents. |
+| `integrated_verification` | First one fresh `SubAgentExtractor` instance labelled `verify-product`, then one fresh `SubAgentAnalystComplex` instance labelled `review-product-boundaries`. | Full corrected source and unit evidence; whole-project check report, then independent whole-scope architecture review. | Inspect command outputs and each review finding. Extraction is mechanical; boundary review requires cross-component judgment. Review uses the check report, so these instances are sequential. |
+| `user_review` | No subagent. Main agent presents the complete result and remaining issues. | Integrated evidence; explicit overall user acceptance or requested corrections. | User interaction belongs to the main agent. No per-unit user review is required under `final_only`. |
+| `report_completion` | No subagent. Main agent reports accepted results and local commits. | Accepted result and final repository state; concise completion report. | No independent extraction or analysis is needed to repeat established evidence. |
+
+Each instance owns one atomic unit. Continuation of an instance is limited to corrections in that unit. Different units never share an instance. Main-agent verification and local commits occur after each implementation response. No parallel subagent batch is planned.
+
 ## Overengineering and overspecification considerations
 
 - Three new Host packages contain moved behavior. Five redundant or misowned Host/TUI packages are removed. No generic capability bus, second output queue, provider execution subsystem, or new TUI application service is added.
@@ -316,7 +352,7 @@ The audit's cached baseline tests are not implementation evidence. Record exact 
 
 ## Approved behavior decisions
 
-The user approved QST-01 through QST-03 under ticket NFQ-01. All three remain unimplemented and require the specified failing regressions. This approval does not approve the complete correction plan or start implementation.
+The user approved QST-01 through QST-03 under ticket NFQ-01. All three remain unimplemented and require the specified failing regressions. The user also approved the complete correction plan and execution policy.
 
 ### QST-01: Complete error-text corrections
 
@@ -332,7 +368,7 @@ Approved scope is defined under [Core invocation, events and state queries](#cor
 
 ## Open questions
 
-No unresolved behavioral or factual ownership questions remain for this plan. Approval of the complete correction plan and implementation remains pending.
+No unresolved behavioral, factual ownership, or execution-policy questions remain for this plan.
 
 ## References
 

@@ -155,7 +155,7 @@ func TestControllerHalfCloseCancelsAndJoinsOwnedWork(t *testing.T) {
 	prepared.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
 	stream := newStreamHarness(t, t.Context())
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("owned", func(request *programmaticv1.ControllerRequest) {
@@ -185,7 +185,7 @@ func TestHostClosureWaitsForControllerHalfClose(t *testing.T) {
 	host := NewMockHostSession(controller)
 	applicationContext, cancelApplication := context.WithCancel(t.Context())
 	stream := newStreamHarness(t, t.Context())
-	service := New(applicationContext, host)
+	service := New(applicationContext, host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 
@@ -219,7 +219,7 @@ func TestHostClosureRejectsLateRequestAndJoinsOwnedWork(t *testing.T) {
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
 	applicationContext, cancelApplication := context.WithCancel(t.Context())
 	stream := newStreamHarness(t, t.Context())
-	service := New(applicationContext, host)
+	service := New(applicationContext, host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("owned", func(request *programmaticv1.ControllerRequest) {
@@ -296,7 +296,7 @@ func TestHostClosurePreservesReceiveFailure(t *testing.T) {
 				close(closeSent)
 				return nil
 			})
-			service := New(applicationContext, host)
+			service := New(applicationContext, host, testConnectionOutput(t))
 
 			// Act by opening with Host closure already requested.
 			err := service.open(stream)
@@ -325,7 +325,7 @@ func TestHostClosurePreservesWriterFailure(t *testing.T) {
 	})
 	writerErr := errors.New("send failed")
 	stream.EXPECT().Send(gomock.Any()).Return(writerErr)
-	service := New(applicationContext, host)
+	service := New(applicationContext, host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream) }()
 

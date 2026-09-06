@@ -9,13 +9,12 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/samber/mo"
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/internal/operation"
 	"github.com/n-r-w/glyph/internal/testsupport/operationmock"
 	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
@@ -30,17 +29,17 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 
 	// Arrange one SDK service and two prepared Host operations.
 	mockController := gomock.NewController(t)
-	firstPrepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
-	secondPrepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
+	firstPrepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
+	secondPrepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
 	firstPrepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ operation.Reporter[domainui.Frame]) operation.Outcome[domainui.Frame] {
+		func(ctx context.Context, _ operation.Reporter[controllerui.Frame]) operation.Outcome[controllerui.Frame] {
 			<-ctx.Done()
-			return operation.Canceled[domainui.Frame]()
+			return operation.Canceled[controllerui.Frame]()
 		},
 	)
 	firstPrepared.EXPECT().Release()
 	secondPrepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-		operation.Completed(domainui.NewFrame(domainui.FrameSubmitCompleted)),
+		operation.Completed(controllerui.NewFrame(controllerui.FrameSubmitCompleted)),
 	)
 	secondPrepared.EXPECT().Release()
 	secondResult := make(chan error, 1)
@@ -80,19 +79,22 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 		_, err = stream.Recv()
 		require.NoError(t, err)
 	}
-	transport := &channel{
+	transport := &Service{
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
 		stream:           stream,
 		cancel:           cancel,
 		closed:           atomic.Bool{},
 		mutex:            sync.Mutex{},
 		ready:            true,
 		writer:           nil,
-		progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false, failConnection: nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false, failConnection: nil,
 	}
 	prepare := func(
 		_ context.Context,
-		command domainui.Command,
-	) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+		command controllerui.Command,
+	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		if command.OperationID == "first" {
 			return firstPrepared, nil
 		}
@@ -100,7 +102,7 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 	}
 
 	// Act through the production prepared-operation receiver.
-	err = transport.RunOperations(t.Context(), func() {}, prepare)
+	err = runTestOperations(t, transport, t.Context(), func() {}, prepare)
 
 	// Assert the later request completed while the first operation was still active.
 	require.NoError(t, err)
@@ -113,13 +115,13 @@ func TestChannelCancellationReportsActualTargetState(t *testing.T) {
 
 	// Arrange one target whose work stops only after its operation context is canceled.
 	mockController := gomock.NewController(t)
-	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
+	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
 	runStarted := make(chan struct{})
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ operation.Reporter[domainui.Frame]) operation.Outcome[domainui.Frame] {
+		func(ctx context.Context, _ operation.Reporter[controllerui.Frame]) operation.Outcome[controllerui.Frame] {
 			close(runStarted)
 			<-ctx.Done()
-			return operation.Canceled[domainui.Frame]()
+			return operation.Canceled[controllerui.Frame]()
 		},
 	)
 	prepared.EXPECT().Release()
@@ -155,10 +157,10 @@ func TestChannelCancellationReportsActualTargetState(t *testing.T) {
 	transport := openInitializedIntegrationChannel(t, service)
 
 	// Act through the production operation owner.
-	err := transport.RunOperations(t.Context(), func() {}, func(
+	err := runTestOperations(t, transport, t.Context(), func() {}, func(
 		context.Context,
-		domainui.Command,
-	) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+		controllerui.Command,
+	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		return prepared, nil
 	})
 
@@ -175,9 +177,9 @@ func TestChannelPreservesPublicOperationErrors(t *testing.T) {
 	// Arrange one malformed request followed by accepted work that fails with a classified cause.
 	mockController := gomock.NewController(t)
 	failureCause := errors.New("submit accepted but provider failed completely")
-	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
+	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-		operation.Failed[domainui.Frame]("INTERNAL", failureCause),
+		operation.Failed[controllerui.Frame]("INTERNAL", failureCause),
 	)
 	prepared.EXPECT().Release()
 	result := make(chan error, 2)
@@ -210,10 +212,10 @@ func TestChannelPreservesPublicOperationErrors(t *testing.T) {
 	transport := openInitializedIntegrationChannel(t, service)
 
 	// Act through the production Host operation receiver and real UI SDK stream.
-	err := transport.RunOperations(t.Context(), func() {}, func(
+	err := runTestOperations(t, transport, t.Context(), func() {}, func(
 		context.Context,
-		domainui.Command,
-	) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+		controllerui.Command,
+	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		return prepared, nil
 	})
 
@@ -241,13 +243,13 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 	runStopped := make(chan struct{})
 	releaseGate := make(chan struct{})
 	releaseFinished := make(chan struct{})
-	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](mockController)
+	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ operation.Reporter[domainui.Frame]) operation.Outcome[domainui.Frame] {
+		func(ctx context.Context, _ operation.Reporter[controllerui.Frame]) operation.Outcome[controllerui.Frame] {
 			close(runStarted)
 			<-ctx.Done()
 			close(runStopped)
-			return operation.Canceled[domainui.Frame]()
+			return operation.Canceled[controllerui.Frame]()
 		},
 	)
 	prepared.EXPECT().Release().Do(func() {
@@ -273,10 +275,10 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 	transport := openInitializedIntegrationChannel(t, service)
 	result := make(chan error, 1)
 	go func() {
-		result <- transport.RunOperations(t.Context(), func() {}, func(
+		result <- runTestOperations(t, transport, t.Context(), func() {}, func(
 			context.Context,
-			domainui.Command,
-		) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+			controllerui.Command,
+		) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 			return prepared, nil
 		})
 	}()
@@ -286,7 +288,7 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 	transport.cancel()
 	<-runStopped
 
-	// Assert RunOperations cannot return until Release finishes.
+	// Assert controller execution cannot return until Release finishes.
 	select {
 	case err := <-result:
 		t.Fatalf("RunOperations returned before Release: %v", err)
@@ -322,23 +324,23 @@ func TestChannelDeliversIdleExtensionFailureThroughHostReceive(t *testing.T) {
 	activated := make(chan struct{})
 	result := make(chan error, 1)
 	go func() {
-		result <- transport.RunOperations(t.Context(), func() { close(activated) }, func(
+		result <- runTestOperations(t, transport, t.Context(), func() { close(activated) }, func(
 			context.Context,
-			domainui.Command,
-		) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+			controllerui.Command,
+		) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 			return nil, errors.New("unexpected UI operation")
 		})
 	}()
 	<-activated
-	frame := domainui.NewFrame(domainui.FrameError)
-	frame.ErrorCode = mo.Some("EXTENSION_UNAVAILABLE")
-	frame.Text = mo.Some("extension crashed-plugin unavailable: extension process exited")
 
-	// Act through the production frame mapper and real UI stream.
-	mapped, err := mapFrame(frame)
-	require.NoError(t, err)
-	assert.Empty(t, mapped.GetOperationId())
-	require.NoError(t, transport.Send(frame))
+	// Act through typed connection output and the real UI stream.
+	require.NoError(
+		t,
+		transport.ReportError(
+			"EXTENSION_UNAVAILABLE",
+			"extension crashed-plugin unavailable: extension process exited",
+		),
+	)
 	event := <-received
 
 	// Assert Host.Receive gets the exact no-operation connection failure and the stream closes cleanly.
@@ -348,7 +350,7 @@ func TestChannelDeliversIdleExtensionFailureThroughHostReceive(t *testing.T) {
 }
 
 // openInitializedIntegrationChannel opens and initializes one SDK test service.
-func openInitializedIntegrationChannel(t *testing.T, service uisdk.Service) *channel {
+func openInitializedIntegrationChannel(t *testing.T, service uisdk.Service) *Service {
 	t.Helper()
 	client := uisdk.TestClient(t, service)
 	streamContext, cancel := context.WithCancel(t.Context())
@@ -364,8 +366,18 @@ func openInitializedIntegrationChannel(t *testing.T, service uisdk.Service) *cha
 		_, err = stream.Recv()
 		require.NoError(t, err)
 	}
-	return &channel{
-		stream: stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false, failConnection: nil,
+	return &Service{
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            true,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressBound:    false,
+		failConnection:   nil,
 	}
 }

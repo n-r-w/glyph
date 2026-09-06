@@ -6,13 +6,14 @@ import (
 	"context"
 	"testing"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -29,26 +30,28 @@ func TestSelectionOperationCommitsAndReturnsSelection(t *testing.T) {
 	catalog.EXPECT().ActiveSelection().Return(selection)
 	catalog.EXPECT().SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).Return(selection, nil)
 	service := NewSession(
-		NewMockChannel(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil,
+		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil,
 		func(context.Context) {},
+
+		Initialization{},
 	)
-	service.setOperationAvailability(domainui.AvailabilityIdle)
-	command := newCommandForPreparedTest(domainui.CommandSelectModel)
+	service.setOperationAvailability(AvailabilityIdle)
+	command := newCommandForPreparedTest(controllerui.CommandSelectModel)
 	command.ProviderID = mo.Some("provider")
 	command.ModelID = mo.Some("model")
 
 	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)
 	// Act by invoking Prepared.Run to exercise retained model-selection behavior.
-	outcome := prepared.Run(t.Context(), operation.Reporter[domainui.Frame]{})
+	outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 	prepared.Release()
 
 	// Assert retained model-selection behavior.
 	assert.Equal(t, operation.TerminalStateCompleted, outcome.State())
 	frame, ok := outcome.Result()
 	require.True(t, ok)
-	assert.Equal(t, domainui.FrameModelSelectionChanged, frame.Kind)
-	assert.Equal(t, "provider", frame.ModelSelection.MustGet().ProviderID)
+	assert.Equal(t, controllerui.FrameModelSelectionChanged, frame.Kind)
+	assert.Equal(t, model.ProviderID("provider"), frame.ModelSelection.MustGet().Provider)
 }
 
 // TestSelectionReadinessAndActiveRunIndependence verifies retained selection admission states.
@@ -57,13 +60,13 @@ func TestSelectionReadinessAndActiveRunIndependence(t *testing.T) {
 
 	for _, test := range []struct {
 		name         string
-		availability domainui.Availability
+		availability Availability
 		accepted     bool
 	}{
-		{name: "checking authentication", availability: domainui.AvailabilityCheckingAuthentication, accepted: false},
-		{name: "authentication failed", availability: domainui.AvailabilityAuthenticationFailed, accepted: true},
-		{name: "idle", availability: domainui.AvailabilityIdle, accepted: true},
-		{name: "active run", availability: domainui.AvailabilityRunning, accepted: true},
+		{name: "checking authentication", availability: AvailabilityCheckingAuthentication, accepted: false},
+		{name: "authentication failed", availability: AvailabilityAuthenticationFailed, accepted: true},
+		{name: "idle", availability: AvailabilityIdle, accepted: true},
+		{name: "active run", availability: AvailabilityRunning, accepted: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -84,7 +87,7 @@ func TestSelectionReadinessAndActiveRunIndependence(t *testing.T) {
 				).Return(selection, nil)
 			}
 			service := NewSession(
-				NewMockChannel(
+				NewMockOutput(
 					controller,
 				),
 				NewMockAgentRunner(controller),
@@ -92,9 +95,11 @@ func TestSelectionReadinessAndActiveRunIndependence(t *testing.T) {
 				catalog,
 				nil,
 				func(context.Context) {},
+
+				Initialization{},
 			)
 			service.setOperationAvailability(test.availability)
-			command := newCommandForPreparedTest(domainui.CommandSelectModel)
+			command := newCommandForPreparedTest(controllerui.CommandSelectModel)
 			command.ProviderID = mo.Some("provider")
 			command.ModelID = mo.Some("model")
 
@@ -103,11 +108,11 @@ func TestSelectionReadinessAndActiveRunIndependence(t *testing.T) {
 			if !test.accepted {
 				var rejection *PreparationError
 				require.ErrorAs(t, err, &rejection)
-				assert.Equal(t, rejectionCodeNotReady, rejection.Code())
+				assert.Equal(t, controllerui.RejectionCodeNotReady, rejection.PreparationCode())
 				return
 			}
 			require.NoError(t, err)
-			outcome := prepared.Run(t.Context(), operation.Reporter[domainui.Frame]{})
+			outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 			prepared.Release()
 
 			// Assert selection completion does not change active-run availability.
@@ -128,11 +133,13 @@ func TestSelectionPreparationRejectsConcurrentCommit(t *testing.T) {
 	catalog.EXPECT().Models().Return([]model.Descriptor{selectionDescriptor()})
 	catalog.EXPECT().ActiveSelection().Return(selection)
 	service := NewSession(
-		NewMockChannel(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil,
+		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil,
 		func(context.Context) {},
+
+		Initialization{},
 	)
-	service.setOperationAvailability(domainui.AvailabilityIdle)
-	command := newCommandForPreparedTest(domainui.CommandSelectModel)
+	service.setOperationAvailability(AvailabilityIdle)
+	command := newCommandForPreparedTest(controllerui.CommandSelectModel)
 	command.ProviderID = mo.Some("provider")
 	command.ModelID = mo.Some("model")
 	// Act by invoking service.Prepare to exercise one selection reservation at a time.
@@ -145,7 +152,7 @@ func TestSelectionPreparationRejectsConcurrentCommit(t *testing.T) {
 
 	var rejection *PreparationError
 	require.ErrorAs(t, err, &rejection)
-	assert.Equal(t, rejectionCodeBusy, rejection.Code())
+	assert.Equal(t, controllerui.RejectionCodeBusy, rejection.PreparationCode())
 }
 
 // selectionDescriptor creates one complete configured model for selection validation.

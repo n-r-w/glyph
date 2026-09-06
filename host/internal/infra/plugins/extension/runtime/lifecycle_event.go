@@ -7,7 +7,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -20,12 +19,15 @@ func mapLifecycleEvent(event lifecycle.Event) (*extensionpb.LifecycleInvocation,
 		return mapped, nil
 	}
 	switch event.Agent.Type {
-	case run.EventAgentStart, run.EventAgentEnd, run.EventTurnStart, run.EventTurnEnd:
+	case agent.EventAgentStart, agent.EventAgentEnd, agent.EventTurnStart, agent.EventTurnEnd:
 		return mapLifecycleBoundary(event.Agent)
-	case run.EventMessageStart, run.EventContentStart, run.EventTextDelta, run.EventContentEnd,
-		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd, run.EventMessageEnd:
+	case agent.EventMessageStart, agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,
+		agent.EventToolCallStart, agent.EventToolCallDelta, agent.EventToolCallEnd, agent.EventMessageEnd:
 		return mapLifecycleMessage(event.Agent)
-	case run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd, run.EventToolResult:
+	case agent.EventToolExecutionStart,
+		agent.EventToolExecutionUpdate,
+		agent.EventToolExecutionEnd,
+		agent.EventToolResult:
 		return mapLifecycleTool(event.Agent)
 	default:
 		return nil, fmt.Errorf("unsupported lifecycle event type %d", event.Agent.Type)
@@ -33,28 +35,28 @@ func mapLifecycleEvent(event lifecycle.Event) (*extensionpb.LifecycleInvocation,
 }
 
 // mapLifecycleBoundary maps agent and turn boundary events.
-func mapLifecycleBoundary(source run.Event) (*extensionpb.LifecycleInvocation, error) {
+func mapLifecycleBoundary(source agent.Event) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
 	switch source.Type {
-	case run.EventAgentStart:
+	case agent.EventAgentStart:
 		mapped.SetAgentStart(extensionpb.AgentStart_builder{RunId: new(source.RunID)}.Build())
-	case run.EventAgentEnd:
+	case agent.EventAgentEnd:
 		payload, err := mapLifecycleAgentEnd(source)
 		if err != nil {
 			return nil, err
 		}
 		mapped.SetAgentEnd(payload)
-	case run.EventTurnStart:
+	case agent.EventTurnStart:
 		mapped.SetTurnStart(extensionpb.TurnStart_builder{RunId: new(source.RunID)}.Build())
-	case run.EventTurnEnd:
+	case agent.EventTurnEnd:
 		payload, err := mapLifecycleTurnEnd(source)
 		if err != nil {
 			return nil, err
 		}
 		mapped.SetTurnEnd(payload)
-	case run.EventMessageStart, run.EventContentStart, run.EventTextDelta, run.EventContentEnd,
-		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd, run.EventMessageEnd,
-		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd, run.EventToolResult:
+	case agent.EventMessageStart, agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,
+		agent.EventToolCallStart, agent.EventToolCallDelta, agent.EventToolCallEnd, agent.EventMessageEnd,
+		agent.EventToolExecutionStart, agent.EventToolExecutionUpdate, agent.EventToolExecutionEnd, agent.EventToolResult:
 		return nil, fmt.Errorf("unsupported lifecycle boundary type %d", source.Type)
 	default:
 		return nil, fmt.Errorf("unsupported lifecycle boundary type %d", source.Type)
@@ -63,27 +65,27 @@ func mapLifecycleBoundary(source run.Event) (*extensionpb.LifecycleInvocation, e
 }
 
 // mapLifecycleMessage maps message boundaries and content transitions.
-func mapLifecycleMessage(source run.Event) (*extensionpb.LifecycleInvocation, error) {
+func mapLifecycleMessage(source agent.Event) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
 	switch source.Type {
-	case run.EventMessageStart:
+	case agent.EventMessageStart:
 		mapped.SetMessageStart(extensionpb.MessageStart_builder{RunId: new(source.RunID)}.Build())
-	case run.EventContentStart, run.EventTextDelta, run.EventContentEnd,
-		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd:
+	case agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,
+		agent.EventToolCallStart, agent.EventToolCallDelta, agent.EventToolCallEnd:
 		update, err := mapLifecycleMessageUpdate(source)
 		if err != nil {
 			return nil, err
 		}
 		mapped.SetMessageUpdate(update)
-	case run.EventMessageEnd:
+	case agent.EventMessageEnd:
 		payload, err := mapLifecycleMessageEnd(source)
 		if err != nil {
 			return nil, err
 		}
 		mapped.SetMessageEnd(payload)
-	case run.EventAgentStart, run.EventTurnStart, run.EventToolExecutionStart,
-		run.EventToolExecutionUpdate, run.EventToolExecutionEnd, run.EventToolResult,
-		run.EventTurnEnd, run.EventAgentEnd:
+	case agent.EventAgentStart, agent.EventTurnStart, agent.EventToolExecutionStart,
+		agent.EventToolExecutionUpdate, agent.EventToolExecutionEnd, agent.EventToolResult,
+		agent.EventTurnEnd, agent.EventAgentEnd:
 		return nil, fmt.Errorf("unsupported lifecycle message type %d", source.Type)
 	default:
 		return nil, fmt.Errorf("unsupported lifecycle message type %d", source.Type)
@@ -92,33 +94,33 @@ func mapLifecycleMessage(source run.Event) (*extensionpb.LifecycleInvocation, er
 }
 
 // mapLifecycleTool maps tool execution lifecycle events.
-func mapLifecycleTool(source run.Event) (*extensionpb.LifecycleInvocation, error) {
+func mapLifecycleTool(source agent.Event) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
 	switch source.Type {
-	case run.EventToolExecutionStart:
+	case agent.EventToolExecutionStart:
 		payload, err := mapLifecycleToolStart(source)
 		if err != nil {
 			return nil, err
 		}
 		mapped.SetToolExecutionStart(payload)
-	case run.EventToolExecutionUpdate:
+	case agent.EventToolExecutionUpdate:
 		payload, err := mapLifecycleToolUpdate(source)
 		if err != nil {
 			return nil, err
 		}
 		mapped.SetToolExecutionUpdate(payload)
-	case run.EventToolExecutionEnd:
+	case agent.EventToolExecutionEnd:
 		payload, err := mapLifecycleToolEnd(source)
 		if err != nil {
 			return nil, err
 		}
 		mapped.SetToolExecutionEnd(payload)
-	case run.EventToolResult:
+	case agent.EventToolResult:
 		return nil, errors.New("tool-result events have no lifecycle observer group")
-	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart,
-		run.EventContentStart, run.EventTextDelta, run.EventContentEnd,
-		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd,
-		run.EventMessageEnd, run.EventTurnEnd, run.EventAgentEnd:
+	case agent.EventAgentStart, agent.EventTurnStart, agent.EventMessageStart,
+		agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,
+		agent.EventToolCallStart, agent.EventToolCallDelta, agent.EventToolCallEnd,
+		agent.EventMessageEnd, agent.EventTurnEnd, agent.EventAgentEnd:
 		return nil, fmt.Errorf("unsupported lifecycle tool type %d", source.Type)
 	default:
 		return nil, fmt.Errorf("unsupported lifecycle tool type %d", source.Type)
@@ -127,7 +129,7 @@ func mapLifecycleTool(source run.Event) (*extensionpb.LifecycleInvocation, error
 }
 
 // mapLifecycleAgentEnd maps one terminal agent summary.
-func mapLifecycleAgentEnd(source run.Event) (*extensionpb.AgentEnd, error) {
+func mapLifecycleAgentEnd(source agent.Event) (*extensionpb.AgentEnd, error) {
 	payload := extensionpb.AgentEnd_builder{RunId: new(source.RunID), Outcome: nil, ErrorMessage: nil}
 	if summary, present := source.Agent.Get(); present {
 		outcome, err := mapLifecycleAgentOutcome(summary.Outcome)
@@ -143,7 +145,7 @@ func mapLifecycleAgentEnd(source run.Event) (*extensionpb.AgentEnd, error) {
 }
 
 // mapLifecycleTurnEnd maps one terminal turn response.
-func mapLifecycleTurnEnd(source run.Event) (*extensionpb.TurnEnd, error) {
+func mapLifecycleTurnEnd(source agent.Event) (*extensionpb.TurnEnd, error) {
 	payload := extensionpb.TurnEnd_builder{RunId: new(source.RunID), Response: nil, ToolResults: nil}
 	if summary, present := source.Turn.Get(); present {
 		response, err := mapLifecycleResponse(summary.Response)
@@ -164,7 +166,7 @@ func mapLifecycleTurnEnd(source run.Event) (*extensionpb.TurnEnd, error) {
 }
 
 // mapLifecycleMessageEnd maps one finalized model response.
-func mapLifecycleMessageEnd(source run.Event) (*extensionpb.MessageEnd, error) {
+func mapLifecycleMessageEnd(source agent.Event) (*extensionpb.MessageEnd, error) {
 	payload := extensionpb.MessageEnd_builder{RunId: new(source.RunID), Response: nil}
 	if response, present := source.Message.Get(); present {
 		mapped, err := mapLifecycleResponse(response)
@@ -177,7 +179,7 @@ func mapLifecycleMessageEnd(source run.Event) (*extensionpb.MessageEnd, error) {
 }
 
 // mapLifecycleToolStart maps one tool execution identity.
-func mapLifecycleToolStart(source run.Event) (*extensionpb.ToolExecutionStart, error) {
+func mapLifecycleToolStart(source agent.Event) (*extensionpb.ToolExecutionStart, error) {
 	call, present := source.ToolCall.Get()
 	if !present {
 		return nil, errors.New("tool execution start is missing its tool call")
@@ -188,7 +190,7 @@ func mapLifecycleToolStart(source run.Event) (*extensionpb.ToolExecutionStart, e
 }
 
 // mapLifecycleToolUpdate maps one tool progress fragment.
-func mapLifecycleToolUpdate(source run.Event) (*extensionpb.ToolExecutionUpdate, error) {
+func mapLifecycleToolUpdate(source agent.Event) (*extensionpb.ToolExecutionUpdate, error) {
 	call, callPresent := source.ToolCall.Get()
 	if !callPresent {
 		return nil, errors.New("tool execution update is missing its tool call")
@@ -208,7 +210,7 @@ func mapLifecycleToolUpdate(source run.Event) (*extensionpb.ToolExecutionUpdate,
 }
 
 // mapLifecycleToolEnd maps one terminal tool result.
-func mapLifecycleToolEnd(source run.Event) (*extensionpb.ToolExecutionEnd, error) {
+func mapLifecycleToolEnd(source agent.Event) (*extensionpb.ToolExecutionEnd, error) {
 	result, present := source.ToolResult.Get()
 	if !present {
 		return nil, errors.New("tool execution end is missing its result")
@@ -229,7 +231,7 @@ func mapLifecycleToolResult(runID string, result agent.ToolResult) (*extensionpb
 }
 
 // mapLifecycleMessageUpdate maps content and tool-call transitions in source order.
-func mapLifecycleMessageUpdate(event run.Event) (*extensionpb.MessageUpdate, error) {
+func mapLifecycleMessageUpdate(event agent.Event) (*extensionpb.MessageUpdate, error) {
 	kind, kindErr := lifecycleMessageUpdateKind(event.Type)
 	if kindErr != nil {
 		return nil, kindErr
@@ -308,23 +310,23 @@ func mapLifecyclePreviewFields(fields []model.ToolCallPreviewField) ([]*extensio
 }
 
 // lifecycleMessageUpdateKind maps one source transition to its public message-update kind.
-func lifecycleMessageUpdateKind(eventType run.EventType) (extensionpb.MessageUpdateKind, error) {
+func lifecycleMessageUpdateKind(eventType agent.EventType) (extensionpb.MessageUpdateKind, error) {
 	switch eventType {
-	case run.EventContentStart:
+	case agent.EventContentStart:
 		return extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_CONTENT_START, nil
-	case run.EventTextDelta:
+	case agent.EventTextDelta:
 		return extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_TEXT_DELTA, nil
-	case run.EventContentEnd:
+	case agent.EventContentEnd:
 		return extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_CONTENT_END, nil
-	case run.EventToolCallStart:
+	case agent.EventToolCallStart:
 		return extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_TOOL_CALL_START, nil
-	case run.EventToolCallDelta:
+	case agent.EventToolCallDelta:
 		return extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_TOOL_CALL_UPDATE, nil
-	case run.EventToolCallEnd:
+	case agent.EventToolCallEnd:
 		return extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_TOOL_CALL_END, nil
-	case run.EventAgentStart, run.EventTurnStart, run.EventMessageStart, run.EventMessageEnd,
-		run.EventToolExecutionStart, run.EventToolExecutionUpdate, run.EventToolExecutionEnd,
-		run.EventToolResult, run.EventTurnEnd, run.EventAgentEnd:
+	case agent.EventAgentStart, agent.EventTurnStart, agent.EventMessageStart, agent.EventMessageEnd,
+		agent.EventToolExecutionStart, agent.EventToolExecutionUpdate, agent.EventToolExecutionEnd,
+		agent.EventToolResult, agent.EventTurnEnd, agent.EventAgentEnd:
 		return extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_UNSPECIFIED,
 			fmt.Errorf("unsupported message update type %d", eventType)
 	default:

@@ -5,11 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"sync"
+
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/internal/operation"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -26,8 +29,8 @@ type initializationReceive struct {
 }
 
 // Initialize maps and runs startup through the normal writer and tracker.
-func (c *channel) Initialize(ctx context.Context, frame domainui.Frame) error {
-	request, err := mapFrame(frame)
+func (c *Service) Initialize(ctx context.Context, initialization hostui.Initialization) error {
+	request, err := mapInitializationFrame(initialization)
 	if err != nil {
 		return err
 	}
@@ -40,11 +43,11 @@ func (c *channel) Initialize(ctx context.Context, frame domainui.Frame) error {
 		return nil
 	}
 	closeErr := c.closeUnsuccessfulInitialization()
-	return classifyTransportError(errors.Join(initializationErr, closeErr))
+	return controllerui.ClassifyTransportError(errors.Join(initializationErr, closeErr))
 }
 
 // closeUnsuccessfulInitialization closes the request stream and waits for SDK cleanup EOF.
-func (c *channel) closeUnsuccessfulInitialization() error {
+func (c *Service) closeUnsuccessfulInitialization() error {
 	writer := operation.NewWriter(c.stream.Send)
 	writerDone := make(chan error, 1)
 	go func() { writerDone <- writer.Run(c.stream.Context()) }()
@@ -55,7 +58,7 @@ func (c *channel) closeUnsuccessfulInitialization() error {
 		err = acknowledgement.Wait(c.stream.Context())
 	}
 	writer.Close()
-	if writerErr := withoutTransportClosureLeaves(<-writerDone); writerErr != nil {
+	if writerErr := controllerui.WithoutTransportClosureLeaves(<-writerDone); writerErr != nil {
 		err = errors.Join(err, writerErr)
 	}
 	if closeSendErr := c.stream.CloseSend(); closeSendErr != nil {
@@ -64,7 +67,7 @@ func (c *channel) closeUnsuccessfulInitialization() error {
 	for {
 		_, receiveErr := c.stream.Recv()
 		if receiveErr != nil {
-			remainingErr := withoutTransportClosureLeaves(receiveErr)
+			remainingErr := controllerui.WithoutTransportClosureLeaves(receiveErr)
 			if remainingErr == nil {
 				return err
 			}
@@ -74,7 +77,7 @@ func (c *channel) closeUnsuccessfulInitialization() error {
 }
 
 // initialize tracks initialization and optional cancellation on one stream.
-func (c *channel) initialize(ctx context.Context, request *uiv1.OpenRequest) (returnErr error) {
+func (c *Service) initialize(ctx context.Context, request *uiv1.OpenRequest) (returnErr error) {
 	writerContext, cancelWriter := context.WithCancelCause(c.stream.Context())
 	defer cancelWriter(context.Canceled)
 	writer := operation.NewWriter(c.stream.Send)
@@ -116,7 +119,7 @@ func (c *channel) initialize(ctx context.Context, request *uiv1.OpenRequest) (re
 		case received := <-receiveDone:
 			receiveDone = nil
 			trackedEvent, isCancellation, receiveErr := processInitializationResponse(
-				received, writer, tracker, initializeEvents, cancellationEvents,
+				writerContext, received, writer, tracker, initializeEvents, cancellationEvents,
 			)
 			if receiveErr != nil {
 				return receiveErr
@@ -150,7 +153,7 @@ func finishInitialization(
 ) error {
 	tracker.Close()
 	writer.Close()
-	if writerErr := withoutTransportClosureLeaves(<-writerDone); writerErr != nil {
+	if writerErr := controllerui.WithoutTransportClosureLeaves(<-writerDone); writerErr != nil {
 		return errors.Join(result, fmt.Errorf("run UI initialization writer: %w", writerErr))
 	}
 	return result
@@ -158,6 +161,7 @@ func finishInitialization(
 
 // processInitializationResponse validates and tracks one startup stream response.
 func processInitializationResponse(
+	ctx context.Context,
 	received initializationReceive,
 	writer *operation.Writer[*uiv1.OpenRequest],
 	tracker *operation.Tracker[struct{}, *uiv1.UICompleted],
@@ -169,7 +173,9 @@ func processInitializationResponse(
 			fmt.Errorf("receive UI initialization lifecycle: %w", received.err)
 	}
 	if received.response.GetRequest() != nil {
-		err := validateAndRejectStartupRequest(writer, received.response)
+		err := controllerui.RejectStartupRequest(&operationDelivery{
+			ctx: ctx, writer: writer, fail: nil, mutex: sync.Mutex{}, kinds: nil, failureSources: nil,
+		}, received.response)
 		return operation.Event[struct{}, *uiv1.UICompleted]{}, false, err
 	}
 	if received.response.GetClose() != nil {
@@ -212,7 +218,7 @@ func processInitializationResponse(
 }
 
 // applyInitializationTerminal updates readiness and returns the target operation result.
-func (c *channel) applyInitializationTerminal(
+func (c *Service) applyInitializationTerminal(
 	event operation.Event[struct{}, *uiv1.UICompleted],
 	activate bool,
 ) error {
@@ -225,7 +231,7 @@ func (c *channel) applyInitializationTerminal(
 		}
 		return nil
 	case operation.EventRejected, operation.EventFailed:
-		return newOperationError(event.Code, event.Message)
+		return newInitializationError(event.Code, event.Message)
 	case operation.EventCanceled:
 		return context.Canceled
 	case operation.EventAccepted, operation.EventRunning, operation.EventProgress:
@@ -235,7 +241,7 @@ func (c *channel) applyInitializationTerminal(
 }
 
 // startInitializationCancellation starts one separate cancellation operation.
-func (c *channel) startInitializationCancellation(
+func (c *Service) startInitializationCancellation(
 	writer *operation.Writer[*uiv1.OpenRequest],
 	tracker *operation.Tracker[struct{}, *uiv1.UICompleted],
 ) (<-chan operation.Event[struct{}, *uiv1.UICompleted], error) {
@@ -253,56 +259,6 @@ func (c *channel) startInitializationCancellation(
 		return nil, fmt.Errorf("send UI initialization cancellation: %w", enqueueErr)
 	}
 	return events, nil
-}
-
-// validateAndRejectStartupRequest applies common validation before readiness admission.
-func validateAndRejectStartupRequest(
-	writer *operation.Writer[*uiv1.OpenRequest],
-	response *uiv1.OpenResponse,
-) error {
-	id := response.GetOperationId()
-	if id == "" {
-		return enqueueInitializationRejection(
-			writer, id, rejectionCodeInvalidArgument, errors.New("UI operation identifier is required"),
-		)
-	}
-	request := response.GetRequest()
-	if request.GetCancel() != nil {
-		if request.GetCancel().GetTargetOperationId() == "" {
-			return enqueueInitializationRejection(
-				writer, id, rejectionCodeInvalidArgument, errors.New("UI cancellation target is required"),
-			)
-		}
-		return enqueueInitializationRejection(
-			writer,
-			id,
-			rejectionCodeTargetNotActive,
-			fmt.Errorf("UI cancellation target %q is not active", request.GetCancel().GetTargetOperationId()),
-		)
-	}
-	if _, err := mapCommand(response); err != nil {
-		return enqueueInitializationRejection(writer, id, rejectionCodeInvalidArgument, err)
-	}
-	return enqueueInitializationRejection(
-		writer, id, rejectionCodeNotReady, errors.New("host UI is not ready"),
-	)
-}
-
-// enqueueInitializationRejection sends one common startup rejection.
-func enqueueInitializationRejection(
-	writer *operation.Writer[*uiv1.OpenRequest],
-	id string,
-	code string,
-	cause error,
-) error {
-	event := new(uiv1.HostEvent)
-	event.SetRejected(operationv1.Rejected_builder{
-		Code: new(code), Message: new(cause.Error()),
-	}.Build())
-	if err := writer.Enqueue(hostEventRequest(id, event)); err != nil {
-		return fmt.Errorf("reject UI operation before initialization: %w", err)
-	}
-	return nil
 }
 
 // initializationRequestKind identifies Host-owned startup operations.

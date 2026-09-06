@@ -42,7 +42,7 @@ func TestSendFailureCancelsAndJoinsOwnedWork(t *testing.T) {
 		}), nil
 	}).AnyTimes()
 	stream.EXPECT().Send(gomock.Any()).Return(errors.New("send failed"))
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 
 	// Act by opening the stream.
 	err := service.open(stream)
@@ -87,7 +87,7 @@ func TestDeliveryOverflowFailsConnection(t *testing.T) {
 		<-releaseSend
 		return nil
 	})
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 
 	// Act by overflowing the bounded writer queue before releasing its active send.
 	result := make(chan error, 1)

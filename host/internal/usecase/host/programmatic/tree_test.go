@@ -23,7 +23,7 @@ func handleTreeCommandForTest(
 	service *Service,
 	ctx context.Context,
 	command controller.Command,
-) (controller.Response, *activeRun, error) {
+) (controller.Response, *runPrepared, error) {
 	t.Helper()
 	if command.Kind != controller.CommandNavigateSessionTree {
 		return service.handle(ctx, command)
@@ -45,7 +45,7 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	control := NewMockSessionControl(mockController)
 	tree := programmaticTree(t)
 	control.EXPECT().Tree().Return(tree)
-	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(coordinator, catalog, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
 	command := treeCommand("tree", controller.CommandGetSessionTree)
 
 	// Act by requesting the active-session tree.
@@ -85,7 +85,7 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 		}},
 	}
 	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(committed, nil)
-	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(coordinator, catalog, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
 	command := treeCommand("navigate", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
 
@@ -128,7 +128,7 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 			HandlerID: "handler", Message: "safe message",
 		}},
 	}, nil)
-	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(coordinator, catalog, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
 	command := treeCommand("canceled", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
 
@@ -237,7 +237,14 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 					Navigate(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(sessionnavigation.Result{}, test.navigationErr)
 			}
-			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+			service := New(
+				coordinator,
+				catalog,
+				testStateQuery(t, false),
+				emptyHistorySnapshot,
+				control,
+				testRunOutput(t),
+			)
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
 			command.TargetEntryID = test.target
 			command.SummaryMode = test.summaryMode

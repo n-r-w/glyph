@@ -107,9 +107,10 @@ var (
 )
 
 var (
-	_ agentrun.ModelRuntime = (*Catalog)(nil)
-	_ hostui.Authenticator  = (*Catalog)(nil)
-	_ hostui.ModelCatalog   = (*Catalog)(nil)
+	_ agentrun.ModelRuntime   = (*Catalog)(nil)
+	_ hostui.Authenticator    = (*Catalog)(nil)
+	_ hostui.ModelCatalog     = (*Catalog)(nil)
+	_ hostui.SelectionFailure = (*SelectionError)(nil)
 )
 
 // New creates a catalog from configured entries and a valid default selection.

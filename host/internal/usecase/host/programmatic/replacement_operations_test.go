@@ -78,10 +78,10 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			service := New(
 				NewMockCoordinator(controllerMock),
 				NewMockModelCatalog(controllerMock),
-				idleStateSnapshot,
+				testStateQuery(t, false),
 				emptyHistorySnapshot,
 				control,
-				NewDelivery(),
+				testRunOutput(t),
 			)
 
 			// Act through Programmatic Control.
@@ -106,10 +106,10 @@ func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
 	service := New(
 		NewMockCoordinator(controllerMock),
 		NewMockModelCatalog(controllerMock),
-		idleStateSnapshot,
+		testStateQuery(t, false),
 		emptyHistorySnapshot,
 		control,
-		NewDelivery(),
+		testRunOutput(t),
 	)
 
 	// Act by forking a non-user entry.

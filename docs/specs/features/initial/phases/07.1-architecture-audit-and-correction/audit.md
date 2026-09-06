@@ -19,7 +19,7 @@ Outcome: Request changes.
 - FND-03 and FND-04 require ownership of interface-specific types and storage metadata at their consumers and storage implementation.
 - FND-05 through FND-09 cover lost error information, text-dependent TUI state, misplaced execution policy, incomplete contracts, and a forwarding owner with no behavior.
 
-No production correction has been made. Passing compilation or tests does not close these findings. The [correction plan](solution.md) proposes their dispositions and execution order; implementation requires approval.
+The user approved the [correction plan](solution.md). Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. Findings below describe the audit baseline; passing compilation or tests alone does not close them. Whole-scope architectural acceptance remains pending.
 
 ## Issues overview
 
@@ -291,12 +291,12 @@ No source finding assumes that a package name establishes its layer. Catalogue f
 
 ## Open questions
 
-QST-01, QST-02 and QST-03 are closed by the [approved behavior decisions](solution.md#approved-behavior-decisions). No unresolved behavioral or factual coverage questions remain for this audit. The production findings remain open until implementation and verification. Approval of the complete correction plan and implementation remains pending.
+QST-01, QST-02 and QST-03 are closed by the [approved behavior decisions](solution.md#approved-behavior-decisions). No unresolved behavioral or factual coverage questions remain for this audit. The production findings remain open until implementation and verification. The user approved the complete correction plan and implementation.
 
 ## Next steps
 
-- Agree the dispositions and execution order in the [correction plan](solution.md).
-- Implement only after approval. Close findings through source-based boundary review and the ticket's verification requirements, not through compilation alone.
+- Complete the approved [correction plan](solution.md).
+- Close findings through source-based boundary review and the ticket's verification requirements, not through compilation alone.
 
 ## Verification evidence
 

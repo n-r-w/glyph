@@ -3,6 +3,9 @@ package programmatic
 import (
 	"context"
 
+	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
+	"github.com/n-r-w/glyph/internal/operation"
+
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -10,6 +13,24 @@ import (
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=programmatic
+
+// StateQuery supplies only the Core activity needed by the public run-state query.
+type StateQuery interface {
+	// RunActive reports running or awaiting-settlement state under the Core state lock.
+	RunActive() bool
+}
+
+// RunOutput owns the active output correlation for admitted runs.
+type RunOutput interface {
+	// Reserve associates the public operation identifier with one prepared run.
+	Reserve(operationID, runID string) bool
+	// ActiveOperation returns the correlated operation identifier, or an empty string when idle.
+	ActiveOperation() string
+	// BindProgress attaches one admitted operation's reporter before Core execution.
+	BindProgress(runID string, reporter operation.Reporter[controller.OperationProgress]) func()
+	// CancelPrepared clears an association whose application work never started.
+	CancelPrepared(runID string)
+}
 
 // Coordinator owns Host run identifiers, execution, and settlement.
 type Coordinator interface {

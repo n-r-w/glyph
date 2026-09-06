@@ -6,8 +6,6 @@ import (
 	"slices"
 	"sync"
 
-	"github.com/samber/mo"
-
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/internal/operation"
 )
@@ -35,7 +33,7 @@ func (s *Service) Prepare(
 		if rejected := response.Rejection; rejected.IsPresent() {
 			return nil, mapPreparationRejection(response)
 		}
-		return &runPrepared{active: active, release: sync.Once{}}, nil
+		return active, nil
 	}
 	release := func() {}
 	if isSessionMutation(command.Kind) {
@@ -69,7 +67,7 @@ func (p *commandPrepared) Run(
 	reporter operation.Reporter[controller.OperationProgress],
 ) operation.Outcome[controller.Response] {
 	var response controller.Response
-	var active *activeRun
+	var active *runPrepared
 	var err error
 	if p.command.Kind == controller.CommandNavigateSessionTree {
 		response, err = p.service.navigateSessionTree(
@@ -109,45 +107,51 @@ func (p *commandPrepared) Release() {
 	p.release()
 }
 
-// runPrepared adapts the existing Agent Core event and settlement ownership to the shared runtime.
+// runPrepared owns execution and cleanup for one admitted Core run.
 type runPrepared struct {
-	// active owns the prepared Agent Core run and its event stream.
-	active *activeRun
-	// release joins or frees the run reservation once.
+	// coordinator executes Core and orders settlement.
+	coordinator Coordinator
+	// output binds progress without owning application work.
+	output RunOutput
+	// operationID identifies the client operation.
+	operationID string
+	// runID identifies the reserved Core run.
+	runID string
+	// userText contains the admitted input.
+	userText string
+	// started distinguishes execution from canceled preparation.
+	started bool
+	// release frees prepared resources once after operation work finishes.
 	release sync.Once
 }
 
 var _ operation.Prepared[controller.OperationProgress, controller.Response] = (*runPrepared)(nil)
 
-// Run starts Agent Core after Running and reports progress until settlement finishes.
+// Run executes Core on the operation worker after acceptance acknowledgement.
 func (p *runPrepared) Run(
 	ctx context.Context,
 	reporter operation.Reporter[controller.OperationProgress],
 ) operation.Outcome[controller.Response] {
-	stop := context.AfterFunc(ctx, p.active.cancel)
-	defer stop()
-	p.active.Start()
-	for event := range p.active.Events() {
-		if err := reporter.Report(controller.OperationProgress{
-			AgentEvent:     mo.Some(event),
-			TreeNavigation: mo.None[controller.TreeNavigationProgress](),
-		}); err != nil {
-			return operation.Failed[controller.Response](controller.FailureCodeInternal, err)
-		}
-	}
-	if p.active.err != nil {
-		return operation.Failed[controller.Response](failureCode(p.active.err), p.active.err)
+	p.started = true
+	unbind := p.output.BindProgress(p.runID, reporter)
+	defer unbind()
+	outcome, runErr := p.coordinator.RunPrepared(ctx, p.runID, p.userText)
+	if err := filterRunError(outcome, runErr); err != nil {
+		return operation.Failed[controller.Response](failureCode(err), err)
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
 		return operation.Canceled[controller.Response]()
 	}
-	return operation.Completed(emptyResponse(p.active.operationID, controller.ResponseUserRequestCompleted))
+	return operation.Completed(emptyResponse(p.operationID, controller.ResponseUserRequestCompleted))
 }
 
-// Release frees an unstarted run reservation or joins completed run cleanup.
+// Release frees unstarted reservations after Run has returned or acceptance has failed.
 func (p *runPrepared) Release() {
 	p.release.Do(func() {
-		_ = p.active.delivery.cancelAndWait(p.active)
+		if !p.started {
+			p.coordinator.CancelPrepared(p.runID)
+			p.output.CancelPrepared(p.runID)
+		}
 	})
 }
 

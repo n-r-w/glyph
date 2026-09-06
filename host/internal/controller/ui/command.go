@@ -1,6 +1,10 @@
 package ui
 
-import "github.com/samber/mo"
+import (
+	"github.com/samber/mo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+)
 
 // CommandKind identifies one UI-to-Host command.
 type CommandKind uint8
@@ -49,7 +53,7 @@ type Command struct {
 	// ModelID identifies a requested provider model.
 	ModelID mo.Option[string]
 	// ReasoningChoice identifies a requested reasoning behavior.
-	ReasoningChoice mo.Option[ReasoningChoice]
+	ReasoningChoice mo.Option[model.ReasoningChoice]
 	// SessionID is present only for resume.
 	SessionID mo.Option[string]
 	// SessionName preserves presence so the Host can reject an explicitly empty name.

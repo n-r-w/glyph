@@ -85,7 +85,7 @@ func TestCancellationDoesNotAffectTargetBeforeRunning(t *testing.T) {
 			<-releaseCancellationAccepted
 		}
 	})
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("target", func(request *programmaticv1.ControllerRequest) {
@@ -149,7 +149,7 @@ func TestCancellationUsesTerminalStateCompletedBeforeExecution(t *testing.T) {
 			<-releaseCancellationAccepted
 		}
 	})
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("target", func(request *programmaticv1.ControllerRequest) {
@@ -220,7 +220,7 @@ func TestCancellationAdmitsTargetUntilTerminalDelivery(t *testing.T) {
 			<-releaseTargetTerminal
 		}
 	})
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("target", func(request *programmaticv1.ControllerRequest) {
@@ -305,7 +305,7 @@ func TestTerminalDeliveryFailureDoesNotCompleteCancellation(t *testing.T) {
 		delivered = append(delivered, response)
 		return nil
 	}).AnyTimes()
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream) }()
 	requests <- testRequest("target", func(request *programmaticv1.ControllerRequest) {
@@ -351,7 +351,7 @@ func TestDuplicateCancellationIdentifierPrecedesTargetAdmission(t *testing.T) {
 	active.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(active, nil)
 	stream := newStreamHarness(t, t.Context())
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("duplicate", func(request *programmaticv1.ControllerRequest) {
@@ -423,7 +423,7 @@ func TestAcceptedFailureRemovesPreparedRegistryTarget(t *testing.T) {
 			return nil, io.EOF
 		}),
 	)
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	receiveResult := make(chan error, 1)
 	closing := new(localClosingState)
 	go func() { receiveResult <- service.receive(t.Context(), stream, owner, delivery, registry, closing) }()
@@ -474,7 +474,7 @@ func TestCancellationCompletesAfterTargetTerminalOrder(t *testing.T) {
 	target.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(target, nil)
 	stream := newStreamHarness(t, t.Context())
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("target", func(request *programmaticv1.ControllerRequest) {

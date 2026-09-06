@@ -13,8 +13,6 @@ import (
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-
 	"github.com/n-r-w/glyph/host/internal/infra/browser"
 	uilogging "github.com/n-r-w/glyph/host/internal/infra/logging"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
@@ -63,9 +61,10 @@ func runUIWithPaths(
 	if uiDirectory == "" {
 		uiDirectory = filepath.Join(paths.Directory, "plugins", "ui")
 	}
-	selector := hostui.NewSelector(uicatalog.New(), uiruntime.NewFactory())
+	transport := uiruntime.New()
+	selector := hostui.NewSelector(uicatalog.New(), transport)
 	selection, err := selector.Select(ctx, hostui.SelectionRequest{
-		Directory:  domainui.Directory{Path: uiDirectory},
+		Directory:  hostui.Directory{Path: uiDirectory},
 		ExplicitUI: command.UIID,
 		ActiveUI:   configured.ActiveUI,
 	})
@@ -73,7 +72,7 @@ func runUIWithPaths(
 		return errors.Join(fmt.Errorf("select UI plugin: %w", err), writeSelectionWarnings(stderr, selection.Issues))
 	}
 
-	// Selection warnings fall back to stderr until the initialization frame owns their delivery.
+	// Selection warnings fall back to stderr until the initialization frame owns their transport.
 	selectionWarningsDelivered := false
 	defer func() {
 		if !selectionWarningsDelivered {
@@ -81,56 +80,59 @@ func runUIWithPaths(
 		}
 	}()
 
-	channel, err := selection.Runtime.Open(ctx)
+	controller := controllerui.New(transport)
+	err = controller.Open(ctx)
 	if err != nil {
-		selection.Runtime.Close()
+		transport.Close()
 		return fmt.Errorf("open selected UI: %w", err)
 	}
 
-	delivery := hostui.NewDelivery(channel)
 	extensionFactory := extensionruntime.NewFactory()
-	extensions := extensionmanager.New(catalog.New(), extensionFactory, delivery.ReportRuntimeFailure)
+	extensions := extensionmanager.New(catalog.New(), extensionFactory, transport.ReportRuntimeFailure)
 	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
-		selection.Runtime.Close()
+		transport.Close()
 		extensions.Close()
 		return fmt.Errorf("initialize Host sessions: %w", err)
 	}
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
-	lifecycleObservers.BindIssueDelivery(
-		lifecycleIssueDeliveryFunc(func(ctx context.Context, issue lifecycle.Issue) error {
-			return delivery.DeliverExtensionIssue(ctx, issue.ExtensionID, issue.HandlerID, issue.Code, issue.Err)
-		}),
-	)
+	lifecycleObservers.BindIssueDelivery(transport)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers)
 	report, err := startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	})
 	if err != nil {
-		selection.Runtime.Close()
+		transport.Close()
 		extensions.Close()
 		return fmt.Errorf("start UI Host extensions: %w", err)
 	}
 
-	interaction := interactions.NewUI(delivery.PresentAuthorizationURL, browser.New())
+	interaction := interactions.NewUI(transport.PresentAuthorizationURL, browser.New())
 	providerCatalog, err := newProviderCatalog(configured, paths, interaction)
 	if err != nil {
-		selection.Runtime.Close()
+		transport.Close()
 		extensions.Close()
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
 	contexts.BindCatalog(providerCatalog)
 	sessionServices.pricing.Bind(providerCatalog)
 	sessionServices.modelRequester.Bind(providerCatalog)
-	dispatcher := events.NewDispatcher(delivery.DeliverAgent, delivery.DeliverSettled, lifecycleObservers)
+	dispatcher := events.NewDispatcher(transport.DeliverAgent, transport.DeliverSettled, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
+	initialization := hostui.BuildInitialization(
+		selection.ID,
+		mapUIExtensionLoadReport(report),
+		selection.Issues,
+		providerCatalog,
+	)
+	initialization.SessionInfo = sessionServices.active.ActiveInfo()
 	session := hostui.NewSession(
-		channel,
+		transport,
 		coordinator,
 		providerCatalog,
 		providerCatalog,
@@ -139,19 +141,12 @@ func runUIWithPaths(
 			selectionWarningsDelivered = true
 			extensions.Activate(activationContext)
 		},
+		initialization,
 	)
-	contexts.BindMessagePublisher(session.PublishSessionEntry)
-	controller := controllerui.New(session)
-	initialization := hostui.BuildInitialization(
-		selection.ID,
-		mapUIExtensionLoadReport(report),
-		selection.Issues,
-		providerCatalog,
-	)
-	initialization.SessionInfo = sessionServices.active.ActiveInfo()
-	executionErr := controller.Execute(ctx, initialization)
+	contexts.BindMessagePublisher(transport.PublishSessionEntry)
+	executionErr := controller.Execute(ctx, session)
 
-	selection.Runtime.Close()
+	transport.Close()
 	extensions.Close()
 	slog.InfoContext(context.WithoutCancel(ctx), "completed UI Glyph application")
 	return executionErr

@@ -74,7 +74,7 @@ func TestReceiveFailureJoinsBlockedWriter(t *testing.T) {
 				<-releaseSend
 				return nil
 			})
-			service := New(t.Context(), host)
+			service := New(t.Context(), host, testConnectionOutput(t))
 			result := make(chan error, 1)
 			go func() { result <- service.open(stream) }()
 			<-receiveReturned
@@ -131,7 +131,7 @@ func TestBlockedOperationDoesNotBlockLaterRequest(t *testing.T) {
 		},
 	).Times(2)
 	stream := newStreamHarness(t, t.Context())
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("blocked", func(request *programmaticv1.ControllerRequest) {
@@ -236,7 +236,7 @@ func TestInvalidSessionMutationPayloadsStayBeforeAcceptance(t *testing.T) {
 				},
 			).AnyTimes()
 			stream := newStreamHarness(t, t.Context())
-			service := New(t.Context(), host)
+			service := New(t.Context(), host, testConnectionOutput(t))
 			result := make(chan error, 1)
 			go func() { result <- service.open(stream.stream) }()
 			stream.requests <- testRequest("invalid", test.setInvalid)
@@ -321,7 +321,7 @@ func TestMalformedDuplicateAndFailedOperationsKeepStreamOpen(t *testing.T) {
 		},
 	).Times(2)
 	stream := newStreamHarness(t, t.Context())
-	service := New(t.Context(), host)
+	service := New(t.Context(), host, testConnectionOutput(t))
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream.stream) }()
 	user := func(request *programmaticv1.ControllerRequest) {

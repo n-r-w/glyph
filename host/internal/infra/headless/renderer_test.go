@@ -5,8 +5,6 @@ package headless
 import (
 	"bytes"
 	"errors"
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -18,21 +16,21 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
 // rendererTextDeltaEvent creates one visible model text delta.
-func rendererTextDeltaEvent(position int, kind model.ContentKind, text string) run.Event {
-	return run.Event{
+func rendererTextDeltaEvent(position int, kind model.ContentKind, text string) agent.Event {
+	return agent.Event{
 		Message:    mo.None[model.Response](),
 		Preview:    mo.None[model.ToolCallPreview](),
 		ToolCall:   mo.None[model.ToolCall](),
 		Progress:   mo.None[tool.Progress](),
 		ToolResult: mo.None[agent.ToolResult](),
-		Turn:       mo.None[run.TurnSummary](),
-		Agent:      mo.None[run.AgentSummary](),
-		Type:       run.EventTextDelta,
+		Turn:       mo.None[agent.TurnSummary](),
+		Agent:      mo.None[agent.RunSummary](),
+		Type:       agent.EventTextDelta,
 		RunID:      "run",
 		Position:   mo.Some(position),
 		Content: mo.Some(model.Content{
@@ -46,34 +44,34 @@ func rendererTextDeltaEvent(position int, kind model.ContentKind, text string) r
 }
 
 // rendererMessageEndEvent creates one model message finalization event.
-func rendererMessageEndEvent() run.Event {
-	return run.Event{
+func rendererMessageEndEvent() agent.Event {
+	return agent.Event{
 		Position:   mo.None[int](),
 		Content:    mo.None[model.Content](),
 		Preview:    mo.None[model.ToolCallPreview](),
 		ToolCall:   mo.None[model.ToolCall](),
 		Progress:   mo.None[tool.Progress](),
 		ToolResult: mo.None[agent.ToolResult](),
-		Turn:       mo.None[run.TurnSummary](),
-		Agent:      mo.None[run.AgentSummary](),
+		Turn:       mo.None[agent.TurnSummary](),
+		Agent:      mo.None[agent.RunSummary](),
 		Message:    mo.None[model.Response](),
-		Type:       run.EventMessageEnd,
+		Type:       agent.EventMessageEnd,
 		RunID:      "run",
 	}
 }
 
 // rendererProgressEvent creates one tool progress event.
-func rendererProgressEvent(channel tool.ProgressChannel, content string) run.Event {
-	return run.Event{
+func rendererProgressEvent(channel tool.ProgressChannel, content string) agent.Event {
+	return agent.Event{
 		Position:   mo.None[int](),
 		Content:    mo.None[model.Content](),
 		Message:    mo.None[model.Response](),
 		Preview:    mo.None[model.ToolCallPreview](),
 		ToolCall:   mo.None[model.ToolCall](),
 		ToolResult: mo.None[agent.ToolResult](),
-		Turn:       mo.None[run.TurnSummary](),
-		Agent:      mo.None[run.AgentSummary](),
-		Type:       run.EventToolExecutionUpdate,
+		Turn:       mo.None[agent.TurnSummary](),
+		Agent:      mo.None[agent.RunSummary](),
+		Type:       agent.EventToolExecutionUpdate,
 		RunID:      "run",
 		Progress:   mo.Some(tool.Progress{Channel: channel, Content: content}),
 	}
@@ -111,7 +109,9 @@ func TestRendererReportsExtensionIssue(t *testing.T) {
 	renderer := NewRenderer(&stdout, &stderr)
 
 	// Act by delivering the nonterminal issue.
-	err := renderer.DeliverExtensionIssue("example", "observer", "OBSERVER_ERROR", errors.New("complete cause"))
+	err := renderer.DeliverExtensionIssue(t.Context(), lifecycle.Issue{
+		ExtensionID: "example", HandlerID: "observer", Code: "OBSERVER_ERROR", Err: errors.New("complete cause"),
+	})
 
 	// Assert stable identity, code, and complete text are visible without affecting stdout.
 	require.NoError(t, err)
@@ -129,7 +129,7 @@ func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 
 	var stdout bytes.Buffer
 	renderer := NewRenderer(&stdout, &bytes.Buffer{})
-	for _, event := range []run.Event{
+	for _, event := range []agent.Event{
 		rendererTextDeltaEvent(1, model.ContentRefusal, "I can"),
 		rendererTextDeltaEvent(1, model.ContentRefusal, "not help"),
 		{
@@ -139,9 +139,9 @@ func TestRendererPrintsRefusalDeltasOnce(t *testing.T) {
 			ToolCall:   mo.None[model.ToolCall](),
 			Progress:   mo.None[tool.Progress](),
 			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventMessageEnd,
+			Turn:       mo.None[agent.TurnSummary](),
+			Agent:      mo.None[agent.RunSummary](),
+			Type:       agent.EventMessageEnd,
 			RunID:      "run",
 			Message: mo.Some(model.Response{
 				Outcome:       mo.None[model.Outcome](),
@@ -211,16 +211,16 @@ func TestRendererDoesNotWriteNewlineForToolOnlyMessage(t *testing.T) {
 	renderer := NewRenderer(&stdout, &bytes.Buffer{})
 	require.NoError(
 		t,
-		renderer.DeliverAgent(t.Context(), run.Event{
+		renderer.DeliverAgent(t.Context(), agent.Event{
 			Position:   mo.None[int](),
 			Content:    mo.None[model.Content](),
 			Preview:    mo.None[model.ToolCallPreview](),
 			ToolCall:   mo.None[model.ToolCall](),
 			Progress:   mo.None[tool.Progress](),
 			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventMessageEnd,
+			Turn:       mo.None[agent.TurnSummary](),
+			Agent:      mo.None[agent.RunSummary](),
+			Type:       agent.EventMessageEnd,
 			RunID:      "run",
 			Message: mo.Some(model.Response{
 				Outcome:       mo.None[model.Outcome](),
@@ -260,7 +260,7 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	renderer := NewRenderer(&stdout, &stderr)
-	events := []run.Event{
+	events := []agent.Event{
 		rendererTextDeltaEvent(0, model.ContentReasoning, "hidden reasoning"),
 		rendererTextDeltaEvent(1, model.ContentText, "hello"),
 		{
@@ -270,9 +270,9 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 			Preview:    mo.None[model.ToolCallPreview](),
 			Progress:   mo.None[tool.Progress](),
 			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventToolExecutionStart,
+			Turn:       mo.None[agent.TurnSummary](),
+			Agent:      mo.None[agent.RunSummary](),
+			Type:       agent.EventToolExecutionStart,
 			RunID:      "run",
 			ToolCall: mo.Some(model.ToolCall{
 				ID:        "call",
@@ -289,9 +289,9 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 			Message:  mo.None[model.Response](),
 			Preview:  mo.None[model.ToolCallPreview](),
 			Progress: mo.None[tool.Progress](),
-			Turn:     mo.None[run.TurnSummary](),
-			Agent:    mo.None[run.AgentSummary](),
-			Type:     run.EventToolExecutionEnd,
+			Turn:     mo.None[agent.TurnSummary](),
+			Agent:    mo.None[agent.RunSummary](),
+			Type:     agent.EventToolExecutionEnd,
 			RunID:    "run",
 			ToolCall: mo.Some(model.ToolCall{
 				ID:        "call",
@@ -312,9 +312,9 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 			ToolCall:   mo.None[model.ToolCall](),
 			Progress:   mo.None[tool.Progress](),
 			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventMessageEnd,
+			Turn:       mo.None[agent.TurnSummary](),
+			Agent:      mo.None[agent.RunSummary](),
+			Type:       agent.EventMessageEnd,
 			RunID:      "run",
 			Message: mo.Some(model.Response{
 				Outcome:       mo.None[model.Outcome](),
@@ -376,7 +376,7 @@ func TestRendererRendersTypedToolResultContents(t *testing.T) {
 	renderer := NewRenderer(&bytes.Buffer{}, &stderr)
 	err := renderer.DeliverAgent(
 		t.Context(),
-		run.Event{
+		agent.Event{
 			RunID:    "",
 			Position: mo.None[int](),
 			Content:  mo.None[model.Content](),
@@ -384,9 +384,9 @@ func TestRendererRendersTypedToolResultContents(t *testing.T) {
 			Preview:  mo.None[model.ToolCallPreview](),
 			ToolCall: mo.None[model.ToolCall](),
 			Progress: mo.None[tool.Progress](),
-			Turn:     mo.None[run.TurnSummary](),
-			Agent:    mo.None[run.AgentSummary](),
-			Type:     run.EventToolResult,
+			Turn:     mo.None[agent.TurnSummary](),
+			Agent:    mo.None[agent.RunSummary](),
+			Type:     agent.EventToolResult,
 			ToolResult: mo.Some(agent.ToolResult{
 				CallID:   "",
 				ToolName: "",
@@ -484,48 +484,13 @@ func TestRendererReportsEmptyExtensionCatalogAsInformation(t *testing.T) {
 	assert.Equal(t, "[info] headless\n[info] extensions: none\n", stderr.String())
 }
 
-// TestRendererPropagatesWriterFailure verifies synchronous delivery has no retry.
-func TestRendererPropagatesWriterFailure(t *testing.T) {
-	t.Parallel()
-
-	closedWriter, err := os.Create(filepath.Join(t.TempDir(), "closed-output"))
-	require.NoError(t, err)
-	require.NoError(t, closedWriter.Close())
-	renderer := NewRenderer(closedWriter, &bytes.Buffer{})
-
-	err = renderer.DeliverAgent(
-		t.Context(),
-		run.Event{
-			Message:    mo.None[model.Response](),
-			Preview:    mo.None[model.ToolCallPreview](),
-			ToolCall:   mo.None[model.ToolCall](),
-			Progress:   mo.None[tool.Progress](),
-			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventTextDelta,
-			RunID:      "run",
-			Position:   mo.Some(0),
-			Content: mo.Some(model.Content{
-				Final:           false,
-				ProviderContext: mo.None[model.ProviderContext](),
-				ToolCall:        mo.None[model.ToolCall](),
-				Kind:            model.ContentText,
-				Text:            mo.Some("text"),
-			}),
-		},
-	)
-
-	require.Error(t, err)
-}
-
 // TestRendererRejectsMissingSelectedPayload verifies malformed events do not render zero values.
 func TestRendererRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
 
 	renderer := NewRenderer(&bytes.Buffer{}, &bytes.Buffer{})
-	err := renderer.DeliverAgent(t.Context(), run.Event{
-		Type:       run.EventToolResult,
+	err := renderer.DeliverAgent(t.Context(), agent.Event{
+		Type:       agent.EventToolResult,
 		RunID:      "run",
 		Position:   mo.None[int](),
 		Content:    mo.None[model.Content](),
@@ -534,8 +499,8 @@ func TestRendererRejectsMissingSelectedPayload(t *testing.T) {
 		ToolCall:   mo.None[model.ToolCall](),
 		Progress:   mo.None[tool.Progress](),
 		ToolResult: mo.None[agent.ToolResult](),
-		Turn:       mo.None[run.TurnSummary](),
-		Agent:      mo.None[run.AgentSummary](),
+		Turn:       mo.None[agent.TurnSummary](),
+		Agent:      mo.None[agent.RunSummary](),
 	})
 
 	require.ErrorContains(t, err, "requires tool result")

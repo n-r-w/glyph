@@ -12,18 +12,24 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
 // emptyLifecycleSource creates one source event with every optional payload absent.
-func emptyLifecycleSource(eventType run.EventType) run.Event {
-	return run.Event{
-		Type: eventType, RunID: "run", Position: mo.None[int](), Content: mo.None[model.Content](),
-		Message: mo.None[model.Response](), Preview: mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](), Progress: mo.None[tool.Progress](),
-		ToolResult: mo.None[agent.ToolResult](), Turn: mo.None[run.TurnSummary](), Agent: mo.None[run.AgentSummary](),
+func emptyLifecycleSource(eventType agent.EventType) agent.Event {
+	return agent.Event{
+		Type:       eventType,
+		RunID:      "run",
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[agent.TurnSummary](),
+		Agent:      mo.None[agent.RunSummary](),
 	}
 }
 
@@ -46,7 +52,7 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 	}{
 		{
 			name:  "agent start",
-			event: lifecycle.Event{Agent: emptyLifecycleSource(run.EventAgentStart), Settled: false},
+			event: lifecycle.Event{Agent: emptyLifecycleSource(agent.EventAgentStart), Settled: false},
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetAgentStart() != nil },
 		},
 		{
@@ -56,12 +62,12 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 		},
 		{
 			name:  "agent settled",
-			event: lifecycle.Event{Agent: emptyLifecycleSource(run.EventAgentEnd), Settled: true},
+			event: lifecycle.Event{Agent: emptyLifecycleSource(agent.EventAgentEnd), Settled: true},
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetAgentSettled() != nil },
 		},
 		{
 			name:  "turn start",
-			event: lifecycle.Event{Agent: emptyLifecycleSource(run.EventTurnStart), Settled: false},
+			event: lifecycle.Event{Agent: emptyLifecycleSource(agent.EventTurnStart), Settled: false},
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetTurnStart() != nil },
 		},
 		{
@@ -71,7 +77,7 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 		},
 		{
 			name:  "message start",
-			event: lifecycle.Event{Agent: emptyLifecycleSource(run.EventMessageStart), Settled: false},
+			event: lifecycle.Event{Agent: emptyLifecycleSource(agent.EventMessageStart), Settled: false},
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetMessageStart() != nil },
 		},
 		{
@@ -86,7 +92,7 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 		},
 		{
 			name:  "tool execution start",
-			event: lifecycle.Event{Agent: lifecycleSourceWithCall(run.EventToolExecutionStart, call), Settled: false},
+			event: lifecycle.Event{Agent: lifecycleSourceWithCall(agent.EventToolExecutionStart, call), Settled: false},
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetToolExecutionStart() != nil },
 		},
 		{
@@ -110,24 +116,24 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 }
 
 // lifecycleSourceWithAgent creates one terminal agent source.
-func lifecycleSourceWithAgent() run.Event {
-	event := emptyLifecycleSource(run.EventAgentEnd)
+func lifecycleSourceWithAgent() agent.Event {
+	event := emptyLifecycleSource(agent.EventAgentEnd)
 	event.Agent = mo.Some(
-		run.AgentSummary{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: mo.None[string]()},
+		agent.RunSummary{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: mo.None[string]()},
 	)
 	return event
 }
 
 // lifecycleSourceWithTurn creates one terminal turn source.
-func lifecycleSourceWithTurn(response model.Response) run.Event {
-	event := emptyLifecycleSource(run.EventTurnEnd)
-	event.Turn = mo.Some(run.TurnSummary{Response: response, ToolResults: nil})
+func lifecycleSourceWithTurn(response model.Response) agent.Event {
+	event := emptyLifecycleSource(agent.EventTurnEnd)
+	event.Turn = mo.Some(agent.TurnSummary{Response: response, ToolResults: nil})
 	return event
 }
 
 // lifecycleSourceWithContent creates one visible message update source.
-func lifecycleSourceWithContent() run.Event {
-	event := emptyLifecycleSource(run.EventTextDelta)
+func lifecycleSourceWithContent() agent.Event {
+	event := emptyLifecycleSource(agent.EventTextDelta)
 	event.Position = mo.Some(0)
 	event.Content = mo.Some(
 		model.Content{
@@ -142,30 +148,30 @@ func lifecycleSourceWithContent() run.Event {
 }
 
 // lifecycleSourceWithMessage creates one terminal message source.
-func lifecycleSourceWithMessage(response model.Response) run.Event {
-	event := emptyLifecycleSource(run.EventMessageEnd)
+func lifecycleSourceWithMessage(response model.Response) agent.Event {
+	event := emptyLifecycleSource(agent.EventMessageEnd)
 	event.Message = mo.Some(response)
 	return event
 }
 
 // lifecycleSourceWithCall creates one tool call source.
-func lifecycleSourceWithCall(eventType run.EventType, call model.ToolCall) run.Event {
+func lifecycleSourceWithCall(eventType agent.EventType, call model.ToolCall) agent.Event {
 	event := emptyLifecycleSource(eventType)
 	event.ToolCall = mo.Some(call)
 	return event
 }
 
 // lifecycleSourceWithProgress creates one tool progress source.
-func lifecycleSourceWithProgress() run.Event {
-	event := emptyLifecycleSource(run.EventToolExecutionUpdate)
+func lifecycleSourceWithProgress() agent.Event {
+	event := emptyLifecycleSource(agent.EventToolExecutionUpdate)
 	event.ToolCall = mo.Some(model.ToolCall{ID: "call", Name: "tool", Arguments: map[string]any{}})
 	event.Progress = mo.Some(tool.Progress{Channel: tool.ProgressChannelStatus, Content: "working"})
 	return event
 }
 
 // lifecycleSourceWithResult creates one terminal tool execution source.
-func lifecycleSourceWithResult(result agent.ToolResult) run.Event {
-	event := emptyLifecycleSource(run.EventToolExecutionEnd)
+func lifecycleSourceWithResult(result agent.ToolResult) agent.Event {
+	event := emptyLifecycleSource(agent.EventToolExecutionEnd)
 	event.ToolResult = mo.Some(result)
 	return event
 }
@@ -187,7 +193,7 @@ func TestMapLifecyclePreservesNestedProviderNeutralContent(t *testing.T) {
 	turn.Turn = mo.Some(turnSummary)
 	progress := lifecycleSourceWithProgress()
 	progress.ToolCall = mo.Some(model.ToolCall{ID: "call", Name: "tool", Arguments: map[string]any{}})
-	preview := emptyLifecycleSource(run.EventToolCallDelta)
+	preview := emptyLifecycleSource(agent.EventToolCallDelta)
 	preview.Position = mo.Some(2)
 	preview.Preview = mo.Some(model.ToolCallPreview{
 		CallID: "call", Name: "tool", Position: 2, Provisional: true,
@@ -221,8 +227,8 @@ func TestMapLifecycleAgentEndUsesStableOutcome(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one completed Agent Core terminal event.
-	event := emptyLifecycleSource(run.EventAgentEnd)
-	event.Agent = mo.Some(run.AgentSummary{
+	event := emptyLifecycleSource(agent.EventAgentEnd)
+	event.Agent = mo.Some(agent.RunSummary{
 		Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: mo.None[string](),
 	})
 
@@ -239,7 +245,7 @@ func TestMapLifecycleMessageUpdateExcludesProviderContext(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one reasoning transition with only provider-owned replay context.
-	event := emptyLifecycleSource(run.EventContentStart)
+	event := emptyLifecycleSource(agent.EventContentStart)
 	event.Position = mo.Some(0)
 	event.Content = mo.Some(model.Content{
 		Kind: model.ContentReasoning, Text: mo.None[string](), Final: false,

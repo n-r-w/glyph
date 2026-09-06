@@ -1,16 +1,18 @@
-//go:build !integration
+//go:build integration
 
-package programmatic
+package output
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
+
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
@@ -30,16 +32,16 @@ func TestPublishConnectionEventsUsesOrderedWriter(t *testing.T) {
 	defer cancel()
 	done := make(chan error, 1)
 	go func() { done <- writer.Run(ctx) }()
-	service := New(t.Context(), nil)
-	service.writerMutex.Lock()
-	service.writer = writer
-	service.writerMutex.Unlock()
-	entry := SessionTreeEntry{
-		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(1, 0).UTC(), Label: "",
-		Kind: SessionTreeEntryExtensionMessage, User: mo.None[model.Message](), Model: mo.None[ModelResponse](),
-		EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[ToolResult](),
-		Extension: mo.None[ExtensionEntry](), BranchSummary: mo.None[BranchSummary](),
-		ExtensionMessage: mo.Some(ExtensionMessage{
+	service := New()
+	unbind := service.BindWriter(writer)
+	defer unbind()
+	entry := session.Entry{
+		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(1, 0).UTC(),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
 			ExtensionID: "example", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityHidden,
 		}),
 	}
@@ -57,8 +59,8 @@ func TestPublishConnectionEventsUsesOrderedWriter(t *testing.T) {
 	require.Equal(t, programmaticv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN, message.GetVisibility())
 
 	// Act by publishing one typed nonterminal extension issue on the same writer.
-	require.NoError(t, service.PublishExtensionIssue(t.Context(), ExtensionIssue{
-		ExtensionID: "example", HandlerID: "observer", Code: "OBSERVER_ERROR", Text: "complete cause",
+	require.NoError(t, service.DeliverExtensionIssue(t.Context(), lifecycle.Issue{
+		ExtensionID: "example", HandlerID: "observer", Code: "OBSERVER_ERROR", Err: errors.New("complete cause"),
 	}))
 	issueResponse := <-delivered
 

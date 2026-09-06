@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
@@ -65,11 +64,18 @@ func TestServiceLifecycleRuntimeFailureDisablesOnlyOwner(t *testing.T) {
 }
 
 // lifecycleEventForRuntime creates the minimal transport-neutral invocation payload.
-func lifecycleEventForRuntime() run.Event {
-	return run.Event{
-		Type: run.EventAgentStart, RunID: "run", Position: mo.None[int](), Content: mo.None[model.Content](),
-		Message: mo.None[model.Response](), Preview: mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](), Progress: mo.None[tool.Progress](),
-		ToolResult: mo.None[agent.ToolResult](), Turn: mo.None[run.TurnSummary](), Agent: mo.None[run.AgentSummary](),
+func lifecycleEventForRuntime() agent.Event {
+	return agent.Event{
+		Type:       agent.EventAgentStart,
+		RunID:      "run",
+		Position:   mo.None[int](),
+		Content:    mo.None[model.Content](),
+		Message:    mo.None[model.Response](),
+		Preview:    mo.None[model.ToolCallPreview](),
+		ToolCall:   mo.None[model.ToolCall](),
+		Progress:   mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](),
+		Turn:       mo.None[agent.TurnSummary](),
+		Agent:      mo.None[agent.RunSummary](),
 	}
 }

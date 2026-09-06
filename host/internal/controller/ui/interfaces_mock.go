@@ -13,7 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	ui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	operation "github.com/n-r-w/glyph/internal/operation"
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -41,16 +42,443 @@ func (m *MockSession) EXPECT() *MockSessionMockRecorder {
 	return m.recorder
 }
 
-// RunOperations mocks base method.
-func (m *MockSession) RunOperations(ctx context.Context, initialization ui.Initialization) error {
+// Activate mocks base method.
+func (m *MockSession) Activate(arg0 context.Context) func() {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunOperations", ctx, initialization)
+	ret := m.ctrl.Call(m, "Activate", arg0)
+	ret0, _ := ret[0].(func())
+	return ret0
+}
+
+// Activate indicates an expected call of Activate.
+func (mr *MockSessionMockRecorder) Activate(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Activate", reflect.TypeOf((*MockSession)(nil).Activate), arg0)
+}
+
+// Initialize mocks base method.
+func (m *MockSession) Initialize(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Initialize", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// RunOperations indicates an expected call of RunOperations.
-func (mr *MockSessionMockRecorder) RunOperations(ctx, initialization any) *gomock.Call {
+// Initialize indicates an expected call of Initialize.
+func (mr *MockSessionMockRecorder) Initialize(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunOperations", reflect.TypeOf((*MockSession)(nil).RunOperations), ctx, initialization)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Initialize", reflect.TypeOf((*MockSession)(nil).Initialize), arg0)
+}
+
+// Prepare mocks base method.
+func (m *MockSession) Prepare(arg0 context.Context, arg1 Command) (operation.Prepared[Frame, Frame], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Prepare", arg0, arg1)
+	ret0, _ := ret[0].(operation.Prepared[Frame, Frame])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Prepare indicates an expected call of Prepare.
+func (mr *MockSessionMockRecorder) Prepare(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockSession)(nil).Prepare), arg0, arg1)
+}
+
+// MockPreparationFailure is a mock of PreparationFailure interface.
+type MockPreparationFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockPreparationFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockPreparationFailureMockRecorder is the mock recorder for MockPreparationFailure.
+type MockPreparationFailureMockRecorder struct {
+	mock *MockPreparationFailure
+}
+
+// NewMockPreparationFailure creates a new mock instance.
+func NewMockPreparationFailure(ctrl *gomock.Controller) *MockPreparationFailure {
+	mock := &MockPreparationFailure{ctrl: ctrl}
+	mock.recorder = &MockPreparationFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPreparationFailure) EXPECT() *MockPreparationFailureMockRecorder {
+	return m.recorder
+}
+
+// Error mocks base method.
+func (m *MockPreparationFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockPreparationFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockPreparationFailure)(nil).Error))
+}
+
+// PreparationCode mocks base method.
+func (m *MockPreparationFailure) PreparationCode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PreparationCode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// PreparationCode indicates an expected call of PreparationCode.
+func (mr *MockPreparationFailureMockRecorder) PreparationCode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PreparationCode", reflect.TypeOf((*MockPreparationFailure)(nil).PreparationCode))
+}
+
+// MockInitializationFailure is a mock of InitializationFailure interface.
+type MockInitializationFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockInitializationFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockInitializationFailureMockRecorder is the mock recorder for MockInitializationFailure.
+type MockInitializationFailureMockRecorder struct {
+	mock *MockInitializationFailure
+}
+
+// NewMockInitializationFailure creates a new mock instance.
+func NewMockInitializationFailure(ctrl *gomock.Controller) *MockInitializationFailure {
+	mock := &MockInitializationFailure{ctrl: ctrl}
+	mock.recorder = &MockInitializationFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockInitializationFailure) EXPECT() *MockInitializationFailureMockRecorder {
+	return m.recorder
+}
+
+// Error mocks base method.
+func (m *MockInitializationFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockInitializationFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockInitializationFailure)(nil).Error))
+}
+
+// InitializationCode mocks base method.
+func (m *MockInitializationFailure) InitializationCode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InitializationCode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// InitializationCode indicates an expected call of InitializationCode.
+func (mr *MockInitializationFailureMockRecorder) InitializationCode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InitializationCode", reflect.TypeOf((*MockInitializationFailure)(nil).InitializationCode))
+}
+
+// MockStreamSource is a mock of StreamSource interface.
+type MockStreamSource struct {
+	ctrl     *gomock.Controller
+	recorder *MockStreamSourceMockRecorder
+	isgomock struct{}
+}
+
+// MockStreamSourceMockRecorder is the mock recorder for MockStreamSource.
+type MockStreamSourceMockRecorder struct {
+	mock *MockStreamSource
+}
+
+// NewMockStreamSource creates a new mock instance.
+func NewMockStreamSource(ctrl *gomock.Controller) *MockStreamSource {
+	mock := &MockStreamSource{ctrl: ctrl}
+	mock.recorder = &MockStreamSourceMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStreamSource) EXPECT() *MockStreamSourceMockRecorder {
+	return m.recorder
+}
+
+// Open mocks base method.
+func (m *MockStreamSource) Open(arg0 context.Context) (Connection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Open", arg0)
+	ret0, _ := ret[0].(Connection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Open indicates an expected call of Open.
+func (mr *MockStreamSourceMockRecorder) Open(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockStreamSource)(nil).Open), arg0)
+}
+
+// MockConnection is a mock of Connection interface.
+type MockConnection struct {
+	ctrl     *gomock.Controller
+	recorder *MockConnectionMockRecorder
+	isgomock struct{}
+}
+
+// MockConnectionMockRecorder is the mock recorder for MockConnection.
+type MockConnectionMockRecorder struct {
+	mock *MockConnection
+}
+
+// NewMockConnection creates a new mock instance.
+func NewMockConnection(ctrl *gomock.Controller) *MockConnection {
+	mock := &MockConnection{ctrl: ctrl}
+	mock.recorder = &MockConnectionMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockConnection) EXPECT() *MockConnectionMockRecorder {
+	return m.recorder
+}
+
+// AttachOutput mocks base method.
+func (m *MockConnection) AttachOutput(arg0 context.Context, arg1 func(error)) (*operation.Writer[*uiv1.OpenRequest], OperationOutput) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AttachOutput", arg0, arg1)
+	ret0, _ := ret[0].(*operation.Writer[*uiv1.OpenRequest])
+	ret1, _ := ret[1].(OperationOutput)
+	return ret0, ret1
+}
+
+// AttachOutput indicates an expected call of AttachOutput.
+func (mr *MockConnectionMockRecorder) AttachOutput(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachOutput", reflect.TypeOf((*MockConnection)(nil).AttachOutput), arg0, arg1)
+}
+
+// ClearOutput mocks base method.
+func (m *MockConnection) ClearOutput() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "ClearOutput")
+}
+
+// ClearOutput indicates an expected call of ClearOutput.
+func (mr *MockConnectionMockRecorder) ClearOutput() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ClearOutput", reflect.TypeOf((*MockConnection)(nil).ClearOutput))
+}
+
+// CloseSend mocks base method.
+func (m *MockConnection) CloseSend() error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloseSend")
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// CloseSend indicates an expected call of CloseSend.
+func (mr *MockConnectionMockRecorder) CloseSend() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseSend", reflect.TypeOf((*MockConnection)(nil).CloseSend))
+}
+
+// Recv mocks base method.
+func (m *MockConnection) Recv() (*uiv1.OpenResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Recv")
+	ret0, _ := ret[0].(*uiv1.OpenResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Recv indicates an expected call of Recv.
+func (mr *MockConnectionMockRecorder) Recv() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recv", reflect.TypeOf((*MockConnection)(nil).Recv))
+}
+
+// MockStartupOutput is a mock of StartupOutput interface.
+type MockStartupOutput struct {
+	ctrl     *gomock.Controller
+	recorder *MockStartupOutputMockRecorder
+	isgomock struct{}
+}
+
+// MockStartupOutputMockRecorder is the mock recorder for MockStartupOutput.
+type MockStartupOutputMockRecorder struct {
+	mock *MockStartupOutput
+}
+
+// NewMockStartupOutput creates a new mock instance.
+func NewMockStartupOutput(ctrl *gomock.Controller) *MockStartupOutput {
+	mock := &MockStartupOutput{ctrl: ctrl}
+	mock.recorder = &MockStartupOutputMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStartupOutput) EXPECT() *MockStartupOutputMockRecorder {
+	return m.recorder
+}
+
+// Reject mocks base method.
+func (m *MockStartupOutput) Reject(id, code string, cause error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reject", id, code, cause)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Reject indicates an expected call of Reject.
+func (mr *MockStartupOutputMockRecorder) Reject(id, code, cause any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reject", reflect.TypeOf((*MockStartupOutput)(nil).Reject), id, code, cause)
+}
+
+// MockOperationOutput is a mock of OperationOutput interface.
+type MockOperationOutput struct {
+	ctrl     *gomock.Controller
+	recorder *MockOperationOutputMockRecorder
+	isgomock struct{}
+}
+
+// MockOperationOutputMockRecorder is the mock recorder for MockOperationOutput.
+type MockOperationOutputMockRecorder struct {
+	mock *MockOperationOutput
+}
+
+// NewMockOperationOutput creates a new mock instance.
+func NewMockOperationOutput(ctrl *gomock.Controller) *MockOperationOutput {
+	mock := &MockOperationOutput{ctrl: ctrl}
+	mock.recorder = &MockOperationOutputMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockOperationOutput) EXPECT() *MockOperationOutputMockRecorder {
+	return m.recorder
+}
+
+// Accepted mocks base method.
+func (m *MockOperationOutput) Accepted(arg0 string) (*operation.Acknowledgement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Accepted", arg0)
+	ret0, _ := ret[0].(*operation.Acknowledgement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Accepted indicates an expected call of Accepted.
+func (mr *MockOperationOutputMockRecorder) Accepted(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Accepted", reflect.TypeOf((*MockOperationOutput)(nil).Accepted), arg0)
+}
+
+// CloseConnection mocks base method.
+func (m *MockOperationOutput) CloseConnection() (*operation.Acknowledgement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CloseConnection")
+	ret0, _ := ret[0].(*operation.Acknowledgement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CloseConnection indicates an expected call of CloseConnection.
+func (mr *MockOperationOutputMockRecorder) CloseConnection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloseConnection", reflect.TypeOf((*MockOperationOutput)(nil).CloseConnection))
+}
+
+// Progress mocks base method.
+func (m *MockOperationOutput) Progress(arg0 string, arg1 Frame) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Progress", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Progress indicates an expected call of Progress.
+func (mr *MockOperationOutputMockRecorder) Progress(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Progress", reflect.TypeOf((*MockOperationOutput)(nil).Progress), arg0, arg1)
+}
+
+// Reject mocks base method.
+func (m *MockOperationOutput) Reject(id, code string, cause error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reject", id, code, cause)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Reject indicates an expected call of Reject.
+func (mr *MockOperationOutputMockRecorder) Reject(id, code, cause any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reject", reflect.TypeOf((*MockOperationOutput)(nil).Reject), id, code, cause)
+}
+
+// Running mocks base method.
+func (m *MockOperationOutput) Running(arg0 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Running", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Running indicates an expected call of Running.
+func (mr *MockOperationOutputMockRecorder) Running(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Running", reflect.TypeOf((*MockOperationOutput)(nil).Running), arg0)
+}
+
+// SetKind mocks base method.
+func (m *MockOperationOutput) SetKind(id, kind string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetKind", id, kind)
+}
+
+// SetKind indicates an expected call of SetKind.
+func (mr *MockOperationOutputMockRecorder) SetKind(id, kind any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetKind", reflect.TypeOf((*MockOperationOutput)(nil).SetKind), id, kind)
+}
+
+// TakeKind mocks base method.
+func (m *MockOperationOutput) TakeKind(id string) string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TakeKind", id)
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// TakeKind indicates an expected call of TakeKind.
+func (mr *MockOperationOutputMockRecorder) TakeKind(id any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TakeKind", reflect.TypeOf((*MockOperationOutput)(nil).TakeKind), id)
+}
+
+// Terminal mocks base method.
+func (m *MockOperationOutput) Terminal(arg0 string, arg1 operation.Outcome[OperationResult]) (*operation.Acknowledgement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Terminal", arg0, arg1)
+	ret0, _ := ret[0].(*operation.Acknowledgement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Terminal indicates an expected call of Terminal.
+func (mr *MockOperationOutputMockRecorder) Terminal(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Terminal", reflect.TypeOf((*MockOperationOutput)(nil).Terminal), arg0, arg1)
 }

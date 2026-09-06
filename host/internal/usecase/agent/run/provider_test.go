@@ -88,8 +88,8 @@ func TestServiceRunStop(t *testing.T) {
 			return emitStream(update, response, nil)
 		},
 	)
-	delivered := make([]Event, 0, 12)
-	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+	delivered := make([]agent.Event, 0, 12)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		delivered = append(delivered, event)
 		return nil
 	}).Times(12)
@@ -116,14 +116,14 @@ func TestServiceRunStop(t *testing.T) {
 	for _, event := range delivered {
 		assert.Equal(t, "run-1", event.RunID)
 	}
-	assert.Equal(t, []EventType{
-		EventAgentStart, EventTurnStart, EventMessageStart,
-		EventContentStart, EventTextDelta, EventContentEnd,
-		EventContentStart, EventTextDelta, EventContentEnd,
-		EventMessageEnd, EventTurnEnd, EventAgentEnd,
+	assert.Equal(t, []agent.EventType{
+		agent.EventAgentStart, agent.EventTurnStart, agent.EventMessageStart,
+		agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,
+		agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,
+		agent.EventMessageEnd, agent.EventTurnEnd, agent.EventAgentEnd,
 	}, eventTypes(delivered))
 	update := delivered[4]
-	expectedUpdate := newEvent(EventTextDelta, "run-1")
+	expectedUpdate := newEvent(agent.EventTextDelta, "run-1")
 	expectedUpdate.Position = mo.Some(0)
 	expectedUpdate.Content = mo.Some(
 		model.Content{

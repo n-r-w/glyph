@@ -1,3 +1,4 @@
+// Package programmatic prepares client application work and public queries.
 package programmatic
 
 import (
@@ -15,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
 )
@@ -29,70 +29,39 @@ type Service struct {
 	coordinator Coordinator
 	// modelCatalog owns configured models and the active selection.
 	modelCatalog ModelCatalog
-	// stateSnapshot returns the current Agent Core state.
-	stateSnapshot func() run.State
+	// stateQuery reports Core activity without exposing its state.
+	stateQuery StateQuery
 	// historySnapshot returns canonical public conversation history.
 	historySnapshot func() []agent.HistoryEntry
 	// sessionControl owns active-session lifecycle operations.
 	sessionControl SessionControl
-	// delivery routes run progress and settlement to active operations.
-	delivery *Delivery
-	// connectionMutex protects late-bound connection publication.
-	connectionMutex sync.RWMutex
-	// connectionPublisher enqueues committed entries on the active controller writer.
-	connectionPublisher func(controller.SessionTreeEntry) (wait func(context.Context) error, err error)
+	// output owns active run correlation and operation reporter binding.
+	output RunOutput
 }
 
 var _ controller.HostSession = (*Service)(nil)
 
-// New creates one Programmatic Control session over the agent-run delivery router.
+// New creates a Programmatic session with run coordination, query, session-control, and output contracts.
 func New(
 	coordinator Coordinator,
 	modelCatalog ModelCatalog,
-	stateSnapshot func() run.State,
+	stateQuery StateQuery,
 	historySnapshot func() []agent.HistoryEntry,
 	sessionControl SessionControl,
-	delivery *Delivery,
+	output RunOutput,
 ) *Service {
 	return &Service{
-		coordinator: coordinator, modelCatalog: modelCatalog, stateSnapshot: stateSnapshot,
+		coordinator: coordinator, modelCatalog: modelCatalog, stateQuery: stateQuery,
 		historySnapshot: historySnapshot,
-		sessionControl:  sessionControl, delivery: delivery, connectionMutex: sync.RWMutex{},
-		connectionPublisher: nil,
+		sessionControl:  sessionControl, output: output,
 	}
-}
-
-// BindConnectionPublisher installs the active controller connection publisher.
-func (s *Service) BindConnectionPublisher(
-	publisher func(controller.SessionTreeEntry) (wait func(context.Context) error, err error),
-) {
-	s.connectionMutex.Lock()
-	defer s.connectionMutex.Unlock()
-	s.connectionPublisher = publisher
-}
-
-// PublishSessionEntry maps and enqueues one committed entry outside an operation lifecycle.
-func (s *Service) PublishSessionEntry(
-	entry session.Entry,
-) (wait func(context.Context) error, err error) {
-	mapped, err := mapSessionTreeEntry(entry, "")
-	if err != nil {
-		return nil, err
-	}
-	s.connectionMutex.RLock()
-	publisher := s.connectionPublisher
-	s.connectionMutex.RUnlock()
-	if publisher == nil {
-		return nil, errors.New("programmatic connection publisher is not bound")
-	}
-	return publisher(mapped)
 }
 
 // handle executes one prepared transport-independent operation.
 func (s *Service) handle(
 	ctx context.Context,
 	command controller.Command,
-) (controller.Response, *activeRun, error) {
+) (controller.Response, *runPrepared, error) {
 	current, rejection, err := s.preflight(command)
 	if err != nil {
 		return controller.Response{}, nil, err
@@ -114,30 +83,13 @@ func (s *Service) handle(
 	if !present {
 		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("user text is required")), nil, nil
 	}
-	runContext, cancel := context.WithCancel(ctx)
-	preparedRun := &activeRun{
-		delivery:      s.delivery,
-		operationID:   command.OperationID,
-		runID:         runID,
-		coordinator:   s.coordinator,
-		userText:      userText,
-		runContext:    runContext,
-		cancel:        cancel,
-		events:        make(chan controller.AgentEvent),
-		streamDone:    make(chan struct{}),
-		done:          make(chan struct{}),
-		state:         operationAccepted,
-		streamStopped: false,
-		err:           nil,
-	}
-	if !s.delivery.reserve(preparedRun) {
-		// Delivery did not accept ownership, so this path must release the prepared run reservation.
+	if !s.output.Reserve(command.OperationID, runID) {
 		s.coordinator.CancelPrepared(runID)
-		cancel()
-		close(preparedRun.events)
-		close(preparedRun.streamDone)
-		close(preparedRun.done)
 		return s.rejection(command, controller.RejectionBusy, errors.New("a run is active")), nil, nil
+	}
+	preparedRun := &runPrepared{
+		coordinator: s.coordinator, output: s.output, operationID: command.OperationID,
+		runID: runID, userText: userText, started: false, release: sync.Once{},
 	}
 
 	return emptyResponse(command.OperationID, controller.ResponseUserRequestCompleted), preparedRun, nil
@@ -147,7 +99,7 @@ func (s *Service) handle(
 func (s *Service) handleImmediate(
 	ctx context.Context,
 	command controller.Command,
-	current *activeRun,
+	current string,
 ) (controller.Response, bool, error) {
 	if response, handled, sessionErr := s.handleSessionImmediate(ctx, command); handled {
 		return response, true, sessionErr
@@ -233,15 +185,15 @@ func (s *Service) handleSessionImmediate(
 }
 
 // runState returns the public run state for one operation query.
-func (s *Service) runState(operationID string, active *activeRun) controller.Response {
-	state := s.stateSnapshot()
+func (s *Service) runState(operationID, active string) controller.Response {
+	state := s.stateQuery.RunActive()
 	publicState := controller.RunStateIdle
-	if active != nil || state.Status == run.StatusRunning || state.Status == run.StatusAwaitingSettlement {
+	if active != "" || state {
 		publicState = controller.RunStateRunning
 	}
 	activeOperationID := mo.None[string]()
-	if publicState == controller.RunStateRunning && active != nil {
-		activeOperationID = mo.Some(active.operationID)
+	if publicState == controller.RunStateRunning && active != "" {
+		activeOperationID = mo.Some(active)
 	}
 	response := emptyResponse(operationID, controller.ResponseRunState)
 	response.State = mo.Some(controller.RunStateResult{
@@ -616,20 +568,20 @@ func sessionStatisticsResponse(operationID string, statistics session.Statistics
 // preflight validates operation identity, payload, and run admission.
 func (s *Service) preflight(
 	command controller.Command,
-) (*activeRun, *controller.Response, error) {
+) (string, *controller.Response, error) {
 	if command.OperationID == "" {
-		return nil, nil, ErrOperationIDRequired
+		return "", nil, ErrOperationIDRequired
 	}
 	if !command.Valid() {
 		response := s.rejection(command, controller.RejectionInvalidArgument, errors.New("invalid command payload"))
-		return nil, &response, nil
+		return "", &response, nil
 	}
-	active := s.delivery.activeSnapshot()
-	if active != nil && active.operationID == command.OperationID {
+	active := s.output.ActiveOperation()
+	if active != "" && active == command.OperationID {
 		response := s.rejection(command, controller.RejectionOperationIDInUse, errors.New("operation ID is active"))
 		return active, &response, nil
 	}
-	if command.Kind == controller.CommandUserRequest && active != nil {
+	if command.Kind == controller.CommandUserRequest && active != "" {
 		response := s.rejection(command, controller.RejectionBusy, errors.New("a run is active"))
 		return active, &response, nil
 	}
@@ -703,7 +655,7 @@ func emptyResponse(operationID string, kind controller.ResponseKind) controller.
 func (s *Service) runPreparationRejected(
 	command controller.Command,
 	prepareErr error,
-) (controller.Response, *activeRun, error) {
+) (controller.Response, *runPrepared, error) {
 	if errors.Is(prepareErr, session.ErrBusy) {
 		return s.rejection(command, controller.RejectionBusy, prepareErr), nil, nil
 	}

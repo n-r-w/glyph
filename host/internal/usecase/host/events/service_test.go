@@ -7,11 +7,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // TestDispatcherAttemptsClientBeforeObservers verifies strict client-first synchronous delivery.
@@ -22,12 +22,12 @@ func TestDispatcherAttemptsClientBeforeObservers(t *testing.T) {
 	controller := gomock.NewController(t)
 	observer := NewMockObserver(controller)
 	order := make([]string, 0, 2)
-	event := emptyCoordinatorEvent(run.EventAgentStart, "run")
-	observer.EXPECT().Observe(t.Context(), event).DoAndReturn(func(context.Context, run.Event) error {
+	event := emptyCoordinatorEvent(agent.EventAgentStart, "run")
+	observer.EXPECT().Observe(t.Context(), event).DoAndReturn(func(context.Context, agent.Event) error {
 		order = append(order, "observer")
 		return nil
 	})
-	dispatcher := NewDispatcher(func(context.Context, run.Event) error {
+	dispatcher := NewDispatcher(func(context.Context, agent.Event) error {
 		order = append(order, "client")
 		return nil
 	}, func(context.Context, string) error { return nil }, observer)
@@ -50,13 +50,13 @@ func TestDispatcherWaitsForObserverBeforeReturning(t *testing.T) {
 	clientDelivered := make(chan struct{})
 	observerStarted := make(chan struct{})
 	releaseObserver := make(chan struct{})
-	event := emptyCoordinatorEvent(run.EventAgentStart, "run")
-	observer.EXPECT().Observe(gomock.Any(), event).DoAndReturn(func(context.Context, run.Event) error {
+	event := emptyCoordinatorEvent(agent.EventAgentStart, "run")
+	observer.EXPECT().Observe(gomock.Any(), event).DoAndReturn(func(context.Context, agent.Event) error {
 		close(observerStarted)
 		<-releaseObserver
 		return nil
 	})
-	dispatcher := NewDispatcher(func(context.Context, run.Event) error {
+	dispatcher := NewDispatcher(func(context.Context, agent.Event) error {
 		close(clientDelivered)
 		return nil
 	}, func(context.Context, string) error { return nil }, observer)
@@ -86,10 +86,10 @@ func TestDispatcherObservesAfterClientFailureAndReturnsCompleteCauses(t *testing
 	observer := NewMockObserver(controller)
 	clientErr := errors.New("client exact cause")
 	observerErr := errors.New("observer exact cause")
-	event := emptyCoordinatorEvent(run.EventAgentStart, "run")
+	event := emptyCoordinatorEvent(agent.EventAgentStart, "run")
 	observer.EXPECT().Observe(t.Context(), event).Return(observerErr)
 	dispatcher := NewDispatcher(
-		func(context.Context, run.Event) error { return clientErr },
+		func(context.Context, agent.Event) error { return clientErr },
 		func(context.Context, string) error {
 			return nil
 		},

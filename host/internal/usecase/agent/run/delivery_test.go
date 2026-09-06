@@ -29,8 +29,8 @@ func TestEndTurnPreservesRunAndDeliveryFailures(t *testing.T) {
 	runErr := errors.New("unique terminal run failure")
 	deliveryErr := errors.New("unique turn delivery failure")
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, event Event) error {
-			assert.Equal(t, EventTurnEnd, event.Type)
+		func(_ context.Context, event agent.Event) error {
+			assert.Equal(t, agent.EventTurnEnd, event.Type)
 			return deliveryErr
 		},
 	)
@@ -61,14 +61,14 @@ func TestServiceRunEventDeliveryFailure(t *testing.T) {
 	events := NewMockEventSink(gomock.NewController(t))
 	deliveryErr := errors.New("Host delivery failed")
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, event Event) error {
-			assert.Equal(t, EventAgentStart, event.Type)
+		func(_ context.Context, event agent.Event) error {
+			assert.Equal(t, agent.EventAgentStart, event.Type)
 			return deliveryErr
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, event Event) error {
-			assert.Equal(t, EventAgentEnd, event.Type)
+		func(_ context.Context, event agent.Event) error {
+			assert.Equal(t, agent.EventAgentEnd, event.Type)
 			return nil
 		},
 	)

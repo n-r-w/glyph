@@ -66,8 +66,8 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	persistErr := fmt.Errorf("%w: /secret/path user-content provider-context", ErrPersistenceUnavailable)
 	store.EXPECT().Snapshot().Return(nil).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistErr)
-	observed := make([]EventType, 0, 2)
-	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+	observed := make([]agent.EventType, 0, 2)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		observed = append(observed, event.Type)
 		return nil
 	}).Times(2)
@@ -79,7 +79,7 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	// Assert the persistence cause reaches the terminal result before settlement.
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
 	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
-	assert.Equal(t, []EventType{EventAgentStart, EventAgentEnd}, observed)
+	assert.Equal(t, []agent.EventType{agent.EventAgentStart, agent.EventAgentEnd}, observed)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
 
@@ -121,18 +121,21 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 			})
 			tools.EXPECT().Tools().Return(nil)
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
-			observed := make([]EventType, 0)
-			var agentEnd AgentSummary
-			events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
-				observed = append(observed, event.Type)
-				if event.Type == EventAgentEnd {
-					agentEnd = event.Agent.OrEmpty()
-				}
-				if test.progressFailure && event.Type == EventToolExecutionUpdate {
-					return progressErr
-				}
-				return nil
-			}).AnyTimes()
+			observed := make([]agent.EventType, 0)
+			var agentEnd agent.RunSummary
+			events.EXPECT().
+				Deliver(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(_ context.Context, event agent.Event) error {
+					observed = append(observed, event.Type)
+					if event.Type == agent.EventAgentEnd {
+						agentEnd = event.Agent.OrEmpty()
+					}
+					if test.progressFailure && event.Type == agent.EventToolExecutionUpdate {
+						return progressErr
+					}
+					return nil
+				}).
+				AnyTimes()
 			tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).DoAndReturn(
 				func(_ context.Context, _ model.ToolCall, handleProgress tool.ProgressHandler) (agent.ToolResult, error) {
 					if test.progressFailure {
@@ -167,8 +170,8 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 			for _, text := range []string{result.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty()} {
 				assert.True(t, strings.HasPrefix(text, ErrPersistenceUnavailable.Error()), text)
 			}
-			assert.NotContains(t, observed, EventToolExecutionEnd)
-			assert.NotContains(t, observed, EventToolResult)
+			assert.NotContains(t, observed, agent.EventToolExecutionEnd)
+			assert.NotContains(t, observed, agent.EventToolResult)
 			require.Len(t, history, 2)
 		})
 	}
@@ -217,8 +220,8 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 			}, nil
 		},
 	)
-	observed := make([]EventType, 0)
-	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+	observed := make([]agent.EventType, 0)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		observed = append(observed, event.Type)
 		return nil
 	}).AnyTimes()
@@ -231,8 +234,8 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
 	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
 	require.True(t, toolCompleted)
-	assert.NotContains(t, observed, EventToolExecutionEnd)
-	assert.NotContains(t, observed, EventToolResult)
+	assert.NotContains(t, observed, agent.EventToolExecutionEnd)
+	assert.NotContains(t, observed, agent.EventToolResult)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
 
@@ -279,8 +282,8 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 			})
 		},
 	)
-	observed := make([]EventType, 0)
-	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+	observed := make([]agent.EventType, 0)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		observed = append(observed, event.Type)
 		return nil
 	}).AnyTimes()
@@ -292,6 +295,6 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	// Assert no terminal model event escapes and the persistence cause reaches the terminal result.
 	require.ErrorIs(t, err, ErrPersistenceUnavailable)
 	assert.Equal(t, persistErr.Error(), result.ErrorMessage.OrEmpty())
-	assert.NotContains(t, observed, EventMessageEnd)
+	assert.NotContains(t, observed, agent.EventMessageEnd)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }

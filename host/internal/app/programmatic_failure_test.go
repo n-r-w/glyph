@@ -9,6 +9,10 @@ import (
 	"path/filepath"
 	"sync/atomic"
 
+	programmaticoutput "github.com/n-r-w/glyph/host/internal/infra/programmatic/output"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -16,16 +20,10 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/status"
 
-	"github.com/samber/mo"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-
 	controllerprogrammatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 )
 
@@ -122,22 +120,15 @@ func (testSuite *ProgrammaticAppSuite) TestClientDisconnectWaitsForActiveWork() 
 // TestServeFailureReturnsNonzero verifies that an independent server failure changes the process result.
 func (testSuite *ProgrammaticAppSuite) TestServeFailureReturnsNonzero() {
 	t := testSuite.T()
-	delivery := hostprogrammatic.NewDelivery()
+	delivery := programmaticoutput.New()
 	coordinator := hostprogrammatic.NewMockCoordinator(gomock.NewController(t))
 	session := hostprogrammatic.New(
 		coordinator, nil,
-		func() agentrun.State {
-			return agentrun.State{
-				Status:          agentrun.StatusIdle,
-				RunID:           mo.None[string](),
-				PartialResponse: mo.None[model.Response](),
-				ToolPreviews:    nil,
-			}
-		},
+		hostprogrammatic.NewMockStateQuery(gomock.NewController(t)),
 		func() []agent.HistoryEntry { return nil },
 		nil, delivery,
 	)
-	controller := controllerprogrammatic.New(t.Context(), session)
+	controller := controllerprogrammatic.New(t.Context(), session, delivery)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))
 	socketService, err := programmaticsocket.New(t.Context(), "")
 	require.NoError(t, err)

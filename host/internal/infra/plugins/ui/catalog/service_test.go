@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
+	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
 // TestDiscoverReturnsSortedExecutableCandidates verifies filtering and shared ID normalization.
@@ -25,11 +25,11 @@ func TestDiscoverReturnsSortedExecutableCandidates(t *testing.T) {
 	require.NoError(t, os.Mkdir(filepath.Join(directory, "directory"), 0o755))
 
 	// Act: discover the complete catalog.
-	discovery, err := New().Discover(t.Context(), domainui.Directory{Path: directory})
+	discovery, err := New().Discover(t.Context(), hostui.Directory{Path: directory})
 
 	// Assert: only executable regular files remain in normalized ID order.
 	require.NoError(t, err)
-	assert.Equal(t, []domainui.Candidate{
+	assert.Equal(t, []hostui.Candidate{
 		{ID: "first-ui", Path: filepath.Join(directory, " first  UI ")},
 		{ID: "second-ui", Path: filepath.Join(directory, "Second_UI")},
 	}, discovery.Candidates)
@@ -39,7 +39,7 @@ func TestDiscoverReturnsSortedExecutableCandidates(t *testing.T) {
 func TestDiscoverRejectsDirectoryFailure(t *testing.T) {
 	t.Parallel()
 
-	_, err := New().Discover(t.Context(), domainui.Directory{Path: filepath.Join(t.TempDir(), "missing")})
+	_, err := New().Discover(t.Context(), hostui.Directory{Path: filepath.Join(t.TempDir(), "missing")})
 
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "read UI directory")
@@ -53,7 +53,7 @@ func TestDiscoverRejectsEmptyNormalizedID(t *testing.T) {
 	writeCandidate(t, directory, "___---", 0o755)
 	writeCandidate(t, directory, "valid", 0o755)
 
-	discovery, err := New().Discover(t.Context(), domainui.Directory{Path: directory})
+	discovery, err := New().Discover(t.Context(), hostui.Directory{Path: directory})
 
 	require.Error(t, err)
 	assert.Empty(t, discovery.Candidates)
@@ -69,7 +69,7 @@ func TestDiscoverRejectsDuplicateNormalizedIDs(t *testing.T) {
 	writeCandidate(t, directory, "duplicate ui", 0o755)
 	writeCandidate(t, directory, "valid", 0o755)
 
-	discovery, err := New().Discover(t.Context(), domainui.Directory{Path: directory})
+	discovery, err := New().Discover(t.Context(), hostui.Directory{Path: directory})
 
 	require.Error(t, err)
 	assert.Empty(t, discovery.Candidates)

@@ -120,7 +120,7 @@ Documents:
 
 ## PHS-07.1: Architecture audit and correction
 
-Status: Planned
+Status: In progress
 
 Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes.
 

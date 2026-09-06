@@ -21,6 +21,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	headlessoutput "github.com/n-r-w/glyph/host/internal/infra/headless"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
@@ -100,7 +101,7 @@ func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
 	}, &stdout, &applicationStderr)
 	require.Error(t, runErr)
 	var cliStderr bytes.Buffer
-	require.NoError(t, headless.NewRenderer(io.Discard, &cliStderr).WriteError(runErr))
+	require.NoError(t, headlessoutput.NewRenderer(io.Discard, &cliStderr).WriteError(runErr))
 	faultWriter.mutex.Lock()
 	faultAttempted := faultWriter.attempted
 	projectDirectory := faultWriter.projectDirectory

@@ -1,18 +1,18 @@
 package ui
 
 import (
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // summaryModeFromUI maps the closed UI contract to internal navigation behavior.
-func summaryModeFromUI(mode domainui.SummaryMode) (sessionnavigation.SummaryMode, bool) {
+func summaryModeFromUI(mode controllerui.SummaryMode) (sessionnavigation.SummaryMode, bool) {
 	switch mode {
-	case domainui.SummaryModeNoSummary:
+	case controllerui.SummaryModeNoSummary:
 		return sessionnavigation.SummaryModeNoSummary, true
-	case domainui.SummaryModeSummarize:
+	case controllerui.SummaryModeSummarize:
 		return sessionnavigation.SummaryModeSummarize, true
-	case domainui.SummaryModeSummarizeWithCustomPrompt:
+	case controllerui.SummaryModeSummarizeWithCustomPrompt:
 		return sessionnavigation.SummaryModeSummarizeWithCustomPrompt, true
 	default:
 		return sessionnavigation.SummaryModeNoSummary, false

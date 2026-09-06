@@ -13,12 +13,130 @@ import (
 	context "context"
 	reflect "reflect"
 
+	programmatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	sessionnavigation "github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
+	operation "github.com/n-r-w/glyph/internal/operation"
 	gomock "go.uber.org/mock/gomock"
 )
+
+// MockStateQuery is a mock of StateQuery interface.
+type MockStateQuery struct {
+	ctrl     *gomock.Controller
+	recorder *MockStateQueryMockRecorder
+	isgomock struct{}
+}
+
+// MockStateQueryMockRecorder is the mock recorder for MockStateQuery.
+type MockStateQueryMockRecorder struct {
+	mock *MockStateQuery
+}
+
+// NewMockStateQuery creates a new mock instance.
+func NewMockStateQuery(ctrl *gomock.Controller) *MockStateQuery {
+	mock := &MockStateQuery{ctrl: ctrl}
+	mock.recorder = &MockStateQueryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockStateQuery) EXPECT() *MockStateQueryMockRecorder {
+	return m.recorder
+}
+
+// RunActive mocks base method.
+func (m *MockStateQuery) RunActive() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RunActive")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// RunActive indicates an expected call of RunActive.
+func (mr *MockStateQueryMockRecorder) RunActive() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunActive", reflect.TypeOf((*MockStateQuery)(nil).RunActive))
+}
+
+// MockRunOutput is a mock of RunOutput interface.
+type MockRunOutput struct {
+	ctrl     *gomock.Controller
+	recorder *MockRunOutputMockRecorder
+	isgomock struct{}
+}
+
+// MockRunOutputMockRecorder is the mock recorder for MockRunOutput.
+type MockRunOutputMockRecorder struct {
+	mock *MockRunOutput
+}
+
+// NewMockRunOutput creates a new mock instance.
+func NewMockRunOutput(ctrl *gomock.Controller) *MockRunOutput {
+	mock := &MockRunOutput{ctrl: ctrl}
+	mock.recorder = &MockRunOutputMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRunOutput) EXPECT() *MockRunOutputMockRecorder {
+	return m.recorder
+}
+
+// ActiveOperation mocks base method.
+func (m *MockRunOutput) ActiveOperation() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActiveOperation")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ActiveOperation indicates an expected call of ActiveOperation.
+func (mr *MockRunOutputMockRecorder) ActiveOperation() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveOperation", reflect.TypeOf((*MockRunOutput)(nil).ActiveOperation))
+}
+
+// BindProgress mocks base method.
+func (m *MockRunOutput) BindProgress(runID string, reporter operation.Reporter[programmatic.OperationProgress]) func() {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BindProgress", runID, reporter)
+	ret0, _ := ret[0].(func())
+	return ret0
+}
+
+// BindProgress indicates an expected call of BindProgress.
+func (mr *MockRunOutputMockRecorder) BindProgress(runID, reporter any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BindProgress", reflect.TypeOf((*MockRunOutput)(nil).BindProgress), runID, reporter)
+}
+
+// CancelPrepared mocks base method.
+func (m *MockRunOutput) CancelPrepared(runID string) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CancelPrepared", runID)
+}
+
+// CancelPrepared indicates an expected call of CancelPrepared.
+func (mr *MockRunOutputMockRecorder) CancelPrepared(runID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelPrepared", reflect.TypeOf((*MockRunOutput)(nil).CancelPrepared), runID)
+}
+
+// Reserve mocks base method.
+func (m *MockRunOutput) Reserve(operationID, runID string) bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Reserve", operationID, runID)
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// Reserve indicates an expected call of Reserve.
+func (mr *MockRunOutputMockRecorder) Reserve(operationID, runID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Reserve", reflect.TypeOf((*MockRunOutput)(nil).Reserve), operationID, runID)
+}
 
 // MockCoordinator is a mock of Coordinator interface.
 type MockCoordinator struct {

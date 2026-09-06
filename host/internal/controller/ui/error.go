@@ -1,4 +1,4 @@
-package runtime
+package ui
 
 import (
 	"context"
@@ -29,8 +29,8 @@ func (e *transportError) Unwrap() error { return e.cause }
 // GRPCStatus exposes the classified status without replacing the source cause.
 func (e *transportError) GRPCStatus() *status.Status { return status.New(e.code, e.cause.Error()) }
 
-// classifyTransportError preserves incoming status and classifies queue overflow.
-func classifyTransportError(err error) error {
+// ClassifyTransportError preserves incoming status and classifies queue overflow.
+func ClassifyTransportError(err error) error {
 	if err == nil {
 		return nil
 	}
@@ -43,7 +43,7 @@ func classifyTransportError(err error) error {
 	if containsOnly(err, context.Canceled) || containsOnly(err, io.EOF) {
 		return err
 	}
-	if _, ok := errors.AsType[*operationError](err); ok {
+	if _, ok := errors.AsType[InitializationFailure](err); ok {
 		return err
 	}
 	return &transportError{code: codes.Unavailable, cause: err}
@@ -72,15 +72,15 @@ func containsOnly(err, expected error) bool {
 	return errors.Is(err, expected)
 }
 
-// withoutTransportClosureLeaves removes only pure cancellation and EOF leaves from joined errors.
-func withoutTransportClosureLeaves(err error) error {
+// WithoutTransportClosureLeaves removes only pure cancellation and EOF leaves from joined errors.
+func WithoutTransportClosureLeaves(err error) error {
 	if err == nil {
 		return nil
 	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
 		remaining := make([]error, 0, len(joined.Unwrap()))
 		for _, cause := range joined.Unwrap() {
-			if filtered := withoutTransportClosureLeaves(cause); filtered != nil {
+			if filtered := WithoutTransportClosureLeaves(cause); filtered != nil {
 				remaining = append(remaining, filtered)
 			}
 		}
@@ -92,7 +92,7 @@ func withoutTransportClosureLeaves(err error) error {
 			!errors.Is(cause, io.EOF) {
 			return err
 		}
-		filtered := withoutTransportClosureLeaves(cause)
+		filtered := WithoutTransportClosureLeaves(cause)
 		if filtered == nil {
 			return nil
 		}
@@ -102,26 +102,4 @@ func withoutTransportClosureLeaves(err error) error {
 		return nil
 	}
 	return err
-}
-
-// operationError preserves one classified UI contract failure.
-type operationError struct {
-	// code is the stable machine-readable category.
-	code string
-	// cause preserves complete error text.
-	cause error
-}
-
-// Error returns complete public error text.
-func (e *operationError) Error() string { return e.cause.Error() }
-
-// Code returns the stable machine-readable category.
-func (e *operationError) Code() string { return e.code }
-
-// Unwrap returns the preserved contract cause.
-func (e *operationError) Unwrap() error { return e.cause }
-
-// newOperationError creates one classified contract error.
-func newOperationError(code, message string) error {
-	return &operationError{code: code, cause: errors.New(message)}
 }

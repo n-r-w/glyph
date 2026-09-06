@@ -9,23 +9,16 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
-	"testing/synctest"
 
 	"github.com/samber/mo"
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
-	"github.com/n-r-w/glyph/internal/testsupport/operationmock"
 )
 
 // TestPreparedOwnerCancellationStopsSummaryNavigation verifies owner cancellation stops blocked summary work without commit.
@@ -48,7 +41,7 @@ func TestPreparedOwnerCancellationStopsSummaryNavigation(t *testing.T) {
 			return sessionnavigation.Result{}, ctx.Err()
 		},
 	)
-	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
 	command := treeCommand("summary-cancel", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("target")
 	command.SummaryMode = controller.SummaryModeSummarize
@@ -87,7 +80,7 @@ func TestPreparedOwnerCancellationStopsStoredSessionMutation(t *testing.T) {
 			return session.Info{}, ctx.Err()
 		},
 	)
-	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
 	command := testProgrammaticCommand("name-cancel", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("new name")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -120,7 +113,7 @@ func TestPreparedDomainCanceledNavigationCompletes(t *testing.T) {
 		Canceled: true, DestinationID: mo.None[string](), ActiveLeafID: mo.None[string](),
 		CreatedSummary: mo.None[session.Entry](), NextInput: mo.None[string](), Issues: nil,
 	}, nil)
-	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
 	command := treeCommand("domain-cancel", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("target")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -154,7 +147,7 @@ func TestPreparedCommittedMutationWinsCancellation(t *testing.T) {
 			return session.Info{}, nil
 		},
 	)
-	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
 	command := testProgrammaticCommand("name-commit", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("committed name")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -195,7 +188,7 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 			)
 		},
 	)
-	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, testRunOutput(t))
 	command := testProgrammaticCommand("name-failure", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("failed name")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -216,119 +209,6 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 	require.Equal(t, operation.TerminalStateFailed, outcome.State())
 	require.Equal(t, controller.FailureCodePersistenceUnavailable, outcome.Code())
 	require.ErrorIs(t, outcome.Err(), domainCause)
-}
-
-// TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin verifies failed progress cannot deadlock owner joining.
-func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T) {
-	t.Parallel()
-
-	synctest.Test(t, func(t *testing.T) {
-		// Arrange a real Agent Core run and an owner delivery that maps progress to a failed connection.
-		mockController := gomock.NewController(t)
-		delivery := NewDelivery()
-		historyStore := agentrun.NewMockHistoryStore(mockController)
-		history := make([]agent.HistoryEntry, 0, 1)
-		historyStore.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry {
-			return append([]agent.HistoryEntry(nil), history...)
-		}).AnyTimes()
-		historyStore.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(_ context.Context, entry agent.HistoryEntry) error {
-				history = append(history, entry.Clone())
-				return nil
-			},
-		).AnyTimes()
-		eventSink := agentrun.NewMockEventSink(mockController)
-		eventSink.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(delivery.DeliverAgent).AnyTimes()
-		provider := agentrun.NewMockModelProvider(mockController)
-		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, _ agentrun.ModelRequest, _ agentrun.StreamHandler) error {
-				<-ctx.Done()
-				return context.Cause(ctx)
-			},
-		).AnyTimes()
-		runtime := agentrun.NewMockModelRuntime(mockController)
-		runtime.EXPECT().Snapshot().Return(agentrun.RequestSnapshot{
-			Model: model.Descriptor{
-				Provider: "provider", Model: "model", Input: nil, ContextWindow: 0, MaxTokens: 0,
-				ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{},
-				Pricing: mo.None[model.Pricing](),
-			},
-			ReasoningChoice: model.ReasoningChoiceHigh,
-			Provider:        provider,
-		}).AnyTimes()
-		tools := agentrun.NewMockToolRuntime(mockController)
-		tools.EXPECT().Tools().Return(nil).AnyTimes()
-		agentCore := agentrun.New(
-			"instructions", runtime, tools, eventSink, historyStore,
-		)
-		coordinator := NewMockCoordinator(mockController)
-		coordinator.EXPECT().PrepareRun().Return("run-progress-failure", nil)
-		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-progress-failure", "request").DoAndReturn(
-			func(ctx context.Context, runID, userText string) (agent.RunOutcome, error) {
-				result, err := agentCore.Run(ctx, agentrun.Request{RunID: runID, UserText: userText})
-				return result.Outcome, err
-			},
-		)
-		service := New(coordinator, nil, idleStateSnapshot, emptyHistorySnapshot, nil, delivery)
-		command := testProgrammaticCommand("progress-failure", controller.CommandUserRequest)
-		command.UserText = mo.Some("request")
-		prepared, err := service.Prepare(t.Context(), command)
-		require.NoError(t, err)
-		preparedRun := prepared.(*runPrepared)
-
-		writer := operation.NewWriter(func(string) error { return nil })
-		writerResult := make(chan error, 1)
-		go func() { writerResult <- writer.Run(t.Context()) }()
-		connectionErr := status.Error(codes.Unavailable, "send failed")
-		ownerDelivery := operationmock.NewMockOperationDelivery[controller.OperationProgress, controller.Response](
-			mockController,
-		)
-		ownerDelivery.EXPECT().Accepted("progress-failure").DoAndReturn(
-			func(string) (*operation.Acknowledgement, error) {
-				return writer.EnqueueAcknowledged("accepted")
-			},
-		)
-		ownerDelivery.EXPECT().Running("progress-failure").Return(nil)
-		ownerDelivery.EXPECT().Progress("progress-failure", gomock.Any()).Return(connectionErr)
-		owner := operation.NewOwner(t.Context(), ownerDelivery)
-		require.NoError(t, owner.Start("progress-failure", func() (
-			operation.Prepared[controller.OperationProgress, controller.Response], error,
-		) {
-			return prepared, nil
-		}))
-
-		// Act until failed progress creates the cleanup and terminal-delivery channel cycle.
-		synctest.Wait()
-
-		// Assert cleanup stopped progress first, then rescue the old behavior so RED exits without a timeout.
-		streamStopped := false
-		select {
-		case <-preparedRun.active.streamDone:
-			streamStopped = true
-		default:
-		}
-		assert.True(t, streamStopped, "cleanup must stop progress delivery before waiting for Agent Core")
-		if !streamStopped {
-			delivery.mutex.Lock()
-			delivery.stopStreamLocked(preparedRun.active)
-			delivery.mutex.Unlock()
-		}
-		owner.Wait()
-		writer.Close()
-		require.NoError(t, <-writerResult)
-
-		// Assert Agent Core finished, Delivery.finish closed events, and the owner kept the connection error.
-		assert.Equal(t, agentrun.StatusAwaitingSettlement, agentCore.State().Status)
-		select {
-		case <-preparedRun.active.done:
-		default:
-			assert.Fail(t, "Agent Core did not reach Delivery.finish")
-		}
-		_, eventsOpen := <-preparedRun.active.events
-		assert.False(t, eventsOpen)
-		assert.ErrorIs(t, owner.Err(), connectionErr)
-		assert.Equal(t, codes.Unavailable, status.Code(owner.Err()))
-	})
 }
 
 // TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure verifies preserved errors win cancellation.
@@ -358,14 +238,15 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 			t.Parallel()
 
 			// Arrange a settled prepared run and a canceled owner context.
-			delivery := NewDelivery()
-			active := newTestActiveRun(t.Context(), delivery, "operation", "run")
-			active.state = operationFinished
-			active.err = test.activeErr
-			close(active.events)
-			close(active.done)
-			defer active.cancel()
-			prepared := &runPrepared{active: active, release: sync.Once{}}
+			coordinator := NewMockCoordinator(gomock.NewController(t))
+			coordinator.EXPECT().
+				RunPrepared(gomock.Any(), "run", "request").
+				Return(agent.RunOutcomeAborted, test.activeErr)
+			prepared := &runPrepared{
+				coordinator: coordinator, output: testRunOutput(t), operationID: "operation", runID: "run",
+				userText: "request", started: false, release: sync.Once{},
+			}
+			defer prepared.Release()
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 

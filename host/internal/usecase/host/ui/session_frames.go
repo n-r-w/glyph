@@ -1,152 +1,85 @@
 package ui
 
 import (
-	"fmt"
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/samber/mo"
 
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
 // sessionListFrame copies the ordered list so later service changes cannot mutate an in-flight frame.
-func sessionListFrame(listed []session.Summary) domainui.Frame {
-	return domainui.Frame{
-		Kind:                   domainui.FrameSessionList,
-		Initialization:         mo.None[domainui.Initialization](),
-		Lifecycle:              mo.None[domainui.Lifecycle](),
-		AuthorizationURL:       mo.None[string](),
-		ErrorCode:              mo.None[string](),
-		Text:                   mo.None[string](),
-		ModelSelection:         mo.None[domainui.ModelSelection](),
+func sessionListFrame(listed []session.Summary) controllerui.Frame {
+	return controllerui.Frame{
+		NextInput: mo.None[string](),
+		Kind:      controllerui.FrameSessionList,
+
+		Lifecycle:        mo.None[controllerui.Lifecycle](),
+		AuthorizationURL: mo.None[string](),
+
+		ModelSelection:         mo.None[model.Selection](),
 		SessionInfo:            mo.None[session.Info](),
 		Sessions:               append([]session.Summary(nil), listed...),
 		SessionEntries:         nil,
 		SessionStatistics:      mo.None[session.Statistics](),
-		SessionTree:            mo.None[domainui.SessionTree](),
-		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
-					SessionTreeEntry](),
-		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
+		SessionTree:            mo.None[controllerui.SessionTree](),
+		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		TreeNavigation:         mo.None[controllerui.TreeNavigationResult](),
 	}
 }
 
 // sessionChangedFrame confirms replacement and carries the complete restored transcript.
-func sessionChangedFrame(info session.Info, entries []session.Entry) (domainui.Frame, error) {
+func sessionChangedFrame(info session.Info, entries []session.Entry) (controllerui.Frame, error) {
 	mapped, err := mapSessionEntries(entries)
 	if err != nil {
-		return domainui.Frame{}, err
+		return controllerui.Frame{}, err
 	}
-	frame := sessionInfoFrame(domainui.FrameSessionChanged, info, mo.None[session.Statistics]())
+	frame := sessionInfoFrame(controllerui.FrameSessionChanged, info, mo.None[session.Statistics]())
 	frame.SessionEntries = mapped
 	return frame, nil
 }
 
-// mapSessionEntries projects public transcript entries and skips model-hidden tree entries.
-func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error) {
-	mappedEntries := make([]domainui.SessionEntry, 0, len(entries))
-	for position := range entries {
-		entry := &entries[position]
-		if user, present := entry.User.Get(); present {
-			mappedEntries = append(mappedEntries, domainui.SessionEntry{
-				ID:            entry.ID,
-				CreatedAt:     entry.CreatedAt,
-				Kind:          domainui.SessionEntryUser,
-				User:          mo.Some(user.Clone()),
-				Model:         mo.None[domainui.ModelResponse](),
-				ToolResult:    mo.None[agent.ToolResult](),
-				BranchSummary: mo.None[domainui.BranchSummary](),
-				ExtensionMessage: mo.None[domainui.
-					ExtensionMessage](),
-			})
-			continue
-		}
-		if response, present := entry.Model.Get(); present {
-			mapped, err := mapModelResponseProjection(response, false)
-			if err != nil {
-				return nil, fmt.Errorf("map restored session entry %d: %w", position, err)
-			}
-			mappedEntries = append(mappedEntries, domainui.SessionEntry{
-				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryModel,
-				User: mo.None[model.Message](), Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
-				BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.None[domainui.
-						ExtensionMessage](),
-			})
-			continue
-		}
-		if result, present := entry.ToolResult.Get(); present {
-			mappedEntries = append(mappedEntries, domainui.SessionEntry{
-				ID:        entry.ID,
-				CreatedAt: entry.CreatedAt,
-				Kind:      domainui.SessionEntryToolResult,
-				User:      mo.None[model.Message](),
-				Model:     mo.None[domainui.ModelResponse](),
-				ToolResult: mo.Some(
-					result.Clone(),
-				),
-				BranchSummary: mo.None[domainui.BranchSummary](),
-				ExtensionMessage: mo.None[domainui.
-					ExtensionMessage](),
-			})
-			continue
-		}
-		if message, present := entry.ExtensionMessage.Get(); present {
-			mappedEntries = append(mappedEntries, domainui.SessionEntry{
-				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryExtensionMessage,
-				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
-				ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.None[domainui.BranchSummary](),
-				ExtensionMessage: mo.Some(domainui.ExtensionMessage{
-					ExtensionID: message.ExtensionID, EntryType: message.EntryType,
-					Text: message.Text, Visibility: message.Visibility,
-				}),
-			})
-			continue
-		}
-		if summary, present := entry.BranchSummary.Get(); present {
-			mappedEntries = append(mappedEntries, domainui.SessionEntry{
-				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryBranchSummary,
-				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
-				ToolResult: mo.None[agent.ToolResult](),
-				BranchSummary: mo.Some(domainui.BranchSummary{
-					Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
-					Source: summary.Source, EstimatedCost: summary.EstimatedCost,
-				}), ExtensionMessage: mo.None[domainui.
-					ExtensionMessage](),
-			})
-		}
-	}
-	return mappedEntries, nil
-}
-
 // sessionInformationFrame composes current metadata and statistics without replacing the transcript.
-func sessionInformationFrame(info session.Info, statistics session.Statistics) domainui.Frame {
-	return sessionInfoFrame(domainui.FrameSessionInformation, info, mo.Some(statistics))
+func sessionInformationFrame(info session.Info, statistics session.Statistics) controllerui.Frame {
+	return sessionInfoFrame(controllerui.FrameSessionInformation, info, mo.Some(statistics))
 }
 
 // sessionInfoFrame builds the selected session information frame kind.
 func sessionInfoFrame(
-	kind domainui.FrameKind,
+	kind controllerui.FrameKind,
 	info session.Info,
 	statistics mo.Option[session.Statistics],
-) domainui.Frame {
-	return domainui.Frame{
-		Kind:                   kind,
-		Initialization:         mo.None[domainui.Initialization](),
-		Lifecycle:              mo.None[domainui.Lifecycle](),
-		AuthorizationURL:       mo.None[string](),
-		ErrorCode:              mo.None[string](),
-		Text:                   mo.None[string](),
-		ModelSelection:         mo.None[domainui.ModelSelection](),
+) controllerui.Frame {
+	return controllerui.Frame{
+		NextInput: mo.None[string](),
+		Kind:      kind,
+
+		Lifecycle:        mo.None[controllerui.Lifecycle](),
+		AuthorizationURL: mo.None[string](),
+
+		ModelSelection:         mo.None[model.Selection](),
 		SessionInfo:            mo.Some(info),
 		Sessions:               nil,
 		SessionEntries:         nil,
 		SessionStatistics:      statistics,
-		SessionTree:            mo.None[domainui.SessionTree](),
-		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
-					SessionTreeEntry](),
-		ExtensionIssue: mo.None[domainui.ExtensionIssue](),
+		SessionTree:            mo.None[controllerui.SessionTree](),
+		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		TreeNavigation:         mo.None[controllerui.TreeNavigationResult](),
 	}
+}
+
+// mapSessionEntries projects the public conversation for a prepared session query.
+func mapSessionEntries(entries []session.Entry) ([]controllerui.SessionEntry, error) {
+	result := make([]controllerui.SessionEntry, 0, len(entries))
+	for position := range entries {
+		projected, present, err := controllerui.ProjectSessionEntry(entries[position], position)
+		if err != nil {
+			return nil, err
+		}
+		if present {
+			result = append(result, projected)
+		}
+	}
+	return result, nil
 }

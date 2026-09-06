@@ -10,13 +10,12 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
 // SelectionRequest contains startup-only selection inputs.
 type SelectionRequest struct {
 	// Directory identifies the effective UI catalog directory.
-	Directory domainui.Directory
+	Directory Directory
 	// ExplicitUI identifies an invocation-selected UI plugin.
 	ExplicitUI string
 	// ActiveUI identifies the preferred configured UI plugin.
@@ -26,27 +25,25 @@ type SelectionRequest struct {
 // SelectionIssue describes one automatically excluded UI candidate.
 type SelectionIssue struct {
 	// Candidate identifies the excluded UI plugin.
-	Candidate domainui.Candidate
+	Candidate Candidate
 	// Err contains the candidate startup failure.
 	Err error
 }
 
 // Warning preserves one excluded candidate as user-visible startup content.
-func (i SelectionIssue) Warning() domainui.StartupContent {
-	return domainui.StartupContent{
-		Severity: domainui.ContentSeverityWarning,
+func (i SelectionIssue) Warning() StartupContent {
+	return StartupContent{
+		Severity: ContentSeverityWarning,
 		Text: fmt.Sprintf(
 			"excluded UI %s at %s: %v", i.Candidate.ID, i.Candidate.Path, i.Err,
 		),
 	}
 }
 
-// Selection contains the single selected connected runtime.
+// Selection contains the selected UI identity and candidate issues, not a process connection.
 type Selection struct {
 	// ID identifies the selected UI plugin.
 	ID string
-	// Runtime owns the connected UI process.
-	Runtime Runtime
 	// Issues contains automatically excluded candidates.
 	Issues []SelectionIssue
 }
@@ -55,13 +52,13 @@ type Selection struct {
 type Selector struct {
 	// catalog discovers executable UI candidates.
 	catalog Catalog
-	// factory starts one selected UI runtime.
-	factory RuntimeFactory
+	// runtime retains each probe and the selected process until its consumer closes it.
+	runtime Runtime
 }
 
 // NewSelector creates a UI selection service.
-func NewSelector(catalog Catalog, factory RuntimeFactory) *Selector {
-	return &Selector{catalog: catalog, factory: factory}
+func NewSelector(catalog Catalog, runtime Runtime) *Selector {
+	return &Selector{catalog: catalog, runtime: runtime}
 }
 
 // Select discovers candidates and applies explicit, active, or sole-compatible priority.
@@ -111,21 +108,22 @@ func (s *Selector) Select(ctx context.Context, request SelectionRequest) (Select
 	return selection, nil
 }
 
-// startSelected starts only the requested candidate and returns its reusable connection.
+// startSelected returns the requested candidate's identity with no issues after starting it.
+// The runtime retains the selected process for the controller to open.
 func (s *Selector) startSelected(
 	ctx context.Context,
-	candidates []domainui.Candidate,
+	candidates []Candidate,
 	selectedID string,
 ) (Selection, error) {
 	for _, candidate := range candidates {
 		if candidate.ID != selectedID {
 			continue
 		}
-		runtime, err := s.factory.Start(ctx, candidate)
+		err := s.runtime.Start(ctx, candidate)
 		if err != nil {
 			return Selection{}, fmt.Errorf("start selected UI %q: %w", selectedID, err)
 		}
-		return Selection{ID: candidate.ID, Runtime: runtime, Issues: nil}, nil
+		return Selection{ID: candidate.ID, Issues: nil}, nil
 	}
 	return Selection{}, fmt.Errorf("selected UI %q is absent", selectedID)
 }
@@ -133,34 +131,34 @@ func (s *Selector) startSelected(
 // selectCompatible probes every candidate, stops every probe, and restarts the sole compatible candidate.
 func (s *Selector) selectCompatible(
 	ctx context.Context,
-	candidates []domainui.Candidate,
+	candidates []Candidate,
 ) (Selection, error) {
-	compatible := make([]domainui.Candidate, 0, len(candidates))
+	compatible := make([]Candidate, 0, len(candidates))
 	issues := make([]SelectionIssue, 0)
 	for _, candidate := range candidates {
-		runtime, err := s.factory.Start(ctx, candidate)
+		err := s.runtime.Start(ctx, candidate)
 		if err != nil {
 			issues = append(issues, SelectionIssue{Candidate: candidate, Err: err})
 			continue
 		}
 		compatible = append(compatible, candidate)
-		runtime.Close()
+		s.runtime.Close()
 	}
 	if len(compatible) == 0 {
-		return Selection{ID: "", Runtime: nil, Issues: issues}, errors.New("no compatible UI plugin is available")
+		return Selection{ID: "", Issues: issues}, errors.New("no compatible UI plugin is available")
 	}
 	if len(compatible) > 1 {
-		return Selection{ID: "", Runtime: nil, Issues: issues}, errors.New(
+		return Selection{ID: "", Issues: issues}, errors.New(
 			"multiple compatible UI plugins are available",
 		)
 	}
 	candidate := compatible[0]
-	runtime, err := s.factory.Start(ctx, candidate)
+	err := s.runtime.Start(ctx, candidate)
 	if err != nil {
 		issues = append(issues, SelectionIssue{Candidate: candidate, Err: err})
-		return Selection{ID: "", Runtime: nil, Issues: issues}, fmt.Errorf(
+		return Selection{ID: "", Issues: issues}, fmt.Errorf(
 			"restart automatically selected UI %q: %w", candidate.ID, err,
 		)
 	}
-	return Selection{ID: candidate.ID, Runtime: runtime, Issues: issues}, nil
+	return Selection{ID: candidate.ID, Issues: issues}, nil
 }

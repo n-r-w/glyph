@@ -3,13 +3,14 @@
 package programmatic
 
 import (
+	"sync"
 	"testing"
+
+	"go.uber.org/mock/gomock"
 
 	"github.com/stretchr/testify/suite"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
-
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 type ServiceSuite struct {
@@ -36,21 +37,47 @@ func TestServiceSuite(t *testing.T) {
 	suite.Run(t, new(ServiceSuite))
 }
 
-// idleStateSnapshot returns a stable idle run-state fixture.
-func idleStateSnapshot() run.State {
-	return run.State{}
+// testStateQuery supplies the activity requested by a Host query scenario.
+func testStateQuery(t *testing.T, active bool) *MockStateQuery {
+	t.Helper()
+	query := NewMockStateQuery(gomock.NewController(t))
+	query.EXPECT().RunActive().Return(active).AnyTimes()
+	return query
+}
+
+// testRunOutput supplies generated output mocks with per-test reservation responses.
+func testRunOutput(t *testing.T) *MockRunOutput {
+	t.Helper()
+	output := NewMockRunOutput(gomock.NewController(t))
+	var mutex sync.Mutex
+	var activeID string
+	var activeRunID string
+	output.EXPECT().ActiveOperation().DoAndReturn(func() string {
+		mutex.Lock()
+		defer mutex.Unlock()
+		return activeID
+	}).AnyTimes()
+	output.EXPECT().Reserve(gomock.Any(), gomock.Any()).DoAndReturn(func(id, runID string) bool {
+		mutex.Lock()
+		defer mutex.Unlock()
+		if activeID != "" {
+			return false
+		}
+		activeID, activeRunID = id, runID
+		return true
+	}).AnyTimes()
+	output.EXPECT().CancelPrepared(gomock.Any()).DoAndReturn(func(runID string) {
+		mutex.Lock()
+		defer mutex.Unlock()
+		if activeRunID == runID {
+			activeID, activeRunID = "", ""
+		}
+	}).AnyTimes()
+	output.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {}).AnyTimes()
+	return output
 }
 
 // emptyHistorySnapshot returns an empty public history fixture.
 func emptyHistorySnapshot() []agent.HistoryEntry {
 	return nil
-}
-
-// cancelActiveTestRun cancels and joins the active test run when present.
-func cancelActiveTestRun(service *Service) error {
-	active := service.delivery.activeSnapshot()
-	if active == nil {
-		return nil
-	}
-	return service.delivery.cancelAndWait(active)
 }

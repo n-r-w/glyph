@@ -6,12 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
 // TestMapFramePreservesSessionInformationAndStatistics verifies Host UI protobuf mapping keeps both payloads.
@@ -36,20 +39,20 @@ func TestMapFramePreservesSessionInformationAndStatistics(t *testing.T) {
 			{Provider: "provider-b", Model: "model-b", EstimatedCost: mo.None[session.EstimatedCost]()},
 		},
 	}
-	frame := domainui.Frame{
-		Kind:              domainui.FrameSessionInformation,
-		Initialization:    mo.None[domainui.Initialization](),
-		Lifecycle:         mo.None[domainui.Lifecycle](),
-		AuthorizationURL:  mo.None[string](),
-		Text:              mo.None[string](),
-		ModelSelection:    mo.None[domainui.ModelSelection](),
+	frame := controllerui.Frame{
+		NextInput: mo.None[string](),
+		Kind:      controllerui.FrameSessionInformation,
+
+		Lifecycle:        mo.None[controllerui.Lifecycle](),
+		AuthorizationURL: mo.None[string](),
+
+		ModelSelection:    mo.None[model.Selection](),
 		SessionInfo:       mo.Some(info),
 		Sessions:          nil,
 		SessionEntries:    nil,
 		SessionStatistics: mo.Some(statistics),
-		SessionTree:       mo.None[domainui.SessionTree](),
-		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
-		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
+		SessionTree:       mo.None[controllerui.SessionTree](),
+		TreeNavigation:    mo.None[controllerui.TreeNavigationResult](),
 	}
 
 	// Act by mapping the Host frame to the UI protobuf request.

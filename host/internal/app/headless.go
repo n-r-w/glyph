@@ -9,6 +9,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/config/codingagent"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	headlessoutput "github.com/n-r-w/glyph/host/internal/infra/headless"
 
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 
@@ -39,7 +40,7 @@ func runHeadlessWithPaths(
 		return fmt.Errorf("load Glyph settings: %w", err)
 	}
 
-	renderer := headless.NewRenderer(stdout, stderr)
+	renderer := headlessoutput.NewRenderer(stdout, stderr)
 	extensionFactory := extensionruntime.NewFactory()
 	extensions := extensionmanager.New(catalog.New(), extensionFactory, renderer.ReportRuntimeFailure)
 	tools := toolservice.New(extensions)
@@ -55,11 +56,7 @@ func runHeadlessWithPaths(
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
 	contexts.BindMessagePublisher(renderer.AcknowledgeSessionEntry)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
-	lifecycleObservers.BindIssueDelivery(
-		lifecycleIssueDeliveryFunc(func(_ context.Context, issue lifecycle.Issue) error {
-			return renderer.DeliverExtensionIssue(issue.ExtensionID, issue.HandlerID, issue.Code, issue.Err)
-		}),
-	)
+	lifecycleObservers.BindIssueDelivery(renderer)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers)
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,

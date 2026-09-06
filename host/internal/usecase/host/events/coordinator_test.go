@@ -20,8 +20,8 @@ import (
 )
 
 // emptyCoordinatorEvent creates one run event without a variant payload.
-func emptyCoordinatorEvent(kind run.EventType, runID string) run.Event {
-	return run.Event{
+func emptyCoordinatorEvent(kind agent.EventType, runID string) agent.Event {
+	return agent.Event{
 		Position:   mo.None[int](),
 		Content:    mo.None[model.Content](),
 		Message:    mo.None[model.Response](),
@@ -29,8 +29,8 @@ func emptyCoordinatorEvent(kind run.EventType, runID string) run.Event {
 		ToolCall:   mo.None[model.ToolCall](),
 		Progress:   mo.None[tool.Progress](),
 		ToolResult: mo.None[agent.ToolResult](),
-		Turn:       mo.None[run.TurnSummary](),
-		Agent:      mo.None[run.AgentSummary](),
+		Turn:       mo.None[agent.TurnSummary](),
+		Agent:      mo.None[agent.RunSummary](),
 		Type:       kind,
 		RunID:      runID,
 	}
@@ -43,7 +43,7 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 	order := make([]string, 0)
 	seenRunIDs := make([]string, 0)
 	dispatcher := NewDispatcher(
-		func(_ context.Context, event run.Event) error {
+		func(_ context.Context, event agent.Event) error {
 			order = append(order, eventName(event.Type))
 			seenRunIDs = append(seenRunIDs, event.RunID)
 			return nil
@@ -60,14 +60,14 @@ func TestCoordinatorOrdersTerminalEventsAndSettlement(t *testing.T) {
 			t,
 			dispatcher.Deliver(
 				ctx,
-				emptyCoordinatorEvent(run.EventAgentStart, request.RunID),
+				emptyCoordinatorEvent(agent.EventAgentStart, request.RunID),
 			),
 		)
 		require.NoError(
 			t,
 			dispatcher.Deliver(
 				ctx,
-				emptyCoordinatorEvent(run.EventAgentEnd, request.RunID),
+				emptyCoordinatorEvent(agent.EventAgentEnd, request.RunID),
 			),
 		)
 		return completedResult(), nil
@@ -121,7 +121,7 @@ func TestCoordinatorSettlesPersistenceFailureWithoutHistory(t *testing.T) {
 			sequence = append(sequence, "settle")
 			return nil
 		},
-		NewDispatcher(func(context.Context, run.Event) error { return nil }, func(context.Context, string) error {
+		NewDispatcher(func(context.Context, agent.Event) error { return nil }, func(context.Context, string) error {
 			settled++
 			sequence = append(sequence, "settled")
 			return nil
@@ -152,8 +152,8 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 	updates := 0
 	settlements := 0
 	dispatcher := NewDispatcher(
-		func(_ context.Context, event run.Event) error {
-			if event.Type == run.EventTextDelta {
+		func(_ context.Context, event agent.Event) error {
+			if event.Type == agent.EventTextDelta {
 				updates++
 				return deliveryErr
 			}
@@ -163,15 +163,15 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 	execute := func(ctx context.Context, request run.Request) (run.Result, error) {
 		updateErr := dispatcher.Deliver(
 			ctx,
-			run.Event{
+			agent.Event{
 				Message:    mo.None[model.Response](),
 				Preview:    mo.None[model.ToolCallPreview](),
 				ToolCall:   mo.None[model.ToolCall](),
 				Progress:   mo.None[tool.Progress](),
 				ToolResult: mo.None[agent.ToolResult](),
-				Turn:       mo.None[run.TurnSummary](),
-				Agent:      mo.None[run.AgentSummary](),
-				Type:       run.EventTextDelta,
+				Turn:       mo.None[agent.TurnSummary](),
+				Agent:      mo.None[agent.RunSummary](),
+				Type:       agent.EventTextDelta,
 				RunID:      request.RunID,
 				Position:   mo.Some(0),
 				Content: mo.Some(model.Content{
@@ -188,7 +188,7 @@ func TestCoordinatorSettlesAfterDeliveryFailures(t *testing.T) {
 			t,
 			dispatcher.Deliver(
 				ctx,
-				emptyCoordinatorEvent(run.EventAgentEnd, request.RunID),
+				emptyCoordinatorEvent(agent.EventAgentEnd, request.RunID),
 			),
 		)
 		return failedResult(), updateErr
@@ -222,7 +222,7 @@ func TestCoordinatorSkipsSettlementWhenRunNeverBegins(t *testing.T) {
 	settledCalls := 0
 	settleCalls := 0
 	dispatcher := NewDispatcher(
-		func(context.Context, run.Event) error { return nil },
+		func(context.Context, agent.Event) error { return nil },
 		func(context.Context, string) error {
 			settledCalls++
 			return nil
@@ -251,7 +251,7 @@ func TestCoordinatorRunsPreparedIdentifier(t *testing.T) {
 
 	allocated := 0
 	dispatcher := NewDispatcher(
-		func(context.Context, run.Event) error { return nil },
+		func(context.Context, agent.Event) error { return nil },
 		func(context.Context, string) error { return nil }, nil)
 	coordinator := newCoordinator(
 		func(_ context.Context, request run.Request) (run.Result, error) {
@@ -333,26 +333,26 @@ func failedResult() run.Result {
 }
 
 // eventName identifies the terminal-order subset used by this test.
-func eventName(eventType run.EventType) string {
+func eventName(eventType agent.EventType) string {
 	switch eventType {
-	case run.EventAgentStart:
+	case agent.EventAgentStart:
 		return "agent_start"
-	case run.EventAgentEnd:
+	case agent.EventAgentEnd:
 		return "agent_end"
-	case run.EventTurnStart,
-		run.EventMessageStart,
-		run.EventContentStart,
-		run.EventTextDelta,
-		run.EventContentEnd,
-		run.EventToolCallStart,
-		run.EventToolCallDelta,
-		run.EventToolCallEnd,
-		run.EventMessageEnd,
-		run.EventToolExecutionStart,
-		run.EventToolExecutionUpdate,
-		run.EventToolExecutionEnd,
-		run.EventToolResult,
-		run.EventTurnEnd:
+	case agent.EventTurnStart,
+		agent.EventMessageStart,
+		agent.EventContentStart,
+		agent.EventTextDelta,
+		agent.EventContentEnd,
+		agent.EventToolCallStart,
+		agent.EventToolCallDelta,
+		agent.EventToolCallEnd,
+		agent.EventMessageEnd,
+		agent.EventToolExecutionStart,
+		agent.EventToolExecutionUpdate,
+		agent.EventToolExecutionEnd,
+		agent.EventToolResult,
+		agent.EventTurnEnd:
 		return "other"
 	}
 	return "other"

@@ -1,4 +1,3 @@
-// Package ui defines provider-neutral Host UI lifecycle models.
 package ui
 
 import (
@@ -10,34 +9,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-)
-
-// ContentSeverity identifies startup content importance.
-type ContentSeverity uint8
-
-const (
-	// ContentSeverityInformation identifies normal startup content.
-	ContentSeverityInformation ContentSeverity = iota + 1
-	// ContentSeverityError identifies one startup failure.
-	ContentSeverityError
-	// ContentSeverityWarning identifies one non-fatal automatic exclusion.
-	ContentSeverityWarning
-)
-
-// Availability identifies whether the Host can accept a user request.
-type Availability uint8
-
-const (
-	// AvailabilityCheckingAuthentication blocks input during the startup credential check.
-	AvailabilityCheckingAuthentication Availability = iota + 1
-	// AvailabilityAuthenticating blocks input during browser OAuth.
-	AvailabilityAuthenticating
-	// AvailabilityAuthenticationFailed permits only explicit authentication retry.
-	AvailabilityAuthenticationFailed
-	// AvailabilityIdle permits one user request.
-	AvailabilityIdle
-	// AvailabilityRunning permits stop or quit but rejects another request.
-	AvailabilityRunning
 )
 
 // LifecycleType identifies one ordered Host or Agent lifecycle transition.
@@ -76,8 +47,6 @@ const (
 	LifecycleTurnEnd
 	// LifecycleAgentEnd finalizes Agent Core work.
 	LifecycleAgentEnd
-	// LifecycleAvailabilityChanged updates task or authentication availability.
-	LifecycleAvailabilityChanged
 )
 
 // ProgressChannel identifies one tool progress fragment channel.
@@ -91,114 +60,6 @@ const (
 	// ProgressChannelStderr carries standard error.
 	ProgressChannelStderr
 )
-
-// Candidate identifies one executable UI plugin candidate.
-type Candidate struct {
-	// ID identifies the UI plugin.
-	ID string
-	// Path is the UI plugin executable path.
-	Path string
-}
-
-// Directory identifies the effective UI catalog directory.
-type Directory struct {
-	// Path is the effective UI catalog directory path.
-	Path string
-}
-
-// Discovery is one complete valid UI catalog.
-type Discovery struct {
-	// Candidates contains valid UI plugins in discovery order.
-	Candidates []Candidate
-}
-
-// StartupContent carries one initialization information or error item.
-type StartupContent struct {
-	// Severity identifies the content importance.
-	Severity ContentSeverity
-	// Text contains the user-visible startup message.
-	Text string
-}
-
-// ExtensionAvailability identifies one available extension and its tool names.
-type ExtensionAvailability struct {
-	// PluginID identifies the available extension.
-	PluginID string
-	// Path is the extension executable path.
-	Path string
-	// Tools lists model-callable tool names.
-	Tools []string
-}
-
-// ReasoningChoice identifies one provider-neutral reasoning choice.
-type ReasoningChoice uint8
-
-const (
-	// ReasoningChoiceOff disables reasoning.
-	ReasoningChoiceOff ReasoningChoice = iota + 1
-	// ReasoningChoiceOn enables reasoning with the provider default.
-	ReasoningChoiceOn
-	// ReasoningChoiceMinimal requests minimal reasoning effort.
-	ReasoningChoiceMinimal
-	// ReasoningChoiceLow requests low reasoning effort.
-	ReasoningChoiceLow
-	// ReasoningChoiceMedium requests medium reasoning effort.
-	ReasoningChoiceMedium
-	// ReasoningChoiceHigh requests high reasoning effort.
-	ReasoningChoiceHigh
-	// ReasoningChoiceXHigh requests extra-high reasoning effort.
-	ReasoningChoiceXHigh
-	// ReasoningChoiceMax requests maximum reasoning effort.
-	ReasoningChoiceMax
-)
-
-// ReasoningCapabilities describes one model reasoning contract.
-type ReasoningCapabilities struct {
-	// Supported reports whether the model supports reasoning controls.
-	Supported bool
-	// Choices lists supported reasoning choices in display order.
-	Choices []ReasoningChoice
-	// Default is the reasoning choice used without an explicit selection.
-	Default ReasoningChoice
-}
-
-// ConfiguredModel identifies one selectable model and its reasoning contract.
-type ConfiguredModel struct {
-	// ProviderID identifies the configured provider.
-	ProviderID string
-	// ModelID identifies the configured provider model.
-	ModelID string
-	// Reasoning describes the model reasoning contract.
-	Reasoning ReasoningCapabilities
-}
-
-// ModelSelection identifies one Host-confirmed active selection.
-type ModelSelection struct {
-	// ProviderID identifies the selected provider.
-	ProviderID string
-	// ModelID identifies the selected provider model.
-	ModelID string
-	// ReasoningChoice identifies the selected reasoning behavior.
-	ReasoningChoice ReasoningChoice
-}
-
-// Initialization is the first Host frame sent to a selected UI.
-type Initialization struct {
-	// SelectedUIID identifies the UI plugin selected by the Host.
-	SelectedUIID string
-	// StartupContent contains ordered startup messages.
-	StartupContent []StartupContent
-	// Extensions lists available extensions and their tools.
-	Extensions []ExtensionAvailability
-	// Availability identifies which user actions the Host accepts.
-	Availability Availability
-	// Models lists selectable configured models.
-	Models []ConfiguredModel
-	// ModelSelection contains the active model selection when configured.
-	ModelSelection mo.Option[ModelSelection]
-	// SessionInfo identifies the empty active session created before UI startup.
-	SessionInfo session.Info
-}
 
 // ModelContentType identifies one model content transition.
 type ModelContentType uint8
@@ -362,24 +223,16 @@ type Lifecycle struct {
 	Outcome mo.Option[string]
 	// ErrorMessage contains a terminal failure message.
 	ErrorMessage mo.Option[string]
-	// Availability contains the updated Host availability.
-	Availability mo.Option[Availability]
 }
 
-// FrameKind identifies one Host-to-UI frame payload.
+// FrameKind identifies one operation progress or completion payload.
 type FrameKind uint8
 
 const (
-	// FrameInitialization carries the one startup state.
-	FrameInitialization FrameKind = iota + 1
 	// FrameLifecycle carries one lifecycle transition.
-	FrameLifecycle
+	FrameLifecycle FrameKind = iota + 1
 	// FrameAuthorization carries one browser OAuth URL.
 	FrameAuthorization
-	// FrameInformation carries one user-visible notification.
-	FrameInformation
-	// FrameError carries one user-visible failure.
-	FrameError
 	// FrameModelSelectionChanged confirms one committed selection.
 	FrameModelSelectionChanged
 	// FrameSessionList carries stored sessions.
@@ -404,28 +257,20 @@ const (
 	FrameSubmitCompleted
 	// FrameAuthenticationCompleted acknowledges completed authentication.
 	FrameAuthenticationCompleted
-	// FrameSessionEntryAdded publishes one committed entry outside an operation lifecycle.
-	FrameSessionEntryAdded
-	// FrameExtensionIssue reports one nonterminal extension observer failure.
-	FrameExtensionIssue
 )
 
-// Frame carries exactly one Host-to-UI payload.
+// Frame carries one operation progress or completion payload.
 type Frame struct {
 	// Kind identifies the frame payload.
 	Kind FrameKind
-	// Initialization contains startup state for an initialization frame.
-	Initialization mo.Option[Initialization]
+	// NextInput contains fork completion's restored user text.
+	NextInput mo.Option[string]
 	// Lifecycle contains one lifecycle transition.
 	Lifecycle mo.Option[Lifecycle]
 	// AuthorizationURL contains the browser OAuth URL.
 	AuthorizationURL mo.Option[string]
-	// Text contains user-visible information or error text.
-	Text mo.Option[string]
-	// ErrorCode contains the stable connection-error category.
-	ErrorCode mo.Option[string]
 	// ModelSelection contains the committed active selection.
-	ModelSelection mo.Option[ModelSelection]
+	ModelSelection mo.Option[model.Selection]
 	// SessionInfo is present on replacement and information frames.
 	SessionInfo mo.Option[session.Info]
 	// Sessions is populated only by a list frame.
@@ -440,22 +285,6 @@ type Frame struct {
 	TreeNavigationProgress mo.Option[TreeNavigationProgress]
 	// TreeNavigation is present only on a navigation result frame.
 	TreeNavigation mo.Option[TreeNavigationResult]
-	// SessionEntryAdded contains one committed entry for a connection event.
-	SessionEntryAdded mo.Option[SessionTreeEntry]
-	// ExtensionIssue contains one nonterminal extension observer failure.
-	ExtensionIssue mo.Option[ExtensionIssue]
-}
-
-// ExtensionIssue contains the public identity and complete cause of one extension observer failure.
-type ExtensionIssue struct {
-	// ExtensionID identifies the owning extension.
-	ExtensionID string
-	// HandlerID identifies the failed observer.
-	HandlerID string
-	// Code is the stable issue code.
-	Code string
-	// Text is the complete observer cause.
-	Text string
 }
 
 // SessionEntry carries one restored public terminal item.

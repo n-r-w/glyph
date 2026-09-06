@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
 )
@@ -42,7 +43,7 @@ func TestSessionTreeMapsExtensionMessageContentAndVisibility(t *testing.T) {
 	// Assert exact text and hidden visibility remain in complete state.
 	require.NoError(t, err)
 	require.Len(t, mapped.Entries, 1)
-	require.Equal(t, domainui.SessionTreeEntryExtensionMessage, mapped.Entries[0].Kind)
+	require.Equal(t, controllerui.SessionTreeEntryExtensionMessage, mapped.Entries[0].Kind)
 	require.Equal(t, "exact text", mapped.Entries[0].ExtensionMessage.MustGet().Text)
 	require.Equal(t, session.ClientVisibilityHidden, mapped.Entries[0].ExtensionMessage.MustGet().Visibility)
 }
@@ -60,11 +61,11 @@ func TestGetSessionTreeOperationReturnsCurrentTree(t *testing.T) {
 	service := treeOperationService(controller, control)
 
 	// Act by running the prepared GetSessionTree command.
-	frame, err := runPreparedCommand(t, service, newCommandForPreparedTest(domainui.CommandGetSessionTree))
+	frame, err := runPreparedCommand(t, service, newCommandForPreparedTest(controllerui.CommandGetSessionTree))
 
 	// Assert the completed frame contains the same empty tree and absent active leaf.
 	require.NoError(t, err)
-	assert.Equal(t, domainui.FrameSessionTree, frame.Kind)
+	assert.Equal(t, controllerui.FrameSessionTree, frame.Kind)
 	mapped := frame.SessionTree.MustGet()
 	assert.Empty(t, mapped.Entries)
 	assert.True(t, mapped.ActiveLeafID.IsNone())
@@ -76,16 +77,16 @@ func TestTreeNavigationPreservesSummaryModeAndCustomFocus(t *testing.T) {
 
 	for _, test := range []struct {
 		name         string
-		publicMode   domainui.SummaryMode
+		publicMode   controllerui.SummaryMode
 		internalMode sessionnavigation.SummaryMode
 		focus        mo.Option[string]
 	}{
 		{
-			name: "built in", publicMode: domainui.SummaryModeSummarize,
+			name: "built in", publicMode: controllerui.SummaryModeSummarize,
 			internalMode: sessionnavigation.SummaryModeSummarize, focus: mo.None[string](),
 		},
 		{
-			name: "custom focus", publicMode: domainui.SummaryModeSummarizeWithCustomPrompt,
+			name: "custom focus", publicMode: controllerui.SummaryModeSummarizeWithCustomPrompt,
 			internalMode: sessionnavigation.SummaryModeSummarizeWithCustomPrompt, focus: mo.Some("focus"),
 		},
 	} {
@@ -114,7 +115,7 @@ func TestTreeNavigationPreservesSummaryModeAndCustomFocus(t *testing.T) {
 					}, nil
 				},
 			)
-			command := newCommandForPreparedTest(domainui.CommandNavigateSessionTree)
+			command := newCommandForPreparedTest(controllerui.CommandNavigateSessionTree)
 			command.TargetEntryID = mo.Some("target")
 			command.SummaryMode = test.publicMode
 			command.CustomFocus = test.focus
@@ -124,8 +125,8 @@ func TestTreeNavigationPreservesSummaryModeAndCustomFocus(t *testing.T) {
 
 			// Assert SessionControl receives the exact options and returns one committed frame.
 			require.NoError(t, err)
-			assert.Equal(t, domainui.FrameSessionTreeNavigation, frame.Kind)
-			assert.Equal(t, domainui.TreeNavigationStatusCommitted, frame.TreeNavigation.MustGet().Status)
+			assert.Equal(t, controllerui.FrameSessionTreeNavigation, frame.Kind)
+			assert.Equal(t, controllerui.TreeNavigationStatusCommitted, frame.TreeNavigation.MustGet().Status)
 		})
 	}
 }
@@ -149,9 +150,9 @@ func TestCanceledTreeNavigationReturnsStateFreeData(t *testing.T) {
 			HandlerID: "handler", Message: "observer failed",
 		}},
 	}, nil)
-	command := newCommandForPreparedTest(domainui.CommandNavigateSessionTree)
+	command := newCommandForPreparedTest(controllerui.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("target")
-	command.SummaryMode = domainui.SummaryModeNoSummary
+	command.SummaryMode = controllerui.SummaryModeNoSummary
 
 	// Act through the prepared Host UI operation.
 	frame, err := runPreparedCommand(t, treeOperationService(controller, control), command)
@@ -159,7 +160,7 @@ func TestCanceledTreeNavigationReturnsStateFreeData(t *testing.T) {
 	// Assert canceled data has no speculative committed state and keeps issues.
 	require.NoError(t, err)
 	result := frame.TreeNavigation.MustGet()
-	assert.Equal(t, domainui.TreeNavigationStatusCanceled, result.Status)
+	assert.Equal(t, controllerui.TreeNavigationStatusCanceled, result.Status)
 	assert.True(t, result.Committed.IsNone())
 	require.Len(t, result.Issues, 1)
 	assert.Equal(t, "observer failed", result.Issues[0].Message)
@@ -171,25 +172,25 @@ func TestTreeNavigationFailureCategoriesPreserveCauses(t *testing.T) {
 
 	// Arrange the closed navigation failure categories accepted by the operation terminal.
 	allowedCodes := []string{
-		failureCodeSession,
-		failureCodeModelUnavailable,
-		failureCodeProviderAuth,
-		failureCodeModelFailed,
-		failureCodeExtensionInvalid,
-		failureCodeExtension,
-		failureCodePersistence,
-		failureCodeInternal,
+		controllerui.FailureCodeSession,
+		controllerui.FailureCodeModelUnavailable,
+		controllerui.FailureCodeProviderAuth,
+		controllerui.FailureCodeModelFailed,
+		controllerui.FailureCodeExtensionInvalid,
+		controllerui.FailureCodeExtension,
+		controllerui.FailureCodePersistence,
+		controllerui.FailureCodeInternal,
 	}
 	for _, test := range []struct {
 		name     string
 		sentinel error
 		code     string
 	}{
-		{name: "model unavailable", sentinel: sessionnavigation.ErrModelUnavailable, code: failureCodeModelUnavailable},
-		{name: "credential unavailable", sentinel: sessionnavigation.ErrCredentialUnavailable, code: failureCodeProviderAuth},
-		{name: "model failed", sentinel: sessionnavigation.ErrModelFailed, code: failureCodeModelFailed},
-		{name: "extension invalid result", sentinel: sessionnavigation.ErrExtensionInvalidResult, code: failureCodeExtensionInvalid},
-		{name: "extension unavailable", sentinel: sessionnavigation.ErrExtensionUnavailable, code: failureCodeExtension},
+		{name: "model unavailable", sentinel: sessionnavigation.ErrModelUnavailable, code: controllerui.FailureCodeModelUnavailable},
+		{name: "credential unavailable", sentinel: sessionnavigation.ErrCredentialUnavailable, code: controllerui.FailureCodeProviderAuth},
+		{name: "model failed", sentinel: sessionnavigation.ErrModelFailed, code: controllerui.FailureCodeModelFailed},
+		{name: "extension invalid result", sentinel: sessionnavigation.ErrExtensionInvalidResult, code: controllerui.FailureCodeExtensionInvalid},
+		{name: "extension unavailable", sentinel: sessionnavigation.ErrExtensionUnavailable, code: controllerui.FailureCodeExtension},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -202,15 +203,15 @@ func TestTreeNavigationFailureCategoriesPreserveCauses(t *testing.T) {
 			control.EXPECT().
 				Navigate(gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(sessionnavigation.Result{}, source)
-			command := newCommandForPreparedTest(domainui.CommandNavigateSessionTree)
+			command := newCommandForPreparedTest(controllerui.CommandNavigateSessionTree)
 			command.TargetEntryID = mo.Some("target")
-			command.SummaryMode = domainui.SummaryModeNoSummary
+			command.SummaryMode = controllerui.SummaryModeNoSummary
 			service := treeOperationService(controller, control)
 			prepared, err := service.Prepare(t.Context(), command)
 			require.NoError(t, err)
 
 			// Act through navigation failure classification.
-			outcome := prepared.Run(t.Context(), operation.Reporter[domainui.Frame]{})
+			outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 			prepared.Release()
 
 			// Assert one failed terminal with an allowed category, complete text, and source identity.
@@ -232,7 +233,7 @@ func TestTreeMutationBusyRejectsBeforeAcceptance(t *testing.T) {
 	control := NewMockSessionControl(controller)
 	control.EXPECT().TryAcquire().Return(func() {}, false)
 	service := treeOperationService(controller, control)
-	command := newCommandForPreparedTest(domainui.CommandSetEntryLabel)
+	command := newCommandForPreparedTest(controllerui.CommandSetEntryLabel)
 	command.TargetEntryID = mo.Some("entry")
 	command.EntryLabel = mo.Some("label")
 
@@ -242,15 +243,17 @@ func TestTreeMutationBusyRejectsBeforeAcceptance(t *testing.T) {
 	var rejection *PreparationError
 	// Assert tree mutations reserve the shared gate.
 	require.ErrorAs(t, err, &rejection)
-	assert.Equal(t, rejectionCodeBusy, rejection.Code())
+	assert.Equal(t, controllerui.RejectionCodeBusy, rejection.PreparationCode())
 }
 
 // treeOperationService creates one session service for tree operation tests.
 func treeOperationService(controller *gomock.Controller, control *MockSessionControl) *Session {
 	service := NewSession(
-		NewMockChannel(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
+		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
 		NewMockModelCatalog(controller), control, func(context.Context) {},
+
+		Initialization{},
 	)
-	service.setOperationAvailability(domainui.AvailabilityIdle)
+	service.setOperationAvailability(AvailabilityIdle)
 	return service
 }

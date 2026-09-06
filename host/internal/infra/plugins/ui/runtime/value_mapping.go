@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/lo"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -12,7 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
@@ -20,42 +21,40 @@ import (
 // mapLifecycleType converts Host lifecycle identity to the public contract.
 //
 //nolint:gocyclo // The flat switch maps the complete lifecycle enum.
-func mapLifecycleType(value domainui.LifecycleType) uiv1.LifecycleType {
+func mapLifecycleType(value controllerui.LifecycleType) uiv1.LifecycleType {
 	switch value {
-	case domainui.LifecycleAgentStart:
+	case controllerui.LifecycleAgentStart:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START
-	case domainui.LifecycleTurnStart:
+	case controllerui.LifecycleTurnStart:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START
-	case domainui.LifecycleMessageStart:
+	case controllerui.LifecycleMessageStart:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START
-	case domainui.LifecycleModelContentStart:
+	case controllerui.LifecycleModelContentStart:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START
-	case domainui.LifecycleModelTextDelta:
+	case controllerui.LifecycleModelTextDelta:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA
-	case domainui.LifecycleModelContentEnd:
+	case controllerui.LifecycleModelContentEnd:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END
-	case domainui.LifecycleToolCallStart:
+	case controllerui.LifecycleToolCallStart:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START
-	case domainui.LifecycleToolCallDelta:
+	case controllerui.LifecycleToolCallDelta:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA
-	case domainui.LifecycleToolCallEnd:
+	case controllerui.LifecycleToolCallEnd:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END
-	case domainui.LifecycleMessageEnd:
+	case controllerui.LifecycleMessageEnd:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END
-	case domainui.LifecycleToolExecutionStart:
+	case controllerui.LifecycleToolExecutionStart:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START
-	case domainui.LifecycleToolExecutionUpdate:
+	case controllerui.LifecycleToolExecutionUpdate:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE
-	case domainui.LifecycleToolExecutionEnd:
+	case controllerui.LifecycleToolExecutionEnd:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END
-	case domainui.LifecycleToolResult:
+	case controllerui.LifecycleToolResult:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT
-	case domainui.LifecycleTurnEnd:
+	case controllerui.LifecycleTurnEnd:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END
-	case domainui.LifecycleAgentEnd:
+	case controllerui.LifecycleAgentEnd:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END
-	case domainui.LifecycleAvailabilityChanged:
-		return uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
 	default:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
 	}
@@ -93,7 +92,7 @@ func mapToolResultContents(contents []tool.ResultContent) []*uiv1.ToolResultCont
 	})
 }
 
-func mapToolCallPreview(preview domainui.ToolCallPreview) (*uiv1.ToolCallPreview, error) {
+func mapToolCallPreview(preview controllerui.ToolCallPreview) (*uiv1.ToolCallPreview, error) {
 	fields := make([]*uiv1.ToolCallPreviewField, 0, len(preview.Fields))
 	for _, field := range preview.Fields {
 		mapped := uiv1.ToolCallPreviewField_builder{
@@ -129,10 +128,10 @@ func mapToolCallPreview(preview domainui.ToolCallPreview) (*uiv1.ToolCallPreview
 	}.Build(), nil
 }
 
-func mapModelResponse(response domainui.ModelResponse) (*uiv1.ModelResponse, error) {
+func mapModelResponse(response controllerui.ModelResponse) (*uiv1.ModelResponse, error) {
 	content, err := lo.MapErr(
 		response.Content,
-		func(item domainui.ModelResponseContent, _ int) (*uiv1.ModelResponseContent, error) {
+		func(item controllerui.ModelResponseContent, _ int) (*uiv1.ModelResponseContent, error) {
 			var call *uiv1.FinalToolCall
 			if value, present := item.ToolCall.Get(); present {
 				arguments, mapErr := structpb.NewStruct(value.Arguments)
@@ -153,12 +152,15 @@ func mapModelResponse(response domainui.ModelResponse) (*uiv1.ModelResponse, err
 	if err != nil {
 		return nil, err
 	}
-	diagnostics := lo.Map(response.Diagnostics, func(diagnostic domainui.ModelDiagnostic, _ int) *uiv1.ModelDiagnostic {
-		return uiv1.ModelDiagnostic_builder{
-			Code:    new(diagnostic.Code),
-			Message: new(diagnostic.Message),
-		}.Build()
-	})
+	diagnostics := lo.Map(
+		response.Diagnostics,
+		func(diagnostic controllerui.ModelDiagnostic, _ int) *uiv1.ModelDiagnostic {
+			return uiv1.ModelDiagnostic_builder{
+				Code:    new(diagnostic.Code),
+				Message: new(diagnostic.Message),
+			}.Build()
+		},
+	)
 	var outcome *string
 	if value, present := response.Outcome.Get(); present {
 		outcome = new(value)
@@ -208,26 +210,26 @@ func mapModelResponse(response domainui.ModelResponse) (*uiv1.ModelResponse, err
 	}.Build(), nil
 }
 
-func mapModelContentKind(value domainui.ModelContentKind) uiv1.ModelContentKind {
+func mapModelContentKind(value controllerui.ModelContentKind) uiv1.ModelContentKind {
 	switch value {
-	case domainui.ModelContentKindText:
+	case controllerui.ModelContentKindText:
 		return uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT
-	case domainui.ModelContentKindRefusal:
+	case controllerui.ModelContentKindRefusal:
 		return uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL
-	case domainui.ModelContentKindReasoning:
+	case controllerui.ModelContentKindReasoning:
 		return uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING
 	default:
 		return uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED
 	}
 }
 
-func mapModelContentType(value domainui.ModelContentType) uiv1.ModelContentType {
+func mapModelContentType(value controllerui.ModelContentType) uiv1.ModelContentType {
 	switch value {
-	case domainui.ModelContentStart:
+	case controllerui.ModelContentStart:
 		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_START
-	case domainui.ModelContentTextDelta:
+	case controllerui.ModelContentTextDelta:
 		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA
-	case domainui.ModelContentEnd:
+	case controllerui.ModelContentEnd:
 		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_END
 	default:
 		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_UNSPECIFIED
@@ -235,6 +237,6 @@ func mapModelContentType(value domainui.ModelContentType) uiv1.ModelContentType 
 }
 
 // mapProgressChannel converts Host tool progress identity to the public contract.
-func mapProgressChannel(value domainui.ProgressChannel) uiv1.ProgressChannel {
+func mapProgressChannel(value controllerui.ProgressChannel) uiv1.ProgressChannel {
 	return uiv1.ProgressChannel(value)
 }

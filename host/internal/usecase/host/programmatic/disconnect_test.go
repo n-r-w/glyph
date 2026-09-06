@@ -16,7 +16,7 @@ func TestPrepareRejectsMissingOperationIdentifier(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a service and command without an operation identifier.
-	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, nil, NewDelivery())
+	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, nil, testRunOutput(t))
 	command := testProgrammaticCommand("", controller.CommandGetRunState)
 
 	// Act by preparing the operation.

@@ -1,10 +1,12 @@
 //go:build !integration
 
-package programmatic
+package output
 
 import (
 	"context"
 	"testing"
+
+	"github.com/n-r-w/glyph/internal/operation"
 
 	"github.com/samber/mo"
 
@@ -14,45 +16,42 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // TestDeliveryStopsCleanlyWhenOwnerStreamEnds verifies owner teardown is not a delivery failure.
 func TestDeliveryStopsCleanlyWhenOwnerStreamEnds(t *testing.T) {
 	t.Parallel()
 
-	delivery := NewDelivery()
-	active := newTestActiveRun(t.Context(), delivery, "operation", "run")
-	defer active.cancel()
-	close(active.streamDone)
+	delivery := New()
+	require.True(t, delivery.Reserve("operation", "run"))
+	delivery.active.failed = true
 
-	require.NoError(t, delivery.emit(t.Context(), active, controller.AgentEvent{}))
+	require.NoError(t, delivery.DeliverAgent(t.Context(), testEmptyRunEvent(agent.EventAgentStart, "run")))
 }
 
 // TestDeliveryReturnsIndependentContextCancellation verifies delivery context ownership remains unchanged.
 func TestDeliveryReturnsIndependentContextCancellation(t *testing.T) {
 	t.Parallel()
 
-	delivery := NewDelivery()
-	active := newTestActiveRun(t.Context(), delivery, "operation", "run")
-	defer active.cancel()
+	delivery := New()
+	require.True(t, delivery.Reserve("operation", "run"))
+	delivery.BindProgress("run", operation.Reporter[controller.OperationProgress]{})
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	require.ErrorIs(t, delivery.emit(ctx, active, controller.AgentEvent{}), context.Canceled)
+	require.ErrorIs(t, delivery.DeliverAgent(ctx, testEmptyRunEvent(agent.EventAgentStart, "run")), context.Canceled)
 }
 
 // TestDeliveryRejectsMismatchedRun verifies events cannot cross active operations.
 func TestDeliveryRejectsMismatchedRun(t *testing.T) {
 	t.Parallel()
 
-	delivery := NewDelivery()
-	active := newTestActiveRun(t.Context(), delivery, "operation", "active")
-	require.True(t, delivery.reserve(active))
+	delivery := New()
+	require.True(t, delivery.Reserve("operation", "active"))
 
 	err := delivery.DeliverAgent(
 		t.Context(),
-		run.Event{
+		agent.Event{
 			Position:   mo.None[int](),
 			Content:    mo.None[model.Content](),
 			Message:    mo.None[model.Response](),
@@ -60,37 +59,35 @@ func TestDeliveryRejectsMismatchedRun(t *testing.T) {
 			ToolCall:   mo.None[model.ToolCall](),
 			Progress:   mo.None[tool.Progress](),
 			ToolResult: mo.None[agent.ToolResult](),
-			Turn:       mo.None[run.TurnSummary](),
-			Agent:      mo.None[run.AgentSummary](),
-			Type:       run.EventAgentStart,
+			Turn:       mo.None[agent.TurnSummary](),
+			Agent:      mo.None[agent.RunSummary](),
+			Type:       agent.EventAgentStart,
 			RunID:      "other",
 		},
 	)
 
 	require.Error(t, err)
-	delivery.finish(active, nil)
 }
 
 // TestDeliveryRejectsMissingSelectedPayload verifies malformed variants do not reach Programmatic Control.
 func TestDeliveryRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
 
-	delivery := NewDelivery()
-	active := newTestActiveRun(t.Context(), delivery, "operation", "run")
-	require.True(t, delivery.reserve(active))
+	delivery := New()
+	require.True(t, delivery.Reserve("operation", "run"))
+	delivery.BindProgress("run", operation.Reporter[controller.OperationProgress]{})
 
-	err := delivery.DeliverAgent(t.Context(), testEmptyRunEvent(run.EventMessageEnd, "run"))
+	err := delivery.DeliverAgent(t.Context(), testEmptyRunEvent(agent.EventMessageEnd, "run"))
 
 	require.ErrorContains(t, err, "requires model response")
-	delivery.finish(active, nil)
 }
 
 // TestMapProgrammaticModelEventRejectsMalformedResponseContent verifies projection errors are returned.
 func TestMapProgrammaticModelEventRejectsMalformedResponseContent(t *testing.T) {
 	t.Parallel()
 
-	event := run.Event{
-		Type:       run.EventMessageEnd,
+	event := agent.Event{
+		Type:       agent.EventMessageEnd,
 		RunID:      "run",
 		Position:   mo.None[int](),
 		Content:    mo.None[model.Content](),
@@ -111,8 +108,8 @@ func TestMapProgrammaticModelEventRejectsMalformedResponseContent(t *testing.T) 
 			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
 			Usage: mo.None[model.Usage](), Diagnostics: nil,
 		}),
-		Turn:  mo.None[run.TurnSummary](),
-		Agent: mo.None[run.AgentSummary](),
+		Turn:  mo.None[agent.TurnSummary](),
+		Agent: mo.None[agent.RunSummary](),
 	}
 
 	err := mapProgrammaticModelEvent(event, &controller.AgentEvent{})

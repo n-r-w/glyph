@@ -76,7 +76,14 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 					}, nil
 				},
 			)
-			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
+			service := New(
+				coordinator,
+				catalog,
+				testStateQuery(t, false),
+				emptyHistorySnapshot,
+				control,
+				testRunOutput(t),
+			)
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
 			command.TargetEntryID = mo.Some("target")
 			command.SummaryMode = test.publicMode

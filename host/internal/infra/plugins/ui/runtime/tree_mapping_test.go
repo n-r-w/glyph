@@ -6,13 +6,14 @@ import (
 	"testing"
 	"time"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
@@ -21,20 +22,28 @@ func TestMapTreeFramePreservesExtensionMessage(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one complete tree frame with a hidden-client extension message.
-	frame := runtimeTreeFrame(domainui.FrameSessionTree)
-	frame.SessionTree = mo.Some(domainui.SessionTree{
-		Entries: []domainui.SessionTreeEntry{{
-			ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(1, 0).UTC(), Label: "",
-			Kind: domainui.SessionTreeEntryExtensionMessage,
-			User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
-			ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[domainui.ExtensionEntry](),
-			BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.Some(domainui.ExtensionMessage{
-				ExtensionID: "example",
-				EntryType:   "note",
-				Text:        "exact text",
-				Visibility:  session.ClientVisibilityHidden,
-			}),
-		}}, ActiveLeafID: mo.Some("message"),
+	frame := runtimeTreeFrame(controllerui.FrameSessionTree)
+	frame.SessionTree = mo.Some(controllerui.SessionTree{
+		Entries: []controllerui.SessionTreeEntry{
+			{
+				ID:            "message",
+				ParentID:      mo.Some("parent"),
+				CreatedAt:     time.Unix(1, 0).UTC(),
+				Label:         "",
+				Kind:          controllerui.SessionTreeEntryExtensionMessage,
+				User:          mo.None[model.Message](),
+				Model:         mo.None[controllerui.ModelResponse](),
+				ToolResult:    mo.None[agent.ToolResult](),
+				Extension:     mo.None[controllerui.ExtensionEntry](),
+				BranchSummary: mo.None[controllerui.BranchSummary](),
+				ExtensionMessage: mo.Some(controllerui.ExtensionMessage{
+					ExtensionID: "example",
+					EntryType:   "note",
+					Text:        "exact text",
+					Visibility:  session.ClientVisibilityHidden,
+				}),
+			},
+		}, ActiveLeafID: mo.Some("message"),
 	})
 
 	// Act by mapping the Host frame to protobuf.
@@ -53,15 +62,15 @@ func TestMapTreeFramePreservesPublicState(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one complete public tree frame.
-	frame := runtimeTreeFrame(domainui.FrameSessionTree)
-	frame.SessionTree = mo.Some(domainui.SessionTree{
-		Entries: []domainui.SessionTreeEntry{{
+	frame := runtimeTreeFrame(controllerui.FrameSessionTree)
+	frame.SessionTree = mo.Some(controllerui.SessionTree{
+		Entries: []controllerui.SessionTreeEntry{{
 			ID: "extension", ParentID: mo.Some("parent"), CreatedAt: time.Unix(1, 0).UTC(), Label: "checkpoint",
-			Kind: domainui.SessionTreeEntryExtension,
-			User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
+			Kind: controllerui.SessionTreeEntryExtension,
+			User: mo.None[model.Message](), Model: mo.None[controllerui.ModelResponse](),
 			ToolResult:    mo.None[agent.ToolResult](),
-			Extension:     mo.Some(domainui.ExtensionEntry{ExtensionID: "example", EntryType: "state"}),
-			BranchSummary: mo.None[domainui.BranchSummary](),
+			Extension:     mo.Some(controllerui.ExtensionEntry{ExtensionID: "example", EntryType: "state"}),
+			BranchSummary: mo.None[controllerui.BranchSummary](),
 		}}, ActiveLeafID: mo.Some("extension"),
 	})
 
@@ -82,16 +91,16 @@ func TestMapCommittedTreeNavigationPreservesExactInput(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one committed navigation frame with exact metadata and next input.
-	frame := runtimeTreeFrame(domainui.FrameSessionTreeNavigation)
-	frame.TreeNavigation = mo.Some(domainui.TreeNavigationResult{
-		Status: domainui.TreeNavigationStatusCommitted,
-		Committed: mo.Some(domainui.TreeNavigationCommitted{
+	frame := runtimeTreeFrame(controllerui.FrameSessionTreeNavigation)
+	frame.TreeNavigation = mo.Some(controllerui.TreeNavigationResult{
+		Status: controllerui.TreeNavigationStatusCommitted,
+		Committed: mo.Some(controllerui.TreeNavigationCommitted{
 			DestinationID: mo.Some("destination"), ActiveLeafID: mo.Some("leaf"),
-			CreatedSummary: mo.None[domainui.SessionTreeEntry](), NextInput: mo.Some("exact input"),
+			CreatedSummary: mo.None[controllerui.SessionTreeEntry](), NextInput: mo.Some("exact input"),
 		}),
-		Issues: []domainui.OperationIssue{
+		Issues: []controllerui.OperationIssue{
 			{
-				Code:        domainui.OperationIssueObserverError,
+				Code:        controllerui.OperationIssueObserverError,
 				ExtensionID: "extension",
 				HandlerID:   "observer",
 				Message:     "safe message",
@@ -121,10 +130,10 @@ func TestMapCanceledTreeNavigationOmitsSpeculativeState(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one canceled frame without committed state.
-	frame := runtimeTreeFrame(domainui.FrameSessionTreeNavigation)
-	frame.TreeNavigation = mo.Some(domainui.TreeNavigationResult{
-		Status:    domainui.TreeNavigationStatusCanceled,
-		Committed: mo.None[domainui.TreeNavigationCommitted](), Issues: nil,
+	frame := runtimeTreeFrame(controllerui.FrameSessionTreeNavigation)
+	frame.TreeNavigation = mo.Some(controllerui.TreeNavigationResult{
+		Status:    controllerui.TreeNavigationStatusCanceled,
+		Committed: mo.None[controllerui.TreeNavigationCommitted](), Issues: nil,
 	})
 
 	// Act by mapping the canceled frame.
@@ -142,23 +151,23 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 	t.Parallel()
 
 	// Arrange tree and navigation frames with explicit empty optional strings.
-	tree := domainui.SessionTree{
-		Entries: []domainui.SessionTreeEntry{{
+	tree := controllerui.SessionTree{
+		Entries: []controllerui.SessionTreeEntry{{
 			ID: "extension", ParentID: mo.Some(""), CreatedAt: time.Unix(1, 0).UTC(), Label: "",
-			Kind: domainui.SessionTreeEntryExtension, User: mo.None[model.Message](),
-			Model: mo.None[domainui.ModelResponse](), ToolResult: mo.None[agent.ToolResult](),
-			Extension:     mo.Some(domainui.ExtensionEntry{ExtensionID: "example", EntryType: "state"}),
-			BranchSummary: mo.None[domainui.BranchSummary](),
+			Kind: controllerui.SessionTreeEntryExtension, User: mo.None[model.Message](),
+			Model: mo.None[controllerui.ModelResponse](), ToolResult: mo.None[agent.ToolResult](),
+			Extension:     mo.Some(controllerui.ExtensionEntry{ExtensionID: "example", EntryType: "state"}),
+			BranchSummary: mo.None[controllerui.BranchSummary](),
 		}}, ActiveLeafID: mo.Some(""),
 	}
-	treeFrame := runtimeTreeFrame(domainui.FrameSessionTree)
+	treeFrame := runtimeTreeFrame(controllerui.FrameSessionTree)
 	treeFrame.SessionTree = mo.Some(tree)
-	navigationFrame := runtimeTreeFrame(domainui.FrameSessionTreeNavigation)
-	navigationFrame.TreeNavigation = mo.Some(domainui.TreeNavigationResult{
-		Status: domainui.TreeNavigationStatusCommitted,
-		Committed: mo.Some(domainui.TreeNavigationCommitted{
+	navigationFrame := runtimeTreeFrame(controllerui.FrameSessionTreeNavigation)
+	navigationFrame.TreeNavigation = mo.Some(controllerui.TreeNavigationResult{
+		Status: controllerui.TreeNavigationStatusCommitted,
+		Committed: mo.Some(controllerui.TreeNavigationCommitted{
 			DestinationID: mo.Some(""), ActiveLeafID: mo.Some(""),
-			CreatedSummary: mo.None[domainui.SessionTreeEntry](), NextInput: mo.Some(""),
+			CreatedSummary: mo.None[controllerui.SessionTreeEntry](), NextInput: mo.Some(""),
 		}),
 		Issues: nil,
 	})
@@ -166,7 +175,7 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 	// Act by mapping explicit empty values and absent values through the public contract.
 	treeWire, treeErr := mapFrame(treeFrame)
 	navigationWire, navigationErr := mapFrame(navigationFrame)
-	absentTree, absentTreeErr := mapSessionTree(domainui.SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()})
+	absentTree, absentTreeErr := mapSessionTree(controllerui.SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()})
 
 	// Assert explicit empty values remain present, absent values remain absent, and fields use proto3 optional presence.
 	require.NoError(t, treeErr)
@@ -184,21 +193,20 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 }
 
 // runtimeTreeFrame initializes all frame fields for one tree result.
-func runtimeTreeFrame(kind domainui.FrameKind) domainui.Frame {
-	return domainui.Frame{
-		Kind:              kind,
-		Initialization:    mo.None[domainui.Initialization](),
-		Lifecycle:         mo.None[domainui.Lifecycle](),
-		AuthorizationURL:  mo.None[string](),
-		Text:              mo.None[string](),
-		ErrorCode:         mo.None[string](),
-		ModelSelection:    mo.None[domainui.ModelSelection](),
+func runtimeTreeFrame(kind controllerui.FrameKind) controllerui.Frame {
+	return controllerui.Frame{
+		NextInput: mo.None[string](),
+		Kind:      kind,
+
+		Lifecycle:        mo.None[controllerui.Lifecycle](),
+		AuthorizationURL: mo.None[string](),
+
+		ModelSelection:    mo.None[model.Selection](),
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
 		SessionEntries:    nil,
 		SessionStatistics: mo.None[session.Statistics](),
-		SessionTree:       mo.None[domainui.SessionTree](),
-		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
-		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
+		SessionTree:       mo.None[controllerui.SessionTree](),
+		TreeNavigation:    mo.None[controllerui.TreeNavigationResult](),
 	}
 }

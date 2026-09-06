@@ -1,17 +1,16 @@
 //go:build !integration
 
-package runtime
+package ui
 
 import (
 	"testing"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/n-r-w/glyph/host/internal/domain/session"
-
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
@@ -30,9 +29,9 @@ func TestMapTreeCommandsPreservesNavigationFields(t *testing.T) {
 
 	// Assert all navigation fields retain their exact semantic values.
 	require.NoError(t, err)
-	require.Equal(t, domainui.CommandNavigateSessionTree, command.Kind)
+	require.Equal(t, CommandNavigateSessionTree, command.Kind)
 	require.Equal(t, mo.Some("entry"), command.TargetEntryID)
-	require.Equal(t, domainui.SummaryModeNoSummary, command.SummaryMode)
+	require.Equal(t, SummaryModeNoSummary, command.SummaryMode)
 	require.True(t, command.CustomFocus.IsNone())
 }
 
@@ -40,33 +39,33 @@ func TestMapTreeCommandsPreservesNavigationFields(t *testing.T) {
 func TestMapSessionCommands(t *testing.T) {
 	t.Parallel()
 
-	// Arrange every UI session response and its expected domain command.
+	// Arrange every UI session response and its expected controller command.
 	tests := []struct {
 		name     string
 		response *uiv1.UIRequest
-		expected domainui.Command
+		expected Command
 	}{
 		{name: "create", response: func() *uiv1.UIRequest {
 			value := new(uiv1.UIRequest)
 			value.SetCreateSession(new(uiv1.CreateSessionCommand))
 			return value
-		}(), expected: newCommand(domainui.CommandCreateSession, mo.None[string]())},
+		}(), expected: newCommand(CommandCreateSession, mo.None[string]())},
 		{name: "list", response: func() *uiv1.UIRequest {
 			value := new(uiv1.UIRequest)
 			value.SetListSessions(new(uiv1.ListSessionsCommand))
 			return value
-		}(), expected: newCommand(domainui.CommandListSessions, mo.None[string]())},
+		}(), expected: newCommand(CommandListSessions, mo.None[string]())},
 		{name: "information", response: func() *uiv1.UIRequest {
 			value := new(uiv1.UIRequest)
 			value.SetGetSessionInfo(new(uiv1.GetSessionInfoCommand))
 			return value
-		}(), expected: newCommand(domainui.CommandGetSessionInfo, mo.None[string]())},
+		}(), expected: newCommand(CommandGetSessionInfo, mo.None[string]())},
 		{name: "resume", response: func() *uiv1.UIRequest {
 			value := new(uiv1.UIRequest)
 			value.SetResumeSession(uiv1.ResumeSessionCommand_builder{SessionId: new("stored")}.Build())
 			return value
-		}(), expected: func() domainui.Command {
-			value := newCommand(domainui.CommandResumeSession, mo.None[string]())
+		}(), expected: func() Command {
+			value := newCommand(CommandResumeSession, mo.None[string]())
 			value.SessionID = mo.Some("stored")
 			return value
 		}()},
@@ -74,8 +73,8 @@ func TestMapSessionCommands(t *testing.T) {
 			value := new(uiv1.UIRequest)
 			value.SetSetSessionName(uiv1.SetSessionNameCommand_builder{Name: new("named")}.Build())
 			return value
-		}(), expected: func() domainui.Command {
-			value := newCommand(domainui.CommandSetSessionName, mo.None[string]())
+		}(), expected: func() Command {
+			value := newCommand(CommandSetSessionName, mo.None[string]())
 			value.SessionName = mo.Some("named")
 			return value
 		}()},
@@ -84,8 +83,8 @@ func TestMapSessionCommands(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange the case-specific UI request and expected domain command.
-			// Act by mapping the protobuf response into a domain command.
+			// Arrange the case-specific UI request and expected controller command.
+			// Act by mapping the protobuf response into a controller command.
 			actual, err := mapCommand(operationResponse(test.response))
 
 			// Assert the command kind and optional session value match the case.
@@ -205,72 +204,25 @@ func runtimeCommandResponses(text string, providerID string, modelID string) []*
 	return responses
 }
 
-// TestMapInitializationPreservesWarningAndExtensionPath verifies public UI diagnostics mapping.
-func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
-	t.Parallel()
-	// Arrange the inline payload for mapInitialization to verify public UI diagnostics mapping.
-
-	// Act by invoking mapInitialization to exercise public UI diagnostics mapping.
-	mapped, err := mapInitialization(domainui.Initialization{
-		SelectedUIID: "ui",
-		StartupContent: []domainui.StartupContent{{
-			Severity: domainui.ContentSeverityWarning,
-			Text:     "excluded optional UI",
-		}},
-		Extensions: []domainui.ExtensionAvailability{{
-			PluginID: "tools",
-			Path:     "/plugins/tools",
-			Tools:    []string{"read"},
-		}},
-		Availability: domainui.AvailabilityCheckingAuthentication,
-		Models: []domainui.ConfiguredModel{{
-			ProviderID: "openrouter",
-			ModelID:    "sonnet",
-			Reasoning:  testUIReasoningCapabilities(domainui.ReasoningChoiceOff, domainui.ReasoningChoiceXHigh),
-		}},
-		ModelSelection: mo.Some(domainui.ModelSelection{
-			ProviderID:      "openrouter",
-			ModelID:         "sonnet",
-			ReasoningChoice: domainui.ReasoningChoiceXHigh,
-		}),
-		SessionInfo: session.Info{},
-	})
-
-	// Assert public UI diagnostics mapping.
-	require.NoError(t, err)
-	require.Len(t, mapped.GetStartupContent(), 1)
-	assert.Equal(t, uiv1.ContentSeverity_CONTENT_SEVERITY_WARNING, mapped.GetStartupContent()[0].GetSeverity())
-	require.Len(t, mapped.GetExtensions(), 1)
-	assert.Equal(t, "/plugins/tools", mapped.GetExtensions()[0].GetPath())
-	require.Len(t, mapped.GetModels(), 1)
-	assert.Equal(t, "openrouter", mapped.GetModels()[0].GetProviderId())
-	assert.Equal(t, []uiv1.ReasoningChoice{
-		uiv1.ReasoningChoice_REASONING_CHOICE_OFF,
-		uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH,
-	}, mapped.GetModels()[0].GetReasoning().GetChoices())
-	assert.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH, mapped.GetModelSelection().GetReasoningChoice())
-}
-
 // TestReasoningMappingsCoverEveryValue verifies the closed UI reasoning contract.
 func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 	t.Parallel()
 	// Arrange values for the reasoning choice mappers to verify the closed UI reasoning contract.
 
 	values := []struct {
-		domain domainui.ReasoningChoice
+		domain model.ReasoningChoice
 		proto  uiv1.ReasoningChoice
 	}{
-		{domainui.ReasoningChoiceOff, uiv1.ReasoningChoice_REASONING_CHOICE_OFF},
-		{domainui.ReasoningChoiceMinimal, uiv1.ReasoningChoice_REASONING_CHOICE_MINIMAL},
-		{domainui.ReasoningChoiceLow, uiv1.ReasoningChoice_REASONING_CHOICE_LOW},
-		{domainui.ReasoningChoiceMedium, uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM},
-		{domainui.ReasoningChoiceHigh, uiv1.ReasoningChoice_REASONING_CHOICE_HIGH},
-		{domainui.ReasoningChoiceXHigh, uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH},
-		{domainui.ReasoningChoiceMax, uiv1.ReasoningChoice_REASONING_CHOICE_MAX},
+		{model.ReasoningChoiceOff, uiv1.ReasoningChoice_REASONING_CHOICE_OFF},
+		{model.ReasoningChoiceMinimal, uiv1.ReasoningChoice_REASONING_CHOICE_MINIMAL},
+		{model.ReasoningChoiceLow, uiv1.ReasoningChoice_REASONING_CHOICE_LOW},
+		{model.ReasoningChoiceMedium, uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM},
+		{model.ReasoningChoiceHigh, uiv1.ReasoningChoice_REASONING_CHOICE_HIGH},
+		{model.ReasoningChoiceXHigh, uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH},
+		{model.ReasoningChoiceMax, uiv1.ReasoningChoice_REASONING_CHOICE_MAX},
 	}
 	for _, value := range values {
 		// Act by invoking the reasoning choice mappers to exercise the closed UI reasoning contract.
-		assert.Equal(t, value.proto, mapReasoningChoice(value.domain))
 		mapped, err := mapReasoningChoiceFromProto(value.proto)
 		// Assert the closed UI reasoning contract.
 		require.NoError(t, err)

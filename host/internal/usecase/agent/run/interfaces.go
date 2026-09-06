@@ -400,5 +400,5 @@ type ToolRuntime interface {
 
 // EventSink receives Agent Core lifecycle events synchronously.
 type EventSink interface {
-	Deliver(ctx context.Context, event Event) error
+	Deliver(ctx context.Context, event agent.Event) error
 }

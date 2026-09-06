@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
@@ -132,7 +132,7 @@ func (s *Service) CommitLifecycleHandlers(registrations []startup.AcceptedRegist
 }
 
 // Observe delivers one Agent Core event to matching observers.
-func (s *Service) Observe(ctx context.Context, event run.Event) error {
+func (s *Service) Observe(ctx context.Context, event agent.Event) error {
 	kind, observed := eventKind(event.Type)
 	if !observed {
 		return nil
@@ -239,30 +239,30 @@ func lifecycleKind(kind startup.RawHandlerKind) (Kind, bool) {
 }
 
 // eventKind maps source events to the approved lifecycle groups.
-func eventKind(eventType run.EventType) (Kind, bool) {
+func eventKind(eventType agent.EventType) (Kind, bool) {
 	switch eventType {
-	case run.EventAgentStart:
+	case agent.EventAgentStart:
 		return KindAgentStart, true
-	case run.EventAgentEnd:
+	case agent.EventAgentEnd:
 		return KindAgentEnd, true
-	case run.EventTurnStart:
+	case agent.EventTurnStart:
 		return KindTurnStart, true
-	case run.EventTurnEnd:
+	case agent.EventTurnEnd:
 		return KindTurnEnd, true
-	case run.EventMessageStart:
+	case agent.EventMessageStart:
 		return KindMessageStart, true
-	case run.EventContentStart, run.EventTextDelta, run.EventContentEnd,
-		run.EventToolCallStart, run.EventToolCallDelta, run.EventToolCallEnd:
+	case agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,
+		agent.EventToolCallStart, agent.EventToolCallDelta, agent.EventToolCallEnd:
 		return KindMessageUpdate, true
-	case run.EventMessageEnd:
+	case agent.EventMessageEnd:
 		return KindMessageEnd, true
-	case run.EventToolExecutionStart:
+	case agent.EventToolExecutionStart:
 		return KindToolExecutionStart, true
-	case run.EventToolExecutionUpdate:
+	case agent.EventToolExecutionUpdate:
 		return KindToolExecutionUpdate, true
-	case run.EventToolExecutionEnd:
+	case agent.EventToolExecutionEnd:
 		return KindToolExecutionEnd, true
-	case run.EventToolResult:
+	case agent.EventToolResult:
 		return 0, false
 	default:
 		return 0, false

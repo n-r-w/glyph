@@ -78,7 +78,7 @@ func (s *Service) Run(ctx context.Context, request Request) (Result, error) {
 	if beginErr != nil {
 		return Result{}, beginErr
 	}
-	deliveryErr := s.deliver(ctx, newEvent(EventAgentStart, request.RunID))
+	deliveryErr := s.deliver(ctx, newEvent(agent.EventAgentStart, request.RunID))
 	if deliveryErr != nil {
 		return s.finish(
 			ctx, request.RunID, startIndex, agent.RunOutcomeFailed, mo.Some(deliveryErr.Error()), deliveryErr,
@@ -166,14 +166,14 @@ func (s *Service) begin(request Request) (int, error) {
 //
 //nolint:gocyclo // The branches preserve explicit stream, delivery, and terminal failure paths.
 func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, error) {
-	if err := s.deliver(ctx, newEvent(EventTurnStart, runID)); err != nil {
+	if err := s.deliver(ctx, newEvent(agent.EventTurnStart, runID)); err != nil {
 		return Result{
 			Outcome:      agent.RunOutcomeFailed,
 			AddedHistory: nil,
 			ErrorMessage: mo.Some(err.Error()),
 		}, false, err
 	}
-	if err := s.deliver(ctx, newEvent(EventMessageStart, runID)); err != nil {
+	if err := s.deliver(ctx, newEvent(agent.EventMessageStart, runID)); err != nil {
 		return Result{
 			Outcome:      agent.RunOutcomeFailed,
 			AddedHistory: nil,
@@ -208,22 +208,22 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 			response = terminal.Clone()
 			return nil
 		}
-		event := newEvent(EventContentStart, runID)
+		event := newEvent(agent.EventContentStart, runID)
 		switch streamEvent.Kind {
 		case StreamEventContentStart:
-			event.Type = EventContentStart
+			event.Type = agent.EventContentStart
 		case StreamEventTextDelta:
-			event.Type = EventTextDelta
+			event.Type = agent.EventTextDelta
 		case StreamEventContentEnd:
-			event.Type = EventContentEnd
+			event.Type = agent.EventContentEnd
 		case StreamEventToolCallStart:
-			event.Type = EventToolCallStart
+			event.Type = agent.EventToolCallStart
 			event.Preview = streamEvent.Preview
 		case StreamEventToolCallDelta:
-			event.Type = EventToolCallDelta
+			event.Type = agent.EventToolCallDelta
 			event.Preview = streamEvent.Preview
 		case StreamEventToolCallEnd:
-			event.Type = EventToolCallEnd
+			event.Type = agent.EventToolCallEnd
 			event.ToolCall = streamEvent.ToolCall
 		case StreamEventDone, StreamEventError:
 			return errors.New("terminal model stream event reached lifecycle delivery")
@@ -273,7 +273,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (Result, bool, erro
 			ErrorMessage: mo.Some(err.Error()),
 		}, false, err
 	}
-	messageEnd := newEvent(EventMessageEnd, runID)
+	messageEnd := newEvent(agent.EventMessageEnd, runID)
 	messageEnd.Message = mo.Some(response)
 	if err := s.deliver(context.WithoutCancel(ctx), messageEnd); err != nil {
 		return Result{
@@ -365,11 +365,11 @@ func (s *Service) finalizeProviderError(
 			ErrorMessage: mo.Some(resultMessage),
 		}, false, combinedErr
 	}
-	messageEnd := newEvent(EventMessageEnd, runID)
+	messageEnd := newEvent(agent.EventMessageEnd, runID)
 	messageEnd.Message = mo.Some(response)
 	deliveryErr := s.deliver(terminalContext, messageEnd)
-	turn := TurnSummary{Response: response, ToolResults: nil}
-	turnEnd := newEvent(EventTurnEnd, runID)
+	turn := agent.TurnSummary{Response: response, ToolResults: nil}
+	turnEnd := newEvent(agent.EventTurnEnd, runID)
 	turnEnd.Turn = mo.Some(turn)
 	deliveryErr = errors.Join(deliveryErr, s.deliver(terminalContext, turnEnd))
 	combinedErr := errors.Join(providerErr, deliveryErr)
@@ -476,7 +476,7 @@ func (s *Service) applyOutcome(
 				}, false, err
 			}
 			results = append(results, result)
-			toolResult := newEvent(EventToolResult, runID)
+			toolResult := newEvent(agent.EventToolResult, runID)
 			toolResult.ToolResult = mo.Some(result)
 			if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
 				return Result{
@@ -523,7 +523,7 @@ func (s *Service) executeCalls(
 		if err := ctx.Err(); err != nil {
 			return s.endTurn(ctx, runID, response, results, agent.RunOutcomeAborted, abortedModelMessage, err)
 		}
-		toolStart := newEvent(EventToolExecutionStart, runID)
+		toolStart := newEvent(agent.EventToolExecutionStart, runID)
 		toolStart.ToolCall = mo.Some(call)
 		if err := s.deliver(ctx, toolStart); err != nil {
 			return Result{
@@ -534,7 +534,7 @@ func (s *Service) executeCalls(
 		}
 		var progressDeliveryErr error
 		result, executeErr := s.tools.Execute(ctx, call, func(progress tool.Progress) error {
-			toolUpdate := newEvent(EventToolExecutionUpdate, runID)
+			toolUpdate := newEvent(agent.EventToolExecutionUpdate, runID)
 			toolUpdate.ToolCall = mo.Some(call)
 			toolUpdate.Progress = mo.Some(progress)
 			deliveryErr := s.deliver(ctx, toolUpdate)
@@ -559,7 +559,7 @@ func (s *Service) executeCalls(
 			}, false, combinedErr
 		}
 		results = append(results, result)
-		toolEnd := newEvent(EventToolExecutionEnd, runID)
+		toolEnd := newEvent(agent.EventToolExecutionEnd, runID)
 		toolEnd.ToolCall = mo.Some(call)
 		toolEnd.ToolResult = mo.Some(result)
 		if err := s.deliver(context.WithoutCancel(ctx), toolEnd); err != nil {
@@ -569,7 +569,7 @@ func (s *Service) executeCalls(
 				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
 			}, false, combinedErr
 		}
-		toolResult := newEvent(EventToolResult, runID)
+		toolResult := newEvent(agent.EventToolResult, runID)
 		toolResult.ToolResult = mo.Some(result)
 		if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
 			combinedErr := errors.Join(priorErr, err)
@@ -625,8 +625,8 @@ func (s *Service) endTurn(
 	errorMessage string,
 	runErr error,
 ) (Result, bool, error) {
-	turn := TurnSummary{Response: response.Clone(), ToolResults: slices.Clone(results)}
-	turnEnd := newEvent(EventTurnEnd, runID)
+	turn := agent.TurnSummary{Response: response.Clone(), ToolResults: slices.Clone(results)}
+	turnEnd := newEvent(agent.EventTurnEnd, runID)
 	turnEnd.Turn = mo.Some(turn)
 	if err := s.deliver(context.WithoutCancel(ctx), turnEnd); err != nil {
 		combinedErr := errors.Join(runErr, err)
@@ -663,8 +663,8 @@ func (s *Service) finish(
 	}
 	s.mutex.Unlock()
 	result := Result{Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage}
-	agentEnd := newEvent(EventAgentEnd, runID)
-	agentEnd.Agent = mo.Some(AgentSummary{
+	agentEnd := newEvent(agent.EventAgentEnd, runID)
+	agentEnd.Agent = mo.Some(agent.RunSummary{
 		Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage,
 	})
 	eventErr := s.deliver(context.WithoutCancel(ctx), agentEnd)
@@ -728,7 +728,7 @@ func (s *Service) appendToolResult(ctx context.Context, result agent.ToolResult)
 }
 
 // deliver performs one synchronous Host event call without queuing or retry.
-func (s *Service) deliver(ctx context.Context, event Event) error {
+func (s *Service) deliver(ctx context.Context, event agent.Event) error {
 	if err := s.events.Deliver(ctx, event); err != nil {
 		return fmt.Errorf("deliver agent event: %w", err)
 	}

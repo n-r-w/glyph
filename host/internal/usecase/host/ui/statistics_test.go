@@ -6,12 +6,13 @@ import (
 	"context"
 	"testing"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
 // TestSessionInformationOperationReturnsCoherentStatistics verifies retained information and statistics delivery.
@@ -23,17 +24,19 @@ func TestSessionInformationOperationReturnsCoherentStatistics(t *testing.T) {
 	snapshot := session.InformationSnapshot{Info: session.Info{}, Statistics: session.Statistics{}}
 	control.EXPECT().Information().Return(snapshot)
 	service := NewSession(
-		NewMockChannel(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
+		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
 		NewMockModelCatalog(controller), control, func(context.Context) {},
+
+		Initialization{},
 	)
-	service.setOperationAvailability(domainui.AvailabilityIdle)
+	service.setOperationAvailability(AvailabilityIdle)
 
 	// Act by running the prepared GetSessionInfo operation.
-	frame, err := runPreparedCommand(t, service, newCommandForPreparedTest(domainui.CommandGetSessionInfo))
+	frame, err := runPreparedCommand(t, service, newCommandForPreparedTest(controllerui.CommandGetSessionInfo))
 
 	// Assert one completed frame carries both information and statistics.
 	require.NoError(t, err)
-	assert.Equal(t, domainui.FrameSessionInformation, frame.Kind)
+	assert.Equal(t, controllerui.FrameSessionInformation, frame.Kind)
 	assert.True(t, frame.SessionInfo.IsSome())
 	assert.True(t, frame.SessionStatistics.IsSome())
 }

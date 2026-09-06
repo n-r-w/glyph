@@ -5,6 +5,11 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
+
 	"github.com/samber/lo"
 
 	"google.golang.org/protobuf/types/known/structpb"
@@ -12,14 +17,12 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
 // mapInitialization converts one complete startup state.
-func mapInitialization(initialization domainui.Initialization) (*uiv1.Initialization, error) {
-	startup := lo.Map(initialization.StartupContent, func(content domainui.StartupContent, _ int) *uiv1.StartupContent {
+func mapInitialization(initialization hostui.Initialization) (*uiv1.Initialization, error) {
+	startup := lo.Map(initialization.StartupContent, func(content hostui.StartupContent, _ int) *uiv1.StartupContent {
 		return uiv1.StartupContent_builder{
 			Severity: new(mapSeverity(content.Severity)),
 			Text:     new(content.Text),
@@ -27,7 +30,7 @@ func mapInitialization(initialization domainui.Initialization) (*uiv1.Initializa
 	})
 	extensions := lo.Map(
 		initialization.Extensions,
-		func(extension domainui.ExtensionAvailability, _ int) *uiv1.ExtensionAvailability {
+		func(extension hostui.ExtensionAvailability, _ int) *uiv1.ExtensionAvailability {
 			return uiv1.ExtensionAvailability_builder{
 				PluginId: new(extension.PluginID),
 				Tools:    slices.Clone(extension.Tools),
@@ -35,21 +38,21 @@ func mapInitialization(initialization domainui.Initialization) (*uiv1.Initializa
 			}.Build()
 		},
 	)
-	models := lo.Map(initialization.Models, func(configured domainui.ConfiguredModel, _ int) *uiv1.ConfiguredModel {
+	models := lo.Map(initialization.Models, func(configured model.Descriptor, _ int) *uiv1.ConfiguredModel {
 		choices := lo.Map(
-			configured.Reasoning.Choices,
-			func(choice domainui.ReasoningChoice, _ int) uiv1.ReasoningChoice {
+			configured.ReasoningCapabilities.Choices,
+			func(choice model.ReasoningChoice, _ int) uiv1.ReasoningChoice {
 				return mapReasoningChoice(choice)
 			},
 		)
 		reasoning := uiv1.ReasoningCapabilities_builder{
-			Supported:     new(configured.Reasoning.Supported),
+			Supported:     new(configured.ReasoningCapabilities.Supported),
 			Choices:       choices,
-			DefaultChoice: new(mapReasoningChoice(configured.Reasoning.Default)),
+			DefaultChoice: new(mapReasoningChoice(configured.ReasoningCapabilities.Default)),
 		}.Build()
 		return uiv1.ConfiguredModel_builder{
-			ProviderId: new(configured.ProviderID),
-			ModelId:    new(configured.ModelID),
+			ProviderId: new(string(configured.Provider)),
+			ModelId:    new(string(configured.Model)),
 			Reasoning:  reasoning,
 		}.Build()
 	})
@@ -69,44 +72,39 @@ func mapInitialization(initialization domainui.Initialization) (*uiv1.Initializa
 }
 
 // mapModelSelection converts one Host-confirmed selection.
-func mapModelSelection(selection domainui.ModelSelection) *uiv1.ModelSelection {
+func mapModelSelection(selection model.Selection) *uiv1.ModelSelection {
 	return uiv1.ModelSelection_builder{
-		ProviderId:      new(selection.ProviderID),
-		ModelId:         new(selection.ModelID),
+		ProviderId:      new(string(selection.Provider)),
+		ModelId:         new(string(selection.Model)),
 		ReasoningChoice: new(mapReasoningChoice(selection.ReasoningChoice)),
 	}.Build()
 }
 
 // mapLifecycle converts one explicit lifecycle payload.
-func mapLifecycle(event domainui.Lifecycle) (*uiv1.AgentEvent, error) {
+func mapLifecycle(event controllerui.Lifecycle) (*uiv1.AgentEvent, error) {
 	mapped := mapLifecycleScalars(event)
-	if event.Type != domainui.LifecycleAvailabilityChanged && event.RunID.IsNone() {
+	if event.RunID.IsNone() {
 		return nil, errors.New("map UI lifecycle: run ID is required")
 	}
 	switch event.Type {
-	case domainui.LifecycleAgentStart, domainui.LifecycleTurnStart, domainui.LifecycleMessageStart:
+	case controllerui.LifecycleAgentStart, controllerui.LifecycleTurnStart, controllerui.LifecycleMessageStart:
 		return mapped, nil
-	case domainui.LifecycleModelContentStart, domainui.LifecycleModelTextDelta,
-		domainui.LifecycleModelContentEnd, domainui.LifecycleMessageEnd:
+	case controllerui.LifecycleModelContentStart, controllerui.LifecycleModelTextDelta,
+		controllerui.LifecycleModelContentEnd, controllerui.LifecycleMessageEnd:
 		return mapModelLifecycle(event, mapped)
-	case domainui.LifecycleToolCallStart, domainui.LifecycleToolCallDelta, domainui.LifecycleToolCallEnd:
+	case controllerui.LifecycleToolCallStart, controllerui.LifecycleToolCallDelta, controllerui.LifecycleToolCallEnd:
 		return mapToolCallLifecycle(event, mapped)
-	case domainui.LifecycleToolExecutionStart, domainui.LifecycleToolExecutionUpdate,
-		domainui.LifecycleToolExecutionEnd, domainui.LifecycleToolResult:
+	case controllerui.LifecycleToolExecutionStart, controllerui.LifecycleToolExecutionUpdate,
+		controllerui.LifecycleToolExecutionEnd, controllerui.LifecycleToolResult:
 		return mapToolExecutionLifecycle(event, mapped)
-	case domainui.LifecycleTurnEnd, domainui.LifecycleAgentEnd:
+	case controllerui.LifecycleTurnEnd, controllerui.LifecycleAgentEnd:
 		return mapTerminalLifecycle(event, mapped)
-	case domainui.LifecycleAvailabilityChanged:
-		if event.Availability.IsNone() {
-			return nil, errors.New("map UI lifecycle: availability is required")
-		}
-		return mapped, nil
 	}
 	return mapped, nil
 }
 
 // mapLifecycleScalars maps scalar Options at the generated Protobuf boundary.
-func mapLifecycleScalars(event domainui.Lifecycle) *uiv1.AgentEvent {
+func mapLifecycleScalars(event controllerui.Lifecycle) *uiv1.AgentEvent {
 	var runID *string
 	if value, present := event.RunID.Get(); present {
 		runID = new(value)
@@ -139,10 +137,6 @@ func mapLifecycleScalars(event domainui.Lifecycle) *uiv1.AgentEvent {
 	if value, present := event.ErrorMessage.Get(); present {
 		errorMessage = new(value)
 	}
-	var availability *uiv1.Availability
-	if value, present := event.Availability.Get(); present {
-		availability = new(mapAvailability(value))
-	}
 	return uiv1.AgentEvent_builder{
 		Type:               new(mapLifecycleType(event.Type)),
 		RunId:              runID,
@@ -153,7 +147,7 @@ func mapLifecycleScalars(event domainui.Lifecycle) *uiv1.AgentEvent {
 		IsError:            isError,
 		Outcome:            outcome,
 		ErrorMessage:       errorMessage,
-		Availability:       availability,
+		Availability:       nil,
 		ModelContent:       nil,
 		ModelResponse:      nil,
 		ToolCallPreview:    nil,
@@ -163,8 +157,8 @@ func mapLifecycleScalars(event domainui.Lifecycle) *uiv1.AgentEvent {
 }
 
 // mapModelLifecycle validates and maps selected model payloads.
-func mapModelLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
-	if event.Type == domainui.LifecycleMessageEnd {
+func mapModelLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
+	if event.Type == controllerui.LifecycleMessageEnd {
 		response, present := event.ModelResponse.Get()
 		if !present {
 			return nil, errors.New("map UI lifecycle: model response is required")
@@ -184,7 +178,7 @@ func mapModelLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1
 	if value, hasText := content.Text.Get(); hasText {
 		contentText = new(value)
 	}
-	if event.Type == domainui.LifecycleModelTextDelta && contentText == nil {
+	if event.Type == controllerui.LifecycleModelTextDelta && contentText == nil {
 		return nil, errors.New("map UI lifecycle: model text delta is required")
 	}
 	mapped.SetModelContent(uiv1.ModelContent_builder{
@@ -197,8 +191,8 @@ func mapModelLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1
 }
 
 // mapToolCallLifecycle validates and maps selected tool-call payloads.
-func mapToolCallLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
-	if event.Type == domainui.LifecycleToolCallEnd {
+func mapToolCallLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
+	if event.Type == controllerui.LifecycleToolCallEnd {
 		call, present := event.FinalToolCall.Get()
 		if !present {
 			return nil, errors.New("map UI lifecycle: final tool call is required")
@@ -228,53 +222,51 @@ func mapToolCallLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*u
 }
 
 // mapToolExecutionLifecycle validates and maps selected tool-execution payloads.
-func mapToolExecutionLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
+func mapToolExecutionLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
 	switch event.Type {
-	case domainui.LifecycleToolExecutionStart:
+	case controllerui.LifecycleToolExecutionStart:
 		if event.ToolCallID.IsNone() || event.ToolName.IsNone() {
 			return nil, errors.New("map UI lifecycle: tool execution is required")
 		}
-	case domainui.LifecycleToolExecutionUpdate:
+	case controllerui.LifecycleToolExecutionUpdate:
 		if event.Text.IsNone() || event.ProgressChannel.IsNone() {
 			return nil, errors.New("map UI lifecycle: tool progress is required")
 		}
-	case domainui.LifecycleToolExecutionEnd, domainui.LifecycleToolResult:
+	case controllerui.LifecycleToolExecutionEnd, controllerui.LifecycleToolResult:
 		contents, hasContents := event.ToolResultContents.Get()
 		if event.ToolCallID.IsNone() || event.ToolName.IsNone() || !hasContents || event.IsError.IsNone() {
 			return nil, errors.New("map UI lifecycle: tool result is required")
 		}
-		if event.Type == domainui.LifecycleToolResult {
+		if event.Type == controllerui.LifecycleToolResult {
 			mapped.SetToolResultContents(mapToolResultContents(contents))
 		}
-	case domainui.LifecycleAgentStart, domainui.LifecycleTurnStart, domainui.LifecycleMessageStart,
-		domainui.LifecycleModelContentStart, domainui.LifecycleModelTextDelta,
-		domainui.LifecycleModelContentEnd, domainui.LifecycleToolCallStart,
-		domainui.LifecycleToolCallDelta, domainui.LifecycleToolCallEnd, domainui.LifecycleMessageEnd,
-		domainui.LifecycleTurnEnd, domainui.LifecycleAgentEnd,
-		domainui.LifecycleAvailabilityChanged:
+	case controllerui.LifecycleAgentStart, controllerui.LifecycleTurnStart, controllerui.LifecycleMessageStart,
+		controllerui.LifecycleModelContentStart, controllerui.LifecycleModelTextDelta,
+		controllerui.LifecycleModelContentEnd, controllerui.LifecycleToolCallStart,
+		controllerui.LifecycleToolCallDelta, controllerui.LifecycleToolCallEnd, controllerui.LifecycleMessageEnd,
+		controllerui.LifecycleTurnEnd, controllerui.LifecycleAgentEnd:
 		return nil, fmt.Errorf("map UI lifecycle: unsupported tool execution event type %d", event.Type)
 	}
 	return mapped, nil
 }
 
 // mapTerminalLifecycle validates selected turn and agent summaries.
-func mapTerminalLifecycle(event domainui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
+func mapTerminalLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
 	switch event.Type {
-	case domainui.LifecycleTurnEnd:
+	case controllerui.LifecycleTurnEnd:
 		if event.Text.IsNone() {
 			return nil, errors.New("map UI lifecycle: turn summary is required")
 		}
-	case domainui.LifecycleAgentEnd:
+	case controllerui.LifecycleAgentEnd:
 		if event.Outcome.IsNone() {
 			return nil, errors.New("map UI lifecycle: agent summary is required")
 		}
-	case domainui.LifecycleAgentStart, domainui.LifecycleTurnStart, domainui.LifecycleMessageStart,
-		domainui.LifecycleModelContentStart, domainui.LifecycleModelTextDelta,
-		domainui.LifecycleModelContentEnd, domainui.LifecycleToolCallStart,
-		domainui.LifecycleToolCallDelta, domainui.LifecycleToolCallEnd, domainui.LifecycleMessageEnd,
-		domainui.LifecycleToolExecutionStart, domainui.LifecycleToolExecutionUpdate,
-		domainui.LifecycleToolExecutionEnd, domainui.LifecycleToolResult,
-		domainui.LifecycleAvailabilityChanged:
+	case controllerui.LifecycleAgentStart, controllerui.LifecycleTurnStart, controllerui.LifecycleMessageStart,
+		controllerui.LifecycleModelContentStart, controllerui.LifecycleModelTextDelta,
+		controllerui.LifecycleModelContentEnd, controllerui.LifecycleToolCallStart,
+		controllerui.LifecycleToolCallDelta, controllerui.LifecycleToolCallEnd, controllerui.LifecycleMessageEnd,
+		controllerui.LifecycleToolExecutionStart, controllerui.LifecycleToolExecutionUpdate,
+		controllerui.LifecycleToolExecutionEnd, controllerui.LifecycleToolResult:
 		return nil, fmt.Errorf("map UI lifecycle: unsupported terminal event type %d", event.Type)
 	}
 	return mapped, nil

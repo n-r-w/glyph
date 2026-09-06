@@ -5,6 +5,10 @@ package runtime
 import (
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -14,7 +18,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
@@ -23,13 +26,13 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 	t.Parallel()
 	// Arrange a MessageEnd lifecycle with visible, refusal, reasoning, usage, and diagnostic data.
 
-	event := domainui.Lifecycle{
-		Type:               domainui.LifecycleMessageEnd,
+	event := controllerui.Lifecycle{
+		Type:               controllerui.LifecycleMessageEnd,
 		RunID:              mo.Some("run"),
 		Text:               mo.None[string](),
 		ToolResultContents: mo.None[[]tool.ResultContent](),
-		ModelContent:       mo.None[domainui.ModelContent](),
-		ModelResponse: mo.Some(domainui.ModelResponse{
+		ModelContent:       mo.None[controllerui.ModelContent](),
+		ModelResponse: mo.Some(controllerui.ModelResponse{
 			Text:          "visible",
 			Outcome:       mo.Some("stop"),
 			ErrorMessage:  mo.Some(""),
@@ -37,21 +40,21 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 			Model:         mo.Some("gpt-test"),
 			ResponseModel: mo.Some("gpt-actual"),
 			ResponseID:    mo.Some("resp-1"),
-			Content: []domainui.ModelResponseContent{
+			Content: []controllerui.ModelResponseContent{
 				{
-					Kind: domainui.ModelContentKindReasoning,
-					Text: "hidden", ToolCall: mo.None[domainui.FinalToolCall](),
+					Kind: controllerui.ModelContentKindReasoning,
+					Text: "hidden", ToolCall: mo.None[controllerui.FinalToolCall](),
 				},
 				{
-					Kind: domainui.ModelContentKindText,
-					Text: "visible", ToolCall: mo.None[domainui.FinalToolCall](),
+					Kind: controllerui.ModelContentKindText,
+					Text: "visible", ToolCall: mo.None[controllerui.FinalToolCall](),
 				},
 				{
-					Kind: domainui.ModelContentKindRefusal,
-					Text: "cannot help", ToolCall: mo.None[domainui.FinalToolCall](),
+					Kind: controllerui.ModelContentKindRefusal,
+					Text: "cannot help", ToolCall: mo.None[controllerui.FinalToolCall](),
 				},
 			},
-			Usage: mo.Some(domainui.ModelUsage{
+			Usage: mo.Some(controllerui.ModelUsage{
 				InputTokens:       10,
 				OutputTokens:      7,
 				CachedInputTokens: 4,
@@ -59,20 +62,19 @@ func TestMapLifecycleCarriesTypedTerminalData(t *testing.T) {
 				ReasoningTokens:   3,
 				TotalTokens:       17,
 			}),
-			Diagnostics: []domainui.ModelDiagnostic{{
+			Diagnostics: []controllerui.ModelDiagnostic{{
 				Code:    "recovered_output",
 				Message: "safe",
 			}},
 		}),
-		ToolCallPreview: mo.None[domainui.ToolCallPreview](),
-		FinalToolCall:   mo.None[domainui.FinalToolCall](),
+		ToolCallPreview: mo.None[controllerui.ToolCallPreview](),
+		FinalToolCall:   mo.None[controllerui.FinalToolCall](),
 		ToolCallID:      mo.None[string](),
 		ToolName:        mo.None[string](),
-		ProgressChannel: mo.None[domainui.ProgressChannel](),
+		ProgressChannel: mo.None[controllerui.ProgressChannel](),
 		IsError:         mo.None[bool](),
 		Outcome:         mo.None[string](),
 		ErrorMessage:    mo.None[string](),
-		Availability:    mo.None[domainui.Availability](),
 	}
 
 	// Act by mapping the complete MessageEnd lifecycle to the wire contract.
@@ -115,22 +117,21 @@ func TestMapLifecycleCarriesToolResultBlocks(t *testing.T) {
 			}),
 		},
 	}
-	event := domainui.Lifecycle{
-		Type:               domainui.LifecycleToolResult,
+	event := controllerui.Lifecycle{
+		Type:               controllerui.LifecycleToolResult,
 		RunID:              mo.Some("run"),
 		Text:               mo.None[string](),
 		ToolResultContents: mo.Some(contents),
-		ModelContent:       mo.None[domainui.ModelContent](),
-		ModelResponse:      mo.None[domainui.ModelResponse](),
-		ToolCallPreview:    mo.None[domainui.ToolCallPreview](),
-		FinalToolCall:      mo.None[domainui.FinalToolCall](),
+		ModelContent:       mo.None[controllerui.ModelContent](),
+		ModelResponse:      mo.None[controllerui.ModelResponse](),
+		ToolCallPreview:    mo.None[controllerui.ToolCallPreview](),
+		FinalToolCall:      mo.None[controllerui.FinalToolCall](),
 		ToolCallID:         mo.Some("call"),
 		ToolName:           mo.Some("read"),
-		ProgressChannel:    mo.None[domainui.ProgressChannel](),
+		ProgressChannel:    mo.None[controllerui.ProgressChannel](),
 		IsError:            mo.Some(false),
 		Outcome:            mo.None[string](),
 		ErrorMessage:       mo.None[string](),
-		Availability:       mo.None[domainui.Availability](),
 	}
 	// Act by invoking mapLifecycle to exercise ordered text and exact image bytes.
 	mappedLifecycle, err := mapLifecycle(event)
@@ -152,35 +153,30 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 	t.Parallel()
 	// Arrange the inline payload for mapFrame to verify malformed stream items fail explicitly.
 
-	for _, kind := range []domainui.FrameKind{
-		domainui.FrameInitialization,
-		domainui.FrameLifecycle,
-		domainui.FrameAuthorization,
-		domainui.FrameInformation,
-		domainui.FrameError,
-		domainui.FrameModelSelectionChanged,
+	for _, kind := range []controllerui.FrameKind{
+		controllerui.FrameLifecycle,
+		controllerui.FrameAuthorization,
+		controllerui.FrameModelSelectionChanged,
 	} {
 		// Act by invoking mapFrame to exercise malformed stream items fail explicitly.
-		_, err := mapFrame(domainui.Frame{
-			SessionEntries:    nil,
-			Kind:              kind,
-			Initialization:    mo.None[domainui.Initialization](),
-			Lifecycle:         mo.None[domainui.Lifecycle](),
-			AuthorizationURL:  mo.None[string](),
-			Text:              mo.None[string](),
-			ModelSelection:    mo.None[domainui.ModelSelection](),
+		_, err := mapFrame(controllerui.Frame{
+			NextInput:      mo.None[string](),
+			SessionEntries: nil,
+			Kind:           kind,
+
+			Lifecycle:        mo.None[controllerui.Lifecycle](),
+			AuthorizationURL: mo.None[string](),
+
+			ModelSelection:    mo.None[model.Selection](),
 			SessionInfo:       mo.None[session.Info](),
 			Sessions:          nil,
 			SessionStatistics: mo.None[session.Statistics](),
-			SessionTree:       mo.None[domainui.SessionTree](),
-			TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
-			SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
+			SessionTree:       mo.None[controllerui.SessionTree](),
+			TreeNavigation:    mo.None[controllerui.TreeNavigationResult](),
 		})
 		// Assert malformed stream items fail explicitly.
 		require.Error(t, err)
 	}
-	_, err := mapCommand(&uiv1.OpenResponse{})
-	require.Error(t, err)
 }
 
 // TestMapLifecycleRejectsMissingSelectedPayload verifies required lifecycle alternatives.
@@ -188,63 +184,60 @@ func TestMapLifecycleRejectsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
 	// Arrange event for mapLifecycle to verify required lifecycle alternatives.
 
-	for _, lifecycleType := range []domainui.LifecycleType{
-		domainui.LifecycleModelContentStart,
-		domainui.LifecycleModelTextDelta,
-		domainui.LifecycleModelContentEnd,
-		domainui.LifecycleMessageEnd,
-		domainui.LifecycleToolCallStart,
-		domainui.LifecycleToolCallDelta,
-		domainui.LifecycleToolCallEnd,
-		domainui.LifecycleToolExecutionStart,
-		domainui.LifecycleToolExecutionUpdate,
-		domainui.LifecycleToolExecutionEnd,
-		domainui.LifecycleToolResult,
-		domainui.LifecycleTurnEnd,
-		domainui.LifecycleAgentEnd,
-		domainui.LifecycleAvailabilityChanged,
+	for _, lifecycleType := range []controllerui.LifecycleType{
+		controllerui.LifecycleModelContentStart,
+		controllerui.LifecycleModelTextDelta,
+		controllerui.LifecycleModelContentEnd,
+		controllerui.LifecycleMessageEnd,
+		controllerui.LifecycleToolCallStart,
+		controllerui.LifecycleToolCallDelta,
+		controllerui.LifecycleToolCallEnd,
+		controllerui.LifecycleToolExecutionStart,
+		controllerui.LifecycleToolExecutionUpdate,
+		controllerui.LifecycleToolExecutionEnd,
+		controllerui.LifecycleToolResult,
+		controllerui.LifecycleTurnEnd,
+		controllerui.LifecycleAgentEnd,
 	} {
-		event := domainui.Lifecycle{
+		event := controllerui.Lifecycle{
 			Type:               lifecycleType,
 			RunID:              mo.Some("run"),
 			Text:               mo.None[string](),
 			ToolResultContents: mo.None[[]tool.ResultContent](),
-			ModelContent:       mo.None[domainui.ModelContent](),
-			ModelResponse:      mo.None[domainui.ModelResponse](),
-			ToolCallPreview:    mo.None[domainui.ToolCallPreview](),
-			FinalToolCall:      mo.None[domainui.FinalToolCall](),
+			ModelContent:       mo.None[controllerui.ModelContent](),
+			ModelResponse:      mo.None[controllerui.ModelResponse](),
+			ToolCallPreview:    mo.None[controllerui.ToolCallPreview](),
+			FinalToolCall:      mo.None[controllerui.FinalToolCall](),
 			ToolCallID:         mo.None[string](),
 			ToolName:           mo.None[string](),
-			ProgressChannel:    mo.None[domainui.ProgressChannel](),
+			ProgressChannel:    mo.None[controllerui.ProgressChannel](),
 			IsError:            mo.None[bool](),
 			Outcome:            mo.None[string](),
 			ErrorMessage:       mo.None[string](),
-			Availability:       mo.None[domainui.Availability](),
 		}
 		// Act by invoking mapLifecycle to exercise required lifecycle alternatives.
 		_, err := mapLifecycle(event)
 		// Assert required lifecycle alternatives.
 		require.Error(t, err)
 	}
-	_, err := mapLifecycle(domainui.Lifecycle{
-		Type:  domainui.LifecycleModelTextDelta,
+	_, err := mapLifecycle(controllerui.Lifecycle{
+		Type:  controllerui.LifecycleModelTextDelta,
 		RunID: mo.Some("run"),
-		ModelContent: mo.Some(domainui.ModelContent{
-			Type: domainui.ModelContentTextDelta, Kind: domainui.ModelContentKindText,
+		ModelContent: mo.Some(controllerui.ModelContent{
+			Type: controllerui.ModelContentTextDelta, Kind: controllerui.ModelContentKindText,
 			Position: 0, Text: mo.None[string](),
 		}),
 		Text:               mo.None[string](),
 		ToolResultContents: mo.None[[]tool.ResultContent](),
-		ModelResponse:      mo.None[domainui.ModelResponse](),
-		ToolCallPreview:    mo.None[domainui.ToolCallPreview](),
-		FinalToolCall:      mo.None[domainui.FinalToolCall](),
+		ModelResponse:      mo.None[controllerui.ModelResponse](),
+		ToolCallPreview:    mo.None[controllerui.ToolCallPreview](),
+		FinalToolCall:      mo.None[controllerui.FinalToolCall](),
 		ToolCallID:         mo.None[string](),
 		ToolName:           mo.None[string](),
-		ProgressChannel:    mo.None[domainui.ProgressChannel](),
+		ProgressChannel:    mo.None[controllerui.ProgressChannel](),
 		IsError:            mo.None[bool](),
 		Outcome:            mo.None[string](),
 		ErrorMessage:       mo.None[string](),
-		Availability:       mo.None[domainui.Availability](),
 	})
 	require.Error(t, err)
 }
@@ -255,12 +248,12 @@ func TestMapToolCallPreviewPreservesPresentZeroValues(t *testing.T) {
 	// Arrange the inline payload for mapToolCallPreview to verify oneof presence at the Protobuf boundary.
 
 	// Act by invoking mapToolCallPreview to exercise oneof presence at the Protobuf boundary.
-	mapped, err := mapToolCallPreview(domainui.ToolCallPreview{
+	mapped, err := mapToolCallPreview(controllerui.ToolCallPreview{
 		CallID:      "call",
 		Name:        "tool",
 		Position:    0,
 		Provisional: false,
-		Fields: []domainui.ToolCallPreviewField{
+		Fields: []controllerui.ToolCallPreviewField{
 			{Name: "value", Value: mo.Some[any](nil), Prefix: mo.None[string](), Complete: true},
 			{Name: "prefix", Value: mo.None[any](), Prefix: mo.Some(""), Complete: false},
 		},

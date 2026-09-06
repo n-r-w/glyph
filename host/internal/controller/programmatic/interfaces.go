@@ -9,6 +9,12 @@ import (
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=programmatic
 
+// ConnectionOutput binds unsolicited output to the controller's one ordered writer.
+type ConnectionOutput interface {
+	// BindWriter attaches output for this connection and returns its detach action.
+	BindWriter(*operation.Writer[*programmaticv1.OpenResponse]) func()
+}
+
 // HostSession prepares transport-independent Programmatic operations.
 type HostSession interface {
 	Prepare(ctx context.Context, command Command) (operation.Prepared[OperationProgress, Response], error)

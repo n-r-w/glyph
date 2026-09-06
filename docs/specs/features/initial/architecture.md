@@ -50,7 +50,7 @@
 ## Components
 
 - CMP-01: Glyph application assembly. `host/cmd/glyph` selects the application mode. `host/internal/app` loads configuration and wires concrete Host, Agent Core, controller, and infrastructure services. It owns no business behavior.
-- CMP-02: Client and command controllers. `host/internal/controller/ui`, `host/internal/controller/programmatic`, and `host/internal/controller/cli/headless` map external input to consumer-owned Host commands and map Host results to UI, Programmatic Control, or one-shot output contracts.
+- CMP-02: Client and command controllers. `host/internal/controller/ui`, `host/internal/controller/programmatic`, and `host/internal/controller/cli/headless` own external input and consumer-owned Host command contracts. UI and Programmatic controllers own command-operation lifecycles. `host/internal/infra/plugins/ui/runtime`, `host/internal/infra/programmatic/output`, and `host/internal/infra/headless` own concrete mode output. UI and Programmatic operation output and unsolicited output share one ordered writer per connection.
 - CMP-03: Host operation orchestration. `host/internal/usecase/host` owns run admission, model selection, session commands, extension coordination, client delivery, environment reload, and operation gates. `host/internal/usecase/host/startup` coordinates implemented extension registration. Each Host use case calls Agent Core and infrastructure through interfaces declared by that Host use case.
 - CMP-04: Agent Core. `host/internal/usecase/agent/run` owns the run state machine, model and tool loop, ordered agent events, cancellation, and terminal run outcome. Its interfaces describe effective context, logical model execution, tools, history, and event delivery.
 - CMP-05: Extension runtime management. `host/internal/usecase/host/extensionruntime` owns implemented extension discovery, process startup, registration state, runtime generation, availability, low-level operation invocation, monitoring, cancellation, and shutdown. It implements consumer-owned invocation interfaces and owns no tool, session, selection, model-execution, command, resource, or client-delivery policy. `host/internal/infra/plugins/extension` owns implemented process startup, gRPC mapping, and process shutdown.
@@ -59,7 +59,7 @@
 - CMP-08: Tool subsystem. `host/internal/usecase/host/tools` owns the implemented active tool registry, tool conflict policy, tool-result semantics, and tool-to-runtime ownership. The logical Host tool component also owns future tool middleware coordination. It invokes extension processes through its consumer-owned runtime interface. Agent Core sees only its consumer-owned tool interface.
 - CMP-09: Bundled provider extensions. The OpenAI Codex and OpenAI-compatible provider implementations run as ordinary extension processes and own authentication, wire request serialization, response streaming, retryable failure classification, usage mapping, and provider reasoning context replay. Host contains no concrete provider implementation.
 - CMP-10: Persistence subsystem. `host/internal/infra/persistence` owns settings loading, credentials, session storage, filesystem paths, file permissions, and atomic adapter operations. Persistence packages implement use-case-owned interfaces and contain no Host orchestration.
-- CMP-11: Programmatic Control transport. `api/programmatic/v1`, `pkg/programmatic/v1`, `host/internal/controller/programmatic`, and `host/internal/infra/programmatic/socket` expose Host commands and events through bidirectional gRPC over a Unix socket inside `glyph`.
+- CMP-11: Programmatic Control transport. `api/programmatic/v1`, `pkg/programmatic/v1`, `host/internal/controller/programmatic`, `host/internal/infra/programmatic/output`, and `host/internal/infra/programmatic/socket` expose Host commands and events through bidirectional gRPC over a Unix socket inside `glyph`. The output implementation owns the single active run/output association. Prepared Host work owns execution, and Core implements the Host consumer's minimal activity query.
 - CMP-12: Extension public boundary. `api/plugins/extension/v1`, `pkg/plugins/extension/v1`, and `sdk/plugins/extension/v1` define and support the Host-owned extension process contract without exposing Host or Agent Core internal types.
 - CMP-13: UI plugin public boundary. `api/plugins/ui/v1`, `pkg/plugins/ui/v1`, and `sdk/plugins/ui/v1` define and support the Host-owned UI plugin process contract.
 - CMP-14: Standard tools extension. `plugins/extension/tools` implements bundled coding tools as an ordinary extension process and owns its tool use cases, filesystem adapters, process adapters, and composition.
@@ -147,6 +147,9 @@ The architecture keeps one `glyph` process and separate project roots for Host a
   - internal/usecase/agent/run/ - existing Agent Core logical component
   - internal/usecase/host/ - existing Host orchestration packages
   - internal/infra/ - existing infrastructure adapters
+    - headless/ - one-shot output and diagnostics
+    - programmatic/output/ - run-correlated and unsolicited Programmatic output
+    - plugins/ui/runtime/ - selected UI process stream and output
 - plugins/extension/tools/ - existing bundled tools extension project root
 - plugins/ui/tui/ - existing standard TUI project root
 - docs/specs/features/initial/architecture.md - target architecture authority

@@ -5,36 +5,25 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
+
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
 const (
-	rejectionCodeInvalidArgument = "INVALID_ARGUMENT"
-	rejectionCodeBusy            = "BUSY"
-	rejectionCodeNotReady        = "NOT_READY"
-	failureCodeInternal          = "INTERNAL"
-	failureCodeAuthentication    = "AUTHENTICATION_FAILED"
-	failureCodeProviderAuth      = "CREDENTIAL_UNAVAILABLE"
-	failureCodeSession           = "SESSION_UNAVAILABLE"
-	failureCodePersistence       = "PERSISTENCE_UNAVAILABLE"
-	failureCodeModelUnavailable  = "MODEL_UNAVAILABLE"
-	failureCodeNotFound          = "NOT_FOUND"
-	failureCodeReasoning         = "REASONING_UNSUPPORTED"
-	failureCodeModelFailed       = "MODEL_FAILED"
-	failureCodeExtensionInvalid  = "EXTENSION_INVALID_RESULT"
-	failureCodeExtension         = "EXTENSION_UNAVAILABLE"
-	selectionCodeNotFound        = "not_found"
-	selectionCodeReasoning       = "reasoning_unsupported"
-	selectionCodeProviderAuth    = "credential_unavailable"
+	// selectionCodeNotFound identifies an absent configured model.
+	selectionCodeNotFound = "not_found"
+	// selectionCodeReasoning identifies an unsupported configured reasoning choice.
+	selectionCodeReasoning = "reasoning_unsupported"
+	// selectionCodeProviderAuth identifies unavailable provider credentials.
+	selectionCodeProviderAuth = "credential_unavailable"
 )
 
 // PreparationError reports a request that did not create a Host UI operation.
@@ -45,11 +34,13 @@ type PreparationError struct {
 	cause error
 }
 
+var _ controllerui.PreparationFailure = (*PreparationError)(nil)
+
 // Error returns complete rejection text.
 func (e *PreparationError) Error() string { return e.cause.Error() }
 
-// Code returns the stable rejection category.
-func (e *PreparationError) Code() string { return e.code }
+// PreparationCode returns the stable rejection category.
+func (e *PreparationError) PreparationCode() string { return e.code }
 
 // Unwrap returns the original rejection cause.
 func (e *PreparationError) Unwrap() error { return e.cause }
@@ -62,7 +53,7 @@ func rejectOperation(code string, cause error) error {
 // preparedUIOperation owns one admitted Host UI operation and its release action.
 type preparedUIOperation struct {
 	// run executes admitted work and returns its completed payload.
-	run func(context.Context, operation.Reporter[domainui.Frame]) (domainui.Frame, error)
+	run func(context.Context, operation.Reporter[controllerui.Frame]) (controllerui.Frame, error)
 	// failureCode classifies accepted-operation failures.
 	failureCode func(error) string
 	// release frees all admission reservations once.
@@ -71,20 +62,20 @@ type preparedUIOperation struct {
 	releaseOnce sync.Once
 }
 
-var _ operation.Prepared[domainui.Frame, domainui.Frame] = (*preparedUIOperation)(nil)
+var _ operation.Prepared[controllerui.Frame, controllerui.Frame] = (*preparedUIOperation)(nil)
 
 // Run executes admitted work and maps its terminal state.
 func (prepared *preparedUIOperation) Run(
 	ctx context.Context,
-	reporter operation.Reporter[domainui.Frame],
-) operation.Outcome[domainui.Frame] {
+	reporter operation.Reporter[controllerui.Frame],
+) operation.Outcome[controllerui.Frame] {
 	result, err := prepared.run(ctx, reporter)
 	remainingErr := withoutCancellationLeaves(err)
 	if err != nil && remainingErr == nil {
-		return operation.Canceled[domainui.Frame]()
+		return operation.Canceled[controllerui.Frame]()
 	}
 	if remainingErr != nil {
-		return operation.Failed[domainui.Frame](prepared.failureCode(remainingErr), remainingErr)
+		return operation.Failed[controllerui.Frame](prepared.failureCode(remainingErr), remainingErr)
 	}
 	return operation.Completed(result)
 }
@@ -123,23 +114,24 @@ func withoutCancellationLeaves(err error) error {
 // Release frees operation admission exactly once.
 func (prepared *preparedUIOperation) Release() { prepared.releaseOnce.Do(prepared.release) }
 
-// RunOperations initializes the UI and runs the prepared Host operation receiver.
-func (s *Session) RunOperations(ctx context.Context, initialization domainui.Initialization) error {
-	if err := s.channel.Initialize(ctx, initializationFrame(initialization)); err != nil {
+// Initialize sends startup state before any runtime activation or command execution.
+func (s *Session) Initialize(ctx context.Context) error {
+	if err := s.output.Initialize(ctx, s.initialization); err != nil {
 		return fmt.Errorf("send UI initialization: %w", err)
 	}
+	return nil
+}
+
+// Activate starts readiness work after the controller attaches output and its failure owner.
+func (s *Session) Activate(ctx context.Context) func() {
 	authenticationContext, cancelAuthentication := context.WithCancelCause(ctx)
 	var authenticationWork sync.WaitGroup
-	runErr := s.channel.RunOperations(ctx, func() {
-		s.afterInitialization(ctx)
-		authenticationWork.Go(func() { s.checkOperationAuthentication(authenticationContext) })
-	}, s.Prepare)
-	cancelAuthentication(context.Canceled)
-	authenticationWork.Wait()
-	if runErr != nil {
-		return fmt.Errorf("run UI operations: %w", runErr)
+	s.afterInitialization(ctx)
+	authenticationWork.Go(func() { s.checkOperationAuthentication(authenticationContext) })
+	return func() {
+		cancelAuthentication(context.Canceled)
+		authenticationWork.Wait()
 	}
-	return nil
 }
 
 // checkOperationAuthentication resolves startup readiness outside request receipt.
@@ -149,115 +141,130 @@ func (s *Session) checkOperationAuthentication(ctx context.Context) {
 	if err != nil && remainingErr == nil {
 		return
 	}
-	availability := domainui.AvailabilityIdle
+	availability := AvailabilityIdle
 	if remainingErr != nil {
-		availability = domainui.AvailabilityAuthenticationFailed
-		code := failureCodeInternal
+		availability = AvailabilityAuthenticationFailed
+		code := controllerui.FailureCodeInternal
 		if s.authenticator.IsSignInRequired(remainingErr) {
-			code = failureCodeAuthentication
+			code = controllerui.FailureCodeAuthentication
 		}
-		// Channel.Send reports delivery failure to the connection owner because this worker has no result channel.
-		_ = s.channel.Send(classifiedErrorFrame(code, remainingErr.Error()))
+		// Output.ReportError routes writer failures to the connection failure owner.
+		// This worker has no result channel.
+		_ = s.output.ReportError(code, remainingErr.Error())
 	}
 	s.setOperationAvailability(availability)
-	// Channel.Send reports delivery failure to the connection owner because this worker has no result channel.
-	_ = s.sendAvailability(availability)
+	// Output.SetAvailability routes writer failures to the connection failure owner.
+	// This worker has no result channel.
+	_ = s.output.SetAvailability(availability)
 }
 
 // Prepare performs bounded validation and admission for one UI operation.
 func (s *Session) Prepare(
 	ctx context.Context,
-	command domainui.Command,
-) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+	command controllerui.Command,
+) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	if command.OperationID == "" {
-		return nil, rejectOperation(rejectionCodeInvalidArgument, errors.New("UI operation identifier is required"))
+		return nil, rejectOperation(
+			controllerui.RejectionCodeInvalidArgument,
+			errors.New("UI operation identifier is required"),
+		)
 	}
-	if command.Kind == domainui.CommandSubmit {
+	if command.Kind == controllerui.CommandSubmit {
 		return s.prepareSubmit(command)
 	}
-	if command.Kind == domainui.CommandRetryAuthentication {
+	if command.Kind == controllerui.CommandRetryAuthentication {
 		return s.prepareAuthentication()
 	}
-	if command.Kind == domainui.CommandSelectModel || command.Kind == domainui.CommandSelectReasoningChoice {
+	if command.Kind == controllerui.CommandSelectModel || command.Kind == controllerui.CommandSelectReasoningChoice {
 		return s.prepareSelection(command)
 	}
 	return s.prepareSessionOperation(command)
 }
 
 // prepareSubmit reserves the agent-run gate before acceptance.
-func (s *Session) prepareSubmit(command domainui.Command) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
-	text, present := command.Text.Get()
-	if !present || text == "" {
-		return nil, rejectOperation(rejectionCodeInvalidArgument, errors.New("UI submit text is required"))
+func (s *Session) prepareSubmit(
+	command controllerui.Command,
+) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
+	text, textErr := command.SubmittedText()
+	if textErr != nil {
+		return nil, rejectOperation(controllerui.RejectionCodeInvalidArgument, textErr)
 	}
-	if s.operationAvailabilitySnapshot() != domainui.AvailabilityIdle {
-		return nil, rejectOperation(rejectionCodeNotReady, errors.New("host is not ready for a user request"))
+	if s.operationAvailabilitySnapshot() != AvailabilityIdle {
+		return nil, rejectOperation(
+			controllerui.RejectionCodeNotReady,
+			errors.New("host is not ready for a user request"),
+		)
 	}
 	runID, err := s.runner.PrepareRun()
 	if err != nil {
 		if errors.Is(err, session.ErrBusy) {
-			return nil, rejectOperation(rejectionCodeBusy, fmt.Errorf("prepare UI run: %w", err))
+			return nil, rejectOperation(controllerui.RejectionCodeBusy, fmt.Errorf("prepare UI run: %w", err))
 		}
 		return nil, err
 	}
-	s.setOperationAvailability(domainui.AvailabilityRunning)
+	s.setOperationAvailability(AvailabilityRunning)
 	var terminalRunErr error
 	return &preparedUIOperation{
-		run: func(ctx context.Context, reporter operation.Reporter[domainui.Frame]) (domainui.Frame, error) {
-			releaseProgress := s.channel.BindProgress(reporter)
+		run: func(ctx context.Context, reporter operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
+			releaseProgress := s.output.BindProgress(reporter)
 			defer releaseProgress()
-			if deliveryErr := s.sendAvailability(domainui.AvailabilityRunning); deliveryErr != nil {
-				return domainui.Frame{}, fmt.Errorf("report running availability: %w", deliveryErr)
+			if deliveryErr := s.output.SetAvailability(AvailabilityRunning); deliveryErr != nil {
+				return controllerui.Frame{}, fmt.Errorf("report running availability: %w", deliveryErr)
 			}
 			_, runErr := s.runner.RunPrepared(ctx, runID, text)
 			terminalRunErr = runErr
-			return domainui.NewFrame(domainui.FrameSubmitCompleted), runErr
+			return controllerui.NewFrame(controllerui.FrameSubmitCompleted), runErr
 		},
-		failureCode: func(error) string { return failureCodeInternal },
+		failureCode: func(error) string { return controllerui.FailureCodeInternal },
 		release: func() {
 			s.runner.CancelPrepared(runID)
-			availability := domainui.AvailabilityIdle
+			availability := AvailabilityIdle
 			if terminalRunErr != nil && s.authenticator.IsSignInRequired(terminalRunErr) {
-				availability = domainui.AvailabilityAuthenticationFailed
+				availability = AvailabilityAuthenticationFailed
 			}
 			s.setOperationAvailability(availability)
-			// Channel.Send reports delivery failure to the connection owner because Release cannot return it.
-			_ = s.sendAvailability(availability)
+			// Output.SetAvailability routes writer failures to the connection failure owner.
+			// Release cannot return the delivery error.
+			_ = s.output.SetAvailability(availability)
 		},
 		releaseOnce: sync.Once{},
 	}, nil
 }
 
 // prepareAuthentication reserves one interactive authentication attempt.
-func (s *Session) prepareAuthentication() (operation.Prepared[domainui.Frame, domainui.Frame], error) {
-	if s.operationAvailabilitySnapshot() != domainui.AvailabilityAuthenticationFailed {
-		return nil, rejectOperation(rejectionCodeNotReady, errors.New("authentication retry is not available"))
+func (s *Session) prepareAuthentication() (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
+	if s.operationAvailabilitySnapshot() != AvailabilityAuthenticationFailed {
+		return nil, rejectOperation(
+			controllerui.RejectionCodeNotReady,
+			errors.New("authentication retry is not available"),
+		)
 	}
-	s.setOperationAvailability(domainui.AvailabilityAuthenticating)
+	s.setOperationAvailability(AvailabilityAuthenticating)
 	authenticationSucceeded := false
 	return &preparedUIOperation{
-		run: func(ctx context.Context, reporter operation.Reporter[domainui.Frame]) (domainui.Frame, error) {
-			releaseProgress := s.channel.BindProgress(reporter)
+		run: func(ctx context.Context, reporter operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
+			releaseProgress := s.output.BindProgress(reporter)
 			defer releaseProgress()
-			if deliveryErr := s.sendAvailability(domainui.AvailabilityAuthenticating); deliveryErr != nil {
-				return domainui.Frame{}, fmt.Errorf("report authentication availability: %w", deliveryErr)
+			if deliveryErr := s.output.SetAvailability(AvailabilityAuthenticating); deliveryErr != nil {
+				return controllerui.Frame{}, fmt.Errorf("report authentication availability: %w", deliveryErr)
 			}
 			err := s.authenticator.SignIn(ctx)
 			authenticationSucceeded = err == nil
-			return domainui.NewFrame(domainui.FrameAuthenticationCompleted), err
+			return controllerui.NewFrame(controllerui.FrameAuthenticationCompleted), err
 		},
-		failureCode: func(error) string { return failureCodeAuthentication },
+		failureCode: func(error) string { return controllerui.FailureCodeAuthentication },
 		release: func() {
-			availability := domainui.AvailabilityAuthenticationFailed
+			availability := AvailabilityAuthenticationFailed
 			if authenticationSucceeded {
-				availability = domainui.AvailabilityIdle
+				availability = AvailabilityIdle
 			}
 			s.setOperationAvailability(availability)
-			// Channel.Send reports delivery failure to the connection owner because Release cannot return it.
-			_ = s.sendAvailability(availability)
+			// Output.SetAvailability routes writer failures to the connection failure owner.
+			// Release cannot return the delivery error.
+			_ = s.output.SetAvailability(availability)
 		},
 		releaseOnce: sync.Once{},
 	}, nil
@@ -265,8 +272,8 @@ func (s *Session) prepareAuthentication() (operation.Prepared[domainui.Frame, do
 
 // prepareSelection validates in-memory selection data before acceptance.
 func (s *Session) prepareSelection(
-	command domainui.Command,
-) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+	command controllerui.Command,
+) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 	if err := s.reserveSelection(); err != nil {
 		return nil, err
 	}
@@ -275,18 +282,18 @@ func (s *Session) prepareSelection(
 		return nil, err
 	}
 	return &preparedUIOperation{
-		run: func(ctx context.Context, _ operation.Reporter[domainui.Frame]) (domainui.Frame, error) {
+		run: func(ctx context.Context, _ operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
 			var selection model.Selection
 			var err error
-			if command.Kind == domainui.CommandSelectModel {
+			if command.Kind == controllerui.CommandSelectModel {
 				selection, err = s.modelCatalog.SelectModel(
 					ctx, model.ProviderID(command.ProviderID.MustGet()), model.ID(command.ModelID.MustGet()),
 				)
 			} else {
-				choice, _ := reasoningChoiceFromUI(command.ReasoningChoice.MustGet())
+				choice := command.ReasoningChoice.MustGet()
 				selection, err = s.modelCatalog.SelectReasoningChoice(choice)
 			}
-			return modelSelectionChangedFrame(selectionToUI(selection)), err
+			return modelSelectionChangedFrame(selection), err
 		},
 		failureCode: selectionFailureCode,
 		release:     s.releaseSelection, releaseOnce: sync.Once{},
@@ -297,12 +304,12 @@ func (s *Session) prepareSelection(
 func (s *Session) reserveSelection() error {
 	s.operationMutex.Lock()
 	defer s.operationMutex.Unlock()
-	if s.operationAvailability == domainui.AvailabilityCheckingAuthentication ||
-		s.operationAvailability == domainui.AvailabilityAuthenticating {
-		return rejectOperation(rejectionCodeNotReady, errors.New("model selection is not ready"))
+	if s.operationAvailability == AvailabilityCheckingAuthentication ||
+		s.operationAvailability == AvailabilityAuthenticating {
+		return rejectOperation(controllerui.RejectionCodeNotReady, errors.New("model selection is not ready"))
 	}
 	if s.selectionActive {
-		return rejectOperation(rejectionCodeBusy, errors.New("another model selection is active"))
+		return rejectOperation(controllerui.RejectionCodeBusy, errors.New("another model selection is active"))
 	}
 	s.selectionActive = true
 	return nil
@@ -317,17 +324,17 @@ func (s *Session) releaseSelection() {
 
 // validateSelectionCommand checks only the in-memory model catalog and request fields.
 func validateSelectionCommand(
-	command domainui.Command,
+	command controllerui.Command,
 	models []model.Descriptor,
 	active model.Selection,
 ) error {
-	if command.Kind == domainui.CommandSelectReasoningChoice {
+	if command.Kind == controllerui.CommandSelectReasoningChoice {
 		return validateReasoningSelection(command, models, active)
 	}
 	providerID, providerPresent := command.ProviderID.Get()
 	modelID, modelPresent := command.ModelID.Get()
 	if !providerPresent || providerID == "" || !modelPresent || modelID == "" {
-		return rejectOperation(rejectionCodeInvalidArgument, errors.New("provider and model are required"))
+		return rejectOperation(controllerui.RejectionCodeInvalidArgument, errors.New("provider and model are required"))
 	}
 	for index := range models {
 		descriptor := &models[index]
@@ -335,70 +342,64 @@ func validateSelectionCommand(
 			return nil
 		}
 	}
-	return rejectOperation("NOT_FOUND", errors.New("configured model was not found"))
+	return rejectOperation(controllerui.RejectionCodeNotFound, errors.New("configured model was not found"))
 }
 
 // validateReasoningSelection checks one choice against the active in-memory descriptor.
 func validateReasoningSelection(
-	command domainui.Command,
+	command controllerui.Command,
 	models []model.Descriptor,
 	active model.Selection,
 ) error {
-	choice, present := command.ReasoningChoice.Get()
-	if !present {
-		return rejectOperation(rejectionCodeInvalidArgument, errors.New("reasoning choice is required"))
-	}
-	mapped, valid := reasoningChoiceFromUI(choice)
-	if !valid {
-		return rejectOperation(rejectionCodeInvalidArgument, errors.New("reasoning choice is invalid"))
+	choice, validationErr := command.SelectedReasoningChoice()
+	if validationErr != nil {
+		return rejectOperation(controllerui.RejectionCodeInvalidArgument, validationErr)
 	}
 	for index := range models {
 		descriptor := &models[index]
 		if descriptor.Provider != active.Provider || descriptor.Model != active.Model {
 			continue
 		}
-		if !slices.Contains(descriptor.ReasoningCapabilities.Choices, mapped) {
+		if !slices.Contains(descriptor.ReasoningCapabilities.Choices, choice) {
 			return rejectOperation(
-				rejectionCodeInvalidArgument,
+				controllerui.RejectionCodeInvalidArgument,
 				errors.New("reasoning choice is not supported by the active model"),
 			)
 		}
 		return nil
 	}
-	return rejectOperation("NOT_FOUND", errors.New("active configured model was not found"))
+	return rejectOperation(controllerui.RejectionCodeNotFound, errors.New("active configured model was not found"))
 }
 
 // selectionFailureCode classifies accepted selection failures.
 func selectionFailureCode(err error) string {
-	failure, ok := errors.AsType[interface {
-		error
-		SelectionCode() string
-	}](err)
+	failure, ok := errors.AsType[SelectionFailure](err)
 	if !ok {
-		return failureCodeInternal
+		return controllerui.FailureCodeInternal
 	}
 	switch failure.SelectionCode() {
 	case selectionCodeNotFound:
-		return failureCodeNotFound
+		return controllerui.FailureCodeNotFound
 	case selectionCodeReasoning:
-		return failureCodeReasoning
+		return controllerui.FailureCodeReasoning
 	case selectionCodeProviderAuth:
-		return failureCodeProviderAuth
+		return controllerui.FailureCodeProviderAuth
 	default:
-		return failureCodeInternal
+		return controllerui.FailureCodeInternal
 	}
 }
 
 // prepareSessionOperation validates fields and reserves the session-mutation gate when required.
 func (s *Session) prepareSessionOperation(
-	command domainui.Command,
-) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
-	if s.operationAvailabilitySnapshot() == domainui.AvailabilityCheckingAuthentication ||
-		s.operationAvailabilitySnapshot() == domainui.AvailabilityAuthenticating {
-		return nil, rejectOperation(rejectionCodeNotReady, errors.New("host UI is not ready"))
+	command controllerui.Command,
+) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
+	if s.operationAvailabilitySnapshot() == AvailabilityCheckingAuthentication ||
+		s.operationAvailabilitySnapshot() == AvailabilityAuthenticating {
+		return nil, rejectOperation(controllerui.RejectionCodeNotReady, errors.New("host UI is not ready"))
 	}
-	if err := validateSessionCommand(command); err != nil {
-		return nil, err
+	// Readiness rejection takes precedence over session command-field errors.
+	if err := command.ValidateSession(); err != nil {
+		return nil, rejectOperation(controllerui.RejectionCodeInvalidArgument, err)
 	}
 	release := func() {}
 	if isUISessionMutation(command.Kind) {
@@ -406,13 +407,13 @@ func (s *Session) prepareSessionOperation(
 		release, acquired = s.sessionControl.TryAcquire()
 		if !acquired {
 			return nil, rejectOperation(
-				rejectionCodeBusy,
+				controllerui.RejectionCodeBusy,
 				errors.New("Session replacement is unavailable: another operation is active"),
 			)
 		}
 	}
 	return &preparedUIOperation{
-		run: func(ctx context.Context, reporter operation.Reporter[domainui.Frame]) (domainui.Frame, error) {
+		run: func(ctx context.Context, reporter operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
 			return s.runSessionOperation(ctx, command, reporter)
 		},
 		failureCode: sessionOperationFailureCode,
@@ -420,60 +421,16 @@ func (s *Session) prepareSessionOperation(
 	}, nil
 }
 
-// validateSessionCommand checks required request fields without domain work.
-//
-//nolint:gocyclo // The closed request union has distinct required fields.
-func validateSessionCommand(command domainui.Command) error {
-	switch command.Kind {
-	case domainui.CommandCreateSession, domainui.CommandListSessions, domainui.CommandGetSessionInfo,
-		domainui.CommandGetSessionTree, domainui.CommandCloneSession:
-		return nil
-	case domainui.CommandResumeSession:
-		if command.SessionID.IsNone() || command.SessionID.OrEmpty() == "" {
-			return rejectOperation(rejectionCodeInvalidArgument, errors.New("session identifier is required"))
-		}
-	case domainui.CommandSetSessionName:
-		if command.SessionName.IsNone() || strings.TrimSpace(command.SessionName.OrEmpty()) == "" {
-			return rejectOperation(rejectionCodeInvalidArgument, errors.New("session name is required"))
-		}
-	case domainui.CommandNavigateSessionTree:
-		target, present := command.TargetEntryID.Get()
-		mode, validMode := summaryModeFromUI(command.SummaryMode)
-		focus := strings.TrimSpace(command.CustomFocus.OrEmpty())
-		invalidFocus := mode == sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus == "" ||
-			mode != sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus != ""
-		if !present || target == "" || !validMode || invalidFocus {
-			return rejectOperation(rejectionCodeInvalidArgument, errors.New("tree navigation request is invalid"))
-		}
-	case domainui.CommandForkSession:
-		if command.TargetEntryID.IsNone() || command.TargetEntryID.OrEmpty() == "" {
-			return rejectOperation(rejectionCodeInvalidArgument, errors.New("fork target is required"))
-		}
-	case domainui.CommandSetEntryLabel:
-		if command.TargetEntryID.IsNone() || command.TargetEntryID.OrEmpty() == "" || command.EntryLabel.IsNone() {
-			return rejectOperation(rejectionCodeInvalidArgument, errors.New("entry label request is incomplete"))
-		}
-	case domainui.CommandSubmit,
-		domainui.CommandRetryAuthentication,
-		domainui.CommandSelectModel,
-		domainui.CommandSelectReasoningChoice:
-		return rejectOperation(rejectionCodeInvalidArgument, errors.New("UI operation kind is invalid"))
-	default:
-		return rejectOperation(rejectionCodeInvalidArgument, errors.New("UI operation kind is unknown"))
-	}
-	return nil
-}
-
 // isUISessionMutation reports operation kinds that reserve the shared mutation gate.
-func isUISessionMutation(kind domainui.CommandKind) bool {
+func isUISessionMutation(kind controllerui.CommandKind) bool {
 	switch kind {
-	case domainui.CommandCreateSession, domainui.CommandResumeSession, domainui.CommandSetSessionName,
-		domainui.CommandNavigateSessionTree, domainui.CommandForkSession, domainui.CommandCloneSession,
-		domainui.CommandSetEntryLabel:
+	case controllerui.CommandCreateSession, controllerui.CommandResumeSession, controllerui.CommandSetSessionName,
+		controllerui.CommandNavigateSessionTree, controllerui.CommandForkSession, controllerui.CommandCloneSession,
+		controllerui.CommandSetEntryLabel:
 		return true
-	case domainui.CommandListSessions, domainui.CommandGetSessionInfo, domainui.CommandGetSessionTree,
-		domainui.CommandSubmit, domainui.CommandRetryAuthentication, domainui.CommandSelectModel,
-		domainui.CommandSelectReasoningChoice:
+	case controllerui.CommandListSessions, controllerui.CommandGetSessionInfo, controllerui.CommandGetSessionTree,
+		controllerui.CommandSubmit, controllerui.CommandRetryAuthentication, controllerui.CommandSelectModel,
+		controllerui.CommandSelectReasoningChoice:
 		return false
 	default:
 		return false
@@ -485,76 +442,76 @@ func isUISessionMutation(kind domainui.CommandKind) bool {
 //nolint:gocyclo // The closed operation union maps directly to distinct domain calls.
 func (s *Session) runSessionOperation(
 	ctx context.Context,
-	command domainui.Command,
-	reporter operation.Reporter[domainui.Frame],
-) (domainui.Frame, error) {
+	command controllerui.Command,
+	reporter operation.Reporter[controllerui.Frame],
+) (controllerui.Frame, error) {
 	switch command.Kind {
-	case domainui.CommandCreateSession:
+	case controllerui.CommandCreateSession:
 		replacement, err := s.sessionControl.Create(ctx)
 		if err != nil {
-			return domainui.Frame{}, err
+			return controllerui.Frame{}, err
 		}
 		return sessionChangedFrame(replacement.Info, replacement.Entries)
-	case domainui.CommandListSessions:
+	case controllerui.CommandListSessions:
 		listed, err := s.sessionControl.List(ctx)
 		return sessionListFrame(listed), err
-	case domainui.CommandResumeSession:
+	case controllerui.CommandResumeSession:
 		replacement, err := s.sessionControl.Resume(ctx, session.ID(command.SessionID.MustGet()))
 		if err != nil {
-			return domainui.Frame{}, err
+			return controllerui.Frame{}, err
 		}
 		return sessionChangedFrame(replacement.Info, replacement.Entries)
-	case domainui.CommandSetSessionName:
+	case controllerui.CommandSetSessionName:
 		if _, err := s.sessionControl.SetName(ctx, command.SessionName.MustGet()); err != nil {
-			return domainui.Frame{}, err
+			return controllerui.Frame{}, err
 		}
 		snapshot := s.sessionControl.Information()
 		return sessionInformationFrame(snapshot.Info, snapshot.Statistics), nil
-	case domainui.CommandGetSessionInfo:
+	case controllerui.CommandGetSessionInfo:
 		snapshot := s.sessionControl.Information()
 		return sessionInformationFrame(snapshot.Info, snapshot.Statistics), nil
-	case domainui.CommandGetSessionTree:
+	case controllerui.CommandGetSessionTree:
 		return sessionTreeFrame(s.sessionControl.Tree())
-	case domainui.CommandNavigateSessionTree:
+	case controllerui.CommandNavigateSessionTree:
 		mode, _ := summaryModeFromUI(command.SummaryMode)
 		result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
 			TargetEntryID: command.TargetEntryID.MustGet(), SummaryMode: mode, CustomFocus: command.CustomFocus,
 		}, navigationProgressCallback(reporter))
 		if err != nil {
-			return domainui.Frame{}, err
+			return controllerui.Frame{}, err
 		}
 		return navigationFrame(result)
-	case domainui.CommandForkSession:
+	case controllerui.CommandForkSession:
 		replacement, nextInput, err := s.sessionControl.Fork(ctx, command.TargetEntryID.MustGet())
 		if err != nil {
-			return domainui.Frame{}, err
+			return controllerui.Frame{}, err
 		}
 		frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
-		frame.Kind, frame.Text = domainui.FrameSessionForked, mo.Some(nextInput)
+		frame.Kind, frame.NextInput = controllerui.FrameSessionForked, mo.Some(nextInput)
 		return frame, err
-	case domainui.CommandCloneSession:
+	case controllerui.CommandCloneSession:
 		replacement, err := s.sessionControl.Clone(ctx)
 		if err != nil {
-			return domainui.Frame{}, err
+			return controllerui.Frame{}, err
 		}
 		frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
-		frame.Kind = domainui.FrameSessionCloned
+		frame.Kind = controllerui.FrameSessionCloned
 		return frame, err
-	case domainui.CommandSetEntryLabel:
+	case controllerui.CommandSetEntryLabel:
 		tree, err := s.sessionControl.SetLabel(ctx, command.TargetEntryID.MustGet(), command.EntryLabel.MustGet())
 		if err != nil {
-			return domainui.Frame{}, err
+			return controllerui.Frame{}, err
 		}
 		frame, err := sessionTreeFrame(tree)
-		frame.Kind = domainui.FrameEntryLabelSet
+		frame.Kind = controllerui.FrameEntryLabelSet
 		return frame, err
-	case domainui.CommandSubmit,
-		domainui.CommandRetryAuthentication,
-		domainui.CommandSelectModel,
-		domainui.CommandSelectReasoningChoice:
-		return domainui.Frame{}, errors.New("run UI session operation: invalid operation kind")
+	case controllerui.CommandSubmit,
+		controllerui.CommandRetryAuthentication,
+		controllerui.CommandSelectModel,
+		controllerui.CommandSelectReasoningChoice:
+		return controllerui.Frame{}, errors.New("run UI session operation: invalid operation kind")
 	default:
-		return domainui.Frame{}, errors.New("run UI session operation: unknown operation kind")
+		return controllerui.Frame{}, errors.New("run UI session operation: unknown operation kind")
 	}
 }
 
@@ -562,33 +519,33 @@ func (s *Session) runSessionOperation(
 func sessionOperationFailureCode(err error) string {
 	switch {
 	case errors.Is(err, session.ErrPersistenceUnavailable):
-		return failureCodePersistence
+		return controllerui.FailureCodePersistence
 	case errors.Is(err, sessionnavigation.ErrModelUnavailable):
-		return failureCodeModelUnavailable
+		return controllerui.FailureCodeModelUnavailable
 	case errors.Is(err, sessionnavigation.ErrCredentialUnavailable):
-		return failureCodeProviderAuth
+		return controllerui.FailureCodeProviderAuth
 	case errors.Is(err, sessionnavigation.ErrModelFailed):
-		return failureCodeModelFailed
+		return controllerui.FailureCodeModelFailed
 	case errors.Is(err, sessionnavigation.ErrExtensionInvalidResult):
-		return failureCodeExtensionInvalid
+		return controllerui.FailureCodeExtensionInvalid
 	case errors.Is(err, sessionnavigation.ErrExtensionUnavailable):
-		return failureCodeExtension
+		return controllerui.FailureCodeExtension
 	case errors.Is(err, session.ErrEntryNotFound):
-		return failureCodeSession
+		return controllerui.FailureCodeSession
 	default:
-		return failureCodeInternal
+		return controllerui.FailureCodeInternal
 	}
 }
 
 // operationAvailabilitySnapshot returns current operation-mode admission state.
-func (s *Session) operationAvailabilitySnapshot() domainui.Availability {
+func (s *Session) operationAvailabilitySnapshot() Availability {
 	s.operationMutex.Lock()
 	defer s.operationMutex.Unlock()
 	return s.operationAvailability
 }
 
 // setOperationAvailability updates operation-mode admission state.
-func (s *Session) setOperationAvailability(availability domainui.Availability) {
+func (s *Session) setOperationAvailability(availability Availability) {
 	s.operationMutex.Lock()
 	s.operationAvailability = availability
 	s.operationMutex.Unlock()

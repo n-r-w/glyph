@@ -18,6 +18,44 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockConnectionOutput is a mock of ConnectionOutput interface.
+type MockConnectionOutput struct {
+	ctrl     *gomock.Controller
+	recorder *MockConnectionOutputMockRecorder
+	isgomock struct{}
+}
+
+// MockConnectionOutputMockRecorder is the mock recorder for MockConnectionOutput.
+type MockConnectionOutputMockRecorder struct {
+	mock *MockConnectionOutput
+}
+
+// NewMockConnectionOutput creates a new mock instance.
+func NewMockConnectionOutput(ctrl *gomock.Controller) *MockConnectionOutput {
+	mock := &MockConnectionOutput{ctrl: ctrl}
+	mock.recorder = &MockConnectionOutputMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockConnectionOutput) EXPECT() *MockConnectionOutputMockRecorder {
+	return m.recorder
+}
+
+// BindWriter mocks base method.
+func (m *MockConnectionOutput) BindWriter(arg0 *operation.Writer[*programmaticv1.OpenResponse]) func() {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BindWriter", arg0)
+	ret0, _ := ret[0].(func())
+	return ret0
+}
+
+// BindWriter indicates an expected call of BindWriter.
+func (mr *MockConnectionOutputMockRecorder) BindWriter(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BindWriter", reflect.TypeOf((*MockConnectionOutput)(nil).BindWriter), arg0)
+}
+
 // MockHostSession is a mock of HostSession interface.
 type MockHostSession struct {
 	ctrl     *gomock.Controller

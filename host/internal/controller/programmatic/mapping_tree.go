@@ -58,7 +58,7 @@ func mapTreeNavigationCompleted(wire *programmaticv1.HostCompleted, navigation T
 			result.SetActiveLeafId(activeLeafID)
 		}
 		if createdSummary, summaryPresent := committed.CreatedSummary.Get(); summaryPresent {
-			mappedSummary, err := mapSessionTreeEntry(createdSummary)
+			mappedSummary, err := EncodeSessionTreeEntry(createdSummary)
 			if err != nil {
 				return err
 			}
@@ -99,7 +99,7 @@ func mapSessionTree(tree SessionTree) (*programmaticv1.SessionTree, error) {
 	entries, err := lo.MapErr(
 		tree.Entries,
 		func(entry SessionTreeEntry, index int) (*programmaticv1.SessionTreeEntry, error) {
-			mapped, mapErr := mapSessionTreeEntry(entry)
+			mapped, mapErr := EncodeSessionTreeEntry(entry)
 			if mapErr != nil {
 				return nil, fmt.Errorf("map session tree entry %d: %w", index, mapErr)
 			}
@@ -117,10 +117,10 @@ func mapSessionTree(tree SessionTree) (*programmaticv1.SessionTree, error) {
 	return wire, nil
 }
 
-// mapSessionTreeEntry maps one closed tree entry payload.
+// EncodeSessionTreeEntry maps one closed tree entry payload.
 //
 //nolint:gocyclo // The switch maps every closed tree entry kind.
-func mapSessionTreeEntry(entry SessionTreeEntry) (*programmaticv1.SessionTreeEntry, error) {
+func EncodeSessionTreeEntry(entry SessionTreeEntry) (*programmaticv1.SessionTreeEntry, error) {
 	wire := new(programmaticv1.SessionTreeEntry)
 	wire.SetId(entry.ID)
 	if parentID, present := entry.ParentID.Get(); present {

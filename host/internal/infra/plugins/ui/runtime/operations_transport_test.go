@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build integration
 
 package runtime
 
@@ -11,13 +11,14 @@ import (
 	"testing"
 	"time"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/internal/operation"
 	"github.com/n-r-w/glyph/internal/testsupport/operationmock"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
@@ -64,18 +65,18 @@ func TestRunOperationsTransportFailurePreservesCauseAndJoinsWork(t *testing.T) {
 			started := make(chan struct{})
 			stopped := make(chan struct{})
 			released := make(chan struct{})
-			prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](controller)
+			prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](controller)
 			prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(
 				ctx context.Context,
-				reporter operation.Reporter[domainui.Frame],
-			) operation.Outcome[domainui.Frame] {
+				reporter operation.Reporter[controllerui.Frame],
+			) operation.Outcome[controllerui.Frame] {
 				close(started)
 				if test.sendFails {
 					_ = reporter.Report(testLifecycleFrame())
 				}
 				<-ctx.Done()
 				close(stopped)
-				return operation.Canceled[domainui.Frame]()
+				return operation.Canceled[controllerui.Frame]()
 			})
 			prepared.EXPECT().Release().Do(func() { close(released) })
 			stream.EXPECT().Recv().Return(request, nil)
@@ -103,26 +104,29 @@ func TestRunOperationsTransportFailurePreservesCauseAndJoinsWork(t *testing.T) {
 				return nil
 			})
 			_, cancelChannel := context.WithCancel(t.Context())
-			transport := &channel{
-				stream: stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-				writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+			transport := &Service{
+				client:   nil,
+				openOnce: sync.Once{},
+				openErr:  nil,
+				stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+				writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 				failConnection: nil,
 			}
 
 			// Act through the complete adapter coordinator.
-			err := transport.RunOperations(t.Context(), func() {}, func(
+			err := runTestOperations(t, transport, t.Context(), func() {}, func(
 				context.Context,
-				domainui.Command,
-			) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+				controllerui.Command,
+			) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 				return prepared, nil
 			})
 
 			// Assert status, complete text, stopped work, and Release before return.
 			require.Error(t, err)
 			assert.Equal(t, test.expected, status.Code(err))
-			assert.ErrorContains(t, err, test.sourceText)
+			require.ErrorContains(t, err, test.sourceText)
 			if test.sendErr != nil {
-				assert.ErrorIs(t, err, test.sendErr)
+				require.ErrorIs(t, err, test.sendErr)
 			}
 			select {
 			case <-stopped:
@@ -150,9 +154,9 @@ func TestRunOperationsJoinsOperationAndTerminalTransportFailures(t *testing.T) {
 	source := errors.New("session persistence failed")
 	transportCause := status.Error(codes.Unavailable, "terminal transport failed")
 	released := make(chan struct{})
-	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](controller)
+	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](controller)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-		operation.Failed[domainui.Frame]("INTERNAL", source),
+		operation.Failed[controllerui.Frame]("INTERNAL", source),
 	)
 	prepared.EXPECT().Release().Do(func() { close(released) })
 	stream.EXPECT().Recv().Return(operationRequest("failed", "work"), nil)
@@ -172,24 +176,27 @@ func TestRunOperationsJoinsOperationAndTerminalTransportFailures(t *testing.T) {
 		return nil
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+	transport := &Service{
+		client:   nil,
+		openOnce: sync.Once{},
+		openErr:  nil,
+		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
 
 	// Act through terminal transport failure.
-	err := transport.RunOperations(t.Context(), func() {}, func(
+	err := runTestOperations(t, transport, t.Context(), func() {}, func(
 		context.Context,
-		domainui.Command,
-	) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+		controllerui.Command,
+	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		return prepared, nil
 	})
 
 	// Assert operation and transport causes remain reachable after Release.
 	require.Error(t, err)
-	assert.ErrorIs(t, err, source)
-	assert.ErrorIs(t, err, transportCause)
+	require.ErrorIs(t, err, source)
+	require.ErrorIs(t, err, transportCause)
 	select {
 	case <-released:
 	default:
@@ -209,11 +216,11 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 	overflow := make(chan struct{})
 	stopped := make(chan struct{})
 	released := make(chan struct{})
-	prepared := operationmock.NewMockOperationPrepared[domainui.Frame, domainui.Frame](controller)
+	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](controller)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(
 		ctx context.Context,
-		reporter operation.Reporter[domainui.Frame],
-	) operation.Outcome[domainui.Frame] {
+		reporter operation.Reporter[controllerui.Frame],
+	) operation.Outcome[controllerui.Frame] {
 		for {
 			if err := reporter.Report(testLifecycleFrame()); err != nil {
 				if errors.Is(err, operation.ErrQueueFull) {
@@ -221,7 +228,7 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 				}
 				<-ctx.Done()
 				close(stopped)
-				return operation.Canceled[domainui.Frame]()
+				return operation.Canceled[controllerui.Frame]()
 			}
 		}
 	})
@@ -249,19 +256,22 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 		return nil
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+	transport := &Service{
+		client:   nil,
+		openOnce: sync.Once{},
+		openErr:  nil,
+		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
 	result := make(chan error, 1)
 
 	// Act through real queue saturation.
 	go func() {
-		result <- transport.RunOperations(t.Context(), func() {}, func(
+		result <- runTestOperations(t, transport, t.Context(), func() {}, func(
 			context.Context,
-			domainui.Command,
-		) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+			controllerui.Command,
+		) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 			return prepared, nil
 		})
 	}()
@@ -282,7 +292,7 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 	err := <-result
 	require.Error(t, err)
 	assert.Equal(t, codes.ResourceExhausted, status.Code(err))
-	assert.ErrorIs(t, err, operation.ErrQueueFull)
+	require.ErrorIs(t, err, operation.ErrQueueFull)
 	select {
 	case <-stopped:
 	default:
@@ -315,27 +325,30 @@ func TestRunOperationsRequestedClosePreservesCloseSendFailure(t *testing.T) {
 		return closeCause
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+	transport := &Service{
+		client:   nil,
+		openOnce: sync.Once{},
+		openErr:  nil,
+		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	// Act through requested closure.
-	err := transport.RunOperations(ctx, func() {}, func(
+	err := runTestOperations(t, transport, ctx, func() {}, func(
 		context.Context,
-		domainui.Command,
-	) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+		controllerui.Command,
+	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		return nil, errors.New("unexpected preparation")
 	})
 
 	// Assert requested cancellation does not hide the cleanup failure.
 	require.Error(t, err)
 	assert.Equal(t, codes.Unavailable, status.Code(err))
-	assert.ErrorIs(t, err, closeCause)
-	assert.ErrorContains(t, err, closeCause.Error())
+	require.ErrorIs(t, err, closeCause)
+	require.ErrorContains(t, err, closeCause.Error())
 }
 
 // TestRunOperationsWriterFailureDuringCloseStillHalfClosesAndJoinsReceive verifies failed drain cleanup.
@@ -360,25 +373,28 @@ func TestRunOperationsWriterFailureDuringCloseStillHalfClosesAndJoinsReceive(t *
 		return nil
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+	transport := &Service{
+		client:   nil,
+		openOnce: sync.Once{},
+		openErr:  nil,
+		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	// Act through requested close with failed close-message delivery.
-	err := transport.RunOperations(ctx, func() {}, func(
+	err := runTestOperations(t, transport, ctx, func() {}, func(
 		context.Context,
-		domainui.Command,
-	) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+		controllerui.Command,
+	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		return nil, errors.New("unexpected preparation")
 	})
 
 	// Assert the source cause remains and receive joined after transport half-close.
 	require.Error(t, err)
-	assert.ErrorIs(t, err, source)
+	require.ErrorIs(t, err, source)
 	select {
 	case <-receiveJoined:
 	default:
@@ -414,27 +430,30 @@ func TestRunOperationsLocalCloseFailsNewRequestsBeforePeerClose(t *testing.T) {
 		return nil
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+	transport := &Service{
+		client:   nil,
+		openOnce: sync.Once{},
+		openErr:  nil,
+		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	// Act through locally requested closure.
-	err := transport.RunOperations(ctx, func() {}, func(
+	err := runTestOperations(t, transport, ctx, func() {}, func(
 		context.Context,
-		domainui.Command,
-	) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+		controllerui.Command,
+	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		t.Fatal("late request reached preparation after local close")
-		return nil, nil
+		return nil, errors.New("unexpected command preparation")
 	})
 
 	// Assert the late request fails the stream instead of producing lifecycle rejection.
 	require.Error(t, err)
 	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
-	assert.ErrorContains(t, err, "connection is closing")
+	require.ErrorContains(t, err, "connection is closing")
 	assert.NotNil(t, (<-sent).GetClose())
 }
 
@@ -457,25 +476,28 @@ func TestRunOperationsPeerCloseFailsNewRequests(t *testing.T) {
 	})
 	stream.EXPECT().CloseSend().Return(nil)
 	_, cancel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+	transport := &Service{
+		client:   nil,
+		openOnce: sync.Once{},
+		openErr:  nil,
+		stream:   stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
 
 	// Act through peer-requested closure.
-	err := transport.RunOperations(t.Context(), func() {}, func(
+	err := runTestOperations(t, transport, t.Context(), func() {}, func(
 		context.Context,
-		domainui.Command,
-	) (operation.Prepared[domainui.Frame, domainui.Frame], error) {
+		controllerui.Command,
+	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		t.Fatal("late request reached preparation after close")
-		return nil, nil
+		return nil, errors.New("unexpected command preparation")
 	})
 
 	// Assert peer close is accepted but the later request fails the stream.
 	require.Error(t, err)
 	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
-	assert.ErrorContains(t, err, "connection is closing")
+	require.ErrorContains(t, err, "connection is closing")
 	assert.NotNil(t, (<-sent).GetClose())
 }
 

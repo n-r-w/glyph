@@ -8,13 +8,14 @@ import (
 	"testing"
 	"time"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -46,7 +47,7 @@ func TestUISessionMutationOwnsGate(t *testing.T) {
 				control.EXPECT().SetLabel(gomock.Any(), "target", "branch").Return(tree, test.mutationErr)
 			}
 			service := replacementService(controller, control)
-			command := uiReplacementCommand(domainui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch"))
+			command := uiReplacementCommand(controllerui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch"))
 
 			// Act through bounded preparation and terminal execution.
 			prepared, err := service.Prepare(t.Context(), command)
@@ -56,7 +57,7 @@ func TestUISessionMutationOwnsGate(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			outcome := prepared.Run(t.Context(), operation.Reporter[domainui.Frame]{})
+			outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 			prepared.Release()
 
 			// Assert terminal state and reservation release match the operation result.
@@ -72,40 +73,40 @@ func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 
 	for _, test := range []struct {
 		name         string
-		command      domainui.Command
+		command      controllerui.Command
 		expect       func(*MockSessionControl)
-		expectedKind domainui.FrameKind
-		assert       func(*testing.T, domainui.Frame)
+		expectedKind controllerui.FrameKind
+		assert       func(*testing.T, controllerui.Frame)
 	}{
 		{
-			name: "fork", command: uiReplacementCommand(domainui.CommandForkSession, mo.Some("target"), mo.None[string]()),
+			name: "fork", command: uiReplacementCommand(controllerui.CommandForkSession, mo.Some("target"), mo.None[string]()),
 			expect: func(control *MockSessionControl) {
 				control.EXPECT().Fork(gomock.Any(), "target").Return(replacementResult(), "exact input", nil)
 			},
-			expectedKind: domainui.FrameSessionForked,
-			assert: func(t *testing.T, frame domainui.Frame) {
-				assert.Equal(t, mo.Some("exact input"), frame.Text)
+			expectedKind: controllerui.FrameSessionForked,
+			assert: func(t *testing.T, frame controllerui.Frame) {
+				assert.Equal(t, mo.Some("exact input"), frame.NextInput)
 			},
 		},
 		{
-			name: "clone", command: uiReplacementCommand(domainui.CommandCloneSession, mo.None[string](), mo.None[string]()),
+			name: "clone", command: uiReplacementCommand(controllerui.CommandCloneSession, mo.None[string](), mo.None[string]()),
 			expect: func(control *MockSessionControl) {
 				control.EXPECT().Clone(gomock.Any()).Return(replacementResult(), nil)
 			},
-			expectedKind: domainui.FrameSessionCloned,
-			assert: func(t *testing.T, frame domainui.Frame) {
+			expectedKind: controllerui.FrameSessionCloned,
+			assert: func(t *testing.T, frame controllerui.Frame) {
 				assert.Equal(t, session.ID("replacement"), frame.SessionInfo.MustGet().ID)
 			},
 		},
 		{
-			name: "label", command: uiReplacementCommand(domainui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch")),
+			name: "label", command: uiReplacementCommand(controllerui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch")),
 			expect: func(control *MockSessionControl) {
 				tree, err := session.NewTree(nil, mo.None[string](), nil)
 				require.NoError(t, err)
 				control.EXPECT().SetLabel(gomock.Any(), "target", "branch").Return(tree, nil)
 			},
-			expectedKind: domainui.FrameEntryLabelSet,
-			assert:       func(t *testing.T, frame domainui.Frame) { assert.True(t, frame.SessionTree.IsSome()) },
+			expectedKind: controllerui.FrameEntryLabelSet,
+			assert:       func(t *testing.T, frame controllerui.Frame) { assert.True(t, frame.SessionTree.IsSome()) },
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -138,7 +139,7 @@ func TestForkFailurePreservesSessionCause(t *testing.T) {
 
 	// Act by running the prepared fork command against the rejected target.
 	_, err := runPreparedCommand(t, replacementService(controller, control), uiReplacementCommand(
-		domainui.CommandForkSession, mo.Some("model"), mo.None[string](),
+		controllerui.CommandForkSession, mo.Some("model"), mo.None[string](),
 	))
 
 	// Assert the operation error preserves the original session cause.
@@ -148,15 +149,17 @@ func TestForkFailurePreservesSessionCause(t *testing.T) {
 // replacementService creates one session service for prepared replacement operations.
 func replacementService(controller *gomock.Controller, control *MockSessionControl) *Session {
 	service := NewSession(
-		NewMockChannel(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
+		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
 		NewMockModelCatalog(controller), control, func(context.Context) {},
+
+		Initialization{},
 	)
-	service.setOperationAvailability(domainui.AvailabilityIdle)
+	service.setOperationAvailability(AvailabilityIdle)
 	return service
 }
 
 // uiReplacementCommand creates one fully initialized replacement or label command.
-func uiReplacementCommand(kind domainui.CommandKind, target, label mo.Option[string]) domainui.Command {
+func uiReplacementCommand(kind controllerui.CommandKind, target, label mo.Option[string]) controllerui.Command {
 	command := newCommandForPreparedTest(kind)
 	command.TargetEntryID = target
 	command.EntryLabel = label

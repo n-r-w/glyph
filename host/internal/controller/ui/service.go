@@ -1,28 +1,41 @@
-// Package ui starts one Host UI session after application composition.
+// Package ui receives UI commands and owns their transport operation lifecycles.
 package ui
 
 import (
 	"context"
 	"fmt"
-
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
-// Service delegates selected UI control to the session use case.
+// Service receives commands from the selected process stream.
 type Service struct {
-	// session owns the selected UI lifecycle.
-	session Session
+	// source retains the selected process and opens its single stream.
+	source StreamSource
+	// connection supplies the stream acquired at the startup boundary.
+	connection Connection
 }
 
-// New creates a UI controller.
-func New(session Session) *Service {
-	return &Service{session: session}
+// New creates a controller before session and provider assembly.
+func New(source StreamSource) *Service {
+	return &Service{source: source, connection: nil}
 }
 
-// Execute runs the selected UI lifecycle until quit or stream termination.
-func (s *Service) Execute(ctx context.Context, initialization domainui.Initialization) error {
-	if err := s.session.RunOperations(ctx, initialization); err != nil {
+// Open acquires the selected stream without restarting the process.
+func (s *Service) Open(ctx context.Context) error {
+	connection, err := s.source.Open(ctx)
+	if err != nil {
+		return err
+	}
+	s.connection = connection
+	return nil
+}
+
+// Execute initializes Host output, then receives commands while asynchronous readiness work runs.
+func (s *Service) Execute(ctx context.Context, session Session) error {
+	if err := session.Initialize(ctx); err != nil {
 		return fmt.Errorf("execute UI session: %w", err)
+	}
+	if err := s.runOperations(ctx, session); err != nil {
+		return fmt.Errorf("execute UI session: run UI operations: %w", err)
 	}
 	return nil
 }

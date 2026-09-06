@@ -1,4 +1,4 @@
-//go:build !integration
+//go:build integration
 
 package runtime
 
@@ -10,13 +10,14 @@ import (
 	"sync/atomic"
 	"testing"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/internal/operation"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -47,7 +48,7 @@ func TestChannelRejectsOrdinaryRequestBeforeReadiness(t *testing.T) {
 	stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(message *uiv1.OpenRequest) error {
 		rejected := message.GetEvent().GetRejected()
 		require.NotNil(t, rejected)
-		assert.Equal(t, rejectionCodeNotReady, rejected.GetCode())
+		assert.Equal(t, controllerui.RejectionCodeNotReady, rejected.GetCode())
 		assert.Equal(t, "host UI is not ready", rejected.GetMessage())
 		return nil
 	})
@@ -56,14 +57,17 @@ func TestChannelRejectsOrdinaryRequestBeforeReadiness(t *testing.T) {
 	stream.EXPECT().Recv().Return(uiLifecycleResponse(completed), nil)
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	_, cancel := context.WithCancel(t.Context())
-	transport := &channel{
+	transport := &Service{
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
 		stream:           stream,
 		cancel:           cancel,
 		closed:           atomic.Bool{},
 		mutex:            sync.Mutex{},
 		ready:            false,
 		writer:           nil,
-		progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false, failConnection: nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false, failConnection: nil,
 	}
 	request := new(uiv1.HostRequest)
 	request.SetInitialize(new(uiv1.Initialization))
@@ -89,14 +93,17 @@ func TestChannelSendAfterWriterCloseDoesNotFailConnection(t *testing.T) {
 	writer.Close()
 	deliveryFailures := make(chan error, 1)
 	_, cancel := context.WithCancel(t.Context())
-	transport := &channel{
+	transport := &Service{
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
 		stream:           nil,
 		cancel:           cancel,
 		closed:           atomic.Bool{},
 		mutex:            sync.Mutex{},
 		ready:            true,
 		writer:           writer,
-		progressReporter: operation.Reporter[domainui.Frame]{},
+		progressReporter: operation.Reporter[controllerui.Frame]{},
 		progressBound:    false,
 		failConnection: func(err error) {
 			deliveryFailures <- err
@@ -104,7 +111,7 @@ func TestChannelSendAfterWriterCloseDoesNotFailConnection(t *testing.T) {
 	}
 
 	// Act by sending a connection event after the writer closes.
-	err := transport.Send(testSimpleFrame(domainui.FrameInformation, "late connection event"))
+	err := transport.ReportError("INTERNAL", "late connection event")
 
 	// Assert the caller receives the complete closure error without failing the closing connection.
 	require.ErrorIs(t, err, operation.ErrClosed)
@@ -126,11 +133,11 @@ func TestStartupCancellationRejectionCategories(t *testing.T) {
 		message string
 	}{
 		{
-			name: "empty target", target: "", code: rejectionCodeInvalidArgument,
+			name: "empty target", target: "", code: controllerui.RejectionCodeInvalidArgument,
 			message: "UI cancellation target is required",
 		},
 		{
-			name: "unowned target", target: "missing", code: rejectionCodeTargetNotActive,
+			name: "unowned target", target: "missing", code: controllerui.RejectionCodeTargetNotActive,
 			message: "UI cancellation target \"missing\" is not active",
 		},
 	} {
@@ -183,9 +190,12 @@ func TestStartupCancellationRejectionCategories(t *testing.T) {
 				stream.EXPECT().Recv().Return(uiLifecycleResponse(completed), nil),
 			)
 			_, cancel := context.WithCancel(t.Context())
-			transport := &channel{
-				stream: stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
-				writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+			transport := &Service{
+				client:   nil,
+				openOnce: sync.Once{},
+				openErr:  nil,
+				stream:   stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
+				writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 				failConnection: nil,
 			}
 			request := new(uiv1.HostRequest)
@@ -228,9 +238,19 @@ func TestInitializationRejectsMismatchedCompletedPayload(t *testing.T) {
 	stream.EXPECT().Recv().Return(uiLifecycleResponse(completed), nil)
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	_, cancel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false, failConnection: nil,
+	transport := &Service{
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            false,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	request := new(uiv1.HostRequest)
 	request.SetInitialize(new(uiv1.Initialization))
@@ -245,7 +265,7 @@ func TestInitializationRejectsMismatchedCompletedPayload(t *testing.T) {
 	// Assert FailedPrecondition and no readiness transition.
 	require.Error(t, err)
 	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
-	assert.ErrorContains(t, err, "initialization")
+	require.ErrorContains(t, err, "initialization")
 	assert.False(t, transport.ready)
 }
 
@@ -288,9 +308,12 @@ func TestInitializationCancellationUsesSeparateOperation(t *testing.T) {
 	stream.EXPECT().Recv().Return(uiCancellationLifecycleResponse(running), nil)
 	stream.EXPECT().Recv().Return(uiCancellationLifecycleResponse(completed), nil)
 	_, cancelStream := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancelStream, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+	transport := &Service{
+		client:   nil,
+		openOnce: sync.Once{},
+		openErr:  nil,
+		stream:   stream, cancel: cancelStream, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
+		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
@@ -340,18 +363,21 @@ func TestUnsuccessfulInitializationClosesTransportAfterTerminalDrain(t *testing.
 	})
 	stream.EXPECT().CloseSend().Return(nil)
 	_, cancel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false,
+	transport := &Service{
+		client:   nil,
+		openOnce: sync.Once{},
+		openErr:  nil,
+		stream:   stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
+		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
 
 	// Act through public initialization failure handling.
-	err := transport.Initialize(t.Context(), testInitializationFrame())
+	err := transport.Initialize(t.Context(), testInitialization())
 
 	// Assert classified startup failure and requested transport closure before return.
 	require.Error(t, err)
-	assert.ErrorContains(t, err, "startup failed")
+	require.ErrorContains(t, err, "startup failed")
 	select {
 	case <-closeSent:
 	default:
@@ -380,9 +406,19 @@ func TestInitializationFailurePreservesCategoryTextAndCause(t *testing.T) {
 	stream.EXPECT().Recv().Return(uiLifecycleResponse(failure), nil)
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	_, cancel := context.WithCancel(t.Context())
-	transport := &channel{
-		stream: stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
-		writer: nil, progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false, failConnection: nil,
+	transport := &Service{
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            false,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	request := new(uiv1.HostRequest)
 	request.SetInitialize(new(uiv1.Initialization))
@@ -395,13 +431,13 @@ func TestInitializationFailurePreservesCategoryTextAndCause(t *testing.T) {
 	err := transport.initialize(t.Context(), initialization)
 
 	// Assert category, complete text, Unwrap, errors.Is, and errors.As.
-	var classified *operationError
+	var classified *initializationError
 	require.ErrorAs(t, err, &classified)
-	assert.Equal(t, "INTERNAL", classified.Code())
+	assert.Equal(t, "INTERNAL", classified.InitializationCode())
 	require.EqualError(t, err, "open presentation: terminal unavailable")
 	cause := errors.Unwrap(err)
 	require.Error(t, cause)
-	assert.ErrorIs(t, err, cause)
+	require.ErrorIs(t, err, cause)
 }
 
 // uiCancellationLifecycleResponse creates one cancellation lifecycle response.

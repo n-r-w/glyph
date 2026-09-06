@@ -6,13 +6,15 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
+
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // Dispatcher sends Agent Core and Host settlement events to the client and lifecycle observers.
 type Dispatcher struct {
 	// deliverAgent sends one Agent Core event to the active recipient.
-	deliverAgent func(context.Context, run.Event) error
+	deliverAgent func(context.Context, agent.Event) error
 	// deliverSettled sends one Host settlement event to the active recipient.
 	deliverSettled func(context.Context, string) error
 	// observers owns ordered extension lifecycle observation.
@@ -23,7 +25,7 @@ var _ run.EventSink = (*Dispatcher)(nil)
 
 // NewDispatcher creates one synchronous Host event dispatcher.
 func NewDispatcher(
-	deliverAgent func(context.Context, run.Event) error,
+	deliverAgent func(context.Context, agent.Event) error,
 	deliverSettled func(context.Context, string) error,
 	observers Observer,
 ) *Dispatcher {
@@ -31,7 +33,7 @@ func NewDispatcher(
 }
 
 // Deliver forwards one Agent Core event without a queue or retry.
-func (d *Dispatcher) Deliver(ctx context.Context, event run.Event) error {
+func (d *Dispatcher) Deliver(ctx context.Context, event agent.Event) error {
 	var clientErr error
 	if err := d.deliverAgent(ctx, event); err != nil {
 		clientErr = fmt.Errorf("deliver Agent Core event %d: %w", event.Type, err)

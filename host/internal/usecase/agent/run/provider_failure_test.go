@@ -94,9 +94,9 @@ func TestServiceRunProviderFailureRejectsMalformedRetainedContent(t *testing.T) 
 			return errors.New("provider transport failed")
 		},
 	)
-	delivered := make([]Event, 0)
+	delivered := make([]agent.Event, 0)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, event Event) error {
+		func(_ context.Context, event agent.Event) error {
 			delivered = append(delivered, event)
 			return nil
 		},
@@ -117,8 +117,8 @@ func TestServiceRunProviderFailureRejectsMalformedRetainedContent(t *testing.T) 
 	require.ErrorContains(t, err, "unknown kind")
 	require.Len(t, service.History(), 1)
 	assert.True(t, service.State().PartialResponse.IsNone())
-	assert.NotContains(t, eventTypes(delivered), EventMessageEnd)
-	assert.NotContains(t, eventTypes(delivered), EventTurnEnd)
+	assert.NotContains(t, eventTypes(delivered), agent.EventMessageEnd)
+	assert.NotContains(t, eventTypes(delivered), agent.EventTurnEnd)
 }
 
 // TestServiceRunProviderFailurePreservesSafeMessage keeps provider-approved detail in every terminal payload.
@@ -163,9 +163,9 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	provider.EXPECT().
 		Stream(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(streamResult(response, errors.New("provider transport failed")))
-	delivered := make([]Event, 0)
+	delivered := make([]agent.Event, 0)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, event Event) error {
+		func(_ context.Context, event agent.Event) error {
 			delivered = append(delivered, event)
 			return nil
 		},
@@ -203,13 +203,13 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	)
 	assert.Len(t, history[1].Model.OrEmpty().Content, 2)
 	assert.Len(t, service.ProjectHistory(), 1)
-	var messageEnd Event
-	var agentEnd Event
+	var messageEnd agent.Event
+	var agentEnd agent.Event
 	for _, event := range delivered {
-		if event.Type == EventMessageEnd {
+		if event.Type == agent.EventMessageEnd {
 			messageEnd = event
 		}
-		if event.Type == EventAgentEnd {
+		if event.Type == agent.EventAgentEnd {
 			agentEnd = event
 		}
 	}
@@ -254,14 +254,14 @@ func TestServiceRunProviderAndContentEndFailurePreservesBothCauses(t *testing.T)
 			return errors.Join(providerErr, endErr)
 		},
 	)
-	var agentEnd AgentSummary
-	observed := make([]EventType, 0)
-	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
+	var agentEnd agent.RunSummary
+	observed := make([]agent.EventType, 0)
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		observed = append(observed, event.Type)
-		if event.Type == EventAgentEnd {
+		if event.Type == agent.EventAgentEnd {
 			agentEnd = event.Agent.OrEmpty()
 		}
-		if event.Type == EventContentEnd {
+		if event.Type == agent.EventContentEnd {
 			return deliveryErr
 		}
 		return nil
@@ -281,8 +281,8 @@ func TestServiceRunProviderAndContentEndFailurePreservesBothCauses(t *testing.T)
 		assert.Equal(t, 1, strings.Count(text, providerErr.Error()), text)
 		assert.Equal(t, 1, strings.Count(text, deliveryErr.Error()), text)
 	}
-	assert.NotContains(t, observed, EventMessageEnd)
-	assert.NotContains(t, observed, EventTurnEnd)
+	assert.NotContains(t, observed, agent.EventMessageEnd)
+	assert.NotContains(t, observed, agent.EventTurnEnd)
 }
 
 // TestServiceRunProviderAndPersistenceFailurePreservesBothCauses verifies combined failures reach every terminal
@@ -317,9 +317,9 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 			return emitStream(handle, emptyModelResponse(model.OutcomeFailed), providerErr)
 		},
 	)
-	var agentEnd AgentSummary
-	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event Event) error {
-		if event.Type == EventAgentEnd {
+	var agentEnd agent.RunSummary
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
+		if event.Type == agent.EventAgentEnd {
 			agentEnd = event.Agent.OrEmpty()
 		}
 		return nil

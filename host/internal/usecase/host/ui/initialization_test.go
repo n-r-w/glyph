@@ -12,7 +12,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
 // TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary verifies startup delivery content.
@@ -29,7 +28,7 @@ func TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary(t *testing
 			ID: "tools", Path: "/plugins/tools", Tools: []string{"read"},
 		}},
 	}, []SelectionIssue{{
-		Candidate: domainui.Candidate{
+		Candidate: Candidate{
 			ID:   "excluded",
 			Path: "/excluded",
 		},
@@ -37,15 +36,15 @@ func TestBuildInitializationIncludesFailuresAvailabilityAndOneSummary(t *testing
 	}}, testModelCatalog(t))
 
 	assert.Equal(t, "selected", initialization.SelectedUIID)
-	assert.Equal(t, domainui.AvailabilityCheckingAuthentication, initialization.Availability)
+	assert.Equal(t, AvailabilityCheckingAuthentication, initialization.Availability)
 	require.Len(t, initialization.StartupContent, 3)
-	assert.Equal(t, domainui.ContentSeverityError, initialization.StartupContent[0].Severity)
+	assert.Equal(t, ContentSeverityError, initialization.StartupContent[0].Severity)
 	assert.Contains(t, initialization.StartupContent[0].Text, "broken")
 	assert.Contains(t, initialization.StartupContent[0].Text, "/broken")
-	assert.Equal(t, domainui.ContentSeverityWarning, initialization.StartupContent[1].Severity)
+	assert.Equal(t, ContentSeverityWarning, initialization.StartupContent[1].Severity)
 	assert.Contains(t, initialization.StartupContent[1].Text, "excluded")
 	assert.Contains(t, initialization.StartupContent[1].Text, "/excluded")
-	assert.Equal(t, domainui.ContentSeverityInformation, initialization.StartupContent[2].Severity)
+	assert.Equal(t, ContentSeverityInformation, initialization.StartupContent[2].Severity)
 	assert.Contains(t, initialization.StartupContent[2].Text, "UI selected")
 	assert.Contains(t, initialization.StartupContent[2].Text, "/plugins/tools")
 	require.Len(t, initialization.Extensions, 1)
@@ -96,24 +95,28 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 
 	// Assert all catalog models and the active selection are mapped exactly.
 	require.Len(t, initialization.Models, 2)
-	assert.Equal(t, "openai-codex", initialization.Models[0].ProviderID)
-	assert.Equal(t, "gpt", initialization.Models[0].ModelID)
-	assert.Equal(t, []domainui.ReasoningChoice{
-		domainui.ReasoningChoiceOff, domainui.ReasoningChoiceMinimal, domainui.ReasoningChoiceLow,
-		domainui.ReasoningChoiceMedium, domainui.ReasoningChoiceHigh, domainui.ReasoningChoiceXHigh,
-		domainui.ReasoningChoiceMax,
-	}, initialization.Models[0].Reasoning.Choices)
-	assert.True(t, initialization.Models[0].Reasoning.Supported)
-	assert.Equal(t, domainui.ReasoningChoiceHigh, initialization.Models[0].Reasoning.Default)
-	assert.Equal(t, "ollama", initialization.Models[1].ProviderID)
-	assert.Equal(t, "ornith", initialization.Models[1].ModelID)
-	assert.Equal(t, []domainui.ReasoningChoice{domainui.ReasoningChoiceOn}, initialization.Models[1].Reasoning.Choices)
-	assert.True(t, initialization.Models[1].Reasoning.Supported)
-	assert.Equal(t, domainui.ReasoningChoiceOn, initialization.Models[1].Reasoning.Default)
-	assert.Equal(t, domainui.ModelSelection{
-		ProviderID:      "openai-codex",
-		ModelID:         "gpt",
-		ReasoningChoice: domainui.ReasoningChoiceHigh,
+	assert.Equal(t, model.ProviderID("openai-codex"), initialization.Models[0].Provider)
+	assert.Equal(t, model.ID("gpt"), initialization.Models[0].Model)
+	assert.Equal(t, []model.ReasoningChoice{
+		model.ReasoningChoiceOff, model.ReasoningChoiceMinimal, model.ReasoningChoiceLow,
+		model.ReasoningChoiceMedium, model.ReasoningChoiceHigh, model.ReasoningChoiceXHigh,
+		model.ReasoningChoiceMax,
+	}, initialization.Models[0].ReasoningCapabilities.Choices)
+	assert.True(t, initialization.Models[0].ReasoningCapabilities.Supported)
+	assert.Equal(t, model.ReasoningChoiceHigh, initialization.Models[0].ReasoningCapabilities.Default)
+	assert.Equal(t, model.ProviderID("ollama"), initialization.Models[1].Provider)
+	assert.Equal(t, model.ID("ornith"), initialization.Models[1].Model)
+	assert.Equal(
+		t,
+		[]model.ReasoningChoice{model.ReasoningChoiceOn},
+		initialization.Models[1].ReasoningCapabilities.Choices,
+	)
+	assert.True(t, initialization.Models[1].ReasoningCapabilities.Supported)
+	assert.Equal(t, model.ReasoningChoiceOn, initialization.Models[1].ReasoningCapabilities.Default)
+	assert.Equal(t, model.Selection{
+		Provider:        "openai-codex",
+		Model:           "gpt",
+		ReasoningChoice: model.ReasoningChoiceHigh,
 	}, initialization.ModelSelection.MustGet())
 }
 
@@ -126,7 +129,7 @@ func TestBuildInitializationTreatsEmptyExtensionsAsNormalInformation(t *testing.
 	}, nil, testModelCatalog(t))
 
 	require.Len(t, initialization.StartupContent, 1)
-	assert.Equal(t, domainui.ContentSeverityInformation, initialization.StartupContent[0].Severity)
+	assert.Equal(t, ContentSeverityInformation, initialization.StartupContent[0].Severity)
 	assert.Contains(t, initialization.StartupContent[0].Text, "extensions: none")
 	assert.Empty(t, initialization.Extensions)
 }

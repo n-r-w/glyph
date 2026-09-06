@@ -6,7 +6,7 @@ import (
 	"io"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
-	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	"github.com/n-r-w/glyph/host/internal/infra/headless"
 )
 
 const (

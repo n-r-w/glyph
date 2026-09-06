@@ -3,12 +3,13 @@ package ui
 import (
 	"context"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/n-r-w/glyph/internal/operation"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
@@ -16,41 +17,34 @@ import (
 
 // Catalog discovers one complete effective UI catalog.
 type Catalog interface {
-	Discover(ctx context.Context, directory domainui.Directory) (domainui.Discovery, error)
+	Discover(ctx context.Context, directory Directory) (Discovery, error)
 }
 
-// RuntimeFactory starts one UI candidate and validates protocol compatibility.
-type RuntimeFactory interface {
-	Start(ctx context.Context, candidate domainui.Candidate) (Runtime, error)
-}
-
-// Runtime owns one connected UI process.
+// Runtime starts and closes candidates while retaining the selected process.
 type Runtime interface {
-	Open(ctx context.Context) (Channel, error)
+	Start(context.Context, Candidate) error
 	Close()
 }
 
-// Channel carries provider-neutral Host frames and UI commands on one stream.
-type Channel interface {
-	Initialize(context.Context, domainui.Frame) error
-	Send(frame domainui.Frame) error
-	// SendAcknowledged enqueues one connection event and reports its transport delivery result.
-	SendAcknowledged(frame domainui.Frame) (*operation.Acknowledgement, error)
-	RunOperations(
-		ctx context.Context,
-		activate func(),
-		prepare func(context.Context, domainui.Command) (operation.Prepared[domainui.Frame, domainui.Frame], error),
-	) error
-	BindProgress(reporter operation.Reporter[domainui.Frame]) func()
-	Close()
+// Output publishes Host state and binds operation-scoped progress.
+type Output interface {
+	Initialize(context.Context, Initialization) error
+	SetAvailability(Availability) error
+	ReportError(code, text string) error
+	BindProgress(reporter operation.Reporter[controllerui.Frame]) func()
 }
 
 // AgentRunner starts one user request against the retained Agent Core history.
 type AgentRunner interface {
-	Run(ctx context.Context, userText string) (agent.RunOutcome, error)
 	PrepareRun() (string, error)
 	CancelPrepared(runID string)
 	RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error)
+}
+
+// SelectionFailure preserves the classified cause returned by model selection.
+type SelectionFailure interface {
+	error
+	SelectionCode() string
 }
 
 // ModelCatalog supplies configured models and commits runtime selection.

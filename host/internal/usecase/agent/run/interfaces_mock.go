@@ -225,7 +225,7 @@ func (m *MockEventSink) EXPECT() *MockEventSinkMockRecorder {
 }
 
 // Deliver mocks base method.
-func (m *MockEventSink) Deliver(ctx context.Context, event Event) error {
+func (m *MockEventSink) Deliver(ctx context.Context, event agent.Event) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Deliver", ctx, event)
 	ret0, _ := ret[0].(error)

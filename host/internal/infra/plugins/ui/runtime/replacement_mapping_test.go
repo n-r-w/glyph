@@ -6,53 +6,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
+
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
-	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
-
-// TestMapReplacementAndLabelCommandsPreservesTypedArguments verifies all public UI command variants.
-func TestMapReplacementAndLabelCommandsPreservesTypedArguments(t *testing.T) {
-	t.Parallel()
-
-	for _, test := range []struct {
-		name           string
-		set            func(*uiv1.UIRequest)
-		expectedKind   domainui.CommandKind
-		expectedTarget mo.Option[string]
-		expectedLabel  mo.Option[string]
-	}{
-		{name: "fork", set: func(response *uiv1.UIRequest) {
-			response.SetForkSession(uiv1.ForkSessionCommand_builder{TargetEntryId: new("entry")}.Build())
-		}, expectedKind: domainui.CommandForkSession, expectedTarget: mo.Some("entry"), expectedLabel: mo.None[string]()},
-		{name: "clone", set: func(response *uiv1.UIRequest) {
-			response.SetCloneSession(new(uiv1.CloneSessionCommand))
-		}, expectedKind: domainui.CommandCloneSession, expectedTarget: mo.None[string](), expectedLabel: mo.None[string]()},
-		{name: "clear label", set: func(response *uiv1.UIRequest) {
-			response.SetSetEntryLabel(uiv1.SetEntryLabelCommand_builder{TargetEntryId: new("entry"), Label: new("")}.Build())
-		}, expectedKind: domainui.CommandSetEntryLabel, expectedTarget: mo.Some("entry"), expectedLabel: mo.Some("")},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			t.Parallel()
-
-			// Arrange one typed protobuf command.
-			request := new(uiv1.UIRequest)
-			test.set(request)
-
-			// Act at the UI process boundary.
-			command, err := mapCommand(operationResponse(request))
-
-			// Assert optional values preserve presence and exact content.
-			require.NoError(t, err)
-			require.Equal(t, test.expectedKind, command.Kind)
-			require.Equal(t, test.expectedTarget, command.TargetEntryID)
-			require.Equal(t, test.expectedLabel, command.EntryLabel)
-		})
-	}
-}
 
 // TestMapReplacementAndLabelFramesPreservesCommittedState verifies dedicated Host frame variants.
 func TestMapReplacementAndLabelFramesPreservesCommittedState(t *testing.T) {
@@ -63,11 +25,16 @@ func TestMapReplacementAndLabelFramesPreservesCommittedState(t *testing.T) {
 		ID: "replacement", Name: mo.None[string](), WorkingDirectory: "/project",
 		StoragePath: mo.Some("/sessions/replacement.jsonl"), CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(1, 0),
 	}
-	tree := domainui.SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()}
-	frames := []domainui.Frame{
-		replacementFrame(domainui.FrameSessionForked, info, mo.Some("exact input"), mo.None[domainui.SessionTree]()),
-		replacementFrame(domainui.FrameSessionCloned, info, mo.None[string](), mo.None[domainui.SessionTree]()),
-		replacementFrame(domainui.FrameEntryLabelSet, session.Info{}, mo.None[string](), mo.Some(tree)),
+	tree := controllerui.SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()}
+	frames := []controllerui.Frame{
+		replacementFrame(
+			controllerui.FrameSessionForked,
+			info,
+			mo.Some("exact input"),
+			mo.None[controllerui.SessionTree](),
+		),
+		replacementFrame(controllerui.FrameSessionCloned, info, mo.None[string](), mo.None[controllerui.SessionTree]()),
+		replacementFrame(controllerui.FrameEntryLabelSet, session.Info{}, mo.None[string](), mo.Some(tree)),
 	}
 
 	// Act and assert each frame maps to its dedicated protobuf payload.
@@ -87,25 +54,24 @@ func TestMapReplacementAndLabelFramesPreservesCommittedState(t *testing.T) {
 
 // replacementFrame creates one fully initialized public UI frame.
 func replacementFrame(
-	kind domainui.FrameKind,
+	kind controllerui.FrameKind,
 	info session.Info,
 	nextInput mo.Option[string],
-	tree mo.Option[domainui.SessionTree],
-) domainui.Frame {
-	return domainui.Frame{
-		Kind:              kind,
-		Initialization:    mo.None[domainui.Initialization](),
-		Lifecycle:         mo.None[domainui.Lifecycle](),
-		AuthorizationURL:  mo.None[string](),
-		Text:              nextInput,
-		ErrorCode:         mo.None[string](),
-		ModelSelection:    mo.None[domainui.ModelSelection](),
+	tree mo.Option[controllerui.SessionTree],
+) controllerui.Frame {
+	return controllerui.Frame{
+		Kind:      kind,
+		NextInput: nextInput,
+
+		Lifecycle:        mo.None[controllerui.Lifecycle](),
+		AuthorizationURL: mo.None[string](),
+
+		ModelSelection:    mo.None[model.Selection](),
 		SessionInfo:       mo.Some(info),
 		Sessions:          nil,
 		SessionEntries:    nil,
 		SessionStatistics: mo.None[session.Statistics](),
 		SessionTree:       tree,
-		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
-		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
+		TreeNavigation:    mo.None[controllerui.TreeNavigationResult](),
 	}
 }

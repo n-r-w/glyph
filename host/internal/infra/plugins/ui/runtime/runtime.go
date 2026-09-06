@@ -1,4 +1,4 @@
-// Package runtime adapts the public UI SDK to Host UI lifecycle contracts.
+// Package runtime owns the selected UI process, its single stream, and ordered output.
 package runtime
 
 import (
@@ -8,80 +8,93 @@ import (
 	"sync"
 	"sync/atomic"
 
-	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 	"github.com/n-r-w/glyph/internal/operation"
-
+	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
 
-// Factory starts UI candidates through the public SDK.
-type Factory struct{}
-
-var _ hostui.RuntimeFactory = (*Factory)(nil)
-
-// Runtime owns one connected UI process and its single stream.
-type Runtime struct {
-	// client owns the UI process connection.
+// Service retains the candidate selected by Host policy and its output state.
+type Service struct {
+	// client owns the selected process connection.
 	client *uisdk.Client
-	// openOnce limits the runtime to one stream.
+	// openOnce limits the selected process to one stream.
 	openOnce sync.Once
-	// channel contains the opened provider-neutral UI stream.
-	channel hostui.Channel
-	// openErr retains the stream opening result.
+	// openErr retains the stream acquisition failure.
 	openErr error
+	// stream is the generated bidirectional UI stream.
+	stream uiv1.UIService_OpenClient
+	// cancel stops the opened stream context.
+	cancel context.CancelFunc
+	// closed prevents duplicate stream cancellation.
+	closed atomic.Bool
+	// mutex protects output readiness and reporter binding.
+	mutex sync.Mutex
+	// ready reports successful initialization.
+	ready bool
+	// writer serializes operation and connection output.
+	writer *operation.Writer[*uiv1.OpenRequest]
+	// progressReporter belongs to the active prepared application operation.
+	progressReporter operation.Reporter[controllerui.Frame]
+	// progressBound reports that the operation reporter is attached.
+	progressBound bool
+	// failConnection reports asynchronous output failure to the controller.
+	failConnection func(error)
 }
 
-var _ hostui.Runtime = (*Runtime)(nil)
+var (
+	_ hostui.Runtime            = (*Service)(nil)
+	_ hostui.Output             = (*Service)(nil)
+	_ controllerui.StreamSource = (*Service)(nil)
+)
 
-// NewFactory creates a UI runtime factory.
-func NewFactory() *Factory {
-	return &Factory{}
+// New creates the selected-process owner before candidate selection.
+func New() *Service {
+	return &Service{
+		client: nil, openOnce: sync.Once{}, openErr: nil, stream: nil, cancel: nil,
+		closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false, writer: nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false, failConnection: nil,
+	}
 }
 
-// Start launches one trusted local UI candidate and validates the required protocol.
-func (*Factory) Start(ctx context.Context, candidate domainui.Candidate) (hostui.Runtime, error) {
+// Start launches one candidate without opening its stream.
+func (s *Service) Start(ctx context.Context, candidate hostui.Candidate) error {
 	//nolint:gosec // The catalog contains trusted local UI plugin executables.
 	command := exec.CommandContext(context.WithoutCancel(ctx), candidate.Path)
 	client, err := uisdk.Connect(ctx, command)
 	if err != nil {
-		return nil, fmt.Errorf("start UI %q: %w", candidate.ID, err)
+		return fmt.Errorf("start UI %q: %w", candidate.ID, err)
 	}
-	return &Runtime{
-		client:   client,
-		openOnce: sync.Once{},
-		channel:  nil,
-		openErr:  nil,
-	}, nil
+	s.client = client
+	return nil
 }
 
-// Open opens and reuses the one persistent UI lifecycle stream.
-func (r *Runtime) Open(ctx context.Context) (hostui.Channel, error) {
-	r.openOnce.Do(func() {
+// Open acquires the selected stream once and never restarts or selects a process.
+func (s *Service) Open(ctx context.Context) (controllerui.Connection, error) {
+	s.openOnce.Do(func() {
 		streamContext, cancel := context.WithCancel(context.WithoutCancel(ctx))
-		stream, err := r.client.Service().Open(streamContext)
+		stream, err := s.client.Service().Open(streamContext)
 		if err != nil {
 			cancel()
-			r.openErr = fmt.Errorf("open UI stream: %w", err)
+			s.openErr = fmt.Errorf("open UI stream: %w", err)
 			return
 		}
-		r.channel = &channel{
-			stream:           stream,
-			cancel:           cancel,
-			closed:           atomic.Bool{},
-			mutex:            sync.Mutex{},
-			ready:            false,
-			writer:           nil,
-			progressReporter: operation.Reporter[domainui.Frame]{}, progressBound: false, failConnection: nil,
-		}
+		s.stream, s.cancel = stream, cancel
 	})
-	return r.channel, r.openErr
+	if s.openErr != nil {
+		return nil, s.openErr
+	}
+	return s, nil
 }
 
-// Close stops the selected UI process once.
-func (r *Runtime) Close() {
-	if r.channel != nil {
-		r.channel.Close()
+// Close closes a successful probe or stops the selected process and its opened stream.
+func (s *Service) Close() {
+	if s.cancel != nil && s.closed.CompareAndSwap(false, true) {
+		s.cancel()
 	}
-	r.client.Close()
+	if s.client != nil {
+		s.client.Close()
+		s.client = nil
+	}
 }

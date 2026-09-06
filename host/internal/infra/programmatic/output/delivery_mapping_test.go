@@ -1,6 +1,6 @@
 //go:build !integration
 
-package programmatic
+package output
 
 import (
 	"testing"
@@ -13,12 +13,11 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // testRunEvent creates one complete Agent Core event for delivery mapping tests.
 func testRunEvent(
-	eventType run.EventType,
+	eventType agent.EventType,
 	position mo.Option[int],
 	content mo.Option[model.Content],
 	message mo.Option[model.Response],
@@ -26,10 +25,10 @@ func testRunEvent(
 	toolCall mo.Option[model.ToolCall],
 	progress mo.Option[tool.Progress],
 	toolResult mo.Option[agent.ToolResult],
-	turn mo.Option[run.TurnSummary],
-	agentSummary mo.Option[run.AgentSummary],
-) run.Event {
-	return run.Event{
+	turn mo.Option[agent.TurnSummary],
+	agentSummary mo.Option[agent.RunSummary],
+) agent.Event {
+	return agent.Event{
 		Type: eventType, RunID: "run", Position: position, Content: content, Message: message,
 		Preview: preview, ToolCall: toolCall, Progress: progress, ToolResult: toolResult,
 		Turn: turn, Agent: agentSummary,
@@ -58,7 +57,7 @@ func testAgentEvent(
 }
 
 // testEmptyRunEvent creates an agent event without a variant payload.
-func testEmptyRunEvent(kind run.EventType, runID string) run.Event {
+func testEmptyRunEvent(kind agent.EventType, runID string) agent.Event {
 	event := testRunEvent(
 		kind,
 		mo.None[int](),
@@ -68,8 +67,8 @@ func testEmptyRunEvent(kind run.EventType, runID string) run.Event {
 		mo.None[model.ToolCall](),
 		mo.None[tool.Progress](),
 		mo.None[agent.ToolResult](),
-		mo.None[run.TurnSummary](),
-		mo.None[run.AgentSummary](),
+		mo.None[agent.TurnSummary](),
+		mo.None[agent.RunSummary](),
 	)
 	event.RunID = runID
 	return event
@@ -127,18 +126,28 @@ func testModelContentAgentEvent(
 }
 
 // testToolResultRunEvent creates one run event carrying a tool result.
-func testToolResultRunEvent(kind run.EventType, result agent.ToolResult) run.Event {
+func testToolResultRunEvent(kind agent.EventType, result agent.ToolResult) agent.Event {
 	return testRunEvent(kind, mo.None[int](), mo.None[model.Content](), mo.None[model.Response](),
 		mo.None[model.ToolCallPreview](), mo.None[model.ToolCall](), mo.None[tool.Progress](), mo.Some(result),
-		mo.None[run.TurnSummary](), mo.None[run.AgentSummary]())
+		mo.None[agent.TurnSummary](), mo.None[agent.RunSummary]())
 }
 
 // testToolResultAgentEvent creates one mapped event carrying a tool result.
 func testToolResultAgentEvent(kind controller.AgentEventType, result agent.ToolResult) controller.AgentEvent {
-	return testAgentEvent(kind, mo.None[controller.ModelContent](), mo.None[controller.ToolCallPreview](),
-		mo.None[controller.FinalToolCall](), mo.None[controller.ToolExecution](), mo.None[controller.ToolProgress](),
-		mo.Some(mapToolResult(result)), mo.None[controller.ModelResponse](), mo.None[controller.TurnSummary](),
-		mo.None[controller.AgentSummary]())
+	return testAgentEvent(
+		kind,
+		mo.None[controller.ModelContent](),
+		mo.None[controller.ToolCallPreview](),
+		mo.None[controller.FinalToolCall](),
+		mo.None[controller.ToolExecution](),
+		mo.None[controller.ToolProgress](),
+		mo.Some(
+			controller.MapToolResult(result),
+		),
+		mo.None[controller.ModelResponse](),
+		mo.None[controller.TurnSummary](),
+		mo.None[controller.AgentSummary](),
+	)
 }
 
 // TestDeliveryMapsEveryAgentEvent verifies exhaustive transport-independent event mapping.
@@ -184,7 +193,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		Provider: mo.Some(model.ProviderID("provider")),
 		Model:    mo.Some(model.ID("model")),
 	}
-	mappedResponse, err := mapModelResponseProjection(response)
+	mappedResponse, err := controller.MapModelResponseProjection(response)
 	require.NoError(t, err)
 	toolResult := agent.ToolResult{
 		IsError:  false,
@@ -200,28 +209,28 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	}
 	tests := []struct {
 		name     string
-		event    run.Event
+		event    agent.Event
 		expected controller.AgentEvent
 	}{
 		{
 			name:     "agent start",
-			event:    testEmptyRunEvent(run.EventAgentStart, "run"),
+			event:    testEmptyRunEvent(agent.EventAgentStart, "run"),
 			expected: testEmptyAgentEvent(controller.AgentEventAgentStart, "", ""),
 		},
 		{
 			name:     "turn start",
-			event:    testEmptyRunEvent(run.EventTurnStart, "run"),
+			event:    testEmptyRunEvent(agent.EventTurnStart, "run"),
 			expected: testEmptyAgentEvent(controller.AgentEventTurnStart, "", ""),
 		},
 		{
 			name:     "message start",
-			event:    testEmptyRunEvent(run.EventMessageStart, "run"),
+			event:    testEmptyRunEvent(agent.EventMessageStart, "run"),
 			expected: testEmptyAgentEvent(controller.AgentEventMessageStart, "", ""),
 		},
 		{
 			name: "content start",
 			event: testRunEvent(
-				run.EventContentStart,
+				agent.EventContentStart,
 				mo.Some(2),
 				mo.Some(testModelContent(model.ContentReasoning, "")),
 				mo.None[model.Response](),
@@ -229,8 +238,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.ToolCall](),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testModelContentAgentEvent(
 				controller.AgentEventModelContentStart,
@@ -242,7 +251,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "text delta",
 			event: testRunEvent(
-				run.EventTextDelta,
+				agent.EventTextDelta,
 				mo.Some(3),
 				mo.Some(testModelContent(model.ContentRefusal, "no")),
 				mo.None[model.Response](),
@@ -250,8 +259,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.ToolCall](),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testModelContentAgentEvent(
 				controller.AgentEventModelTextDelta,
@@ -263,7 +272,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "content end",
 			event: testRunEvent(
-				run.EventContentEnd,
+				agent.EventContentEnd,
 				mo.Some(4),
 				mo.Some(testModelContent(model.ContentText, "")),
 				mo.None[model.Response](),
@@ -271,8 +280,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.ToolCall](),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testModelContentAgentEvent(
 				controller.AgentEventModelContentEnd,
@@ -284,7 +293,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "tool call start",
 			event: testRunEvent(
-				run.EventToolCallStart,
+				agent.EventToolCallStart,
 				mo.Some(0),
 				mo.None[model.Content](),
 				mo.None[model.Response](),
@@ -311,8 +320,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.ToolCall](),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testAgentEvent(
 				controller.AgentEventToolCallStart,
@@ -349,7 +358,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "tool call delta",
 			event: testRunEvent(
-				run.EventToolCallDelta,
+				agent.EventToolCallDelta,
 				mo.Some(0),
 				mo.None[model.Content](),
 				mo.None[model.Response](),
@@ -370,8 +379,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.ToolCall](),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testAgentEvent(
 				controller.AgentEventToolCallDelta,
@@ -402,7 +411,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "tool call end",
 			event: testRunEvent(
-				run.EventToolCallEnd,
+				agent.EventToolCallEnd,
 				mo.Some(5),
 				mo.None[model.Content](),
 				mo.None[model.Response](),
@@ -414,8 +423,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				}),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testAgentEvent(
 				controller.AgentEventToolCallEnd,
@@ -438,7 +447,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "message end",
 			event: testRunEvent(
-				run.EventMessageEnd,
+				agent.EventMessageEnd,
 				mo.None[int](),
 				mo.None[model.Content](),
 				mo.Some(response),
@@ -446,8 +455,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.ToolCall](),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testAgentEvent(
 				controller.AgentEventMessageEnd,
@@ -465,7 +474,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "tool execution start",
 			event: testRunEvent(
-				run.EventToolExecutionStart,
+				agent.EventToolExecutionStart,
 				mo.None[int](),
 				mo.None[model.Content](),
 				mo.None[model.Response](),
@@ -477,8 +486,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				}),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testAgentEvent(
 				controller.AgentEventToolExecutionStart,
@@ -499,7 +508,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "tool execution update",
 			event: testRunEvent(
-				run.EventToolExecutionUpdate,
+				agent.EventToolExecutionUpdate,
 				mo.None[int](),
 				mo.None[model.Content](),
 				mo.None[model.Response](),
@@ -510,8 +519,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 					Content: "line",
 				}),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.TurnSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testAgentEvent(
 				controller.AgentEventToolExecutionUpdate,
@@ -531,18 +540,18 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		},
 		{
 			name:     "tool execution end",
-			event:    testToolResultRunEvent(run.EventToolExecutionEnd, toolResult),
+			event:    testToolResultRunEvent(agent.EventToolExecutionEnd, toolResult),
 			expected: testToolResultAgentEvent(controller.AgentEventToolExecutionEnd, toolResult),
 		},
 		{
 			name:     "tool result",
-			event:    testToolResultRunEvent(run.EventToolResult, toolResult),
+			event:    testToolResultRunEvent(agent.EventToolResult, toolResult),
 			expected: testToolResultAgentEvent(controller.AgentEventToolResult, toolResult),
 		},
 		{
 			name: "turn end",
 			event: testRunEvent(
-				run.EventTurnEnd,
+				agent.EventTurnEnd,
 				mo.None[int](),
 				mo.None[model.Content](),
 				mo.None[model.Response](),
@@ -550,11 +559,11 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.ToolCall](),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.Some(run.TurnSummary{
+				mo.Some(agent.TurnSummary{
 					Response:    response,
 					ToolResults: []agent.ToolResult{toolResult},
 				}),
-				mo.None[run.AgentSummary](),
+				mo.None[agent.RunSummary](),
 			),
 			expected: testAgentEvent(
 				controller.AgentEventTurnEnd,
@@ -567,7 +576,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[controller.ModelResponse](),
 				mo.Some(controller.TurnSummary{
 					Response:    mappedResponse,
-					ToolResults: []controller.ToolResult{mapToolResult(toolResult)},
+					ToolResults: []controller.ToolResult{controller.MapToolResult(toolResult)},
 				}),
 				mo.None[controller.AgentSummary](),
 			),
@@ -575,7 +584,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 		{
 			name: "agent end",
 			event: testRunEvent(
-				run.EventAgentEnd,
+				agent.EventAgentEnd,
 				mo.None[int](),
 				mo.None[model.Content](),
 				mo.None[model.Response](),
@@ -583,8 +592,8 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.ToolCall](),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
-				mo.None[run.TurnSummary](),
-				mo.Some(run.AgentSummary{
+				mo.None[agent.TurnSummary](),
+				mo.Some(agent.RunSummary{
 					AddedHistory: nil,
 					Outcome:      agent.RunOutcomeFailed,
 					ErrorMessage: mo.Some("failed"),
@@ -612,20 +621,15 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			delivery := NewDelivery()
-			active := newTestActiveRun(t.Context(), delivery, "operation", "run")
+			// Act by projecting the selected lifecycle payload.
+			mapped, err := mapAgentEvent(test.event)
+			require.NoError(t, err)
 
-			// Assert reservation and delivery preserve the expected event mapping.
-			require.True(t, delivery.reserve(active))
-			delivered := make(chan error)
-			go func() { delivered <- delivery.DeliverAgent(t.Context(), test.event) }()
-
+			// Assert output contains the exact safe payload before correlation is attached.
 			expected := test.expected
-			expected.OperationID = "operation"
-			expected.RunID = "run"
-			assert.Equal(t, expected, <-active.Events())
-			require.NoError(t, <-delivered)
-			delivery.finish(active, nil)
+			expected.OperationID = ""
+			expected.RunID = test.event.RunID
+			assert.Equal(t, expected, mapped)
 		})
 	}
 }

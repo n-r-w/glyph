@@ -37,7 +37,7 @@ func TestSessionStatisticsQueryReturnsSnapshotDuringActiveRun(t *testing.T) {
 	command := testProgrammaticCommand("stats", controller.CommandGetSessionStats)
 
 	// Act by handling the query while an active run marker is present.
-	response, handled, err := service.handleImmediate(t.Context(), command, new(activeRun))
+	response, handled, err := service.handleImmediate(t.Context(), command, "active")
 
 	// Assert the query is handled without run coordination and returns the snapshot.
 	require.NoError(t, err)
