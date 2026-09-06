@@ -42,11 +42,12 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 					Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"),
 					Data: mo.Some(test.data),
 				}}}),
-				Model:         mo.None[session.ModelResponse](),
-				ToolResult:    mo.None[session.ToolResult](),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Model:            mo.None[session.ModelResponse](),
+				ToolResult:       mo.None[session.ToolResult](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			}
 
 			// Act by round-tripping user and tool-result images through JSONL.
@@ -74,9 +75,10 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 						Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: test.data}),
 					}},
 				}),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			}
 			encoded, err = encodeEntry(toolEntry)
 			require.NoError(t, err)
@@ -125,11 +127,17 @@ func TestExtensionPayloadBytesRoundTrip(t *testing.T) {
 	// Arrange an opaque JSON value whose whitespace and escape spelling are significant to its owner.
 	payload := []byte("{ \"escaped\": \"\\u0061\", \"items\": [1,  2] }")
 	entry := session.Entry{
-		ParentID: mo.Some("parent"), ID: "extension", CreatedAt: time.Date(2026, 9, 6, 1, 0, 0, 0, time.UTC),
-		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-		Extension:     mo.Some(session.ExtensionEnvelope{ExtensionID: "owner", EntryType: "state", Data: payload}),
-		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		ParentID:         mo.Some("parent"),
+		ID:               "extension",
+		CreatedAt:        time.Date(2026, 9, 6, 1, 0, 0, 0, time.UTC),
+		Information:      mo.None[session.Information](),
+		User:             mo.None[session.UserMessage](),
+		Model:            mo.None[session.ModelResponse](),
+		ToolResult:       mo.None[session.ToolResult](),
+		Extension:        mo.Some(session.ExtensionEnvelope{ExtensionID: "owner", EntryType: "state", Data: payload}),
+		EstimatedCost:    mo.None[session.EstimatedCost](),
+		BranchSummary:    mo.None[session.BranchSummaryEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 
 	// Act by round-tripping through the persisted record codec.
@@ -143,6 +151,31 @@ func TestExtensionPayloadBytesRoundTrip(t *testing.T) {
 	assert.Equal(t, entry.ParentID, decoded.ParentID)
 	assert.Equal(t, entry.CreatedAt, decoded.CreatedAt)
 	assert.Equal(t, payload, decoded.Extension.MustGet().Data)
+}
+
+// TestExtensionMessageRoundTrip verifies persistence preserves exact message metadata, text, and visibility.
+func TestExtensionMessageRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one model-visible message with exact multiline text and hidden client visibility.
+	entry := session.Entry{
+		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Date(2026, 9, 6, 2, 0, 0, 0, time.UTC),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
+			ExtensionID: "owner", EntryType: "note", Text: "first\nsecond", Visibility: session.ClientVisibilityHidden,
+		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+
+	// Act by round-tripping the entry through JSONL.
+	encoded, err := encodeEntry(entry)
+	require.NoError(t, err)
+	decoded, err := decodeEntry(encoded)
+
+	// Assert every stored value is unchanged.
+	require.NoError(t, err)
+	require.Equal(t, entry, decoded)
 }
 
 // TestToolResultContentsSliceStateRoundTrip verifies JSONL preserves nil, empty, and ordered result content.
@@ -176,9 +209,10 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: "call", ToolName: "tool", Contents: test.contents, IsError: false,
 				}),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			}
 
 			encoded, err := encodeEntry(entry)
@@ -235,10 +269,11 @@ func TestProviderContextPayloadSliceStateRoundTrip(t *testing.T) {
 					ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
 					Usage: mo.None[model.Usage](), Diagnostics: nil,
 				}),
-				ToolResult:    mo.None[session.ToolResult](),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				ToolResult:       mo.None[session.ToolResult](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			}
 
 			encoded, err := encodeEntry(entry)

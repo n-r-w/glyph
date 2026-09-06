@@ -34,7 +34,7 @@ func TestApplySynchronizesOneTreeMutation(t *testing.T) {
 		Information: mo.None[session.Information](), User: mo.Some(model.TextMessage("root")),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	steps := make([]string, 0, 5)
 	gomock.InOrder(
@@ -89,7 +89,7 @@ func TestCreateSnapshotPreservesTreeIdentity(t *testing.T) {
 		Information: mo.None[session.Information](), User: mo.Some(model.TextMessage("root")),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	summaryEntry := session.Entry{
 		ID: "summary", ParentID: mo.Some("root"), CreatedAt: createdAt.Add(time.Second),
@@ -108,7 +108,7 @@ func TestCreateSnapshotPreservesTreeIdentity(t *testing.T) {
 					Usage: mo.None[session.TokenUsage](),
 				}),
 			}, EstimatedCost: mo.None[session.EstimatedCost](),
-		}),
+		}), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	tree, err := session.NewTree(
 		[]session.Entry{rootEntry, summaryEntry}, mo.Some("summary"), map[string]string{"root": "kept"},

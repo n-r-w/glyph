@@ -47,12 +47,38 @@ type ContextOperations interface {
 		entryType string,
 		data []byte,
 	) (session.Entry, error)
+	// AppendExtensionMessage persists one model-visible message and reports post-commit delivery issues.
+	AppendExtensionMessage(
+		ctx context.Context,
+		extensionID, runtimeID string,
+		reference extensiondomain.ContextRef,
+		entryType, text string,
+		visibility session.ClientVisibility,
+	) (AppendMessageResult, error)
 	// ReadSessionState returns one coherent caller-filtered active-branch snapshot.
 	ReadSessionState(
 		ctx context.Context,
 		extensionID, runtimeID string,
 		reference extensiondomain.ContextRef,
 	) (SessionState, error)
+}
+
+// AppendMessageResult contains one committed entry and nonterminal post-commit issues.
+type AppendMessageResult struct {
+	// Entry is the committed message entry.
+	Entry session.Entry
+	// Issues contains ordered post-commit issues.
+	Issues []OperationIssue
+}
+
+// OperationIssue contains one stable code and complete diagnostic text.
+type OperationIssue struct {
+	// ExtensionID identifies the extension that owns the failed append.
+	ExtensionID string
+	// Code identifies the nonterminal outcome.
+	Code string
+	// Message contains complete issue text including the original cause.
+	Message string
 }
 
 // SessionState contains one coherent recovery result at the controller consumer boundary.

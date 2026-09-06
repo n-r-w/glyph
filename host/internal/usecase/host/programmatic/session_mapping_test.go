@@ -16,6 +16,52 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
+// TestSessionMappingsRetainExtensionMessages verifies complete Programmatic state retains both visibility values.
+func TestSessionMappingsRetainExtensionMessages(t *testing.T) {
+	t.Parallel()
+
+	// Arrange visible and hidden client messages with exact text.
+	createdAt := time.Unix(1, 0).UTC()
+	entries := []session.Entry{
+		programmaticExtensionMessageEntry("visible", createdAt, "visible text", session.ClientVisibilityVisible),
+		programmaticExtensionMessageEntry(
+			"hidden",
+			createdAt.Add(time.Second),
+			"hidden text",
+			session.ClientVisibilityHidden,
+		),
+	}
+
+	// Act by mapping complete detailed state.
+	detailed, err := mapSessionEntries(entries)
+
+	// Assert complete state retains exact text and both visibility values.
+	require.NoError(t, err)
+	require.Len(t, detailed, 2)
+	require.Equal(t, "visible text", detailed[0].ExtensionMessage.MustGet().Text)
+	require.Equal(t, session.ClientVisibilityVisible, detailed[0].ExtensionMessage.MustGet().Visibility)
+	require.Equal(t, "hidden text", detailed[1].ExtensionMessage.MustGet().Text)
+	require.Equal(t, session.ClientVisibilityHidden, detailed[1].ExtensionMessage.MustGet().Visibility)
+}
+
+// programmaticExtensionMessageEntry creates one complete model-visible extension entry.
+func programmaticExtensionMessageEntry(
+	id string,
+	createdAt time.Time,
+	text string,
+	visibility session.ClientVisibility,
+) session.Entry {
+	return session.Entry{
+		ID: id, ParentID: mo.None[string](), CreatedAt: createdAt,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
+			ExtensionID: "example", EntryType: "note", Text: text, Visibility: visibility,
+		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+}
+
 // TestInvalidStoredModelProjectionIsReported verifies invalid stored model content returns a mapping error.
 func TestInvalidStoredModelProjectionIsReported(t *testing.T) {
 	t.Parallel()

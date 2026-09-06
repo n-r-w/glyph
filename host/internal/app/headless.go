@@ -52,6 +52,7 @@ func runHeadlessWithPaths(
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}()
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
+	contexts.BindMessagePublisher(renderer.AcknowledgeSessionEntry)
 	startupService := startup.New(extensions, tools, sessionServices.tree)
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,

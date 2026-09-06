@@ -115,8 +115,18 @@ func (t *Tracker[P, R]) Track(id string) (<-chan Event[P, R], error) {
 	return events, nil
 }
 
-// Handle validates and enqueues one incoming event.
+// Handle validates and enqueues one lifecycle event without blocking on a slow local waiter.
 func (t *Tracker[P, R]) Handle(event Event[P, R]) error {
+	return t.handle(event, true)
+}
+
+// Advance validates one nonterminal event and advances lifecycle state without local delivery.
+func (t *Tracker[P, R]) Advance(event Event[P, R]) error {
+	return t.handle(event, false)
+}
+
+// handle validates one lifecycle transition and optionally delivers its payload.
+func (t *Tracker[P, R]) handle(event Event[P, R], deliver bool) error {
 	if event.ID == "" {
 		return errors.New("handle operation event: empty identifier")
 	}
@@ -134,6 +144,13 @@ func (t *Tracker[P, R]) Handle(event Event[P, R]) error {
 	next, terminal, err := validateEvent(tracked.state, event.Kind, event.Code, event.Message)
 	if err != nil {
 		return fmt.Errorf("handle operation event %q: %w", event.ID, err)
+	}
+	if terminal && !deliver {
+		return fmt.Errorf("handle operation event %q: terminal event requires delivery", event.ID)
+	}
+	if !deliver {
+		tracked.state = next
+		return nil
 	}
 	select {
 	case tracked.events <- event:

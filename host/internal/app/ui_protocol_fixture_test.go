@@ -67,6 +67,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runSemanticFixture(ctx, host)
 		case "summary-control", "summary-read", "summary-blocked":
 			return runSummaryControlUIFixture(t, ctx, host)
+		case "extension-message-navigation":
+			return runExtensionMessageNavigationUIFixture(ctx, host)
 		default:
 			return host.Close(ctx)
 		}
@@ -80,13 +82,19 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 func runAuthenticationFixture(ctx context.Context, host *uisdk.Host) error {
 	recordedAuthenticating := false
 	for {
-		event, err := host.Receive(ctx)
+		notification, err := host.Receive(ctx)
 		if err != nil {
 			return err
 		}
+		event := notification.ConnectionEvent()
+		if event == nil {
+			continue
+		}
 		availability := event.GetAvailabilityChanged().GetAvailability()
 		if availability == uiv1.Availability_AVAILABILITY_AUTHENTICATING {
-			if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(availability.String()), 0o600); err != nil {
+			if err := os.WriteFile(
+				os.Getenv(appUITraceEnvironment), []byte(availability.String()), 0o600,
+			); err != nil {
 				return err
 			}
 			recordedAuthenticating = true
@@ -97,7 +105,9 @@ func runAuthenticationFixture(ctx context.Context, host *uisdk.Host) error {
 			continue
 		}
 		if !recordedAuthenticating {
-			if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(availability.String()), 0o600); err != nil {
+			if err := os.WriteFile(
+				os.Getenv(appUITraceEnvironment), []byte(availability.String()), 0o600,
+			); err != nil {
 				return err
 			}
 		}
@@ -122,7 +132,13 @@ func runSemanticFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 	}
 	defer func() { returnErr = errors.Join(returnErr, file.Close()) }()
 	var progressWriteErr error
-	_, err = operation.Wait(ctx, func(progress *uiv1.HostProgress) {
+	idleReceived := false
+	_, err = waitUIOperation(ctx, host, "semantic-submit", operation, func(notification *uisdk.Notification) {
+		if connection := notification.ConnectionEvent(); connection != nil &&
+			connection.GetAvailabilityChanged().GetAvailability() == uiv1.Availability_AVAILABILITY_IDLE {
+			idleReceived = true
+		}
+		progress := notification.Progress()
 		lifecycle := progress.GetAgentEvent()
 		if lifecycle == nil || progressWriteErr != nil {
 			return
@@ -144,8 +160,10 @@ func runSemanticFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 	if err := writeSemanticObservation(file, map[string]any{"settled": true}); err != nil {
 		return err
 	}
-	if err := waitForIdle(ctx, host); err != nil {
-		return err
+	if !idleReceived {
+		if err := waitForIdle(ctx, host); err != nil {
+			return err
+		}
 	}
 	if err := writeSemanticObservation(file, map[string]any{
 		"availability": uiv1.Availability_AVAILABILITY_IDLE,
@@ -155,14 +173,48 @@ func runSemanticFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 	return host.Close(ctx)
 }
 
+// waitUIOperation applies ordered notifications until one operation terminates, then reads its handle result.
+func waitUIOperation(
+	ctx context.Context,
+	host *uisdk.Host,
+	operationID string,
+	started *uisdk.Operation,
+	apply func(*uisdk.Notification),
+) (*uiv1.HostCompleted, error) {
+	for {
+		notification, err := host.Receive(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if apply != nil {
+			apply(notification)
+		}
+		if notification.OperationID() != operationID {
+			continue
+		}
+		switch notification.Kind() {
+		case uisdk.NotificationCompleted, uisdk.NotificationFailed:
+			return started.Wait(ctx)
+		case uisdk.NotificationProgress, uisdk.NotificationConnectionEvent:
+			continue
+		default:
+			return nil, errors.New("unknown UI notification kind")
+		}
+	}
+}
+
 // waitForIdle waits for one idle connection event.
 func waitForIdle(ctx context.Context, host *uisdk.Host) error {
 	for {
-		event, err := host.Receive(ctx)
+		idle := false
+		notification, err := host.Receive(ctx)
 		if err != nil {
 			return err
 		}
-		if event.GetAvailabilityChanged().GetAvailability() == uiv1.Availability_AVAILABILITY_IDLE {
+		if event := notification.ConnectionEvent(); event != nil {
+			idle = event.GetAvailabilityChanged().GetAvailability() == uiv1.Availability_AVAILABILITY_IDLE
+		}
+		if idle {
 			return nil
 		}
 	}

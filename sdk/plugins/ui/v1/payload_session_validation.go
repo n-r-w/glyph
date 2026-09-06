@@ -64,6 +64,8 @@ func validateSessionEntry(entry *uiv1.SessionEntry) error {
 		return validateToolResult(entry.GetToolResult())
 	case uiv1.SessionEntry_BranchSummary_case:
 		return validateBranchSummary(entry.GetBranchSummary())
+	case uiv1.SessionEntry_ExtensionMessage_case:
+		return validateExtensionMessage(entry.GetExtensionMessage())
 	case uiv1.SessionEntry_Entry_not_set_case:
 		return errors.New("Host session entry payload is required")
 	default:
@@ -72,6 +74,8 @@ func validateSessionEntry(entry *uiv1.SessionEntry) error {
 }
 
 // validateSessionTreeEntry validates one tree entry and its selected payload.
+//
+//nolint:gocyclo // The closed tree union validates every public payload explicitly.
 func validateSessionTreeEntry(entry *uiv1.SessionTreeEntry) error {
 	if entry == nil || !entry.HasId() || entry.GetId() == "" || entry.GetCreatedTime() == nil {
 		return errors.New("Host session tree entry fields are required")
@@ -94,11 +98,23 @@ func validateSessionTreeEntry(entry *uiv1.SessionTreeEntry) error {
 		return nil
 	case uiv1.SessionTreeEntry_BranchSummary_case:
 		return validateBranchSummary(entry.GetBranchSummary())
+	case uiv1.SessionTreeEntry_ExtensionMessage_case:
+		return validateExtensionMessage(entry.GetExtensionMessage())
 	case uiv1.SessionTreeEntry_Entry_not_set_case:
 		return errors.New("Host session tree entry payload is required")
 	default:
 		return errors.New("Host session tree entry payload is unknown")
 	}
+}
+
+// validateExtensionMessage requires exact public identity, text, and closed visibility.
+func validateExtensionMessage(message *uiv1.ExtensionMessage) error {
+	if message == nil || !message.HasExtensionId() || message.GetExtensionId() == "" ||
+		!message.HasEntryType() || message.GetEntryType() == "" || !message.HasText() ||
+		!message.HasVisibility() || message.GetVisibility() == uiv1.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED {
+		return errors.New("Host extension message fields are required")
+	}
+	return nil
 }
 
 // validateUserMessage validates every selected user content item.

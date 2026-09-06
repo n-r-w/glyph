@@ -435,7 +435,7 @@ func TestNavigateEmptyAbandonedPathSkipsModelExecution(t *testing.T) {
 		Extension: mo.Some(
 			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{}`)},
 		),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	tree, err := session.NewTree([]session.Entry{entry}, mo.Some("extension"), nil)
 	require.NoError(t, err)

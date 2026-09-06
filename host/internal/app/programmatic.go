@@ -101,9 +101,16 @@ func runProgrammaticWithPaths(
 	)
 	coordinator := events.NewCoordinator(agentCore.Run, agentCore.Settle, dispatcher, sessionServices.gate.TryAcquire)
 	session := hostprogrammatic.New(
-		coordinator, providerCatalog, agentCore.State, agentCore.History, sessionServices.control, delivery,
+		coordinator,
+		providerCatalog,
+		agentCore.State,
+		sessionServices.active.ClientSnapshot,
+		sessionServices.control,
+		delivery,
 	)
 	controller := controllerprogrammatic.New(ctx, session)
+	session.BindConnectionPublisher(controller.PublishSessionEntry)
+	contexts.BindMessagePublisher(session.PublishSessionEntry)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))
 	programmaticv1.RegisterProgrammaticControlServiceServer(server, controller)
 

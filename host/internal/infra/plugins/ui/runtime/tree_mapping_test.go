@@ -16,6 +16,37 @@ import (
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
+// TestMapTreeFramePreservesExtensionMessage verifies exact text and visibility reach the UI contract.
+func TestMapTreeFramePreservesExtensionMessage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one complete tree frame with a hidden-client extension message.
+	frame := runtimeTreeFrame(domainui.FrameSessionTree)
+	frame.SessionTree = mo.Some(domainui.SessionTree{
+		Entries: []domainui.SessionTreeEntry{{
+			ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(1, 0).UTC(), Label: "",
+			Kind: domainui.SessionTreeEntryExtensionMessage,
+			User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
+			ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[domainui.ExtensionEntry](),
+			BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.Some(domainui.ExtensionMessage{
+				ExtensionID: "example",
+				EntryType:   "note",
+				Text:        "exact text",
+				Visibility:  session.ClientVisibilityHidden,
+			}),
+		}}, ActiveLeafID: mo.Some("message"),
+	})
+
+	// Act by mapping the Host frame to protobuf.
+	wire, err := mapFrame(frame)
+
+	// Assert exact message data and visibility remain present.
+	require.NoError(t, err)
+	entry := wire.GetEvent().GetCompleted().GetSessionTree().GetTree().GetEntries()[0]
+	require.Equal(t, "exact text", entry.GetExtensionMessage().GetText())
+	require.Equal(t, uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN, entry.GetExtensionMessage().GetVisibility())
+}
+
 // TestMapTreeFramePreservesPublicState verifies parent, label, active leaf, and opaque extension metadata reach the UI
 // contract.
 func TestMapTreeFramePreservesPublicState(t *testing.T) {
@@ -155,10 +186,19 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 // runtimeTreeFrame initializes all frame fields for one tree result.
 func runtimeTreeFrame(kind domainui.FrameKind) domainui.Frame {
 	return domainui.Frame{
-		Kind: kind, Initialization: mo.None[domainui.Initialization](), Lifecycle: mo.None[domainui.Lifecycle](),
-		AuthorizationURL: mo.None[string](), Text: mo.None[string](), ErrorCode: mo.None[string](),
-		ModelSelection: mo.None[domainui.ModelSelection](), SessionInfo: mo.None[session.Info](), Sessions: nil,
-		SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](),
-		SessionTree: mo.None[domainui.SessionTree](), TreeNavigation: mo.None[domainui.TreeNavigationResult](),
+		Kind:              kind,
+		Initialization:    mo.None[domainui.Initialization](),
+		Lifecycle:         mo.None[domainui.Lifecycle](),
+		AuthorizationURL:  mo.None[string](),
+		Text:              mo.None[string](),
+		ErrorCode:         mo.None[string](),
+		ModelSelection:    mo.None[domainui.ModelSelection](),
+		SessionInfo:       mo.None[session.Info](),
+		Sessions:          nil,
+		SessionEntries:    nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       mo.None[domainui.SessionTree](),
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 	}
 }

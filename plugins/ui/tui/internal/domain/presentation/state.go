@@ -52,7 +52,7 @@ func (state *State) applyLifecycleEvent(event Event) bool {
 		EventAuthorization, EventInformation, EventError,
 		EventSessionList, EventSessionChanged, EventSessionInformation,
 		EventSessionTree, EventSessionTreeNavigationProgress, EventSessionTreeNavigation, EventTreeOperationFailed,
-		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet, EventSessionEntryAdded:
 		return false
 	}
 	return true
@@ -80,7 +80,7 @@ func (state *State) applyTextEvent(event Event) bool {
 		EventToolStarted, EventToolProgress, EventToolOutput, EventToolEnded, EventToolResult, EventTurnEnded,
 		EventAgentSettled, EventModelSelectionChanged, EventSessionList, EventSessionChanged, EventSessionInformation,
 		EventSessionTree, EventSessionTreeNavigationProgress, EventSessionTreeNavigation, EventTreeOperationFailed,
-		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet, EventSessionEntryAdded:
 		return false
 	}
 	return true
@@ -102,7 +102,7 @@ func (state *State) applyModelEvent(event Event) bool {
 		EventAgentSettled, EventAuthorization, EventInformation, EventError, EventModelSelectionChanged,
 		EventSessionList, EventSessionChanged, EventSessionInformation,
 		EventSessionTree, EventSessionTreeNavigationProgress, EventSessionTreeNavigation, EventTreeOperationFailed,
-		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet, EventSessionEntryAdded:
 		return false
 	}
 	return true
@@ -126,7 +126,7 @@ func (state *State) applyToolEvent(event Event) bool {
 		EventAgentSettled, EventAuthorization, EventInformation, EventError, EventModelSelectionChanged,
 		EventSessionList, EventSessionChanged, EventSessionInformation,
 		EventSessionTree, EventSessionTreeNavigationProgress, EventSessionTreeNavigation, EventTreeOperationFailed,
-		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet, EventSessionEntryAdded:
 		return false
 	}
 	return true
@@ -185,7 +185,7 @@ func (state *State) applySessionEvent(event Event) bool {
 		EventToolProgress, EventToolOutput, EventToolEnded, EventToolResult, EventTurnEnded, EventAgentSettled,
 		EventAuthorization, EventInformation, EventError, EventModelSelectionChanged,
 		EventSessionTree, EventSessionTreeNavigationProgress, EventSessionTreeNavigation, EventTreeOperationFailed,
-		EventSessionForked, EventSessionCloned, EventEntryLabelSet:
+		EventSessionForked, EventSessionCloned, EventEntryLabelSet, EventSessionEntryAdded:
 		return false
 	default:
 		return false

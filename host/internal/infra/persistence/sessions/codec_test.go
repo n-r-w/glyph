@@ -70,7 +70,7 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
 		EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 
 	// Act by round-tripping terminal model and tool-result records through JSONL.
@@ -97,7 +97,7 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 		ToolResult:    mo.Some(result),
 		Extension:     mo.None[session.ExtensionEnvelope](),
 		EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	encodedTool, err := encodeEntry(toolEntry)
 	require.NoError(t, err)
@@ -146,10 +146,11 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 					Usage:         test.usage,
 					Diagnostics:   nil,
 				}),
-				ToolResult:    mo.None[session.ToolResult](),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				ToolResult:       mo.None[session.ToolResult](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			}
 			encoded, encodeErr := encodeEntry(entry)
 			require.NoError(t, encodeErr)
@@ -204,11 +205,12 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 						Data:      mo.None[[]byte](),
 					},
 				}}),
-				Model:         mo.None[session.ModelResponse](),
-				ToolResult:    mo.None[session.ToolResult](),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Model:            mo.None[session.ModelResponse](),
+				ToolResult:       mo.None[session.ToolResult](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			},
 			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
 				t.Helper()
@@ -249,10 +251,11 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 					Usage:       mo.None[model.Usage](),
 					Diagnostics: []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 				}),
-				ToolResult:    mo.None[session.ToolResult](),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				ToolResult:       mo.None[session.ToolResult](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			},
 			check: func(t *testing.T, _ []byte, decoded session.Entry) {
 				t.Helper()
@@ -282,9 +285,10 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 						},
 					},
 				}),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			},
 			check: func(t *testing.T, _ []byte, decoded session.Entry) {
 				t.Helper()
@@ -307,8 +311,9 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 					ExtensionID: "example.extension", EntryType: "checkpoint",
 					Data: []byte("{\n  \"text\": \"line\\nvalue\", \"items\": [1, 2]\n}"),
 				}),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			},
 			check: func(t *testing.T, encoded []byte, decoded session.Entry) {
 				t.Helper()
@@ -368,7 +373,8 @@ func TestApplyEncodingFailureDoesNotAccessFilesystem(t *testing.T) {
 					Extension: mo.Some(
 						session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "item", Data: []byte("{")},
 					),
-					BranchSummary: mo.None[session.BranchSummaryEntry](),
+					BranchSummary:    mo.None[session.BranchSummaryEntry](),
+					ExtensionMessage: mo.None[session.ExtensionMessage](),
 				},
 			),
 			Navigation:         mo.None[hostsessions.NavigationMutation](),

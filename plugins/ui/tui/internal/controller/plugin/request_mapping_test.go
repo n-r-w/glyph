@@ -8,10 +8,40 @@ import (
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
+
+// TestMapConnectionEventRetainsAddedMessageState verifies hidden messages reach tree state without transcript lines.
+func TestMapConnectionEventRetainsAddedMessageState(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one complete hidden-client SessionEntryAdded connection event.
+	entry := uiv1.SessionTreeEntry_builder{
+		Id: new("message"), ParentId: new("parent"), CreatedTime: timestamppb.Now(), Label: new(""),
+		User: nil, Model: nil, ToolResult: nil, Extension: nil, BranchSummary: nil,
+		ExtensionMessage: uiv1.ExtensionMessage_builder{
+			ExtensionId: new("example"), EntryType: new("note"), Text: new("exact text"),
+			Visibility: new(uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+		}.Build(),
+	}.Build()
+	connection := new(uiv1.HostConnectionEvent)
+	connection.SetSessionEntryAdded(uiv1.SessionEntryAdded_builder{Entry: entry}.Build())
+
+	// Act by mapping the connection event to presentation state.
+	event, err := mapConnectionEvent(connection)
+
+	// Assert complete tree data remains and ordinary transcript projection is empty.
+	require.NoError(t, err)
+	require.Equal(t, presentationdomain.EventSessionEntryAdded, event.Kind)
+	treeEvent := event.TreeEvent.MustGet()
+	require.Empty(t, treeEvent.RestoredTranscript)
+	require.Equal(t, "exact text", treeEvent.AddedEntry.MustGet().ExtensionMessage.MustGet().Text)
+	require.Equal(t, presentationdomain.ClientVisibilityHidden,
+		treeEvent.AddedEntry.MustGet().ExtensionMessage.MustGet().Visibility)
+}
 
 // TestOperationMappersRequireSelectedPayloadPresence verifies required retained scalar presence.
 func TestOperationMappersRequireSelectedPayloadPresence(t *testing.T) {

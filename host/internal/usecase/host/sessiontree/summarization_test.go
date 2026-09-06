@@ -119,6 +119,67 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 	}
 }
 
+// TestNavigateExtensionMessageCreatesSummaryAtParent verifies message selection keeps exact input and summary semantics.
+func TestNavigateExtensionMessageCreatesSummaryAtParent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a message target whose abandoned suffix is summarized through the provider-neutral model owner.
+	controller := gomock.NewController(t)
+	active := NewMockActiveSession(controller)
+	models := NewMockModelRequester(controller)
+	handlers := NewMockRuntime(controller)
+	service := New(active, models, handlers)
+	tree := navigationTree(t, time.Unix(1, 0).UTC())
+	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
+	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().SessionID().Return("session")
+	models.EXPECT().ActiveSelection().Return(selection)
+	models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).Return(
+		summaryResponse("message summary", mo.None[model.Usage]()), nil,
+	)
+	summary := session.Entry{
+		ID: "summary", ParentID: mo.Some("extension"), CreatedAt: time.Unix(10, 0).UTC(),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](), BranchSummary: mo.Some(session.BranchSummaryEntry{
+			Summary: "message summary", FirstEntryID: "message-visible", LastEntryID: "active",
+			Source: session.BranchSummarySource{
+				ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+					Selection: selection, Usage: mo.None[session.TokenUsage](),
+				}),
+			}, EstimatedCost: mo.None[session.EstimatedCost](),
+		}),
+	}
+	committed := tree.Clone()
+	require.NoError(t, committed.SetActiveLeaf(mo.Some("extension")))
+	require.NoError(t, committed.Add(summary))
+	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
+		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("extension"),
+		BranchSummary: mo.Some(BranchSummaryDraft{
+			Summary: "message summary", FirstEntryID: "message-visible", LastEntryID: "active",
+			CommonAncestorID: mo.Some("extension"), Source: session.BranchSummarySource{
+				ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+					Selection: selection, Usage: mo.None[session.TokenUsage](),
+				}),
+			},
+		}),
+	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.Some(summary)}, nil)
+
+	// Act by selecting the model-visible extension message with summarization.
+	result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
+		TargetEntryID: "message-visible", SummaryMode: sessionnavigation.SummaryModeSummarize,
+		CustomFocus: mo.None[string](),
+	})
+
+	// Assert exact message text remains next input and the new summary is the active leaf.
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some("visible exact"), result.NextInput)
+	assert.Equal(t, mo.Some("extension"), result.DestinationID)
+	assert.Equal(t, mo.Some("summary"), result.ActiveLeafID)
+	assert.Equal(t, "summary", result.CreatedSummary.MustGet().ID)
+}
+
 // TestNavigateSerializationFailureDoesNotRequestModelOrCommit verifies invalid tool arguments stop navigation before
 // model execution or state mutation.
 func TestNavigateSerializationFailureDoesNotRequestModelOrCommit(t *testing.T) {

@@ -134,6 +134,7 @@ message HostConnectionEvent {
     Information information = 1;
     Error error = 2;
     AvailabilityChanged availability_changed = 3;
+    SessionEntryAdded session_entry_added = 4;
   }
 }
 

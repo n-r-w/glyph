@@ -97,6 +97,8 @@ func mapConnectionEvent(connection *uiv1.HostConnectionEvent) (presentationdomai
 			return presentationdomain.Event{}, errors.New("connection error category and text are required")
 		}
 		return textEvent(presentationdomain.EventError, failure.GetText()), nil
+	case uiv1.HostConnectionEvent_SessionEntryAdded_case:
+		return mapSessionEntryAdded(connection.GetSessionEntryAdded())
 	case uiv1.HostConnectionEvent_AvailabilityChanged_case:
 		availability, err := mapAvailability(connection.GetAvailabilityChanged().GetAvailability())
 		if err != nil {
@@ -110,6 +112,37 @@ func mapConnectionEvent(connection *uiv1.HostConnectionEvent) (presentationdomai
 	default:
 		return presentationdomain.Event{}, errors.New("host connection event payload is unknown")
 	}
+}
+
+// mapSessionEntryAdded maps one complete extension-message state change.
+func mapSessionEntryAdded(added *uiv1.SessionEntryAdded) (presentationdomain.Event, error) {
+	if added == nil || added.GetEntry() == nil {
+		return presentationdomain.Event{}, errors.New("added session entry is required")
+	}
+	entry, err := mapSessionTreeEntry(added.GetEntry())
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
+	transcript := make([]presentationdomain.Line, 0, 1)
+	message := added.GetEntry().GetExtensionMessage()
+	if message != nil && message.GetVisibility() == uiv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE {
+		transcript = append(transcript, presentationdomain.Line{
+			Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
+			Text: mo.Some(message.GetText()), Contents: mo.Some([]presentationdomain.Content{{
+				Text: mo.Some(message.GetText()), MediaType: mo.None[string](), Data: mo.None[[]byte](),
+			}}),
+		})
+	}
+	return treeEvent(presentationdomain.EventSessionEntryAdded, presentationdomain.TreeEvent{
+		Tree:               mo.None[presentationdomain.SessionTree](),
+		NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		RestoredTranscript: transcript,
+		NextInput:          mo.None[string](),
+		Issues:             nil,
+		FailureMessage:     mo.None[string](),
+		AddedEntry:         mo.Some(entry),
+	}), nil
 }
 
 // textEvent creates one complete text-only presentation event.

@@ -114,6 +114,8 @@ const (
 	SessionTreeEntryExtension
 	// SessionTreeEntryBranchSummary identifies a branch summary.
 	SessionTreeEntryBranchSummary
+	// SessionTreeEntryExtensionMessage identifies a model-visible extension message.
+	SessionTreeEntryExtensionMessage
 )
 
 // SessionTreeEntry contains one payload, parent relation, and label state.
@@ -138,6 +140,8 @@ type SessionTreeEntry struct {
 	Extension mo.Option[ExtensionEntry]
 	// BranchSummary contains a persisted summary.
 	BranchSummary mo.Option[BranchSummary]
+	// ExtensionMessage contains exact model-visible text and client visibility.
+	ExtensionMessage mo.Option[ExtensionMessage]
 }
 
 // ExtensionEntry identifies one opaque extension entry.
@@ -146,6 +150,18 @@ type ExtensionEntry struct {
 	ExtensionID string
 	// EntryType identifies the extension-defined entry type.
 	EntryType string
+}
+
+// ExtensionMessage contains one model-visible extension message.
+type ExtensionMessage struct {
+	// ExtensionID identifies the owning extension.
+	ExtensionID string
+	// EntryType identifies the extension-defined entry type.
+	EntryType string
+	// Text contains the exact model-visible message text.
+	Text string
+	// Visibility controls ordinary client transcript presentation.
+	Visibility session.ClientVisibility
 }
 
 // BranchSummary contains one persisted branch-summary projection.

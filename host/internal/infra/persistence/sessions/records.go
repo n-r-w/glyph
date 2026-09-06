@@ -22,6 +22,8 @@ const (
 	recordTypeToolResult = "tool_result"
 	// recordTypeExtension identifies a model-hidden extension entry.
 	recordTypeExtension = "extension"
+	// recordTypeExtensionMessage identifies a model-visible extension message.
+	recordTypeExtensionMessage = "extension_message"
 	// recordTypeBranchSummary identifies a persisted branch summary.
 	recordTypeBranchSummary = "branch_summary"
 	// mutationTypeEntry identifies an entry mutation envelope.
@@ -244,6 +246,26 @@ type extensionRecord struct {
 	EntryType string `json:"entryType"`
 	// Data contains encoded extension-owned JSON bytes.
 	Data jsontext.Value `json:"data"`
+}
+
+// extensionMessageRecord stores one exact model-visible extension message.
+type extensionMessageRecord struct {
+	// Type must be "extension_message".
+	Type string `json:"type"`
+	// ID uniquely identifies this append.
+	ID string `json:"id"`
+	// ParentID identifies the preceding tree entry or the implicit root when absent.
+	ParentID mo.Option[string] `json:"parentId"`
+	// CreatedAt uses RFC3339 nanosecond precision.
+	CreatedAt string `json:"createdAt"`
+	// ExtensionID identifies the extension that owns the message.
+	ExtensionID string `json:"extensionId"`
+	// EntryType identifies the extension-defined entry kind.
+	EntryType string `json:"entryType"`
+	// Text contains the exact model-visible message text.
+	Text string `json:"text"`
+	// Visibility controls ordinary client transcript presentation.
+	Visibility string `json:"visibility"`
 }
 
 // branchSummaryRecord stores one abandoned-branch summary entry.

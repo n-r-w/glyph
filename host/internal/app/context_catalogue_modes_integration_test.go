@@ -100,6 +100,47 @@ func TestPublicContextCataloguesAcrossApplicationModes(t *testing.T) {
 	}
 }
 
+// TestPublicExtensionMessagesAcrossApplicationModes verifies append completion and recovery in every Host assembly.
+//
+//nolint:paralleltest // The scenarios replace process-global provider HTTP transport.
+func TestPublicExtensionMessagesAcrossApplicationModes(t *testing.T) {
+	// Arrange one public-only extension binary for all application modes.
+	directory := buildPublicExtensionFixture(t)
+	for _, scenario := range []struct {
+		name string
+		mode cli.Mode
+	}{
+		{name: "headless", mode: cli.ModeHeadless},
+		{name: "ui", mode: cli.ModeUI},
+		{name: "programmatic", mode: cli.ModeRPC},
+	} {
+		t.Run(scenario.name, func(t *testing.T) {
+			paths := testPaths(t, codexSettings(""))
+			writeProgrammaticCredentials(t, paths)
+			var count atomic.Int32
+			var body atomic.Value
+			previous := http.DefaultTransport
+			http.DefaultTransport = catalogueProviderTransport(
+				t,
+				&count,
+				&body,
+				func() string { return "session-state" },
+			)
+			t.Cleanup(func() { http.DefaultTransport = previous })
+
+			// Act through the selected application composition.
+			runPublicExtensionMode(t, scenario.mode, paths, directory, "messages", "store extension messages")
+
+			// Assert both public recovery variants completed and preserved exact message data.
+			require.Equal(t, int32(2), count.Load())
+			report := decodeSessionStateReport(t, externalToolOutput(t, body.Load().([]byte)))
+			require.Equal(t, 2, report.EntryCount)
+			require.Equal(t, "exact\nrestart message", report.MessageText)
+			require.Equal(t, "CLIENT_VISIBILITY_HIDDEN", report.MessageVisibility)
+		})
+	}
+}
+
 // runPublicExtensionMode invokes one external fixture tool through the selected application assembly.
 func runPublicExtensionMode(
 	t *testing.T,

@@ -116,6 +116,8 @@ func (model Model) emitNavigation(mode presentationdomain.SummaryMode, focus mo.
 }
 
 // applyTreeEvent applies only durable Host results to transcript, editor, session, and label state.
+//
+//nolint:gocyclo // The closed tree-event union has distinct state transitions.
 func (model Model) applyTreeEvent(kind presentationdomain.EventKind, event presentationdomain.TreeEvent) Model {
 	switch kind {
 	case presentationdomain.EventSessionTree:
@@ -163,6 +165,17 @@ func (model Model) applyTreeEvent(kind presentationdomain.EventKind, event prese
 		model.replaceTranscript(event.RestoredTranscript)
 	case presentationdomain.EventSessionTreeNavigation:
 		model = model.applyTreeNavigationResult(event)
+	case presentationdomain.EventSessionEntryAdded:
+		if entry, present := event.AddedEntry.Get(); present {
+			if panel, panelPresent := model.treePanel.Get(); panelPresent {
+				tree := panel.Tree
+				tree.Entries = append(tree.Entries, entry)
+				tree.ActiveLeafID = mo.Some(entry.ID)
+				panel.Reconcile(tree)
+				model.treePanel = mo.Some(panel)
+			}
+		}
+		model.state.Transcript = append(model.state.Transcript, event.RestoredTranscript...)
 	case presentationdomain.EventSessionForked, presentationdomain.EventSessionCloned:
 		model = model.applyTreeReplacement(event)
 	case presentationdomain.EventUnspecified, presentationdomain.EventInitialization,

@@ -228,6 +228,7 @@ message SessionTreeEntry {
     ToolResult tool_result = 7;
     ExtensionEntry extension = 8;
     BranchSummary branch_summary = 9;
+    ExtensionMessage extension_message = 10;
   }
 }
 // ExtensionEntry identifies one opaque extension entry without private payload bytes.
@@ -237,6 +238,24 @@ message ExtensionEntry {
   // The extension-defined entry type.
   string entry_type = 2;
 }
+// ExtensionMessage contains one model-visible extension message.
+message ExtensionMessage {
+  // The owning extension identifier.
+  string extension_id = 1;
+  // The extension-defined entry kind.
+  string entry_type = 2;
+  // The exact model-visible text.
+  string text = 3;
+  // The ordinary client transcript visibility.
+  ClientVisibility visibility = 4;
+}
+
+// SessionEntryAdded publishes one committed session entry outside an operation lifecycle.
+message SessionEntryAdded {
+  // The complete committed tree entry.
+  SessionTreeEntry entry = 1;
+}
+
 // BranchSummary contains one persisted abandoned-branch summary.
 message BranchSummary {
   // The summary text.
@@ -301,6 +320,7 @@ message SessionEntry {
     ModelResponse model = 4;
     ToolResult tool_result = 5;
     BranchSummary branch_summary = 7;
+    ExtensionMessage extension_message = 8;
   }
   // Estimated cost is present only for a model entry with calculated cost.
   EstimatedCost estimated_cost = 6;
@@ -312,6 +332,7 @@ message HistoryEntry {
     UserMessage user = 1;
     ModelResponse model = 2;
     ToolResult tool_result = 3;
+    ExtensionMessage extension_message = 4;
   }
 }
 // UserMessage carries one user history item.
@@ -334,6 +355,16 @@ message UserImage {
   // The exact binary image data.
   bytes data = 2;
 }
+// ClientVisibility controls ordinary client transcript presentation.
+enum ClientVisibility {
+  // No visibility was provided.
+  CLIENT_VISIBILITY_UNSPECIFIED = 0;
+  // The message is included in ordinary client transcripts.
+  CLIENT_VISIBILITY_VISIBLE = 1;
+  // The message is excluded from ordinary client transcripts.
+  CLIENT_VISIBILITY_HIDDEN = 2;
+}
+
 // SummaryMode identifies branch-summary behavior for tree navigation.
 enum SummaryMode {
   // No summary mode was provided.

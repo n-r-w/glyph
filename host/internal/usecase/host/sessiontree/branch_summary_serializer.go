@@ -67,6 +67,11 @@ func serializeBranchSummaryConversation(entries []session.Entry) (string, error)
 		if result, present := entry.ToolResult.Get(); present {
 			writeBranchSummaryToolResult(&serialized, &hasBlock, result)
 		}
+		if message, present := entry.ExtensionMessage.Get(); present {
+			writeBranchSummaryBlock(&serialized, &hasBlock, branchSummaryUserLabel, []branchSummaryField{{
+				label: "", value: message.Text,
+			}})
+		}
 		if summary, present := entry.BranchSummary.Get(); present {
 			writeBranchSummaryBlock(&serialized, &hasBlock, branchSummaryPreviousSummaryLabel, []branchSummaryField{{
 				label: "", value: summary.Summary,

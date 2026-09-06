@@ -15,6 +15,42 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// TestMapSessionTreeResponsePreservesExtensionMessage verifies exact text and visibility reach Programmatic Control.
+func TestMapSessionTreeResponsePreservesExtensionMessage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one complete internal tree result with a hidden-client extension message.
+	tree := SessionTree{
+		Entries: []SessionTreeEntry{{
+			ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(1, 0).UTC(), Label: "",
+			Kind: SessionTreeEntryExtensionMessage, User: mo.None[model.Message](), Model: mo.None[ModelResponse](),
+			EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[ToolResult](),
+			Extension: mo.None[ExtensionEntry](), BranchSummary: mo.None[BranchSummary](),
+			ExtensionMessage: mo.Some(ExtensionMessage{
+				ExtensionID: "example",
+				EntryType:   "note",
+				Text:        "exact text",
+				Visibility:  session.ClientVisibilityHidden,
+			}),
+		}}, ActiveLeafID: mo.Some("message"),
+	}
+	response := treeControllerResponse("tree", ResponseSessionTree)
+	response.SessionTree = mo.Some(tree)
+
+	// Act by mapping the controller response to protobuf.
+	wire, err := mapResponse(response)
+
+	// Assert exact text and hidden visibility remain in complete state.
+	require.NoError(t, err)
+	entry := wire.GetSessionTree().GetTree().GetEntries()[0]
+	require.Equal(t, "exact text", entry.GetExtensionMessage().GetText())
+	require.Equal(
+		t,
+		programmaticv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN,
+		entry.GetExtensionMessage().GetVisibility(),
+	)
+}
+
 // TestMapSessionTreeResponsePreservesPublicTreeState verifies the wire result contains parent, label, active leaf, and
 // opaque extension metadata.
 func TestMapSessionTreeResponsePreservesPublicTreeState(t *testing.T) {

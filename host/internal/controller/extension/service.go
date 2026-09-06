@@ -18,6 +18,8 @@ const (
 	invalidArgumentCode = "INVALID_ARGUMENT"
 	// internalFailureCode identifies unclassified Host failures.
 	internalFailureCode = "INTERNAL"
+	// deliveryFailedIssueCode identifies post-commit client publication failure.
+	deliveryFailedIssueCode = "DELIVERY_FAILED"
 )
 
 // Service maps requests from one connected runtime to Host context operations.
@@ -72,7 +74,7 @@ func (s *Service) Prepare(
 	return &contextOperation{
 		service: s, reference: bound, models: mappedRequest.models, sessionState: mappedRequest.sessionState,
 		configured: mappedRequest.configured, appendValue: mappedRequest.appendValue,
-		release: release, id: operationID,
+		appendMessage: mappedRequest.appendMessage, release: release, id: operationID,
 	}, nil
 }
 
@@ -88,6 +90,8 @@ type contextRequest struct {
 	configured mo.Option[configuredRequest]
 	// appendValue contains a hidden append when selected.
 	appendValue mo.Option[appendRequest]
+	// appendMessage contains a model-visible append when selected.
+	appendMessage mo.Option[appendMessageRequest]
 }
 
 // mapContextRequest validates the selected request payload before admission.
@@ -95,6 +99,7 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 	mapped := contextRequest{
 		reference: nil, models: false, sessionState: false,
 		configured: mo.None[configuredRequest](), appendValue: mo.None[appendRequest](),
+		appendMessage: mo.None[appendMessageRequest](),
 	}
 	if request == nil {
 		return mapped, errors.New("extension context request is required")
@@ -118,6 +123,12 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 		mapped.appendValue, mapped.reference = mo.Some(appendValue), request.GetAppendExtension().GetContext()
 	case extensionpb.ExtensionRequest_GetSessionState_case:
 		mapped.sessionState, mapped.reference = true, request.GetGetSessionState().GetContext()
+	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
+		message, err := mapAppendMessageRequest(request.GetAppendExtensionMessage())
+		if err != nil {
+			return contextRequest{}, err
+		}
+		mapped.appendMessage, mapped.reference = mo.Some(message), request.GetAppendExtensionMessage().GetContext()
 	case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
 		return contextRequest{}, errors.New("extension context operation request is required")
 	default:
@@ -140,6 +151,8 @@ type contextOperation struct {
 	configured mo.Option[configuredRequest]
 	// appendValue contains a hidden append when selected.
 	appendValue mo.Option[appendRequest]
+	// appendMessage contains a model-visible append when selected.
+	appendMessage mo.Option[appendMessageRequest]
 	// sessionState selects active-branch recovery.
 	sessionState bool
 	// release returns the runtime operation reservation.
@@ -149,6 +162,8 @@ type contextOperation struct {
 var _ extensionsdk.HostOperation = (*contextOperation)(nil)
 
 // Run executes the typed read and preserves every added error cause.
+//
+//nolint:gocyclo // The closed operation union requires one explicit branch for each request.
 func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted, error) {
 	slog.DebugContext(
 		ctx,
@@ -165,7 +180,39 @@ func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted,
 	result := new(extensionpb.HostCompleted)
 	configured, hasConfigured := o.configured.Get()
 	appendValue, hasAppend := o.appendValue.Get()
+	appendMessage, hasAppendMessage := o.appendMessage.Get()
 	switch {
+	case hasAppendMessage:
+		appended, err := o.service.contexts.AppendExtensionMessage(
+			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
+			appendMessage.entryType, appendMessage.text, appendMessage.visibility,
+		)
+		if err != nil {
+			return nil, mapContextFailure("append extension message", err)
+		}
+		mapped, err := mapSessionEntry(appended.Entry)
+		if err != nil {
+			return nil, extensionsdk.Fail(internalFailureCode, err)
+		}
+		issues := make([]*extensionpb.AppendExtensionMessageIssue, 0, len(appended.Issues))
+		for issueIndex := range appended.Issues {
+			issue := &appended.Issues[issueIndex]
+			if issue.Code != deliveryFailedIssueCode {
+				return nil, extensionsdk.Fail(
+					internalFailureCode,
+					fmt.Errorf("unknown append message issue %q", issue.Code),
+				)
+			}
+			issues = append(issues, extensionpb.AppendExtensionMessageIssue_builder{
+				Code: new(
+					extensionpb.AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED,
+				),
+				Message: new(issue.Message), ExtensionId: new(issue.ExtensionID),
+			}.Build())
+		}
+		result.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageResult_builder{
+			Entry: mapped, Issues: issues,
+		}.Build())
 	case hasAppend:
 		entry, err := o.service.contexts.AppendExtension(
 			ctx, o.service.extensionID, o.service.runtimeID, o.reference,

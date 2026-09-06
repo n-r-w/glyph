@@ -68,6 +68,28 @@ type ExtensionEnvelope struct {
 	Data []byte
 }
 
+// ClientVisibility controls ordinary client transcript presentation.
+type ClientVisibility string
+
+const (
+	// ClientVisibilityVisible includes an extension message in ordinary client transcripts.
+	ClientVisibilityVisible ClientVisibility = "visible"
+	// ClientVisibilityHidden excludes an extension message from ordinary client transcripts.
+	ClientVisibilityHidden ClientVisibility = "hidden"
+)
+
+// ExtensionMessage stores one extension-owned model-visible text message.
+type ExtensionMessage struct {
+	// ExtensionID identifies the extension that owns the message.
+	ExtensionID string
+	// EntryType identifies the extension-defined message kind.
+	EntryType string
+	// Text contains the exact model-visible message text.
+	Text string
+	// Visibility controls ordinary client transcript presentation.
+	Visibility ClientVisibility
+}
+
 // Entry is one ordered session record.
 type Entry struct {
 	// ID uniquely identifies this record within the session.
@@ -88,6 +110,8 @@ type Entry struct {
 	ToolResult mo.Option[ToolResult]
 	// Extension contains one session-only extension entry.
 	Extension mo.Option[ExtensionEnvelope]
+	// ExtensionMessage contains one model-visible extension message.
+	ExtensionMessage mo.Option[ExtensionMessage]
 	// BranchSummary contains one persisted abandoned-branch summary.
 	BranchSummary mo.Option[BranchSummaryEntry]
 }

@@ -44,6 +44,12 @@ type AppendExtensionOperation struct {
 	operation *contextOperation
 }
 
+// AppendExtensionMessageOperation owns one asynchronous model-visible message append.
+type AppendExtensionMessageOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
 // SessionStateOperation owns one asynchronous active-branch recovery request.
 type SessionStateOperation struct {
 	// operation owns the request lifecycle and local wait state.
@@ -124,6 +130,25 @@ func (c *ExtensionContext) StartAppendExtension(
 	return &AppendExtensionOperation{operation: started}, nil
 }
 
+// StartAppendExtensionMessage starts one model-visible append without waiting for Host acceptance.
+func (c *ExtensionContext) StartAppendExtensionMessage(
+	ctx context.Context,
+	input *extensionpb.AppendExtensionMessageRequest,
+) (*AppendExtensionMessageOperation, error) {
+	if input == nil {
+		return nil, errors.New("append extension message request is required")
+	}
+	requestValue := proto.CloneOf(input)
+	requestValue.SetContext(c.reference())
+	request := new(extensionpb.ExtensionRequest)
+	request.SetAppendExtensionMessage(requestValue)
+	started, err := c.initiator.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &AppendExtensionMessageOperation{operation: started}, nil
+}
+
 // StartGetSessionState starts active-branch recovery without waiting for Host acceptance.
 func (c *ExtensionContext) StartGetSessionState(ctx context.Context) (*SessionStateOperation, error) {
 	request := new(extensionpb.ExtensionRequest)
@@ -142,6 +167,15 @@ func (o *AppendExtensionOperation) Wait(ctx context.Context) (*extensionpb.Appen
 		return nil, err
 	}
 	return result.GetAppendExtension(), nil
+}
+
+// Wait waits locally for the committed message and delivery issues without canceling remote work.
+func (o *AppendExtensionMessageOperation) Wait(ctx context.Context) (*extensionpb.AppendExtensionMessageResult, error) {
+	result, err := o.operation.wait(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return result.GetAppendExtensionMessage(), nil
 }
 
 // Wait waits locally for the typed active-branch snapshot without canceling remote work.

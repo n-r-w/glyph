@@ -242,7 +242,7 @@ func testStatisticsExtensionEntry() session.Entry {
 			ExtensionID: "extension", EntryType: "event", Data: []byte(`{}`),
 		}),
 		EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 
@@ -257,7 +257,7 @@ func testStatisticsUserEntry() session.Entry {
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
 		EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 
@@ -285,7 +285,7 @@ func testStatisticsModelEntry(outcome model.Outcome, usage mo.Option[model.Usage
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
 		EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 
@@ -302,6 +302,6 @@ func testStatisticsToolResultEntry() session.Entry {
 		}),
 		Extension:     mo.None[session.ExtensionEnvelope](),
 		EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }

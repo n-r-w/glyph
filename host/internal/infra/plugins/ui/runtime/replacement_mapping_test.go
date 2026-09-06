@@ -93,10 +93,19 @@ func replacementFrame(
 	tree mo.Option[domainui.SessionTree],
 ) domainui.Frame {
 	return domainui.Frame{
-		Kind: kind, Initialization: mo.None[domainui.Initialization](), Lifecycle: mo.None[domainui.Lifecycle](),
-		AuthorizationURL: mo.None[string](), Text: nextInput, ErrorCode: mo.None[string](),
-		ModelSelection: mo.None[domainui.ModelSelection](), SessionInfo: mo.Some(info), Sessions: nil,
-		SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](), SessionTree: tree,
-		TreeNavigation: mo.None[domainui.TreeNavigationResult](),
+		Kind:              kind,
+		Initialization:    mo.None[domainui.Initialization](),
+		Lifecycle:         mo.None[domainui.Lifecycle](),
+		AuthorizationURL:  mo.None[string](),
+		Text:              nextInput,
+		ErrorCode:         mo.None[string](),
+		ModelSelection:    mo.None[domainui.ModelSelection](),
+		SessionInfo:       mo.Some(info),
+		Sessions:          nil,
+		SessionEntries:    nil,
+		SessionStatistics: mo.None[session.Statistics](),
+		SessionTree:       tree,
+		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 	}
 }

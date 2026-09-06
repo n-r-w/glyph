@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -17,6 +18,34 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
 )
+
+// TestSessionTreeMapsExtensionMessageContentAndVisibility verifies complete UI state retains both visibility values.
+func TestSessionTreeMapsExtensionMessageContentAndVisibility(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one complete tree with a hidden-client model-visible extension message.
+	entry := session.Entry{
+		ID: "message", ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0).UTC(),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
+			ExtensionID: "example", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityHidden,
+		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	tree, err := session.NewTree([]session.Entry{entry}, mo.Some("message"), nil)
+	require.NoError(t, err)
+
+	// Act by mapping complete tree state for the UI contract.
+	mapped, err := mapSessionTree(tree)
+
+	// Assert exact text and hidden visibility remain in complete state.
+	require.NoError(t, err)
+	require.Len(t, mapped.Entries, 1)
+	require.Equal(t, domainui.SessionTreeEntryExtensionMessage, mapped.Entries[0].Kind)
+	require.Equal(t, "exact text", mapped.Entries[0].ExtensionMessage.MustGet().Text)
+	require.Equal(t, session.ClientVisibilityHidden, mapped.Entries[0].ExtensionMessage.MustGet().Visibility)
+}
 
 // TestGetSessionTreeOperationReturnsCurrentTree verifies retained tree retrieval.
 func TestGetSessionTreeOperationReturnsCurrentTree(t *testing.T) {

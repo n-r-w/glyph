@@ -91,10 +91,24 @@ func (tree *Tree) add(entry Entry, advance bool) error {
 			return errors.New("entry parent does not exist")
 		}
 	}
+	if err := validateTreeEntryPayload(entry); err != nil {
+		return err
+	}
+	owned := entry.Clone()
+	tree.index[owned.ID] = len(tree.entries)
+	tree.entries = append(tree.entries, owned)
+	if advance {
+		tree.activeLeafID = mo.Some(owned.ID)
+	}
+	return nil
+}
+
+// validateTreeEntryPayload enforces the closed tree payload union and message fields.
+func validateTreeEntryPayload(entry Entry) error {
 	payloads := 0
 	for _, present := range []bool{
 		entry.User.IsSome(), entry.Model.IsSome(), entry.ToolResult.IsSome(),
-		entry.Extension.IsSome(), entry.BranchSummary.IsSome(),
+		entry.Extension.IsSome(), entry.ExtensionMessage.IsSome(), entry.BranchSummary.IsSome(),
 	} {
 		if present {
 			payloads++
@@ -103,11 +117,11 @@ func (tree *Tree) add(entry Entry, advance bool) error {
 	if payloads != 1 || entry.Information.IsSome() || entry.Model.IsNone() && entry.EstimatedCost.IsSome() {
 		return errors.New("entry must contain exactly one tree payload")
 	}
-	owned := entry.Clone()
-	tree.index[owned.ID] = len(tree.entries)
-	tree.entries = append(tree.entries, owned)
-	if advance {
-		tree.activeLeafID = mo.Some(owned.ID)
+	if message, present := entry.ExtensionMessage.Get(); present {
+		if message.ExtensionID == "" || message.EntryType == "" ||
+			message.Visibility != ClientVisibilityVisible && message.Visibility != ClientVisibilityHidden {
+			return errors.New("invalid extension message")
+		}
 	}
 	return nil
 }
@@ -149,6 +163,10 @@ func (tree Tree) NavigationPreparation(targetID string) (NavigationPreparation, 
 	if user, present := target.User.Get(); present {
 		destinationID = target.ParentID
 		nextInput = mo.Some(user.Text("\n"))
+	}
+	if message, present := target.ExtensionMessage.Get(); present {
+		destinationID = target.ParentID
+		nextInput = mo.Some(message.Text)
 	}
 	activePath := tree.pathTo(tree.activeLeafID)
 	destinationPath := tree.pathTo(destinationID)

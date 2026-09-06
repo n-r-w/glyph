@@ -17,6 +17,32 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
+// TestSerializeBranchSummaryConversationIncludesExtensionMessage verifies both client visibilities remain model-visible.
+func TestSerializeBranchSummaryConversationIncludesExtensionMessage(t *testing.T) {
+	t.Parallel()
+
+	// Arrange exact hidden-client extension message text.
+	entry := session.Entry{
+		ID: "message", ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0).UTC(),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
+			ExtensionID: "example",
+			EntryType:   "note",
+			Text:        "exact\nmessage",
+			Visibility:  session.ClientVisibilityHidden,
+		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+
+	// Act by serializing abandoned model-visible context.
+	serialized, err := serializeBranchSummaryConversation([]session.Entry{entry})
+
+	// Assert the exact message enters the same user block independent of client visibility.
+	require.NoError(t, err)
+	assert.Equal(t, "[User]\n| exact\n| message", serialized)
+}
+
 // TestSerializeBranchSummaryConversationPreservesSupportedContent verifies ordered source values are escaped,
 // line-framed, deterministic, and limited to approved model-visible content.
 func TestSerializeBranchSummaryConversationPreservesSupportedContent(t *testing.T) {
@@ -285,7 +311,7 @@ func branchSummaryUserEntry(text string) session.Entry {
 		EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 
@@ -321,6 +347,6 @@ func branchSummaryModelEntry(call model.ToolCall) session.Entry {
 		EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }

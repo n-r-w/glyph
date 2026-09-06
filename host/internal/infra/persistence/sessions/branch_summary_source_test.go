@@ -55,7 +55,7 @@ func TestBranchSummarySourceRoundTrip(t *testing.T) {
 				LastEntryID:   "last",
 				Source:        source,
 				EstimatedCost: mo.None[session.EstimatedCost](),
-			}),
+			}), ExtensionMessage: mo.None[session.ExtensionMessage](),
 		}
 
 		// Act through the persisted entry codec without a model catalogue.

@@ -24,7 +24,8 @@ func initializationFrame(initialization domainui.Initialization) domainui.Frame 
 		SessionStatistics:      mo.None[session.Statistics](),
 		SessionTree:            mo.None[domainui.SessionTree](),
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
+		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
+					SessionTreeEntry](),
 	}
 }
 
@@ -44,7 +45,8 @@ func lifecycleFrame(lifecycle domainui.Lifecycle) domainui.Frame {
 		SessionStatistics:      mo.None[session.Statistics](),
 		SessionTree:            mo.None[domainui.SessionTree](),
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
+		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
+					SessionTreeEntry](),
 	}
 }
 
@@ -64,7 +66,8 @@ func authorizationFrame(authorizationURL string) domainui.Frame {
 		SessionStatistics:      mo.None[session.Statistics](),
 		SessionTree:            mo.None[domainui.SessionTree](),
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
+		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
+					SessionTreeEntry](),
 	}
 }
 
@@ -84,7 +87,8 @@ func classifiedErrorFrame(code, text string) domainui.Frame {
 		SessionStatistics:      mo.None[session.Statistics](),
 		SessionTree:            mo.None[domainui.SessionTree](),
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
+		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
+					SessionTreeEntry](),
 	}
 }
 
@@ -104,7 +108,8 @@ func modelSelectionChangedFrame(selection domainui.ModelSelection) domainui.Fram
 		SessionStatistics:      mo.None[session.Statistics](),
 		SessionTree:            mo.None[domainui.SessionTree](),
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
+		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
+					SessionTreeEntry](),
 	}
 }
 

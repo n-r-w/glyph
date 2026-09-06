@@ -46,6 +46,34 @@ func TestMapEveryRetainedFrame(t *testing.T) {
 	}
 }
 
+// TestMapSessionEntryAddedUsesConnectionEvent verifies committed messages have no operation identifier.
+func TestMapSessionEntryAddedUsesConnectionEvent(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one exact hidden-client extension message frame.
+	frame := domainui.NewFrame(domainui.FrameSessionEntryAdded)
+	frame.SessionEntryAdded = mo.Some(domainui.SessionTreeEntry{
+		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(1, 0).UTC(), Label: "",
+		Kind: domainui.SessionTreeEntryExtensionMessage,
+		User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
+		ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[domainui.ExtensionEntry](),
+		BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.Some(domainui.ExtensionMessage{
+			ExtensionID: "example", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityHidden,
+		}),
+	})
+
+	// Act through the UI transport mapper.
+	mapped, err := mapFrame(frame)
+
+	// Assert the event has no operation ID and preserves exact message data.
+	require.NoError(t, err)
+	assert.Empty(t, mapped.GetOperationId())
+	entry := mapped.GetConnectionEvent().GetSessionEntryAdded().GetEntry()
+	assert.Equal(t, "message", entry.GetId())
+	assert.Equal(t, "exact text", entry.GetExtensionMessage().GetText())
+	assert.Equal(t, uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN, entry.GetExtensionMessage().GetVisibility())
+}
+
 // TestMapExtensionRuntimeFailureUsesConnectionCategory verifies idle extension failure semantics.
 func TestMapExtensionRuntimeFailureUsesConnectionCategory(t *testing.T) {
 	t.Parallel()
@@ -194,9 +222,14 @@ func TestRestoredSessionBranchSummaryMapsCompletePayload(t *testing.T) {
 		}),
 	}
 	entry := domainui.SessionEntry{
-		ID: "summary", CreatedAt: time.Unix(1, 0), Kind: domainui.SessionEntryBranchSummary,
-		User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
-		ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.Some(summary),
+		ID:               "summary",
+		CreatedAt:        time.Unix(1, 0),
+		Kind:             domainui.SessionEntryBranchSummary,
+		User:             mo.None[model.Message](),
+		Model:            mo.None[domainui.ModelResponse](),
+		ToolResult:       mo.None[agent.ToolResult](),
+		BranchSummary:    mo.Some(summary),
+		ExtensionMessage: mo.None[domainui.ExtensionMessage](),
 	}
 
 	// Act by mapping the restored entry to the generated UI contract.

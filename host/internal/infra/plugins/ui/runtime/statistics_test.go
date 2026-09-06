@@ -49,6 +49,7 @@ func TestMapFramePreservesSessionInformationAndStatistics(t *testing.T) {
 		SessionStatistics: mo.Some(statistics),
 		SessionTree:       mo.None[domainui.SessionTree](),
 		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 	}
 
 	// Act by mapping the Host frame to the UI protobuf request.

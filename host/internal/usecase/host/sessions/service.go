@@ -46,8 +46,8 @@ type Service struct {
 	active LoadedSession
 	// contextIdentity publishes immutable incarnation state without waiting for storage I/O locks.
 	contextIdentity atomic.Pointer[extensioncontext.SessionIdentity]
-	// history is the complete provider-neutral in-process history owned by this store.
-	history []agent.HistoryEntry
+	// history owns provider-neutral values and their ordinary client visibility.
+	history []storedHistoryEntry
 	// writeUnavailable blocks mutations after this process observes a persistence failure.
 	writeUnavailable bool
 }
@@ -141,7 +141,8 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 		return session.Replacement{}, errors.New("session working directory does not match")
 	}
 	loaded = loaded.Clone()
-	history := sessiontree.HistoryFromEntries(loaded.Tree.ActiveBranch())
+	branch := loaded.Tree.ActiveBranch()
+	history := storedHistoryFromEntries(branch)
 	s.active = loaded
 	s.publishContextIdentityLocked()
 	s.history = history
@@ -270,7 +271,14 @@ func (s *Service) ActiveInformation() session.InformationSnapshot {
 func (s *Service) Snapshot() []agent.HistoryEntry {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return cloneHistory(s.history)
+	return cloneStoredHistory(s.history, false)
+}
+
+// ClientSnapshot returns ordinary transcript history with hidden extension messages excluded.
+func (s *Service) ClientSnapshot() []agent.HistoryEntry {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return cloneStoredHistory(s.history, true)
 }
 
 // Append transfers one history entry to active ownership. Complete valid user, terminal model,
@@ -292,7 +300,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	}
 	if !durable {
 		// Unsupported partial model responses remain complete but process-local.
-		s.history = append(s.history, owned)
+		s.history = append(s.history, storedHistoryEntry{value: owned, clientVisible: true})
 		return nil
 	}
 	if response, modelPresent := projection.Model.Get(); modelPresent {
@@ -302,7 +310,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	if appendErr != nil {
 		return appendErr
 	}
-	s.history = append(s.history, owned)
+	s.history = append(s.history, storedHistoryEntry{value: owned, clientVisible: true})
 	return nil
 }
 
@@ -335,7 +343,7 @@ func (s *Service) AppendExtension(
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(owned),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 	committed, err := s.appendEntryLocked(ctx, entry)
 	if err != nil {
@@ -343,6 +351,69 @@ func (s *Service) AppendExtension(
 			return session.Entry{}, fmt.Errorf("%w: %w", session.ErrPersistenceUnavailable, err)
 		}
 		return session.Entry{}, err
+	}
+	return committed, nil
+}
+
+// AppendExtensionMessage persists and enqueues one message under the session lock, then waits without commit locks.
+func (s *Service) AppendExtensionMessage(
+	ctx context.Context,
+	expected extensioncontext.SessionIdentity,
+	message session.ExtensionMessage,
+	commitGuard extensioncontext.ContextCommitGuard,
+	publisher func(session.Entry) (wait func(context.Context) error, err error),
+) (session.Entry, error) {
+	if message.ExtensionID == "" || message.EntryType == "" ||
+		message.Visibility != session.ClientVisibilityVisible && message.Visibility != session.ClientVisibilityHidden {
+		return session.Entry{}, errors.New("invalid extension message")
+	}
+	if commitGuard == nil {
+		return session.Entry{}, errors.New("runtime commit validation is required")
+	}
+	s.mutex.Lock()
+	if err := s.validateExpectedSessionLocked(ctx, expected); err != nil {
+		s.mutex.Unlock()
+		return session.Entry{}, err
+	}
+	releaseCommit, err := commitGuard()
+	if err != nil {
+		s.mutex.Unlock()
+		return session.Entry{}, fmt.Errorf("validate extension runtime before session commit: %w", err)
+	}
+	entry := session.Entry{
+		ID: "", ParentID: mo.None[string](), CreatedAt: time.Time{},
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(message), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	committed, err := s.appendEntryLocked(ctx, entry)
+	if err != nil {
+		releaseCommit()
+		s.mutex.Unlock()
+		if errors.Is(err, agentrun.ErrPersistenceUnavailable) {
+			return session.Entry{}, fmt.Errorf("%w: %w", session.ErrPersistenceUnavailable, err)
+		}
+		return session.Entry{}, err
+	}
+	s.history = append(s.history, storedHistoryFromEntries([]session.Entry{committed})...)
+	var wait func(context.Context) error
+	var publishErr error
+	if publisher == nil {
+		publishErr = errors.New("extension message publisher is not bound")
+	} else {
+		wait, publishErr = publisher(committed)
+	}
+	releaseCommit()
+	s.mutex.Unlock()
+	if publishErr != nil {
+		return committed, fmt.Errorf("publish committed extension message: %w", publishErr)
+	}
+	if wait == nil {
+		return committed, errors.New("publish committed extension message: delivery wait is required")
+	}
+	if waitErr := wait(ctx); waitErr != nil {
+		return committed, fmt.Errorf("deliver committed extension message: %w", waitErr)
 	}
 	return committed, nil
 }
@@ -362,8 +433,10 @@ func (s *Service) ExtensionState(
 	activeBranch := s.active.Tree.ActiveBranch()
 	for entryIndex := range activeBranch {
 		entry := &activeBranch[entryIndex]
-		extension, present := entry.Extension.Get()
-		if present && extension.ExtensionID == extensionID {
+		extension, hiddenPresent := entry.Extension.Get()
+		message, messagePresent := entry.ExtensionMessage.Get()
+		if hiddenPresent && extension.ExtensionID == extensionID ||
+			messagePresent && message.ExtensionID == extensionID {
 			entries = append(entries, entry.Clone())
 		}
 	}

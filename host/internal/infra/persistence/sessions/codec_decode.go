@@ -41,11 +41,17 @@ func decodeEntry(data []byte) (session.Entry, error) {
 			return session.Entry{}, errors.New("invalid session information entry")
 		}
 		return session.Entry{
-			ParentID: mo.None[string](), ID: record.ID, CreatedAt: entryTime,
-			Information: mo.Some(session.Information{Name: record.Name}), User: mo.None[session.UserMessage](),
-			Model:      mo.None[session.ModelResponse](),
-			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-			EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+			ParentID:         mo.None[string](),
+			ID:               record.ID,
+			CreatedAt:        entryTime,
+			Information:      mo.Some(session.Information{Name: record.Name}),
+			User:             mo.None[session.UserMessage](),
+			Model:            mo.None[session.ModelResponse](),
+			ToolResult:       mo.None[session.ToolResult](),
+			Extension:        mo.None[session.ExtensionEnvelope](),
+			EstimatedCost:    mo.None[session.EstimatedCost](),
+			BranchSummary:    mo.None[session.BranchSummaryEntry](),
+			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		}, nil
 	case recordTypeUser:
 		return decodeUser(data)
@@ -55,6 +61,8 @@ func decodeEntry(data []byte) (session.Entry, error) {
 		return decodeToolResult(data)
 	case recordTypeExtension:
 		return decodeExtension(data)
+	case recordTypeExtensionMessage:
+		return decodeExtensionMessage(data)
 	case recordTypeBranchSummary:
 		return decodeBranchSummary(data)
 	default:
@@ -89,11 +97,17 @@ func decodeUser(data []byte) (session.Entry, error) {
 		content = append(content, item)
 	}
 	return session.Entry{
-		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
-		Information: mo.None[session.Information](), User: mo.Some(model.Message{Content: content}),
-		Model:      mo.None[session.ModelResponse](),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		ID:               record.ID,
+		ParentID:         record.ParentID,
+		CreatedAt:        entryTime,
+		Information:      mo.None[session.Information](),
+		User:             mo.Some(model.Message{Content: content}),
+		Model:            mo.None[session.ModelResponse](),
+		ToolResult:       mo.None[session.ToolResult](),
+		Extension:        mo.None[session.ExtensionEnvelope](),
+		EstimatedCost:    mo.None[session.EstimatedCost](),
+		BranchSummary:    mo.None[session.BranchSummaryEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}, nil
 }
 
@@ -153,7 +167,35 @@ func decodeExtension(data []byte) (session.Entry, error) {
 		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.Some(session.ExtensionEnvelope{
 			ExtensionID: record.ExtensionID, EntryType: record.EntryType, Data: bytes.Clone(payload),
-		}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		}),
+		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
+	}, nil
+}
+
+// decodeExtensionMessage decodes and validates one exact model-visible extension message.
+func decodeExtensionMessage(data []byte) (session.Entry, error) {
+	var record extensionMessageRecord
+	if err := decodeRecord(data, &record); err != nil {
+		return session.Entry{}, err
+	}
+	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("parse extension message timestamp: %w", err)
+	}
+	visibility := session.ClientVisibility(record.Visibility)
+	if record.ID == "" || record.ExtensionID == "" || record.EntryType == "" ||
+		visibility != session.ClientVisibilityVisible && visibility != session.ClientVisibilityHidden {
+		return session.Entry{}, errors.New("invalid extension message")
+	}
+	return session.Entry{
+		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
+			ExtensionID: record.ExtensionID, EntryType: record.EntryType, Text: record.Text, Visibility: visibility,
+		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}, nil
 }
 
@@ -182,7 +224,7 @@ func decodeModel(data []byte) (session.Entry, error) {
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: estimatedCost,
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}, nil
 }
 
@@ -217,7 +259,7 @@ func decodeToolResult(data []byte) (session.Entry, error) {
 			Contents: contents, IsError: record.Result.IsError,
 		}),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}, nil
 }
 
@@ -251,7 +293,7 @@ func decodeBranchSummary(data []byte) (session.Entry, error) {
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.Some(summary),
+		BranchSummary: mo.Some(summary), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}, nil
 }
 

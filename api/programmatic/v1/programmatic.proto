@@ -56,7 +56,7 @@ message UserRequest {
 }
 // GetRunState requests the current run state.
 message GetRunState {}
-// OpenResponse carries one Host operation event or connection close request.
+// OpenResponse carries one Host operation event, connection event, or close request.
 message OpenResponse {
   // The controller-assigned operation identifier for an operation event.
   string operation_id = 1;
@@ -66,8 +66,17 @@ message OpenResponse {
     HostEvent event = 2;
     // The Host-requested connection close.
     glyph.operation.v1.CloseConnection close = 3;
+    HostConnectionEvent connection_event = 4;
   }
 }
+// HostConnectionEvent carries committed state outside an operation lifecycle.
+message HostConnectionEvent {
+  // The connection event.
+  oneof event {
+    SessionEntryAdded session_entry_added = 1;
+  }
+}
+
 // HostEvent carries one lifecycle event for a controller operation.
 message HostEvent {
   // The lifecycle event.

@@ -34,6 +34,8 @@ type Runtime interface {
 type Channel interface {
 	Initialize(context.Context, domainui.Frame) error
 	Send(frame domainui.Frame) error
+	// SendAcknowledged enqueues one connection event and reports its transport delivery result.
+	SendAcknowledged(frame domainui.Frame) (*operation.Acknowledgement, error)
 	RunOperations(
 		ctx context.Context,
 		activate func(),

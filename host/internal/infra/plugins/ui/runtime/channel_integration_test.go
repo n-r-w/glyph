@@ -61,7 +61,7 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 		if startErr != nil {
 			return startErr
 		}
-		_, waitErr := later.Wait(ctx, nil)
+		_, waitErr := later.Wait(ctx)
 		secondResult <- waitErr
 		return host.Close(context.WithoutCancel(ctx))
 	})
@@ -193,7 +193,7 @@ func TestChannelPreservesPublicOperationErrors(t *testing.T) {
 		if startErr != nil {
 			return startErr
 		}
-		_, waitErr := rejected.Wait(ctx, nil)
+		_, waitErr := rejected.Wait(ctx)
 		result <- waitErr
 
 		valid := new(uiv1.UIRequest)
@@ -202,7 +202,7 @@ func TestChannelPreservesPublicOperationErrors(t *testing.T) {
 		if startErr != nil {
 			return startErr
 		}
-		_, waitErr = failed.Wait(ctx, nil)
+		_, waitErr = failed.Wait(ctx)
 		result <- waitErr
 		return host.Close(context.WithoutCancel(ctx))
 	})
@@ -310,11 +310,11 @@ func TestChannelDeliversIdleExtensionFailureThroughHostReceive(t *testing.T) {
 	initializationOperation.EXPECT().Run(gomock.Any()).Return(new(uiv1.Initialized), nil)
 	initializationOperation.EXPECT().Release()
 	service.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, host *uisdk.Host) error {
-		event, receiveErr := host.Receive(ctx)
+		notification, receiveErr := host.Receive(ctx)
 		if receiveErr != nil {
 			return receiveErr
 		}
-		received <- event
+		received <- notification.ConnectionEvent()
 		return host.Close(context.WithoutCancel(ctx))
 	})
 	service.EXPECT().Close().Return(nil)

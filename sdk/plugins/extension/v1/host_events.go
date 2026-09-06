@@ -24,6 +24,8 @@ const (
 	hostRequestAppendExtension
 	// hostRequestSessionState identifies active-branch recovery requests.
 	hostRequestSessionState
+	// hostRequestAppendExtensionMessage identifies model-visible session appends.
+	hostRequestAppendExtensionMessage
 	// hostRequestCancel identifies targeted cancellation.
 	hostRequestCancel
 	// contextCodeStale identifies a permanently invalidated context binding.
@@ -56,6 +58,8 @@ func classifyHostRequest(request *extensionpb.ExtensionRequest) hostRequestKind 
 		return hostRequestAppendExtension
 	case extensionpb.ExtensionRequest_GetSessionState_case:
 		return hostRequestSessionState
+	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
+		return hostRequestAppendExtensionMessage
 	case extensionpb.ExtensionRequest_Cancel_case:
 		return hostRequestCancel
 	case extensionpb.ExtensionRequest_Request_not_set_case:
@@ -81,6 +85,8 @@ func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostComplete
 		return result.GetAppendExtension() != nil
 	case hostRequestSessionState:
 		return result.GetGetSessionState() != nil
+	case hostRequestAppendExtensionMessage:
+		return result.GetAppendExtensionMessage() != nil
 	case hostRequestCancel:
 		return result.GetCancel() != nil
 	case hostRequestInvalid:
@@ -101,7 +107,7 @@ func validateHostFailureCode(kind hostRequestKind, code string) error {
 			return nil
 		}
 	}
-	if kind == hostRequestAppendExtension &&
+	if (kind == hostRequestAppendExtension || kind == hostRequestAppendExtensionMessage) &&
 		(code == hostFailureCodePersistenceUnavailable || code == hostFailureCodeSessionUnavailable) {
 		return nil
 	}

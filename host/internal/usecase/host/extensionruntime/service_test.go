@@ -116,7 +116,7 @@ func TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit(t *testing.T) {
 		Extension: mo.Some(
 			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{}`)},
 		),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	sessions.EXPECT().AppendExtension(gomock.Any(), identity, stored.Extension.MustGet(), gomock.Any()).DoAndReturn(
 		func(
@@ -255,6 +255,86 @@ func TestRuntimeReplacementBeforeFinalAppendValidationRejectsCommit(t *testing.T
 	failure, found := errors.AsType[extensioncontroller.ContextFailure](err)
 	require.True(t, found)
 	assert.Equal(t, "STALE_CONTEXT", failure.ContextCode())
+	assert.Contains(t, err.Error(), "stale or unavailable")
+	assert.False(t, persisted.Load())
+}
+
+// TestRuntimeReplacementBeforeMessageCommitPreservesStaleCategory verifies final guard classification for messages.
+func TestRuntimeReplacementBeforeMessageCommitPreservesStaleCategory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one admitted message append that pauses before the final runtime commit guard.
+	controller := gomock.NewController(t)
+	process := NewMockExtensionRuntime(controller)
+	process.EXPECT().Close()
+	state := &runtimeState{
+		runtime: process, instanceID: "runtime", available: true, activeExecutions: 0,
+		exitPending: false, work: sync.WaitGroup{}, closeOnce: sync.Once{}, observed: false,
+		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
+		invalidateOnce: sync.Once{},
+	}
+	runtimes := &Service{
+		catalog: nil, factory: nil, reportFailure: nil, mutex: sync.RWMutex{},
+		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
+		monitorContext: nil, closing: false,
+	}
+	sessions := extensioncontext.NewMockSessionState(controller)
+	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
+	appendAdmitted := make(chan struct{})
+	var persisted atomic.Bool
+	sessions.EXPECT().AppendExtensionMessage(
+		gomock.Any(), identity, gomock.Any(), gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		_ extensioncontext.SessionIdentity,
+		_ session.ExtensionMessage,
+		guard extensioncontext.ContextCommitGuard,
+		_ func(session.Entry) (func(context.Context) error, error),
+	) (session.Entry, error) {
+		close(appendAdmitted)
+		<-state.invalidated
+		release, err := guard()
+		if err != nil {
+			return session.Entry{}, fmt.Errorf("validate message commit: %w", err)
+		}
+		defer release()
+		persisted.Store(true)
+		return session.Entry{}, nil
+	})
+	contexts := extensioncontext.New(runtimes, sessions)
+	issued, err := contexts.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{
+		ID: issued.ID, RuntimeInstanceID: issued.RuntimeInstanceID, SessionID: issued.SessionID,
+	}
+	releaseOperation, err := runtimes.BeginContextOperation(t.Context(), "extension", "runtime")
+	require.NoError(t, err)
+	appendDone := make(chan error, 1)
+	go func() {
+		_, appendErr := contexts.AppendExtensionMessage(
+			t.Context(), "extension", "runtime", reference,
+			"note", "exact text", session.ClientVisibilityVisible,
+		)
+		appendDone <- appendErr
+	}()
+	<-appendAdmitted
+	replacementDone := make(chan struct{})
+	go func() {
+		runtimes.replaceInstance("extension")
+		close(replacementDone)
+	}()
+
+	// Act after the runtime starts invalidating the admitted operation's instance.
+	err = <-appendDone
+	releaseOperation()
+	<-replacementDone
+
+	// Assert the closed category and complete wrapped cause survive without persistence.
+	failure, found := errors.AsType[extensioncontroller.ContextFailure](err)
+	require.True(t, found)
+	assert.Equal(t, "STALE_CONTEXT", failure.ContextCode())
+	assert.Contains(t, err.Error(), "validate message commit")
 	assert.Contains(t, err.Error(), "stale or unavailable")
 	assert.False(t, persisted.Load())
 }

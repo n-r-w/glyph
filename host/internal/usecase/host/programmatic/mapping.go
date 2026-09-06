@@ -29,7 +29,7 @@ func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error)
 			result = append(result, controller.HistoryEntry{
 				Kind: controller.HistoryEntryUser, User: mo.Some(user.Clone()),
 				Model:      mo.None[controller.ModelResponse](),
-				ToolResult: mo.None[controller.ToolResult](),
+				ToolResult: mo.None[controller.ToolResult](), ExtensionMessage: mo.None[controller.ExtensionMessage](),
 			})
 		case agent.HistoryEntryModel:
 			response, present := entry.Model.Get()
@@ -41,8 +41,13 @@ func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error)
 				return nil, fmt.Errorf("map history entry %d: %w", position, err)
 			}
 			result = append(result, controller.HistoryEntry{
-				Kind: controller.HistoryEntryModel, User: mo.None[model.Message](),
-				Model: mo.Some(mapped), ToolResult: mo.None[controller.ToolResult](),
+				Kind: controller.HistoryEntryModel,
+				User: mo.None[model.Message](),
+				Model: mo.Some(
+					mapped,
+				),
+				ToolResult:       mo.None[controller.ToolResult](),
+				ExtensionMessage: mo.None[controller.ExtensionMessage](),
 			})
 		case agent.HistoryEntryToolResult:
 			toolResult, present := entry.ToolResult.Get()
@@ -51,8 +56,11 @@ func mapHistory(history []agent.HistoryEntry) ([]controller.HistoryEntry, error)
 			}
 			publicToolResult := mapToolResult(toolResult)
 			result = append(result, controller.HistoryEntry{
-				Kind: controller.HistoryEntryToolResult, User: mo.None[model.Message](),
-				Model: mo.None[controller.ModelResponse](), ToolResult: mo.Some(publicToolResult),
+				Kind:             controller.HistoryEntryToolResult,
+				User:             mo.None[model.Message](),
+				Model:            mo.None[controller.ModelResponse](),
+				ToolResult:       mo.Some(publicToolResult),
+				ExtensionMessage: mo.None[controller.ExtensionMessage](),
 			})
 		default:
 			return nil, fmt.Errorf("map history entry %d: unknown kind %d", position, entry.Kind)
@@ -67,10 +75,15 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 		entry := &entries[position]
 		if user, present := entry.User.Get(); present {
 			result = append(result, controller.SessionEntry{
-				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryUser,
-				User: mo.Some(user.Clone()), Model: mo.None[controller.ModelResponse](),
-				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[controller.ToolResult](),
-				BranchSummary: mo.None[controller.BranchSummary](),
+				ID:               entry.ID,
+				CreatedAt:        entry.CreatedAt,
+				Kind:             controller.HistoryEntryUser,
+				User:             mo.Some(user.Clone()),
+				Model:            mo.None[controller.ModelResponse](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				ToolResult:       mo.None[controller.ToolResult](),
+				BranchSummary:    mo.None[controller.BranchSummary](),
+				ExtensionMessage: mo.None[controller.ExtensionMessage](),
 			})
 			continue
 		}
@@ -80,19 +93,42 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 				return nil, fmt.Errorf("map session entry %d: %w", position, err)
 			}
 			result = append(result, controller.SessionEntry{
-				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryModel,
-				User: mo.None[model.Message](), Model: mo.Some(mapped),
-				EstimatedCost: entry.EstimatedCost, ToolResult: mo.None[controller.ToolResult](),
-				BranchSummary: mo.None[controller.BranchSummary](),
+				ID:               entry.ID,
+				CreatedAt:        entry.CreatedAt,
+				Kind:             controller.HistoryEntryModel,
+				User:             mo.None[model.Message](),
+				Model:            mo.Some(mapped),
+				EstimatedCost:    entry.EstimatedCost,
+				ToolResult:       mo.None[controller.ToolResult](),
+				BranchSummary:    mo.None[controller.BranchSummary](),
+				ExtensionMessage: mo.None[controller.ExtensionMessage](),
 			})
 			continue
 		}
 		if toolResult, present := entry.ToolResult.Get(); present {
 			result = append(result, controller.SessionEntry{
-				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryToolResult,
+				ID:               entry.ID,
+				CreatedAt:        entry.CreatedAt,
+				Kind:             controller.HistoryEntryToolResult,
+				User:             mo.None[model.Message](),
+				Model:            mo.None[controller.ModelResponse](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				ToolResult:       mo.Some(mapToolResult(toolResult)),
+				BranchSummary:    mo.None[controller.BranchSummary](),
+				ExtensionMessage: mo.None[controller.ExtensionMessage](),
+			})
+			continue
+		}
+		if message, present := entry.ExtensionMessage.Get(); present {
+			result = append(result, controller.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: controller.HistoryEntryExtensionMessage,
 				User: mo.None[model.Message](), Model: mo.None[controller.ModelResponse](),
-				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.Some(mapToolResult(toolResult)),
+				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[controller.ToolResult](),
 				BranchSummary: mo.None[controller.BranchSummary](),
+				ExtensionMessage: mo.Some(controller.ExtensionMessage{
+					ExtensionID: message.ExtensionID, EntryType: message.EntryType,
+					Text: message.Text, Visibility: message.Visibility,
+				}),
 			})
 			continue
 		}
@@ -104,7 +140,7 @@ func mapSessionEntries(entries []session.Entry) ([]controller.SessionEntry, erro
 				BranchSummary: mo.Some(controller.BranchSummary{
 					Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
 					Source: summary.Source, EstimatedCost: summary.EstimatedCost,
-				}),
+				}), ExtensionMessage: mo.None[controller.ExtensionMessage](),
 			})
 		}
 	}

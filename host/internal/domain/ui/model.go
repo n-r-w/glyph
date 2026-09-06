@@ -404,6 +404,8 @@ const (
 	FrameSubmitCompleted
 	// FrameAuthenticationCompleted acknowledges completed authentication.
 	FrameAuthenticationCompleted
+	// FrameSessionEntryAdded publishes one committed entry outside an operation lifecycle.
+	FrameSessionEntryAdded
 )
 
 // Frame carries exactly one Host-to-UI payload.
@@ -436,6 +438,8 @@ type Frame struct {
 	TreeNavigationProgress mo.Option[TreeNavigationProgress]
 	// TreeNavigation is present only on a navigation result frame.
 	TreeNavigation mo.Option[TreeNavigationResult]
+	// SessionEntryAdded contains one committed entry for a connection event.
+	SessionEntryAdded mo.Option[SessionTreeEntry]
 }
 
 // SessionEntry carries one restored public terminal item.
@@ -454,6 +458,8 @@ type SessionEntry struct {
 	ToolResult mo.Option[agent.ToolResult]
 	// BranchSummary carries restored abandoned-branch context.
 	BranchSummary mo.Option[BranchSummary]
+	// ExtensionMessage contains exact model-visible extension text and visibility.
+	ExtensionMessage mo.Option[ExtensionMessage]
 }
 
 // SessionEntryKind identifies restored transcript ownership.
@@ -468,4 +474,6 @@ const (
 	SessionEntryToolResult
 	// SessionEntryBranchSummary is one restored abandoned-branch summary.
 	SessionEntryBranchSummary
+	// SessionEntryExtensionMessage is one model-visible extension message.
+	SessionEntryExtensionMessage
 )

@@ -39,6 +39,8 @@ type Controller struct {
 	initialized *initializedApplication
 	// foreground identifies the current cancelable Host operation.
 	foreground string
+	// operations retains commands until their ordered terminal notification arrives.
+	operations map[string]presentationdomain.Command
 	// sequence assigns unique operation identifiers.
 	sequence atomic.Uint64
 }
@@ -49,7 +51,8 @@ var _ uisdk.Service = (*Controller)(nil)
 func New(terminal Terminal, programs ProgramFactory) *Controller {
 	return &Controller{
 		terminal: terminal, programs: programs, mutex: sync.Mutex{}, preparing: false,
-		initialized: nil, foreground: "", sequence: atomic.Uint64{},
+		initialized: nil, foreground: "", operations: make(map[string]presentationdomain.Command),
+		sequence: atomic.Uint64{},
 	}
 }
 
@@ -129,13 +132,12 @@ func (controller *Controller) Run(ctx context.Context, host *uisdk.Host) (return
 
 	runCtx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	var work sync.WaitGroup
 	var program Program
 	programReady := make(chan struct{})
 	emit := func(command presentationdomain.Command) error {
 		select {
 		case <-programReady:
-			return controller.emit(runCtx, host, program, &work, command)
+			return controller.emit(runCtx, host, command)
 		case <-runCtx.Done():
 			return context.Cause(runCtx)
 		}
@@ -144,8 +146,8 @@ func (controller *Controller) Run(ctx context.Context, host *uisdk.Host) (return
 		application.initial, terminalSession.Input(), terminalSession.Output(), emit,
 	)
 	close(programReady)
-	connectionDone := make(chan error, 1)
-	go func() { connectionDone <- controller.receiveConnectionEvents(runCtx, host, program) }()
+	notificationDone := make(chan error, 1)
+	go func() { notificationDone <- controller.receiveNotifications(runCtx, host, program) }()
 	programDone := make(chan error, 1)
 	go func() { programDone <- program.Run() }()
 
@@ -155,7 +157,7 @@ func (controller *Controller) Run(ctx context.Context, host *uisdk.Host) (return
 		if closeErr := host.Close(context.WithoutCancel(ctx)); closeErr != nil {
 			returnErr = errors.Join(returnErr, closeErr)
 		}
-	case err := <-connectionDone:
+	case err := <-notificationDone:
 		if !errors.Is(err, context.Canceled) {
 			returnErr = err
 		}
@@ -166,7 +168,6 @@ func (controller *Controller) Run(ctx context.Context, host *uisdk.Host) (return
 		returnErr = errors.Join(context.Cause(ctx), <-programDone)
 	}
 	cancel()
-	work.Wait()
 	return returnErr
 }
 
@@ -189,8 +190,6 @@ func (controller *Controller) Close() error {
 func (controller *Controller) emit(
 	ctx context.Context,
 	host *uisdk.Host,
-	program Program,
-	work *sync.WaitGroup,
 	command presentationdomain.Command,
 ) error {
 	switch command.Kind {
@@ -204,15 +203,11 @@ func (controller *Controller) emit(
 			return errors.New("cancel TUI foreground operation: no operation is active")
 		}
 		identifier := controller.nextOperationID()
-		cancellation, err := host.Cancel(ctx, identifier, target)
-		if err != nil {
+		controller.trackOperation(identifier, command, false)
+		if _, err := host.Cancel(ctx, identifier, target); err != nil {
+			controller.removeOperation(identifier)
 			return err
 		}
-		work.Go(func() {
-			if _, waitErr := cancellation.Wait(ctx); waitErr != nil && !errors.Is(waitErr, context.Canceled) {
-				program.Send(textEvent(presentationdomain.EventError, waitErr.Error()))
-			}
-		})
 		return nil
 	case presentationdomain.CommandUnspecified, presentationdomain.CommandSubmit,
 		presentationdomain.CommandRetryAuthentication, presentationdomain.CommandSelectModel,
@@ -227,61 +222,16 @@ func (controller *Controller) emit(
 			return err
 		}
 		identifier := controller.nextOperationID()
-		started, err := host.Start(ctx, identifier, request)
-		if err != nil {
-			return err
+		foreground := command.Kind == presentationdomain.CommandSubmit ||
+			command.Kind == presentationdomain.CommandNavigateSessionTree
+		controller.trackOperation(identifier, command, foreground)
+		if _, startErr := host.Start(ctx, identifier, request); startErr != nil {
+			controller.removeOperation(identifier)
+			return startErr
 		}
-		if command.Kind == presentationdomain.CommandSubmit ||
-			command.Kind == presentationdomain.CommandNavigateSessionTree {
-			controller.mutex.Lock()
-			if controller.foreground == "" {
-				controller.foreground = identifier
-			}
-			controller.mutex.Unlock()
-		}
-		work.Add(1)
-		go controller.waitOperation(ctx, identifier, command, started, program, work)
 		return nil
 	default:
 		return fmt.Errorf("unknown TUI command %d", command.Kind)
-	}
-}
-
-// waitOperation projects lifecycle data and clears foreground ownership after terminal receipt.
-func (controller *Controller) waitOperation(
-	ctx context.Context,
-	identifier string,
-	command presentationdomain.Command,
-	started *uisdk.Operation,
-	program Program,
-	work *sync.WaitGroup,
-) {
-	defer work.Done()
-	defer func() {
-		controller.mutex.Lock()
-		if controller.foreground == identifier {
-			controller.foreground = ""
-		}
-		controller.mutex.Unlock()
-	}()
-	completed, err := started.Wait(ctx, func(progress *uiv1.HostProgress) {
-		event, mapErr := mapHostProgress(progress)
-		if mapErr != nil {
-			program.Send(textEvent(presentationdomain.EventError, mapErr.Error()))
-			return
-		}
-		program.Send(event)
-	})
-	if err != nil {
-		if !errors.Is(err, context.Canceled) {
-			program.Send(operationErrorEvent(command, err))
-		}
-		return
-	}
-	if event, present, mapErr := mapCompleted(completed); mapErr != nil {
-		program.Send(textEvent(presentationdomain.EventError, mapErr.Error()))
-	} else if present {
-		program.Send(event)
 	}
 }
 
@@ -292,28 +242,112 @@ func operationErrorEvent(command presentationdomain.Command, err error) presenta
 	}
 	if command.TreeCommand.IsSome() {
 		return treeEvent(presentationdomain.EventTreeOperationFailed, presentationdomain.TreeEvent{
-			Tree:             mo.None[presentationdomain.SessionTree](),
-			NavigationStatus: presentationdomain.TreeNavigationUnspecified,
-			SessionInfo:      mo.None[presentationdomain.SessionInfo](), RestoredTranscript: nil,
-			NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.Some(err.Error()),
+			Tree:               mo.None[presentationdomain.SessionTree](),
+			NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+			SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+			RestoredTranscript: nil,
+			NextInput:          mo.None[string](),
+			Issues:             nil,
+			FailureMessage:     mo.Some(err.Error()),
+			AddedEntry:         mo.None[presentationdomain.TreeEntry](),
 		})
 	}
 	return textEvent(presentationdomain.EventError, err.Error())
 }
 
-// receiveConnectionEvents projects Host connection events until closure.
-func (*Controller) receiveConnectionEvents(ctx context.Context, host *uisdk.Host, program Program) error {
+// receiveNotifications applies every UI state notification from one ordered SDK queue.
+func (controller *Controller) receiveNotifications(ctx context.Context, host *uisdk.Host, program Program) error {
 	for {
-		connection, err := host.Receive(ctx)
+		notification, err := host.Receive(ctx)
 		if err != nil {
 			return err
 		}
-		event, err := mapConnectionEvent(connection)
-		if err != nil {
-			return err
+		event, present, mapErr := controller.mapNotification(notification)
+		if mapErr != nil {
+			return mapErr
 		}
-		program.Send(event)
+		if present {
+			program.Send(event)
+		}
 	}
+}
+
+// mapNotification maps one SDK notification and completes terminal operation ownership.
+func (controller *Controller) mapNotification(
+	notification *uisdk.Notification,
+) (presentationdomain.Event, bool, error) {
+	if notification == nil {
+		return presentationdomain.Event{}, false, errors.New("UI notification is required")
+	}
+	switch notification.Kind() {
+	case uisdk.NotificationProgress:
+		if _, found := controller.operation(notification.OperationID()); !found {
+			return presentationdomain.Event{}, false, errors.New("UI progress operation is not tracked")
+		}
+		event, err := mapHostProgress(notification.Progress())
+		return event, true, err
+	case uisdk.NotificationCompleted:
+		if _, found := controller.completeOperation(notification.OperationID()); !found {
+			return presentationdomain.Event{}, false, errors.New("UI completed operation is not tracked")
+		}
+		return mapCompleted(notification.Completed())
+	case uisdk.NotificationFailed:
+		command, found := controller.completeOperation(notification.OperationID())
+		if !found {
+			return presentationdomain.Event{}, false, errors.New("UI failed operation is not tracked")
+		}
+		if errors.Is(notification.OperationError(), context.Canceled) {
+			return presentationdomain.Event{}, false, nil
+		}
+		return operationErrorEvent(command, notification.OperationError()), true, nil
+	case uisdk.NotificationConnectionEvent:
+		event, err := mapConnectionEvent(notification.ConnectionEvent())
+		return event, true, err
+	default:
+		return presentationdomain.Event{}, false, errors.New("UI notification kind is unknown")
+	}
+}
+
+// trackOperation records command ownership before its request can reach Host.
+func (controller *Controller) trackOperation(
+	identifier string,
+	command presentationdomain.Command,
+	foreground bool,
+) {
+	controller.mutex.Lock()
+	defer controller.mutex.Unlock()
+	controller.operations[identifier] = command
+	if foreground && controller.foreground == "" {
+		controller.foreground = identifier
+	}
+}
+
+// operation returns one tracked command without changing ownership.
+func (controller *Controller) operation(identifier string) (presentationdomain.Command, bool) {
+	controller.mutex.Lock()
+	defer controller.mutex.Unlock()
+	command, found := controller.operations[identifier]
+	return command, found
+}
+
+// completeOperation removes one terminal operation and clears matching foreground ownership.
+func (controller *Controller) completeOperation(identifier string) (presentationdomain.Command, bool) {
+	controller.mutex.Lock()
+	defer controller.mutex.Unlock()
+	command, found := controller.operations[identifier]
+	if !found {
+		return presentationdomain.Command{}, false
+	}
+	delete(controller.operations, identifier)
+	if controller.foreground == identifier {
+		controller.foreground = ""
+	}
+	return command, true
+}
+
+// removeOperation rolls back ownership when an operation cannot start.
+func (controller *Controller) removeOperation(identifier string) {
+	_, _ = controller.completeOperation(identifier)
 }
 
 // nextOperationID assigns one process-local operation identifier.

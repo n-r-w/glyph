@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -36,6 +37,10 @@ type Service struct {
 	sessionControl SessionControl
 	// delivery routes run progress and settlement to active operations.
 	delivery *Delivery
+	// connectionMutex protects late-bound connection publication.
+	connectionMutex sync.RWMutex
+	// connectionPublisher enqueues committed entries on the active controller writer.
+	connectionPublisher func(controller.SessionTreeEntry) (wait func(context.Context) error, err error)
 }
 
 var _ controller.HostSession = (*Service)(nil)
@@ -52,8 +57,35 @@ func New(
 	return &Service{
 		coordinator: coordinator, modelCatalog: modelCatalog, stateSnapshot: stateSnapshot,
 		historySnapshot: historySnapshot,
-		sessionControl:  sessionControl, delivery: delivery,
+		sessionControl:  sessionControl, delivery: delivery, connectionMutex: sync.RWMutex{},
+		connectionPublisher: nil,
 	}
+}
+
+// BindConnectionPublisher installs the active controller connection publisher.
+func (s *Service) BindConnectionPublisher(
+	publisher func(controller.SessionTreeEntry) (wait func(context.Context) error, err error),
+) {
+	s.connectionMutex.Lock()
+	defer s.connectionMutex.Unlock()
+	s.connectionPublisher = publisher
+}
+
+// PublishSessionEntry maps and enqueues one committed entry outside an operation lifecycle.
+func (s *Service) PublishSessionEntry(
+	entry session.Entry,
+) (wait func(context.Context) error, err error) {
+	mapped, err := mapSessionTreeEntry(entry, "")
+	if err != nil {
+		return nil, err
+	}
+	s.connectionMutex.RLock()
+	publisher := s.connectionPublisher
+	s.connectionMutex.RUnlock()
+	if publisher == nil {
+		return nil, errors.New("programmatic connection publisher is not bound")
+	}
+	return publisher(mapped)
 }
 
 // handle executes one prepared transport-independent operation.

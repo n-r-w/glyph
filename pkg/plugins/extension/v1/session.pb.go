@@ -21,6 +21,98 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ClientVisibility controls ordinary client transcript presentation.
+type ClientVisibility int32
+
+const (
+	// No visibility was provided.
+	ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED ClientVisibility = 0
+	// The message is included in ordinary client transcripts.
+	ClientVisibility_CLIENT_VISIBILITY_VISIBLE ClientVisibility = 1
+	// The message is excluded from ordinary client transcripts.
+	ClientVisibility_CLIENT_VISIBILITY_HIDDEN ClientVisibility = 2
+)
+
+// Enum value maps for ClientVisibility.
+var (
+	ClientVisibility_name = map[int32]string{
+		0: "CLIENT_VISIBILITY_UNSPECIFIED",
+		1: "CLIENT_VISIBILITY_VISIBLE",
+		2: "CLIENT_VISIBILITY_HIDDEN",
+	}
+	ClientVisibility_value = map[string]int32{
+		"CLIENT_VISIBILITY_UNSPECIFIED": 0,
+		"CLIENT_VISIBILITY_VISIBLE":     1,
+		"CLIENT_VISIBILITY_HIDDEN":      2,
+	}
+)
+
+func (x ClientVisibility) Enum() *ClientVisibility {
+	p := new(ClientVisibility)
+	*p = x
+	return p
+}
+
+func (x ClientVisibility) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ClientVisibility) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_extension_v1_session_proto_enumTypes[0].Descriptor()
+}
+
+func (ClientVisibility) Type() protoreflect.EnumType {
+	return &file_api_plugins_extension_v1_session_proto_enumTypes[0]
+}
+
+func (x ClientVisibility) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// AppendExtensionMessageIssueCode identifies one post-commit issue.
+type AppendExtensionMessageIssueCode int32
+
+const (
+	// No issue code was provided.
+	AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_UNSPECIFIED AppendExtensionMessageIssueCode = 0
+	// Client publication failed after the message committed.
+	AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED AppendExtensionMessageIssueCode = 1
+)
+
+// Enum value maps for AppendExtensionMessageIssueCode.
+var (
+	AppendExtensionMessageIssueCode_name = map[int32]string{
+		0: "APPEND_EXTENSION_MESSAGE_ISSUE_CODE_UNSPECIFIED",
+		1: "APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED",
+	}
+	AppendExtensionMessageIssueCode_value = map[string]int32{
+		"APPEND_EXTENSION_MESSAGE_ISSUE_CODE_UNSPECIFIED":     0,
+		"APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED": 1,
+	}
+)
+
+func (x AppendExtensionMessageIssueCode) Enum() *AppendExtensionMessageIssueCode {
+	p := new(AppendExtensionMessageIssueCode)
+	*p = x
+	return p
+}
+
+func (x AppendExtensionMessageIssueCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AppendExtensionMessageIssueCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_extension_v1_session_proto_enumTypes[1].Descriptor()
+}
+
+func (AppendExtensionMessageIssueCode) Type() protoreflect.EnumType {
+	return &file_api_plugins_extension_v1_session_proto_enumTypes[1]
+}
+
+func (x AppendExtensionMessageIssueCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // AppendExtensionRequest appends one model-hidden extension-owned JSON value.
 type AppendExtensionRequest struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
@@ -231,6 +323,413 @@ func (b0 AppendExtensionResult_builder) Build() *AppendExtensionResult {
 	return m0
 }
 
+// AppendExtensionMessageRequest appends one model-visible extension-owned text message.
+type AppendExtensionMessageRequest struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Context     *ExtensionContextRef   `protobuf:"bytes,1,opt,name=context"`
+	xxx_hidden_EntryType   *string                `protobuf:"bytes,2,opt,name=entry_type,json=entryType"`
+	xxx_hidden_Text        *string                `protobuf:"bytes,3,opt,name=text"`
+	xxx_hidden_Visibility  ClientVisibility       `protobuf:"varint,4,opt,name=visibility,enum=glyph.plugins.extension.v1.ClientVisibility"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *AppendExtensionMessageRequest) Reset() {
+	*x = AppendExtensionMessageRequest{}
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AppendExtensionMessageRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AppendExtensionMessageRequest) ProtoMessage() {}
+
+func (x *AppendExtensionMessageRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AppendExtensionMessageRequest) GetContext() *ExtensionContextRef {
+	if x != nil {
+		return x.xxx_hidden_Context
+	}
+	return nil
+}
+
+func (x *AppendExtensionMessageRequest) GetEntryType() string {
+	if x != nil {
+		if x.xxx_hidden_EntryType != nil {
+			return *x.xxx_hidden_EntryType
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *AppendExtensionMessageRequest) GetText() string {
+	if x != nil {
+		if x.xxx_hidden_Text != nil {
+			return *x.xxx_hidden_Text
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *AppendExtensionMessageRequest) GetVisibility() ClientVisibility {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 3) {
+			return x.xxx_hidden_Visibility
+		}
+	}
+	return ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED
+}
+
+func (x *AppendExtensionMessageRequest) SetContext(v *ExtensionContextRef) {
+	x.xxx_hidden_Context = v
+}
+
+func (x *AppendExtensionMessageRequest) SetEntryType(v string) {
+	x.xxx_hidden_EntryType = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *AppendExtensionMessageRequest) SetText(v string) {
+	x.xxx_hidden_Text = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *AppendExtensionMessageRequest) SetVisibility(v ClientVisibility) {
+	x.xxx_hidden_Visibility = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *AppendExtensionMessageRequest) HasContext() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Context != nil
+}
+
+func (x *AppendExtensionMessageRequest) HasEntryType() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *AppendExtensionMessageRequest) HasText() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *AppendExtensionMessageRequest) HasVisibility() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *AppendExtensionMessageRequest) ClearContext() {
+	x.xxx_hidden_Context = nil
+}
+
+func (x *AppendExtensionMessageRequest) ClearEntryType() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_EntryType = nil
+}
+
+func (x *AppendExtensionMessageRequest) ClearText() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Text = nil
+}
+
+func (x *AppendExtensionMessageRequest) ClearVisibility() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Visibility = ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED
+}
+
+type AppendExtensionMessageRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The issued runtime-to-session binding.
+	Context *ExtensionContextRef
+	// The extension-defined entry kind.
+	EntryType *string
+	// The exact model-visible text.
+	Text *string
+	// The ordinary client transcript visibility.
+	Visibility *ClientVisibility
+}
+
+func (b0 AppendExtensionMessageRequest_builder) Build() *AppendExtensionMessageRequest {
+	m0 := &AppendExtensionMessageRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Context = b.Context
+	if b.EntryType != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_EntryType = b.EntryType
+	}
+	if b.Text != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_Text = b.Text
+	}
+	if b.Visibility != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_Visibility = *b.Visibility
+	}
+	return m0
+}
+
+// AppendExtensionMessageResult contains the committed message and post-commit delivery issues.
+type AppendExtensionMessageResult struct {
+	state             protoimpl.MessageState          `protogen:"opaque.v1"`
+	xxx_hidden_Entry  *SessionStateEntry              `protobuf:"bytes,1,opt,name=entry"`
+	xxx_hidden_Issues *[]*AppendExtensionMessageIssue `protobuf:"bytes,2,rep,name=issues"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *AppendExtensionMessageResult) Reset() {
+	*x = AppendExtensionMessageResult{}
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AppendExtensionMessageResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AppendExtensionMessageResult) ProtoMessage() {}
+
+func (x *AppendExtensionMessageResult) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AppendExtensionMessageResult) GetEntry() *SessionStateEntry {
+	if x != nil {
+		return x.xxx_hidden_Entry
+	}
+	return nil
+}
+
+func (x *AppendExtensionMessageResult) GetIssues() []*AppendExtensionMessageIssue {
+	if x != nil {
+		if x.xxx_hidden_Issues != nil {
+			return *x.xxx_hidden_Issues
+		}
+	}
+	return nil
+}
+
+func (x *AppendExtensionMessageResult) SetEntry(v *SessionStateEntry) {
+	x.xxx_hidden_Entry = v
+}
+
+func (x *AppendExtensionMessageResult) SetIssues(v []*AppendExtensionMessageIssue) {
+	x.xxx_hidden_Issues = &v
+}
+
+func (x *AppendExtensionMessageResult) HasEntry() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Entry != nil
+}
+
+func (x *AppendExtensionMessageResult) ClearEntry() {
+	x.xxx_hidden_Entry = nil
+}
+
+type AppendExtensionMessageResult_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The committed entry with Host-owned identity and metadata.
+	Entry *SessionStateEntry
+	// Delivery issues that did not roll back the committed entry.
+	Issues []*AppendExtensionMessageIssue
+}
+
+func (b0 AppendExtensionMessageResult_builder) Build() *AppendExtensionMessageResult {
+	m0 := &AppendExtensionMessageResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Entry = b.Entry
+	x.xxx_hidden_Issues = &b.Issues
+	return m0
+}
+
+// AppendExtensionMessageIssue reports one post-commit client delivery failure.
+type AppendExtensionMessageIssue struct {
+	state                  protoimpl.MessageState          `protogen:"opaque.v1"`
+	xxx_hidden_Code        AppendExtensionMessageIssueCode `protobuf:"varint,1,opt,name=code,enum=glyph.plugins.extension.v1.AppendExtensionMessageIssueCode"`
+	xxx_hidden_Message     *string                         `protobuf:"bytes,2,opt,name=message"`
+	xxx_hidden_ExtensionId *string                         `protobuf:"bytes,3,opt,name=extension_id,json=extensionId"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *AppendExtensionMessageIssue) Reset() {
+	*x = AppendExtensionMessageIssue{}
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *AppendExtensionMessageIssue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*AppendExtensionMessageIssue) ProtoMessage() {}
+
+func (x *AppendExtensionMessageIssue) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *AppendExtensionMessageIssue) GetCode() AppendExtensionMessageIssueCode {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Code
+		}
+	}
+	return AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_UNSPECIFIED
+}
+
+func (x *AppendExtensionMessageIssue) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *AppendExtensionMessageIssue) GetExtensionId() string {
+	if x != nil {
+		if x.xxx_hidden_ExtensionId != nil {
+			return *x.xxx_hidden_ExtensionId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *AppendExtensionMessageIssue) SetCode(v AppendExtensionMessageIssueCode) {
+	x.xxx_hidden_Code = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *AppendExtensionMessageIssue) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *AppendExtensionMessageIssue) SetExtensionId(v string) {
+	x.xxx_hidden_ExtensionId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *AppendExtensionMessageIssue) HasCode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *AppendExtensionMessageIssue) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *AppendExtensionMessageIssue) HasExtensionId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *AppendExtensionMessageIssue) ClearCode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Code = AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_UNSPECIFIED
+}
+
+func (x *AppendExtensionMessageIssue) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Message = nil
+}
+
+func (x *AppendExtensionMessageIssue) ClearExtensionId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_ExtensionId = nil
+}
+
+type AppendExtensionMessageIssue_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The closed issue code.
+	Code *AppendExtensionMessageIssueCode
+	// The complete issue text, including the original cause.
+	Message *string
+	// The extension that owns the failed append.
+	ExtensionId *string
+}
+
+func (b0 AppendExtensionMessageIssue_builder) Build() *AppendExtensionMessageIssue {
+	m0 := &AppendExtensionMessageIssue{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Code != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Code = *b.Code
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_Message = b.Message
+	}
+	if b.ExtensionId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_ExtensionId = b.ExtensionId
+	}
+	return m0
+}
+
 // GetSessionStateRequest requests the caller extension's active-branch entries.
 type GetSessionStateRequest struct {
 	state              protoimpl.MessageState `protogen:"opaque.v1"`
@@ -241,7 +740,7 @@ type GetSessionStateRequest struct {
 
 func (x *GetSessionStateRequest) Reset() {
 	*x = GetSessionStateRequest{}
-	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -253,7 +752,7 @@ func (x *GetSessionStateRequest) String() string {
 func (*GetSessionStateRequest) ProtoMessage() {}
 
 func (x *GetSessionStateRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -315,7 +814,7 @@ type GetSessionStateResult struct {
 
 func (x *GetSessionStateResult) Reset() {
 	*x = GetSessionStateResult{}
-	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -327,7 +826,7 @@ func (x *GetSessionStateResult) String() string {
 func (*GetSessionStateResult) ProtoMessage() {}
 
 func (x *GetSessionStateResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -449,7 +948,7 @@ type SessionStateEntry struct {
 
 func (x *SessionStateEntry) Reset() {
 	*x = SessionStateEntry{}
-	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -461,7 +960,7 @@ func (x *SessionStateEntry) String() string {
 func (*SessionStateEntry) ProtoMessage() {}
 
 func (x *SessionStateEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -528,6 +1027,15 @@ func (x *SessionStateEntry) GetData() []byte {
 	return nil
 }
 
+func (x *SessionStateEntry) GetMessage() *ExtensionMessage {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*sessionStateEntry_Message); ok {
+			return x.Message
+		}
+	}
+	return nil
+}
+
 func (x *SessionStateEntry) SetId(v string) {
 	x.xxx_hidden_Id = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
@@ -557,6 +1065,14 @@ func (x *SessionStateEntry) SetData(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Content = &sessionStateEntry_Data{v}
+}
+
+func (x *SessionStateEntry) SetMessage(v *ExtensionMessage) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &sessionStateEntry_Message{v}
 }
 
 func (x *SessionStateEntry) HasId() bool {
@@ -609,6 +1125,14 @@ func (x *SessionStateEntry) HasData() bool {
 	return ok
 }
 
+func (x *SessionStateEntry) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*sessionStateEntry_Message)
+	return ok
+}
+
 func (x *SessionStateEntry) ClearId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Id = nil
@@ -643,8 +1167,15 @@ func (x *SessionStateEntry) ClearData() {
 	}
 }
 
+func (x *SessionStateEntry) ClearMessage() {
+	if _, ok := x.xxx_hidden_Content.(*sessionStateEntry_Message); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
 const SessionStateEntry_Content_not_set_case case_SessionStateEntry_Content = 0
 const SessionStateEntry_Data_case case_SessionStateEntry_Content = 6
+const SessionStateEntry_Message_case case_SessionStateEntry_Content = 7
 
 func (x *SessionStateEntry) WhichContent() case_SessionStateEntry_Content {
 	if x == nil {
@@ -653,6 +1184,8 @@ func (x *SessionStateEntry) WhichContent() case_SessionStateEntry_Content {
 	switch x.xxx_hidden_Content.(type) {
 	case *sessionStateEntry_Data:
 		return SessionStateEntry_Data_case
+	case *sessionStateEntry_Message:
+		return SessionStateEntry_Message_case
 	default:
 		return SessionStateEntry_Content_not_set_case
 	}
@@ -674,7 +1207,8 @@ type SessionStateEntry_builder struct {
 	// The typed extension content.
 
 	// Fields of oneof xxx_hidden_Content:
-	Data []byte
+	Data    []byte
+	Message *ExtensionMessage
 	// -- end of xxx_hidden_Content
 }
 
@@ -702,13 +1236,16 @@ func (b0 SessionStateEntry_builder) Build() *SessionStateEntry {
 	if b.Data != nil {
 		x.xxx_hidden_Content = &sessionStateEntry_Data{b.Data}
 	}
+	if b.Message != nil {
+		x.xxx_hidden_Content = &sessionStateEntry_Message{b.Message}
+	}
 	return m0
 }
 
 type case_SessionStateEntry_Content protoreflect.FieldNumber
 
 func (x case_SessionStateEntry_Content) String() string {
-	md := file_api_plugins_extension_v1_session_proto_msgTypes[4].Descriptor()
+	md := file_api_plugins_extension_v1_session_proto_msgTypes[7].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -723,7 +1260,126 @@ type sessionStateEntry_Data struct {
 	Data []byte `protobuf:"bytes,6,opt,name=data,oneof"`
 }
 
+type sessionStateEntry_Message struct {
+	Message *ExtensionMessage `protobuf:"bytes,7,opt,name=message,oneof"`
+}
+
 func (*sessionStateEntry_Data) isSessionStateEntry_Content() {}
+
+func (*sessionStateEntry_Message) isSessionStateEntry_Content() {}
+
+// ExtensionMessage contains exact model-visible text and client visibility.
+type ExtensionMessage struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Text        *string                `protobuf:"bytes,1,opt,name=text"`
+	xxx_hidden_Visibility  ClientVisibility       `protobuf:"varint,2,opt,name=visibility,enum=glyph.plugins.extension.v1.ClientVisibility"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ExtensionMessage) Reset() {
+	*x = ExtensionMessage{}
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ExtensionMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ExtensionMessage) ProtoMessage() {}
+
+func (x *ExtensionMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ExtensionMessage) GetText() string {
+	if x != nil {
+		if x.xxx_hidden_Text != nil {
+			return *x.xxx_hidden_Text
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ExtensionMessage) GetVisibility() ClientVisibility {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 1) {
+			return x.xxx_hidden_Visibility
+		}
+	}
+	return ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED
+}
+
+func (x *ExtensionMessage) SetText(v string) {
+	x.xxx_hidden_Text = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ExtensionMessage) SetVisibility(v ClientVisibility) {
+	x.xxx_hidden_Visibility = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ExtensionMessage) HasText() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ExtensionMessage) HasVisibility() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ExtensionMessage) ClearText() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Text = nil
+}
+
+func (x *ExtensionMessage) ClearVisibility() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Visibility = ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED
+}
+
+type ExtensionMessage_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The exact model-visible text.
+	Text *string
+	// The ordinary client transcript visibility.
+	Visibility *ClientVisibility
+}
+
+func (b0 ExtensionMessage_builder) Build() *ExtensionMessage {
+	m0 := &ExtensionMessage{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Text != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Text = b.Text
+	}
+	if b.Visibility != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Visibility = *b.Visibility
+	}
+	return m0
+}
 
 var File_api_plugins_extension_v1_session_proto protoreflect.FileDescriptor
 
@@ -736,14 +1392,29 @@ const file_api_plugins_extension_v1_session_proto_rawDesc = "" +
 	"entry_type\x18\x02 \x01(\tR\tentryType\x12\x12\n" +
 	"\x04data\x18\x03 \x01(\fR\x04data\"\\\n" +
 	"\x15AppendExtensionResult\x12C\n" +
-	"\x05entry\x18\x01 \x01(\v2-.glyph.plugins.extension.v1.SessionStateEntryR\x05entry\"c\n" +
+	"\x05entry\x18\x01 \x01(\v2-.glyph.plugins.extension.v1.SessionStateEntryR\x05entry\"\xeb\x01\n" +
+	"\x1dAppendExtensionMessageRequest\x12I\n" +
+	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\x12\x1d\n" +
+	"\n" +
+	"entry_type\x18\x02 \x01(\tR\tentryType\x12\x12\n" +
+	"\x04text\x18\x03 \x01(\tR\x04text\x12L\n" +
+	"\n" +
+	"visibility\x18\x04 \x01(\x0e2,.glyph.plugins.extension.v1.ClientVisibilityR\n" +
+	"visibility\"\xb4\x01\n" +
+	"\x1cAppendExtensionMessageResult\x12C\n" +
+	"\x05entry\x18\x01 \x01(\v2-.glyph.plugins.extension.v1.SessionStateEntryR\x05entry\x12O\n" +
+	"\x06issues\x18\x02 \x03(\v27.glyph.plugins.extension.v1.AppendExtensionMessageIssueR\x06issues\"\xab\x01\n" +
+	"\x1bAppendExtensionMessageIssue\x12O\n" +
+	"\x04code\x18\x01 \x01(\x0e2;.glyph.plugins.extension.v1.AppendExtensionMessageIssueCodeR\x04code\x12\x18\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\x12!\n" +
+	"\fextension_id\x18\x03 \x01(\tR\vextensionId\"c\n" +
 	"\x16GetSessionStateRequest\x12I\n" +
 	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\"\xa5\x01\n" +
 	"\x15GetSessionStateResult\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\x12$\n" +
 	"\x0eactive_leaf_id\x18\x02 \x01(\tR\factiveLeafId\x12G\n" +
-	"\aentries\x18\x03 \x03(\v2-.glyph.plugins.extension.v1.SessionStateEntryR\aentries\"\xe2\x01\n" +
+	"\aentries\x18\x03 \x03(\v2-.glyph.plugins.extension.v1.SessionStateEntryR\aentries\"\xac\x02\n" +
 	"\x11SessionStateEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tparent_id\x18\x02 \x01(\tR\bparentId\x12=\n" +
@@ -751,30 +1422,57 @@ const file_api_plugins_extension_v1_session_proto_rawDesc = "" +
 	"\fextension_id\x18\x04 \x01(\tR\vextensionId\x12\x1d\n" +
 	"\n" +
 	"entry_type\x18\x05 \x01(\tR\tentryType\x12\x14\n" +
-	"\x04data\x18\x06 \x01(\fH\x00R\x04dataB\t\n" +
-	"\acontentB=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
+	"\x04data\x18\x06 \x01(\fH\x00R\x04data\x12H\n" +
+	"\amessage\x18\a \x01(\v2,.glyph.plugins.extension.v1.ExtensionMessageH\x00R\amessageB\t\n" +
+	"\acontent\"t\n" +
+	"\x10ExtensionMessage\x12\x12\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\x12L\n" +
+	"\n" +
+	"visibility\x18\x02 \x01(\x0e2,.glyph.plugins.extension.v1.ClientVisibilityR\n" +
+	"visibility*r\n" +
+	"\x10ClientVisibility\x12!\n" +
+	"\x1dCLIENT_VISIBILITY_UNSPECIFIED\x10\x00\x12\x1d\n" +
+	"\x19CLIENT_VISIBILITY_VISIBLE\x10\x01\x12\x1c\n" +
+	"\x18CLIENT_VISIBILITY_HIDDEN\x10\x02*\x8f\x01\n" +
+	"\x1fAppendExtensionMessageIssueCode\x123\n" +
+	"/APPEND_EXTENSION_MESSAGE_ISSUE_CODE_UNSPECIFIED\x10\x00\x127\n" +
+	"3APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED\x10\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
+var file_api_plugins_extension_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_api_plugins_extension_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
 var file_api_plugins_extension_v1_session_proto_goTypes = []any{
-	(*AppendExtensionRequest)(nil), // 0: glyph.plugins.extension.v1.AppendExtensionRequest
-	(*AppendExtensionResult)(nil),  // 1: glyph.plugins.extension.v1.AppendExtensionResult
-	(*GetSessionStateRequest)(nil), // 2: glyph.plugins.extension.v1.GetSessionStateRequest
-	(*GetSessionStateResult)(nil),  // 3: glyph.plugins.extension.v1.GetSessionStateResult
-	(*SessionStateEntry)(nil),      // 4: glyph.plugins.extension.v1.SessionStateEntry
-	(*ExtensionContextRef)(nil),    // 5: glyph.plugins.extension.v1.ExtensionContextRef
-	(*timestamppb.Timestamp)(nil),  // 6: google.protobuf.Timestamp
+	(ClientVisibility)(0),                 // 0: glyph.plugins.extension.v1.ClientVisibility
+	(AppendExtensionMessageIssueCode)(0),  // 1: glyph.plugins.extension.v1.AppendExtensionMessageIssueCode
+	(*AppendExtensionRequest)(nil),        // 2: glyph.plugins.extension.v1.AppendExtensionRequest
+	(*AppendExtensionResult)(nil),         // 3: glyph.plugins.extension.v1.AppendExtensionResult
+	(*AppendExtensionMessageRequest)(nil), // 4: glyph.plugins.extension.v1.AppendExtensionMessageRequest
+	(*AppendExtensionMessageResult)(nil),  // 5: glyph.plugins.extension.v1.AppendExtensionMessageResult
+	(*AppendExtensionMessageIssue)(nil),   // 6: glyph.plugins.extension.v1.AppendExtensionMessageIssue
+	(*GetSessionStateRequest)(nil),        // 7: glyph.plugins.extension.v1.GetSessionStateRequest
+	(*GetSessionStateResult)(nil),         // 8: glyph.plugins.extension.v1.GetSessionStateResult
+	(*SessionStateEntry)(nil),             // 9: glyph.plugins.extension.v1.SessionStateEntry
+	(*ExtensionMessage)(nil),              // 10: glyph.plugins.extension.v1.ExtensionMessage
+	(*ExtensionContextRef)(nil),           // 11: glyph.plugins.extension.v1.ExtensionContextRef
+	(*timestamppb.Timestamp)(nil),         // 12: google.protobuf.Timestamp
 }
 var file_api_plugins_extension_v1_session_proto_depIdxs = []int32{
-	5, // 0: glyph.plugins.extension.v1.AppendExtensionRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	4, // 1: glyph.plugins.extension.v1.AppendExtensionResult.entry:type_name -> glyph.plugins.extension.v1.SessionStateEntry
-	5, // 2: glyph.plugins.extension.v1.GetSessionStateRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	4, // 3: glyph.plugins.extension.v1.GetSessionStateResult.entries:type_name -> glyph.plugins.extension.v1.SessionStateEntry
-	6, // 4: glyph.plugins.extension.v1.SessionStateEntry.created_time:type_name -> google.protobuf.Timestamp
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	11, // 0: glyph.plugins.extension.v1.AppendExtensionRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	9,  // 1: glyph.plugins.extension.v1.AppendExtensionResult.entry:type_name -> glyph.plugins.extension.v1.SessionStateEntry
+	11, // 2: glyph.plugins.extension.v1.AppendExtensionMessageRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	0,  // 3: glyph.plugins.extension.v1.AppendExtensionMessageRequest.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
+	9,  // 4: glyph.plugins.extension.v1.AppendExtensionMessageResult.entry:type_name -> glyph.plugins.extension.v1.SessionStateEntry
+	6,  // 5: glyph.plugins.extension.v1.AppendExtensionMessageResult.issues:type_name -> glyph.plugins.extension.v1.AppendExtensionMessageIssue
+	1,  // 6: glyph.plugins.extension.v1.AppendExtensionMessageIssue.code:type_name -> glyph.plugins.extension.v1.AppendExtensionMessageIssueCode
+	11, // 7: glyph.plugins.extension.v1.GetSessionStateRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	9,  // 8: glyph.plugins.extension.v1.GetSessionStateResult.entries:type_name -> glyph.plugins.extension.v1.SessionStateEntry
+	12, // 9: glyph.plugins.extension.v1.SessionStateEntry.created_time:type_name -> google.protobuf.Timestamp
+	10, // 10: glyph.plugins.extension.v1.SessionStateEntry.message:type_name -> glyph.plugins.extension.v1.ExtensionMessage
+	0,  // 11: glyph.plugins.extension.v1.ExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_proto_init() }
@@ -783,21 +1481,23 @@ func file_api_plugins_extension_v1_session_proto_init() {
 		return
 	}
 	file_api_plugins_extension_v1_context_proto_init()
-	file_api_plugins_extension_v1_session_proto_msgTypes[4].OneofWrappers = []any{
+	file_api_plugins_extension_v1_session_proto_msgTypes[7].OneofWrappers = []any{
 		(*sessionStateEntry_Data)(nil),
+		(*sessionStateEntry_Message)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_session_proto_rawDesc), len(file_api_plugins_extension_v1_session_proto_rawDesc)),
-			NumEnums:      0,
-			NumMessages:   5,
+			NumEnums:      2,
+			NumMessages:   9,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_api_plugins_extension_v1_session_proto_goTypes,
 		DependencyIndexes: file_api_plugins_extension_v1_session_proto_depIdxs,
+		EnumInfos:         file_api_plugins_extension_v1_session_proto_enumTypes,
 		MessageInfos:      file_api_plugins_extension_v1_session_proto_msgTypes,
 	}.Build()
 	File_api_plugins_extension_v1_session_proto = out.File

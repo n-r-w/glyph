@@ -369,8 +369,18 @@ func TestEnvelopeOperationIdentifiersFailStream(t *testing.T) {
 func TestConnectionEventQueueOverflowClosesResourceExhausted(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one initialized service that does not consume connection events.
-	client := TestClient(t, newBlockedConnectionMockService(t))
+	// Arrange one initialized service with a pending operation and no notification consumer.
+	waitResult := make(chan error, 1)
+	service := newInitializedMockService(t, func(ctx context.Context, host *Host) error {
+		started, startErr := host.Start(ctx, "pending", submitUIRequest())
+		if startErr != nil {
+			return startErr
+		}
+		_, waitErr := started.Wait(ctx)
+		waitResult <- waitErr
+		return waitErr
+	})
+	client := TestClient(t, service)
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
 	sendIntegrationInitialization(t, stream)
@@ -378,9 +388,12 @@ func TestConnectionEventQueueOverflowClosesResourceExhausted(t *testing.T) {
 		_, err = stream.Recv()
 		require.NoError(t, err)
 	}
+	pendingRequest, err := stream.Recv()
+	require.NoError(t, err)
+	require.Equal(t, "pending", pendingRequest.GetOperationId())
 
 	// Act by exceeding the exact bounded event queue.
-	for index := range connectionEventQueueCapacity + 1 {
+	for index := range notificationQueueCapacity + 1 {
 		event := new(uiv1.HostConnectionEvent)
 		event.SetInformation(uiv1.Information_builder{Text: new(fmt.Sprintf("event %d", index))}.Build())
 		require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
@@ -392,7 +405,10 @@ func TestConnectionEventQueueOverflowClosesResourceExhausted(t *testing.T) {
 	// Assert ResourceExhausted and the complete queue source cause.
 	require.Error(t, err)
 	assert.Equal(t, codes.ResourceExhausted, status.Code(err))
-	assert.ErrorContains(t, err, operation.ErrQueueFull.Error())
+	require.ErrorContains(t, err, operation.ErrQueueFull.Error())
+	waitErr := <-waitResult
+	require.ErrorIs(t, waitErr, operation.ErrQueueFull)
+	assert.Contains(t, waitErr.Error(), "queue Host connection notification")
 }
 
 // newConnectionReceiveMockService configures one connection-event delivery attempt.
@@ -481,7 +497,7 @@ func newMismatchMockService(t *testing.T) *MockService {
 		if err != nil {
 			return err
 		}
-		_, err = started.Wait(ctx, nil)
+		_, err = started.Wait(ctx)
 		return err
 	})
 }

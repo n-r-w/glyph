@@ -148,6 +148,8 @@ type SessionEntry struct {
 	ToolResult mo.Option[ToolResult]
 	// BranchSummary contains restored abandoned-branch context.
 	BranchSummary mo.Option[BranchSummary]
+	// ExtensionMessage contains exact model-visible extension text and visibility.
+	ExtensionMessage mo.Option[ExtensionMessage]
 }
 
 // ModelsResult contains configured models and the active selection.
@@ -197,6 +199,8 @@ const (
 	HistoryEntryToolResult
 	// HistoryEntryBranchSummary identifies restored abandoned-branch context.
 	HistoryEntryBranchSummary
+	// HistoryEntryExtensionMessage identifies a model-visible extension message.
+	HistoryEntryExtensionMessage
 )
 
 // HistoryEntry is one ordered public conversation entry.
@@ -209,6 +213,8 @@ type HistoryEntry struct {
 	Model mo.Option[ModelResponse]
 	// ToolResult contains a terminal tool result.
 	ToolResult mo.Option[ToolResult]
+	// ExtensionMessage contains one visible ordinary transcript message.
+	ExtensionMessage mo.Option[ExtensionMessage]
 }
 
 // AgentEventType identifies one agent progress event.

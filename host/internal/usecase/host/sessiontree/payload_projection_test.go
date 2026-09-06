@@ -74,6 +74,6 @@ func TestNavigateProjectsExtensionEntriesWithoutPayload(t *testing.T) {
 	// Assert handler projection strips payload bytes while navigation still commits.
 	require.NoError(t, err)
 	entries := tree.Entries()
-	require.Len(t, entries, 4)
+	require.Len(t, entries, 6)
 	assert.Equal(t, []byte(`{}`), entries[2].Extension.OrEmpty().Data)
 }

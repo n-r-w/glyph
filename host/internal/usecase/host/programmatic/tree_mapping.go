@@ -38,11 +38,20 @@ func mapSessionTreeEntry(entry session.Entry, label string) (controller.SessionT
 		User: mo.None[model.Message](), Model: mo.None[controller.ModelResponse](),
 		EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[controller.ToolResult](),
 		Extension: mo.None[controller.ExtensionEntry](), BranchSummary: mo.None[controller.BranchSummary](),
+		ExtensionMessage: mo.None[controller.ExtensionMessage](),
 	}
 	if extension, present := entry.Extension.Get(); present {
 		mapped.Kind = controller.SessionTreeEntryExtension
 		mapped.Extension = mo.Some(controller.ExtensionEntry{
 			ExtensionID: extension.ExtensionID, EntryType: extension.EntryType,
+		})
+		return mapped, nil
+	}
+	if message, present := entry.ExtensionMessage.Get(); present {
+		mapped.Kind = controller.SessionTreeEntryExtensionMessage
+		mapped.ExtensionMessage = mo.Some(controller.ExtensionMessage{
+			ExtensionID: message.ExtensionID, EntryType: message.EntryType,
+			Text: message.Text, Visibility: message.Visibility,
 		})
 		return mapped, nil
 	}
@@ -59,6 +68,7 @@ func mapSessionTreeEntry(entry session.Entry, label string) (controller.SessionT
 	mapped.EstimatedCost = public.EstimatedCost
 	mapped.ToolResult = public.ToolResult
 	mapped.BranchSummary = public.BranchSummary
+	mapped.ExtensionMessage = public.ExtensionMessage
 	switch public.Kind {
 	case controller.HistoryEntryUser:
 		mapped.Kind = controller.SessionTreeEntryUser
@@ -68,6 +78,8 @@ func mapSessionTreeEntry(entry session.Entry, label string) (controller.SessionT
 		mapped.Kind = controller.SessionTreeEntryToolResult
 	case controller.HistoryEntryBranchSummary:
 		mapped.Kind = controller.SessionTreeEntryBranchSummary
+	case controller.HistoryEntryExtensionMessage:
+		mapped.Kind = controller.SessionTreeEntryExtensionMessage
 	case controller.HistoryEntryUnspecified:
 		return controller.SessionTreeEntry{}, errors.New("tree entry payload is unspecified")
 	default:

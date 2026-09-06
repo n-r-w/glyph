@@ -93,6 +93,7 @@ message ExtensionRequest {
     ConfiguredModelRequest configured_model = 4;
     AppendExtensionRequest append_extension = 5;
     GetSessionStateRequest get_session_state = 6;
+    AppendExtensionMessageRequest append_extension_message = 7;
   }
 }
 
@@ -119,6 +120,7 @@ message HostCompleted {
     ConfiguredModelResult configured_model = 4;
     AppendExtensionResult append_extension = 5;
     GetSessionStateResult get_session_state = 6;
+    AppendExtensionMessageResult append_extension_message = 7;
   }
 }
 

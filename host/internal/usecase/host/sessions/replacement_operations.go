@@ -8,7 +8,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 // ForkActive creates a replacement session before one selected user message.
@@ -109,7 +108,8 @@ func (s *Service) createReplacement(ctx context.Context, tree session.Tree) (ses
 	}
 	s.active = loaded
 	s.publishContextIdentityLocked()
-	s.history = sessiontree.HistoryFromEntries(tree.ActiveBranch())
+	branch := tree.ActiveBranch()
+	s.history = storedHistoryFromEntries(branch)
 	s.writeUnavailable = false
 	return loaded.Replacement(), nil
 }

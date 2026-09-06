@@ -15,6 +15,9 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// mapSessionEntries maps the closed detailed-entry union to Programmatic Control.
+//
+//nolint:gocognit,gocyclo // Each public entry payload has independent validation and mapping.
 func mapSessionEntries(entries []SessionEntry) ([]*programmaticv1.SessionEntry, error) {
 	return lo.MapErr(entries, func(entry SessionEntry, index int) (*programmaticv1.SessionEntry, error) {
 		wire := new(programmaticv1.SessionEntry)
@@ -51,6 +54,12 @@ func mapSessionEntries(entries []SessionEntry) ([]*programmaticv1.SessionEntry, 
 				return nil, fmt.Errorf("map session entry %d: %w", index, err)
 			}
 			wire.SetToolResult(mapped)
+		case HistoryEntryExtensionMessage:
+			message, present := entry.ExtensionMessage.Get()
+			if !present {
+				return nil, fmt.Errorf("map session entry %d: missing extension message payload", index)
+			}
+			wire.SetExtensionMessage(mapExtensionMessage(message))
 		case HistoryEntryBranchSummary:
 			summary, present := entry.BranchSummary.Get()
 			if !present {
@@ -107,6 +116,12 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 				return nil, fmt.Errorf("map history entry %d: %w", index, err)
 			}
 			wire.SetToolResult(result)
+		case HistoryEntryExtensionMessage:
+			message, present := entry.ExtensionMessage.Get()
+			if !present {
+				return nil, fmt.Errorf("map history entry %d: missing extension message payload", index)
+			}
+			wire.SetExtensionMessage(mapExtensionMessage(message))
 		case HistoryEntryUnspecified:
 			return nil, fmt.Errorf("map history entry %d: unspecified entry kind", index)
 		case HistoryEntryBranchSummary:

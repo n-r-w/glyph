@@ -17,8 +17,13 @@ import (
 // encodeEntry writes one compact record so one append always occupies one JSONL line.
 func encodeEntry(entry session.Entry) ([]byte, error) {
 	variants := []bool{
-		entry.Information.IsSome(), entry.User.IsSome(), entry.Model.IsSome(),
-		entry.ToolResult.IsSome(), entry.Extension.IsSome(), entry.BranchSummary.IsSome(),
+		entry.Information.IsSome(),
+		entry.User.IsSome(),
+		entry.Model.IsSome(),
+		entry.ToolResult.IsSome(),
+		entry.Extension.IsSome(),
+		entry.ExtensionMessage.IsSome(),
+		entry.BranchSummary.IsSome(),
 	}
 	selected := 0
 	for _, present := range variants {
@@ -57,6 +62,9 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 	if result, ok := entry.ToolResult.Get(); ok {
 		return encodeToolResultEntry(entry, result)
 	}
+	if message, present := entry.ExtensionMessage.Get(); present {
+		return encodeExtensionMessage(entry, message)
+	}
 	return encodeExtensionEntry(entry, entry.Extension.MustGet())
 }
 
@@ -74,6 +82,19 @@ func encodeExtensionEntry(entry session.Entry, extension session.ExtensionEnvelo
 		CreatedAt:   entry.CreatedAt.Format(time.RFC3339Nano),
 		ExtensionID: extension.ExtensionID, EntryType: extension.EntryType,
 		Data: encodedData,
+	})
+}
+
+// encodeExtensionMessage validates and encodes one model-visible extension message.
+func encodeExtensionMessage(entry session.Entry, message session.ExtensionMessage) ([]byte, error) {
+	if message.ExtensionID == "" || message.EntryType == "" ||
+		message.Visibility != session.ClientVisibilityVisible && message.Visibility != session.ClientVisibilityHidden {
+		return nil, errors.New("invalid extension message")
+	}
+	return encodeLine(extensionMessageRecord{
+		Type: recordTypeExtensionMessage, ID: entry.ID, ParentID: entry.ParentID,
+		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), ExtensionID: message.ExtensionID,
+		EntryType: message.EntryType, Text: message.Text, Visibility: string(message.Visibility),
 	})
 }
 

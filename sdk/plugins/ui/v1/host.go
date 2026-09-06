@@ -19,8 +19,8 @@ type Host struct {
 	writer *operation.Writer[*uiv1.OpenResponse]
 	// tracker validates Host lifecycle events.
 	tracker *operation.Tracker[*uiv1.HostProgress, *uiv1.HostCompleted]
-	// events carries bounded Host connection events.
-	events chan *uiv1.HostConnectionEvent
+	// events carries bounded UI state notifications in exact Host wire order.
+	events chan *Notification
 	// mutex protects closure state.
 	mutex sync.Mutex
 	// closed prevents new requests after local or peer closure.
@@ -45,7 +45,7 @@ func newHost(
 ) *Host {
 	return &Host{
 		context: ctx, writer: writer, tracker: tracker,
-		events: make(chan *uiv1.HostConnectionEvent, connectionEventQueueCapacity),
+		events: make(chan *Notification, notificationQueueCapacity),
 		mutex:  sync.Mutex{}, closed: false, operations: make(map[string]requestKind),
 		fail: fail, requestClose: requestClose, eventsOnce: sync.Once{},
 	}
@@ -57,6 +57,8 @@ type Operation struct {
 	id string
 	// events contains validated lifecycle events in order.
 	events <-chan operation.Event[*uiv1.HostProgress, *uiv1.HostCompleted]
+	// connectionContext carries the owning connection failure cause.
+	connectionContext context.Context
 }
 
 // Cancellation owns SDK state for one UI-initiated cancellation operation.
@@ -101,7 +103,7 @@ func (h *Host) Start(
 		h.fail(fmt.Errorf("start UI operation: %w", err))
 		return nil, fmt.Errorf("start UI operation: %w", err)
 	}
-	return &Operation{id: id, events: events}, nil
+	return &Operation{id: id, events: events, connectionContext: h.context}, nil
 }
 
 // Cancel starts a separate cancellation operation for one target.
@@ -119,14 +121,17 @@ func (h *Host) Cancel(ctx context.Context, id, target string) (*Cancellation, er
 	return &Cancellation{operation: started}, nil
 }
 
-// Receive returns the next Host connection event.
-func (h *Host) Receive(ctx context.Context) (*uiv1.HostConnectionEvent, error) {
+// Receive returns the next UI state notification in exact Host wire order.
+func (h *Host) Receive(ctx context.Context) (*Notification, error) {
 	select {
-	case event, open := <-h.events:
+	case notification, open := <-h.events:
 		if !open {
+			if cause := context.Cause(h.context); cause != nil {
+				return nil, cause
+			}
 			return nil, operation.ErrClosed
 		}
-		return event, nil
+		return notification, nil
 	case <-ctx.Done():
 		return nil, context.Cause(ctx)
 	case <-h.context.Done():
@@ -167,7 +172,29 @@ func (h *Host) handleOperationEvent(id string, event *uiv1.HostEvent) error {
 		delete(h.operations, id)
 	}
 	h.mutex.Unlock()
-	return h.tracker.Handle(mapHostEvent(id, event))
+	mapped := mapHostEvent(id, event)
+	switch mapped.Kind {
+	case operation.EventAccepted, operation.EventRunning:
+		return h.tracker.Advance(mapped)
+	case operation.EventProgress:
+		if err := h.tracker.Advance(mapped); err != nil {
+			return err
+		}
+	case operation.EventCompleted, operation.EventCanceled, operation.EventFailed, operation.EventRejected:
+		if err := h.tracker.Handle(mapped); err != nil {
+			return err
+		}
+	default:
+		return errors.New("Host operation event kind is unknown")
+	}
+	notification, err := operationNotification(mapped)
+	if err != nil {
+		return err
+	}
+	if enqueueErr := h.enqueueNotification(notification); enqueueErr != nil {
+		return fmt.Errorf("queue Host operation notification %q: %w", id, enqueueErr)
+	}
+	return nil
 }
 
 // deliverConnectionEvent queues one validated connection event without blocking receipt.
@@ -175,8 +202,16 @@ func (h *Host) deliverConnectionEvent(event *uiv1.HostConnectionEvent) error {
 	if err := validateConnectionEvent(event); err != nil {
 		return err
 	}
+	if err := h.enqueueNotification(connectionNotification(event)); err != nil {
+		return fmt.Errorf("queue Host connection notification: %w", err)
+	}
+	return nil
+}
+
+// enqueueNotification queues one validated UI notification without blocking stream receipt.
+func (h *Host) enqueueNotification(notification *Notification) error {
 	select {
-	case h.events <- event:
+	case h.events <- notification:
 		return nil
 	default:
 		return operation.ErrQueueFull
@@ -194,22 +229,50 @@ func validateConnectionEvent(event *uiv1.HostConnectionEvent) error {
 			return errors.New("Host connection information text is required")
 		}
 	case uiv1.HostConnectionEvent_Error_case:
-		payload := event.GetError()
-		if !payload.HasCode() || payload.GetCode() == "" {
-			return errors.New("Host connection error category is required")
-		}
-		if !payload.HasText() || payload.GetText() == "" {
-			return errors.New("Host connection error text is required")
-		}
+		return validateConnectionError(event.GetError())
 	case uiv1.HostConnectionEvent_AvailabilityChanged_case:
-		payload := event.GetAvailabilityChanged()
-		if !payload.HasAvailability() || payload.GetAvailability() == uiv1.Availability_AVAILABILITY_UNSPECIFIED {
-			return errors.New("Host connection availability is required")
-		}
+		return validateConnectionAvailability(event.GetAvailabilityChanged())
+	case uiv1.HostConnectionEvent_SessionEntryAdded_case:
+		return validateSessionEntryAdded(event.GetSessionEntryAdded())
 	case uiv1.HostConnectionEvent_Event_not_set_case:
 		return errors.New("Host connection event is required")
 	default:
 		return errors.New("Host connection event is unknown")
+	}
+	return nil
+}
+
+// validateConnectionError validates one connection-level failure payload.
+func validateConnectionError(payload *uiv1.Error) error {
+	if !payload.HasCode() || payload.GetCode() == "" {
+		return errors.New("Host connection error category is required")
+	}
+	if !payload.HasText() || payload.GetText() == "" {
+		return errors.New("Host connection error text is required")
+	}
+	return nil
+}
+
+// validateConnectionAvailability validates one connection-level availability payload.
+func validateConnectionAvailability(payload *uiv1.AvailabilityChanged) error {
+	if !payload.HasAvailability() || payload.GetAvailability() == uiv1.Availability_AVAILABILITY_UNSPECIFIED {
+		return errors.New("Host connection availability is required")
+	}
+	return nil
+}
+
+// validateSessionEntryAdded validates one complete extension-message connection payload.
+func validateSessionEntryAdded(payload *uiv1.SessionEntryAdded) error {
+	if payload == nil || payload.GetEntry() == nil || payload.GetEntry().GetExtensionMessage() == nil {
+		return errors.New("Host added session entry message is required")
+	}
+	if err := validateSessionTreeEntry(payload.GetEntry()); err != nil {
+		return fmt.Errorf("Host added session entry: %w", err)
+	}
+	message := payload.GetEntry().GetExtensionMessage()
+	if !message.HasExtensionId() || !message.HasEntryType() || !message.HasText() || !message.HasVisibility() ||
+		message.GetVisibility() == uiv1.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED {
+		return errors.New("Host added session entry message is incomplete")
 	}
 	return nil
 }
@@ -221,45 +284,66 @@ func (h *Host) markPeerClosed() {
 	h.mutex.Unlock()
 }
 
-// closeEvents releases connection-event receivers.
-func (h *Host) closeEvents() { h.eventsOnce.Do(func() { close(h.events) }) }
+// closeEvents prevents new notifications and releases notification receivers.
+func (h *Host) closeEvents() {
+	h.eventsOnce.Do(func() {
+		h.mutex.Lock()
+		h.closed = true
+		close(h.events)
+		h.mutex.Unlock()
+	})
+}
 
-// Wait delivers ordered progress and returns one terminal result.
-func (o *Operation) Wait(
-	ctx context.Context,
-	onProgress func(*uiv1.HostProgress),
-) (*uiv1.HostCompleted, error) {
-	for {
+// Wait returns one retained terminal result without consuming progress notifications.
+func (o *Operation) Wait(ctx context.Context) (*uiv1.HostCompleted, error) {
+	if cause := context.Cause(ctx); cause != nil {
+		return nil, cause
+	}
+	select {
+	case event, open := <-o.events:
+		return o.waitResult(event, open)
+	case <-ctx.Done():
+		return nil, context.Cause(ctx)
+	case <-o.connectionContext.Done():
 		select {
 		case event, open := <-o.events:
-			if !open {
-				return nil, operation.ErrClosed
-			}
-			switch event.Kind {
-			case operation.EventAccepted, operation.EventRunning:
-				continue
-			case operation.EventProgress:
-				if onProgress != nil {
-					onProgress(event.Progress)
-				}
-			case operation.EventCompleted:
-				return event.Result, nil
-			case operation.EventCanceled:
-				return nil, newCanceledError()
-			case operation.EventFailed:
-				return nil, newRemoteFailure(event.Code, event.Message)
-			case operation.EventRejected:
-				return nil, newRemoteRejection(event.Code, event.Message)
-			}
-		case <-ctx.Done():
-			return nil, context.Cause(ctx)
+			return o.waitResult(event, open)
+		default:
+			return nil, context.Cause(o.connectionContext)
 		}
+	}
+}
+
+// waitResult maps one retained terminal tracker event to the public operation result.
+func (o *Operation) waitResult(
+	event operation.Event[*uiv1.HostProgress, *uiv1.HostCompleted],
+	open bool,
+) (*uiv1.HostCompleted, error) {
+	if !open {
+		if cause := context.Cause(o.connectionContext); cause != nil {
+			return nil, cause
+		}
+		return nil, operation.ErrClosed
+	}
+	switch event.Kind {
+	case operation.EventCompleted:
+		return event.Result, nil
+	case operation.EventCanceled:
+		return nil, newCanceledError()
+	case operation.EventFailed:
+		return nil, newRemoteFailure(event.Code, event.Message)
+	case operation.EventRejected:
+		return nil, newRemoteRejection(event.Code, event.Message)
+	case operation.EventAccepted, operation.EventRunning, operation.EventProgress:
+		return nil, errors.New("operation wait received a nonterminal event")
+	default:
+		return nil, errors.New("operation wait received an unknown event")
 	}
 }
 
 // Wait returns the cancellation operation result.
 func (c *Cancellation) Wait(ctx context.Context) (*operationv1.CancelCompleted, error) {
-	completed, err := c.operation.Wait(ctx, nil)
+	completed, err := c.operation.Wait(ctx)
 	if err != nil {
 		return nil, err
 	}

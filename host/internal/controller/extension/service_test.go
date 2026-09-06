@@ -171,7 +171,7 @@ func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
 		Extension: mo.Some(
 			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "checkpoint", Data: payload},
 		),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	contexts.EXPECT().AppendExtension(
 		gomock.Any(), "extension", "runtime", reference, "checkpoint", payload,
@@ -213,6 +213,74 @@ func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
 	assert.Equal(t, "extension", recovered.GetExtensionId())
 	assert.Equal(t, "checkpoint", recovered.GetEntryType())
 	assert.Equal(t, payload, recovered.GetData())
+}
+
+// TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue verifies exact message metadata and post-commit outcome.
+func TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one admitted message append whose client publication fails after commit.
+	controller := gomock.NewController(t)
+	contexts := NewMockContextOperations(controller)
+	runtime := NewMockRuntimeOperations(controller)
+	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
+	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
+	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil)
+	stored := session.Entry{
+		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(9, 10).UTC(),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
+			ExtensionID: "extension",
+			EntryType:   "note",
+			Text:        "exact\ntext",
+			Visibility:  session.ClientVisibilityHidden,
+		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	contexts.EXPECT().AppendExtensionMessage(
+		gomock.Any(), "extension", "runtime", reference, "note", "exact\ntext", session.ClientVisibilityHidden,
+	).Return(AppendMessageResult{
+		Entry: stored, Issues: []OperationIssue{{
+			ExtensionID: "extension", Code: "DELIVERY_FAILED", Message: "publish message: writer failed",
+		}},
+	}, nil)
+	service := New(contexts, runtime, "extension", "runtime")
+	request := new(extensionpb.ExtensionRequest)
+	request.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageRequest_builder{
+		Context: extensionpb.ExtensionContextRef_builder{
+			ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
+		}.Build(),
+		EntryType: new("note"), Text: new("exact\ntext"),
+		Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+	}.Build())
+
+	// Act through the production extension request controller.
+	prepared, err := service.Prepare(t.Context(), "append-message", request)
+	require.NoError(t, err)
+	completed, err := prepared.Run(t.Context())
+
+	// Assert exact committed metadata, message content, visibility, and complete delivery cause.
+	require.NoError(t, err)
+	result := completed.GetAppendExtensionMessage()
+	require.NotNil(t, result)
+	assert.Equal(t, "message", result.GetEntry().GetId())
+	assert.Equal(t, "parent", result.GetEntry().GetParentId())
+	assert.Equal(t, stored.CreatedAt, result.GetEntry().GetCreatedTime().AsTime())
+	assert.Equal(t, "exact\ntext", result.GetEntry().GetMessage().GetText())
+	assert.Equal(
+		t,
+		extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN,
+		result.GetEntry().GetMessage().GetVisibility(),
+	)
+	require.Len(t, result.GetIssues(), 1)
+	assert.Equal(t, "extension", result.GetIssues()[0].GetExtensionId())
+	assert.Equal(
+		t,
+		extensionpb.AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED,
+		result.GetIssues()[0].GetCode(),
+	)
+	assert.Equal(t, "publish message: writer failed", result.GetIssues()[0].GetMessage())
 }
 
 // TestConfiguredModelRequestPreservesClosedFailures verifies every owner category and complete cause reach the SDK.

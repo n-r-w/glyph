@@ -23,6 +23,36 @@ message AppendExtensionResult {
   SessionStateEntry entry = 1;
 }
 
+// AppendExtensionMessageRequest appends one model-visible extension-owned text message.
+message AppendExtensionMessageRequest {
+  // The issued runtime-to-session binding.
+  ExtensionContextRef context = 1;
+  // The extension-defined entry kind.
+  string entry_type = 2;
+  // The exact model-visible text.
+  string text = 3;
+  // The ordinary client transcript visibility.
+  ClientVisibility visibility = 4;
+}
+
+// AppendExtensionMessageResult contains the committed message and post-commit delivery issues.
+message AppendExtensionMessageResult {
+  // The committed entry with Host-owned identity and metadata.
+  SessionStateEntry entry = 1;
+  // Delivery issues that did not roll back the committed entry.
+  repeated AppendExtensionMessageIssue issues = 2;
+}
+
+// AppendExtensionMessageIssue reports one post-commit client delivery failure.
+message AppendExtensionMessageIssue {
+  // The closed issue code.
+  AppendExtensionMessageIssueCode code = 1;
+  // The complete issue text, including the original cause.
+  string message = 2;
+  // The extension that owns the failed append.
+  string extension_id = 3;
+}
+
 // GetSessionStateRequest requests the caller extension's active-branch entries.
 message GetSessionStateRequest {
   // The issued runtime-to-session binding.
@@ -54,5 +84,32 @@ message SessionStateEntry {
   // The typed extension content.
   oneof content {
     bytes data = 6;
+    ExtensionMessage message = 7;
   }
+}
+
+// ExtensionMessage contains exact model-visible text and client visibility.
+message ExtensionMessage {
+  // The exact model-visible text.
+  string text = 1;
+  // The ordinary client transcript visibility.
+  ClientVisibility visibility = 2;
+}
+
+// ClientVisibility controls ordinary client transcript presentation.
+enum ClientVisibility {
+  // No visibility was provided.
+  CLIENT_VISIBILITY_UNSPECIFIED = 0;
+  // The message is included in ordinary client transcripts.
+  CLIENT_VISIBILITY_VISIBLE = 1;
+  // The message is excluded from ordinary client transcripts.
+  CLIENT_VISIBILITY_HIDDEN = 2;
+}
+
+// AppendExtensionMessageIssueCode identifies one post-commit issue.
+enum AppendExtensionMessageIssueCode {
+  // No issue code was provided.
+  APPEND_EXTENSION_MESSAGE_ISSUE_CODE_UNSPECIFIED = 0;
+  // Client publication failed after the message committed.
+  APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED = 1;
 }

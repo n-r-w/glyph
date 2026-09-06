@@ -12,10 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 // TestForkActivePersistsOnlyTheSelectedUserParentPath verifies fork retention, identity, labels, and publication order.
@@ -228,9 +226,9 @@ func TestReplacementCreationFailurePreservesSource(t *testing.T) {
 		Return(CreateSnapshotResult{}, errors.New("sync failed"))
 	service := New(repository, ids, clock, NewMockPricingCatalog(controller), "/project")
 	service.active = replacementLoadedSession(replacementTree(t, replacementEntries(), "target", nil))
-	service.history = sessiontree.HistoryFromEntries(service.active.Tree.ActiveBranch())
+	service.history = storedHistoryFromEntries(service.active.Tree.ActiveBranch())
 	before := service.active.Clone()
-	beforeHistory := append([]agent.HistoryEntry(nil), service.history...)
+	beforeHistory := append([]storedHistoryEntry(nil), service.history...)
 
 	// Act by cloning when persistence fails.
 	_, err := service.CloneActive(t.Context())
@@ -359,7 +357,7 @@ func replacementUserEntry(id string, parent mo.Option[string], text string) sess
 		EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 

@@ -4,6 +4,7 @@ package glyph.plugins.extension.v1;
 
 import "api/plugins/extension/v1/context.proto";
 import "api/plugins/extension/v1/model.proto";
+import "api/plugins/extension/v1/session.proto";
 import "api/plugins/extension/v1/tool.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
@@ -183,7 +184,20 @@ message SessionTreeEntry {
     SessionTreeToolResult tool_result = 4;
     SessionTreeBranchSummary branch_summary = 5;
     SessionTreeExtensionEntry extension = 6;
+    SessionTreeExtensionMessage extension_message = 7;
   }
+}
+
+// SessionTreeExtensionMessage contains one model-visible extension message.
+message SessionTreeExtensionMessage {
+  // The owning extension identifier.
+  string extension_id = 1;
+  // The extension-defined entry kind.
+  string entry_type = 2;
+  // The exact model-visible text.
+  string text = 3;
+  // The ordinary client transcript visibility.
+  ClientVisibility visibility = 4;
 }
 
 // SessionTreeUserMessage contains one user message.

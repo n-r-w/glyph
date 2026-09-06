@@ -217,7 +217,7 @@ func branchAccountingModelEntry(
 			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](), Usage: usage, Diagnostics: nil,
 		}),
 		EstimatedCost: cost, ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 
@@ -248,6 +248,6 @@ func branchAccountingSummaryEntry(
 					Usage: usage,
 				}),
 			}, EstimatedCost: cost,
-		}),
+		}), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }

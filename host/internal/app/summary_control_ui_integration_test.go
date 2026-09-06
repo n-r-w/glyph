@@ -171,7 +171,7 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 	if err != nil {
 		return err
 	}
-	if _, err := operation.Wait(ctx, nil); err != nil {
+	if _, err := waitUIOperation(ctx, host, "resume", operation, nil); err != nil {
 		return err
 	}
 	var payload proto.Message
@@ -184,7 +184,7 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 		if err != nil {
 			return err
 		}
-		result, err := operation.Wait(ctx, nil)
+		result, err := waitUIOperation(ctx, host, "tree", operation, nil)
 		if err != nil {
 			return err
 		}
@@ -203,8 +203,9 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 		if err != nil {
 			return err
 		}
-		result, err := operation.Wait(ctx, func(progress *uiv1.HostProgress) {
-			if !progress.HasSessionTreeNavigation() {
+		result, err := waitUIOperation(ctx, host, id, operation, func(notification *uisdk.Notification) {
+			progress := notification.Progress()
+			if progress == nil || !progress.HasSessionTreeNavigation() {
 				return
 			}
 			navigationProgress = progress.GetSessionTreeNavigation()

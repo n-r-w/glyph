@@ -123,6 +123,7 @@ message SessionTreeEntry {
     ToolResult tool_result = 7;
     ExtensionEntry extension = 8;
     BranchSummary branch_summary = 9;
+    ExtensionMessage extension_message = 10;
   }
 }
 
@@ -132,6 +133,24 @@ message ExtensionEntry {
   string extension_id = 1;
   // The extension-defined entry type.
   string entry_type = 2;
+}
+
+// ExtensionMessage contains one model-visible extension message.
+message ExtensionMessage {
+  // The owning extension identifier.
+  string extension_id = 1;
+  // The extension-defined entry kind.
+  string entry_type = 2;
+  // The exact model-visible text.
+  string text = 3;
+  // The ordinary client transcript visibility.
+  ClientVisibility visibility = 4;
+}
+
+// SessionEntryAdded publishes one committed session entry outside an operation lifecycle.
+message SessionEntryAdded {
+  // The complete committed tree entry.
+  SessionTreeEntry entry = 1;
 }
 
 // BranchSummary contains one persisted abandoned-branch summary.
@@ -195,6 +214,7 @@ message SessionEntry {
     ModelResponse model = 4;
     ToolResult tool_result = 5;
     BranchSummary branch_summary = 6;
+    ExtensionMessage extension_message = 7;
   }
 }
 
@@ -350,6 +370,16 @@ message SetEntryLabelCommand {
   string target_entry_id = 1;
   // The new label. An empty value clears the label.
   string label = 2;
+}
+
+// ClientVisibility controls ordinary client transcript presentation.
+enum ClientVisibility {
+  // No visibility was provided.
+  CLIENT_VISIBILITY_UNSPECIFIED = 0;
+  // The message is included in ordinary client transcripts.
+  CLIENT_VISIBILITY_VISIBLE = 1;
+  // The message is excluded from ordinary client transcripts.
+  CLIENT_VISIBILITY_HIDDEN = 2;
 }
 
 // SummaryMode identifies branch-summary behavior for tree navigation.

@@ -57,6 +57,38 @@ func TestTreeActiveBranchAndNavigationPreparation(t *testing.T) {
 	require.Equal(t, map[string]string{"model-a": "checkpoint"}, tree.Labels())
 }
 
+// TestTreeNavigationPreparesExtensionMessageInput verifies both client visibility values use message text and parent.
+func TestTreeNavigationPreparesExtensionMessageInput(t *testing.T) {
+	t.Parallel()
+
+	// Arrange model-visible extension messages with both client visibility values.
+	createdAt := time.Unix(1, 0).UTC()
+	root := treeUserEntry("root", mo.None[string](), "root", createdAt)
+	for _, visibility := range []ClientVisibility{ClientVisibilityVisible, ClientVisibilityHidden} {
+		t.Run(string(visibility), func(t *testing.T) {
+			t.Parallel()
+			message := Entry{
+				ID: "message-" + string(visibility), ParentID: mo.Some("root"), CreatedAt: createdAt.Add(time.Second),
+				Information: mo.None[Information](), User: mo.None[UserMessage](), Model: mo.None[ModelResponse](),
+				EstimatedCost: mo.None[EstimatedCost](), ToolResult: mo.None[ToolResult](),
+				Extension: mo.None[ExtensionEnvelope](), ExtensionMessage: mo.Some(ExtensionMessage{
+					ExtensionID: "example", EntryType: "note", Text: "exact\nmessage", Visibility: visibility,
+				}), BranchSummary: mo.None[BranchSummaryEntry](),
+			}
+			tree, err := NewTree([]Entry{root, message}, mo.Some(message.ID), nil)
+			require.NoError(t, err)
+
+			// Act by selecting the extension message.
+			preparation, err := tree.NavigationPreparation(message.ID)
+
+			// Assert the parent is the destination and exact text is the next input.
+			require.NoError(t, err)
+			require.Equal(t, mo.Some("root"), preparation.DestinationID)
+			require.Equal(t, mo.Some("exact\nmessage"), preparation.NextInput)
+		})
+	}
+}
+
 // TestTreeAddPreservesBranchesAndValidatesParent verifies append-only branch insertion.
 func TestTreeAddPreservesBranchesAndValidatesParent(t *testing.T) {
 	t.Parallel()
@@ -87,7 +119,7 @@ func treeUserEntry(id string, parentID mo.Option[string], text string, createdAt
 		Information: mo.None[Information](), User: mo.Some(model.TextMessage(text)),
 		Model: mo.None[ModelResponse](), EstimatedCost: mo.None[EstimatedCost](),
 		ToolResult: mo.None[ToolResult](), Extension: mo.None[ExtensionEnvelope](),
-		BranchSummary: mo.None[BranchSummaryEntry](),
+		ExtensionMessage: mo.None[ExtensionMessage](), BranchSummary: mo.None[BranchSummaryEntry](),
 	}
 }
 
@@ -97,6 +129,6 @@ func treeModelEntry(id string, parentID mo.Option[string], createdAt time.Time) 
 		Information: mo.None[Information](), User: mo.None[UserMessage](),
 		Model: mo.Some(model.Response{}), EstimatedCost: mo.None[EstimatedCost](),
 		ToolResult: mo.None[ToolResult](), Extension: mo.None[ExtensionEnvelope](),
-		BranchSummary: mo.None[BranchSummaryEntry](),
+		ExtensionMessage: mo.None[ExtensionMessage](), BranchSummary: mo.None[BranchSummaryEntry](),
 	}
 }

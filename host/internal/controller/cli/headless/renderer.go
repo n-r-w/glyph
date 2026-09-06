@@ -11,6 +11,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -31,6 +32,19 @@ var _ startup.Reporter = (*Renderer)(nil)
 // NewRenderer creates the headless output recipient.
 func NewRenderer(stdout, stderr io.Writer) *Renderer {
 	return &Renderer{stdout: stdout, stderr: stderr, modelLineOpen: false}
+}
+
+// AcknowledgeSessionEntry accepts a committed extension message when headless mode has no Glyph client.
+func (r *Renderer) AcknowledgeSessionEntry(
+	entry session.Entry,
+) (wait func(context.Context) error, err error) {
+	if r == nil {
+		return nil, errors.New("headless renderer is required")
+	}
+	if entry.ID == "" || entry.ExtensionMessage.IsNone() {
+		return nil, errors.New("committed extension message is required")
+	}
+	return func(context.Context) error { return nil }, nil
 }
 
 // ReportRuntimeFailure renders one classified post-start extension failure.

@@ -14,6 +14,34 @@ import (
 	"github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
+// TestMapSessionTreeRetainsExtensionMessageState verifies exact message data remains available outside the transcript.
+func TestMapSessionTreeRetainsExtensionMessageState(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one complete tree with a hidden-client extension message.
+	entry := uiv1.SessionTreeEntry_builder{
+		Id: new("message"), ParentId: new("parent"), CreatedTime: timestamppb.New(time.Unix(1, 0).UTC()),
+		Label: new(""), User: nil, Model: nil, ToolResult: nil, Extension: nil, BranchSummary: nil,
+		ExtensionMessage: uiv1.ExtensionMessage_builder{
+			ExtensionId: new("example"), EntryType: new("note"), Text: new("exact text"),
+			Visibility: new(uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+		}.Build(),
+	}.Build()
+
+	// Act by mapping complete tree state to the TUI presentation domain.
+	tree, err := mapSessionTree(uiv1.SessionTree_builder{
+		Entries: []*uiv1.SessionTreeEntry{entry}, ActiveLeafId: new("message"),
+	}.Build())
+
+	// Assert exact metadata, text, visibility, and active leaf remain available.
+	require.NoError(t, err)
+	require.Equal(t, mo.Some("message"), tree.ActiveLeafID)
+	require.Len(t, tree.Entries, 1)
+	require.Equal(t, presentation.TreeEntryExtensionMessage, tree.Entries[0].Kind)
+	require.Equal(t, "exact text", tree.Entries[0].ExtensionMessage.MustGet().Text)
+	require.Equal(t, presentation.ClientVisibilityHidden, tree.Entries[0].ExtensionMessage.MustGet().Visibility)
+}
+
 // TestMapRequestDecodesTreeReplacementAndLabelFrames verifies every new Host frame is supported.
 func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 	t.Parallel()

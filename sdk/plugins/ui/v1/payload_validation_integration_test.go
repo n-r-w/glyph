@@ -54,7 +54,13 @@ func TestMalformedNestedPayloadsFailBeforeDelivery(t *testing.T) {
 				if err != nil {
 					return err
 				}
-				_, err = tracked.Wait(ctx, func(*uiv1.HostProgress) { callbackCalled <- struct{}{} })
+				go func() {
+					notification, receiveErr := host.Receive(ctx)
+					if receiveErr == nil && notification != nil {
+						callbackCalled <- struct{}{}
+					}
+				}()
+				_, err = tracked.Wait(ctx)
 				if err == nil {
 					completionDelivered <- struct{}{}
 					return host.Close(context.WithoutCancel(ctx))

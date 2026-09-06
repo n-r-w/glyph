@@ -84,6 +84,8 @@ type TreeEvent struct {
 	Issues []OperationIssue
 	// FailureMessage contains a safe rejected-operation message.
 	FailureMessage mo.Option[string]
+	// AddedEntry contains one committed connection-event entry when present.
+	AddedEntry mo.Option[TreeEntry]
 }
 
 // TreeCommand contains one tree command payload.
@@ -114,6 +116,8 @@ const (
 	TreeEntryExtension
 	// TreeEntryBranchSummary identifies an abandoned-branch summary.
 	TreeEntryBranchSummary
+	// TreeEntryExtensionMessage identifies a model-visible extension message.
+	TreeEntryExtensionMessage
 )
 
 // TreeFilter identifies one local tree visibility filter.
@@ -142,6 +146,28 @@ const (
 	TreePurposeFork
 )
 
+// ClientVisibility controls ordinary transcript presentation for an extension message.
+type ClientVisibility uint8
+
+const (
+	// ClientVisibilityVisible includes the message in the ordinary transcript.
+	ClientVisibilityVisible ClientVisibility = iota + 1
+	// ClientVisibilityHidden excludes the message from the ordinary transcript.
+	ClientVisibilityHidden
+)
+
+// ExtensionMessage contains exact model-visible extension data retained in tree state.
+type ExtensionMessage struct {
+	// ExtensionID identifies the owning extension.
+	ExtensionID string
+	// EntryType identifies the extension-defined entry kind.
+	EntryType string
+	// Text contains exact message text.
+	Text string
+	// Visibility controls ordinary transcript presentation.
+	Visibility ClientVisibility
+}
+
 // TreeEntry contains one public tree entry and presentation text.
 type TreeEntry struct {
 	// ID is the persisted entry identifier.
@@ -154,6 +180,8 @@ type TreeEntry struct {
 	Label string
 	// Kind identifies the entry payload.
 	Kind TreeEntryKind
+	// ExtensionMessage retains exact model-visible extension data when present.
+	ExtensionMessage mo.Option[ExtensionMessage]
 	// Text contains the public entry text used for rendering and search.
 	Text string
 }
@@ -226,8 +254,9 @@ func (panel TreePanel) VisibleRows() []TreeRow {
 	directMatches := make(map[string]struct{}, len(panel.Tree.Entries))
 	visible := make(map[string]struct{}, len(panel.Tree.Entries))
 
-	for _, entry := range panel.Tree.Entries {
-		if !panel.filterMatches(entry) || !searchMatches(entry, queryTokens) {
+	for entryIndex := range panel.Tree.Entries {
+		entry := &panel.Tree.Entries[entryIndex]
+		if !panel.filterMatches(*entry) || !searchMatches(*entry, queryTokens) {
 			continue
 		}
 		directMatches[entry.ID] = struct{}{}
@@ -246,18 +275,20 @@ func (panel TreePanel) VisibleRows() []TreeRow {
 
 	visibleEntries := make([]TreeEntry, 0, len(visible))
 	visibleIDs := make(map[string]struct{}, len(visible))
-	for _, entry := range panel.Tree.Entries {
-		if _, included := visible[entry.ID]; !included || panel.hiddenByFold(entry, entriesByID) {
+	for entryIndex := range panel.Tree.Entries {
+		entry := &panel.Tree.Entries[entryIndex]
+		if _, included := visible[entry.ID]; !included || panel.hiddenByFold(*entry, entriesByID) {
 			continue
 		}
-		visibleEntries = append(visibleEntries, entry)
+		visibleEntries = append(visibleEntries, *entry)
 		visibleIDs[entry.ID] = struct{}{}
 	}
 
 	visibleParents := make(map[string]string, len(visibleEntries))
 	visibleChildren := make(map[string][]string, len(visibleEntries))
-	for _, entry := range visibleEntries {
-		parentID, present := nearestVisibleParent(entry, entriesByID, visibleIDs)
+	for entryIndex := range visibleEntries {
+		entry := &visibleEntries[entryIndex]
+		parentID, present := nearestVisibleParent(*entry, entriesByID, visibleIDs)
 		if !present {
 			continue
 		}
@@ -272,7 +303,8 @@ func (panel TreePanel) VisibleRows() []TreeRow {
 	}
 
 	rows := make([]TreeRow, 0, len(visibleEntries))
-	for _, entry := range visibleEntries {
+	for entryIndex := range visibleEntries {
+		entry := &visibleEntries[entryIndex]
 		ancestorIDs := visibleAncestorIDs(entry.ID, visibleParents)
 		continuationIDs := ancestorIDs[min(1, len(ancestorIDs)):]
 		ancestorContinues := lo.Map(continuationIDs, func(ancestorID string, _ int) bool {
@@ -284,7 +316,7 @@ func (panel TreePanel) VisibleRows() []TreeRow {
 		_, folded := panel.Folded[entry.ID]
 		_, hasFollowingSibling := followingSiblings[entry.ID]
 		rows = append(rows, TreeRow{
-			Entry:               entry,
+			Entry:               *entry,
 			Depth:               len(ancestorIDs),
 			AncestorContinues:   ancestorContinues,
 			HasFollowingSibling: hasFollowingSibling,
@@ -413,8 +445,9 @@ func (panel TreePanel) treeIndexes() (
 ) {
 	entriesByID = make(map[string]TreeEntry, len(panel.Tree.Entries))
 	childrenByID = make(map[string][]string, len(panel.Tree.Entries))
-	for _, entry := range panel.Tree.Entries {
-		entriesByID[entry.ID] = entry
+	for entryIndex := range panel.Tree.Entries {
+		entry := &panel.Tree.Entries[entryIndex]
+		entriesByID[entry.ID] = *entry
 		if parentID, present := entry.ParentID.Get(); present {
 			childrenByID[parentID] = append(childrenByID[parentID], entry.ID)
 		}
@@ -504,7 +537,7 @@ func treeEntryKindText(kind TreeEntryKind) string {
 		return treeEntryModelSearchText
 	case TreeEntryToolResult:
 		return treeEntryToolResultSearchText
-	case TreeEntryExtension:
+	case TreeEntryExtension, TreeEntryExtensionMessage:
 		return treeEntryExtensionSearchText
 	case TreeEntryBranchSummary:
 		return treeEntryBranchSummarySearchText

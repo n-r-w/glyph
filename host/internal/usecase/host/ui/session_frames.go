@@ -27,7 +27,8 @@ func sessionListFrame(listed []session.Summary) domainui.Frame {
 		SessionStatistics:      mo.None[session.Statistics](),
 		SessionTree:            mo.None[domainui.SessionTree](),
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
+		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
+					SessionTreeEntry](),
 	}
 }
 
@@ -49,9 +50,15 @@ func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error)
 		entry := &entries[position]
 		if user, present := entry.User.Get(); present {
 			mappedEntries = append(mappedEntries, domainui.SessionEntry{
-				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryUser,
-				User: mo.Some(user.Clone()), Model: mo.None[domainui.ModelResponse](),
-				ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.None[domainui.BranchSummary](),
+				ID:            entry.ID,
+				CreatedAt:     entry.CreatedAt,
+				Kind:          domainui.SessionEntryUser,
+				User:          mo.Some(user.Clone()),
+				Model:         mo.None[domainui.ModelResponse](),
+				ToolResult:    mo.None[agent.ToolResult](),
+				BranchSummary: mo.None[domainui.BranchSummary](),
+				ExtensionMessage: mo.None[domainui.
+					ExtensionMessage](),
 			})
 			continue
 		}
@@ -63,15 +70,36 @@ func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error)
 			mappedEntries = append(mappedEntries, domainui.SessionEntry{
 				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryModel,
 				User: mo.None[model.Message](), Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
-				BranchSummary: mo.None[domainui.BranchSummary](),
+				BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.None[domainui.
+						ExtensionMessage](),
 			})
 			continue
 		}
 		if result, present := entry.ToolResult.Get(); present {
 			mappedEntries = append(mappedEntries, domainui.SessionEntry{
-				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryToolResult,
+				ID:        entry.ID,
+				CreatedAt: entry.CreatedAt,
+				Kind:      domainui.SessionEntryToolResult,
+				User:      mo.None[model.Message](),
+				Model:     mo.None[domainui.ModelResponse](),
+				ToolResult: mo.Some(
+					result.Clone(),
+				),
+				BranchSummary: mo.None[domainui.BranchSummary](),
+				ExtensionMessage: mo.None[domainui.
+					ExtensionMessage](),
+			})
+			continue
+		}
+		if message, present := entry.ExtensionMessage.Get(); present {
+			mappedEntries = append(mappedEntries, domainui.SessionEntry{
+				ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryExtensionMessage,
 				User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
-				ToolResult: mo.Some(result.Clone()), BranchSummary: mo.None[domainui.BranchSummary](),
+				ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.None[domainui.BranchSummary](),
+				ExtensionMessage: mo.Some(domainui.ExtensionMessage{
+					ExtensionID: message.ExtensionID, EntryType: message.EntryType,
+					Text: message.Text, Visibility: message.Visibility,
+				}),
 			})
 			continue
 		}
@@ -83,7 +111,8 @@ func mapSessionEntries(entries []session.Entry) ([]domainui.SessionEntry, error)
 				BranchSummary: mo.Some(domainui.BranchSummary{
 					Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
 					Source: summary.Source, EstimatedCost: summary.EstimatedCost,
-				}),
+				}), ExtensionMessage: mo.None[domainui.
+					ExtensionMessage](),
 			})
 		}
 	}
@@ -115,6 +144,7 @@ func sessionInfoFrame(
 		SessionStatistics:      statistics,
 		SessionTree:            mo.None[domainui.SessionTree](),
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
-		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
+		TreeNavigation:         mo.None[domainui.TreeNavigationResult](), SessionEntryAdded: mo.None[domainui.
+					SessionTreeEntry](),
 	}
 }

@@ -83,7 +83,8 @@ func (s *Service) CommitNavigation(
 	// Publish state and enqueue its client snapshot under the same ordered session boundary.
 	s.active.StoragePath = result.StoragePath
 	s.active.Tree = candidateTree
-	s.history = sessiontree.HistoryFromEntries(candidateTree.ActiveBranch())
+	branch := candidateTree.ActiveBranch()
+	s.history = storedHistoryFromEntries(branch)
 	commit := sessiontree.NavigationCommit{
 		Committed:      true,
 		Tree:           candidateTree.Clone(),
@@ -120,7 +121,7 @@ func (s *Service) buildBranchSummaryEntry(
 		BranchSummary: mo.Some(session.BranchSummaryEntry{
 			Summary: draft.Summary, FirstEntryID: draft.FirstEntryID, LastEntryID: draft.LastEntryID,
 			Source: draft.Source, EstimatedCost: cost,
-		}),
+		}), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	summary := entry.BranchSummary.OrEmpty()
 	if validationErr := summary.ValidateAccounting(); validationErr != nil {

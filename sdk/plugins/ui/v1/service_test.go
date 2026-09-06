@@ -184,20 +184,20 @@ func TestReceivedErrorsPreserveCategoryTextAndCause(t *testing.T) {
 			events, err := tracker.Track("operation")
 			require.NoError(t, err)
 			if test.kind == operation.EventFailed {
-				require.NoError(t, tracker.Handle(operation.Event[*uiv1.HostProgress, *uiv1.HostCompleted]{
+				require.NoError(t, tracker.Advance(operation.Event[*uiv1.HostProgress, *uiv1.HostCompleted]{
 					ID: "operation", Kind: operation.EventAccepted,
 				}))
-				require.NoError(t, tracker.Handle(operation.Event[*uiv1.HostProgress, *uiv1.HostCompleted]{
+				require.NoError(t, tracker.Advance(operation.Event[*uiv1.HostProgress, *uiv1.HostCompleted]{
 					ID: "operation", Kind: operation.EventRunning,
 				}))
 			}
 			require.NoError(t, tracker.Handle(operation.Event[*uiv1.HostProgress, *uiv1.HostCompleted]{
 				ID: "operation", Kind: test.kind, Code: test.code, Message: test.text,
 			}))
-			started := &Operation{id: "operation", events: events}
+			started := &Operation{id: "operation", events: events, connectionContext: t.Context()}
 
 			// Act through the public Wait method.
-			_, err = started.Wait(t.Context(), nil)
+			_, err = started.Wait(t.Context())
 
 			// Assert category, complete text, concrete type, Unwrap, and errors.Is.
 			require.EqualError(t, err, test.text)

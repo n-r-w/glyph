@@ -159,6 +159,16 @@ func mapSessionEntry(entry session.Entry) (*extensionpb.SessionTreeEntry, error)
 			ExtensionId: new(extension.ExtensionID), EntryType: new(extension.EntryType),
 		}.Build()
 	}
+	if message, present := entry.ExtensionMessage.Get(); present {
+		visibility := extensionpb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE
+		if message.Visibility == session.ClientVisibilityHidden {
+			visibility = extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN
+		}
+		builder.ExtensionMessage = extensionpb.SessionTreeExtensionMessage_builder{
+			ExtensionId: new(message.ExtensionID), EntryType: new(message.EntryType),
+			Text: new(message.Text), Visibility: new(visibility),
+		}.Build()
+	}
 	return builder.Build(), nil
 }
 

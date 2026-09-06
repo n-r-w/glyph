@@ -149,11 +149,17 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 		StoragePath: "",
 		Mutation: sessionInformationMutation(
 			session.Entry{
-				ParentID: mo.None[string](), ID: "entry-id", CreatedAt: createdAt.Add(time.Minute),
-				Information: mo.Some(session.Information{Name: "known session"}),
-				User:        mo.None[session.UserMessage](), Model: mo.None[session.ModelResponse](),
-				EstimatedCost: mo.None[session.EstimatedCost](), ToolResult: mo.None[session.ToolResult](),
-				Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				ParentID:         mo.None[string](),
+				ID:               "entry-id",
+				CreatedAt:        createdAt.Add(time.Minute),
+				Information:      mo.Some(session.Information{Name: "known session"}),
+				User:             mo.None[session.UserMessage](),
+				Model:            mo.None[session.ModelResponse](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				ToolResult:       mo.None[session.ToolResult](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			},
 		),
 	}
@@ -226,16 +232,17 @@ func TestApplyRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 		StoragePath: outsidePath,
 		Mutation: sessionInformationMutation(
 			session.Entry{
-				ParentID:      mo.None[string](),
-				ID:            "entry-id",
-				CreatedAt:     time.Now(),
-				Information:   mo.Some(session.Information{Name: "name"}),
-				User:          mo.None[session.UserMessage](),
-				Model:         mo.None[session.ModelResponse](),
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				ToolResult:    mo.None[session.ToolResult](),
-				Extension:     mo.None[session.ExtensionEnvelope](),
-				BranchSummary: mo.None[session.BranchSummaryEntry](),
+				ParentID:         mo.None[string](),
+				ID:               "entry-id",
+				CreatedAt:        time.Now(),
+				Information:      mo.Some(session.Information{Name: "name"}),
+				User:             mo.None[session.UserMessage](),
+				Model:            mo.None[session.ModelResponse](),
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+				ToolResult:       mo.None[session.ToolResult](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			},
 		),
 	})
@@ -260,7 +267,7 @@ func sessionInformationEntry(id string, createdAt time.Time, name string) sessio
 		Information:   mo.Some(session.Information{Name: name}),
 		Extension:     mo.None[session.ExtensionEnvelope](),
 		EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 

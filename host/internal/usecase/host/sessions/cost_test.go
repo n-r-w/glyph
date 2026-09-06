@@ -295,7 +295,7 @@ func costStatisticsEntry(
 		EstimatedCost: estimatedCost,
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 

@@ -243,6 +243,21 @@ func (mr *MockChannelMockRecorder) Send(frame any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockChannel)(nil).Send), frame)
 }
 
+// SendAcknowledged mocks base method.
+func (m *MockChannel) SendAcknowledged(frame ui.Frame) (*operation.Acknowledgement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SendAcknowledged", frame)
+	ret0, _ := ret[0].(*operation.Acknowledgement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SendAcknowledged indicates an expected call of SendAcknowledged.
+func (mr *MockChannelMockRecorder) SendAcknowledged(frame any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SendAcknowledged", reflect.TypeOf((*MockChannel)(nil).SendAcknowledged), frame)
+}
+
 // MockAgentRunner is a mock of AgentRunner interface.
 type MockAgentRunner struct {
 	ctrl     *gomock.Controller

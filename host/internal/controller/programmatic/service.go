@@ -51,6 +51,10 @@ type Service struct {
 	ownerClaimed atomic.Bool
 	// completions reports the sole stream terminal result to application wiring.
 	completions chan SessionCompletion
+	// writerMutex protects the active connection writer used by connection events.
+	writerMutex sync.RWMutex
+	// writer is the sole active ordered connection writer.
+	writer *operation.Writer[*programmaticv1.OpenResponse]
 }
 
 var _ programmaticv1.ProgrammaticControlServiceServer = (*Service)(nil)
@@ -63,9 +67,34 @@ func New(applicationContext context.Context, session HostSession) *Service {
 
 		applicationContext: applicationContext,
 		session:            session,
-		ownerClaimed:       atomic.Bool{},
-		completions:        make(chan SessionCompletion, 1),
+		ownerClaimed:       atomic.Bool{}, completions: make(chan SessionCompletion, 1),
+		writerMutex: sync.RWMutex{}, writer: nil,
 	}
+}
+
+// PublishSessionEntry enqueues one committed entry as a connection event without an operation ID.
+func (s *Service) PublishSessionEntry(
+	entry SessionTreeEntry,
+) (wait func(context.Context) error, err error) {
+	mapped, err := mapSessionTreeEntry(entry)
+	if err != nil {
+		return nil, err
+	}
+	connection := new(programmaticv1.HostConnectionEvent)
+	connection.SetSessionEntryAdded(programmaticv1.SessionEntryAdded_builder{Entry: mapped}.Build())
+	response := new(programmaticv1.OpenResponse)
+	response.SetConnectionEvent(connection)
+	s.writerMutex.RLock()
+	writer := s.writer
+	s.writerMutex.RUnlock()
+	if writer == nil {
+		return nil, errors.New("programmatic connection writer is not active")
+	}
+	acknowledgement, err := writer.EnqueueAcknowledged(response)
+	if err != nil {
+		return nil, err
+	}
+	return acknowledgement.Wait, nil
 }
 
 // Completions reports the sole stream terminal result.
@@ -88,6 +117,16 @@ func (s *Service) open(stream OpenStream) error {
 	defer cancelConnection(context.Canceled)
 	registry := newTargetRegistry()
 	writer := operation.NewWriter(stream.Send)
+	s.writerMutex.Lock()
+	s.writer = writer
+	s.writerMutex.Unlock()
+	defer func() {
+		s.writerMutex.Lock()
+		if s.writer == writer {
+			s.writer = nil
+		}
+		s.writerMutex.Unlock()
+	}()
 	var owner *operation.Owner[OperationProgress, Response]
 	delivery := &streamDelivery{
 		context:  connectionContext,

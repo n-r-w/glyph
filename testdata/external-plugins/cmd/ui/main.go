@@ -87,7 +87,7 @@ func (s *service) Run(ctx context.Context, host *uisdk.Host) error {
 	if err != nil {
 		return fmt.Errorf("start ordinary Host request: %w", err)
 	}
-	completed, err := ordinary.Wait(ctx, nil)
+	completed, err := ordinary.Wait(ctx)
 	if err != nil {
 		return fmt.Errorf("wait for ordinary Host request: %w", err)
 	}
@@ -112,7 +112,7 @@ func (s *service) Run(ctx context.Context, host *uisdk.Host) error {
 	shutdownDone := make(chan error, 1)
 	go func() {
 		signal(s.signals, "shutdown-target-wait-started")
-		_, waitErr := shutdown.Wait(shutdownWaitCtx, nil)
+		_, waitErr := shutdown.Wait(shutdownWaitCtx)
 		shutdownDone <- checkCancellation(waitErr)
 		signal(s.signals, "shutdown-target-wait-finished")
 	}()
@@ -148,7 +148,7 @@ func verifyPublicErrors(ctx context.Context, host *uisdk.Host) error {
 	if err != nil {
 		return fmt.Errorf("start rejected Host request: %w", err)
 	}
-	_, err = rejected.Wait(ctx, nil)
+	_, err = rejected.Wait(ctx)
 	if checkErr := checkRejection(err); checkErr != nil {
 		return checkErr
 	}
@@ -157,7 +157,7 @@ func verifyPublicErrors(ctx context.Context, host *uisdk.Host) error {
 	if err != nil {
 		return fmt.Errorf("start failed Host request: %w", err)
 	}
-	_, err = failed.Wait(ctx, nil)
+	_, err = failed.Wait(ctx)
 	return checkFailure(err)
 }
 
@@ -219,7 +219,7 @@ func (s *service) verifyTargetedCancellation(ctx context.Context, host *uisdk.Ho
 	targetDone := make(chan error, 1)
 	go func() {
 		signal(s.signals, "target-wait-started")
-		_, waitErr := blocked.Wait(ctx, nil)
+		_, waitErr := blocked.Wait(ctx)
 		targetDone <- checkCancellation(waitErr)
 		signal(s.signals, "target-wait-finished")
 	}()

@@ -182,7 +182,7 @@ func TestHiddenAppendAndRecoveryUseIssuedIncarnation(t *testing.T) {
 		Extension: mo.Some(
 			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "checkpoint", Data: payload},
 		),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	sessions.EXPECT().AppendExtension(
 		gomock.Any(), identity, stored.Extension.MustGet(), gomock.Any(),
@@ -213,6 +213,153 @@ func TestHiddenAppendAndRecoveryUseIssuedIncarnation(t *testing.T) {
 	assert.Equal(t, stored, appended)
 	assert.Equal(t, payload, snapshot.Entries[0].Extension.MustGet().Data)
 	assert.Equal(t, mo.Some("foreign-parent"), snapshot.Entries[0].ParentID)
+}
+
+// TestMessageAppendReturnsCommittedEntryWithDeliveryIssue verifies post-commit publication failure is nonterminal.
+func TestMessageAppendReturnsCommittedEntryWithDeliveryIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one valid binding and a session owner that commits before its client publisher fails.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntimeState(controller)
+	sessions := NewMockSessionState(controller)
+	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+	runtime.EXPECT().BeginContextCommit("extension", "runtime").Return(func() {}, nil)
+	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
+	service := New(runtime, sessions)
+	issued, err := service.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
+	message := session.ExtensionMessage{
+		ExtensionID: "extension", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityHidden,
+	}
+	stored := session.Entry{
+		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(10, 0).UTC(),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(message), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	deliveryErr := errors.New("ordered writer failed")
+	service.BindMessagePublisher(func(entry session.Entry) (func(context.Context) error, error) {
+		assert.Equal(t, stored, entry)
+		return func(context.Context) error { return deliveryErr }, nil
+	})
+	sessions.EXPECT().AppendExtensionMessage(
+		gomock.Any(), identity, message, gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		_ SessionIdentity,
+		_ session.ExtensionMessage,
+		guard ContextCommitGuard,
+		publisher func(session.Entry) (func(context.Context) error, error),
+	) (session.Entry, error) {
+		release, guardErr := guard()
+		require.NoError(t, guardErr)
+		defer release()
+		wait, publishErr := publisher(stored)
+		require.NoError(t, publishErr)
+		return stored, wait(t.Context())
+	})
+
+	// Act through the context-owned message append capability.
+	result, err := service.AppendExtensionMessage(
+		t.Context(), "extension", "runtime", reference, "note", "exact text", session.ClientVisibilityHidden,
+	)
+
+	// Assert the committed entry remains usable and the complete delivery cause is one nonterminal issue.
+	require.NoError(t, err)
+	assert.Equal(t, stored, result.Entry)
+	require.Len(t, result.Issues, 1)
+	assert.Equal(t, "extension", result.Issues[0].ExtensionID)
+	assert.Equal(t, "DELIVERY_FAILED", result.Issues[0].Code)
+	assert.Contains(t, result.Issues[0].Message, deliveryErr.Error())
+}
+
+// TestMessageAppendWithoutPublisherReportsCommittedDeliveryFailure verifies missing client binding is not hidden.
+func TestMessageAppendWithoutPublisherReportsCommittedDeliveryFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one valid binding and a session owner that reports the missing publisher after commit.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntimeState(controller)
+	sessions := NewMockSessionState(controller)
+	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
+	service := New(runtime, sessions)
+	issued, err := service.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
+	message := session.ExtensionMessage{
+		ExtensionID: "extension", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityVisible,
+	}
+	stored := session.Entry{
+		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(10, 0).UTC(),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(message), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	deliveryErr := errors.New("extension message publisher is not bound")
+	sessions.EXPECT().AppendExtensionMessage(
+		gomock.Any(), identity, message, gomock.Any(), gomock.Nil(),
+	).Return(stored, deliveryErr)
+
+	// Act without binding a Glyph client publisher.
+	result, err := service.AppendExtensionMessage(
+		t.Context(), "extension", "runtime", reference, "note", "exact text", session.ClientVisibilityVisible,
+	)
+
+	// Assert the committed entry and explicit delivery failure remain available to the extension.
+	require.NoError(t, err)
+	assert.Equal(t, stored, result.Entry)
+	require.Len(t, result.Issues, 1)
+	assert.Equal(t, deliveryFailedIssueCode, result.Issues[0].Code)
+	assert.Contains(t, result.Issues[0].Message, deliveryErr.Error())
+}
+
+// TestMessageAppendReportsPostCommitCancellation verifies cancellation cannot hide an already committed entry.
+func TestMessageAppendReportsPostCommitCancellation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one valid binding whose session owner reports a committed entry with cancellation.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntimeState(controller)
+	sessions := NewMockSessionState(controller)
+	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
+	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
+	service := New(runtime, sessions)
+	issued, err := service.IssueContext("extension")
+	require.NoError(t, err)
+	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
+	message := session.ExtensionMessage{
+		ExtensionID: "extension", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityVisible,
+	}
+	stored := session.Entry{
+		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(10, 0).UTC(),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(message), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
+	sessions.EXPECT().AppendExtensionMessage(
+		gomock.Any(), identity, message, gomock.Any(), gomock.Any(),
+	).Return(stored, context.Canceled)
+
+	// Act after the state owner has already committed the message.
+	result, err := service.AppendExtensionMessage(
+		t.Context(), "extension", "runtime", reference, "note", "exact text", session.ClientVisibilityVisible,
+	)
+
+	// Assert cancellation is a nonterminal delivery issue and the committed identity remains usable.
+	require.NoError(t, err)
+	assert.Equal(t, stored, result.Entry)
+	require.Len(t, result.Issues, 1)
+	assert.Equal(t, "DELIVERY_FAILED", result.Issues[0].Code)
+	assert.Contains(t, result.Issues[0].Message, context.Canceled.Error())
 }
 
 // TestSessionRecoveryRejectsReplacementDuringRead verifies a stale snapshot cannot complete.

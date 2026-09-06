@@ -148,6 +148,118 @@ func TestAppendFailureKeepsCurrentActiveLeaf(t *testing.T) {
 	assert.Equal(t, []string{"root"}, treeBehaviorEntryIDs(service.Tree().Entries()))
 }
 
+// TestExtensionMessageAppendCommitsBeforePublication verifies exact message persistence and post-commit delivery failure.
+func TestExtensionMessageAppendCommitsBeforePublication(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one active root and a publisher that observes committed state before returning a delivery failure.
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	ids := NewMockIDGenerator(controller)
+	clock := NewMockClock(controller)
+	createdAt := time.Unix(1, 0).UTC()
+	tree, err := session.NewTree(
+		[]session.Entry{treeBehaviorUserEntry("root", mo.None[string](), createdAt)}, mo.Some("root"), nil,
+	)
+	require.NoError(t, err)
+	service := New(repository, ids, clock, nil, "/project")
+	service.active = LoadedSession{
+		Header: session.Header{
+			Version:          formatVersion,
+			ID:               "session",
+			CreatedAt:        createdAt,
+			WorkingDirectory: "/project",
+		},
+		StoragePath:          "/sessions/session.jsonl",
+		Tree:                 tree,
+		Information:          mo.None[session.Information](),
+		InformationUpdatedAt: mo.None[time.Time](),
+	}
+	expected := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	service.contextIdentity.Store(&expected)
+	service.history = append(storedHistoryFromEntries(tree.ActiveBranch()), storedHistoryEntry{
+		value: treeBehaviorPartialModelHistory(), clientVisible: true,
+	})
+	ids.EXPECT().NewID().Return("message", nil)
+	clock.EXPECT().Now().Return(createdAt.Add(time.Second))
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+			assert.Equal(t, "exact\ntext", command.Mutation.Entry.MustGet().ExtensionMessage.MustGet().Text)
+			return ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil
+		},
+	)
+	deliveryErr := errors.New("client writer failed")
+
+	// Act by appending a hidden-client message through the state-owner publication boundary.
+	committed, err := service.AppendExtensionMessage(t.Context(), expected, session.ExtensionMessage{
+		ExtensionID: "extension", EntryType: "note", Text: "exact\ntext", Visibility: session.ClientVisibilityHidden,
+	}, treeBehaviorCommitGuard, func(entry session.Entry) (func(context.Context) error, error) {
+		assert.Equal(t, mo.Some("message"), service.active.Tree.ActiveLeafID())
+		assert.Equal(t, "exact\ntext", entry.ExtensionMessage.MustGet().Text)
+		return func(context.Context) error {
+			if !service.mutex.TryRLock() {
+				return errors.New("delivery wait retained the session lock")
+			}
+			service.mutex.RUnlock()
+			return deliveryErr
+		}, nil
+	})
+
+	// Assert the delivery cause is returned with the committed entry and no rollback.
+	require.ErrorIs(t, err, deliveryErr)
+	assert.Equal(t, "message", committed.ID)
+	assert.Equal(t, mo.Some("root"), committed.ParentID)
+	assert.Equal(t, createdAt.Add(time.Second), committed.CreatedAt)
+	assert.Equal(t, mo.Some("message"), service.Tree().ActiveLeafID())
+	require.Len(t, service.Snapshot(), 3)
+	assert.Equal(t, "partial", service.Snapshot()[1].Model.MustGet().Content[0].Text.OrEmpty())
+	require.Len(t, service.ClientSnapshot(), 2)
+	assert.Equal(t, "partial", service.ClientSnapshot()[1].Model.MustGet().Content[0].Text.OrEmpty())
+}
+
+// TestExtensionMessageWithoutPublisherCommitsBeforeDeliveryFailure verifies missing binding is post-commit.
+func TestExtensionMessageWithoutPublisherCommitsBeforeDeliveryFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one active root and no Glyph client publisher.
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	ids := NewMockIDGenerator(controller)
+	clock := NewMockClock(controller)
+	createdAt := time.Unix(1, 0).UTC()
+	tree, err := session.NewTree(
+		[]session.Entry{treeBehaviorUserEntry("root", mo.None[string](), createdAt)}, mo.Some("root"), nil,
+	)
+	require.NoError(t, err)
+	service := New(repository, ids, clock, nil, "/project")
+	service.active = LoadedSession{
+		Header: session.Header{
+			Version: formatVersion, ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project",
+		},
+		StoragePath: "/sessions/session.jsonl", Tree: tree,
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+	}
+	expected := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	service.contextIdentity.Store(&expected)
+	ids.EXPECT().NewID().Return("message", nil)
+	clock.EXPECT().Now().Return(createdAt.Add(time.Second))
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(
+		ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil,
+	)
+
+	// Act without supplying the required client publisher.
+	committed, err := service.AppendExtensionMessage(t.Context(), expected, session.ExtensionMessage{
+		ExtensionID: "extension", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityVisible,
+	}, treeBehaviorCommitGuard, nil)
+
+	// Assert persistence and state commit precede the explicit delivery failure.
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "publisher is not bound")
+	assert.Equal(t, "message", committed.ID)
+	assert.Equal(t, mo.Some("message"), service.Tree().ActiveLeafID())
+	assert.Len(t, service.Tree().Entries(), 2)
+}
+
 // TestExtensionAppendFailurePreservesPublishedState verifies hidden append is atomic with persistence.
 func TestExtensionAppendFailurePreservesPublishedState(t *testing.T) {
 	t.Parallel()
@@ -269,7 +381,7 @@ func TestTreeReturnsDefensiveSnapshot(t *testing.T) {
 		Extension: mo.Some(
 			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte{4, 5, 6}},
 		),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	tree, err := session.NewTree(
 		[]session.Entry{user, extension}, mo.Some("extension"), map[string]string{"user": "checkpoint"},
@@ -306,8 +418,9 @@ func TestExtensionStateFiltersOneActiveBranch(t *testing.T) {
 	root := treeBehaviorUserEntry("root", mo.None[string](), createdAt)
 	other := treeBehaviorExtensionEntry("other", mo.Some("root"), createdAt.Add(time.Second), "other")
 	active := treeBehaviorExtensionEntry("active", mo.Some("other"), createdAt.Add(2*time.Second), "caller")
-	abandoned := treeBehaviorExtensionEntry("abandoned", mo.Some("root"), createdAt.Add(3*time.Second), "caller")
-	tree, err := session.NewTree([]session.Entry{root, other, active, abandoned}, mo.Some("active"), nil)
+	message := treeBehaviorExtensionMessage("message", mo.Some("active"), createdAt.Add(3*time.Second), "caller")
+	abandoned := treeBehaviorExtensionEntry("abandoned", mo.Some("root"), createdAt.Add(4*time.Second), "caller")
+	tree, err := session.NewTree([]session.Entry{root, other, active, message, abandoned}, mo.Some("message"), nil)
 	require.NoError(t, err)
 	service := New(nil, nil, nil, nil, "/project")
 	service.active = LoadedSession{
@@ -331,14 +444,88 @@ func TestExtensionStateFiltersOneActiveBranch(t *testing.T) {
 	// Assert only the caller's active checkpoint remains and its omitted parent is unchanged.
 	require.NoError(t, err)
 	assert.Equal(t, session.ID("session"), snapshot.SessionID)
-	assert.Equal(t, mo.Some("active"), snapshot.ActiveLeafID)
-	require.Len(t, snapshot.Entries, 1)
+	assert.Equal(t, mo.Some("message"), snapshot.ActiveLeafID)
+	require.Len(t, snapshot.Entries, 2)
 	assert.Equal(t, "active", snapshot.Entries[0].ID)
 	assert.Equal(t, mo.Some("other"), snapshot.Entries[0].ParentID)
+	assert.Equal(t, "message", snapshot.Entries[1].ID)
+	assert.Equal(t, mo.Some("active"), snapshot.Entries[1].ParentID)
+	assert.Equal(t, "exact message", snapshot.Entries[1].ExtensionMessage.MustGet().Text)
+}
+
+// TestClientSnapshotRetainsProcessLocalHistory verifies ordinary reads keep in-process Agent Core entries.
+func TestClientSnapshotRetainsProcessLocalHistory(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one empty session and a valid nonterminal model update that is not persisted.
+	service := New(nil, nil, nil, nil, "/project")
+	require.NoError(t, service.Append(t.Context(), treeBehaviorPartialModelHistory()))
+
+	// Act by reading ordinary client history.
+	history := service.ClientSnapshot()
+
+	// Assert the process-local item remains available exactly as before durable message filtering.
+	require.Len(t, history, 1)
+	assert.Equal(t, "partial", history[0].Model.MustGet().Content[0].Text.OrEmpty())
+}
+
+// TestClientSnapshotExcludesOnlyHiddenExtensionMessages verifies ordinary transcript presentation filtering.
+func TestClientSnapshotExcludesOnlyHiddenExtensionMessages(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one active branch with visible and hidden-client model-visible messages.
+	createdAt := time.Unix(1, 0).UTC()
+	visible := treeBehaviorExtensionMessage("visible", mo.None[string](), createdAt, "caller")
+	hidden := treeBehaviorExtensionMessage("hidden", mo.Some("visible"), createdAt.Add(time.Second), "caller")
+	hiddenMessage := hidden.ExtensionMessage.MustGet()
+	hiddenMessage.Visibility = session.ClientVisibilityHidden
+	hidden.ExtensionMessage = mo.Some(hiddenMessage)
+	tree, err := session.NewTree([]session.Entry{visible, hidden}, mo.Some("hidden"), nil)
+	require.NoError(t, err)
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	repository.EXPECT().Load(gomock.Any(), session.ID("session")).Return(LoadedSession{
+		Header: session.Header{
+			Version: formatVersion, ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project",
+		},
+		StoragePath: "/sessions/session.jsonl", Tree: tree,
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+	}, nil)
+	service := New(repository, nil, nil, nil, "/project")
+
+	// Act by replacing the active session and reading complete and ordinary history.
+	_, err = service.ResumeActive(t.Context(), "session")
+	require.NoError(t, err)
+	complete := service.Snapshot()
+	history := service.ClientSnapshot()
+
+	// Assert replacement retains both model inputs while ordinary history omits only the hidden message.
+	require.Len(t, complete, 2)
+	assert.Equal(t, "exact message", complete[0].User.MustGet().Text("\n"))
+	assert.Equal(t, "exact message", complete[1].User.MustGet().Text("\n"))
+	require.Len(t, history, 1)
+	assert.Equal(t, "exact message", history[0].User.MustGet().Text("\n"))
 }
 
 // treeBehaviorCommitGuard supplies a valid runtime guard for isolated session tests.
 func treeBehaviorCommitGuard() (func(), error) { return func() {}, nil }
+
+// treeBehaviorPartialModelHistory supplies one process-local model update.
+func treeBehaviorPartialModelHistory() agent.HistoryEntry {
+	return agent.HistoryEntry{
+		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
+		Model: mo.Some(model.Response{
+			Content: []model.Content{{
+				Kind: model.ContentText, Text: mo.Some("partial"), Final: false,
+				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+			}},
+			Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](),
+			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+			Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}), ToolResult: mo.None[agent.ToolResult](),
+	}
+}
 
 // treeBehaviorExtensionEntry creates one model-hidden extension entry.
 func treeBehaviorExtensionEntry(
@@ -355,7 +542,28 @@ func treeBehaviorExtensionEntry(
 		Extension: mo.Some(session.ExtensionEnvelope{
 			ExtensionID: extensionID, EntryType: "state", Data: []byte(`{ "step": 2 }`),
 		}),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+	}
+}
+
+// treeBehaviorExtensionMessage creates one model-visible extension message.
+func treeBehaviorExtensionMessage(
+	id string,
+	parentID mo.Option[string],
+	createdAt time.Time,
+	extensionID string,
+) session.Entry {
+	return session.Entry{
+		ID: id, ParentID: parentID, CreatedAt: createdAt,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
+			ExtensionID: extensionID,
+			EntryType:   "note",
+			Text:        "exact message",
+			Visibility:  session.ClientVisibilityVisible,
+		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 }
 
@@ -366,7 +574,7 @@ func treeBehaviorUserEntry(id string, parentID mo.Option[string], createdAt time
 		Information: mo.None[session.Information](), User: mo.Some(model.TextMessage(id)),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 

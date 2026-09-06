@@ -58,6 +58,14 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			expectedLeaf:      mo.Some("extension"),
 			expectedNextInput: mo.None[string](),
 		},
+		{
+			name: "visible extension message", targetID: "message-visible",
+			expectedLeaf: mo.Some("extension"), expectedNextInput: mo.Some("visible exact"),
+		},
+		{
+			name: "hidden extension message", targetID: "message-hidden",
+			expectedLeaf: mo.Some("message-visible"), expectedNextInput: mo.Some("hidden exact"),
+		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
@@ -200,11 +208,38 @@ func navigationTree(t *testing.T, createdAt time.Time) session.Tree {
 			),
 			BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
-		navigationUserEntry("active", mo.Some("extension"), "active input", createdAt.Add(3*time.Second)),
+		navigationExtensionMessageEntry(
+			"message-visible", mo.Some("extension"), "visible exact", session.ClientVisibilityVisible,
+			createdAt.Add(3*time.Second),
+		),
+		navigationExtensionMessageEntry(
+			"message-hidden", mo.Some("message-visible"), "hidden exact", session.ClientVisibilityHidden,
+			createdAt.Add(4*time.Second),
+		),
+		navigationUserEntry("active", mo.Some("message-hidden"), "active input", createdAt.Add(5*time.Second)),
 	}
 	tree, err := session.NewTree(entries, mo.Some("active"), nil)
 	require.NoError(t, err)
 	return tree
+}
+
+// navigationExtensionMessageEntry creates one selectable model-visible extension message.
+func navigationExtensionMessageEntry(
+	id string,
+	parentID mo.Option[string],
+	text string,
+	visibility session.ClientVisibility,
+	createdAt time.Time,
+) session.Entry {
+	return session.Entry{
+		ID: id, ParentID: parentID, CreatedAt: createdAt,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.Some(session.ExtensionMessage{
+			ExtensionID: "extension", EntryType: "note", Text: text, Visibility: visibility,
+		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+	}
 }
 
 // navigationUserEntry creates one valid user-message tree entry with exact text.
@@ -214,6 +249,6 @@ func navigationUserEntry(id string, parentID mo.Option[string], text string, cre
 		Information: mo.None[session.Information](), User: mo.Some(model.TextMessage(text)),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }

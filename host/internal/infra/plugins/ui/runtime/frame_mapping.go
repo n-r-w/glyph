@@ -68,6 +68,18 @@ func mapFrame(frame domainui.Frame) (*uiv1.OpenRequest, error) {
 		progress := new(uiv1.HostProgress)
 		progress.SetAuthorization(uiv1.AuthorizationRequest_builder{Url: new(authorizationURL)}.Build())
 		return progressRequest(progress), nil
+	case domainui.FrameSessionEntryAdded:
+		entry, present := frame.SessionEntryAdded.Get()
+		if !present {
+			return nil, errors.New("map UI frame: added session entry is required")
+		}
+		mapped, err := mapSessionTreeEntry(entry)
+		if err != nil {
+			return nil, fmt.Errorf("map added session entry: %w", err)
+		}
+		connection := new(uiv1.HostConnectionEvent)
+		connection.SetSessionEntryAdded(uiv1.SessionEntryAdded_builder{Entry: mapped}.Build())
+		return connectionRequest(connection), nil
 	case domainui.FrameInformation:
 		text, present := frame.Text.Get()
 		if !present {
@@ -168,7 +180,8 @@ func mapSessionFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
 		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigationProgress,
 		domainui.FrameSessionTreeNavigation,
-		domainui.FrameEntryLabelSet, domainui.FrameSubmitCompleted, domainui.FrameAuthenticationCompleted:
+		domainui.FrameEntryLabelSet, domainui.FrameSubmitCompleted, domainui.FrameAuthenticationCompleted,
+		domainui.FrameSessionEntryAdded:
 		return nil, false, nil
 	default:
 		return nil, false, nil
@@ -234,6 +247,12 @@ func mapRestoredSessionEntries(entries []domainui.SessionEntry) ([]*uiv1.Session
 				CallId: new(result.CallID), ToolName: new(result.ToolName),
 				Contents: mapToolResultContents(result.Contents), IsError: new(result.IsError),
 			}.Build())
+		case domainui.SessionEntryExtensionMessage:
+			message, present := entry.ExtensionMessage.Get()
+			if !present {
+				return nil, fmt.Errorf("map restored session entry %d: extension message is missing", index)
+			}
+			wire.SetExtensionMessage(mapExtensionMessage(message))
 		case domainui.SessionEntryBranchSummary:
 			summary, present := entry.BranchSummary.Get()
 			if !present {

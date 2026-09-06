@@ -174,6 +174,7 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 			SessionStatistics: mo.None[session.Statistics](),
 			SessionTree:       mo.None[domainui.SessionTree](),
 			TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+			SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 		})
 		// Assert malformed stream items fail explicitly.
 		require.Error(t, err)

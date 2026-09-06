@@ -4,7 +4,10 @@ import (
 	"context"
 	"sync"
 
+	"github.com/samber/mo"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 )
 
@@ -46,6 +49,23 @@ func NewSession(
 		sessionControl: sessionControl, afterInitialization: afterInitialization, operationMutex: sync.Mutex{},
 		operationAvailability: domainui.AvailabilityCheckingAuthentication, selectionActive: false,
 	}
+}
+
+// PublishSessionEntry enqueues one committed entry as a connection event.
+func (s *Session) PublishSessionEntry(
+	entry session.Entry,
+) (wait func(context.Context) error, err error) {
+	mapped, err := mapSessionTreeEntry(entry, "")
+	if err != nil {
+		return nil, err
+	}
+	frame := emptyTreeFrame(domainui.FrameSessionEntryAdded)
+	frame.SessionEntryAdded = mo.Some(mapped)
+	acknowledgement, err := s.channel.SendAcknowledged(frame)
+	if err != nil {
+		return nil, err
+	}
+	return acknowledgement.Wait, nil
 }
 
 // sendAvailability delivers one connection-level availability change.

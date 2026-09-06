@@ -104,7 +104,7 @@ func appendFullContentFixtureWithUsage(
 			Extension:     mo.None[session.ExtensionEnvelope](),
 			EstimatedCost: mo.None[session.EstimatedCost](),
 			BranchSummary: mo.None[session.
-				BranchSummaryEntry](),
+				BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ParentID: mo.None[string](), ID: "full-model-entry", CreatedAt: createdAt.Add(2 * time.Second),
@@ -141,7 +141,7 @@ func appendFullContentFixtureWithUsage(
 			}),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			EstimatedCost: estimatedCost, BranchSummary: mo.None[session.
-					BranchSummaryEntry](),
+					BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ParentID:    mo.None[string](),
@@ -168,7 +168,7 @@ func appendFullContentFixtureWithUsage(
 			Extension:     mo.None[session.ExtensionEnvelope](),
 			EstimatedCost: mo.None[session.EstimatedCost](),
 			BranchSummary: mo.None[session.
-				BranchSummaryEntry](),
+				BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ParentID:      mo.None[string](),
@@ -192,7 +192,7 @@ func appendFullContentFixtureWithUsage(
 						Usage: summaryUsage,
 					}),
 				}, EstimatedCost: summaryEstimatedCost,
-			}),
+			}), ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ParentID: mo.None[string](), ID: "full-extension-entry", CreatedAt: createdAt.Add(5 * time.Second),
@@ -202,7 +202,7 @@ func appendFullContentFixtureWithUsage(
 				ExtensionID: "example.extension", EntryType: "checkpoint",
 				Data: []byte(`{"private":"full-extension"}`),
 			}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
-						BranchSummaryEntry](),
+						BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 	}
 	for index := range entries {

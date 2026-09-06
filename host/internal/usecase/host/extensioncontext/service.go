@@ -29,6 +29,8 @@ const (
 	modelFailedCode = "MODEL_FAILED"
 	// persistenceUnavailableCode identifies a durable append failure.
 	persistenceUnavailableCode = "PERSISTENCE_UNAVAILABLE"
+	// deliveryFailedIssueCode identifies failed client publication after commit.
+	deliveryFailedIssueCode = "DELIVERY_FAILED"
 	// selectionCodeNotFound identifies a provider selection that is not configured.
 	selectionCodeNotFound = "not_found"
 	// selectionCodeReasoningUnsupported identifies a reasoning choice unsupported by the selected model.
@@ -76,6 +78,8 @@ type Service struct {
 	mutex sync.Mutex
 	// catalog is bound after provider construction.
 	catalog Catalog
+	// messagePublisher enqueues committed message events on the active client writer.
+	messagePublisher func(session.Entry) (wait func(context.Context) error, err error)
 	// bindings retains only the latest binding for each extension.
 	bindings map[string]binding
 }
@@ -90,7 +94,7 @@ var (
 func New(runtime RuntimeState, sessionState SessionState) *Service {
 	return &Service{
 		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, catalog: nil,
-		bindings: make(map[string]binding),
+		messagePublisher: nil, bindings: make(map[string]binding),
 	}
 }
 
@@ -99,6 +103,15 @@ func (s *Service) BindCatalog(catalog Catalog) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.catalog = catalog
+}
+
+// BindMessagePublisher installs client publication after active client construction.
+func (s *Service) BindMessagePublisher(
+	publisher func(session.Entry) (wait func(context.Context) error, err error),
+) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.messagePublisher = publisher
 }
 
 // IssueContext returns the binding for one accepted runtime and active-session incarnation.
@@ -256,17 +269,74 @@ func (s *Service) AppendExtension(
 		func() (func(), error) { return s.runtime.BeginContextCommit(extensionID, runtimeID) },
 	)
 	if err != nil {
-		code := internalCode
-		if failure, found := errors.AsType[extensioncontroller.ContextFailure](err); found {
-			code = failure.ContextCode()
-		} else if errors.Is(err, session.ErrUnavailable) {
-			code = staleContextCode
-		} else if errors.Is(err, session.ErrPersistenceUnavailable) {
-			code = persistenceUnavailableCode
+		return session.Entry{}, &ContextError{
+			code: appendFailureCode(err), cause: fmt.Errorf("append extension entry: %w", err),
 		}
-		return session.Entry{}, &ContextError{code: code, cause: fmt.Errorf("append extension entry: %w", err)}
 	}
 	return entry, nil
+}
+
+// AppendExtensionMessage persists one caller-owned model-visible message and reports delivery failure after commit.
+func (s *Service) AppendExtensionMessage(
+	ctx context.Context,
+	extensionID, runtimeID string,
+	reference extension.ContextRef,
+	entryType, text string,
+	visibility session.ClientVisibility,
+) (extensioncontroller.AppendMessageResult, error) {
+	expected, err := s.boundSession(ctx, extensionID, runtimeID, reference)
+	if err != nil {
+		return extensioncontroller.AppendMessageResult{}, err
+	}
+	s.mutex.Lock()
+	publisher := s.messagePublisher
+	s.mutex.Unlock()
+	entry, err := s.session.AppendExtensionMessage(
+		ctx,
+		expected,
+		session.ExtensionMessage{
+			ExtensionID: extensionID, EntryType: entryType, Text: text, Visibility: visibility,
+		},
+		func() (func(), error) { return s.runtime.BeginContextCommit(extensionID, runtimeID) },
+		publisher,
+	)
+	if entry.ID != "" && err != nil {
+		return committedDeliveryFailure(entry, extensionID, err)
+	}
+	if err != nil {
+		return extensioncontroller.AppendMessageResult{}, &ContextError{
+			code: appendFailureCode(err), cause: fmt.Errorf("append extension message: %w", err),
+		}
+	}
+	return extensioncontroller.AppendMessageResult{Entry: entry, Issues: nil}, nil
+}
+
+// appendFailureCode preserves an owner-supplied category before classifying session failures.
+func appendFailureCode(err error) string {
+	if failure, found := errors.AsType[extensioncontroller.ContextFailure](err); found {
+		return failure.ContextCode()
+	}
+	if errors.Is(err, session.ErrUnavailable) {
+		return staleContextCode
+	}
+	if errors.Is(err, session.ErrPersistenceUnavailable) {
+		return persistenceUnavailableCode
+	}
+	return internalCode
+}
+
+// committedDeliveryFailure converts post-commit publication failure to a nonterminal operation issue.
+func committedDeliveryFailure(
+	entry session.Entry,
+	extensionID string,
+	cause error,
+) (extensioncontroller.AppendMessageResult, error) {
+	return extensioncontroller.AppendMessageResult{
+		Entry: entry,
+		Issues: []extensioncontroller.OperationIssue{{
+			ExtensionID: extensionID, Code: deliveryFailedIssueCode, Message: cause.Error(),
+		}},
+	}, nil
 }
 
 // ReadSessionState returns one caller-filtered active-branch snapshot.

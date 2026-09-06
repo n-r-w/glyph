@@ -40,6 +40,7 @@ func testInitializationFrame() domainui.Frame {
 		SessionStatistics: mo.None[session.Statistics](),
 		SessionTree:       mo.None[domainui.SessionTree](),
 		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 	}
 }
 
@@ -74,6 +75,7 @@ func testLifecycleFrame() domainui.Frame {
 		SessionStatistics: mo.None[session.Statistics](),
 		SessionTree:       mo.None[domainui.SessionTree](),
 		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 	}
 }
 
@@ -93,6 +95,7 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 			SessionStatistics: mo.None[session.Statistics](),
 			SessionTree:       mo.None[domainui.SessionTree](),
 			TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+			SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 		}
 	}
 	return domainui.Frame{
@@ -108,6 +111,7 @@ func testSimpleFrame(kind domainui.FrameKind, text string) domainui.Frame {
 		SessionStatistics: mo.None[session.Statistics](),
 		SessionTree:       mo.None[domainui.SessionTree](),
 		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 	}
 }
 
@@ -127,6 +131,7 @@ func testErrorFrame() domainui.Frame {
 		SessionStatistics: mo.None[session.Statistics](),
 		SessionTree:       mo.None[domainui.SessionTree](),
 		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 	}
 }
 
@@ -149,6 +154,7 @@ func testModelSelectionFrame() domainui.Frame {
 		SessionStatistics: mo.None[session.Statistics](),
 		SessionTree:       mo.None[domainui.SessionTree](),
 		TreeNavigation:    mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded: mo.None[domainui.SessionTreeEntry](),
 	}
 }
 

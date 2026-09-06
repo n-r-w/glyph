@@ -347,7 +347,7 @@ func grpcUserEntry(id string, parentID mo.Option[string], text string, createdAt
 		Information: mo.None[session.Information](), User: mo.Some(model.TextMessage(text)),
 		Model: mo.None[model.Response](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 
@@ -367,6 +367,6 @@ func grpcSummaryEntry() session.Entry {
 				Model:       mo.None[session.BranchSummaryModelSource](),
 			},
 			EstimatedCost: mo.None[session.EstimatedCost](),
-		}),
+		}), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }

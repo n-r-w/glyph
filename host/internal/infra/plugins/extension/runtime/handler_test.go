@@ -43,7 +43,7 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 		Extension: mo.Some(session.ExtensionEnvelope{
 			ExtensionID: "owner", EntryType: "private", Data: []byte("secret"),
 		}),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	state := sessiontree.HandlerNavigationState{
 		SessionID: "session", PrecedingActiveLeafID: mo.Some("leaf"), Request: request,

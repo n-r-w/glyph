@@ -57,6 +57,8 @@ func validateHeaderRequiredFields(data []byte) error {
 }
 
 // validateEntryRequiredFields checks required key presence without changing valid zero or collection states.
+//
+//nolint:gocyclo // The closed record union requires one explicit required-field branch per record type.
 func validateEntryRequiredFields(data []byte, kind string) error {
 	entry, err := requiredJSONObject(data, "type", "id", "createdAt")
 	if err != nil {
@@ -82,6 +84,12 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 			return validationErr
 		}
 		return entry.requireNonNullFields("extensionId", "entryType")
+	case recordTypeExtensionMessage:
+		fields := []string{"extensionId", "entryType", "text", "visibility"}
+		if validationErr := entry.requireFields(fields...); validationErr != nil {
+			return validationErr
+		}
+		return entry.requireNonNullFields(fields...)
 	case recordTypeBranchSummary:
 		fields := []string{"summary", "firstEntryId", "lastEntryId", fieldSummarySource}
 		if validationErr := entry.requireFields(fields...); validationErr != nil {

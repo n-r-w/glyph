@@ -87,6 +87,62 @@ func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(
 	)
 }
 
+// TestOverlappingMessageAppendContinuesFromNavigationCommit verifies another extension waits for publication ordering.
+func TestOverlappingMessageAppendContinuesFromNavigationCommit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a navigation publisher that admits another extension append while the session boundary remains held.
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	ids := NewMockIDGenerator(controller)
+	clock := NewMockClock(controller)
+	createdAt := time.Unix(1, 0).UTC()
+	service := New(repository, ids, clock, nil, "/project")
+	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
+	expected := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	service.contextIdentity.Store(&expected)
+	calls := 0
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
+			calls++
+			if calls == 2 {
+				assert.Equal(t, mo.Some("destination"), command.Mutation.Entry.MustGet().ParentID)
+			}
+			return ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil
+		},
+	).Times(2)
+	ids.EXPECT().NewID().Return("overlap", nil)
+	clock.EXPECT().Now().Return(createdAt.Add(3 * time.Second))
+	appendResult := make(chan error, 1)
+	publisher := func(sessionnavigation.Progress) error {
+		go func() {
+			_, appendErr := service.AppendExtensionMessage(
+				t.Context(), expected, session.ExtensionMessage{
+					ExtensionID: "other",
+					EntryType:   "note",
+					Text:        "overlap",
+					Visibility:  session.ClientVisibilityVisible,
+				}, treeBehaviorCommitGuard, func(session.Entry) (func(context.Context) error, error) {
+					return func(context.Context) error { return nil }, nil
+				},
+			)
+			appendResult <- appendErr
+		}()
+		return nil
+	}
+
+	// Act by committing navigation while the independent append overlaps publication.
+	_, err := service.CommitNavigation(t.Context(), navigationCommit("abandoned", "destination"), publisher)
+	require.NoError(t, err)
+	require.NoError(t, <-appendResult)
+
+	// Assert the later append remains active and attaches to the committed navigation destination.
+	tree := service.Tree()
+	require.Equal(t, mo.Some("overlap"), tree.ActiveLeafID())
+	entries := tree.Entries()
+	require.Equal(t, mo.Some("destination"), entries[len(entries)-1].ParentID)
+}
+
 // TestCommitNavigationEnqueuesSnapshotInsidePublicationBoundary verifies persistence, state, and enqueue ordering.
 func TestCommitNavigationEnqueuesSnapshotInsidePublicationBoundary(t *testing.T) {
 	t.Parallel()

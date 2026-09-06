@@ -33,16 +33,22 @@ func TestModelRecordRoundTripsEstimatedCostPresence(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			entry := session.Entry{
-				ParentID: mo.None[string](), ID: "model-entry", CreatedAt: time.Unix(10, 0).UTC(),
-				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+				ParentID:    mo.None[string](),
+				ID:          "model-entry",
+				CreatedAt:   time.Unix(10, 0).UTC(),
+				Information: mo.None[session.Information](),
+				User:        mo.None[session.UserMessage](),
 				Model: mo.Some(model.Response{
 					Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
 					Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
 					ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
 					Usage: mo.Some(model.Usage{}), Diagnostics: nil,
 				}),
-				EstimatedCost: estimatedCost, ToolResult: mo.None[session.ToolResult](),
-				Extension: mo.None[session.ExtensionEnvelope](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				EstimatedCost:    estimatedCost,
+				ToolResult:       mo.None[session.ToolResult](),
+				Extension:        mo.None[session.ExtensionEnvelope](),
+				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			}
 
 			// Act by encoding and decoding one strict model record.

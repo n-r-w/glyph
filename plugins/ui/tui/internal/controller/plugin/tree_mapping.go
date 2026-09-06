@@ -27,9 +27,15 @@ func mapTreeRequest(request *uiv1.HostCompleted) (presentationdomain.Event, bool
 	case request.GetSessionTree() != nil:
 		tree, err := mapSessionTree(request.GetSessionTree().GetTree())
 		return treeEvent(presentationdomain.EventSessionTree, presentationdomain.TreeEvent{
-			Tree: mo.Some(tree), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
-			SessionInfo: mo.None[presentationdomain.SessionInfo](), RestoredTranscript: nil,
-			NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+			Tree:               mo.Some(tree),
+			NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+			SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+			RestoredTranscript: nil,
+			NextInput:          mo.None[string](),
+			Issues:             nil,
+			FailureMessage:     mo.None[string](),
+			AddedEntry: mo.None[presentationdomain.
+				TreeEntry](),
 		}), true, err
 	case request.GetSessionTreeNavigation() != nil:
 		event, err := mapTreeNavigation(request.GetSessionTreeNavigation())
@@ -49,9 +55,15 @@ func mapTreeRequest(request *uiv1.HostCompleted) (presentationdomain.Event, bool
 	case request.GetEntryLabelSet() != nil:
 		tree, err := mapSessionTree(request.GetEntryLabelSet().GetTree())
 		return treeEvent(presentationdomain.EventEntryLabelSet, presentationdomain.TreeEvent{
-			Tree: mo.Some(tree), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
-			SessionInfo: mo.None[presentationdomain.SessionInfo](), RestoredTranscript: nil,
-			NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+			Tree:               mo.Some(tree),
+			NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+			SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+			RestoredTranscript: nil,
+			NextInput:          mo.None[string](),
+			Issues:             nil,
+			FailureMessage:     mo.None[string](),
+			AddedEntry: mo.None[presentationdomain.
+				TreeEntry](),
 		}), true, err
 	default:
 		return presentationdomain.Event{}, false, nil
@@ -75,9 +87,15 @@ func mapTreeNavigationProgress(
 		return presentationdomain.Event{}, err
 	}
 	return treeEvent(presentationdomain.EventSessionTreeNavigationProgress, presentationdomain.TreeEvent{
-		Tree: mo.Some(tree), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
-		SessionInfo: mo.None[presentationdomain.SessionInfo](), RestoredTranscript: transcript,
-		NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+		Tree:               mo.Some(tree),
+		NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		RestoredTranscript: transcript,
+		NextInput:          mo.None[string](),
+		Issues:             nil,
+		FailureMessage:     mo.None[string](),
+		AddedEntry: mo.None[presentationdomain.
+			TreeEntry](),
 	}), nil
 }
 
@@ -102,9 +120,15 @@ func mapTreeNavigation(value *uiv1.SessionTreeNavigationResult) (presentationdom
 		return presentationdomain.TreeEvent{}, err
 	}
 	mapped := presentationdomain.TreeEvent{
-		Tree: mo.None[presentationdomain.SessionTree](), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
-		SessionInfo: mo.None[presentationdomain.SessionInfo](), RestoredTranscript: nil,
-		NextInput: mo.None[string](), Issues: issues, FailureMessage: mo.None[string](),
+		Tree:               mo.None[presentationdomain.SessionTree](),
+		NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		RestoredTranscript: nil,
+		NextInput:          mo.None[string](),
+		Issues:             issues,
+		FailureMessage:     mo.None[string](),
+		AddedEntry: mo.None[presentationdomain.
+			TreeEntry](),
 	}
 	switch value.GetStatus() {
 	case uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED:
@@ -141,7 +165,8 @@ func mapReplacement(value *uiv1.SessionChanged) (presentationdomain.TreeEvent, e
 	return presentationdomain.TreeEvent{
 		Tree: mo.None[presentationdomain.SessionTree](), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
 		SessionInfo: mo.Some(info), RestoredTranscript: transcript, NextInput: mo.None[string](), Issues: nil,
-		FailureMessage: mo.None[string](),
+		FailureMessage: mo.None[string](), AddedEntry: mo.None[presentationdomain.
+				TreeEntry](),
 	}, nil
 }
 
@@ -186,13 +211,23 @@ func mapSessionTreeEntry(value *uiv1.SessionTreeEntry) (presentationdomain.TreeE
 	if err != nil {
 		return presentationdomain.TreeEntry{}, err
 	}
+	message := mo.None[presentationdomain.ExtensionMessage]()
+	if value.GetExtensionMessage() != nil {
+		mapped, mapErr := mapTreeExtensionMessage(value.GetExtensionMessage())
+		if mapErr != nil {
+			return presentationdomain.TreeEntry{}, mapErr
+		}
+		message = mo.Some(mapped)
+	}
 	return presentationdomain.TreeEntry{
 		ID: value.GetId(), ParentID: parentID, CreatedAt: value.GetCreatedTime().AsTime(), Label: value.GetLabel(),
-		Kind: kind, Text: text,
+		Kind: kind, ExtensionMessage: message, Text: text,
 	}, nil
 }
 
 // mapTreeEntryContent maps public payload text without private extension data.
+//
+//nolint:gocyclo // The closed tree union validates each payload before presentation.
 func mapTreeEntryContent(value *uiv1.SessionTreeEntry) (presentationdomain.TreeEntryKind, string, error) {
 	switch {
 	case value.GetUser() != nil:
@@ -235,6 +270,12 @@ func mapTreeEntryContent(value *uiv1.SessionTreeEntry) (presentationdomain.TreeE
 		}
 		return presentationdomain.TreeEntryExtension,
 			strings.TrimSpace(extension.GetExtensionId() + treeContentSeparator + extension.GetEntryType()), nil
+	case value.GetExtensionMessage() != nil:
+		message, err := mapTreeExtensionMessage(value.GetExtensionMessage())
+		if err != nil {
+			return presentationdomain.TreeEntryUnspecified, "", err
+		}
+		return presentationdomain.TreeEntryExtensionMessage, message.Text, nil
 	case value.GetBranchSummary() != nil:
 		summary := value.GetBranchSummary()
 		if !summary.HasSummary() {
@@ -244,6 +285,27 @@ func mapTreeEntryContent(value *uiv1.SessionTreeEntry) (presentationdomain.TreeE
 	default:
 		return presentationdomain.TreeEntryUnspecified, "", errors.New("session tree entry payload is missing")
 	}
+}
+
+// mapTreeExtensionMessage validates exact message data and closed visibility.
+func mapTreeExtensionMessage(value *uiv1.ExtensionMessage) (presentationdomain.ExtensionMessage, error) {
+	if value == nil || !value.HasExtensionId() || !value.HasEntryType() || !value.HasText() || !value.HasVisibility() {
+		return presentationdomain.ExtensionMessage{}, errors.New("extension message tree entry is incomplete")
+	}
+	visibility := presentationdomain.ClientVisibilityVisible
+	switch value.GetVisibility() {
+	case uiv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE:
+	case uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN:
+		visibility = presentationdomain.ClientVisibilityHidden
+	case uiv1.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED:
+		return presentationdomain.ExtensionMessage{}, errors.New("extension message tree visibility is unspecified")
+	default:
+		return presentationdomain.ExtensionMessage{}, errors.New("extension message tree visibility is unknown")
+	}
+	return presentationdomain.ExtensionMessage{
+		ExtensionID: value.GetExtensionId(), EntryType: value.GetEntryType(),
+		Text: value.GetText(), Visibility: visibility,
+	}, nil
 }
 
 // treeEvent creates one complete presentation event with a typed tree payload.

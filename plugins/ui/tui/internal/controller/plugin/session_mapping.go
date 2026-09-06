@@ -50,6 +50,8 @@ func sessionEvent(
 }
 
 // mapRestoredTranscript rebuilds public transcript lines without replaying lifecycle events.
+//
+//nolint:gocyclo // The closed transcript union maps each payload to distinct presentation lines.
 func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.Line, error) {
 	lines := make([]presentationdomain.Line, 0, len(entries))
 	for _, entry := range entries {
@@ -78,6 +80,27 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.L
 				return nil, err
 			}
 			lines = append(lines, mapped)
+			continue
+		}
+		if message := entry.GetExtensionMessage(); message != nil {
+			if !message.HasExtensionId() || !message.HasEntryType() || !message.HasText() || !message.HasVisibility() {
+				return nil, errors.New("restored extension message is incomplete")
+			}
+			switch message.GetVisibility() {
+			case uiv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE:
+				lines = append(lines, presentationdomain.Line{
+					Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
+					Text: mo.Some(message.GetText()), Contents: mo.Some([]presentationdomain.Content{{
+						Text: mo.Some(message.GetText()), MediaType: mo.None[string](), Data: mo.None[[]byte](),
+					}}),
+				})
+			case uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN:
+				continue
+			case uiv1.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED:
+				return nil, errors.New("restored extension message visibility is unspecified")
+			default:
+				return nil, errors.New("restored extension message visibility is unknown")
+			}
 			continue
 		}
 		if summary := entry.GetBranchSummary(); summary != nil {

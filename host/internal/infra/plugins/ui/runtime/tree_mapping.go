@@ -9,6 +9,7 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
@@ -59,7 +60,7 @@ func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 		domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
 		domainui.FrameSessionTreeNavigationProgress,
 		domainui.FrameSessionForked, domainui.FrameSessionCloned, domainui.FrameSubmitCompleted,
-		domainui.FrameAuthenticationCompleted:
+		domainui.FrameAuthenticationCompleted, domainui.FrameSessionEntryAdded:
 		return nil, false, nil
 	default:
 		return nil, false, nil
@@ -160,6 +161,8 @@ func mapSessionTree(tree domainui.SessionTree) (*uiv1.SessionTree, error) {
 }
 
 // mapSessionTreeEntry maps one closed public tree payload.
+//
+//nolint:gocyclo // The closed tree union requires one explicit mapping for each payload.
 func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntry, error) {
 	wire := new(uiv1.SessionTreeEntry)
 	wire.SetId(entry.ID)
@@ -173,7 +176,8 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 		public := domainui.SessionEntry{
 			ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: domainui.SessionEntryKind(entry.Kind),
 			User: entry.User, Model: entry.Model, ToolResult: entry.ToolResult,
-			BranchSummary: mo.None[domainui.BranchSummary](),
+			BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.None[domainui.
+					ExtensionMessage](),
 		}
 		mapped, err := mapRestoredSessionEntries([]domainui.SessionEntry{public})
 		if err != nil {
@@ -187,7 +191,7 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 		case domainui.SessionTreeEntryToolResult:
 			wire.SetToolResult(mapped[0].GetToolResult())
 		case domainui.SessionTreeEntryUnspecified, domainui.SessionTreeEntryExtension,
-			domainui.SessionTreeEntryBranchSummary:
+			domainui.SessionTreeEntryBranchSummary, domainui.SessionTreeEntryExtensionMessage:
 			return nil, errors.New("tree entry kind cannot use transcript mapping")
 		default:
 			return nil, fmt.Errorf("unknown transcript tree entry kind %d", entry.Kind)
@@ -201,6 +205,12 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 		mapped.SetExtensionId(extension.ExtensionID)
 		mapped.SetEntryType(extension.EntryType)
 		wire.SetExtension(mapped)
+	case domainui.SessionTreeEntryExtensionMessage:
+		message, present := entry.ExtensionMessage.Get()
+		if !present {
+			return nil, errors.New("extension message is absent")
+		}
+		wire.SetExtensionMessage(mapExtensionMessage(message))
 	case domainui.SessionTreeEntryBranchSummary:
 		summary, present := entry.BranchSummary.Get()
 		if !present {
@@ -217,6 +227,18 @@ func mapSessionTreeEntry(entry domainui.SessionTreeEntry) (*uiv1.SessionTreeEntr
 		return nil, fmt.Errorf("unknown tree entry kind %d", entry.Kind)
 	}
 	return wire, nil
+}
+
+// mapExtensionMessage maps exact message content and client visibility.
+func mapExtensionMessage(message domainui.ExtensionMessage) *uiv1.ExtensionMessage {
+	visibility := uiv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE
+	if message.Visibility == session.ClientVisibilityHidden {
+		visibility = uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN
+	}
+	return uiv1.ExtensionMessage_builder{
+		ExtensionId: new(message.ExtensionID), EntryType: new(message.EntryType),
+		Text: new(message.Text), Visibility: new(visibility),
+	}.Build()
 }
 
 // mapBranchSummary maps one persisted summary and optional accounting.

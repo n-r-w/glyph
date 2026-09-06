@@ -32,6 +32,14 @@ type SessionState interface {
 		session.ExtensionEnvelope,
 		ContextCommitGuard,
 	) (session.Entry, error)
+	// AppendExtensionMessage persists and publishes one message under the bound session incarnation.
+	AppendExtensionMessage(
+		context.Context,
+		SessionIdentity,
+		session.ExtensionMessage,
+		ContextCommitGuard,
+		func(session.Entry) (wait func(context.Context) error, err error),
+	) (session.Entry, error)
 	// ExtensionState returns one coherent filtered active-branch snapshot.
 	ExtensionState(context.Context, SessionIdentity, string) (SessionSnapshot, error)
 }

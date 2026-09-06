@@ -37,6 +37,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 	models := NewMockHostOperation(controller)
 	providers := NewMockHostOperation(controller)
 	configured := NewMockHostOperation(controller)
+	message := NewMockHostOperation(controller)
 	recovery := NewMockHostOperation(controller)
 	recoveryEntered := make(chan struct{})
 	recoveryRelease := make(chan struct{})
@@ -97,6 +98,26 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 				return nil, err
 			}
 			assert.Equal(t, "answer", configuredResult.GetContent()[0].GetText().GetText())
+			messageAppend, err := bound.StartAppendExtensionMessage(
+				ctx,
+				extensionpb.AppendExtensionMessageRequest_builder{
+					Context: nil, EntryType: new("note"), Text: new("exact text"),
+					Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+				}.Build(),
+			)
+			if err != nil {
+				return nil, err
+			}
+			messageResult, err := messageAppend.Wait(ctx)
+			if err != nil {
+				return nil, err
+			}
+			assert.Equal(t, "exact text", messageResult.GetEntry().GetMessage().GetText())
+			assert.Equal(
+				t,
+				extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN,
+				messageResult.GetEntry().GetMessage().GetVisibility(),
+			)
 			stateRead, err := bound.StartGetSessionState(ctx)
 			if err != nil {
 				return nil, err
@@ -124,7 +145,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		})
 	models.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetProviders: nil, ConfiguredModel: nil,
-		AppendExtension: nil, GetSessionState: nil,
+		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil,
 
 		GetModels: extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: extensionpb.ModelSelection_builder{
 			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
@@ -139,7 +160,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		})
 	providers.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetModels: nil, ConfiguredModel: nil,
-		AppendExtension: nil, GetSessionState: nil,
+		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil,
 
 		GetProviders: extensionpb.GetProvidersResult_builder{Providers: []*extensionpb.ProviderDescriptor{
 			extensionpb.ProviderDescriptor_builder{ProviderId: new("provider"), ModelIds: []string{"model"}}.Build(),
@@ -155,7 +176,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		})
 	configured.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetModels: nil, GetProviders: nil, AppendExtension: nil, GetSessionState: nil,
-		ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
+		AppendExtensionMessage: nil, ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
 			Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
 			ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
 			Content: []*extensionpb.ConfiguredModelContent{func() *extensionpb.ConfiguredModelContent {
@@ -169,6 +190,31 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 	host.EXPECT().
 		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
+			assert.Equal(t, "binding", request.GetAppendExtensionMessage().GetContext().GetContextId())
+			assert.Equal(t, "exact text", request.GetAppendExtensionMessage().GetText())
+			return message, nil
+		})
+	message.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
+		Cancel:          nil,
+		GetModels:       nil,
+		GetProviders:    nil,
+		ConfiguredModel: nil,
+		AppendExtension: nil,
+		GetSessionState: nil,
+		AppendExtensionMessage: extensionpb.AppendExtensionMessageResult_builder{
+			Entry: extensionpb.SessionStateEntry_builder{
+				Id: new("message"), ParentId: new("entry"), CreatedTime: nil,
+				ExtensionId: new("extension"), EntryType: new("note"), Data: nil,
+				Message: extensionpb.ExtensionMessage_builder{
+					Text: new("exact text"), Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+				}.Build(),
+			}.Build(), Issues: nil,
+		}.Build(),
+	}.Build(), nil)
+	message.EXPECT().Release()
+	host.EXPECT().
+		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
 			assert.Equal(t, "binding", request.GetGetSessionState().GetContext().GetContextId())
 			return recovery, nil
 		})
@@ -177,11 +223,11 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		<-recoveryRelease
 		entry := extensionpb.SessionStateEntry_builder{
 			Id: new("entry"), ParentId: new("parent"), CreatedTime: nil,
-			ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload,
+			ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload, Message: nil,
 		}.Build()
 		return extensionpb.HostCompleted_builder{
 			Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
-			GetSessionState: extensionpb.GetSessionStateResult_builder{
+			AppendExtensionMessage: nil, GetSessionState: extensionpb.GetSessionStateResult_builder{
 				SessionId: new("session"), ActiveLeafId: new("entry"), Entries: []*extensionpb.SessionStateEntry{entry},
 			}.Build(),
 		}.Build(), nil

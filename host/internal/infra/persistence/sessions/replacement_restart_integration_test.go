@@ -40,7 +40,7 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 				require.Equal(t, "exact target", nextInput)
 				return replacement.Info.ID
 			},
-			expectedIDs:    []string{"root", "extension", "summary"},
+			expectedIDs:    []string{"root", "extension", "message", "summary"},
 			expectedLeaf:   mo.Some("summary"),
 			expectedLabels: map[string]string{"summary": "kept"},
 			sourceLabels:   map[string]string{"summary": "kept", "target": "source"},
@@ -52,7 +52,7 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 				require.NoError(t, err)
 				return replacement.Info.ID
 			},
-			expectedIDs:    []string{"root", "extension", "summary", "target"},
+			expectedIDs:    []string{"root", "extension", "message", "summary", "target"},
 			expectedLeaf:   mo.Some("target"),
 			expectedLabels: map[string]string{"summary": "kept", "target": "source"},
 			sourceLabels:   map[string]string{"summary": "kept", "target": "source"},
@@ -64,7 +64,7 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 				require.NoError(t, err)
 				return "source"
 			},
-			expectedIDs:    []string{"root", "extension", "summary", "target"},
+			expectedIDs:    []string{"root", "extension", "message", "summary", "target"},
 			expectedLeaf:   mo.Some("target"),
 			expectedLabels: map[string]string{"summary": "kept", "target": "updated"},
 			sourceLabels:   map[string]string{"summary": "kept", "target": "updated"},
@@ -120,8 +120,10 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 					[]byte(`{ "escaped": "\u0061", "opaque": true }`),
 					entries[1].Extension.MustGet().Data,
 				))
-				require.Equal(t, "outside-first", entries[2].BranchSummary.MustGet().FirstEntryID)
-				require.Equal(t, "outside-last", entries[2].BranchSummary.MustGet().LastEntryID)
+				require.Equal(t, "exact\ntext", entries[2].ExtensionMessage.MustGet().Text)
+				require.Equal(t, session.ClientVisibilityHidden, entries[2].ExtensionMessage.MustGet().Visibility)
+				require.Equal(t, "outside-first", entries[3].BranchSummary.MustGet().FirstEntryID)
+				require.Equal(t, "outside-last", entries[3].BranchSummary.MustGet().LastEntryID)
 			}
 			for index := 1; index < len(entries); index++ {
 				require.Equal(t, mo.Some(entries[index-1].ID), entries[index].ParentID)
@@ -130,7 +132,7 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(
 				t,
-				[]string{"root", "extension", "summary", "target"},
+				[]string{"root", "extension", "message", "summary", "target"},
 				lo.Map(source.Tree.Entries(), func(entry session.Entry, _ int) string {
 					return entry.ID
 				}),
@@ -162,12 +164,24 @@ func restartSourceTree(t *testing.T) session.Tree {
 					Data:        []byte(`{ "escaped": "\u0061", "opaque": true }`),
 				},
 			),
-			BranchSummary: mo.None[session.BranchSummaryEntry](),
+			BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		},
+		{
+			ID: "message", ParentID: mo.Some("extension"), CreatedAt: createdAt.Add(2 * time.Second),
+			Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+			Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+			ExtensionMessage: mo.Some(session.ExtensionMessage{
+				ExtensionID: "extension",
+				EntryType:   "note",
+				Text:        "exact\ntext",
+				Visibility:  session.ClientVisibilityHidden,
+			}), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		},
 		{
 			ID:            "summary",
-			ParentID:      mo.Some("extension"),
-			CreatedAt:     createdAt.Add(2 * time.Second),
+			ParentID:      mo.Some("message"),
+			CreatedAt:     createdAt.Add(3 * time.Second),
 			Information:   mo.None[session.Information](),
 			User:          mo.None[session.UserMessage](),
 			Model:         mo.None[session.ModelResponse](),
@@ -186,9 +200,9 @@ func restartSourceTree(t *testing.T) session.Tree {
 						Usage: mo.None[session.TokenUsage](),
 					}),
 				}, EstimatedCost: mo.None[session.EstimatedCost](),
-			}),
+			}), ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
-		restartUserEntry("target", mo.Some("summary"), "exact target", createdAt.Add(3*time.Second)),
+		restartUserEntry("target", mo.Some("summary"), "exact target", createdAt.Add(4*time.Second)),
 	}
 	tree, err := session.NewTree(entries, mo.Some("target"), map[string]string{"summary": "kept", "target": "source"})
 	require.NoError(t, err)
@@ -209,6 +223,6 @@ func restartUserEntry(id string, parent mo.Option[string], text string, createdA
 		EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }

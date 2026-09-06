@@ -95,6 +95,7 @@ func emptyTreeFrame(kind domainui.FrameKind) domainui.Frame {
 		SessionTree:            mo.None[domainui.SessionTree](),
 		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
 		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
+		SessionEntryAdded:      mo.None[domainui.SessionTreeEntry](),
 	}
 }
 
@@ -122,12 +123,20 @@ func mapSessionTreeEntry(entry session.Entry, label string) (domainui.SessionTre
 		Kind: domainui.SessionTreeEntryUnspecified,
 		User: mo.None[model.Message](), Model: mo.None[domainui.ModelResponse](),
 		ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[domainui.ExtensionEntry](),
-		BranchSummary: mo.None[domainui.BranchSummary](),
+		BranchSummary: mo.None[domainui.BranchSummary](), ExtensionMessage: mo.None[domainui.ExtensionMessage](),
 	}
 	if extension, present := entry.Extension.Get(); present {
 		mapped.Kind = domainui.SessionTreeEntryExtension
 		mapped.Extension = mo.Some(domainui.ExtensionEntry{
 			ExtensionID: extension.ExtensionID, EntryType: extension.EntryType,
+		})
+		return mapped, nil
+	}
+	if message, present := entry.ExtensionMessage.Get(); present {
+		mapped.Kind = domainui.SessionTreeEntryExtensionMessage
+		mapped.ExtensionMessage = mo.Some(domainui.ExtensionMessage{
+			ExtensionID: message.ExtensionID, EntryType: message.EntryType,
+			Text: message.Text, Visibility: message.Visibility,
 		})
 		return mapped, nil
 	}
@@ -143,6 +152,7 @@ func mapSessionTreeEntry(entry session.Entry, label string) (domainui.SessionTre
 	mapped.Model = public.Model
 	mapped.ToolResult = public.ToolResult
 	mapped.BranchSummary = public.BranchSummary
+	mapped.ExtensionMessage = public.ExtensionMessage
 	switch public.Kind {
 	case domainui.SessionEntryUser:
 		mapped.Kind = domainui.SessionTreeEntryUser
@@ -152,6 +162,8 @@ func mapSessionTreeEntry(entry session.Entry, label string) (domainui.SessionTre
 		mapped.Kind = domainui.SessionTreeEntryToolResult
 	case domainui.SessionEntryBranchSummary:
 		mapped.Kind = domainui.SessionTreeEntryBranchSummary
+	case domainui.SessionEntryExtensionMessage:
+		mapped.Kind = domainui.SessionTreeEntryExtensionMessage
 	default:
 		return domainui.SessionTreeEntry{}, fmt.Errorf("unknown tree entry payload %d", public.Kind)
 	}

@@ -133,6 +133,7 @@ func runUIWithPaths(
 			extensions.Activate(activationContext)
 		},
 	)
+	contexts.BindMessagePublisher(session.PublishSessionEntry)
 	controller := controllerui.New(session)
 	initialization := hostui.BuildInitialization(
 		selection.ID,

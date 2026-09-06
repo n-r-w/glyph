@@ -434,7 +434,7 @@ func (s *ServiceSuite) TestHistoryAppendRejectsInvalidTreeMutationBeforePersiste
 		Information: mo.None[session.Information](), User: mo.Some(model.TextMessage("root")),
 		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	service.active = LoadedSession{

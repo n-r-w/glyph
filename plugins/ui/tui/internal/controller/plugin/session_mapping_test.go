@@ -17,6 +17,36 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
+// TestRestoredTranscriptOmitsOnlyHiddenExtensionMessages verifies standard TUI ordinary transcript visibility.
+func TestRestoredTranscriptOmitsOnlyHiddenExtensionMessages(t *testing.T) {
+	t.Parallel()
+
+	// Arrange visible and hidden-client extension messages with exact text.
+	visible := new(uiv1.SessionEntry)
+	visible.SetId("visible")
+	visible.SetCreatedTime(timestamppb.Now())
+	visible.SetExtensionMessage(uiv1.ExtensionMessage_builder{
+		ExtensionId: new("example"), EntryType: new("note"), Text: new("visible\ntext"),
+		Visibility: new(uiv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE),
+	}.Build())
+	hidden := new(uiv1.SessionEntry)
+	hidden.SetId("hidden")
+	hidden.SetCreatedTime(timestamppb.Now())
+	hidden.SetExtensionMessage(uiv1.ExtensionMessage_builder{
+		ExtensionId: new("example"), EntryType: new("note"), Text: new("hidden text"),
+		Visibility: new(uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+	}.Build())
+
+	// Act by mapping complete stored entries to the ordinary transcript.
+	lines, err := mapRestoredTranscript([]*uiv1.SessionEntry{visible, hidden})
+
+	// Assert only the visible exact text is presented.
+	require.NoError(t, err)
+	require.Len(t, lines, 1)
+	assert.Equal(t, presentationdomain.LineUser, lines[0].Kind)
+	assert.Equal(t, mo.Some("visible\ntext"), lines[0].Text)
+}
+
 // TestRestoredTerminalFailuresRemainVisible verifies aborted and failed entries restore as visible error lines.
 func TestRestoredTerminalFailuresRemainVisible(t *testing.T) {
 	t.Parallel()

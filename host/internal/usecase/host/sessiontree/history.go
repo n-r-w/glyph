@@ -38,6 +38,12 @@ func HistoryFromEntries(entries []session.Entry) []agent.HistoryEntry {
 				Model: mo.None[model.Response](), ToolResult: mo.Some(result.Clone()),
 			})
 		}
+		if message, present := entry.ExtensionMessage.Get(); present {
+			history = append(history, agent.HistoryEntry{
+				Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(message.Text)),
+				Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+			})
+		}
 		if summary, present := entry.BranchSummary.Get(); present {
 			history = append(history, agent.HistoryEntry{
 				Kind:  agent.HistoryEntryUser,

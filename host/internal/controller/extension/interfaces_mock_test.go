@@ -59,6 +59,21 @@ func (mr *MockContextOperationsMockRecorder) AppendExtension(ctx, extensionID, r
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtension", reflect.TypeOf((*MockContextOperations)(nil).AppendExtension), ctx, extensionID, runtimeID, reference, entryType, data)
 }
 
+// AppendExtensionMessage mocks base method.
+func (m *MockContextOperations) AppendExtensionMessage(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef, entryType, text string, visibility session.ClientVisibility) (AppendMessageResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "AppendExtensionMessage", ctx, extensionID, runtimeID, reference, entryType, text, visibility)
+	ret0, _ := ret[0].(AppendMessageResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// AppendExtensionMessage indicates an expected call of AppendExtensionMessage.
+func (mr *MockContextOperationsMockRecorder) AppendExtensionMessage(ctx, extensionID, runtimeID, reference, entryType, text, visibility any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtensionMessage", reflect.TypeOf((*MockContextOperations)(nil).AppendExtensionMessage), ctx, extensionID, runtimeID, reference, entryType, text, visibility)
+}
+
 // ReadModels mocks base method.
 func (m *MockContextOperations) ReadModels(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) (ModelCatalog, error) {
 	m.ctrl.T.Helper()

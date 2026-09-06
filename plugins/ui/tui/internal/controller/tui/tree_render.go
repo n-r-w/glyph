@@ -274,7 +274,7 @@ func treeEntryKindText(kind presentationdomain.TreeEntryKind) string {
 		return treeEntryModelText
 	case presentationdomain.TreeEntryToolResult:
 		return treeEntryToolResultText
-	case presentationdomain.TreeEntryExtension:
+	case presentationdomain.TreeEntryExtension, presentationdomain.TreeEntryExtensionMessage:
 		return treeEntryExtensionText
 	case presentationdomain.TreeEntryBranchSummary:
 		return treeEntryBranchSummaryText

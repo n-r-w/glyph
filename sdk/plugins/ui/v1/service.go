@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	// connectionEventQueueCapacity bounds pending Host connection events.
-	connectionEventQueueCapacity = 64
+	// notificationQueueCapacity bounds pending UI state notifications.
+	notificationQueueCapacity = 64
 	// unknownSDKOperationKind identifies an unsupported SDK-owned request kind in logs.
 	unknownSDKOperationKind = "unknown"
 )
@@ -273,7 +273,7 @@ func (s *server) Open(stream grpc.BidiStreamingServer[uiv1.OpenRequest, uiv1.Ope
 	owner := operation.NewOwner[struct{}, *uiv1.UICompleted](ctx, delivery)
 	tracker := operation.NewTracker[*uiv1.HostProgress, *uiv1.HostCompleted]()
 	localClose := make(chan struct{}, 1)
-	host := newHost(serviceContext, writer, tracker, func(err error) {
+	host := newHost(ctx, writer, tracker, func(err error) {
 		cancel(fmt.Errorf("deliver UI request: %w", err))
 	}, func() {
 		select {
@@ -440,15 +440,17 @@ func finishServerOpen(
 	writerFinished bool,
 	cause error,
 ) error {
-	cancelService(context.Canceled)
+	shutdownCause := cause
+	if shutdownCause == nil {
+		shutdownCause = context.Canceled
+	}
+	cancel(shutdownCause)
+	cancelService(shutdownCause)
 	var result error
 	if !runFinished {
 		if err := withoutClosureLeaves(<-runDone); err != nil {
 			result = errors.Join(result, err)
 		}
-	}
-	if cause != nil {
-		cancel(cause)
 	}
 	owner.Close()
 	tracker.Close()

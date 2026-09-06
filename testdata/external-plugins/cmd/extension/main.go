@@ -39,6 +39,16 @@ const (
 	cancellationMode = "cancel"
 	// shutdownMode selects execution blocked until connection shutdown.
 	shutdownMode = "shutdown"
+	// navigationRequestHandlerID identifies the fixture's pre-commit navigation handler.
+	navigationRequestHandlerID = "append-before-navigation"
+	// navigationObserverID identifies the fixture's committed-navigation observer.
+	navigationObserverID = "append-after-navigation"
+	// observerMessageEntryType identifies messages appended by the navigation observer.
+	observerMessageEntryType = "navigation-observer"
+	// observerMessageText is the exact observer-appended text.
+	observerMessageText = "observer appended"
+	// requestMessageText is the exact pre-commit handler-appended text.
+	requestMessageText = "request handler appended"
 	// signalFileMode restricts process synchronization files to their owner.
 	signalFileMode = 0o600
 	// gatePollInterval bounds process cleanup gate observation latency.
@@ -53,13 +63,26 @@ type service struct {
 	savedContext *extensionsdk.ExtensionContext
 	// signals stores the process synchronization directory.
 	signals string
+	// savedMessageID identifies the message that activates the navigation observer.
+	savedMessageID string
+	// savedCheckpointID identifies the target that activates and cancels from the request handler.
+	savedCheckpointID string
 }
 
 // registerOperation returns the fixture catalog.
 type registerOperation struct{}
 
-// handleOperation returns an empty handler result when directly admitted.
-type handleOperation struct{}
+// handleOperation optionally appends one message after a selected navigation commit.
+type handleOperation struct {
+	// context supplies nested public Host operations.
+	context *extensionsdk.ExtensionContext
+	// request contains the committed navigation metadata.
+	request *extensionv1.HandleRequest
+	// expectedMessageID selects whether this observer appends.
+	expectedMessageID string
+	// expectedCheckpointID selects whether the pre-commit handler appends and cancels.
+	expectedCheckpointID string
+}
 
 // executeOperation owns one mode-specific tool invocation.
 type executeOperation struct {
@@ -69,6 +92,8 @@ type executeOperation struct {
 	signals string
 	// mode selects ordinary, failure, cancellation, or shutdown behavior.
 	mode string
+	// service retains public append identity for a later observer invocation.
+	service *service
 }
 
 // executeArguments is the public JSON input accepted by the fixture tool.
@@ -87,7 +112,10 @@ var (
 
 // main serves the external Extension fixture through the public SDK.
 func main() {
-	extensionsdk.Serve(&service{signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil})
+	extensionsdk.Serve(&service{
+		signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil,
+		savedMessageID: "", savedCheckpointID: "",
+	})
 }
 
 // PrepareRegister admits the fixture registration operation.
@@ -98,12 +126,27 @@ func (*service) PrepareRegister(
 	return &registerOperation{}, nil
 }
 
-// PrepareHandle rejects handler work because the fixture registers no handlers.
-func (*service) PrepareHandle(
-	context.Context,
-	*extensionv1.HandleRequest,
+// PrepareHandle admits the fixture's committed-navigation observer.
+func (s *service) PrepareHandle(
+	ctx context.Context,
+	request *extensionv1.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
-	return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture registers no handlers"))
+	if request == nil || request.GetHandlerId() != navigationObserverID &&
+		request.GetHandlerId() != navigationRequestHandlerID {
+		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture handler request is invalid"))
+	}
+	binding, err := extensionsdk.ContextFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	s.contextMutex.Lock()
+	expectedMessageID := s.savedMessageID
+	expectedCheckpointID := s.savedCheckpointID
+	s.contextMutex.Unlock()
+	return &handleOperation{
+		context: binding, request: request, expectedMessageID: expectedMessageID,
+		expectedCheckpointID: expectedCheckpointID,
+	}, nil
 }
 
 // PrepareExecute validates and admits one fixture tool operation.
@@ -137,7 +180,7 @@ func (s *service) PrepareExecute(
 		}
 		saved := s.savedContext
 		s.contextMutex.Unlock()
-		return &executeOperation{signals: s.signals, mode: arguments.Mode, savedContext: saved}, nil
+		return &executeOperation{signals: s.signals, mode: arguments.Mode, savedContext: saved, service: s}, nil
 	default:
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture mode is invalid"))
 	}
@@ -150,16 +193,73 @@ func (*registerOperation) Run(context.Context) (*extensionv1.RegisterResponse, e
 			Name: new(toolName), Description: new("Exercise the public Extension SDK."),
 			InputSchemaJson: []byte(`{"type":"object"}`), ConstrainedSampling: nil,
 		}.Build()},
-		Handlers: nil,
+		Handlers: []*extensionv1.HandlerDescriptor{
+			extensionv1.HandlerDescriptor_builder{
+				Id:   new(navigationRequestHandlerID),
+				Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST),
+			}.Build(),
+			extensionv1.HandlerDescriptor_builder{
+				Id: new(navigationObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_TREE),
+			}.Build(),
+		},
 	}.Build(), nil
 }
 
 // Release frees the registration operation, which owns no reservation.
 func (*registerOperation) Release() {}
 
-// Run returns an empty handler result for interface completeness.
-func (*handleOperation) Run(context.Context) (*extensionv1.HandleResponse, error) {
-	return new(extensionv1.HandleResponse), nil
+// Run appends and awaits one independent message only for the retained selected message.
+func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleResponse, error) {
+	if request := operation.request.GetSessionBeforeTreeRequest(); request != nil {
+		if operation.expectedCheckpointID != "" &&
+			request.GetCurrentRequest().GetTargetEntryId() == operation.expectedCheckpointID {
+			if err := operation.appendMessage(ctx, requestMessageText); err != nil {
+				return nil, err
+			}
+			response := new(extensionv1.HandleResponse)
+			response.SetSessionBeforeTreeRequest(extensionv1.SessionBeforeTreeRequestAction_builder{
+				Cancel: new(true), RequestAction: nil, Request: nil, ResultAction: nil, Result: nil,
+			}.Build())
+			return response, nil
+		}
+		response := new(extensionv1.HandleResponse)
+		response.SetSessionBeforeTreeRequest(extensionv1.SessionBeforeTreeRequestAction_builder{
+			Cancel: new(false), RequestAction: new(extensionv1.RequestAction_REQUEST_ACTION_PRESERVE),
+			Request: nil, ResultAction: new(extensionv1.ResultAction_RESULT_ACTION_PRESERVE), Result: nil,
+		}.Build())
+		return response, nil
+	}
+	if operation.expectedMessageID != "" &&
+		operation.request.GetSessionTree().GetTargetEntryId() == operation.expectedMessageID {
+		if err := operation.appendMessage(ctx, observerMessageText); err != nil {
+			return nil, err
+		}
+	}
+	response := new(extensionv1.HandleResponse)
+	response.SetSessionTree(new(extensionv1.SessionTreeAction))
+	return response, nil
+}
+
+// appendMessage appends and awaits one visible message through the invocation context.
+func (operation *handleOperation) appendMessage(ctx context.Context, text string) error {
+	appendOperation, err := operation.context.StartAppendExtensionMessage(
+		ctx,
+		extensionv1.AppendExtensionMessageRequest_builder{
+			Context: nil, EntryType: new(observerMessageEntryType), Text: new(text),
+			Visibility: new(extensionv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE),
+		}.Build(),
+	)
+	if err != nil {
+		return err
+	}
+	result, err := appendOperation.Wait(ctx)
+	if err != nil {
+		return err
+	}
+	if len(result.GetIssues()) != 0 {
+		return errors.New("navigation handler append returned a delivery issue")
+	}
+	return nil
 }
 
 // Release frees the handler operation, which owns no reservation.
@@ -186,7 +286,7 @@ func (operation *executeOperation) Run(
 	case configuredRequestMode:
 		return requestConfiguredModel(ctx)
 	case sessionStateMode:
-		return exerciseSessionState(ctx)
+		return exerciseSessionState(ctx, operation.service)
 	case failureMode:
 		return nil, extensionsdk.Fail(internalFailureCode, errors.New("complete external Extension failure"))
 	default:

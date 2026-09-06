@@ -73,6 +73,28 @@ func (c *channel) Send(frame domainui.Frame) error {
 	return err
 }
 
+// SendAcknowledged enqueues one connection event and returns its transport acknowledgement.
+func (c *channel) SendAcknowledged(frame domainui.Frame) (*operation.Acknowledgement, error) {
+	if isOperationProgress(frame) {
+		return nil, errors.New("acknowledged UI send requires a connection event")
+	}
+	mapped, err := mapFrame(frame)
+	if err != nil {
+		return nil, err
+	}
+	c.mutex.Lock()
+	writer := c.writer
+	c.mutex.Unlock()
+	if writer == nil {
+		return nil, errors.New("send acknowledged UI frame: operation writer is not running")
+	}
+	acknowledgement, err := writer.EnqueueAcknowledged(mapped)
+	if err != nil && !errors.Is(err, operation.ErrClosed) {
+		c.reportDeliveryFailure(err)
+	}
+	return acknowledgement, err
+}
+
 // BindProgress associates asynchronous Host progress with one operation reporter.
 func (c *channel) BindProgress(reporter operation.Reporter[domainui.Frame]) func() {
 	c.mutex.Lock()

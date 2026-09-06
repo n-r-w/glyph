@@ -7,6 +7,7 @@ import (
 	"github.com/samber/lo"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -167,6 +168,12 @@ func mapSessionTreeEntry(entry SessionTreeEntry) (*programmaticv1.SessionTreeEnt
 		mapped.SetExtensionId(extension.ExtensionID)
 		mapped.SetEntryType(extension.EntryType)
 		wire.SetExtension(mapped)
+	case SessionTreeEntryExtensionMessage:
+		message, present := entry.ExtensionMessage.Get()
+		if !present {
+			return nil, errors.New("extension message payload is absent")
+		}
+		wire.SetExtensionMessage(mapExtensionMessage(message))
 	case SessionTreeEntryBranchSummary:
 		summary, present := entry.BranchSummary.Get()
 		if !present {
@@ -183,6 +190,18 @@ func mapSessionTreeEntry(entry SessionTreeEntry) (*programmaticv1.SessionTreeEnt
 		return nil, fmt.Errorf("unknown tree entry kind %d", entry.Kind)
 	}
 	return wire, nil
+}
+
+// mapExtensionMessage maps exact message content and client visibility.
+func mapExtensionMessage(message ExtensionMessage) *programmaticv1.ExtensionMessage {
+	visibility := programmaticv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE
+	if message.Visibility == session.ClientVisibilityHidden {
+		visibility = programmaticv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN
+	}
+	return programmaticv1.ExtensionMessage_builder{
+		ExtensionId: new(message.ExtensionID), EntryType: new(message.EntryType),
+		Text: new(message.Text), Visibility: new(visibility),
+	}.Build()
 }
 
 // mapBranchSummary maps one persisted summary and its optional accounting.

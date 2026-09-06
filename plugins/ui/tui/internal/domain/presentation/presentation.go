@@ -143,6 +143,8 @@ const (
 	EventSessionCloned
 	// EventEntryLabelSet confirms one durable label mutation.
 	EventEntryLabelSet
+	// EventSessionEntryAdded applies one committed extension message connection event.
+	EventSessionEntryAdded
 )
 
 // ModelContentKind identifies one visible model content block.

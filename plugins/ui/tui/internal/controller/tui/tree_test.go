@@ -18,6 +18,42 @@ import (
 	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
+// TestSessionEntryAddedRetainsHiddenTreeStateWithoutTranscriptRendering verifies TUI connection-event projection.
+func TestSessionEntryAddedRetainsHiddenTreeStateWithoutTranscriptRendering(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an open tree panel and existing ordinary transcript.
+	model := newTestModel(t, presentationdomain.AvailabilityIdle, func(presentationdomain.Command) error { return nil })
+	panel := presentationdomain.NewTreePanel(controllerTree(), presentationdomain.TreePurposeNavigate)
+	model.treePanel = mo.Some(panel)
+	model.state.Transcript = []presentationdomain.Line{controllerLine("existing")}
+	entry := presentationdomain.TreeEntry{
+		ID: "message", ParentID: mo.Some("root"), CreatedAt: time.Unix(10, 0).UTC(), Label: "",
+		Kind: presentationdomain.TreeEntryExtensionMessage, Text: "hidden text",
+		ExtensionMessage: mo.Some(presentationdomain.ExtensionMessage{
+			ExtensionID: "example", EntryType: "note", Text: "hidden text",
+			Visibility: presentationdomain.ClientVisibilityHidden,
+		}),
+	}
+
+	// Act by applying one hidden-client committed entry connection event.
+	model = updateModel(t, model, treeControllerEvent(
+		presentationdomain.EventSessionEntryAdded,
+		presentationdomain.TreeEvent{
+			Tree:             mo.None[presentationdomain.SessionTree](),
+			NavigationStatus: presentationdomain.TreeNavigationUnspecified,
+			SessionInfo:      mo.None[presentationdomain.SessionInfo](), RestoredTranscript: nil,
+			NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.None[string](), AddedEntry: mo.Some(entry),
+		},
+	))
+
+	// Assert complete tree state advances while ordinary transcript remains unchanged.
+	updated := model.treePanel.MustGet()
+	require.Equal(t, mo.Some("message"), updated.Tree.ActiveLeafID)
+	require.Equal(t, "hidden text", updated.Tree.Entries[len(updated.Tree.Entries)-1].ExtensionMessage.MustGet().Text)
+	require.Equal(t, []presentationdomain.Line{controllerLine("existing")}, model.state.Transcript)
+}
+
 // TestTreeForkAndCloneCommandsFollowDocumentedEntryFlows verifies slash-command routing.
 func TestTreeForkAndCloneCommandsFollowDocumentedEntryFlows(t *testing.T) {
 	t.Parallel()
@@ -34,9 +70,15 @@ func TestTreeForkAndCloneCommandsFollowDocumentedEntryFlows(t *testing.T) {
 	model.cursor = len(model.input)
 	model = executeCommand(t, model, tea.KeyPressMsg(testKey(tea.KeyEnter)))
 	model = updateModel(t, model, treeControllerEvent(presentationdomain.EventSessionTree, presentationdomain.TreeEvent{
-		Tree: mo.Some(controllerTree()), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
-		SessionInfo: mo.None[presentationdomain.SessionInfo](), RestoredTranscript: nil,
-		NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+		Tree:               mo.Some(controllerTree()),
+		NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		RestoredTranscript: nil,
+		NextInput:          mo.None[string](),
+		Issues:             nil,
+		FailureMessage:     mo.None[string](),
+		AddedEntry: mo.None[presentationdomain.
+			TreeEntry](),
 	}))
 
 	// Assert /tree requested a snapshot without submitting and opened navigation selection.
@@ -54,9 +96,15 @@ func TestTreeForkAndCloneCommandsFollowDocumentedEntryFlows(t *testing.T) {
 	model.cursor = len(model.input)
 	model = executeCommand(t, model, tea.KeyPressMsg(testKey(tea.KeyEnter)))
 	model = updateModel(t, model, treeControllerEvent(presentationdomain.EventSessionTree, presentationdomain.TreeEvent{
-		Tree: mo.Some(controllerTree()), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
-		SessionInfo: mo.None[presentationdomain.SessionInfo](), RestoredTranscript: nil,
-		NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+		Tree:               mo.Some(controllerTree()),
+		NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+		SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+		RestoredTranscript: nil,
+		NextInput:          mo.None[string](),
+		Issues:             nil,
+		FailureMessage:     mo.None[string](),
+		AddedEntry: mo.None[presentationdomain.
+			TreeEntry](),
 	}))
 
 	// Assert /fork also refreshes the tree and opens user-only target selection.
@@ -174,9 +222,15 @@ func TestTreeInteractionUsesLocalSearchFiltersFoldingAndDurableLabels(t *testing
 		t,
 		model,
 		treeControllerEvent(presentationdomain.EventEntryLabelSet, presentationdomain.TreeEvent{
-			Tree: mo.Some(committed), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
-			SessionInfo: mo.None[presentationdomain.SessionInfo](), RestoredTranscript: nil,
-			NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+			Tree:               mo.Some(committed),
+			NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
+			SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+			RestoredTranscript: nil,
+			NextInput:          mo.None[string](),
+			Issues:             nil,
+			FailureMessage:     mo.None[string](),
+			AddedEntry: mo.None[presentationdomain.
+				TreeEntry](),
 		}),
 	)
 
@@ -195,8 +249,14 @@ func TestTreeViewRendersStructureActiveStateKindsLabelsAndSummary(t *testing.T) 
 	model.width = 120
 	tree := controllerTree()
 	tree.Entries = append(tree.Entries, presentationdomain.TreeEntry{
-		ID: "summary", ParentID: mo.Some("model"), CreatedAt: time.Unix(2, 0).UTC(), Label: "summary-label",
-		Kind: presentationdomain.TreeEntryBranchSummary, Text: "abandoned decisions",
+		ID:        "summary",
+		ParentID:  mo.Some("model"),
+		CreatedAt: time.Unix(2, 0).UTC(),
+		Label:     "summary-label",
+		Kind:      presentationdomain.TreeEntryBranchSummary,
+		Text:      "abandoned decisions",
+		ExtensionMessage: mo.None[presentationdomain.
+			ExtensionMessage](),
 	})
 	tree.ActiveLeafID = mo.Some("summary")
 	panel := presentationdomain.NewTreePanel(tree, presentationdomain.TreePurposeNavigate)
@@ -307,7 +367,8 @@ func TestForkAndCloneResultsReplaceOnlyAfterDurableFrames(t *testing.T) {
 				RestoredTranscript: []presentationdomain.Line{controllerLine("replacement")},
 				NextInput:          testCase.nextInput,
 				Issues:             nil,
-				FailureMessage:     mo.None[string](),
+				FailureMessage:     mo.None[string](), AddedEntry: mo.None[presentationdomain.
+							TreeEntry](),
 			}))
 
 			// Assert session, transcript, and exact optional editor state come from the durable frame.
@@ -365,7 +426,8 @@ func TestNavigationProgressOwnsTranscriptAndTerminalOwnsExactEditorReplacement(t
 			RestoredTranscript: nil,
 			NextInput:          mo.None[string](),
 			Issues:             nil,
-			FailureMessage:     mo.Some("session operation is busy"),
+			FailureMessage:     mo.Some("session operation is busy"), AddedEntry: mo.None[presentationdomain.
+						TreeEntry](),
 		}),
 	)
 	require.Equal(t, oldTranscript, model.state.Transcript)
@@ -382,7 +444,8 @@ func TestNavigationProgressOwnsTranscriptAndTerminalOwnsExactEditorReplacement(t
 			Issues: []presentationdomain.OperationIssue{
 				{Code: "HANDLER_ERROR", ExtensionID: "ext", HandlerID: "handler", Message: "safe issue"},
 			},
-			FailureMessage: mo.None[string](),
+			FailureMessage: mo.None[string](), AddedEntry: mo.None[presentationdomain.
+					TreeEntry](),
 		}),
 	)
 	require.Equal(t, oldTranscript, model.state.Transcript)
@@ -394,10 +457,15 @@ func TestNavigationProgressOwnsTranscriptAndTerminalOwnsExactEditorReplacement(t
 		t,
 		model,
 		treeControllerEvent(presentationdomain.EventSessionTreeNavigationProgress, presentationdomain.TreeEvent{
-			Tree: mo.Some(controllerTree()), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
+			Tree:               mo.Some(controllerTree()),
+			NavigationStatus:   presentationdomain.TreeNavigationUnspecified,
 			SessionInfo:        mo.None[presentationdomain.SessionInfo](),
 			RestoredTranscript: []presentationdomain.Line{controllerLine("new")},
-			NextInput:          mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+			NextInput:          mo.None[string](),
+			Issues:             nil,
+			FailureMessage:     mo.None[string](),
+			AddedEntry: mo.None[presentationdomain.
+				TreeEntry](),
 		}),
 	)
 	model = updateModel(
@@ -410,7 +478,8 @@ func TestNavigationProgressOwnsTranscriptAndTerminalOwnsExactEditorReplacement(t
 			RestoredTranscript: nil,
 			NextInput:          mo.Some(" exact next input "),
 			Issues:             nil,
-			FailureMessage:     mo.None[string](),
+			FailureMessage:     mo.None[string](), AddedEntry: mo.None[presentationdomain.
+						TreeEntry](),
 		}),
 	)
 
