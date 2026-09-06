@@ -21,7 +21,7 @@ Documents:
 
 Status: Planned
 
-Execution position: Shared error transport in Blocking contract operation processing, logical model execution semantics in PHS-06, provider source classification in PHS-12, and final closure after PHS-12.
+Execution position: Shared error transport in Blocking contract operation processing, the approved but unimplemented history-persistence failure distinction in PHS-07.1, broader logical model execution semantics in PHS-06, provider source classification in PHS-12, and final closure after PHS-12.
 
 Track the cross-phase closure of terminal agent-run failure semantics across their owning roadmap phases.
 

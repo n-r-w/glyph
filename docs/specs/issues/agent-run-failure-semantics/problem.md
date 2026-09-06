@@ -2,11 +2,11 @@
 
 ## Context
 
-The [Blocking contract operation processing Technical Solution](../blocking-contract-operation-processing/solution.md) introduces `Failed.code` for an accepted Programmatic `UserRequest` and UI `SubmitCommand`. Its current `RUN-F` definition contains only `INTERNAL`. The roadmap assigns logical model-execution outcomes to PHS-06 and provider source classification to PHS-12 before `RUN-F` can expose additional categories.
+The [Blocking contract operation processing Technical Solution](../blocking-contract-operation-processing/solution.md#operation-inventory) defines `Failed.code` for an accepted Programmatic `UserRequest` and UI `SubmitCommand`. The approved [PHS-07.1 correction](../../features/initial/phases/07.1-architecture-audit-and-correction/solution.md#source-backed-persistence-classification) adds a source-backed history-persistence distinction to `RUN-F`. That behavior is not implemented. Logical model-execution outcomes beyond this distinction remain in PHS-06, and provider source classification remains in PHS-12.
 
 ## Problem Statement
 
-Glyph has no agreed end-to-end definition of which terminal agent-run failure causes clients must distinguish beyond `INTERNAL`. The current runtime cannot derive stable client categories for these causes at the client boundary.
+Beyond the approved history-persistence distinction, Glyph has no agreed end-to-end definition of terminal agent-run failure categories. The runtime still exposes only `INTERNAL` for accepted-run failures; the approved distinction and broader model/provider classifications are not implemented at the client boundary.
 
 ## Who is affected
 
@@ -16,7 +16,8 @@ Glyph has no agreed end-to-end definition of which terminal agent-run failure ca
 
 ## Evidence
 
-- [APC-20](../blocking-contract-operation-processing/solution.md) defines the current `RUN-F` set as `INTERNAL` and assigns later category work to PHS-06 and PHS-12.
+- [APC-20](../blocking-contract-operation-processing/solution.md#operation-inventory) defines the approved `RUN-F` mapping and assigns the history-persistence correction to PHS-07.1. Broader category work remains in PHS-06 and PHS-12.
+- `host/internal/usecase/agent/run/interfaces.go` exposes the history-persistence failure identity, which the baseline client mappings do not distinguish.
 - `host/internal/usecase/host/programmatic/prepared.go` maps every unclassified accepted-run error to `INTERNAL` through `failureCode`.
 - Provider errors reach Agent Core as Go errors without a provider-neutral terminal failure kind.
 - Extension tool execution errors become model-visible error tool results and do not directly fail the parent agent run.
@@ -25,7 +26,7 @@ Glyph has no agreed end-to-end definition of which terminal agent-run failure ca
 ## Impact
 
 - Clients can distinguish terminal agent-run failures only as `INTERNAL`.
-- Programmatic Control and UI plugins cannot expose finer terminal distinctions until their source conditions and ownership are defined.
+- The approved history-persistence distinction is not yet exposed to either client. Source conditions and ownership for broader terminal distinctions remain undefined.
 - PHS-06 and PHS-12 can define incompatible failure semantics unless the cross-phase issue is resolved.
 
 ## Reproduction Steps
@@ -37,7 +38,7 @@ Glyph has no agreed end-to-end definition of which terminal agent-run failure ca
 
 ## Current State
 
-APC-20 defines `INTERNAL` as the only current terminal agent-run failure code. The Programmatic and UI run boundaries expose that category. Other failure information is provider-specific, removed before those boundaries, or represented as nonterminal model-visible tool data. PHS-06 and PHS-12 own the later work needed to define and carry additional categories.
+The Programmatic and UI run boundaries expose only `INTERNAL` for accepted-run failures. The source-backed persistence behavior specified by APC-20 is approved but awaits PHS-07.1 implementation and verification. Other failure information remains provider-specific, is removed before client boundaries, or is represented as nonterminal model-visible tool data. PHS-06 and PHS-12 retain the broader classification work. This issue remains planned, not completed.
 
 ## Desired Outcome
 
@@ -75,6 +76,6 @@ None.
 
 ## Open Questions
 
-- Which terminal agent-run failure causes must Glyph clients distinguish?
-- Which component owns each client-visible distinction?
-- Which distinctions belong to Blocking contract operation processing, PHS-06, or PHS-12?
+- Which additional terminal agent-run failure causes must Glyph clients distinguish beyond the approved history-persistence case?
+- Which component owns each additional client-visible distinction?
+- Which remaining distinctions belong to PHS-06 or PHS-12?

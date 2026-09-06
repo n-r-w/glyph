@@ -274,7 +274,7 @@ func (*CanceledError) Unwrap() error
   - `CANCEL-R`: `INVALID_ARGUMENT`, `OPERATION_ID_IN_USE`, `TARGET_NOT_ACTIVE`.
   - `EXTENSION-R`: `READY-R` plus `BUSY`.
 - APC-20: Failed-category sets below are closed. Every set includes `INTERNAL`:
-  - `RUN-F`: `INTERNAL`. PHS-06 owns terminal logical model-execution categories after retry coordination, and PHS-12 owns provider-neutral source classification before either phase extends `RUN-F`.
+  - `RUN-F`: `PERSISTENCE_UNAVAILABLE`, `INTERNAL`. For accepted Programmatic `UserRequest` and UI `SubmitCommand` failures, a source-classified failure to persist agent history uses `PERSISTENCE_UNAVAILABLE`; other failures use `INTERNAL`. A joined failure containing that persistence cause uses the persistence category and retains every cause's complete text. [PHS-07.1](../../features/initial/phases/07.1-architecture-audit-and-correction/solution.md#source-backed-persistence-classification) owns this approved, unimplemented addition; the implemented baseline emits only `INTERNAL` for accepted-run failures. Broader logical model-execution categories remain in PHS-06, and provider source classification remains in PHS-12.
   - `AUTH-F`: `AUTHENTICATION_FAILED`, `INTERNAL`.
   - `MODEL-F`: `CREDENTIAL_UNAVAILABLE`, `INTERNAL`.
   - `SESSION-F`: `SESSION_UNAVAILABLE`, `PERSISTENCE_UNAVAILABLE`, `INTERNAL`.
