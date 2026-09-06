@@ -189,12 +189,12 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 
 ### Import rules
 
-- APC-13: `host/internal/usecase/agent/run` can import its own packages, provider-neutral packages under `host/internal/domain`, and Go or third-party utility packages that expose no Host, transport, persistence, provider, or UI concepts.
+- APC-13: `host/internal/usecase/agent/run` can import its own packages, provider-neutral packages under `host/internal/domain`, and Go or third-party utility packages that expose no Host, transport, persistence, provider, or UI concepts. It can also import Host consumer packages solely to implement their interfaces, use their provider-neutral contract types, and declare compile-time assertions. These contract imports do not by themselves violate logical independence and remain subject to Go's import-cycle checks.
 - APC-14: Packages under `host/internal/usecase/host` can import provider-neutral domain packages, controller contract types they implement, and Agent Core port types they implement. A Host use case calls Agent Core or another Host use case only through an interface declared by the calling Host use case.
 - APC-15: Packages under `host/internal/infra` can import the use-case contract types they implement and private external SDK types. They cannot contain agent-loop, selection, retry, compaction, session-navigation, or extension-ordering policy.
 - APC-16: `host/internal/app` can import concrete implementations from every Host layer to wire them. It cannot define business rules or runtime decision policy.
 - APC-17: Each plugin project root can import the matching `pkg/plugins` and `sdk/plugins` contract packages. It cannot import `host/internal` or another project root's nested `internal` packages.
-- APC-18: Agent Core cannot import `host/internal/hooks`, `host/internal/usecase/host`, `host/internal/infra`, `pkg`, `sdk`, or any package under `plugins`.
+- APC-18: Agent Core must remain independent of concrete Host implementations, Host application state, and Host policy. It cannot import `host/internal/hooks`, `host/internal/infra`, `pkg`, `sdk`, or any package under `plugins`.
 - APC-19: Packages under `host/internal/domain` can import the Go standard library and provider-neutral utility packages. They cannot import controller, use-case, infrastructure, public process contract, SDK, or plugin project packages.
 - APC-20: Packages under `host/internal/controller` can import their own consumer contracts, provider-neutral domain types, and their external transport types. They cannot import concrete Host use-case or infrastructure implementations.
 
