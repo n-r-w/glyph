@@ -11,7 +11,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 const (
@@ -22,13 +21,6 @@ const (
 	// selectionCodeCredentialUnavailable identifies unresolved configured credentials.
 	selectionCodeCredentialUnavailable = "credential_unavailable" //nolint:gosec // Public error code, not a secret.
 )
-
-// selectionFailure exposes provider-catalog failure classification without coupling to its implementation.
-type selectionFailure interface {
-	error
-	// SelectionCode returns the stable configured-selection failure code.
-	SelectionCode() string
-}
 
 // summarize executes one model request with the exact selection for the abandoned path.
 func (s *Service) summarize(
@@ -78,34 +70,34 @@ func classifyModelRequestError(ctx context.Context, err error) error {
 	if contextErr := ctx.Err(); contextErr != nil {
 		return contextErr
 	}
-	if classified, ok := errors.AsType[selectionFailure](err); ok {
+	if classified, ok := errors.AsType[SelectionFailure](err); ok {
 		switch classified.SelectionCode() {
 		case selectionCodeNotFound, selectionCodeReasoningUnsupported:
-			return fmt.Errorf("%w: %w", sessionnavigation.ErrModelUnavailable, err)
+			return fmt.Errorf("%w: %w", ErrModelUnavailable, err)
 		case selectionCodeCredentialUnavailable:
-			return fmt.Errorf("%w: %w", sessionnavigation.ErrCredentialUnavailable, err)
+			return fmt.Errorf("%w: %w", ErrCredentialUnavailable, err)
 		}
 	}
-	return fmt.Errorf("%w: %w", sessionnavigation.ErrModelFailed, err)
+	return fmt.Errorf("%w: %w", ErrModelFailed, err)
 }
 
 // validateSummaryResponse accepts only terminal visible text and validates optional normalized usage.
 func validateSummaryResponse(response model.Response) (string, mo.Option[session.TokenUsage], error) {
 	outcome, present := response.Outcome.Get()
 	if !present || outcome != model.OutcomeStop && outcome != model.OutcomeLength {
-		return "", mo.None[session.TokenUsage](), sessionnavigation.ErrModelFailed
+		return "", mo.None[session.TokenUsage](), ErrModelFailed
 	}
 	if err := response.ValidateTerminalContent(); err != nil {
-		return "", mo.None[session.TokenUsage](), fmt.Errorf("%w: %w", sessionnavigation.ErrModelFailed, err)
+		return "", mo.None[session.TokenUsage](), fmt.Errorf("%w: %w", ErrModelFailed, err)
 	}
 	for index := range response.Content {
 		if response.Content[index].Kind == model.ContentToolCall {
-			return "", mo.None[session.TokenUsage](), sessionnavigation.ErrModelFailed
+			return "", mo.None[session.TokenUsage](), ErrModelFailed
 		}
 	}
 	summary := response.Text()
 	if strings.TrimSpace(summary) == "" {
-		return "", mo.None[session.TokenUsage](), sessionnavigation.ErrModelFailed
+		return "", mo.None[session.TokenUsage](), ErrModelFailed
 	}
 	usage := mo.None[session.TokenUsage]()
 	if reported, available := response.Usage.Get(); available {
@@ -115,7 +107,7 @@ func validateSummaryResponse(response model.Response) (string, mo.Option[session
 			ReasoningTokens: reported.ReasoningTokens, TotalTokens: reported.TotalTokens,
 		}
 		if !value.Valid() {
-			return "", mo.None[session.TokenUsage](), sessionnavigation.ErrModelFailed
+			return "", mo.None[session.TokenUsage](), ErrModelFailed
 		}
 		usage = mo.Some(value)
 	}

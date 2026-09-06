@@ -58,7 +58,7 @@ func TestReplayVersion2Tree(t *testing.T) {
 	path := sessionPath(
 		root,
 		project,
-		session.Header{Version: 2, ID: "stored", CreatedAt: createdAt, WorkingDirectory: project},
+		session.Header{ID: "stored", CreatedAt: createdAt, WorkingDirectory: project},
 	)
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o600))
 

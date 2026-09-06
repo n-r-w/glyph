@@ -103,7 +103,7 @@ type Response struct {
 	// SessionInfo is present for create, resume, name, and information results.
 	SessionInfo mo.Option[session.Info]
 	// Sessions contains the ordered list result.
-	Sessions []session.Summary
+	Sessions []SessionListItem
 	// SessionEntries contains detailed active-session text entries.
 	SessionEntries []SessionEntry
 	// SessionStatistics is present only for a statistics result.

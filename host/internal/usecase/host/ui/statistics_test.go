@@ -18,15 +18,14 @@ import (
 // TestSessionInformationOperationReturnsCoherentStatistics verifies retained information and statistics delivery.
 func TestSessionInformationOperationReturnsCoherentStatistics(t *testing.T) {
 	t.Parallel()
-	// Arrange SessionControl to return one coherent information and statistics snapshot.
+	// Arrange ActiveSessions to return one coherent information and statistics snapshot.
 	controller := gomock.NewController(t)
-	control := NewMockSessionControl(controller)
+	control := NewMockActiveSessions(controller)
 	gate := NewMockGate(controller)
-	snapshot := session.InformationSnapshot{Info: session.Info{}, Statistics: session.Statistics{}}
-	control.EXPECT().Information().Return(snapshot)
+	control.EXPECT().ActiveInformation().Return(session.Info{}, session.Statistics{})
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, gate, func(context.Context) {},
+		NewMockModelCatalog(controller), control, nil, gate, func(context.Context) {},
 
 		Initialization{},
 	)

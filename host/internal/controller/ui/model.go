@@ -274,7 +274,7 @@ type Frame struct {
 	// SessionInfo is present on replacement and information frames.
 	SessionInfo mo.Option[session.Info]
 	// Sessions is populated only by a list frame.
-	Sessions []session.Summary
+	Sessions []SessionListItem
 	// SessionEntries replaces the transcript on a session-change frame.
 	SessionEntries []SessionEntry
 	// SessionStatistics is present only on a session-information frame.

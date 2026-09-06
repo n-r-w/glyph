@@ -122,7 +122,7 @@ Documents:
 
 Status: In progress
 
-Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes.
+Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 3 are implemented. Remaining corrections and whole-product architectural acceptance are open.
 
 Documents:
 - [Ticket](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md)

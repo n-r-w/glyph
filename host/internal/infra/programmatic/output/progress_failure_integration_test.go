@@ -78,7 +78,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 				return result.Outcome, err
 			},
 		)
-		service := host.New(coordinator, nil, agentCore, func() []agent.HistoryEntry { return nil }, nil, nil, delivery)
+		service := host.New(coordinator, nil, agentCore, nil, nil, nil, delivery)
 		command := controller.Command{
 			OperationID:     "progress-failure",
 			Kind:            controller.CommandUserRequest,

@@ -39,8 +39,7 @@ func (s *ServiceSuite) TestProjectDirectoryName() {
 func (s *ServiceSuite) TestSessionFilename() {
 	// Arrange a session header with a non-UTC creation time.
 	header := session.Header{
-		Version: 2,
-		ID:      "session-id",
+		ID: "session-id",
 		CreatedAt: time.Date(
 			2026, time.August, 30, 12, 34, 56, 123456789, time.FixedZone("test", 2*60*60),
 		),

@@ -13,7 +13,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/domain/session"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
@@ -110,7 +109,7 @@ func mapSessionFrame(frame controllerui.Frame) (*uiv1.HostCompleted, bool, error
 	request := new(uiv1.HostCompleted)
 	switch frame.Kind {
 	case controllerui.FrameSessionList:
-		mapped := lo.Map(frame.Sessions, func(value session.Summary, _ int) *uiv1.SessionSummary {
+		mapped := lo.Map(frame.Sessions, func(value controllerui.SessionListItem, _ int) *uiv1.SessionSummary {
 			return mapSessionSummary(value)
 		})
 		request.SetSessionList(uiv1.SessionList_builder{Sessions: mapped}.Build())

@@ -137,14 +137,14 @@ func runUIWithPaths(
 		coordinator,
 		providerCatalog,
 		providerCatalog,
-		sessionServices.control, sessionServices.gate,
+		sessionServices.active, sessionServices.tree, sessionServices.gate,
 		func(activationContext context.Context) {
 			selectionWarningsDelivered = true
 			extensions.Activate(activationContext)
 		},
 		initialization,
 	)
-	contexts.BindMessagePublisher(transport.PublishSessionEntry)
+	sessionServices.active.BindEntryPublisher(transport)
 	executionErr := controller.Execute(ctx, session)
 
 	transport.Close()

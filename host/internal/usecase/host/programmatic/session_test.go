@@ -28,7 +28,7 @@ func TestRunPreparationBusyPreservesRejectionClassification(t *testing.T) {
 	controllerMock := gomock.NewController(t)
 	coordinator := NewMockCoordinator(controllerMock)
 	coordinator.EXPECT().PrepareRun().Return("", session.ErrBusy)
-	service := New(coordinator, nil, testStateQuery(t, false), emptyHistorySnapshot, nil, nil, testRunOutput(t))
+	service := New(coordinator, nil, testStateQuery(t, false), nil, nil, nil, testRunOutput(t))
 
 	// Act by handling a user request while the run gate is reserved.
 	response, operation, err := service.handle(t.Context(), testProgrammaticUserCommand("busy", "request"))
@@ -47,7 +47,7 @@ func TestRunPreparationInternalFailurePropagates(t *testing.T) {
 	coordinator := NewMockCoordinator(controllerMock)
 	prepareErr := errors.New("allocate unique run ID")
 	coordinator.EXPECT().PrepareRun().Return("", prepareErr)
-	service := New(coordinator, nil, testStateQuery(t, false), emptyHistorySnapshot, nil, nil, testRunOutput(t))
+	service := New(coordinator, nil, testStateQuery(t, false), nil, nil, nil, testRunOutput(t))
 
 	// Act by handling a valid user request.
 	response, operation, err := service.handle(t.Context(), testProgrammaticUserCommand("internal", "request"))
@@ -78,7 +78,7 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 			mockController := gomock.NewController(t)
 			coordinator := NewMockCoordinator(mockController)
 			catalog := NewMockModelCatalog(mockController)
-			sessions := NewMockSessionControl(mockController)
+			sessions := NewMockActiveSessions(mockController)
 			selection := model.Selection{
 				Provider: "secondary-provider", Model: "secondary-model", ReasoningChoice: model.ReasoningChoiceHigh,
 			}
@@ -90,19 +90,18 @@ func TestSessionReplacementPreservesNondefaultModelSelection(t *testing.T) {
 			}
 			if test.kind == controller.CommandCreateSession {
 				sessions.EXPECT().
-					Create(gomock.Any()).
-					Return(session.Replacement{Info: info, Entries: nil}, nil)
+					CreateActive().
+					Return(info, nil, nil)
 			} else {
-				sessions.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(
-					session.Replacement{Info: info, Entries: nil}, nil,
+				sessions.EXPECT().ResumeActive(gomock.Any(), session.ID("session-id")).Return(
+					info, nil, nil,
 				)
 			}
 			service := New(
 				coordinator,
 				catalog,
 				testStateQuery(t, false),
-				emptyHistorySnapshot,
-				sessions,
+				sessions, nil,
 				nil, testRunOutput(t),
 			)
 
@@ -205,18 +204,18 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			control := NewMockSessionControl(gomock.NewController(t))
+			control := NewMockActiveSessions(gomock.NewController(t))
 			gate := NewMockGate(gomock.NewController(t))
 			switch test.kind {
 			case controller.CommandCreateSession:
-				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{}, test.operationErr)
+				control.EXPECT().CreateActive().Return(session.Info{}, nil, test.operationErr)
 			case controller.CommandResumeSession:
 				control.EXPECT().
-					Resume(gomock.Any(), test.sessionID.MustGet()).
-					Return(session.Replacement{}, test.operationErr)
+					ResumeActive(gomock.Any(), test.sessionID.MustGet()).
+					Return(session.Info{}, nil, test.operationErr)
 			case controller.CommandSetSessionName:
 				control.EXPECT().
-					SetName(gomock.Any(), test.sessionName.MustGet()).
+					SetActiveName(gomock.Any(), test.sessionName.MustGet()).
 					Return(session.Info{}, test.operationErr)
 			case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandCancel,
 				controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
@@ -227,7 +226,7 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 				controller.CommandForkSession, controller.CommandCloneSession, controller.CommandSetEntryLabel:
 				t.Fatalf("unsupported command kind %d", test.kind)
 			}
-			service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
+			service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t))
 			response, operation, err := service.handle(t.Context(), controller.Command{
 				OperationID:     test.name,
 				Kind:            test.kind,
@@ -257,10 +256,10 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 	t.Parallel()
 
 	// Arrange session control to return an invalid stored model response.
-	control := NewMockSessionControl(gomock.NewController(t))
+	control := NewMockActiveSessions(gomock.NewController(t))
 	gate := NewMockGate(gomock.NewController(t))
 	control.EXPECT().
-		Entries().
+		ActiveEntries().
 		Return([]session.Entry{
 			{
 				ParentID:      mo.None[string](),
@@ -275,7 +274,7 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 				BranchSummary: mo.None[session.BranchSummaryEntry](),
 			},
 		})
-	service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
+	service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t))
 
 	// Act by requesting the active session entries.
 	response, operation, err := service.handle(
@@ -297,7 +296,7 @@ func TestInvalidStoredSessionEntryProjectionIsRejected(t *testing.T) {
 func TestSessionLifecycleCommands(t *testing.T) {
 	t.Parallel()
 
-	// Arrange create, list, resume, name, and information commands with session-control expectations.
+	// Arrange create, list, resume, name, and information commands with active-session expectations.
 	info := session.Info{
 		ID:               "session-id",
 		Name:             mo.Some("named"),
@@ -312,22 +311,24 @@ func TestSessionLifecycleCommands(t *testing.T) {
 		sessionID    mo.Option[session.ID]
 		sessionName  mo.Option[string]
 		expectedKind controller.ResponseKind
-		expect       func(*MockSessionControl)
+		expect       func(*MockActiveSessions)
 	}{
 		{
 			name: "create", kind: controller.CommandCreateSession,
 			sessionID: mo.None[session.ID](), sessionName: mo.None[string](),
 			expectedKind: controller.ResponseSessionInfo,
-			expect: func(control *MockSessionControl) {
-				control.EXPECT().Create(gomock.Any()).Return(session.Replacement{Info: info, Entries: nil}, nil)
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().CreateActive().Return(info, nil, nil)
 			},
 		},
 		{
 			name: "list", kind: controller.CommandListSessions,
 			sessionID: mo.None[session.ID](), sessionName: mo.None[string](),
 			expectedKind: controller.ResponseSessions,
-			expect: func(control *MockSessionControl) {
-				control.EXPECT().List(gomock.Any()).Return([]session.Summary{{
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().ListProgrammaticSessions(gomock.Any()).Return([]StoredSession{{
+					Info: info, FirstUserText: mo.Some(" \r\nfirst\r\n\nrequest\t "), TotalMessages: 1,
+				}, {
 					Info: info, FirstUserText: mo.None[string](), TotalMessages: 0,
 				}}, nil)
 			},
@@ -336,9 +337,9 @@ func TestSessionLifecycleCommands(t *testing.T) {
 			name: "resume", kind: controller.CommandResumeSession,
 			sessionID: mo.Some(session.ID("session-id")), sessionName: mo.None[string](),
 			expectedKind: controller.ResponseSessionInfo,
-			expect: func(control *MockSessionControl) {
-				control.EXPECT().Resume(gomock.Any(), session.ID("session-id")).Return(
-					session.Replacement{Info: info, Entries: nil}, nil,
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().ResumeActive(gomock.Any(), session.ID("session-id")).Return(
+					info, nil, nil,
 				)
 			},
 		},
@@ -346,24 +347,24 @@ func TestSessionLifecycleCommands(t *testing.T) {
 			name: "name", kind: controller.CommandSetSessionName,
 			sessionID: mo.None[session.ID](), sessionName: mo.Some("named"),
 			expectedKind: controller.ResponseSessionInfo,
-			expect: func(control *MockSessionControl) {
-				control.EXPECT().SetName(gomock.Any(), "named").Return(info, nil)
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().SetActiveName(gomock.Any(), "named").Return(info, nil)
 			},
 		},
 		{
 			name: "information", kind: controller.CommandGetSessionInfo,
 			sessionID: mo.None[session.ID](), sessionName: mo.None[string](),
 			expectedKind: controller.ResponseSessionInfo,
-			expect:       func(control *MockSessionControl) { control.EXPECT().Info().Return(info) },
+			expect:       func(control *MockActiveSessions) { control.EXPECT().ActiveInfo().Return(info) },
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			control := NewMockSessionControl(gomock.NewController(t))
+			control := NewMockActiveSessions(gomock.NewController(t))
 			gate := NewMockGate(gomock.NewController(t))
 			test.expect(control)
-			service := New(nil, nil, testStateQuery(t, false), emptyHistorySnapshot, control, gate, testRunOutput(t))
+			service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t))
 
 			// Act by handling the lifecycle command through Programmatic Control.
 			response, operation, err := service.handle(t.Context(), controller.Command{
@@ -385,6 +386,12 @@ func TestSessionLifecycleCommands(t *testing.T) {
 			require.NoError(t, err)
 			assert.Nil(t, operation)
 			assert.Equal(t, test.expectedKind, response.Kind)
+			if test.expectedKind == controller.ResponseSessions {
+				require.Len(t, response.Sessions, 2)
+				assert.Equal(t, mo.Some("first request"), response.Sessions[0].FirstUserText)
+				assert.Equal(t, 1, response.Sessions[0].TotalMessages)
+				assert.True(t, response.Sessions[1].FirstUserText.IsNone())
+			}
 		})
 	}
 }

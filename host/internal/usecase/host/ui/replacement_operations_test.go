@@ -38,7 +38,7 @@ func TestUISessionMutationOwnsGate(t *testing.T) {
 
 			// Arrange one label mutation and observable gate ownership.
 			controller := gomock.NewController(t)
-			control := NewMockSessionControl(controller)
+			control := NewMockActiveSessions(controller)
 			gate := NewMockGate(controller)
 			released := false
 			gate.EXPECT().TryAcquire().Return(func() { released = true }, test.acquired)
@@ -75,14 +75,14 @@ func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 	for _, test := range []struct {
 		name         string
 		command      controllerui.Command
-		expect       func(*MockSessionControl)
+		expect       func(*MockActiveSessions)
 		expectedKind controllerui.FrameKind
 		assert       func(*testing.T, controllerui.Frame)
 	}{
 		{
 			name: "fork", command: uiReplacementCommand(controllerui.CommandForkSession, mo.Some("target"), mo.None[string]()),
-			expect: func(control *MockSessionControl) {
-				control.EXPECT().Fork(gomock.Any(), "target").Return(replacementResult(), "exact input", nil)
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().ForkActive(gomock.Any(), "target").Return(replacementResult(), nil, "exact input", nil)
 			},
 			expectedKind: controllerui.FrameSessionForked,
 			assert: func(t *testing.T, frame controllerui.Frame) {
@@ -91,8 +91,8 @@ func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 		},
 		{
 			name: "clone", command: uiReplacementCommand(controllerui.CommandCloneSession, mo.None[string](), mo.None[string]()),
-			expect: func(control *MockSessionControl) {
-				control.EXPECT().Clone(gomock.Any()).Return(replacementResult(), nil)
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().CloneActive(gomock.Any()).Return(replacementResult(), nil, nil)
 			},
 			expectedKind: controllerui.FrameSessionCloned,
 			assert: func(t *testing.T, frame controllerui.Frame) {
@@ -101,7 +101,7 @@ func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 		},
 		{
 			name: "label", command: uiReplacementCommand(controllerui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch")),
-			expect: func(control *MockSessionControl) {
+			expect: func(control *MockActiveSessions) {
 				tree, err := session.NewTree(nil, mo.None[string](), nil)
 				require.NoError(t, err)
 				control.EXPECT().SetLabel(gomock.Any(), "target", "branch").Return(tree, nil)
@@ -112,9 +112,9 @@ func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange SessionControl for the case-specific replacement or label command.
+			// Arrange ActiveSessions for the case-specific replacement or label command.
 			controller := gomock.NewController(t)
-			control := NewMockSessionControl(controller)
+			control := NewMockActiveSessions(controller)
 			gate := NewMockGate(controller)
 			expectSessionMutationGate(gate, 1)
 			test.expect(control)
@@ -133,12 +133,12 @@ func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 // TestForkFailurePreservesSessionCause verifies failed replacement operations expose the original cause.
 func TestForkFailurePreservesSessionCause(t *testing.T) {
 	t.Parallel()
-	// Arrange SessionControl to reject one fork with ErrInvalidForkTarget.
+	// Arrange ActiveSessions to reject one fork with ErrInvalidForkTarget.
 	controller := gomock.NewController(t)
-	control := NewMockSessionControl(controller)
+	control := NewMockActiveSessions(controller)
 	gate := NewMockGate(controller)
 	expectSessionMutationGate(gate, 1)
-	control.EXPECT().Fork(gomock.Any(), "model").Return(session.Replacement{}, "", session.ErrInvalidForkTarget)
+	control.EXPECT().ForkActive(gomock.Any(), "model").Return(session.Info{}, nil, "", session.ErrInvalidForkTarget)
 
 	// Act by running the prepared fork command against the rejected target.
 	_, err := runPreparedCommand(t, replacementService(controller, control, gate), uiReplacementCommand(
@@ -150,10 +150,10 @@ func TestForkFailurePreservesSessionCause(t *testing.T) {
 }
 
 // replacementService creates one session service for prepared replacement operations.
-func replacementService(controller *gomock.Controller, control *MockSessionControl, gate *MockGate) *Session {
+func replacementService(controller *gomock.Controller, control *MockActiveSessions, gate *MockGate) *Session {
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, gate, func(context.Context) {},
+		NewMockModelCatalog(controller), control, nil, gate, func(context.Context) {},
 
 		Initialization{},
 	)
@@ -170,9 +170,9 @@ func uiReplacementCommand(kind controllerui.CommandKind, target, label mo.Option
 }
 
 // replacementResult returns one committed replacement fixture.
-func replacementResult() session.Replacement {
-	return session.Replacement{Info: session.Info{
+func replacementResult() session.Info {
+	return session.Info{
 		ID: "replacement", Name: mo.None[string](), WorkingDirectory: "/project",
 		StoragePath: mo.Some("/sessions/replacement.jsonl"), CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(1, 0),
-	}, Entries: nil}
+	}
 }

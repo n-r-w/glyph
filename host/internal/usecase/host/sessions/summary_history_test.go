@@ -15,7 +15,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 // TestHistoryFromEntriesProjectsBranchSummaryAsSyntheticUserContext verifies provider-neutral summary replay and
@@ -62,7 +61,7 @@ func TestHistoryFromEntriesProjectsBranchSummaryAsSyntheticUserContext(t *testin
 	}
 
 	// Act by projecting the active entries into provider history.
-	history := sessiontree.HistoryFromEntries(entries)
+	history := historyFromEntries(entries)
 
 	// Assert the summary is one synthetic user message and hidden extension data is absent.
 	require.Len(t, history, 1)

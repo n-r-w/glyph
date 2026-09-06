@@ -30,7 +30,7 @@ func TestSelectionOperationCommitsAndReturnsSelection(t *testing.T) {
 	catalog.EXPECT().ActiveSelection().Return(selection)
 	catalog.EXPECT().SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).Return(selection, nil)
 	service := NewSession(
-		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil,
+		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil, nil,
 		nil, func(context.Context) {},
 
 		Initialization{},
@@ -93,7 +93,7 @@ func TestSelectionReadinessAndActiveRunIndependence(t *testing.T) {
 				NewMockAgentRunner(controller),
 				NewMockAuthenticator(controller),
 				catalog,
-				nil,
+				nil, nil,
 				nil, func(context.Context) {},
 
 				Initialization{},
@@ -133,7 +133,7 @@ func TestSelectionPreparationRejectsConcurrentCommit(t *testing.T) {
 	catalog.EXPECT().Models().Return([]model.Descriptor{selectionDescriptor()})
 	catalog.EXPECT().ActiveSelection().Return(selection)
 	service := NewSession(
-		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil,
+		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil, nil,
 		nil, func(context.Context) {},
 
 		Initialization{},

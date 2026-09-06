@@ -57,7 +57,7 @@ func (s *ServiceSuite) TestResumeFailurePreservesPreviousActiveSession() {
 	)
 
 	// Act by trying to resume the unavailable target session.
-	_, err := service.ResumeActive(s.T().Context(), session.ID("broken-id"))
+	_, _, err := service.ResumeActive(s.T().Context(), session.ID("broken-id"))
 
 	// Assert the error propagates and the previous active snapshot remains exact.
 	s.Require().ErrorIs(err, session.ErrUnavailable)
@@ -74,14 +74,14 @@ func (s *ServiceSuite) TestCreateReplacesActiveSessionWithIndependentSnapshot() 
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by creating the active session and mutating the returned replacement.
-	created, err := service.CreateActive(s.T().Context())
+	createdInfo, createdEntries, err := service.CreateActive()
 	s.Require().NoError(err)
-	s.Equal(session.ID("created-id"), created.Info.ID)
-	s.False(created.Info.Name.IsPresent())
-	s.False(created.Info.StoragePath.IsPresent())
-	s.Equal(createdAt, created.Info.CreatedAt)
-	s.Empty(created.Entries)
-	created.Info.Name = mo.Some("caller mutation")
+	s.Equal(session.ID("created-id"), createdInfo.ID)
+	s.False(createdInfo.Name.IsPresent())
+	s.False(createdInfo.StoragePath.IsPresent())
+	s.Equal(createdAt, createdInfo.CreatedAt)
+	s.Empty(createdEntries)
+	createdInfo.Name = mo.Some("caller mutation")
 
 	// Assert the service retains independent active-session metadata.
 	active := service.ActiveInfo()
@@ -102,7 +102,6 @@ func (s *ServiceSuite) TestSetNamePersistsNormalizedNameBeforeUpdatingSnapshot()
 	s.clock.EXPECT().Now().Return(updatedAt)
 	s.repository.EXPECT().Apply(gomock.Any(), ApplyCommand{
 		Header: session.Header{
-			Version:          2,
 			ID:               "session-id",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
@@ -194,7 +193,6 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{
 		{
 			Header: session.Header{
-				Version:          1,
 				ID:               "older",
 				CreatedAt:        base,
 				WorkingDirectory: "/project",
@@ -206,7 +204,6 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 		},
 		{
 			Header: session.Header{
-				Version:          1,
 				ID:               "z-id",
 				CreatedAt:        base.Add(time.Minute),
 				WorkingDirectory: "/project",
@@ -218,7 +215,6 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 		},
 		{
 			Header: session.Header{
-				Version:          1,
 				ID:               "a-id",
 				CreatedAt:        base.Add(time.Minute),
 				WorkingDirectory: "/project",
@@ -232,7 +228,7 @@ func (s *ServiceSuite) TestListOrdersUpdatesAndUsesUnnamedIDFallbackData() {
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by listing reconstructed session summaries.
-	listed, err := service.ListStored(s.T().Context())
+	listed, err := service.ListProgrammaticSessions(s.T().Context())
 	// Assert summaries use deterministic update order and absent fallback fields.
 	s.Require().NoError(err)
 	s.Require().Len(listed, 3)
@@ -253,7 +249,7 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{
 		{
-			Header:      session.Header{Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
+			Header:      session.Header{ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project"},
 			StoragePath: "/sessions/stored.jsonl",
 
 			Information:          mo.None[session.Information](),
@@ -313,7 +309,7 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by listing the stored session.
-	listed, err := service.ListStored(s.T().Context())
+	listed, err := service.ListProgrammaticSessions(s.T().Context())
 
 	// Assert the summary counts every terminal message including tool results.
 	s.Require().NoError(err)
@@ -326,7 +322,7 @@ func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 	// Arrange a stored session with caller-owned session information.
 	createdAt := time.Date(2026, 8, 26, 20, 0, 0, 0, time.UTC)
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
-		Header:      session.Header{Version: 2, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
+		Header:      session.Header{ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project"},
 		StoragePath: "/sessions/stored.jsonl", Tree: mustSessionTree(nil),
 		Information:          mo.Some(session.Information{Name: "stored name"}),
 		InformationUpdatedAt: mo.Some(createdAt.Add(time.Minute)),
@@ -334,10 +330,10 @@ func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by resuming and mutating source and returned replacement values.
-	replacement, err := service.ResumeActive(s.T().Context(), "stored-id")
+	replacementInfo, replacementEntries, err := service.ResumeActive(s.T().Context(), "stored-id")
 	s.Require().NoError(err)
-	s.Empty(replacement.Entries)
-	replacement.Info.Name = mo.Some("mutated result")
+	s.Empty(replacementEntries)
+	replacementInfo.Name = mo.Some("mutated result")
 	// Assert the active session retains independently owned metadata.
 	active := service.ActiveInfo()
 	s.Equal(session.ID("stored-id"), active.ID)
@@ -352,7 +348,7 @@ func (s *ServiceSuite) TestResumeReturnsIndependentSnapshot() {
 	published := service.ContextSession()
 	service.mutex.Unlock()
 	s.Equal(first, published)
-	_, err = service.ResumeActive(s.T().Context(), "stored-id")
+	_, _, err = service.ResumeActive(s.T().Context(), "stored-id")
 	s.Require().NoError(err)
 	resumed := service.ContextSession()
 	s.Equal(first.ID, resumed.ID)
@@ -383,7 +379,7 @@ func (s *ServiceSuite) TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots() {
 	}
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored-id")).Return(LoadedSession{
 		Header: session.Header{
-			Version: 1, ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project",
+			ID: "stored-id", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/stored.jsonl", Tree: mustSessionTree(entries),
 		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
@@ -391,10 +387,10 @@ func (s *ServiceSuite) TestResumeOwnsExtensionEnvelopeBytesAcrossSnapshots() {
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 
 	// Act by resuming, then mutating repository input, returned replacement, and one active snapshot.
-	replacement, err := service.ResumeActive(s.T().Context(), "stored-id")
+	_, replacementEntries, err := service.ResumeActive(s.T().Context(), "stored-id")
 	s.Require().NoError(err)
 	repositoryBytes[0] = 'X'
-	replacement.Entries[0].Extension.MustGet().Data[1] = 'Y'
+	replacementEntries[0].Extension.MustGet().Data[1] = 'Y'
 	firstSnapshot := service.ActiveEntries()
 	firstSnapshot[0].Extension.MustGet().Data[2] = 'Z'
 	laterSnapshot := service.ActiveEntries()
@@ -413,7 +409,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 	s.ids.EXPECT().NewID().Return("old-session", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
-	_, err := service.CreateActive(s.T().Context())
+	_, _, err := service.CreateActive()
 	s.Require().NoError(err)
 
 	loadStarted := make(chan struct{})
@@ -424,7 +420,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 			<-releaseLoad
 			return LoadedSession{
 				Header: session.Header{
-					Version: 1, ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project",
+					ID: "stored", CreatedAt: createdAt, WorkingDirectory: "/project",
 				},
 				StoragePath: "/sessions/stored.jsonl",
 				Tree: mustSessionTree([]session.Entry{{
@@ -441,7 +437,7 @@ func (s *ServiceSuite) TestResumeSerializesWithCompletedTextAppend() {
 	resumeDone := make(chan error, 1)
 	// Act by starting resume and append operations while controlling load release.
 	go func() {
-		_, resumeErr := service.ResumeActive(s.T().Context(), "stored")
+		_, _, resumeErr := service.ResumeActive(s.T().Context(), "stored")
 		resumeDone <- resumeErr
 	}()
 	<-loadStarted

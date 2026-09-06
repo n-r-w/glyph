@@ -19,8 +19,10 @@ type Session struct {
 	authenticator Authenticator
 	// modelCatalog owns configured models and the active selection.
 	modelCatalog ModelCatalog
-	// sessionControl owns active-session lifecycle operations.
-	sessionControl SessionControl
+	// activeSessions owns active-session lifecycle operations.
+	activeSessions ActiveSessions
+	// navigator owns handler policy and navigation commit orchestration.
+	navigator Navigator
 	// gate owns admission against agent execution.
 	gate Gate
 	// afterInitialization starts work that requires a connected UI.
@@ -41,19 +43,20 @@ func NewSession(
 	runner AgentRunner,
 	authenticator Authenticator,
 	modelCatalog ModelCatalog,
-	sessionControl SessionControl,
+	activeSessions ActiveSessions,
+	navigator Navigator,
 	gate Gate,
 	afterInitialization func(context.Context),
 	initialization Initialization,
 ) *Session {
 	return &Session{
-		output:                output,
-		initialization:        initialization,
-		runner:                runner,
-		authenticator:         authenticator,
-		modelCatalog:          modelCatalog,
-		gate:                  gate,
-		sessionControl:        sessionControl,
+		output:         output,
+		initialization: initialization,
+		runner:         runner,
+		authenticator:  authenticator,
+		modelCatalog:   modelCatalog,
+		gate:           gate,
+		activeSessions: activeSessions, navigator: navigator,
 		afterInitialization:   afterInitialization,
 		operationMutex:        sync.Mutex{},
 		operationAvailability: AvailabilityCheckingAuthentication,

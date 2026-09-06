@@ -79,8 +79,6 @@ type Service struct {
 	mutex sync.Mutex
 	// catalog is bound after provider construction.
 	catalog Catalog
-	// messagePublisher enqueues committed message events on the active client writer.
-	messagePublisher func(session.Entry) (wait func(context.Context) error, err error)
 	// bindings retains only the latest binding for each extension.
 	bindings map[string]binding
 }
@@ -96,7 +94,7 @@ var (
 func New(runtime RuntimeState, sessionState SessionState) *Service {
 	return &Service{
 		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, catalog: nil,
-		messagePublisher: nil, bindings: make(map[string]binding),
+		bindings: make(map[string]binding),
 	}
 }
 
@@ -105,15 +103,6 @@ func (s *Service) BindCatalog(catalog Catalog) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.catalog = catalog
-}
-
-// BindMessagePublisher installs client publication after active client construction.
-func (s *Service) BindMessagePublisher(
-	publisher func(session.Entry) (wait func(context.Context) error, err error),
-) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.messagePublisher = publisher
 }
 
 // IssueContext returns the binding for one accepted runtime and active-session incarnation.
@@ -290,9 +279,6 @@ func (s *Service) AppendExtensionMessage(
 	if err != nil {
 		return extensioncontroller.AppendMessageResult{}, err
 	}
-	s.mutex.Lock()
-	publisher := s.messagePublisher
-	s.mutex.Unlock()
 	entry, err := s.session.AppendExtensionMessage(
 		ctx,
 		expected,
@@ -300,7 +286,6 @@ func (s *Service) AppendExtensionMessage(
 			ExtensionID: extensionID, EntryType: entryType, Text: text, Visibility: visibility,
 		},
 		func() (func(), error) { return s.runtime.BeginContextCommit(extensionID, runtimeID) },
-		publisher,
 	)
 	if entry.ID != "" && err != nil {
 		return committedDeliveryFailure(entry, extensionID, err)

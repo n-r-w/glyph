@@ -65,7 +65,7 @@ func TestMapResponsePreservesSessionPresence(t *testing.T) {
 		Models:            mo.None[ModelsResult](),
 		Selection:         mo.None[model.Selection](),
 		SessionInfo:       mo.None[session.Info](),
-		Sessions:          []session.Summary{{Info: info, FirstUserText: mo.Some("first"), TotalMessages: 2}},
+		Sessions:          []SessionListItem{{Info: info, FirstUserText: mo.Some("first"), TotalMessages: 2}},
 		Rejection:         mo.None[Rejection](),
 		SessionTree:       mo.None[SessionTree](),
 		TreeNavigation:    mo.None[TreeNavigationResult](),

@@ -57,7 +57,7 @@ func TestApplySynchronizesOneTreeMutation(t *testing.T) {
 
 	// Act by applying the complete initial mutation.
 	result, err := repository.Apply(t.Context(), hostsessions.ApplyCommand{
-		Header:      session.Header{Version: 2, ID: "stored", CreatedAt: createdAt, WorkingDirectory: project},
+		Header:      session.Header{ID: "stored", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Mutation: hostsessions.Mutation{
 			Entry:              mo.Some(entry),
@@ -117,7 +117,7 @@ func TestCreateSnapshotPreservesTreeIdentity(t *testing.T) {
 
 	// Act by creating and replaying the replacement snapshot.
 	result, err := repository.CreateSnapshot(t.Context(), hostsessions.CreateSnapshotCommand{
-		Header: session.Header{Version: 2, ID: "replacement", CreatedAt: createdAt, WorkingDirectory: project},
+		Header: session.Header{ID: "replacement", CreatedAt: createdAt, WorkingDirectory: project},
 		Tree:   tree, Information: mo.Some(session.Information{Name: "copy"}),
 		InformationUpdatedAt: mo.Some(informationUpdatedAt),
 	})

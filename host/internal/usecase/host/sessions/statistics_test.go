@@ -80,7 +80,7 @@ func TestStoredSummaryAndActiveStatisticsShareMessageCounts(t *testing.T) {
 	}
 	loaded := LoadedSession{
 		Header: session.Header{
-			Version: 1, ID: "stored", CreatedAt: time.Time{}, WorkingDirectory: "/project",
+			ID: "stored", CreatedAt: time.Time{}, WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/stored.jsonl", Tree: mustSessionTree(entries),
 		Information: mo.Some(session.Information{Name: "name"}), InformationUpdatedAt: mo.Some(time.Time{}),
@@ -90,7 +90,7 @@ func TestStoredSummaryAndActiveStatisticsShareMessageCounts(t *testing.T) {
 	service.active = loaded
 
 	// Act by reading the stored summary and active statistics for the same entries.
-	listed, err := service.ListStored(t.Context())
+	listed, err := service.ListProgrammaticSessions(t.Context())
 	require.NoError(t, err)
 	statistics := service.ActiveStatistics()
 
@@ -130,7 +130,7 @@ func TestActiveInformationWaitsForDurableAppendAndReturnsCommittedSnapshot(t *te
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version: 1, ID: "active", CreatedAt: createdAt, WorkingDirectory: "/project",
+			ID: "active", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
 		StoragePath:          "/sessions/active.jsonl",
 		Tree:                 session.Tree{},
@@ -139,7 +139,14 @@ func TestActiveInformationWaitsForDurableAppendAndReturnsCommittedSnapshot(t *te
 	}
 	appendDone := make(chan error, 1)
 	informationStarted := make(chan struct{})
-	informationDone := make(chan session.InformationSnapshot, 1)
+	// informationResult carries the paired query values across the test goroutine.
+	type informationResult struct {
+		// Info contains the committed metadata.
+		Info session.Info
+		// Statistics contains the accounting from the same lock acquisition.
+		Statistics session.Statistics
+	}
+	informationDone := make(chan informationResult, 1)
 
 	// Act by blocking the writer in persistence, then starting the public information query.
 	go func() {
@@ -151,10 +158,11 @@ func TestActiveInformationWaitsForDurableAppendAndReturnsCommittedSnapshot(t *te
 	<-repositoryReached
 	go func() {
 		close(informationStarted)
-		informationDone <- service.ActiveInformation()
+		info, statistics := service.ActiveInformation()
+		informationDone <- informationResult{Info: info, Statistics: statistics}
 	}()
 	<-informationStarted
-	snapshot := session.InformationSnapshot{}
+	snapshot := informationResult{}
 	completedEarly := false
 	// Assert the query does not complete during the bounded observation before repository release.
 	select {

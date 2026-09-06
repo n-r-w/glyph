@@ -13,18 +13,20 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
 // TestRealExtensionChecksCredentialsOnlyAfterClearing verifies real catalog dispatch and credential-check counts.
@@ -103,14 +105,14 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 			tree := grpcNavigationTree(t)
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
-			publisher := func(sessionnavigation.Progress) error { return nil }
+			publisher := func(session.Tree) error { return nil }
 			if mode != summaryControlClearMode {
 				active.EXPECT().
 					CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(func(
 						_ context.Context,
 						command sessiontree.CommitCommand,
-						_ func(sessionnavigation.Progress) error,
+						_ func(session.Tree) error,
 					) (sessiontree.NavigationCommit, error) {
 						assert.Equal(
 							t,
@@ -127,20 +129,20 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 			}
 
 			// Act through the real Extension Contract; the model provider has no stream expectation.
-			result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+			result, err := service.NavigateUI(t.Context(), hostui.NavigationIntent{
 				TargetEntryID: "user",
-				SummaryMode:   sessionnavigation.SummaryModeSummarize,
+				SummaryMode:   controllerui.SummaryModeSummarize,
 				CustomFocus:   mo.None[string](),
 			}, publisher)
 
 			// Assert replacement avoids credential checks, while clearing performs one check before any commit.
 			if mode == summaryControlClearMode {
-				require.ErrorIs(t, err, sessionnavigation.ErrCredentialUnavailable)
+				require.ErrorIs(t, err, sessiontree.ErrCredentialUnavailable)
 				assert.Contains(t, err.Error(), "resolve credentials: missing API key")
 				assert.Equal(t, int64(1), checks.Load())
 			} else {
 				require.NoError(t, err)
-				assert.False(t, result.Canceled)
+				assert.True(t, result.Committed.IsSome())
 				assert.Equal(t, int64(0), checks.Load())
 				require.Len(t, result.Issues, 3)
 			}

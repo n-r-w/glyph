@@ -17,7 +17,6 @@ import (
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
-	sessionnavigation "github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -46,7 +45,7 @@ func (m *MockActiveSession) EXPECT() *MockActiveSessionMockRecorder {
 }
 
 // CommitNavigation mocks base method.
-func (m *MockActiveSession) CommitNavigation(arg0 context.Context, arg1 CommitCommand, arg2 func(sessionnavigation.Progress) error) (NavigationCommit, error) {
+func (m *MockActiveSession) CommitNavigation(arg0 context.Context, arg1 CommitCommand, arg2 func(session.Tree) error) (NavigationCommit, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CommitNavigation", arg0, arg1, arg2)
 	ret0, _ := ret[0].(NavigationCommit)
@@ -178,6 +177,58 @@ func (m *MockRuntime) HandlerRuntimeAvailable(extensionID string) bool {
 func (mr *MockRuntimeMockRecorder) HandlerRuntimeAvailable(extensionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandlerRuntimeAvailable", reflect.TypeOf((*MockRuntime)(nil).HandlerRuntimeAvailable), extensionID)
+}
+
+// MockSelectionFailure is a mock of SelectionFailure interface.
+type MockSelectionFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockSelectionFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockSelectionFailureMockRecorder is the mock recorder for MockSelectionFailure.
+type MockSelectionFailureMockRecorder struct {
+	mock *MockSelectionFailure
+}
+
+// NewMockSelectionFailure creates a new mock instance.
+func NewMockSelectionFailure(ctrl *gomock.Controller) *MockSelectionFailure {
+	mock := &MockSelectionFailure{ctrl: ctrl}
+	mock.recorder = &MockSelectionFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSelectionFailure) EXPECT() *MockSelectionFailureMockRecorder {
+	return m.recorder
+}
+
+// Error mocks base method.
+func (m *MockSelectionFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockSelectionFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockSelectionFailure)(nil).Error))
+}
+
+// SelectionCode mocks base method.
+func (m *MockSelectionFailure) SelectionCode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SelectionCode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// SelectionCode indicates an expected call of SelectionCode.
+func (mr *MockSelectionFailureMockRecorder) SelectionCode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectionCode", reflect.TypeOf((*MockSelectionFailure)(nil).SelectionCode))
 }
 
 // MockModelRequester is a mock of ModelRequester interface.

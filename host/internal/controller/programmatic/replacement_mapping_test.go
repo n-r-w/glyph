@@ -19,10 +19,10 @@ func TestMapReplacementAndLabelResponsesPreservesTypedCommittedState(t *testing.
 
 	tree, err := session.NewTree(nil, mo.None[string](), nil)
 	require.NoError(t, err)
-	replacement := session.Replacement{Info: session.Info{
+	replacement := session.Info{
 		ID: "replacement", Name: mo.None[string](), WorkingDirectory: "/project",
 		StoragePath: mo.Some("/sessions/replacement.jsonl"), CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(1, 0),
-	}, Entries: nil}
+	}
 	for _, test := range []struct {
 		name     string
 		response Response
@@ -33,7 +33,7 @@ func TestMapReplacementAndLabelResponsesPreservesTypedCommittedState(t *testing.
 			response: replacementMappingResponse(
 				ResponseForkSession,
 				mo.Some(SessionReplacement{
-					Info: replacement.Info, ActiveBranch: nil, NextInput: mo.Some("exact input"),
+					Info: replacement, ActiveBranch: nil, NextInput: mo.Some("exact input"),
 				}),
 				mo.None[SessionTree](),
 			),
@@ -48,7 +48,7 @@ func TestMapReplacementAndLabelResponsesPreservesTypedCommittedState(t *testing.
 			response: replacementMappingResponse(
 				ResponseCloneSession,
 				mo.Some(SessionReplacement{
-					Info: replacement.Info, ActiveBranch: nil, NextInput: mo.None[string](),
+					Info: replacement, ActiveBranch: nil, NextInput: mo.None[string](),
 				}),
 				mo.None[SessionTree](),
 			),

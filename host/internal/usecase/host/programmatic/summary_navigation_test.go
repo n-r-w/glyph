@@ -12,7 +12,6 @@ import (
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // TestSummaryNavigationModesForwardEquivalentInternalRequests verifies both Programmatic Control summary modes reach
@@ -24,7 +23,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 		name         string
 		publicMode   controller.SummaryMode
 		focus        mo.Option[string]
-		internalMode sessionnavigation.SummaryMode
+		internalMode controller.SummaryMode
 		cancel       bool
 		expected     controller.TreeNavigationStatus
 	}{
@@ -32,7 +31,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			name:         "built in committed",
 			publicMode:   controller.SummaryModeSummarize,
 			focus:        mo.None[string](),
-			internalMode: sessionnavigation.SummaryModeSummarize,
+			internalMode: controller.SummaryModeSummarize,
 			cancel:       false,
 			expected:     controller.TreeNavigationStatusCommitted,
 		},
@@ -40,7 +39,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			name:         "custom canceled",
 			publicMode:   controller.SummaryModeSummarizeWithCustomPrompt,
 			focus:        mo.Some("focus"),
-			internalMode: sessionnavigation.SummaryModeSummarizeWithCustomPrompt,
+			internalMode: controller.SummaryModeSummarizeWithCustomPrompt,
 			cancel:       true,
 			expected:     controller.TreeNavigationStatusCanceled,
 		},
@@ -53,36 +52,36 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			mockController := gomock.NewController(t)
 			coordinator := NewMockCoordinator(mockController)
 			catalog := NewMockModelCatalog(mockController)
-			control := NewMockSessionControl(mockController)
+			control := NewMockActiveSessions(mockController)
+			navigator := NewMockNavigator(mockController)
 			gate := NewMockGate(mockController)
-			control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			navigator.EXPECT().NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(
 					_ context.Context,
-					request sessionnavigation.Request,
-					_ func(sessionnavigation.Progress) error,
-				) (sessionnavigation.Result, error) {
+					request NavigationIntent,
+					_ func(session.Tree) error,
+				) (NavigationCompletion, error) {
 					require.Equal(t, "target", request.TargetEntryID)
 					require.Equal(t, test.internalMode, request.SummaryMode)
 					require.Equal(t, test.focus, request.CustomFocus)
 					if test.cancel {
-						return sessionnavigation.Result{}, context.Canceled
+						return NavigationCompletion{}, context.Canceled
 					}
-					return sessionnavigation.Result{
-						Canceled:       false,
-						DestinationID:  mo.None[string](),
-						ActiveLeafID:   mo.None[string](),
-						CreatedSummary: mo.None[session.Entry](),
-						NextInput:      mo.None[string](),
-						Issues:         nil,
-					}, nil
+					return NavigationCompletion{Committed: mo.Some(
+						NavigationCommit{
+							DestinationID:  mo.None[string](),
+							ActiveLeafID:   mo.None[string](),
+							CreatedSummary: mo.None[session.Entry](),
+							NextInput:      mo.None[string](),
+						},
+					), Issues: nil}, nil
 				},
 			)
 			service := New(
 				coordinator,
 				catalog,
 				testStateQuery(t, false),
-				emptyHistorySnapshot,
-				control,
+				control, navigator,
 				gate, testRunOutput(t),
 			)
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
@@ -93,7 +92,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			// Act through Programmatic Control.
 			response, operation, err := handleTreeCommandForTest(t, service, t.Context(), command)
 
-			// Assert the committed or canceled terminal result survives equivalent request forwarding.
+			// Assert the exact summary intent produces the committed or canceled terminal result.
 			require.NoError(t, err)
 			require.Nil(t, operation)
 			require.Equal(t, test.expected, response.TreeNavigation.MustGet().Status)

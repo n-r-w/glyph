@@ -21,7 +21,7 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 	for _, test := range []struct {
 		name    string
 		command controller.Command
-		expect  func(*MockSessionControl)
+		expect  func(*MockActiveSessions)
 		assert  func(*testing.T, controller.Response)
 	}{
 		{
@@ -29,8 +29,8 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			command: replacementCommand(
 				"fork", controller.CommandForkSession, mo.Some("target"), mo.None[string](),
 			),
-			expect: func(control *MockSessionControl) {
-				control.EXPECT().Fork(gomock.Any(), "target").Return(replacementResult(), "exact input", nil)
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().ForkActive(gomock.Any(), "target").Return(replacementResult(), nil, "exact input", nil)
 			},
 			assert: func(t *testing.T, response controller.Response) {
 				require.Equal(t, controller.ResponseForkSession, response.Kind)
@@ -43,8 +43,8 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			command: replacementCommand(
 				"clone", controller.CommandCloneSession, mo.None[string](), mo.None[string](),
 			),
-			expect: func(control *MockSessionControl) {
-				control.EXPECT().Clone(gomock.Any()).Return(replacementResult(), nil)
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().CloneActive(gomock.Any()).Return(replacementResult(), nil, nil)
 			},
 			assert: func(t *testing.T, response controller.Response) {
 				require.Equal(t, controller.ResponseCloneSession, response.Kind)
@@ -57,7 +57,7 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			command: replacementCommand(
 				"label", controller.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch"),
 			),
-			expect: func(control *MockSessionControl) {
+			expect: func(control *MockActiveSessions) {
 				tree, err := session.NewTree(nil, mo.None[string](), nil)
 				require.NoError(t, err)
 				control.EXPECT().SetLabel(gomock.Any(), "target", "branch").Return(tree, nil)
@@ -73,15 +73,14 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 			t.Parallel()
 			// Arrange strict dependencies for one public session operation.
 			controllerMock := gomock.NewController(t)
-			control := NewMockSessionControl(controllerMock)
+			control := NewMockActiveSessions(controllerMock)
 			gate := NewMockGate(controllerMock)
 			test.expect(control)
 			service := New(
 				NewMockCoordinator(controllerMock),
 				NewMockModelCatalog(controllerMock),
 				testStateQuery(t, false),
-				emptyHistorySnapshot,
-				control,
+				control, nil,
 				gate, testRunOutput(t),
 			)
 
@@ -102,15 +101,14 @@ func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
 
 	// Arrange a fork target rejected by the Host domain.
 	controllerMock := gomock.NewController(t)
-	control := NewMockSessionControl(controllerMock)
+	control := NewMockActiveSessions(controllerMock)
 	gate := NewMockGate(controllerMock)
-	control.EXPECT().Fork(gomock.Any(), "model").Return(session.Replacement{}, "", session.ErrInvalidForkTarget)
+	control.EXPECT().ForkActive(gomock.Any(), "model").Return(session.Info{}, nil, "", session.ErrInvalidForkTarget)
 	service := New(
 		NewMockCoordinator(controllerMock),
 		NewMockModelCatalog(controllerMock),
 		testStateQuery(t, false),
-		emptyHistorySnapshot,
-		control,
+		control, nil,
 		gate, testRunOutput(t),
 	)
 
@@ -141,9 +139,9 @@ func replacementCommand(
 }
 
 // replacementResult creates one active-session replacement for public mapping tests.
-func replacementResult() session.Replacement {
-	return session.Replacement{Info: session.Info{
+func replacementResult() session.Info {
+	return session.Info{
 		ID: "replacement", Name: mo.None[string](), WorkingDirectory: "/project",
 		StoragePath: mo.Some("/sessions/replacement.jsonl"), CreatedAt: time.Unix(1, 0), UpdatedAt: time.Unix(1, 0),
-	}, Entries: nil}
+	}
 }

@@ -38,7 +38,6 @@ type SessionState interface {
 		SessionIdentity,
 		session.ExtensionMessage,
 		ContextCommitGuard,
-		func(session.Entry) (wait func(context.Context) error, err error),
 	) (session.Entry, error)
 	// ExtensionState returns one coherent filtered active-branch snapshot.
 	ExtensionState(context.Context, SessionIdentity, string) (SessionSnapshot, error)

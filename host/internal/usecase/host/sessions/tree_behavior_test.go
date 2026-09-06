@@ -39,7 +39,6 @@ func TestAppendUsesCurrentActiveLeafForEverySupportedEntry(t *testing.T) {
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "session",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
@@ -122,7 +121,6 @@ func TestAppendFailureKeepsCurrentActiveLeaf(t *testing.T) {
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "session",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
@@ -165,7 +163,6 @@ func TestExtensionMessageAppendCommitsBeforePublication(t *testing.T) {
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "session",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
@@ -190,20 +187,26 @@ func TestExtensionMessageAppendCommitsBeforePublication(t *testing.T) {
 	)
 	deliveryErr := errors.New("client writer failed")
 
+	publisher := NewMockEntryPublisher(controller)
+	service.BindEntryPublisher(publisher)
+	publisher.EXPECT().
+		PublishSessionEntry(gomock.Any()).
+		DoAndReturn(func(entry session.Entry) (func(context.Context) error, error) {
+			assert.Equal(t, mo.Some("message"), service.active.Tree.ActiveLeafID())
+			assert.Equal(t, "exact\ntext", entry.ExtensionMessage.MustGet().Text)
+			return func(context.Context) error {
+				if !service.mutex.TryRLock() {
+					return errors.New("delivery wait retained the session lock")
+				}
+				service.mutex.RUnlock()
+				return deliveryErr
+			}, nil
+		})
+
 	// Act by appending a hidden-client message through the state-owner publication boundary.
 	committed, err := service.AppendExtensionMessage(t.Context(), expected, session.ExtensionMessage{
 		ExtensionID: "extension", EntryType: "note", Text: "exact\ntext", Visibility: session.ClientVisibilityHidden,
-	}, treeBehaviorCommitGuard, func(entry session.Entry) (func(context.Context) error, error) {
-		assert.Equal(t, mo.Some("message"), service.active.Tree.ActiveLeafID())
-		assert.Equal(t, "exact\ntext", entry.ExtensionMessage.MustGet().Text)
-		return func(context.Context) error {
-			if !service.mutex.TryRLock() {
-				return errors.New("delivery wait retained the session lock")
-			}
-			service.mutex.RUnlock()
-			return deliveryErr
-		}, nil
-	})
+	}, treeBehaviorCommitGuard)
 
 	// Assert the delivery cause is returned with the committed entry and no rollback.
 	require.ErrorIs(t, err, deliveryErr)
@@ -234,7 +237,7 @@ func TestExtensionMessageWithoutPublisherCommitsBeforeDeliveryFailure(t *testing
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version: formatVersion, ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project",
+			ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/session.jsonl", Tree: tree,
 		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
@@ -250,7 +253,7 @@ func TestExtensionMessageWithoutPublisherCommitsBeforeDeliveryFailure(t *testing
 	// Act without supplying the required client publisher.
 	committed, err := service.AppendExtensionMessage(t.Context(), expected, session.ExtensionMessage{
 		ExtensionID: "extension", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityVisible,
-	}, treeBehaviorCommitGuard, nil)
+	}, treeBehaviorCommitGuard)
 
 	// Assert persistence and state commit precede the explicit delivery failure.
 	require.Error(t, err)
@@ -277,7 +280,6 @@ func TestExtensionAppendFailurePreservesPublishedState(t *testing.T) {
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "session",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
@@ -328,7 +330,7 @@ func TestExtensionAppendRejectsStaleOrCanceledWork(t *testing.T) {
 			require.NoError(t, err)
 			service := New(nil, nil, nil, nil, "/project")
 			service.active = LoadedSession{
-				Header:      session.Header{Version: formatVersion, ID: "session", WorkingDirectory: "/project"},
+				Header:      session.Header{ID: "session", WorkingDirectory: "/project"},
 				StoragePath: "", Tree: tree, Information: mo.None[session.Information](),
 				InformationUpdatedAt: mo.None[time.Time](),
 			}
@@ -425,7 +427,6 @@ func TestExtensionStateFiltersOneActiveBranch(t *testing.T) {
 	service := New(nil, nil, nil, nil, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "session",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
@@ -486,7 +487,7 @@ func TestClientSnapshotExcludesOnlyHiddenExtensionMessages(t *testing.T) {
 	repository := NewMockRepository(controller)
 	repository.EXPECT().Load(gomock.Any(), session.ID("session")).Return(LoadedSession{
 		Header: session.Header{
-			Version: formatVersion, ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project",
+			ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/session.jsonl", Tree: tree,
 		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
@@ -494,7 +495,7 @@ func TestClientSnapshotExcludesOnlyHiddenExtensionMessages(t *testing.T) {
 	service := New(repository, nil, nil, nil, "/project")
 
 	// Act by replacing the active session and reading complete and ordinary history.
-	_, err = service.ResumeActive(t.Context(), "session")
+	_, _, err = service.ResumeActive(t.Context(), "session")
 	require.NoError(t, err)
 	complete := service.Snapshot()
 	history := service.ClientSnapshot()

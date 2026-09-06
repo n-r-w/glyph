@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // TestNavigateComposesRequestHandlersAndPostCommitObservers verifies target preparation, issue order,
@@ -41,8 +40,8 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	original := HandlerNavigationState{
 		SessionID: "session", PrecedingActiveLeafID: mo.Some("active"),
 		Request: HandlerNavigationRequest{
-			Navigation: sessionnavigation.Request{
-				TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+			Navigation: NavigationRequest{
+				TargetEntryID: "user", SummaryMode: SummaryModeNoSummary,
 				CustomFocus: mo.None[string](),
 			},
 			SummaryModel: selection,
@@ -50,8 +49,8 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 		Preparation: originalPreparation,
 	}
 	currentRequest := HandlerNavigationRequest{
-		Navigation: sessionnavigation.Request{
-			TargetEntryID: "extension", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+		Navigation: NavigationRequest{
+			TargetEntryID: "extension", SummaryMode: SummaryModeNoSummary,
 			CustomFocus: mo.None[string](),
 		},
 		SummaryModel: selection,
@@ -98,13 +97,13 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.Canceled)
 	assert.Equal(t, mo.Some("extension"), result.ActiveLeafID)
-	assert.Equal(t, []sessionnavigation.OperationIssue{
+	assert.Equal(t, []navigationIssue{
 		{
-			Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "second-extension",
+			Code: navigationIssueHandlerError, ExtensionID: "second-extension",
 			HandlerID: "ordinary-error", Message: "load summary rules: open rules.json: permission denied",
 		},
 		{
-			Code: sessionnavigation.OperationIssueObserverError, ExtensionID: "observer-extension",
+			Code: navigationIssueObserverError, ExtensionID: "observer-extension",
 			HandlerID: "after-commit", Message: "save navigation receipt: write receipt.json: disk full",
 		},
 	}, result.Issues)
@@ -124,8 +123,8 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	preparation, err := tree.NavigationPreparation("user")
 	require.NoError(t, err)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	state := handlerState("session", selection, sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+	state := handlerState("session", selection, NavigationRequest{
+		TargetEntryID: "user", SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
 	}, preparation)
 	handler := Handler{ExtensionID: "extension", HandlerID: "invalid"}
 	active.EXPECT().Tree().Return(tree)
@@ -137,8 +136,8 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	}, RequestHandlerAction{
 		Cancel: false, RequestAction: RequestActionPreserve,
 		Request: mo.Some(HandlerNavigationRequest{
-			Navigation: sessionnavigation.Request{
-				TargetEntryID: "extension", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+			Navigation: NavigationRequest{
+				TargetEntryID: "extension", SummaryMode: SummaryModeNoSummary,
 				CustomFocus: mo.None[string](),
 			},
 			SummaryModel: selection,
@@ -158,8 +157,8 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	// Assert original state commits and one safe invalid-action issue is returned.
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some("root"), result.ActiveLeafID)
-	assert.Equal(t, []sessionnavigation.OperationIssue{{
-		Code: sessionnavigation.OperationIssueInvalidHandlerAction, ExtensionID: "extension",
+	assert.Equal(t, []navigationIssue{{
+		Code: navigationIssueInvalidHandlerAction, ExtensionID: "extension",
 		HandlerID: "invalid", Message: "extension handler returned an invalid action",
 	}}, result.Issues)
 }
@@ -178,8 +177,8 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	preparation, err := tree.NavigationPreparation("user")
 	require.NoError(t, err)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	state := handlerState("session", selection, sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary, CustomFocus: mo.None[string](),
+	state := handlerState("session", selection, NavigationRequest{
+		TargetEntryID: "user", SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
 	}, preparation)
 	failed := Handler{ExtensionID: "extension", HandlerID: "failed"}
 	canceling := Handler{ExtensionID: "extension", HandlerID: "cancel"}
@@ -201,8 +200,8 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	// Assert cancellation is a state-free result with only preceding issues.
 	require.NoError(t, err)
 	assert.True(t, result.Canceled)
-	assert.Equal(t, []sessionnavigation.OperationIssue{{
-		Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "extension",
+	assert.Equal(t, []navigationIssue{{
+		Code: navigationIssueHandlerError, ExtensionID: "extension",
 		HandlerID: "failed", Message: "ordinary failure",
 	}}, result.Issues)
 }
@@ -221,8 +220,8 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	preparation, err := tree.NavigationPreparation("user")
 	require.NoError(t, err)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
-	request := sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize, CustomFocus: mo.None[string](),
+	request := NavigationRequest{
+		TargetEntryID: "user", SummaryMode: SummaryModeSummarize, CustomFocus: mo.None[string](),
 	}
 	state := handlerState("session", selection, request, preparation)
 	setHandler := Handler{ExtensionID: "first", HandlerID: "set"}
@@ -278,8 +277,8 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	// Assert failure preserves the generated result for the later handler and reports its complete cause.
 	require.NoError(t, err)
 	assert.False(t, result.Canceled)
-	assert.Equal(t, []sessionnavigation.OperationIssue{{
-		Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "third", HandlerID: "failed-result",
+	assert.Equal(t, []navigationIssue{{
+		Code: navigationIssueHandlerError, ExtensionID: "third", HandlerID: "failed-result",
 		Message: "refine summary: load glossary: invalid JSON",
 	}}, result.Issues)
 }
@@ -315,8 +314,8 @@ func TestNavigateResultHandlerCancellationStopsBeforeValidation(t *testing.T) {
 	}, nil)
 
 	// Act through the canceling result chain.
-	result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
+	result, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
+		TargetEntryID: "user", SummaryMode: SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
 	})
 
@@ -346,7 +345,7 @@ func TestNavigateObserversIgnorePostCommitCancellation(t *testing.T) {
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(context.Context, CommitCommand, func(sessionnavigation.Progress) error) (NavigationCommit, error) {
+		func(context.Context, CommitCommand, func(session.Tree) error) (NavigationCommit, error) {
 			cancel()
 			return NavigationCommit{
 				Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry](),
@@ -369,8 +368,8 @@ func TestNavigateObserversIgnorePostCommitCancellation(t *testing.T) {
 	})
 
 	// Act with cancellation occurring only after the commit returns.
-	_, err := navigateTreeForTest(t, service, ctx, sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+	_, err := navigateTreeForTest(t, service, ctx, NavigationRequest{
+		TargetEntryID: "user", SummaryMode: SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
 
@@ -404,13 +403,13 @@ func TestNavigateRejectsInconsistentHandlerResultWithoutCommit(t *testing.T) {
 	}, nil)
 
 	// Act with no-summary mode and an extension-provided result.
-	_, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+	_, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
+		TargetEntryID: "user", SummaryMode: SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
 
 	// Assert final validation rejects the state without commit or observer calls.
-	require.ErrorIs(t, err, sessionnavigation.ErrExtensionInvalidResult)
+	require.ErrorIs(t, err, ErrExtensionInvalidResult)
 }
 
 // TestNavigateEmptyAbandonedPathSkipsModelExecution verifies summarization mode does no model work for an empty path.
@@ -449,8 +448,8 @@ func TestNavigateEmptyAbandonedPathSkipsModelExecution(t *testing.T) {
 	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: tree, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 	// Act with summarization enabled and no abandoned entries.
-	result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
-		TargetEntryID: "extension", SummaryMode: sessionnavigation.SummaryModeSummarize,
+	result, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
+		TargetEntryID: "extension", SummaryMode: SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
 	})
 
@@ -463,7 +462,7 @@ func TestNavigateEmptyAbandonedPathSkipsModelExecution(t *testing.T) {
 func handlerState(
 	sessionID string,
 	selection model.Selection,
-	request sessionnavigation.Request,
+	request NavigationRequest,
 	preparation session.NavigationPreparation,
 ) HandlerNavigationState {
 	return HandlerNavigationState{

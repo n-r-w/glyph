@@ -16,6 +16,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -25,10 +26,10 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -151,17 +152,17 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 		Committed: true, Tree: committed, CreatedSummary: mo.Some(grpcSummaryEntry()),
 	}, nil)
 
-	publisher := func(sessionnavigation.Progress) error { return nil }
+	publisher := func(session.Tree) error { return nil }
 
 	// Act: through request supply, result refinement, atomic commit, and observer delivery.
-	result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
+	result, err := service.NavigateUI(t.Context(), hostui.NavigationIntent{
+		TargetEntryID: "user", SummaryMode: controllerui.SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
 	}, publisher)
 
 	// Assert: the refined result committed before the real observer recorded the event.
 	require.NoError(t, err)
-	assert.False(t, result.Canceled)
+	assert.True(t, result.Committed.IsSome())
 	assert.Empty(t, result.Issues)
 	observed, err := os.ReadFile(observerPath)
 	require.NoError(t, err)

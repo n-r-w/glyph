@@ -33,8 +33,6 @@ var (
 
 // Header is the first record in a persisted session.
 type Header struct {
-	// Version selects the persisted record schema.
-	Version int
 	// ID identifies the session independently of its storage path.
 	ID ID
 	// CreatedAt fixes creation time for ordering and file naming.
@@ -130,14 +128,6 @@ type BranchSummaryEntry struct {
 	EstimatedCost mo.Option[EstimatedCost]
 }
 
-// Replacement is one atomic active-session identity and durable transcript snapshot.
-type Replacement struct {
-	// Info identifies the committed active session.
-	Info Info
-	// Entries contains cloned durable entries from the same committed state.
-	Entries []Entry
-}
-
 // Info describes one active or persisted session.
 type Info struct {
 	// ID is the opaque client-visible session identifier.
@@ -152,16 +142,6 @@ type Info struct {
 	CreatedAt time.Time
 	// UpdatedAt is the latest entry time, or CreatedAt for an empty session.
 	UpdatedAt time.Time
-}
-
-// Summary describes one session in a client list.
-type Summary struct {
-	// Info contains identity and lifecycle timestamps.
-	Info Info
-	// FirstUserText is absent when the session contains no user content.
-	FirstUserText mo.Option[string]
-	// TotalMessages counts client-visible terminal messages.
-	TotalMessages int
 }
 
 // TokenUsage contains disjoint normalized token buckets and their derived total.
@@ -262,12 +242,4 @@ type Statistics struct {
 	EstimatedCost mo.Option[EstimatedCost]
 	// CostBreakdown groups persisted cost by configured provider and requested model.
 	CostBreakdown []ProviderModelCost
-}
-
-// InformationSnapshot contains coherent active-session metadata and accounting.
-type InformationSnapshot struct {
-	// Info contains active-session metadata.
-	Info Info
-	// Statistics contains accounting from the same session state.
-	Statistics Statistics
 }

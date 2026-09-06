@@ -9,7 +9,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -45,7 +44,7 @@ func mapNavigationRequestFromProto(
 		}
 	}
 	return sessiontree.HandlerNavigationRequest{
-		Navigation: sessionnavigation.Request{
+		Navigation: sessiontree.NavigationRequest{
 			TargetEntryID: request.GetTargetEntryId(),
 			SummaryMode:   mapSummaryModeFromProto(request.GetSummaryMode()),
 			CustomFocus:   customFocus,
@@ -55,13 +54,13 @@ func mapNavigationRequestFromProto(
 }
 
 // mapSummaryMode maps the internal closed summary mode.
-func mapSummaryMode(mode sessionnavigation.SummaryMode) extensionpb.SummaryMode {
+func mapSummaryMode(mode sessiontree.SummaryMode) extensionpb.SummaryMode {
 	switch mode {
-	case sessionnavigation.SummaryModeNoSummary:
+	case sessiontree.SummaryModeNoSummary:
 		return extensionpb.SummaryMode_SUMMARY_MODE_NO_SUMMARY
-	case sessionnavigation.SummaryModeSummarize:
+	case sessiontree.SummaryModeSummarize:
 		return extensionpb.SummaryMode_SUMMARY_MODE_SUMMARIZE
-	case sessionnavigation.SummaryModeSummarizeWithCustomPrompt:
+	case sessiontree.SummaryModeSummarizeWithCustomPrompt:
 		return extensionpb.SummaryMode_SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT
 	default:
 		return extensionpb.SummaryMode_SUMMARY_MODE_UNSPECIFIED
@@ -69,14 +68,14 @@ func mapSummaryMode(mode sessionnavigation.SummaryMode) extensionpb.SummaryMode 
 }
 
 // mapSummaryModeFromProto maps known modes and leaves invalid values for composition validation.
-func mapSummaryModeFromProto(mode extensionpb.SummaryMode) sessionnavigation.SummaryMode {
+func mapSummaryModeFromProto(mode extensionpb.SummaryMode) sessiontree.SummaryMode {
 	switch mode {
 	case extensionpb.SummaryMode_SUMMARY_MODE_NO_SUMMARY:
-		return sessionnavigation.SummaryModeNoSummary
+		return sessiontree.SummaryModeNoSummary
 	case extensionpb.SummaryMode_SUMMARY_MODE_SUMMARIZE:
-		return sessionnavigation.SummaryModeSummarize
+		return sessiontree.SummaryModeSummarize
 	case extensionpb.SummaryMode_SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT:
-		return sessionnavigation.SummaryModeSummarizeWithCustomPrompt
+		return sessiontree.SummaryModeSummarizeWithCustomPrompt
 	case extensionpb.SummaryMode_SUMMARY_MODE_UNSPECIFIED:
 		return 0
 	default:

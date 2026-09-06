@@ -38,7 +38,6 @@ func TestResumeProjectsOnlyRootFirstActiveBranch(t *testing.T) {
 	require.NoError(t, err)
 	repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "stored",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
@@ -51,7 +50,7 @@ func TestResumeProjectsOnlyRootFirstActiveBranch(t *testing.T) {
 	service := New(repository, nil, nil, nil, "/project")
 
 	// Act by resuming the stored session and requesting provider-neutral history.
-	_, err = service.ResumeActive(t.Context(), "stored")
+	_, _, err = service.ResumeActive(t.Context(), "stored")
 	require.NoError(t, err)
 	history := service.Snapshot()
 
@@ -81,7 +80,6 @@ func TestStatisticsAndStoredSummaryCountAllBranches(t *testing.T) {
 	require.NoError(t, err)
 	loaded := LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "stored",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",
@@ -97,15 +95,15 @@ func TestStatisticsAndStoredSummaryCountAllBranches(t *testing.T) {
 
 	// Act by requesting active-session statistics and stored-session summaries.
 	statistics := service.ActiveStatistics()
-	information := service.ActiveInformation()
-	stored, err := service.ListStored(t.Context())
+	_, informationStatistics := service.ActiveInformation()
+	stored, err := service.ListProgrammaticSessions(t.Context())
 	require.NoError(t, err)
 
 	// Assert both complete-session views count the abandoned branch while active entries remain branch-only.
 	assert.Equal(t, 1, statistics.UserMessages)
 	assert.Equal(t, 2, statistics.ModelResponses)
 	assert.Equal(t, 3, statistics.TotalMessages)
-	assert.Equal(t, statistics, information.Statistics)
+	assert.Equal(t, statistics, informationStatistics)
 	require.Len(t, stored, 1)
 	assert.Equal(t, 3, stored[0].TotalMessages)
 	assert.Len(t, service.ActiveEntries(), 2)

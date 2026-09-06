@@ -114,7 +114,6 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 	s.repository.EXPECT().List(gomock.Any()).Return([]LoadedSession{
 		{
 			Header: session.Header{
-				Version:          1,
 				ID:               "session-id",
 				CreatedAt:        createdAt,
 				WorkingDirectory: "/project",
@@ -125,7 +124,7 @@ func (s *ServiceSuite) TestHistoryAppendPersistsTextBeforePublishingImmutableSna
 			Tree:                 mustSessionTree(persisted),
 		},
 	}, nil)
-	listed, err := service.ListStored(s.T().Context())
+	listed, err := service.ListProgrammaticSessions(s.T().Context())
 	s.Require().NoError(err)
 	s.Require().Len(listed, 1)
 	s.Equal(mo.Some("hello"), listed[0].FirstUserText)
@@ -439,7 +438,6 @@ func (s *ServiceSuite) TestHistoryAppendRejectsInvalidTreeMutationBeforePersiste
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "active",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",

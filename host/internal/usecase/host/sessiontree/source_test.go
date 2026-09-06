@@ -14,7 +14,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // TestReadySummaryUsesActualSource verifies a ready result commits independently of unused model state.
@@ -54,7 +53,7 @@ func TestReadySummaryUsesActualSource(t *testing.T) {
 				func(
 					_ context.Context,
 					command CommitCommand,
-					_ func(sessionnavigation.Progress) error,
+					_ func(session.Tree) error,
 				) (NavigationCommit, error) {
 					assert.Equal(t, source, command.BranchSummary.OrEmpty().Source)
 					return NavigationCommit{
@@ -64,9 +63,9 @@ func TestReadySummaryUsesActualSource(t *testing.T) {
 			)
 
 			// Act with no availability, credential, or model-request expectation.
-			result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
+			result, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
 				TargetEntryID: "user",
-				SummaryMode:   sessionnavigation.SummaryModeSummarize,
+				SummaryMode:   SummaryModeSummarize,
 				CustomFocus:   mo.None[string](),
 			})
 

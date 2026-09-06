@@ -35,7 +35,7 @@ func TestApplyCreatesVersionedSynchronizedSessionFile(t *testing.T) {
 	updatedAt := createdAt.Add(time.Minute)
 	// Act by appending the first durable record.
 	result, err := repository.Apply(t.Context(), hostsessions.ApplyCommand{
-		Header:      session.Header{Version: 2, ID: "session-id", CreatedAt: createdAt, WorkingDirectory: canonical},
+		Header:      session.Header{ID: "session-id", CreatedAt: createdAt, WorkingDirectory: canonical},
 		StoragePath: "",
 		Mutation:    sessionInformationMutation(sessionInformationEntry("entry-id", updatedAt, "release notes")),
 	})
@@ -85,7 +85,6 @@ func TestCanonicalWorkingDirectoryTreatsSymlinkAsSameProject(t *testing.T) {
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	_, err = canonicalRepository.Apply(t.Context(), hostsessions.ApplyCommand{
 		Header: session.Header{
-			Version:          2,
 			ID:               "shared-id",
 			CreatedAt:        createdAt,
 			WorkingDirectory: canonicalProject,
@@ -145,7 +144,7 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 	require.NoError(t, repository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	command := hostsessions.ApplyCommand{
-		Header:      session.Header{Version: 2, ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
+		Header:      session.Header{ID: "known-id", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Mutation: sessionInformationMutation(
 			session.Entry{
@@ -198,7 +197,7 @@ func TestRepositoryReopensNameLargerThanScannerToken(t *testing.T) {
 	largeName := strings.Repeat("n", bufio.MaxScanTokenSize+1024)
 	// Act by appending the large name and loading it from a reopened repository.
 	_, err = repository.Apply(t.Context(), hostsessions.ApplyCommand{
-		Header:      session.Header{Version: 2, ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
+		Header:      session.Header{ID: "large-name", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Mutation: sessionInformationMutation(
 			sessionInformationEntry("entry-id", createdAt.Add(time.Second), largeName),
@@ -228,7 +227,7 @@ func TestApplyRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 	require.NoError(t, os.WriteFile(outsidePath, []byte("sentinel"), 0o600))
 	// Act by attempting to append through the outside storage path.
 	_, err = repository.Apply(t.Context(), hostsessions.ApplyCommand{
-		Header:      session.Header{Version: 2, ID: "session-id", CreatedAt: time.Now(), WorkingDirectory: canonical},
+		Header:      session.Header{ID: "session-id", CreatedAt: time.Now(), WorkingDirectory: canonical},
 		StoragePath: outsidePath,
 		Mutation: sessionInformationMutation(
 			session.Entry{

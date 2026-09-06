@@ -64,7 +64,7 @@ func seedSummaryControlSession(t *testing.T, paths persistence.Paths) {
 	repository := sessionstore.New(filepath.Join(paths.Directory, "sessions"), canonical, sessionfilesystem.New())
 	require.NoError(t, repository.Initialize(t.Context()))
 	_, err = repository.CreateSnapshot(t.Context(), hostsessions.CreateSnapshotCommand{
-		Header: session.Header{Version: 2, ID: "source", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: canonical},
+		Header: session.Header{ID: "source", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: canonical},
 		Tree: grpcNavigationTree(
 			t,
 		),

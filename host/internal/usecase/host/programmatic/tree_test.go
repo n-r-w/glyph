@@ -14,7 +14,6 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // handleTreeCommandForTest routes navigation with an accepting generated progress publisher.
@@ -29,12 +28,12 @@ func handleTreeCommandForTest(
 		return service.handle(ctx, command)
 	}
 	response, err := service.navigateSessionTree(
-		ctx, command, func(sessionnavigation.Progress) error { return nil },
+		ctx, command, func(session.Tree) error { return nil },
 	)
 	return response, nil, err
 }
 
-// TestSessionTreeQueryReturnsCompleteSnapshot verifies the query returns the session-control tree unchanged.
+// TestSessionTreeQueryReturnsCompleteSnapshot verifies public projection of the active-session tree.
 func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	t.Parallel()
 
@@ -42,7 +41,7 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	mockController := gomock.NewController(t)
 	coordinator := NewMockCoordinator(mockController)
 	catalog := NewMockModelCatalog(mockController)
-	control := NewMockSessionControl(mockController)
+	control := NewMockActiveSessions(mockController)
 	gate := NewMockGate(mockController)
 	tree := programmaticTree(t)
 	control.EXPECT().Tree().Return(tree)
@@ -50,8 +49,7 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 		coordinator,
 		catalog,
 		testStateQuery(t, false),
-		emptyHistorySnapshot,
-		control,
+		control, nil,
 		gate,
 		testRunOutput(t),
 	)
@@ -84,23 +82,26 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	mockController := gomock.NewController(t)
 	coordinator := NewMockCoordinator(mockController)
 	catalog := NewMockModelCatalog(mockController)
-	control := NewMockSessionControl(mockController)
+	control := NewMockActiveSessions(mockController)
+	navigator := NewMockNavigator(mockController)
 	gate := NewMockGate(mockController)
-	committed := sessionnavigation.Result{
-		Canceled: false, DestinationID: mo.Some("root"), ActiveLeafID: mo.Some("root"),
-		CreatedSummary: mo.None[session.Entry](), NextInput: mo.Some("exact input"),
-		Issues: []sessionnavigation.OperationIssue{{
-			Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "extension",
-			HandlerID: "handler", Message: "safe message",
-		}},
-	}
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(committed, nil)
+	committed := NavigationCompletion{Committed: mo.Some(
+		NavigationCommit{
+			DestinationID:  mo.Some("root"),
+			ActiveLeafID:   mo.Some("root"),
+			CreatedSummary: mo.None[session.Entry](),
+			NextInput:      mo.Some("exact input"),
+		},
+	), Issues: []NavigationIssue{{
+		Kind: NavigationHandlerError, ExtensionID: "extension",
+		HandlerID: "handler", Text: "safe message",
+	}}}
+	navigator.EXPECT().NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).Return(committed, nil)
 	service := New(
 		coordinator,
 		catalog,
 		testStateQuery(t, false),
-		emptyHistorySnapshot,
-		control,
+		control, navigator,
 		gate,
 		testRunOutput(t),
 	)
@@ -117,9 +118,9 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	result := response.TreeNavigation.MustGet()
 	require.Equal(t, controller.TreeNavigationStatusCommitted, result.Status)
 	mapped := result.Committed.MustGet()
-	require.Equal(t, committed.DestinationID, mapped.DestinationID)
-	require.Equal(t, committed.ActiveLeafID, mapped.ActiveLeafID)
-	require.Equal(t, committed.NextInput, mapped.NextInput)
+	require.Equal(t, committed.Committed.MustGet().DestinationID, mapped.DestinationID)
+	require.Equal(t, committed.Committed.MustGet().ActiveLeafID, mapped.ActiveLeafID)
+	require.Equal(t, committed.Committed.MustGet().NextInput, mapped.NextInput)
 	require.Equal(t, []controller.OperationIssue{{
 		Code: controller.OperationIssueHandlerError, ExtensionID: "extension",
 		HandlerID: "handler", Message: "safe message",
@@ -130,29 +131,24 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	t.Parallel()
 
-	// Arrange strict dependencies and a facade that reports cancellation before commit.
+	// Arrange strict dependencies and a navigation owner that reports cancellation before commit.
 	mockController := gomock.NewController(t)
 	coordinator := NewMockCoordinator(mockController)
 	catalog := NewMockModelCatalog(mockController)
-	control := NewMockSessionControl(mockController)
+	control := NewMockActiveSessions(mockController)
+	navigator := NewMockNavigator(mockController)
 	gate := NewMockGate(mockController)
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
-		Canceled:       true,
-		DestinationID:  mo.None[string](),
-		ActiveLeafID:   mo.None[string](),
-		CreatedSummary: mo.None[session.Entry](),
-		NextInput:      mo.None[string](),
-		Issues: []sessionnavigation.OperationIssue{{
-			Code: sessionnavigation.OperationIssueInvalidHandlerAction, ExtensionID: "extension",
-			HandlerID: "handler", Message: "safe message",
-		}},
-	}, nil)
+	navigator.EXPECT().
+		NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(NavigationCompletion{Committed: mo.None[NavigationCommit](), Issues: []NavigationIssue{{
+			Kind: NavigationInvalidHandlerAction, ExtensionID: "extension",
+			HandlerID: "handler", Text: "safe message",
+		}}}, nil)
 	service := New(
 		coordinator,
 		catalog,
 		testStateQuery(t, false),
-		emptyHistorySnapshot,
-		control,
+		control, navigator,
 		gate,
 		testRunOutput(t),
 	)
@@ -210,35 +206,35 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 		{
 			name:          "model unavailable",
 			target:        mo.Some("target"),
-			navigationErr: sessionnavigation.ErrModelUnavailable,
+			navigationErr: navigationFailure(t, navigationModelUnavailable),
 			expected:      controller.RejectionModelUnavailable,
 			summaryMode:   controller.SummaryModeSummarize,
 		},
 		{
 			name:          "credential unavailable",
 			target:        mo.Some("target"),
-			navigationErr: sessionnavigation.ErrCredentialUnavailable,
+			navigationErr: navigationFailure(t, navigationAuthUnavailable),
 			expected:      controller.RejectionCredentialUnavailable,
 			summaryMode:   controller.SummaryModeSummarize,
 		},
 		{
 			name:          "model failed",
 			target:        mo.Some("target"),
-			navigationErr: sessionnavigation.ErrModelFailed,
+			navigationErr: navigationFailure(t, navigationModelFailed),
 			expected:      controller.RejectionModelFailed,
 			summaryMode:   controller.SummaryModeSummarize,
 		},
 		{
 			name:          "extension invalid result",
 			target:        mo.Some("target"),
-			navigationErr: sessionnavigation.ErrExtensionInvalidResult,
+			navigationErr: navigationFailure(t, navigationExtensionInvalidResult),
 			expected:      controller.RejectionExtensionInvalidResult,
 			summaryMode:   controller.SummaryModeSummarize,
 		},
 		{
 			name:          "extension unavailable",
 			target:        mo.Some("target"),
-			navigationErr: sessionnavigation.ErrExtensionUnavailable,
+			navigationErr: navigationFailure(t, navigationExtensionUnavailable),
 			expected:      controller.RejectionExtensionUnavailable,
 			summaryMode:   controller.SummaryModeSummarize,
 		},
@@ -258,19 +254,19 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 			mockController := gomock.NewController(t)
 			coordinator := NewMockCoordinator(mockController)
 			catalog := NewMockModelCatalog(mockController)
-			control := NewMockSessionControl(mockController)
+			control := NewMockActiveSessions(mockController)
+			navigator := NewMockNavigator(mockController)
 			gate := NewMockGate(mockController)
 			if _, present := test.target.Get(); present {
-				control.EXPECT().
-					Navigate(gomock.Any(), gomock.Any(), gomock.Any()).
-					Return(sessionnavigation.Result{}, test.navigationErr)
+				navigator.EXPECT().
+					NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).
+					Return(NavigationCompletion{}, test.navigationErr)
 			}
 			service := New(
 				coordinator,
 				catalog,
 				testStateQuery(t, false),
-				emptyHistorySnapshot,
-				control,
+				control, navigator,
 				gate, testRunOutput(t),
 			)
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)

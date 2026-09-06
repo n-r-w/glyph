@@ -8,7 +8,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 func terminalContinuationEntry(history agent.HistoryEntry) (session.Entry, bool, error) {
@@ -55,7 +54,7 @@ type storedHistoryEntry struct {
 func storedHistoryFromEntries(entries []session.Entry) []storedHistoryEntry {
 	history := make([]storedHistoryEntry, 0, len(entries))
 	for index := range entries {
-		projected := sessiontree.HistoryFromEntries(entries[index : index+1])
+		projected := historyFromEntries(entries[index : index+1])
 		clientVisible := true
 		if message, present := entries[index].ExtensionMessage.Get(); present {
 			clientVisible = message.Visibility == session.ClientVisibilityVisible

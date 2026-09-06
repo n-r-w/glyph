@@ -96,13 +96,12 @@ func runProgrammaticWithPaths(
 		coordinator,
 		providerCatalog,
 		agentCore,
-		sessionServices.active.ClientSnapshot,
-		sessionServices.control, sessionServices.gate,
+		sessionServices.active, sessionServices.tree, sessionServices.gate,
 		delivery,
 	)
 	controller := controllerprogrammatic.New(ctx, session, delivery)
 	lifecycleObservers.BindIssueDelivery(delivery)
-	contexts.BindMessagePublisher(delivery.PublishSessionEntry)
+	sessionServices.active.BindEntryPublisher(delivery)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))
 	programmaticv1.RegisterProgrammaticControlServiceServer(server, controller)
 

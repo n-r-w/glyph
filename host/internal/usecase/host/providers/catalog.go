@@ -97,6 +97,7 @@ type Catalog struct {
 var (
 	_ extensioncontext.Catalog          = (*Catalog)(nil)
 	_ extensioncontext.RequestFailure   = (*SelectionError)(nil)
+	_ sessiontree.SelectionFailure      = (*SelectionError)(nil)
 	_ hostprogrammatic.ModelCatalog     = (*Catalog)(nil)
 	_ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
 )

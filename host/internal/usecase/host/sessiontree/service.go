@@ -9,9 +9,9 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
 // Service coordinates navigation preparation, branch summarization, and atomic session commit.
@@ -31,7 +31,8 @@ type Service struct {
 }
 
 var (
-	_ sessioncontrol.Navigator     = (*Service)(nil)
+	_ ui.Navigator                 = (*Service)(nil)
+	_ programmatic.Navigator       = (*Service)(nil)
 	_ startup.SessionTreeRegistrar = (*Service)(nil)
 )
 
@@ -54,24 +55,24 @@ func New(active ActiveSession, modelRequester ModelRequester, runtime Runtime) *
 // BindContextIssuer completes invocation composition before handler registration.
 func (s *Service) BindContextIssuer(contexts ContextIssuer) { s.contexts = contexts }
 
-// NavigateTree composes extension handlers around one atomic navigation commit.
-func (s *Service) NavigateTree(
+// navigate composes extension handlers around one atomic navigation commit.
+func (s *Service) navigate(
 	ctx context.Context,
-	request sessionnavigation.Request,
-	publisher func(sessionnavigation.Progress) error,
-) (sessionnavigation.Result, error) {
+	request NavigationRequest,
+	publisher func(session.Tree) error,
+) (navigationResult, error) {
 	if err := ctx.Err(); err != nil {
-		return sessionnavigation.Result{}, err
+		return navigationResult{}, err
 	}
 	if err := validateRequest(request); err != nil {
-		return sessionnavigation.Result{}, err
+		return navigationResult{}, err
 	}
 
 	tree := s.active.Tree()
 	expectedActiveLeafID := tree.ActiveLeafID()
 	preparation, err := tree.NavigationPreparation(request.TargetEntryID)
 	if err != nil {
-		return sessionnavigation.Result{}, err
+		return navigationResult{}, err
 	}
 	selection := s.modelRequester.ActiveSelection()
 	original := HandlerNavigationState{
@@ -85,7 +86,7 @@ func (s *Service) NavigateTree(
 	}
 	current, currentResult, issues, canceled, err := s.runRequestHandlers(ctx, tree, original)
 	if err != nil {
-		return sessionnavigation.Result{}, err
+		return navigationResult{}, err
 	}
 	if canceled {
 		return canceledResult(issues), nil
@@ -93,7 +94,7 @@ func (s *Service) NavigateTree(
 
 	currentResult, err = s.generateMissingSummary(ctx, current, currentResult)
 	if err != nil {
-		return sessionnavigation.Result{}, err
+		return navigationResult{}, err
 	}
 	currentResult, issues, canceled, err = s.runAvailableResultHandlers(
 		ctx,
@@ -103,7 +104,7 @@ func (s *Service) NavigateTree(
 		issues,
 	)
 	if err != nil {
-		return sessionnavigation.Result{}, err
+		return navigationResult{}, err
 	}
 	if canceled {
 		return canceledResult(issues), nil
@@ -111,10 +112,10 @@ func (s *Service) NavigateTree(
 
 	preparation, summary, err := validateFinalState(tree, current, currentResult)
 	if err != nil {
-		return sessionnavigation.Result{}, err
+		return navigationResult{}, err
 	}
 	if contextErr := ctx.Err(); contextErr != nil {
-		return sessionnavigation.Result{}, contextErr
+		return navigationResult{}, contextErr
 	}
 	commit, err := s.active.CommitNavigation(ctx, CommitCommand{
 		ExpectedActiveLeafID: expectedActiveLeafID,
@@ -122,11 +123,11 @@ func (s *Service) NavigateTree(
 		BranchSummary:        summary,
 	}, publisher)
 	if err != nil && !commit.Committed {
-		return sessionnavigation.Result{}, err
+		return navigationResult{}, err
 	}
 	if err != nil {
-		issues = append(issues, sessionnavigation.OperationIssue{
-			Code:        sessionnavigation.OperationIssueDeliveryFailed,
+		issues = append(issues, navigationIssue{
+			Code:        navigationIssueDeliveryFailed,
 			ExtensionID: "",
 			HandlerID:   "",
 			Message:     err.Error(),
@@ -134,7 +135,7 @@ func (s *Service) NavigateTree(
 	}
 
 	issues = s.runObservers(ctx, current, commit.Tree, commit.CreatedSummary.IsSome(), issues)
-	return sessionnavigation.Result{
+	return navigationResult{
 		Canceled:       false,
 		DestinationID:  preparation.DestinationID,
 		ActiveLeafID:   commit.Tree.ActiveLeafID(),
@@ -150,7 +151,7 @@ func (s *Service) generateMissingSummary(
 	current HandlerNavigationState,
 	result mo.Option[HandlerBranchSummaryResult],
 ) (mo.Option[HandlerBranchSummaryResult], error) {
-	if current.Request.Navigation.SummaryMode == sessionnavigation.SummaryModeNoSummary ||
+	if current.Request.Navigation.SummaryMode == SummaryModeNoSummary ||
 		len(current.Preparation.AbandonedPath) == 0 || result.IsSome() {
 		return result, nil
 	}
@@ -172,8 +173,8 @@ func (s *Service) runAvailableResultHandlers(
 	original HandlerNavigationState,
 	current HandlerNavigationState,
 	result mo.Option[HandlerBranchSummaryResult],
-	issues []sessionnavigation.OperationIssue,
-) (mo.Option[HandlerBranchSummaryResult], []sessionnavigation.OperationIssue, bool, error) {
+	issues []navigationIssue,
+) (mo.Option[HandlerBranchSummaryResult], []navigationIssue, bool, error) {
 	if result.IsNone() {
 		return result, issues, false, nil
 	}
@@ -181,8 +182,8 @@ func (s *Service) runAvailableResultHandlers(
 }
 
 // canceledResult creates a state-free cancellation outcome with preceding issues.
-func canceledResult(issues []sessionnavigation.OperationIssue) sessionnavigation.Result {
-	return sessionnavigation.Result{
+func canceledResult(issues []navigationIssue) navigationResult {
+	return navigationResult{
 		Canceled:       true,
 		DestinationID:  mo.None[string](),
 		ActiveLeafID:   mo.None[string](),
@@ -193,17 +194,17 @@ func canceledResult(issues []sessionnavigation.OperationIssue) sessionnavigation
 }
 
 // validateRequest enforces the closed summary-mode and custom-focus contract.
-func validateRequest(request sessionnavigation.Request) error {
+func validateRequest(request NavigationRequest) error {
 	focus := strings.TrimSpace(request.CustomFocus.OrEmpty())
 	if request.TargetEntryID == "" {
 		return errors.New("tree navigation target is required")
 	}
 	switch request.SummaryMode {
-	case sessionnavigation.SummaryModeNoSummary, sessionnavigation.SummaryModeSummarize:
+	case SummaryModeNoSummary, SummaryModeSummarize:
 		if focus != "" {
 			return errors.New("custom focus is not allowed for this summary mode")
 		}
-	case sessionnavigation.SummaryModeSummarizeWithCustomPrompt:
+	case SummaryModeSummarizeWithCustomPrompt:
 		if focus == "" {
 			return errors.New("custom focus is required")
 		}

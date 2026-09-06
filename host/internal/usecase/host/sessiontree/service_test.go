@@ -15,7 +15,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // navigateTreeForTest invokes navigation with an accepting progress publisher.
@@ -23,10 +22,10 @@ func navigateTreeForTest(
 	t *testing.T,
 	service *Service,
 	ctx context.Context,
-	request sessionnavigation.Request,
-) (sessionnavigation.Result, error) {
+	request NavigationRequest,
+) (navigationResult, error) {
 	t.Helper()
-	return service.NavigateTree(ctx, request, func(sessionnavigation.Progress) error { return nil })
+	return service.navigate(ctx, request, func(session.Tree) error { return nil })
 }
 
 // TestNavigateCommitsPreparedDestination verifies user and non-user targets select their defined destinations.
@@ -89,14 +88,14 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 			// Act by navigating to the selected tree entry.
-			result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
-				TargetEntryID: test.targetID, SummaryMode: sessionnavigation.SummaryModeNoSummary,
+			result, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
+				TargetEntryID: test.targetID, SummaryMode: SummaryModeNoSummary,
 				CustomFocus: mo.None[string](),
 			})
 
 			// Assert the committed leaf and editable user text match the prepared target semantics.
 			require.NoError(t, err)
-			assert.Equal(t, sessionnavigation.Result{
+			assert.Equal(t, navigationResult{
 				Canceled: false, DestinationID: test.expectedLeaf, ActiveLeafID: test.expectedLeaf,
 				CreatedSummary: mo.None[session.Entry](), NextInput: test.expectedNextInput, Issues: nil,
 			}, result)
@@ -129,8 +128,8 @@ func TestNavigateReturnsCommittedMetadataAfterPublicationFailure(t *testing.T) {
 	)
 
 	// Act through navigation orchestration after the state owner reports a committed delivery failure.
-	result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+	result, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
+		TargetEntryID: "user", SummaryMode: SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
 
@@ -139,7 +138,7 @@ func TestNavigateReturnsCommittedMetadataAfterPublicationFailure(t *testing.T) {
 	assert.Equal(t, mo.Some("root"), result.DestinationID)
 	assert.Equal(t, mo.Some("root"), result.ActiveLeafID)
 	require.Len(t, result.Issues, 1)
-	assert.Equal(t, sessionnavigation.OperationIssueDeliveryFailed, result.Issues[0].Code)
+	assert.Equal(t, navigationIssueDeliveryFailed, result.Issues[0].Code)
 	assert.ErrorContains(t, errors.New(result.Issues[0].Message), deliveryErr.Error())
 }
 
@@ -156,8 +155,8 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 
 	// Act by selecting an unknown entry.
-	_, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
-		TargetEntryID: "unknown", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+	_, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
+		TargetEntryID: "unknown", SummaryMode: SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
 
@@ -179,8 +178,8 @@ func TestNavigateHonorsCanceledContextBeforeReadingTree(t *testing.T) {
 	cancel()
 
 	// Act after cancellation.
-	_, err := navigateTreeForTest(t, service, ctx, sessionnavigation.Request{
-		TargetEntryID: "root", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+	_, err := navigateTreeForTest(t, service, ctx, NavigationRequest{
+		TargetEntryID: "root", SummaryMode: SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
 

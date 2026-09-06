@@ -14,7 +14,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // TestNavigateProjectsExtensionEntriesWithoutPayload verifies handler requests expose extension identity only.
@@ -66,8 +65,8 @@ func TestNavigateProjectsExtensionEntriesWithoutPayload(t *testing.T) {
 	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 	// Act by navigating away from the entry that owns opaque extension data.
-	_, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
-		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+	_, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
+		TargetEntryID: "user", SummaryMode: SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
 

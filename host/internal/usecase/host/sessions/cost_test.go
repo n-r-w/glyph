@@ -202,7 +202,7 @@ func TestResumePreservesStoredCostWithoutPricingLookup(t *testing.T) {
 	storedCost := session.EstimatedCost{Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10}
 	loaded := LoadedSession{
 		Header: session.Header{
-			Version: formatVersion, ID: "stored", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project",
+			ID: "stored", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/stored.jsonl",
 		Tree: mustSessionTree([]session.Entry{
@@ -214,7 +214,7 @@ func TestResumePreservesStoredCostWithoutPricingLookup(t *testing.T) {
 	service := New(repository, nil, nil, pricing, "/project")
 
 	// Act by resuming the stored session under the replacement pricing catalog.
-	_, err := service.ResumeActive(t.Context(), "stored")
+	_, _, err := service.ResumeActive(t.Context(), "stored")
 
 	// Assert the stored cost is returned unchanged without consulting current pricing.
 	require.NoError(t, err)
@@ -250,7 +250,7 @@ func costAppendService(
 	service := New(repository, ids, clock, catalog, "/project")
 	service.active = LoadedSession{
 		Header: session.Header{
-			Version: formatVersion, ID: "active", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project",
+			ID: "active", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project",
 		},
 		StoragePath:          "/sessions/active.jsonl",
 		Tree:                 session.Tree{},

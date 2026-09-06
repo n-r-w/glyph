@@ -1,9 +1,9 @@
-package sessionnavigation
+package sessiontree
 
 import (
-	"errors"
-
 	"github.com/samber/mo"
+
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 )
 
 // SummaryMode identifies branch-summary behavior for one navigation.
@@ -18,8 +18,8 @@ const (
 	SummaryModeSummarizeWithCustomPrompt
 )
 
-// Request contains one validated client-neutral tree-navigation request.
-type Request struct {
+// NavigationRequest contains the navigation intent composed by request handlers.
+type NavigationRequest struct {
 	// TargetEntryID identifies the selected tree entry.
 	TargetEntryID string
 	// SummaryMode identifies requested branch-summary behavior.
@@ -30,13 +30,25 @@ type Request struct {
 
 var (
 	// ErrModelUnavailable reports a missing configured model or unsupported reasoning choice.
-	ErrModelUnavailable = errors.New("summary model unavailable")
+	ErrModelUnavailable = &navigationError{
+		code: controllerui.FailureCodeModelUnavailable,
+		text: "summary model unavailable",
+	}
 	// ErrCredentialUnavailable reports unavailable credentials for the configured summary model.
-	ErrCredentialUnavailable = errors.New("summary model credential unavailable")
+	ErrCredentialUnavailable = &navigationError{
+		code: controllerui.FailureCodeProviderAuth,
+		text: "summary model credential unavailable",
+	}
 	// ErrModelFailed reports a failed or invalid summary-model response.
-	ErrModelFailed = errors.New("summary model failed")
+	ErrModelFailed = &navigationError{code: controllerui.FailureCodeModelFailed, text: "summary model failed"}
 	// ErrExtensionInvalidResult reports invalid final handler-produced state.
-	ErrExtensionInvalidResult = errors.New("extension produced invalid session tree state")
+	ErrExtensionInvalidResult = &navigationError{
+		code: controllerui.FailureCodeExtensionInvalid,
+		text: "extension produced invalid session tree state",
+	}
 	// ErrExtensionUnavailable reports a failed extension process or protocol call.
-	ErrExtensionUnavailable = errors.New("session tree extension unavailable")
+	ErrExtensionUnavailable = &navigationError{
+		code: controllerui.FailureCodeExtension,
+		text: "session tree extension unavailable",
+	}
 )

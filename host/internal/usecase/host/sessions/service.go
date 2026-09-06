@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -20,11 +19,10 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
-
-const formatVersion = 2
 
 var lineBreaks = regexp.MustCompile(`[\r\n]+`)
 
@@ -50,10 +48,13 @@ type Service struct {
 	history []storedHistoryEntry
 	// writeUnavailable blocks mutations after this process observes a persistence failure.
 	writeUnavailable bool
+	// publisher enqueues committed entries without rereading active session state.
+	publisher EntryPublisher
 }
 
 var (
-	_ sessioncontrol.ActiveSessions = (*Service)(nil)
+	_ ui.ActiveSessions             = (*Service)(nil)
+	_ programmatic.ActiveSessions   = (*Service)(nil)
 	_ sessiontree.ActiveSession     = (*Service)(nil)
 	_ agentrun.HistoryStore         = (*Service)(nil)
 	_ extensioncontext.SessionState = (*Service)(nil)
@@ -78,6 +79,7 @@ func New(
 		contextIdentity:  atomic.Pointer[extensioncontext.SessionIdentity]{},
 		history:          nil,
 		writeUnavailable: false,
+		publisher:        nil,
 	}
 }
 
@@ -86,24 +88,23 @@ func (s *Service) Initialize(ctx context.Context) error {
 	if err := s.repository.Initialize(ctx); err != nil {
 		return fmt.Errorf("initialize session repository: %w", err)
 	}
-	_, err := s.CreateActive(ctx)
+	_, _, err := s.CreateActive()
 	return err
 }
 
 // CreateActive replaces the active session with an empty session.
-func (s *Service) CreateActive(_ context.Context) (session.Replacement, error) {
+func (s *Service) CreateActive() (session.Info, []session.Entry, error) {
 	id, err := s.ids.NewID()
 	if err != nil {
-		return session.Replacement{}, fmt.Errorf("create session ID: %w", err)
+		return session.Info{}, nil, fmt.Errorf("create session ID: %w", err)
 	}
 	createdAt := s.clock.Now()
 	tree, treeErr := session.NewTree(nil, mo.None[string](), nil)
 	if treeErr != nil {
-		return session.Replacement{}, fmt.Errorf("create empty session tree: %w", treeErr)
+		return session.Info{}, nil, fmt.Errorf("create empty session tree: %w", treeErr)
 	}
 	loaded := LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               session.ID(id),
 			CreatedAt:        createdAt,
 			WorkingDirectory: s.workingDirectory,
@@ -119,13 +120,14 @@ func (s *Service) CreateActive(_ context.Context) (session.Replacement, error) {
 	s.history = nil
 	// Active replacement creates a new process-local write state independent from the replaced session.
 	s.writeUnavailable = false
-	replacement := s.active.Replacement()
+	// Capture both response values before another operation can replace active state.
+	info, entries := s.active.Info(), cloneEntries(s.active.Tree.ActiveBranch())
 	s.mutex.Unlock()
-	return replacement, nil
+	return info, entries, nil
 }
 
 // ResumeActive replaces the active session with a stored session.
-func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Replacement, error) {
+func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Info, []session.Entry, error) {
 	// The lock spans load and replacement so stale loaded state cannot overwrite a completed append or name change.
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -135,10 +137,10 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 		if errors.Is(err, session.ErrPersistenceUnavailable) {
 			logPersistenceFailure(ctx, persistenceOperationResume, "", err)
 		}
-		return session.Replacement{}, fmt.Errorf("load session: %w", err)
+		return session.Info{}, nil, fmt.Errorf("load session: %w", err)
 	}
 	if loaded.Header.WorkingDirectory != s.workingDirectory {
-		return session.Replacement{}, errors.New("session working directory does not match")
+		return session.Info{}, nil, errors.New("session working directory does not match")
 	}
 	loaded = loaded.Clone()
 	branch := loaded.Tree.ActiveBranch()
@@ -148,7 +150,7 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Repl
 	s.history = history
 	// Successful validation and replacement are the only resume path that restores mutation access.
 	s.writeUnavailable = false
-	return s.active.Replacement(), nil
+	return s.active.Info(), cloneEntries(s.active.Tree.ActiveBranch()), nil
 }
 
 // SetActiveName persists a normalized session name.
@@ -183,42 +185,6 @@ func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info
 	s.active.Information = mo.Some(session.Information{Name: name})
 	s.active.InformationUpdatedAt = mo.Some(updatedAt)
 	return s.active.Info(), nil
-}
-
-// ListStored returns stored sessions ordered by update time and ID.
-func (s *Service) ListStored(ctx context.Context) ([]session.Summary, error) {
-	loaded, err := s.repository.List(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list sessions: %w", err)
-	}
-	result := make([]session.Summary, 0, len(loaded))
-	for itemIndex := range loaded {
-		item := &loaded[itemIndex]
-		activeBranch := item.Tree.ActiveBranch()
-		counts := countSessionEntries(item.Tree.Entries())
-		firstUserText := mo.None[string]()
-		for entryIndex := range activeBranch {
-			entry := &activeBranch[entryIndex]
-			if user, present := entry.User.Get(); present && firstUserText.IsNone() {
-				text := strings.TrimSpace(lineBreaks.ReplaceAllString(user.Text(""), " "))
-				if text != "" {
-					firstUserText = mo.Some(text)
-				}
-			}
-		}
-		result = append(result, session.Summary{
-			Info:          item.Info(),
-			FirstUserText: firstUserText,
-			TotalMessages: counts.totalMessages,
-		})
-	}
-	sort.Slice(result, func(left int, right int) bool {
-		if result[left].Info.UpdatedAt.Equal(result[right].Info.UpdatedAt) {
-			return result[left].Info.ID < result[right].Info.ID
-		}
-		return result[left].Info.UpdatedAt.After(result[right].Info.UpdatedAt)
-	})
-	return result, nil
 }
 
 // SessionID returns the active session identifier for navigation handlers.
@@ -257,14 +223,11 @@ func (s *Service) ActiveStatistics() session.Statistics {
 }
 
 // ActiveInformation returns metadata and statistics from one locked active-session snapshot.
-func (s *Service) ActiveInformation() session.InformationSnapshot {
+func (s *Service) ActiveInformation() (session.Info, session.Statistics) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	info := s.active.Info()
-	return session.InformationSnapshot{
-		Info:       info,
-		Statistics: statisticsFromEntries(s.active.Tree.Entries()),
-	}
+	return info, statisticsFromEntries(s.active.Tree.Entries())
 }
 
 // Snapshot returns the provider-neutral history owned by the active session.
@@ -361,7 +324,6 @@ func (s *Service) AppendExtensionMessage(
 	expected extensioncontext.SessionIdentity,
 	message session.ExtensionMessage,
 	commitGuard extensioncontext.ContextCommitGuard,
-	publisher func(session.Entry) (wait func(context.Context) error, err error),
 ) (session.Entry, error) {
 	if message.ExtensionID == "" || message.EntryType == "" ||
 		message.Visibility != session.ClientVisibilityVisible && message.Visibility != session.ClientVisibilityHidden {
@@ -399,10 +361,10 @@ func (s *Service) AppendExtensionMessage(
 	s.history = append(s.history, storedHistoryFromEntries([]session.Entry{committed})...)
 	var wait func(context.Context) error
 	var publishErr error
-	if publisher == nil {
+	if s.publisher == nil {
 		publishErr = errors.New("extension message publisher is not bound")
 	} else {
-		wait, publishErr = publisher(committed)
+		wait, publishErr = s.publisher.PublishSessionEntry(committed)
 	}
 	releaseCommit()
 	s.mutex.Unlock()

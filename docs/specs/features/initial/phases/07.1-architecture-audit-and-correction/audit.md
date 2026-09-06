@@ -63,7 +63,7 @@ The user approved the [correction plan](solution.md). Its [implementation eviden
 
 [Coordinator.RunPrepared](../../../../../../host/internal/usecase/host/events/coordinator.go), lines 100 through 115, skips Core settlement and settled delivery when history is empty and the error is not the persistence sentinel. Its deferred gate release still runs. [Programmatic Delivery.finish](../../../../../../host/internal/usecase/host/programmatic/delivery.go), lines 125 through 139, does not clear the active association; the skipped `DeliverSettled` owns that transition at lines 235 through 245. A subsequent Programmatic request can therefore remain Busy. UI prepared cleanup can announce Idle while Core still rejects another run. Core's actual transition, not the coordinator's history inference, must determine settlement.
 
-The mismatch above describes the audit baseline. The implemented run-control result now reports Core's settlement transition directly. The [U2 evidence](solution.md#u2-run-control-events-and-admission) also records direct client gate consumption and dispatcher/output assertions. The remaining ledger rows retain their later correction owners.
+The mismatch above describes the audit baseline. The implemented run-control result now reports Core's settlement transition directly. The [U2 evidence](solution.md#u2-run-control-events-and-admission) records direct client gate consumption and dispatcher/output assertions. The [U3 evidence](solution.md#u3-session-queries-navigation-and-publication) records direct session and navigation contracts, sessions-owned entry publication, and removal of sessioncontrol. Other ledger responsibilities remain assigned to later corrections.
 
 ##### Outgoing boundary ledger
 
@@ -123,6 +123,8 @@ The operation-scoped navigation reporter in [CommitNavigation](../../../../../..
 - Assessing realism: High for storage maintenance. No incompatible file format is proposed by this finding.
 - Recommendation: Make the repository select and validate the wire version. Retain domain session identity and metadata without its storage schema selector.
 - Verification: Creation, append, replay, fork, and clone must retain the version-2 serialized format and recovery behavior. This is ownership correction, not a migration or compatibility layer.
+
+The [U3 evidence](solution.md#u3-session-queries-navigation-and-publication) records the implemented session portion of FND-03 and the repository-only version ownership from FND-04. Host clients own the consumed navigation and stored-list results. Sessions projects validated loaded state into those results. Public row and entry projection remains at the Host clients. Version-2 replay and replacement tests passed uncached. Main-agent inspection and whole-scope acceptance remain open.
 
 #### FND-05: Error boundaries discard source causes
 

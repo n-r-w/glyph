@@ -13,7 +13,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -447,58 +446,59 @@ func (s *Session) runSessionOperation(
 ) (controllerui.Frame, error) {
 	switch command.Kind {
 	case controllerui.CommandCreateSession:
-		replacement, err := s.sessionControl.Create(ctx)
+		info, entries, err := s.activeSessions.CreateActive()
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
-		return sessionChangedFrame(replacement.Info, replacement.Entries)
+		return sessionChangedFrame(info, entries)
 	case controllerui.CommandListSessions:
-		listed, err := s.sessionControl.List(ctx)
+		listed, err := s.activeSessions.ListUISessions(ctx)
 		return sessionListFrame(listed), err
 	case controllerui.CommandResumeSession:
-		replacement, err := s.sessionControl.Resume(ctx, session.ID(command.SessionID.MustGet()))
+		info, entries, err := s.activeSessions.ResumeActive(ctx, session.ID(command.SessionID.MustGet()))
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
-		return sessionChangedFrame(replacement.Info, replacement.Entries)
+		return sessionChangedFrame(info, entries)
 	case controllerui.CommandSetSessionName:
-		if _, err := s.sessionControl.SetName(ctx, command.SessionName.MustGet()); err != nil {
+		if _, err := s.activeSessions.SetActiveName(ctx, command.SessionName.MustGet()); err != nil {
 			return controllerui.Frame{}, err
 		}
-		snapshot := s.sessionControl.Information()
-		return sessionInformationFrame(snapshot.Info, snapshot.Statistics), nil
+		info, statistics := s.activeSessions.ActiveInformation()
+		return sessionInformationFrame(info, statistics), nil
 	case controllerui.CommandGetSessionInfo:
-		snapshot := s.sessionControl.Information()
-		return sessionInformationFrame(snapshot.Info, snapshot.Statistics), nil
+		info, statistics := s.activeSessions.ActiveInformation()
+		return sessionInformationFrame(info, statistics), nil
 	case controllerui.CommandGetSessionTree:
-		return sessionTreeFrame(s.sessionControl.Tree())
+		return sessionTreeFrame(s.activeSessions.Tree())
 	case controllerui.CommandNavigateSessionTree:
-		mode, _ := summaryModeFromUI(command.SummaryMode)
-		result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
-			TargetEntryID: command.TargetEntryID.MustGet(), SummaryMode: mode, CustomFocus: command.CustomFocus,
+		result, err := s.navigator.NavigateUI(ctx, NavigationIntent{
+			TargetEntryID: command.TargetEntryID.MustGet(),
+			SummaryMode:   command.SummaryMode,
+			CustomFocus:   command.CustomFocus,
 		}, navigationProgressCallback(reporter))
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
-		return navigationFrame(result)
+		return result.frame()
 	case controllerui.CommandForkSession:
-		replacement, nextInput, err := s.sessionControl.Fork(ctx, command.TargetEntryID.MustGet())
+		info, entries, nextInput, err := s.activeSessions.ForkActive(ctx, command.TargetEntryID.MustGet())
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
-		frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
+		frame, err := sessionChangedFrame(info, entries)
 		frame.Kind, frame.NextInput = controllerui.FrameSessionForked, mo.Some(nextInput)
 		return frame, err
 	case controllerui.CommandCloneSession:
-		replacement, err := s.sessionControl.Clone(ctx)
+		info, entries, err := s.activeSessions.CloneActive(ctx)
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
-		frame, err := sessionChangedFrame(replacement.Info, replacement.Entries)
+		frame, err := sessionChangedFrame(info, entries)
 		frame.Kind = controllerui.FrameSessionCloned
 		return frame, err
 	case controllerui.CommandSetEntryLabel:
-		tree, err := s.sessionControl.SetLabel(ctx, command.TargetEntryID.MustGet(), command.EntryLabel.MustGet())
+		tree, err := s.activeSessions.SetLabel(ctx, command.TargetEntryID.MustGet(), command.EntryLabel.MustGet())
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
@@ -520,15 +520,15 @@ func sessionOperationFailureCode(err error) string {
 	switch {
 	case errors.Is(err, session.ErrPersistenceUnavailable):
 		return controllerui.FailureCodePersistence
-	case errors.Is(err, sessionnavigation.ErrModelUnavailable):
+	case navigationFailureCode(err) == controllerui.FailureCodeModelUnavailable:
 		return controllerui.FailureCodeModelUnavailable
-	case errors.Is(err, sessionnavigation.ErrCredentialUnavailable):
+	case navigationFailureCode(err) == controllerui.FailureCodeProviderAuth:
 		return controllerui.FailureCodeProviderAuth
-	case errors.Is(err, sessionnavigation.ErrModelFailed):
+	case navigationFailureCode(err) == controllerui.FailureCodeModelFailed:
 		return controllerui.FailureCodeModelFailed
-	case errors.Is(err, sessionnavigation.ErrExtensionInvalidResult):
+	case navigationFailureCode(err) == controllerui.FailureCodeExtensionInvalid:
 		return controllerui.FailureCodeExtensionInvalid
-	case errors.Is(err, sessionnavigation.ErrExtensionUnavailable):
+	case navigationFailureCode(err) == controllerui.FailureCodeExtension:
 		return controllerui.FailureCodeExtension
 	case errors.Is(err, session.ErrEntryNotFound):
 		return controllerui.FailureCodeSession
@@ -549,4 +549,12 @@ func (s *Session) setOperationAvailability(availability Availability) {
 	s.operationMutex.Lock()
 	s.operationAvailability = availability
 	s.operationMutex.Unlock()
+}
+
+// navigationFailureCode reads a source category without depending on the navigation implementation.
+func navigationFailureCode(err error) string {
+	if failure, ok := errors.AsType[NavigationFailure](err); ok {
+		return failure.NavigationCode()
+	}
+	return ""
 }

@@ -28,8 +28,8 @@ func TestResumePropagatesNonPersistenceFailures(t *testing.T) {
 	service := New(repository, NewMockIDGenerator(controller), NewMockClock(controller), nil, "/project")
 
 	// Act by attempting one unknown resume and one unavailable stored-session resume.
-	_, notFoundErr := service.ResumeActive(t.Context(), clientID)
-	_, unavailableErr := service.ResumeActive(t.Context(), session.ID("malformed-client-value"))
+	_, _, notFoundErr := service.ResumeActive(t.Context(), clientID)
+	_, _, unavailableErr := service.ResumeActive(t.Context(), session.ID("malformed-client-value"))
 
 	// Assert both errors propagate.
 	require.ErrorIs(t, notFoundErr, os.ErrNotExist)
@@ -51,7 +51,7 @@ func TestResumePropagatesPersistenceFailure(t *testing.T) {
 	service := New(repository, NewMockIDGenerator(controller), NewMockClock(controller), nil, "/project")
 
 	// Act by attempting to resume a session whose recovery cannot truncate storage.
-	_, err := service.ResumeActive(t.Context(), clientID)
+	_, _, err := service.ResumeActive(t.Context(), clientID)
 
 	// Assert the persistence classification propagates.
 	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)

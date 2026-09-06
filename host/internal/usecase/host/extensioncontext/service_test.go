@@ -242,25 +242,18 @@ func TestMessageAppendReturnsCommittedEntryWithDeliveryIssue(t *testing.T) {
 		ExtensionMessage: mo.Some(message), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 	deliveryErr := errors.New("ordered writer failed")
-	service.BindMessagePublisher(func(entry session.Entry) (func(context.Context) error, error) {
-		assert.Equal(t, stored, entry)
-		return func(context.Context) error { return deliveryErr }, nil
-	})
 	sessions.EXPECT().AppendExtensionMessage(
-		gomock.Any(), identity, message, gomock.Any(), gomock.Any(),
+		gomock.Any(), identity, message, gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
 		_ SessionIdentity,
 		_ session.ExtensionMessage,
 		guard ContextCommitGuard,
-		publisher func(session.Entry) (func(context.Context) error, error),
 	) (session.Entry, error) {
 		release, guardErr := guard()
 		require.NoError(t, guardErr)
 		defer release()
-		wait, publishErr := publisher(stored)
-		require.NoError(t, publishErr)
-		return stored, wait(t.Context())
+		return stored, deliveryErr
 	})
 
 	// Act through the context-owned message append capability.
@@ -304,7 +297,7 @@ func TestMessageAppendWithoutPublisherReportsCommittedDeliveryFailure(t *testing
 	}
 	deliveryErr := errors.New("extension message publisher is not bound")
 	sessions.EXPECT().AppendExtensionMessage(
-		gomock.Any(), identity, message, gomock.Any(), gomock.Nil(),
+		gomock.Any(), identity, message, gomock.Any(),
 	).Return(stored, deliveryErr)
 
 	// Act without binding a Glyph client publisher.
@@ -346,7 +339,7 @@ func TestMessageAppendReportsPostCommitCancellation(t *testing.T) {
 		ExtensionMessage: mo.Some(message), BranchSummary: mo.None[session.BranchSummaryEntry](),
 	}
 	sessions.EXPECT().AppendExtensionMessage(
-		gomock.Any(), identity, message, gomock.Any(), gomock.Any(),
+		gomock.Any(), identity, message, gomock.Any(),
 	).Return(stored, context.Canceled)
 
 	// Act after the state owner has already committed the message.

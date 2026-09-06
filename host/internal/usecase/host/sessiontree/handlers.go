@@ -6,7 +6,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // invalidHandlerActionMessage describes an action that cannot be applied to handler state.
@@ -20,13 +19,13 @@ func (s *Service) runRequestHandlers(
 ) (
 	HandlerNavigationState,
 	mo.Option[HandlerBranchSummaryResult],
-	[]sessionnavigation.OperationIssue,
+	[]navigationIssue,
 	bool,
 	error,
 ) {
 	current := cloneHandlerState(original)
 	currentResult := mo.None[HandlerBranchSummaryResult]()
-	var issues []sessionnavigation.OperationIssue
+	var issues []navigationIssue
 	for _, handler := range s.handlersFor(HandlerKindRequest) {
 		action, err := s.invokeRequestHandler(ctx, handler, RequestHandlerInvocation{
 			Original: cloneHandlerState(original), Current: cloneHandlerState(current), CurrentResult: currentResult,
@@ -37,14 +36,14 @@ func (s *Service) runRequestHandlers(
 			}
 			issues = append(
 				issues,
-				operationIssue(sessionnavigation.OperationIssueHandlerError, handler, err.Error()),
+				operationIssue(navigationIssueHandlerError, handler, err.Error()),
 			)
 			continue
 		}
 		candidate, result, canceled, valid := applyRequestHandlerAction(tree, current, currentResult, action)
 		if !valid {
 			issues = append(issues, operationIssue(
-				sessionnavigation.OperationIssueInvalidHandlerAction,
+				navigationIssueInvalidHandlerAction,
 				handler,
 				invalidHandlerActionMessage,
 			))
@@ -132,8 +131,8 @@ func (s *Service) runResultHandlers(
 	original HandlerNavigationState,
 	current HandlerNavigationState,
 	result mo.Option[HandlerBranchSummaryResult],
-	issues []sessionnavigation.OperationIssue,
-) (mo.Option[HandlerBranchSummaryResult], []sessionnavigation.OperationIssue, bool, error) {
+	issues []navigationIssue,
+) (mo.Option[HandlerBranchSummaryResult], []navigationIssue, bool, error) {
 	originalResult, present := result.Get()
 	if !present {
 		return result, issues, false, nil
@@ -150,14 +149,14 @@ func (s *Service) runResultHandlers(
 			}
 			issues = append(
 				issues,
-				operationIssue(sessionnavigation.OperationIssueHandlerError, handler, err.Error()),
+				operationIssue(navigationIssueHandlerError, handler, err.Error()),
 			)
 			continue
 		}
 		candidate, canceled, valid := applyResultHandlerAction(currentResult, action)
 		if !valid {
 			issues = append(issues, operationIssue(
-				sessionnavigation.OperationIssueInvalidHandlerAction,
+				navigationIssueInvalidHandlerAction,
 				handler,
 				invalidHandlerActionMessage,
 			))
@@ -199,8 +198,8 @@ func (s *Service) runObservers(
 	current HandlerNavigationState,
 	committed session.Tree,
 	summaryCreated bool,
-	issues []sessionnavigation.OperationIssue,
-) []sessionnavigation.OperationIssue {
+	issues []navigationIssue,
+) []navigationIssue {
 	// A committed navigation must reach observers even when the caller cancels after persistence.
 	observerContext := context.WithoutCancel(ctx)
 	invocation := TreeObserverInvocation{
@@ -214,7 +213,7 @@ func (s *Service) runObservers(
 		if err := s.invokeObserver(observerContext, handler, invocation); err != nil {
 			issues = append(
 				issues,
-				operationIssue(sessionnavigation.OperationIssueObserverError, handler, err.Error()),
+				operationIssue(navigationIssueObserverError, handler, err.Error()),
 			)
 		}
 	}
@@ -235,11 +234,11 @@ func committedSummary(tree session.Tree, expected bool) mo.Option[session.Entry]
 
 // operationIssue attaches handler identity and a category without changing the received message.
 func operationIssue(
-	code sessionnavigation.OperationIssueCode,
+	code navigationIssueCode,
 	handler Handler,
 	message string,
-) sessionnavigation.OperationIssue {
-	return sessionnavigation.OperationIssue{
+) navigationIssue {
+	return navigationIssue{
 		Code: code, ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID, Message: message,
 	}
 }

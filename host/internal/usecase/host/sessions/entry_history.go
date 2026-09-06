@@ -1,6 +1,8 @@
-package sessiontree
+package sessions
 
 import (
+	"strings"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -15,8 +17,8 @@ const (
 	branchSummaryContextClosing = "\n</summary>"
 )
 
-// HistoryFromEntries projects model-visible session entries into provider-neutral history.
-func HistoryFromEntries(entries []session.Entry) []agent.HistoryEntry {
+// historyFromEntries projects model-visible session entries into provider-neutral history.
+func historyFromEntries(entries []session.Entry) []agent.HistoryEntry {
 	history := make([]agent.HistoryEntry, 0, len(entries))
 	for index := range entries {
 		entry := &entries[index]
@@ -57,5 +59,6 @@ func HistoryFromEntries(entries []session.Entry) []agent.HistoryEntry {
 
 // renderBranchSummaryContext encodes persisted summary data for one provider user-role history message.
 func renderBranchSummaryContext(summary string) string {
-	return branchSummaryContextOpening + escapeXMLText(summary) + branchSummaryContextClosing
+	escaped := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;").Replace(summary)
+	return branchSummaryContextOpening + escaped + branchSummaryContextClosing
 }

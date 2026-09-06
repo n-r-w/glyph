@@ -9,8 +9,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/stretchr/testify/suite"
-
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
 )
 
 type ServiceSuite struct {
@@ -75,9 +73,4 @@ func testRunOutput(t *testing.T) *MockRunOutput {
 	}).AnyTimes()
 	output.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {}).AnyTimes()
 	return output
-}
-
-// emptyHistorySnapshot returns an empty public history fixture.
-func emptyHistorySnapshot() []agent.HistoryEntry {
-	return nil
 }

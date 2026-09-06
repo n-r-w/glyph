@@ -17,7 +17,6 @@ import (
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
-	sessionnavigation "github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	operation "github.com/n-r-w/glyph/internal/operation"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -391,137 +390,142 @@ func (mr *MockModelCatalogMockRecorder) SelectReasoningChoice(choice any) *gomoc
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectReasoningChoice", reflect.TypeOf((*MockModelCatalog)(nil).SelectReasoningChoice), choice)
 }
 
-// MockSessionControl is a mock of SessionControl interface.
-type MockSessionControl struct {
+// MockActiveSessions is a mock of ActiveSessions interface.
+type MockActiveSessions struct {
 	ctrl     *gomock.Controller
-	recorder *MockSessionControlMockRecorder
+	recorder *MockActiveSessionsMockRecorder
 	isgomock struct{}
 }
 
-// MockSessionControlMockRecorder is the mock recorder for MockSessionControl.
-type MockSessionControlMockRecorder struct {
-	mock *MockSessionControl
+// MockActiveSessionsMockRecorder is the mock recorder for MockActiveSessions.
+type MockActiveSessionsMockRecorder struct {
+	mock *MockActiveSessions
 }
 
-// NewMockSessionControl creates a new mock instance.
-func NewMockSessionControl(ctrl *gomock.Controller) *MockSessionControl {
-	mock := &MockSessionControl{ctrl: ctrl}
-	mock.recorder = &MockSessionControlMockRecorder{mock}
+// NewMockActiveSessions creates a new mock instance.
+func NewMockActiveSessions(ctrl *gomock.Controller) *MockActiveSessions {
+	mock := &MockActiveSessions{ctrl: ctrl}
+	mock.recorder = &MockActiveSessionsMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockSessionControl) EXPECT() *MockSessionControlMockRecorder {
+func (m *MockActiveSessions) EXPECT() *MockActiveSessionsMockRecorder {
 	return m.recorder
 }
 
-// Clone mocks base method.
-func (m *MockSessionControl) Clone(arg0 context.Context) (session.Replacement, error) {
+// ActiveInformation mocks base method.
+func (m *MockActiveSessions) ActiveInformation() (session.Info, session.Statistics) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Clone", arg0)
-	ret0, _ := ret[0].(session.Replacement)
-	ret1, _ := ret[1].(error)
+	ret := m.ctrl.Call(m, "ActiveInformation")
+	ret0, _ := ret[0].(session.Info)
+	ret1, _ := ret[1].(session.Statistics)
 	return ret0, ret1
 }
 
-// Clone indicates an expected call of Clone.
-func (mr *MockSessionControlMockRecorder) Clone(arg0 any) *gomock.Call {
+// ActiveInformation indicates an expected call of ActiveInformation.
+func (mr *MockActiveSessionsMockRecorder) ActiveInformation() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Clone", reflect.TypeOf((*MockSessionControl)(nil).Clone), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveInformation", reflect.TypeOf((*MockActiveSessions)(nil).ActiveInformation))
 }
 
-// Create mocks base method.
-func (m *MockSessionControl) Create(arg0 context.Context) (session.Replacement, error) {
+// CloneActive mocks base method.
+func (m *MockActiveSessions) CloneActive(arg0 context.Context) (session.Info, []session.Entry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Create", arg0)
-	ret0, _ := ret[0].(session.Replacement)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Create indicates an expected call of Create.
-func (mr *MockSessionControlMockRecorder) Create(arg0 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Create", reflect.TypeOf((*MockSessionControl)(nil).Create), arg0)
-}
-
-// Fork mocks base method.
-func (m *MockSessionControl) Fork(arg0 context.Context, arg1 string) (session.Replacement, string, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Fork", arg0, arg1)
-	ret0, _ := ret[0].(session.Replacement)
-	ret1, _ := ret[1].(string)
+	ret := m.ctrl.Call(m, "CloneActive", arg0)
+	ret0, _ := ret[0].(session.Info)
+	ret1, _ := ret[1].([]session.Entry)
 	ret2, _ := ret[2].(error)
 	return ret0, ret1, ret2
 }
 
-// Fork indicates an expected call of Fork.
-func (mr *MockSessionControlMockRecorder) Fork(arg0, arg1 any) *gomock.Call {
+// CloneActive indicates an expected call of CloneActive.
+func (mr *MockActiveSessionsMockRecorder) CloneActive(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fork", reflect.TypeOf((*MockSessionControl)(nil).Fork), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CloneActive", reflect.TypeOf((*MockActiveSessions)(nil).CloneActive), arg0)
 }
 
-// Information mocks base method.
-func (m *MockSessionControl) Information() session.InformationSnapshot {
+// CreateActive mocks base method.
+func (m *MockActiveSessions) CreateActive() (session.Info, []session.Entry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Information")
-	ret0, _ := ret[0].(session.InformationSnapshot)
-	return ret0
+	ret := m.ctrl.Call(m, "CreateActive")
+	ret0, _ := ret[0].(session.Info)
+	ret1, _ := ret[1].([]session.Entry)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
-// Information indicates an expected call of Information.
-func (mr *MockSessionControlMockRecorder) Information() *gomock.Call {
+// CreateActive indicates an expected call of CreateActive.
+func (mr *MockActiveSessionsMockRecorder) CreateActive() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Information", reflect.TypeOf((*MockSessionControl)(nil).Information))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CreateActive", reflect.TypeOf((*MockActiveSessions)(nil).CreateActive))
 }
 
-// List mocks base method.
-func (m *MockSessionControl) List(arg0 context.Context) ([]session.Summary, error) {
+// ForkActive mocks base method.
+func (m *MockActiveSessions) ForkActive(arg0 context.Context, arg1 string) (session.Info, []session.Entry, string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "List", arg0)
-	ret0, _ := ret[0].([]session.Summary)
+	ret := m.ctrl.Call(m, "ForkActive", arg0, arg1)
+	ret0, _ := ret[0].(session.Info)
+	ret1, _ := ret[1].([]session.Entry)
+	ret2, _ := ret[2].(string)
+	ret3, _ := ret[3].(error)
+	return ret0, ret1, ret2, ret3
+}
+
+// ForkActive indicates an expected call of ForkActive.
+func (mr *MockActiveSessionsMockRecorder) ForkActive(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ForkActive", reflect.TypeOf((*MockActiveSessions)(nil).ForkActive), arg0, arg1)
+}
+
+// ListUISessions mocks base method.
+func (m *MockActiveSessions) ListUISessions(arg0 context.Context) ([]StoredSession, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ListUISessions", arg0)
+	ret0, _ := ret[0].([]StoredSession)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// List indicates an expected call of List.
-func (mr *MockSessionControlMockRecorder) List(arg0 any) *gomock.Call {
+// ListUISessions indicates an expected call of ListUISessions.
+func (mr *MockActiveSessionsMockRecorder) ListUISessions(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "List", reflect.TypeOf((*MockSessionControl)(nil).List), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ListUISessions", reflect.TypeOf((*MockActiveSessions)(nil).ListUISessions), arg0)
 }
 
-// Navigate mocks base method.
-func (m *MockSessionControl) Navigate(arg0 context.Context, arg1 sessionnavigation.Request, arg2 func(sessionnavigation.Progress) error) (sessionnavigation.Result, error) {
+// ResumeActive mocks base method.
+func (m *MockActiveSessions) ResumeActive(arg0 context.Context, arg1 session.ID) (session.Info, []session.Entry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Navigate", arg0, arg1, arg2)
-	ret0, _ := ret[0].(sessionnavigation.Result)
+	ret := m.ctrl.Call(m, "ResumeActive", arg0, arg1)
+	ret0, _ := ret[0].(session.Info)
+	ret1, _ := ret[1].([]session.Entry)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ResumeActive indicates an expected call of ResumeActive.
+func (mr *MockActiveSessionsMockRecorder) ResumeActive(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResumeActive", reflect.TypeOf((*MockActiveSessions)(nil).ResumeActive), arg0, arg1)
+}
+
+// SetActiveName mocks base method.
+func (m *MockActiveSessions) SetActiveName(arg0 context.Context, arg1 string) (session.Info, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetActiveName", arg0, arg1)
+	ret0, _ := ret[0].(session.Info)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Navigate indicates an expected call of Navigate.
-func (mr *MockSessionControlMockRecorder) Navigate(arg0, arg1, arg2 any) *gomock.Call {
+// SetActiveName indicates an expected call of SetActiveName.
+func (mr *MockActiveSessionsMockRecorder) SetActiveName(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Navigate", reflect.TypeOf((*MockSessionControl)(nil).Navigate), arg0, arg1, arg2)
-}
-
-// Resume mocks base method.
-func (m *MockSessionControl) Resume(arg0 context.Context, arg1 session.ID) (session.Replacement, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Resume", arg0, arg1)
-	ret0, _ := ret[0].(session.Replacement)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Resume indicates an expected call of Resume.
-func (mr *MockSessionControlMockRecorder) Resume(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Resume", reflect.TypeOf((*MockSessionControl)(nil).Resume), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetActiveName", reflect.TypeOf((*MockActiveSessions)(nil).SetActiveName), arg0, arg1)
 }
 
 // SetLabel mocks base method.
-func (m *MockSessionControl) SetLabel(arg0 context.Context, arg1, arg2 string) (session.Tree, error) {
+func (m *MockActiveSessions) SetLabel(arg0 context.Context, arg1, arg2 string) (session.Tree, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SetLabel", arg0, arg1, arg2)
 	ret0, _ := ret[0].(session.Tree)
@@ -530,28 +534,13 @@ func (m *MockSessionControl) SetLabel(arg0 context.Context, arg1, arg2 string) (
 }
 
 // SetLabel indicates an expected call of SetLabel.
-func (mr *MockSessionControlMockRecorder) SetLabel(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockActiveSessionsMockRecorder) SetLabel(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLabel", reflect.TypeOf((*MockSessionControl)(nil).SetLabel), arg0, arg1, arg2)
-}
-
-// SetName mocks base method.
-func (m *MockSessionControl) SetName(arg0 context.Context, arg1 string) (session.Info, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SetName", arg0, arg1)
-	ret0, _ := ret[0].(session.Info)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// SetName indicates an expected call of SetName.
-func (mr *MockSessionControlMockRecorder) SetName(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetName", reflect.TypeOf((*MockSessionControl)(nil).SetName), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetLabel", reflect.TypeOf((*MockActiveSessions)(nil).SetLabel), arg0, arg1, arg2)
 }
 
 // Tree mocks base method.
-func (m *MockSessionControl) Tree() session.Tree {
+func (m *MockActiveSessions) Tree() session.Tree {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tree")
 	ret0, _ := ret[0].(session.Tree)
@@ -559,9 +548,9 @@ func (m *MockSessionControl) Tree() session.Tree {
 }
 
 // Tree indicates an expected call of Tree.
-func (mr *MockSessionControlMockRecorder) Tree() *gomock.Call {
+func (mr *MockActiveSessionsMockRecorder) Tree() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockSessionControl)(nil).Tree))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tree", reflect.TypeOf((*MockActiveSessions)(nil).Tree))
 }
 
 // MockAuthenticator is a mock of Authenticator interface.

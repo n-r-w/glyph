@@ -7,13 +7,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// Replacement returns independent public state for an active-session replacement.
-func (loaded LoadedSession) Replacement() session.Replacement {
-	return session.Replacement{
-		Info: loaded.Info(), Entries: cloneEntries(loaded.Tree.ActiveBranch()),
-	}
-}
-
 // Info derives name and update time from durable aggregate state.
 func (loaded LoadedSession) Info() session.Info {
 	name := mo.None[string]()

@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/infra/sessionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/operationgate"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
@@ -25,8 +24,6 @@ import (
 type sessionComposition struct {
 	// active owns the session snapshot initialized before any client starts.
 	active *hostsessions.Service
-	// control exposes lifecycle operations to client transports.
-	control *sessioncontrol.Service
 	// gate serializes session replacement with agent execution across all client paths.
 	gate *operationgate.Service
 	// pricing binds the provider catalog after storage initialization and before client execution.
@@ -128,7 +125,6 @@ func newSessionComposition(
 	tree := sessiontree.New(active, modelRequester, handlerRuntime)
 	return sessionComposition{
 		active:         active,
-		control:        sessioncontrol.New(active, tree),
 		gate:           gate,
 		pricing:        pricing,
 		modelRequester: modelRequester,

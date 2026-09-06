@@ -284,13 +284,12 @@ func TestRuntimeReplacementBeforeMessageCommitPreservesStaleCategory(t *testing.
 	appendAdmitted := make(chan struct{})
 	var persisted atomic.Bool
 	sessions.EXPECT().AppendExtensionMessage(
-		gomock.Any(), identity, gomock.Any(), gomock.Any(), gomock.Any(),
+		gomock.Any(), identity, gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
 		_ extensioncontext.SessionIdentity,
 		_ session.ExtensionMessage,
 		guard extensioncontext.ContextCommitGuard,
-		_ func(session.Entry) (func(context.Context) error, error),
 	) (session.Entry, error) {
 		close(appendAdmitted)
 		<-state.invalidated

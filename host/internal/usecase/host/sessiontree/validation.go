@@ -8,7 +8,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // validateFinalState recomputes preparation and validates the exact state before commit.
@@ -27,7 +26,7 @@ func validateFinalState(
 
 	summary, present := result.Get()
 	if !present {
-		if current.Request.Navigation.SummaryMode != sessionnavigation.SummaryModeNoSummary &&
+		if current.Request.Navigation.SummaryMode != SummaryModeNoSummary &&
 			len(preparation.AbandonedPath) != 0 {
 			return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), invalidExtensionState(
 				errors.New("summary result is required"),
@@ -35,7 +34,7 @@ func validateFinalState(
 		}
 		return preparation, mo.None[BranchSummaryDraft](), nil
 	}
-	if current.Request.Navigation.SummaryMode == sessionnavigation.SummaryModeNoSummary ||
+	if current.Request.Navigation.SummaryMode == SummaryModeNoSummary ||
 		len(preparation.AbandonedPath) == 0 {
 		return session.NavigationPreparation{}, mo.None[BranchSummaryDraft](), invalidExtensionState(
 			errors.New("summary result is inconsistent with navigation mode"),
@@ -70,7 +69,7 @@ func validateFinalState(
 
 // invalidExtensionState maps final handler-produced state to its public failure class.
 func invalidExtensionState(err error) error {
-	return fmt.Errorf("%w: %w", sessionnavigation.ErrExtensionInvalidResult, err)
+	return fmt.Errorf("%w: %w", ErrExtensionInvalidResult, err)
 }
 
 // summaryResultFromDraft converts built-in output into result-handler state.

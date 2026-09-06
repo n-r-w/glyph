@@ -244,7 +244,6 @@ func (s *Service) decodeHeader(data []byte) (session.Header, error) {
 	var record headerRecord
 	decodeErr := decodeRecord(data, &record)
 	header := session.Header{
-		Version:          record.Version,
 		ID:               session.ID(record.ID),
 		CreatedAt:        time.Time{},
 		WorkingDirectory: record.CWD,

@@ -144,13 +144,13 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 	require.NoError(t, treeErr)
 	repository.EXPECT().Load(gomock.Any(), session.ID("session-id")).Return(LoadedSession{
 		Header: session.Header{
-			Version: 1, ID: "session-id", CreatedAt: base.Add(time.Second), WorkingDirectory: "/project",
+			ID: "session-id", CreatedAt: base.Add(time.Second), WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/history.jsonl", Tree: restoredTree,
 		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}, nil)
 	restarted := New(repository, ids, clock, pricing, "/project")
-	_, err := restarted.ResumeActive(t.Context(), "session-id")
+	_, _, err := restarted.ResumeActive(t.Context(), "session-id")
 	require.NoError(t, err)
 	persistedUser := persisted[0].User.MustGet()
 	require.Len(t, persistedUser.Content, 2)

@@ -32,7 +32,7 @@ func TestAuthenticationCheckRequiresExplicitRetry(t *testing.T) {
 		channel.EXPECT().SetAvailability(AvailabilityAuthenticationFailed).Return(nil),
 	)
 	service := NewSession(
-		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
+		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
 		nil, func(context.Context) {},
 
 		Initialization{},
@@ -61,7 +61,7 @@ func TestAuthenticationCheckUsesInternalCategoryForOtherFailures(t *testing.T) {
 		channel.EXPECT().SetAvailability(AvailabilityAuthenticationFailed).Return(nil),
 	)
 	service := NewSession(
-		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
+		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
 		nil, func(context.Context) {},
 
 		Initialization{},
@@ -104,7 +104,7 @@ func TestAuthenticationRetryTransitionsToIdle(t *testing.T) {
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
 	authenticator.EXPECT().SignIn(gomock.Any()).Return(nil)
 	service := NewSession(
-		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
+		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
 		nil, func(context.Context) {},
 
 		Initialization{},
@@ -137,7 +137,7 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
 	authenticator.EXPECT().SignIn(gomock.Any()).Return(source)
 	service := NewSession(
-		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil,
+		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
 		nil, func(context.Context) {},
 
 		Initialization{},
@@ -163,7 +163,7 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 func authenticationService(controller *gomock.Controller) *Session {
 	return NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, nil, func(context.Context) {},
+		NewMockModelCatalog(controller), nil, nil, nil, func(context.Context) {},
 
 		Initialization{},
 	)

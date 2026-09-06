@@ -20,6 +20,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
@@ -45,6 +46,7 @@ const (
 
 var (
 	_ startup.Reporter        = (*Renderer)(nil)
+	_ sessions.EntryPublisher = (*Renderer)(nil)
 	_ lifecycle.IssueDelivery = (*Renderer)(nil)
 )
 
@@ -53,8 +55,8 @@ func NewRenderer(stdout, stderr io.Writer) *Renderer {
 	return &Renderer{stdout: stdout, stderr: stderr, modelLineOpen: false}
 }
 
-// AcknowledgeSessionEntry accepts a committed extension message when headless mode has no Glyph client.
-func (r *Renderer) AcknowledgeSessionEntry(
+// PublishSessionEntry accepts a committed extension message when headless mode has no Glyph client.
+func (r *Renderer) PublishSessionEntry(
 	entry session.Entry,
 ) (wait func(context.Context) error, err error) {
 	if r == nil {

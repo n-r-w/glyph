@@ -14,7 +14,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 // modelRequestFailureError exposes one model request failure classification in tests.
@@ -44,25 +43,25 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 			name:     "model unavailable",
 			failure:  modelRequestFailureError{code: selectionCodeNotFound},
 			cancel:   false,
-			expected: sessionnavigation.ErrModelUnavailable,
+			expected: ErrModelUnavailable,
 		},
 		{
 			name:     "reasoning unavailable",
 			failure:  modelRequestFailureError{code: selectionCodeReasoningUnsupported},
 			cancel:   false,
-			expected: sessionnavigation.ErrModelUnavailable,
+			expected: ErrModelUnavailable,
 		},
 		{
 			name:     "credential unavailable",
 			failure:  modelRequestFailureError{code: selectionCodeCredentialUnavailable},
 			cancel:   false,
-			expected: sessionnavigation.ErrCredentialUnavailable,
+			expected: ErrCredentialUnavailable,
 		},
 		{
 			name:     "model failed",
 			failure:  errors.New("provider failed"),
 			cancel:   false,
-			expected: sessionnavigation.ErrModelFailed,
+			expected: ErrModelFailed,
 		},
 		{name: "canceled", failure: context.Canceled, cancel: true, expected: context.Canceled},
 	}
@@ -96,8 +95,8 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 			)
 
 			// Act by requesting built-in summarization.
-			_, err := navigateTreeForTest(t, service, ctx, sessionnavigation.Request{
-				TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
+			_, err := navigateTreeForTest(t, service, ctx, NavigationRequest{
+				TargetEntryID: "user", SummaryMode: SummaryModeSummarize,
 				CustomFocus: mo.None[string](),
 			})
 

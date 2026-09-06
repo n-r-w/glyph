@@ -10,7 +10,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=sessiontree
@@ -56,7 +55,7 @@ type ActiveSession interface {
 	// Tree returns an independent active-session tree snapshot.
 	Tree() session.Tree
 	// CommitNavigation persists state and enqueues its client snapshot before releasing the commit boundary.
-	CommitNavigation(context.Context, CommitCommand, func(sessionnavigation.Progress) error) (NavigationCommit, error)
+	CommitNavigation(context.Context, CommitCommand, func(session.Tree) error) (NavigationCommit, error)
 }
 
 // HandlerKind identifies one session-tree extension point.
@@ -104,7 +103,7 @@ const (
 // HandlerNavigationRequest contains navigation behavior and its summary-model selection.
 type HandlerNavigationRequest struct {
 	// Navigation contains the selected target and summary behavior.
-	Navigation sessionnavigation.Request
+	Navigation NavigationRequest
 	// SummaryModel contains the configured model used for summarization.
 	SummaryModel model.Selection
 }
@@ -265,6 +264,13 @@ type Runtime interface {
 		handlerID string,
 		request HandlerRequest,
 	) (HandlerResponse, error)
+}
+
+// SelectionFailure supplies configured-model failure classification without its implementation.
+type SelectionFailure interface {
+	error
+	// SelectionCode returns the stable configured-selection failure code.
+	SelectionCode() string
 }
 
 // ModelRequester supplies active selection and validates models only when executing requests.

@@ -50,7 +50,8 @@ func (s *ServiceSuite) TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnav
 	s.Equal(before, service.ActiveInfo())
 	s.Empty(service.ActiveEntries())
 	s.Zero(service.ActiveStatistics().TotalMessages)
-	s.Equal(before, service.ActiveInformation().Info)
+	info, _ := service.ActiveInformation()
+	s.Equal(before, info)
 
 	_, err = service.SetActiveName(s.T().Context(), "blocked name")
 	s.Require().ErrorIs(err, session.ErrPersistenceUnavailable)
@@ -68,7 +69,7 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 	s.ids.EXPECT().NewID().Return("active", nil)
 	s.clock.EXPECT().Now().Return(createdAt)
 	service := New(s.repository, s.ids, s.clock, s.pricing, "/project")
-	_, err := service.CreateActive(s.T().Context())
+	_, _, err := service.CreateActive()
 	s.Require().NoError(err)
 	s.ids.EXPECT().NewID().Return("failed-entry", nil)
 	s.clock.EXPECT().Now().Return(createdAt.Add(time.Second))
@@ -82,7 +83,7 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("broken")).Return(LoadedSession{}, session.ErrUnavailable)
 
 	// Act by failing resume, then resuming valid storage and appending to the replacement.
-	_, err = service.ResumeActive(s.T().Context(), "broken")
+	_, _, err = service.ResumeActive(s.T().Context(), "broken")
 	s.Require().ErrorIs(err, session.ErrUnavailable)
 	s.Equal(before, service.ActiveInfo())
 	err = service.Append(s.T().Context(), agent.HistoryEntry{
@@ -94,7 +95,6 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 	resumedAt := createdAt.Add(time.Minute)
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(LoadedSession{
 		Header: session.Header{
-			Version:          1,
 			ID:               "stored",
 			CreatedAt:        resumedAt,
 			WorkingDirectory: "/project",
@@ -104,7 +104,7 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 		Information:          mo.None[session.Information](),
 		InformationUpdatedAt: mo.None[time.Time](),
 	}, nil)
-	_, err = service.ResumeActive(s.T().Context(), "stored")
+	_, _, err = service.ResumeActive(s.T().Context(), "stored")
 	s.Require().NoError(err)
 	s.ids.EXPECT().NewID().Return("resumed-entry", nil)
 	s.clock.EXPECT().Now().Return(resumedAt.Add(time.Second))

@@ -17,7 +17,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
@@ -29,7 +28,7 @@ func commitNavigationForTest(
 	command sessiontree.CommitCommand,
 ) (sessiontree.NavigationCommit, error) {
 	t.Helper()
-	return service.CommitNavigation(ctx, command, func(sessionnavigation.Progress) error { return nil })
+	return service.CommitNavigation(ctx, command, func(session.Tree) error { return nil })
 }
 
 // TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination verifies atomic branch-preserving
@@ -113,8 +112,11 @@ func TestOverlappingMessageAppendContinuesFromNavigationCommit(t *testing.T) {
 	).Times(2)
 	ids.EXPECT().NewID().Return("overlap", nil)
 	clock.EXPECT().Now().Return(createdAt.Add(3 * time.Second))
+	entryPublisher := NewMockEntryPublisher(controller)
+	service.BindEntryPublisher(entryPublisher)
+	entryPublisher.EXPECT().PublishSessionEntry(gomock.Any()).Return(func(context.Context) error { return nil }, nil)
 	appendResult := make(chan error, 1)
-	publisher := func(sessionnavigation.Progress) error {
+	publisher := func(session.Tree) error {
 		go func() {
 			_, appendErr := service.AppendExtensionMessage(
 				t.Context(), expected, session.ExtensionMessage{
@@ -122,9 +124,7 @@ func TestOverlappingMessageAppendContinuesFromNavigationCommit(t *testing.T) {
 					EntryType:   "note",
 					Text:        "overlap",
 					Visibility:  session.ClientVisibilityVisible,
-				}, treeBehaviorCommitGuard, func(session.Entry) (func(context.Context) error, error) {
-					return func(context.Context) error { return nil }, nil
-				},
+				}, treeBehaviorCommitGuard,
 			)
 			appendResult <- appendErr
 		}()
@@ -157,14 +157,14 @@ func TestCommitNavigationEnqueuesSnapshotInsidePublicationBoundary(t *testing.T)
 		ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil,
 	)
 	published := false
-	publisher := func(progress sessionnavigation.Progress) error {
+	publisher := func(progress session.Tree) error {
 		published = true
 		if service.mutex.TryRLock() {
 			service.mutex.RUnlock()
 			t.Error("navigation publication ran outside the session commit boundary")
 		}
-		assert.Equal(t, mo.Some("destination"), progress.Tree.ActiveLeafID())
-		assert.Equal(t, []string{"root", "destination"}, treeBehaviorEntryIDs(progress.ActiveBranch))
+		assert.Equal(t, mo.Some("destination"), progress.ActiveLeafID())
+		assert.Equal(t, []string{"root", "destination"}, treeBehaviorEntryIDs(progress.ActiveBranch()))
 		return nil
 	}
 
@@ -195,7 +195,7 @@ func TestCommitNavigationPublicationFailureRetainsCommittedState(t *testing.T) {
 	)
 	deliveryErr := errors.New("ordered writer queue is closed")
 
-	publisher := func(sessionnavigation.Progress) error { return deliveryErr }
+	publisher := func(session.Tree) error { return deliveryErr }
 
 	// Act by committing with a publisher that cannot enqueue progress.
 	commit, err := service.CommitNavigation(
@@ -372,7 +372,7 @@ func commitNavigationTree(t *testing.T, createdAt time.Time) session.Tree {
 func commitNavigationLoadedSession(tree session.Tree, createdAt time.Time) LoadedSession {
 	return LoadedSession{
 		Header: session.Header{
-			Version: formatVersion, ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project",
+			ID: "session", CreatedAt: createdAt, WorkingDirectory: "/project",
 		},
 		StoragePath: "/sessions/session.jsonl", Tree: tree,
 		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),

@@ -57,16 +57,16 @@ func TestForkActivePersistsOnlyTheSelectedUserParentPath(t *testing.T) {
 	)
 
 	// Act by forking before the selected user entry.
-	replacement, nextInput, err := service.ForkActive(t.Context(), "target")
+	replacementInfo, replacementEntries, nextInput, err := service.ForkActive(t.Context(), "target")
 
 	// Assert the selected text and persisted replacement become active without changing the source snapshot.
 	require.NoError(t, err)
 	require.Equal(t, "exact target text", nextInput)
-	require.Equal(t, session.ID("forked"), replacement.Info.ID)
+	require.Equal(t, session.ID("forked"), replacementInfo.ID)
 	require.Equal(
 		t,
 		[]string{"root", "extension", "summary"},
-		lo.Map(replacement.Entries, func(entry session.Entry, _ int) string {
+		lo.Map(replacementEntries, func(entry session.Entry, _ int) string {
 			return entry.ID
 		}),
 	)
@@ -106,7 +106,7 @@ func TestForkActiveRootUserCreatesEmptyReplacement(t *testing.T) {
 	)
 
 	// Act by selecting the root user message.
-	_, nextInput, err := service.ForkActive(t.Context(), "root")
+	_, _, nextInput, err := service.ForkActive(t.Context(), "root")
 
 	// Assert exact input is returned and the replacement remains at the implicit root.
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestForkActiveRejectsInvalidTargetsWithoutReplacement(t *testing.T) {
 			before := service.active.Clone()
 
 			// Act by selecting an invalid fork target.
-			_, _, err := service.ForkActive(t.Context(), test.target)
+			_, _, _, err := service.ForkActive(t.Context(), test.target)
 
 			// Assert no active state changed and the stable domain error is returned.
 			require.ErrorIs(t, err, test.expected)
@@ -198,14 +198,14 @@ func TestCloneActivePersistsTheCompleteActiveBranch(t *testing.T) {
 			)
 
 			// Act by cloning the complete active branch.
-			replacement, err := service.CloneActive(t.Context())
+			replacementInfo, replacementEntries, err := service.CloneActive(t.Context())
 
 			// Assert the exact retained branch is published.
 			require.NoError(t, err)
-			require.Equal(t, test.expectedIDs, lo.Map(replacement.Entries, func(entry session.Entry, _ int) string {
+			require.Equal(t, test.expectedIDs, lo.Map(replacementEntries, func(entry session.Entry, _ int) string {
 				return entry.ID
 			}))
-			require.Equal(t, session.ID("clone"), replacement.Info.ID)
+			require.Equal(t, session.ID("clone"), replacementInfo.ID)
 		})
 	}
 }
@@ -231,7 +231,7 @@ func TestReplacementCreationFailurePreservesSource(t *testing.T) {
 	beforeHistory := append([]storedHistoryEntry(nil), service.history...)
 
 	// Act by cloning when persistence fails.
-	_, err := service.CloneActive(t.Context())
+	_, _, err := service.CloneActive(t.Context())
 
 	// Assert the source identity, tree, history, and write state remain unchanged.
 	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
@@ -282,7 +282,6 @@ func replacementLoadedSession(tree session.Tree) LoadedSession {
 	createdAt := time.Unix(1, 0).UTC()
 	return LoadedSession{
 		Header: session.Header{
-			Version:          formatVersion,
 			ID:               "source",
 			CreatedAt:        createdAt,
 			WorkingDirectory: "/project",

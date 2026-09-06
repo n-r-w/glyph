@@ -22,7 +22,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/operationgate"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessioncontrol"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -32,21 +31,19 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 
 	// Arrange active-session control and run coordination over one operation gate.
 	controller := gomock.NewController(t)
-	active := sessioncontrol.NewMockActiveSessions(controller)
-	navigator := sessioncontrol.NewMockNavigator(controller)
+	active := programmatic.NewMockActiveSessions(controller)
 	gate := operationgate.New()
-	control := sessioncontrol.New(active, navigator)
 	idleInfo := session.Info{
 		ID: "idle", Name: mo.None[string](), WorkingDirectory: "/project", StoragePath: mo.None[string](),
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}
-	active.EXPECT().CreateActive(gomock.Any()).Return(session.Replacement{Info: idleInfo, Entries: nil}, nil)
+	active.EXPECT().CreateActive().Return(idleInfo, nil, nil)
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)
-	created, err := control.Create(t.Context())
+	created, _, err := active.CreateActive()
 	release()
 	require.NoError(t, err)
-	require.Equal(t, idleInfo.ID, created.Info.ID)
+	require.Equal(t, idleInfo.ID, created.ID)
 
 	started := make(chan struct{})
 	settle := make(chan struct{})
@@ -102,14 +99,14 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 		StoragePath: mo.Some("/sessions/stored.jsonl"), CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}
 	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(
-		session.Replacement{Info: resumedInfo, Entries: nil}, nil,
+		resumedInfo, nil, nil,
 	)
 	release, acquired = gate.TryAcquire()
 	require.True(t, acquired)
-	resumed, err := control.Resume(t.Context(), "stored")
+	resumed, _, err := active.ResumeActive(t.Context(), "stored")
 	release()
 	require.NoError(t, err)
-	require.Equal(t, resumedInfo.ID, resumed.Info.ID)
+	require.Equal(t, resumedInfo.ID, resumed.ID)
 }
 
 // TestProgrammaticPreparationReservesSessionMutationBeforeStorage verifies bounded gate admission.
@@ -118,12 +115,11 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 
 	// Arrange a Programmatic service over an occupied shared session gate.
 	controller := gomock.NewController(t)
-	active := sessioncontrol.NewMockActiveSessions(controller)
+	active := programmatic.NewMockActiveSessions(controller)
 	gate := operationgate.New()
-	control := sessioncontrol.New(active, sessioncontrol.NewMockNavigator(controller))
 	service := programmatic.New(
 		nil, nil, programmatic.NewMockStateQuery(controller),
-		func() []agent.HistoryEntry { return nil }, control, gate, programmaticoutput.New(),
+		active, nil, gate, programmaticoutput.New(),
 	)
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)
@@ -144,7 +140,7 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 		CreatedAt: time.Time{}, UpdatedAt: time.Time{},
 	}
 	active.EXPECT().ResumeActive(gomock.Any(), session.ID("stored")).Return(
-		session.Replacement{Info: info, Entries: nil}, nil,
+		info, nil, nil,
 	)
 	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)

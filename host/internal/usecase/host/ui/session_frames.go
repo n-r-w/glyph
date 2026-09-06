@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"github.com/samber/lo"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
@@ -9,8 +11,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// sessionListFrame copies the ordered list so later service changes cannot mutate an in-flight frame.
-func sessionListFrame(listed []session.Summary) controllerui.Frame {
+// sessionListFrame normalizes stored previews and constructs independently owned UI list rows.
+func sessionListFrame(listed []StoredSession) controllerui.Frame {
 	return controllerui.Frame{
 		NextInput: mo.None[string](),
 		Kind:      controllerui.FrameSessionList,
@@ -18,9 +20,12 @@ func sessionListFrame(listed []session.Summary) controllerui.Frame {
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),
 
-		ModelSelection:         mo.None[model.Selection](),
-		SessionInfo:            mo.None[session.Info](),
-		Sessions:               append([]session.Summary(nil), listed...),
+		ModelSelection: mo.None[model.Selection](),
+		SessionInfo:    mo.None[session.Info](),
+		Sessions: lo.Map(
+			listed,
+			func(item StoredSession, _ int) controllerui.SessionListItem { return item.publicItem() },
+		),
 		SessionEntries:         nil,
 		SessionStatistics:      mo.None[session.Statistics](),
 		SessionTree:            mo.None[controllerui.SessionTree](),

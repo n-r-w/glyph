@@ -113,18 +113,18 @@ func (mr *MockSessionStateMockRecorder) AppendExtension(arg0, arg1, arg2, arg3 a
 }
 
 // AppendExtensionMessage mocks base method.
-func (m *MockSessionState) AppendExtensionMessage(arg0 context.Context, arg1 SessionIdentity, arg2 session.ExtensionMessage, arg3 ContextCommitGuard, arg4 func(session.Entry) (func(context.Context) error, error)) (session.Entry, error) {
+func (m *MockSessionState) AppendExtensionMessage(arg0 context.Context, arg1 SessionIdentity, arg2 session.ExtensionMessage, arg3 ContextCommitGuard) (session.Entry, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AppendExtensionMessage", arg0, arg1, arg2, arg3, arg4)
+	ret := m.ctrl.Call(m, "AppendExtensionMessage", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(session.Entry)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // AppendExtensionMessage indicates an expected call of AppendExtensionMessage.
-func (mr *MockSessionStateMockRecorder) AppendExtensionMessage(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+func (mr *MockSessionStateMockRecorder) AppendExtensionMessage(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtensionMessage", reflect.TypeOf((*MockSessionState)(nil).AppendExtensionMessage), arg0, arg1, arg2, arg3, arg4)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtensionMessage", reflect.TypeOf((*MockSessionState)(nil).AppendExtensionMessage), arg0, arg1, arg2, arg3)
 }
 
 // ContextSession mocks base method.

@@ -9,7 +9,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
@@ -17,7 +16,7 @@ import (
 func (s *Service) CommitNavigation(
 	ctx context.Context,
 	command sessiontree.CommitCommand,
-	publisher func(sessionnavigation.Progress) error,
+	publisher func(session.Tree) error,
 ) (sessiontree.NavigationCommit, error) {
 	if err := ctx.Err(); err != nil {
 		return sessiontree.NavigationCommit{}, err
@@ -90,10 +89,7 @@ func (s *Service) CommitNavigation(
 		Tree:           candidateTree.Clone(),
 		CreatedSummary: summaryEntry,
 	}
-	if publishErr := publisher(sessionnavigation.Progress{
-		Tree:         commit.Tree,
-		ActiveBranch: commit.Tree.ActiveBranch(),
-	}); publishErr != nil {
+	if publishErr := publisher(commit.Tree); publishErr != nil {
 		return commit, fmt.Errorf("publish committed session navigation: %w", publishErr)
 	}
 	return commit, nil

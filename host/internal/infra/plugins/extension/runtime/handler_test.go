@@ -13,7 +13,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -29,8 +28,8 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 		ReasoningChoice: model.ReasoningChoice("medium"),
 	}
 	request := sessiontree.HandlerNavigationRequest{
-		Navigation: sessionnavigation.Request{
-			TargetEntryID: "target", SummaryMode: sessionnavigation.SummaryModeSummarize,
+		Navigation: sessiontree.NavigationRequest{
+			TargetEntryID: "target", SummaryMode: sessiontree.SummaryModeSummarize,
 			CustomFocus: mo.None[string](),
 		},
 		SummaryModel: selection,
@@ -134,7 +133,7 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 		Original: sessiontree.HandlerNavigationState{
 			SessionID: "", PrecedingActiveLeafID: mo.None[string](),
 			Request: sessiontree.HandlerNavigationRequest{
-				Navigation: sessionnavigation.Request{
+				Navigation: sessiontree.NavigationRequest{
 					TargetEntryID: "", SummaryMode: 0, CustomFocus: mo.None[string](),
 				},
 				SummaryModel: model.Selection{
@@ -149,7 +148,7 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 		Current: sessiontree.HandlerNavigationState{
 			SessionID: "", PrecedingActiveLeafID: mo.None[string](),
 			Request: sessiontree.HandlerNavigationRequest{
-				Navigation: sessionnavigation.Request{
+				Navigation: sessiontree.NavigationRequest{
 					TargetEntryID: "", SummaryMode: 0, CustomFocus: mo.None[string](),
 				},
 				SummaryModel: model.Selection{

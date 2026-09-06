@@ -353,7 +353,6 @@ func TestApplyEncodingFailureDoesNotAccessFilesystem(t *testing.T) {
 	createdAt := time.Date(2026, 8, 27, 13, 0, 0, 0, time.UTC)
 	command := hostsessions.ApplyCommand{
 		Header: session.Header{
-			Version:          2,
 			ID:               "session",
 			CreatedAt:        createdAt,
 			WorkingDirectory: repository.workingDirectory,

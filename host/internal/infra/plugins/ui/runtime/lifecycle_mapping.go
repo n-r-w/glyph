@@ -329,7 +329,7 @@ func mapEstimatedCost(cost session.EstimatedCost) *uiv1.EstimatedCost {
 }
 
 // mapSessionSummary preserves optional row labels while mapping an ordered list entry.
-func mapSessionSummary(summary session.Summary) *uiv1.SessionSummary {
+func mapSessionSummary(summary controllerui.SessionListItem) *uiv1.SessionSummary {
 	wire := uiv1.SessionSummary_builder{
 		Info:          mapSessionInfo(summary.Info),
 		TotalMessages: new(int64(summary.TotalMessages)), FirstUserText: nil,

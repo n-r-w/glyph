@@ -16,7 +16,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -51,15 +50,15 @@ func TestSessionTreeMapsExtensionMessageContentAndVisibility(t *testing.T) {
 // TestGetSessionTreeOperationReturnsCurrentTree verifies retained tree retrieval.
 func TestGetSessionTreeOperationReturnsCurrentTree(t *testing.T) {
 	t.Parallel()
-	// Arrange SessionControl to return an empty current tree.
+	// Arrange ActiveSessions to return an empty current tree.
 
 	controller := gomock.NewController(t)
-	control := NewMockSessionControl(controller)
+	control := NewMockActiveSessions(controller)
 	gate := NewMockGate(controller)
 	tree, err := session.NewTree(nil, mo.None[string](), nil)
 	require.NoError(t, err)
 	control.EXPECT().Tree().Return(tree)
-	service := treeOperationService(controller, control, gate)
+	service := treeOperationService(controller, control, gate, nil)
 
 	// Act by running the prepared GetSessionTree command.
 	frame, err := runPreparedCommand(t, service, newCommandForPreparedTest(controllerui.CommandGetSessionTree))
@@ -72,49 +71,50 @@ func TestGetSessionTreeOperationReturnsCurrentTree(t *testing.T) {
 	assert.True(t, mapped.ActiveLeafID.IsNone())
 }
 
-// TestTreeNavigationPreservesSummaryModeAndCustomFocus verifies exact prepared-operation forwarding.
+// TestTreeNavigationPreservesSummaryModeAndCustomFocus verifies the admitted navigation intent.
 func TestTreeNavigationPreservesSummaryModeAndCustomFocus(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
 		name         string
 		publicMode   controllerui.SummaryMode
-		internalMode sessionnavigation.SummaryMode
+		internalMode controllerui.SummaryMode
 		focus        mo.Option[string]
 	}{
 		{
 			name: "built in", publicMode: controllerui.SummaryModeSummarize,
-			internalMode: sessionnavigation.SummaryModeSummarize, focus: mo.None[string](),
+			internalMode: controllerui.SummaryModeSummarize, focus: mo.None[string](),
 		},
 		{
 			name: "custom focus", publicMode: controllerui.SummaryModeSummarizeWithCustomPrompt,
-			internalMode: sessionnavigation.SummaryModeSummarizeWithCustomPrompt, focus: mo.Some("focus"),
+			internalMode: controllerui.SummaryModeSummarizeWithCustomPrompt, focus: mo.Some("focus"),
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			// Arrange a navigation command with the case-specific summary mode and custom focus.
 			controller := gomock.NewController(t)
-			control := NewMockSessionControl(controller)
+			control := NewMockActiveSessions(controller)
+			navigator := NewMockNavigator(controller)
 			gate := NewMockGate(controller)
 			expectSessionMutationGate(gate, 1)
-			control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			navigator.EXPECT().NavigateUI(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(
 					_ context.Context,
-					request sessionnavigation.Request,
-					_ func(sessionnavigation.Progress) error,
-				) (sessionnavigation.Result, error) {
+					request NavigationIntent,
+					_ func(session.Tree) error,
+				) (NavigationCompletion, error) {
 					assert.Equal(t, "target", request.TargetEntryID)
 					assert.Equal(t, test.internalMode, request.SummaryMode)
 					assert.Equal(t, test.focus, request.CustomFocus)
-					return sessionnavigation.Result{
-						Canceled:       false,
-						DestinationID:  mo.None[string](),
-						ActiveLeafID:   mo.None[string](),
-						CreatedSummary: mo.None[session.Entry](),
-						NextInput:      mo.None[string](),
-						Issues:         nil,
-					}, nil
+					return NavigationCompletion{Committed: mo.Some(
+						NavigationCommit{
+							DestinationID:  mo.None[string](),
+							ActiveLeafID:   mo.None[string](),
+							CreatedSummary: mo.None[session.Entry](),
+							NextInput:      mo.None[string](),
+						},
+					), Issues: nil}, nil
 				},
 			)
 			command := newCommandForPreparedTest(controllerui.CommandNavigateSessionTree)
@@ -123,9 +123,9 @@ func TestTreeNavigationPreservesSummaryModeAndCustomFocus(t *testing.T) {
 			command.CustomFocus = test.focus
 
 			// Act by running the prepared navigation command.
-			frame, err := runPreparedCommand(t, treeOperationService(controller, control, gate), command)
+			frame, err := runPreparedCommand(t, treeOperationService(controller, control, gate, navigator), command)
 
-			// Assert SessionControl receives the exact options and returns one committed frame.
+			// Assert ActiveSessions receives the exact options and returns one committed frame.
 			require.NoError(t, err)
 			assert.Equal(t, controllerui.FrameSessionTreeNavigation, frame.Kind)
 			assert.Equal(t, controllerui.TreeNavigationStatusCommitted, frame.TreeNavigation.MustGet().Status)
@@ -139,26 +139,22 @@ func TestCanceledTreeNavigationReturnsStateFreeData(t *testing.T) {
 
 	// Arrange one admitted navigation that cancels before commit with one issue.
 	controller := gomock.NewController(t)
-	control := NewMockSessionControl(controller)
+	control := NewMockActiveSessions(controller)
+	navigator := NewMockNavigator(controller)
 	gate := NewMockGate(controller)
 	expectSessionMutationGate(gate, 1)
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
-		Canceled:       true,
-		DestinationID:  mo.None[string](),
-		ActiveLeafID:   mo.None[string](),
-		CreatedSummary: mo.None[session.Entry](),
-		NextInput:      mo.None[string](),
-		Issues: []sessionnavigation.OperationIssue{{
-			Code: sessionnavigation.OperationIssueObserverError, ExtensionID: "extension",
-			HandlerID: "handler", Message: "observer failed",
-		}},
-	}, nil)
+	navigator.EXPECT().
+		NavigateUI(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(NavigationCompletion{Committed: mo.None[NavigationCommit](), Issues: []NavigationIssue{{
+			Kind: NavigationObserverError, ExtensionID: "extension",
+			HandlerID: "handler", Text: "observer failed",
+		}}}, nil)
 	command := newCommandForPreparedTest(controllerui.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("target")
 	command.SummaryMode = controllerui.SummaryModeNoSummary
 
 	// Act through the prepared Host UI operation.
-	frame, err := runPreparedCommand(t, treeOperationService(controller, control, gate), command)
+	frame, err := runPreparedCommand(t, treeOperationService(controller, control, gate, navigator), command)
 
 	// Assert canceled data has no speculative committed state and keeps issues.
 	require.NoError(t, err)
@@ -189,28 +185,29 @@ func TestTreeNavigationFailureCategoriesPreserveCauses(t *testing.T) {
 		sentinel error
 		code     string
 	}{
-		{name: "model unavailable", sentinel: sessionnavigation.ErrModelUnavailable, code: controllerui.FailureCodeModelUnavailable},
-		{name: "credential unavailable", sentinel: sessionnavigation.ErrCredentialUnavailable, code: controllerui.FailureCodeProviderAuth},
-		{name: "model failed", sentinel: sessionnavigation.ErrModelFailed, code: controllerui.FailureCodeModelFailed},
-		{name: "extension invalid result", sentinel: sessionnavigation.ErrExtensionInvalidResult, code: controllerui.FailureCodeExtensionInvalid},
-		{name: "extension unavailable", sentinel: sessionnavigation.ErrExtensionUnavailable, code: controllerui.FailureCodeExtension},
+		{name: "model unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeModelUnavailable), code: controllerui.FailureCodeModelUnavailable},
+		{name: "credential unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeProviderAuth), code: controllerui.FailureCodeProviderAuth},
+		{name: "model failed", sentinel: navigationFailure(t, controllerui.FailureCodeModelFailed), code: controllerui.FailureCodeModelFailed},
+		{name: "extension invalid result", sentinel: navigationFailure(t, controllerui.FailureCodeExtensionInvalid), code: controllerui.FailureCodeExtensionInvalid},
+		{name: "extension unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeExtension), code: controllerui.FailureCodeExtension},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange one admitted navigation with a classified source failure.
 			controller := gomock.NewController(t)
-			control := NewMockSessionControl(controller)
+			control := NewMockActiveSessions(controller)
+			navigator := NewMockNavigator(controller)
 			gate := NewMockGate(controller)
 			expectSessionMutationGate(gate, 1)
 			source := fmt.Errorf("navigate target: %w", test.sentinel)
-			control.EXPECT().
-				Navigate(gomock.Any(), gomock.Any(), gomock.Any()).
-				Return(sessionnavigation.Result{}, source)
+			navigator.EXPECT().
+				NavigateUI(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(NavigationCompletion{}, source)
 			command := newCommandForPreparedTest(controllerui.CommandNavigateSessionTree)
 			command.TargetEntryID = mo.Some("target")
 			command.SummaryMode = controllerui.SummaryModeNoSummary
-			service := treeOperationService(controller, control, gate)
+			service := treeOperationService(controller, control, gate, navigator)
 			prepared, err := service.Prepare(t.Context(), command)
 			require.NoError(t, err)
 
@@ -234,10 +231,10 @@ func TestTreeMutationBusyRejectsBeforeAcceptance(t *testing.T) {
 	// Arrange controller, control, and service for service.Prepare to verify tree mutations reserve the shared gate.
 
 	controller := gomock.NewController(t)
-	control := NewMockSessionControl(controller)
+	control := NewMockActiveSessions(controller)
 	gate := NewMockGate(controller)
 	gate.EXPECT().TryAcquire().Return(func() {}, false)
-	service := treeOperationService(controller, control, gate)
+	service := treeOperationService(controller, control, gate, nil)
 	command := newCommandForPreparedTest(controllerui.CommandSetEntryLabel)
 	command.TargetEntryID = mo.Some("entry")
 	command.EntryLabel = mo.Some("label")
@@ -252,10 +249,15 @@ func TestTreeMutationBusyRejectsBeforeAcceptance(t *testing.T) {
 }
 
 // treeOperationService creates one session service for tree operation tests.
-func treeOperationService(controller *gomock.Controller, control *MockSessionControl, gate *MockGate) *Session {
+func treeOperationService(
+	controller *gomock.Controller,
+	control *MockActiveSessions,
+	gate *MockGate,
+	navigator Navigator,
+) *Session {
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, gate, func(context.Context) {},
+		NewMockModelCatalog(controller), control, navigator, gate, func(context.Context) {},
 
 		Initialization{},
 	)

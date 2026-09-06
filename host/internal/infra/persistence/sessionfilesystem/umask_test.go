@@ -56,7 +56,7 @@ func runRestrictiveUmaskApply(t *testing.T) {
 	require.NoError(t, repository.Initialize(t.Context()))
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
 	result, err := repository.Apply(t.Context(), hostsessions.ApplyCommand{
-		Header:      session.Header{Version: 2, ID: "umask", CreatedAt: createdAt, WorkingDirectory: project},
+		Header:      session.Header{ID: "umask", CreatedAt: createdAt, WorkingDirectory: project},
 		StoragePath: "",
 		Mutation:    sessionInformationMutation(sessionInformationEntry("entry", createdAt, "restricted")),
 	})

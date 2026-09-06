@@ -1,6 +1,6 @@
 //go:build !integration
 
-package sessiontree
+package sessions
 
 import (
 	"testing"
@@ -34,7 +34,7 @@ func TestHistoryProjectsBothExtensionMessageVisibilities(t *testing.T) {
 	}
 
 	// Act by projecting active session entries to provider-neutral history.
-	history := HistoryFromEntries(entries)
+	history := historyFromEntries(entries)
 
 	// Assert only model-visible messages enter history as exact user text in order.
 	require.Len(t, history, 2)

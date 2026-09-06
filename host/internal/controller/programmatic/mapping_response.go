@@ -95,7 +95,7 @@ func mapSessionResponse(wire *programmaticv1.HostCompleted, response Response) (
 	case ResponseSessions:
 		result := new(programmaticv1.SessionsResult)
 		result.SetSessions(
-			lo.Map(response.Sessions, func(summary session.Summary, _ int) *programmaticv1.SessionSummary {
+			lo.Map(response.Sessions, func(summary SessionListItem, _ int) *programmaticv1.SessionSummary {
 				return mapSessionSummary(summary)
 			}),
 		)
@@ -283,7 +283,7 @@ func mapEstimatedCost(cost session.EstimatedCost) *programmaticv1.EstimatedCost 
 }
 
 // mapSessionSummary preserves optional display text and lifecycle information in the public contract.
-func mapSessionSummary(summary session.Summary) *programmaticv1.SessionSummary {
+func mapSessionSummary(summary SessionListItem) *programmaticv1.SessionSummary {
 	wire := new(programmaticv1.SessionSummary)
 	wire.SetInfo(mapSessionInfo(summary.Info))
 	if text, present := summary.FirstUserText.Get(); present {

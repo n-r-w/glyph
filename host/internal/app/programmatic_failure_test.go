@@ -21,7 +21,6 @@ import (
 	"google.golang.org/grpc/status"
 
 	controllerprogrammatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
 
 	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
@@ -125,8 +124,7 @@ func (testSuite *ProgrammaticAppSuite) TestServeFailureReturnsNonzero() {
 	session := hostprogrammatic.New(
 		coordinator, nil,
 		hostprogrammatic.NewMockStateQuery(gomock.NewController(t)),
-		func() []agent.HistoryEntry { return nil },
-		nil, nil, delivery,
+		nil, nil, nil, delivery,
 	)
 	controller := controllerprogrammatic.New(t.Context(), session, delivery)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))

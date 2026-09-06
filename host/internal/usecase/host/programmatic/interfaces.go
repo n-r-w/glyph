@@ -9,7 +9,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=programmatic
@@ -39,34 +38,30 @@ type Coordinator interface {
 	RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error)
 }
 
-// SessionControl provides client session lifecycle operations.
-type SessionControl interface {
-	// Create replaces active state while the caller owns the mutation gate.
-	Create(context.Context) (session.Replacement, error)
-	// Resume validates and replaces active state while the caller owns the mutation gate.
-	Resume(context.Context, session.ID) (session.Replacement, error)
-	// SetName persists a normalized active-session name while the caller owns the mutation gate.
-	SetName(context.Context, string) (session.Info, error)
-	// List returns ordered persisted-session summaries.
-	List(context.Context) ([]session.Summary, error)
-	// Info returns the current active-session snapshot.
-	Info() session.Info
-	// Entries returns immutable active-session records.
-	Entries() []session.Entry
-	// Statistics returns active-session counts and complete token totals.
-	Statistics() session.Statistics
+// ActiveSessions provides client session lifecycle operations.
+type ActiveSessions interface {
+	// ClientSnapshot returns canonical conversation history with client visibility applied.
+	ClientSnapshot() []agent.HistoryEntry
+	// CreateActive replaces active state while the caller owns the mutation gate.
+	CreateActive() (session.Info, []session.Entry, error)
+	// ResumeActive validates and replaces active state while the caller owns the mutation gate.
+	ResumeActive(context.Context, session.ID) (session.Info, []session.Entry, error)
+	// SetActiveName persists a normalized active-session name while the caller owns the mutation gate.
+	SetActiveName(context.Context, string) (session.Info, error)
+	// ListProgrammaticSessions returns ordered persisted-session summaries.
+	ListProgrammaticSessions(context.Context) ([]StoredSession, error)
+	// ActiveInfo returns the current active-session snapshot.
+	ActiveInfo() session.Info
+	// ActiveEntries returns immutable active-session records.
+	ActiveEntries() []session.Entry
+	// ActiveStatistics returns active-session counts and complete token totals.
+	ActiveStatistics() session.Statistics
 	// Tree returns the complete active-session tree snapshot.
 	Tree() session.Tree
-	// Navigate commits tree navigation while the caller owns the mutation gate.
-	Navigate(
-		context.Context,
-		sessionnavigation.Request,
-		func(sessionnavigation.Progress) error,
-	) (sessionnavigation.Result, error)
-	// Fork creates a replacement while the caller owns the mutation gate.
-	Fork(context.Context, string) (session.Replacement, string, error)
-	// Clone creates a copy while the caller owns the mutation gate.
-	Clone(context.Context) (session.Replacement, error)
+	// ForkActive creates a replacement while the caller owns the mutation gate.
+	ForkActive(context.Context, string) (session.Info, []session.Entry, string, error)
+	// CloneActive creates a copy while the caller owns the mutation gate.
+	CloneActive(context.Context) (session.Info, []session.Entry, error)
 	// SetLabel persists a label while the caller owns the mutation gate.
 	SetLabel(context.Context, string, string) (session.Tree, error)
 }

@@ -35,10 +35,10 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 		{
 			name: "fork",
 			mutate: func(t *testing.T, service *hostsessions.Service) session.ID {
-				replacement, nextInput, err := service.ForkActive(t.Context(), "target")
+				replacementInfo, _, nextInput, err := service.ForkActive(t.Context(), "target")
 				require.NoError(t, err)
 				require.Equal(t, "exact target", nextInput)
-				return replacement.Info.ID
+				return replacementInfo.ID
 			},
 			expectedIDs:    []string{"root", "extension", "message", "summary"},
 			expectedLeaf:   mo.Some("summary"),
@@ -48,9 +48,9 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 		{
 			name: "clone",
 			mutate: func(t *testing.T, service *hostsessions.Service) session.ID {
-				replacement, err := service.CloneActive(t.Context())
+				replacementInfo, _, err := service.CloneActive(t.Context())
 				require.NoError(t, err)
-				return replacement.Info.ID
+				return replacementInfo.ID
 			},
 			expectedIDs:    []string{"root", "extension", "message", "summary", "target"},
 			expectedLeaf:   mo.Some("target"),
@@ -80,7 +80,6 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 			sourceTree := restartSourceTree(t)
 			_, err := repository.CreateSnapshot(t.Context(), hostsessions.CreateSnapshotCommand{
 				Header: session.Header{
-					Version:          2,
 					ID:               "source",
 					CreatedAt:        time.Unix(1, 0).UTC(),
 					WorkingDirectory: project,
@@ -99,7 +98,7 @@ func TestReplacementAndLabelReplayRestoresExactCommittedState(t *testing.T) {
 				clock.EXPECT().Now().Return(time.Unix(100, 0).UTC())
 			}
 			service := hostsessions.New(repository, ids, clock, pricing, project)
-			_, err = service.ResumeActive(t.Context(), "source")
+			_, _, err = service.ResumeActive(t.Context(), "source")
 			require.NoError(t, err)
 
 			// Act through the Host service, then create a fresh repository instance to replay storage.

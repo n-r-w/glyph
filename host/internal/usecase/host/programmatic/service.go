@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -31,10 +30,10 @@ type Service struct {
 	modelCatalog ModelCatalog
 	// stateQuery reports Core activity without exposing its state.
 	stateQuery StateQuery
-	// historySnapshot returns canonical public conversation history.
-	historySnapshot func() []agent.HistoryEntry
-	// sessionControl owns active-session lifecycle operations.
-	sessionControl SessionControl
+	// activeSessions owns active-session lifecycle operations.
+	activeSessions ActiveSessions
+	// navigator owns handler policy and navigation commit orchestration.
+	navigator Navigator
 	// gate owns admission against agent execution.
 	gate Gate
 	// output owns active run correlation and operation reporter binding.
@@ -43,21 +42,20 @@ type Service struct {
 
 var _ controller.HostSession = (*Service)(nil)
 
-// New creates a Programmatic session with run coordination, query, session-control, and output contracts.
+// New creates Programmatic operations over the run, active-session, navigation, gate, and output owners.
 func New(
 	coordinator Coordinator,
 	modelCatalog ModelCatalog,
 	stateQuery StateQuery,
-	historySnapshot func() []agent.HistoryEntry,
-	sessionControl SessionControl,
+	activeSessions ActiveSessions,
+	navigator Navigator,
 	gate Gate,
 	output RunOutput,
 ) *Service {
 	return &Service{
 		coordinator: coordinator, modelCatalog: modelCatalog, stateQuery: stateQuery,
-		historySnapshot: historySnapshot,
-		gate:            gate,
-		sessionControl:  sessionControl, output: output,
+		gate:           gate,
+		activeSessions: activeSessions, navigator: navigator, output: output,
 	}
 }
 
@@ -162,11 +160,11 @@ func (s *Service) handleSessionImmediate(
 		response, err := s.setSessionName(ctx, command)
 		return response, true, err
 	case controller.CommandGetSessionInfo:
-		return sessionInfoResponse(command.OperationID, s.sessionControl.Info()), true, nil
+		return sessionInfoResponse(command.OperationID, s.activeSessions.ActiveInfo()), true, nil
 	case controller.CommandGetSessionEntries:
 		return s.sessionEntries(command), true, nil
 	case controller.CommandGetSessionStats:
-		return sessionStatisticsResponse(command.OperationID, s.sessionControl.Statistics()), true, nil
+		return sessionStatisticsResponse(command.OperationID, s.activeSessions.ActiveStatistics()), true, nil
 	case controller.CommandGetSessionTree:
 		return s.sessionTree(command), true, nil
 	case controller.CommandForkSession:
@@ -210,7 +208,7 @@ func (s *Service) runState(operationID, active string) controller.Response {
 // messages returns a public history snapshot for one operation query.
 func (s *Service) messages(operationID string) (controller.Response, error) {
 	response := emptyResponse(operationID, controller.ResponseMessages)
-	messages, err := mapHistory(s.historySnapshot())
+	messages, err := mapHistory(s.activeSessions.ClientSnapshot())
 	if err != nil {
 		return controller.Response{}, err
 	}
@@ -287,21 +285,24 @@ func (s *Service) selectionRejected(command controller.Command, err error) contr
 
 // createSession returns replacement information only after the shared gate and active state commit succeed.
 func (s *Service) createSession(ctx context.Context, command controller.Command) (controller.Response, error) {
-	replacement, err := s.sessionControl.Create(ctx)
+	info, _, err := s.activeSessions.CreateActive()
 	if err != nil {
 		return s.sessionOperationError(ctx, command, err)
 	}
-	return sessionInfoResponse(command.OperationID, replacement.Info), nil
+	return sessionInfoResponse(command.OperationID, info), nil
 }
 
 // listSessions maps the ordered persisted-session view without changing active state.
 func (s *Service) listSessions(ctx context.Context, command controller.Command) (controller.Response, error) {
-	listed, err := s.sessionControl.List(ctx)
+	listed, err := s.activeSessions.ListProgrammaticSessions(ctx)
 	if err != nil {
 		return s.sessionOperationError(ctx, command, err)
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseSessions)
-	response.Sessions = listed
+	response.Sessions = lo.Map(
+		listed,
+		func(item StoredSession, _ int) controller.SessionListItem { return item.publicItem() },
+	)
 	return response, nil
 }
 
@@ -311,11 +312,11 @@ func (s *Service) resumeSession(ctx context.Context, command controller.Command)
 	if !present || id == "" {
 		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("session ID is required")), nil
 	}
-	replacement, err := s.sessionControl.Resume(ctx, id)
+	info, _, err := s.activeSessions.ResumeActive(ctx, id)
 	if err != nil {
 		return s.sessionOperationError(ctx, command, err)
 	}
-	return sessionInfoResponse(command.OperationID, replacement.Info), nil
+	return sessionInfoResponse(command.OperationID, info), nil
 }
 
 // setSessionName returns the information snapshot produced by the durable name append.
@@ -328,7 +329,7 @@ func (s *Service) setSessionName(ctx context.Context, command controller.Command
 			errors.New("session name is required"),
 		), nil
 	}
-	info, err := s.sessionControl.SetName(ctx, name)
+	info, err := s.activeSessions.SetActiveName(ctx, name)
 	if err != nil {
 		return s.sessionOperationError(ctx, command, err)
 	}
@@ -341,11 +342,11 @@ func (s *Service) forkSession(ctx context.Context, command controller.Command) (
 	if !present || targetID == "" {
 		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("target entry ID is required")), nil
 	}
-	replacement, nextInput, err := s.sessionControl.Fork(ctx, targetID)
+	info, branch, nextInput, err := s.activeSessions.ForkActive(ctx, targetID)
 	if err != nil {
 		return s.sessionOperationError(ctx, command, err)
 	}
-	entries, mapErr := mapSessionEntries(replacement.Entries)
+	entries, mapErr := mapSessionEntries(branch)
 	if mapErr != nil {
 		return s.rejection(
 			command,
@@ -355,18 +356,18 @@ func (s *Service) forkSession(ctx context.Context, command controller.Command) (
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseForkSession)
 	response.Replacement = mo.Some(controller.SessionReplacement{
-		Info: replacement.Info, ActiveBranch: entries, NextInput: mo.Some(nextInput),
+		Info: info, ActiveBranch: entries, NextInput: mo.Some(nextInput),
 	})
 	return response, nil
 }
 
 // cloneSession returns a replacement only after its snapshot is durable.
 func (s *Service) cloneSession(ctx context.Context, command controller.Command) (controller.Response, error) {
-	replacement, err := s.sessionControl.Clone(ctx)
+	info, branch, err := s.activeSessions.CloneActive(ctx)
 	if err != nil {
 		return s.sessionOperationError(ctx, command, err)
 	}
-	entries, mapErr := mapSessionEntries(replacement.Entries)
+	entries, mapErr := mapSessionEntries(branch)
 	if mapErr != nil {
 		return s.rejection(
 			command,
@@ -376,7 +377,7 @@ func (s *Service) cloneSession(ctx context.Context, command controller.Command) 
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseCloneSession)
 	response.Replacement = mo.Some(controller.SessionReplacement{
-		Info: replacement.Info, ActiveBranch: entries, NextInput: mo.None[string](),
+		Info: info, ActiveBranch: entries, NextInput: mo.None[string](),
 	})
 	return response, nil
 }
@@ -392,7 +393,7 @@ func (s *Service) setEntryLabel(ctx context.Context, command controller.Command)
 			errors.New("target entry ID and label are required"),
 		), nil
 	}
-	tree, err := s.sessionControl.SetLabel(ctx, targetID, label)
+	tree, err := s.activeSessions.SetLabel(ctx, targetID, label)
 	if err != nil {
 		return s.sessionOperationError(ctx, command, err)
 	}
@@ -413,16 +414,17 @@ func (s *Service) setEntryLabel(ctx context.Context, command controller.Command)
 func (s *Service) navigateSessionTree(
 	ctx context.Context,
 	command controller.Command,
-	publisher func(sessionnavigation.Progress) error,
+	publisher func(session.Tree) error,
 ) (controller.Response, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
 		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("target entry ID is required")), nil
 	}
-	mode, validMode := summaryModeFromProgrammatic(command.SummaryMode)
+	mode := command.SummaryMode
+	validMode := validSummaryMode(mode)
 	focus := strings.TrimSpace(command.CustomFocus.OrEmpty())
-	invalidFocus := mode == sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus == "" ||
-		mode != sessionnavigation.SummaryModeSummarizeWithCustomPrompt && focus != ""
+	invalidFocus := mode == controller.SummaryModeSummarizeWithCustomPrompt && focus == "" ||
+		mode != controller.SummaryModeSummarizeWithCustomPrompt && focus != ""
 	if !validMode || invalidFocus {
 		return s.rejection(
 			command,
@@ -430,7 +432,7 @@ func (s *Service) navigateSessionTree(
 			errors.New("invalid summary mode or custom focus"),
 		), nil
 	}
-	result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
+	result, err := s.navigator.NavigateProgrammatic(ctx, NavigationIntent{
 		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
 	}, publisher)
 	if err != nil {
@@ -447,15 +449,8 @@ func (s *Service) navigateSessionTree(
 		}
 		return s.sessionRejection(command, err), nil
 	}
-	if result.Canceled {
-		response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
-		response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
-			Status:    controller.TreeNavigationStatusCanceled,
-			Committed: mo.None[controller.TreeNavigationCommitted](), Issues: mapOperationIssues(result.Issues),
-		})
-		return response, nil
-	}
-	committed, mapErr := mapTreeNavigationCommitted(result)
+	response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
+	mapped, mapErr := result.publicResult()
 	if mapErr != nil {
 		return s.rejection(
 			command,
@@ -463,17 +458,13 @@ func (s *Service) navigateSessionTree(
 			fmt.Errorf("session tree is unavailable: %w", mapErr),
 		), nil
 	}
-	response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
-	response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
-		Status: controller.TreeNavigationStatusCommitted, Committed: mo.Some(committed),
-		Issues: mapOperationIssues(result.Issues),
-	})
+	response.TreeNavigation = mo.Some(mapped)
 	return response, nil
 }
 
 // sessionEntries returns the current active-session entries without taking the replacement gate.
 func (s *Service) sessionEntries(command controller.Command) controller.Response {
-	entries, err := mapSessionEntries(s.sessionControl.Entries())
+	entries, err := mapSessionEntries(s.activeSessions.ActiveEntries())
 	if err != nil {
 		return s.rejection(
 			command,
@@ -509,15 +500,15 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 		return s.rejection(command, controller.RejectionInvalidArgument, err)
 	case errors.Is(err, session.ErrEntryNotFound):
 		return s.rejection(command, controller.RejectionNotFound, err)
-	case errors.Is(err, sessionnavigation.ErrModelUnavailable):
+	case navigationFailureCode(err) == navigationModelUnavailable:
 		return s.rejection(command, controller.RejectionModelUnavailable, err)
-	case errors.Is(err, sessionnavigation.ErrCredentialUnavailable):
+	case navigationFailureCode(err) == navigationAuthUnavailable:
 		return s.rejection(command, controller.RejectionCredentialUnavailable, err)
-	case errors.Is(err, sessionnavigation.ErrModelFailed):
+	case navigationFailureCode(err) == navigationModelFailed:
 		return s.rejection(command, controller.RejectionModelFailed, err)
-	case errors.Is(err, sessionnavigation.ErrExtensionInvalidResult):
+	case navigationFailureCode(err) == navigationExtensionInvalidResult:
 		return s.rejection(command, controller.RejectionExtensionInvalidResult, err)
-	case errors.Is(err, sessionnavigation.ErrExtensionUnavailable):
+	case navigationFailureCode(err) == navigationExtensionUnavailable:
 		return s.rejection(command, controller.RejectionExtensionUnavailable, err)
 	case errors.Is(err, session.ErrPersistenceUnavailable):
 		return s.rejection(command, controller.RejectionPersistenceUnavailable, err)
@@ -532,7 +523,7 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 
 // sessionTree returns the complete active-session tree without private extension payload bytes.
 func (s *Service) sessionTree(command controller.Command) controller.Response {
-	tree, err := mapSessionTree(s.sessionControl.Tree())
+	tree, err := mapSessionTree(s.activeSessions.Tree())
 	if err != nil {
 		return s.rejection(command, controller.RejectionInternal, fmt.Errorf("session tree is unavailable: %w", err))
 	}
@@ -675,4 +666,12 @@ func (s *Service) rejection(
 	response := emptyResponse(command.OperationID, controller.ResponseRejected)
 	response.Rejection = mo.Some(controller.Rejection{Command: command.Kind, Code: code, Cause: cause})
 	return response
+}
+
+// navigationFailureCode reads a source category without depending on the navigation implementation.
+func navigationFailureCode(err error) string {
+	if failure, ok := errors.AsType[NavigationFailure](err); ok {
+		return failure.NavigationCode()
+	}
+	return ""
 }

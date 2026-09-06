@@ -103,7 +103,7 @@ func (s *Service) CreateSnapshot(
 	_ context.Context,
 	command hostsessions.CreateSnapshotCommand,
 ) (hostsessions.CreateSnapshotResult, error) {
-	if command.Header.Version != formatVersion || command.Header.ID == "" ||
+	if command.Header.ID == "" ||
 		command.Header.WorkingDirectory != s.workingDirectory {
 		return hostsessions.CreateSnapshotResult{}, errors.New("invalid session header")
 	}
@@ -201,7 +201,7 @@ func (s *Service) persistPayload(header session.Header, storagePath string, muta
 	payload := mutation
 	created := path == ""
 	if created {
-		if header.Version != formatVersion || header.ID == "" || header.WorkingDirectory != s.workingDirectory {
+		if header.ID == "" || header.WorkingDirectory != s.workingDirectory {
 			return "", errors.New("invalid session header")
 		}
 		name = SessionFilename(header)
@@ -228,7 +228,7 @@ func (s *Service) persistPayload(header session.Header, storagePath string, muta
 // encodeHeader encodes one validated session header.
 func encodeHeader(header session.Header) ([]byte, error) {
 	return encodeLine(headerRecord{
-		Type: recordTypeSession, Version: header.Version, ID: string(header.ID),
+		Type: recordTypeSession, Version: formatVersion, ID: string(header.ID),
 		CreatedAt: header.CreatedAt.Format(time.RFC3339Nano), CWD: header.WorkingDirectory,
 	})
 }
