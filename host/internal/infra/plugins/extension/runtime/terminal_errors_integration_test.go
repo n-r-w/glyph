@@ -9,10 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
@@ -118,7 +116,7 @@ func TestRuntimeKeepsHandleRejectionAndFailureAvailable(t *testing.T) {
 			require.ErrorContains(t, terminalErr, `handle extension handler "observer"`)
 			require.NotErrorIs(t, terminalErr, extensionruntime.ErrExtensionUnavailable)
 			require.NoError(t, laterErr)
-			assert.True(t, later.Observer.IsPresent())
+			assert.Equal(t, extensionruntime.InvocationObserver, later.Kind)
 		})
 	}
 }
@@ -184,16 +182,19 @@ func assertRuntimeTerminalError(
 }
 
 // validSessionTreeHandlerRequest returns one valid observer invocation.
-func validSessionTreeHandlerRequest() sessiontree.HandlerRequest {
-	return sessiontree.HandlerRequest{
+func validSessionTreeHandlerRequest() extensionruntime.HandlerInvocation {
+	return extensionruntime.HandlerInvocation{
 		Context: runtimeTestContext(),
 
-		Request: mo.None[sessiontree.RequestHandlerInvocation](),
-		Result:  mo.None[sessiontree.ResultHandlerInvocation](),
-		Observer: mo.Some(sessiontree.TreeObserverInvocation{
+		Kind:           extensionruntime.InvocationObserver,
+		Original:       extensionruntime.Preparation{},
+		Current:        extensionruntime.Preparation{},
+		OriginalResult: mo.None[extensionruntime.Summary](),
+		CurrentResult:  mo.None[extensionruntime.Summary](),
+		Commit: mo.Some(extensionruntime.TreeCommit{
 			SessionID: "session", TargetEntryID: "target",
 			PrecedingActiveLeafID: mo.None[string](), NavigationDestinationID: mo.None[string](),
-			CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[session.Entry](),
+			CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[extensionruntime.CommittedSummary](),
 		}),
 	}
 }

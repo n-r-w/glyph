@@ -9,6 +9,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
 	"github.com/stretchr/testify/assert"
@@ -80,6 +82,8 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 		require.NoError(t, err)
 	}
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:          nil,
 		client:           nil,
 		openOnce:         sync.Once{},
 		openErr:          nil,
@@ -367,6 +371,8 @@ func openInitializedIntegrationChannel(t *testing.T, service uisdk.Service) *Ser
 		require.NoError(t, err)
 	}
 	return &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:          nil,
 		client:           nil,
 		openOnce:         sync.Once{},
 		openErr:          nil,

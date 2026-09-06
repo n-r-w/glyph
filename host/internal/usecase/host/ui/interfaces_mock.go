@@ -85,9 +85,11 @@ func (m *MockRuntime) EXPECT() *MockRuntimeMockRecorder {
 }
 
 // Close mocks base method.
-func (m *MockRuntime) Close() {
+func (m *MockRuntime) Close() error {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Close")
+	ret := m.ctrl.Call(m, "Close")
+	ret0, _ := ret[0].(error)
+	return ret0
 }
 
 // Close indicates an expected call of Close.
@@ -656,4 +658,40 @@ func (m *MockGate) TryAcquire() (func(), bool) {
 func (mr *MockGateMockRecorder) TryAcquire() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryAcquire", reflect.TypeOf((*MockGate)(nil).TryAcquire))
+}
+
+// MockRuntimeActivation is a mock of RuntimeActivation interface.
+type MockRuntimeActivation struct {
+	ctrl     *gomock.Controller
+	recorder *MockRuntimeActivationMockRecorder
+	isgomock struct{}
+}
+
+// MockRuntimeActivationMockRecorder is the mock recorder for MockRuntimeActivation.
+type MockRuntimeActivationMockRecorder struct {
+	mock *MockRuntimeActivation
+}
+
+// NewMockRuntimeActivation creates a new mock instance.
+func NewMockRuntimeActivation(ctrl *gomock.Controller) *MockRuntimeActivation {
+	mock := &MockRuntimeActivation{ctrl: ctrl}
+	mock.recorder = &MockRuntimeActivationMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRuntimeActivation) EXPECT() *MockRuntimeActivationMockRecorder {
+	return m.recorder
+}
+
+// Activate mocks base method.
+func (m *MockRuntimeActivation) Activate(arg0 context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Activate", arg0)
+}
+
+// Activate indicates an expected call of Activate.
+func (mr *MockRuntimeActivationMockRecorder) Activate(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Activate", reflect.TypeOf((*MockRuntimeActivation)(nil).Activate), arg0)
 }

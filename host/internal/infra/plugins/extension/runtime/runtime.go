@@ -19,7 +19,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -58,23 +57,23 @@ func Start(ctx context.Context, command *exec.Cmd) (*Runtime, error) {
 }
 
 // Register invokes registration and maps the raw protocol payload.
-func (r *Runtime) Register(ctx context.Context) (startup.PendingRegistration, error) {
+func (r *Runtime) Register(ctx context.Context) (extensionruntime.Registration, error) {
 	request := new(extensionpb.HostRequest)
 	request.SetRegister(new(extensionpb.RegisterRequest))
 	started, err := r.connection.Start(ctx, r.operationID(), request)
 	if err != nil {
 		r.Close()
-		return startup.PendingRegistration{}, fmt.Errorf("start extension registration: %w", err)
+		return extensionruntime.Registration{}, fmt.Errorf("start extension registration: %w", err)
 	}
 	completed, err := started.Wait(ctx, nil)
 	if err != nil {
 		r.Close()
-		return startup.PendingRegistration{}, fmt.Errorf("register extension: %w", err)
+		return extensionruntime.Registration{}, fmt.Errorf("register extension: %w", err)
 	}
 	registration, err := mapRegistration(completed.GetRegister())
 	if err != nil {
 		r.Close()
-		return startup.PendingRegistration{}, fmt.Errorf("validate extension registration: %w", err)
+		return extensionruntime.Registration{}, fmt.Errorf("validate extension registration: %w", err)
 	}
 	return registration, nil
 }
@@ -257,108 +256,77 @@ func (r *Runtime) protocolViolation(cause error) error {
 	)
 }
 
-// mapRegistration maps raw tool and handler protocol payloads without applying Host capability policy.
-func mapRegistration(response *extensionpb.RegisterResponse) (startup.PendingRegistration, error) {
+// mapRegistration decodes process declarations without supplying trusted identity or validating capabilities.
+func mapRegistration(response *extensionpb.RegisterResponse) (extensionruntime.Registration, error) {
 	if response == nil {
-		return startup.PendingRegistration{}, errors.New("registration response is missing")
+		return extensionruntime.Registration{}, errors.New("registration response is missing")
 	}
-	tools := make([]startup.RawToolDescriptor, 0, len(response.GetTools()))
-	for _, descriptor := range response.GetTools() {
-		tools = append(tools, mapToolDescriptor(descriptor))
+	tools := make([]mo.Option[extensionruntime.ToolDeclaration], len(response.GetTools()))
+	for index, descriptor := range response.GetTools() {
+		tools[index] = mapToolDescriptor(descriptor)
 	}
-	handlers := make([]startup.RawHandlerDescriptor, 0, len(response.GetHandlers()))
-	for _, handler := range response.GetHandlers() {
-		if handler == nil {
-			handlers = append(
-				handlers,
-				startup.RawHandlerDescriptor{Present: false, ID: "", Kind: startup.RawHandlerKindUnspecified},
+	handlers := make([]mo.Option[extensionruntime.HandlerDeclaration], len(response.GetHandlers()))
+	for index, handler := range response.GetHandlers() {
+		handlers[index] = mo.None[extensionruntime.HandlerDeclaration]()
+		if handler != nil {
+			handlers[index] = mo.Some(
+				extensionruntime.HandlerDeclaration{ID: handler.GetId(), Kind: int32(handler.GetKind())},
 			)
-			continue
 		}
-		handlers = append(
-			handlers,
-			startup.RawHandlerDescriptor{
-				Present: true,
-				ID:      handler.GetId(),
-				Kind:    mapRawHandlerKind(handler.GetKind()),
-			},
-		)
 	}
-	return startup.PendingRegistration{ID: "", Path: "", Tools: tools, Handlers: handlers}, nil
+	return extensionruntime.Registration{Tools: tools, Handlers: handlers}, nil
 }
 
-// mapRawHandlerKind maps supported public kinds and maps other values to the invalid zero kind.
-func mapRawHandlerKind(kind extensionpb.HandlerKind) startup.RawHandlerKind {
-	if kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST {
-		return startup.RawHandlerKindSessionBeforeTreeRequest
-	}
-	if kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT {
-		return startup.RawHandlerKindSessionBeforeTreeResult
-	}
-	if kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE {
-		return startup.RawHandlerKindSessionTree
-	}
-	if kind >= extensionpb.HandlerKind_HANDLER_KIND_AGENT_START &&
-		kind <= extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END {
-		return startup.RawHandlerKind(kind)
-	}
-	return startup.RawHandlerKindUnspecified
-}
-
-// mapToolDescriptor maps one optional public descriptor without validating tool policy.
-func mapToolDescriptor(descriptor *extensionpb.ToolDescriptor) startup.RawToolDescriptor {
+// mapToolDescriptor decodes one optional tool declaration without capability acceptance.
+func mapToolDescriptor(descriptor *extensionpb.ToolDescriptor) mo.Option[extensionruntime.ToolDeclaration] {
 	if descriptor == nil {
-		return startup.RawToolDescriptor{
-			Present:             false,
-			Name:                "",
-			Description:         "",
-			InputSchemaJSON:     nil,
-			ConstrainedSampling: mo.None[startup.RawConstrainedSampling](),
-		}
+		return mo.None[extensionruntime.ToolDeclaration]()
 	}
-	return startup.RawToolDescriptor{
-		Present:             true,
-		Name:                descriptor.GetName(),
-		Description:         descriptor.GetDescription(),
-		InputSchemaJSON:     bytes.Clone(descriptor.GetInputSchemaJson()),
-		ConstrainedSampling: mapRawConstrainedSampling(descriptor.GetConstrainedSampling()),
-	}
+	return mo.Some(extensionruntime.ToolDeclaration{
+		Name:        descriptor.GetName(),
+		Description: descriptor.GetDescription(),
+		InputSchemaJSON: bytes.Clone(
+			descriptor.GetInputSchemaJson(),
+		),
+		Constraint: mapRawConstrainedSampling(descriptor.GetConstrainedSampling()),
+	})
 }
 
-// mapRawConstrainedSampling preserves the selected protocol configuration and invalid values.
-func mapRawConstrainedSampling(constraint *extensionpb.ConstrainedSampling) mo.Option[startup.RawConstrainedSampling] {
+// mapRawConstrainedSampling retains selected configuration presence and raw values.
+func mapRawConstrainedSampling(
+	constraint *extensionpb.ConstrainedSampling,
+) mo.Option[extensionruntime.ConstraintDeclaration] {
 	if constraint == nil {
-		return mo.None[startup.RawConstrainedSampling]()
+		return mo.None[extensionruntime.ConstraintDeclaration]()
 	}
-	raw := startup.RawConstrainedSampling{
-		Kind:                 startup.RawConstrainedSamplingMissing,
-		JSONSchemaPresent:    false,
-		JSONSchemaStrictness: startup.RawJSONSchemaStrictnessUnspecified,
-		Grammar:              startup.RawGrammar{Present: false, Lark: mo.None[string](), Regex: mo.None[string]()},
+	raw := extensionruntime.ConstraintDeclaration{
+		Kind:       extensionruntime.ConstraintMissing,
+		Present:    false,
+		Strictness: 0,
+		Lark:       mo.None[string](),
+		Regex:      mo.None[string](),
 	}
 	switch constraint.WhichConfig() {
 	case extensionpb.ConstrainedSampling_JsonSchema_case:
-		raw.Kind = startup.RawConstrainedSamplingJSONSchema
-		config := constraint.GetJsonSchema()
-		if config != nil {
-			raw.JSONSchemaPresent = true
-			raw.JSONSchemaStrictness = startup.RawJSONSchemaStrictness(config.GetStrictness())
+		raw.Kind = extensionruntime.ConstraintJSONSchema
+		if config := constraint.GetJsonSchema(); config != nil {
+			raw.Present = true
+			raw.Strictness = int32(config.GetStrictness())
 		}
 	case extensionpb.ConstrainedSampling_Grammar_case:
-		raw.Kind = startup.RawConstrainedSamplingGrammar
-		config := constraint.GetGrammar()
-		if config != nil {
-			raw.Grammar.Present = true
+		raw.Kind = extensionruntime.ConstraintGrammar
+		if config := constraint.GetGrammar(); config != nil {
+			raw.Present = true
 			if config.HasLark() {
-				raw.Grammar.Lark = mo.Some(config.GetLark())
+				raw.Lark = mo.Some(config.GetLark())
 			}
 			if config.HasRegex() {
-				raw.Grammar.Regex = mo.Some(config.GetRegex())
+				raw.Regex = mo.Some(config.GetRegex())
 			}
 		}
 	case extensionpb.ConstrainedSampling_Config_not_set_case:
 	default:
-		raw.Kind = startup.RawConstrainedSamplingInvalid
+		raw.Kind = extensionruntime.ConstraintInvalid
 	}
 	return mo.Some(raw)
 }

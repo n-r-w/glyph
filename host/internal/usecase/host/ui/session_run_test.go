@@ -3,7 +3,6 @@
 package ui
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -34,9 +33,7 @@ func TestSubmitPreparationReservesRunnerBeforeAcceptance(t *testing.T) {
 	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, nil)
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
-		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, func(context.Context) {},
-
-		Initialization{},
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
@@ -73,9 +70,7 @@ func TestSubmitAvailabilityDeliveryFailureStopsRun(t *testing.T) {
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
 		channel, runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
@@ -102,9 +97,7 @@ func TestSubmitPreparationRejectsBusyRunner(t *testing.T) {
 	runner.EXPECT().PrepareRun().Return("", session.ErrBusy)
 	service := NewSession(
 		NewMockOutput(controller), runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
@@ -137,9 +130,7 @@ func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) 
 	runner.EXPECT().CancelPrepared("run")
 	authenticator.EXPECT().IsSignInRequired(source).Return(true)
 	service := NewSession(
-		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, func(context.Context) {},
-
-		Initialization{},
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)

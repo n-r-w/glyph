@@ -115,7 +115,14 @@ func (prepared *preparedUIOperation) Release() { prepared.releaseOnce.Do(prepare
 
 // Initialize sends startup state before any runtime activation or command execution.
 func (s *Session) Initialize(ctx context.Context) error {
-	if err := s.output.Initialize(ctx, s.initialization); err != nil {
+	info, _ := s.activeSessions.ActiveInformation()
+	initialization := Initialization{
+		Availability:   AvailabilityCheckingAuthentication,
+		Models:         s.modelCatalog.Models(),
+		ModelSelection: mo.Some(s.modelCatalog.ActiveSelection()),
+		SessionInfo:    info,
+	}
+	if err := s.output.Initialize(ctx, initialization); err != nil {
 		return fmt.Errorf("send UI initialization: %w", err)
 	}
 	return nil
@@ -125,7 +132,7 @@ func (s *Session) Initialize(ctx context.Context) error {
 func (s *Session) Activate(ctx context.Context) func() {
 	authenticationContext, cancelAuthentication := context.WithCancelCause(ctx)
 	var authenticationWork sync.WaitGroup
-	s.afterInitialization(ctx)
+	s.runtime.Activate(ctx)
 	authenticationWork.Go(func() { s.checkOperationAuthentication(authenticationContext) })
 	return func() {
 		cancelAuthentication(context.Canceled)

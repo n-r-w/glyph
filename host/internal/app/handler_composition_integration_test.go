@@ -18,7 +18,6 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
-	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
@@ -78,12 +77,9 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	observerPath := filepath.Join(t.TempDir(), "observed")
 	writeHandlerFixtureScript(t, extensionDirectory, "02-refine", handlerFixtureRefineMode, observerPath)
 	factory := extensionruntime.NewFactory()
-	extensions := extensionmanager.New(catalog.New(), factory, func(
-		context.Context,
-		extension.RuntimeFailure,
-	) error {
-		return nil
-	})
+	reporter := extensionmanager.NewMockFailureReporter(gomock.NewController(t))
+	reporter.EXPECT().ReportRuntimeFailure(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
+	extensions := extensionmanager.New(catalog.New(), factory, reporter)
 	t.Cleanup(extensions.Close)
 	controller := gomock.NewController(t)
 	active := sessiontree.NewMockActiveSession(controller)

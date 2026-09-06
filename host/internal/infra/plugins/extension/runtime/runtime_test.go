@@ -23,11 +23,8 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
-	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -240,9 +237,9 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	// Assert: expose the complete seven-tool standard catalog.
 	require.Len(t, registration.Tools, 7)
 	assert.Empty(t, registration.Handlers)
-	assert.Equal(t, "read", registration.Tools[0].Name)
-	assert.NotEmpty(t, registration.Tools[0].Description)
-	assert.NotEmpty(t, registration.Tools[0].InputSchemaJSON)
+	assert.Equal(t, "read", registration.Tools[0].OrEmpty().Name)
+	assert.NotEmpty(t, registration.Tools[0].OrEmpty().Description)
+	assert.NotEmpty(t, registration.Tools[0].OrEmpty().InputSchemaJSON)
 
 	// Act: read a relative project file through the real Execute operation.
 	result, err := runtime.Execute(
@@ -530,18 +527,21 @@ func TestRuntimeHandleCancellationWaitsForRelease(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+		_, handleErr := runtime.Handle(ctx, "observer", extensionruntime.HandlerInvocation{
 			Context: runtimeTestContext(),
 
-			Request: mo.None[sessiontree.RequestHandlerInvocation](),
-			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
-			Observer: mo.Some(sessiontree.TreeObserverInvocation{
+			Kind:           extensionruntime.InvocationObserver,
+			Original:       extensionruntime.Preparation{},
+			Current:        extensionruntime.Preparation{},
+			OriginalResult: mo.None[extensionruntime.Summary](),
+			CurrentResult:  mo.None[extensionruntime.Summary](),
+			Commit: mo.Some(extensionruntime.TreeCommit{
 				SessionID:               "session",
 				TargetEntryID:           "target",
 				PrecedingActiveLeafID:   mo.None[string](),
 				NavigationDestinationID: mo.None[string](),
 				CommittedActiveLeafID:   mo.None[string](),
-				CreatedSummary:          mo.None[session.Entry](),
+				CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
 			}),
 		})
 		outcome <- handleErr
@@ -630,18 +630,21 @@ func TestRuntimeHandleCancellationPreservesTransportFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+		_, handleErr := runtime.Handle(ctx, "observer", extensionruntime.HandlerInvocation{
 			Context: runtimeTestContext(),
 
-			Request: mo.None[sessiontree.RequestHandlerInvocation](),
-			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
-			Observer: mo.Some(sessiontree.TreeObserverInvocation{
+			Kind:           extensionruntime.InvocationObserver,
+			Original:       extensionruntime.Preparation{},
+			Current:        extensionruntime.Preparation{},
+			OriginalResult: mo.None[extensionruntime.Summary](),
+			CurrentResult:  mo.None[extensionruntime.Summary](),
+			Commit: mo.Some(extensionruntime.TreeCommit{
 				SessionID:               "session",
 				TargetEntryID:           "target",
 				PrecedingActiveLeafID:   mo.None[string](),
 				NavigationDestinationID: mo.None[string](),
 				CommittedActiveLeafID:   mo.None[string](),
-				CreatedSummary:          mo.None[session.Entry](),
+				CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
 			}),
 		})
 		outcome <- handleErr
@@ -686,18 +689,21 @@ func TestRuntimeHandleCancellationPreservesUnknownTransportFailure(t *testing.T)
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", sessiontree.HandlerRequest{
+		_, handleErr := runtime.Handle(ctx, "observer", extensionruntime.HandlerInvocation{
 			Context: runtimeTestContext(),
 
-			Request: mo.None[sessiontree.RequestHandlerInvocation](),
-			Result:  mo.None[sessiontree.ResultHandlerInvocation](),
-			Observer: mo.Some(sessiontree.TreeObserverInvocation{
+			Kind:           extensionruntime.InvocationObserver,
+			Original:       extensionruntime.Preparation{},
+			Current:        extensionruntime.Preparation{},
+			OriginalResult: mo.None[extensionruntime.Summary](),
+			CurrentResult:  mo.None[extensionruntime.Summary](),
+			Commit: mo.Some(extensionruntime.TreeCommit{
 				SessionID:               "session",
 				TargetEntryID:           "target",
 				PrecedingActiveLeafID:   mo.None[string](),
 				NavigationDestinationID: mo.None[string](),
 				CommittedActiveLeafID:   mo.None[string](),
-				CreatedSummary:          mo.None[session.Entry](),
+				CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
 			}),
 		})
 		outcome <- handleErr
@@ -835,15 +841,21 @@ func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
 			return err
 		},
 		"mismatched Handle action": func(t *testing.T, runtime *Runtime) error {
-			request := sessiontree.HandlerRequest{
+			request := extensionruntime.HandlerInvocation{
 				Context: runtimeTestContext(),
 
-				Request: mo.None[sessiontree.RequestHandlerInvocation](),
-				Result:  mo.None[sessiontree.ResultHandlerInvocation](),
-				Observer: mo.Some(sessiontree.TreeObserverInvocation{
-					SessionID: "session", TargetEntryID: "target",
-					PrecedingActiveLeafID: mo.None[string](), NavigationDestinationID: mo.None[string](),
-					CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[session.Entry](),
+				Kind:           extensionruntime.InvocationObserver,
+				Original:       extensionruntime.Preparation{},
+				Current:        extensionruntime.Preparation{},
+				OriginalResult: mo.None[extensionruntime.Summary](),
+				CurrentResult:  mo.None[extensionruntime.Summary](),
+				Commit: mo.Some(extensionruntime.TreeCommit{
+					SessionID:               "session",
+					TargetEntryID:           "target",
+					PrecedingActiveLeafID:   mo.None[string](),
+					NavigationDestinationID: mo.None[string](),
+					CommittedActiveLeafID:   mo.None[string](),
+					CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
 				}),
 			}
 			_, err := runtime.Handle(t.Context(), "observer", request)
@@ -1100,20 +1112,32 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 	runtime := startHelperRuntime(t, "handler")
 	registration, err := runtime.Register(t.Context())
 	require.NoError(t, err)
-	require.Equal(t, []startup.RawHandlerDescriptor{{
-		Present: true, ID: "observer", Kind: startup.RawHandlerKindSessionTree,
-	}}, registration.Handlers)
-	invocation := sessiontree.TreeObserverInvocation{
+	require.Equal(
+		t,
+		[]mo.Option[extensionruntime.HandlerDeclaration]{
+			mo.Some(
+				extensionruntime.HandlerDeclaration{
+					ID:   "observer",
+					Kind: int32(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
+				},
+			),
+		},
+		registration.Handlers,
+	)
+	invocation := extensionruntime.TreeCommit{
 		SessionID: "session", TargetEntryID: "target", PrecedingActiveLeafID: mo.None[string](),
 		NavigationDestinationID: mo.None[string](), CommittedActiveLeafID: mo.None[string](),
-		CreatedSummary: mo.None[session.Entry](),
+		CreatedSummary: mo.None[extensionruntime.CommittedSummary](),
 	}
-	request := sessiontree.HandlerRequest{
+	request := extensionruntime.HandlerInvocation{
 		Context: runtimeTestContext(),
 
-		Request:  mo.None[sessiontree.RequestHandlerInvocation](),
-		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
-		Observer: mo.Some(invocation),
+		Kind:           extensionruntime.InvocationObserver,
+		Original:       extensionruntime.Preparation{},
+		Current:        extensionruntime.Preparation{},
+		OriginalResult: mo.None[extensionruntime.Summary](),
+		CurrentResult:  mo.None[extensionruntime.Summary](),
+		Commit:         mo.Some(invocation),
 	}
 
 	// Act: invoke the registered handler operation.
@@ -1121,11 +1145,18 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 
 	// Assert: preserve the typed observer acknowledgement.
 	require.NoError(t, err)
-	assert.Equal(t, sessiontree.HandlerResponse{
-		Request:  mo.None[sessiontree.RequestHandlerAction](),
-		Result:   mo.None[sessiontree.ResultHandlerAction](),
-		Observer: mo.Some(sessiontree.ObserverAction{}),
-	}, response)
+	assert.Equal(
+		t,
+		extensionruntime.HandlerAction{
+			Kind:          extensionruntime.InvocationObserver,
+			Cancel:        false,
+			RequestAction: 0,
+			Request:       mo.None[extensionruntime.Navigation](),
+			ResultAction:  0,
+			Result:        mo.None[extensionruntime.Summary](),
+		},
+		response,
+	)
 }
 
 // PrepareRegister admits one mode-specific registration operation.

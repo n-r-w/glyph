@@ -3,6 +3,7 @@
 package extensionruntime
 
 import (
+	"context"
 	"testing"
 
 	"github.com/samber/mo"
@@ -23,17 +24,17 @@ func TestServiceInvokesSessionTreeHandler(t *testing.T) {
 	catalog := NewMockCatalog(controller)
 	factory := NewMockRuntimeFactory(controller)
 	runtime := NewMockExtensionRuntime(controller)
-	catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).Return(Discovery{
-		Candidates: []Candidate{{
-			InstanceID: "",
-			ID:         "tree", Path: "/tree",
+	catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins"}).Return(Discovery{
+		DirectoryError: nil,
+		Candidates: []Executable{{
+			ID: "tree", Path: "/tree",
 		}}, Issues: nil,
 	}, nil)
 	factory.EXPECT().Start(t.Context(), gomock.Any()).Return(runtime, nil)
-	runtime.EXPECT().Register(t.Context()).Return(startup.PendingRegistration{
-		ID: "", Path: "", Tools: nil, Handlers: nil,
+	runtime.EXPECT().Register(t.Context()).Return(Registration{
+		Tools: nil, Handlers: nil,
 	}, nil)
-	service := New(catalog, factory, discardRuntimeFailure)
+	service := New(catalog, factory, newRuntimeReporter(t, nil))
 	pending, err := service.LoadPending(t.Context(), startup.Directory{Path: "/plugins", Explicit: true})
 	require.NoError(t, err)
 	accepted := []startup.AcceptedRegistration{{ID: "tree", Path: "/tree", Tools: nil, Handlers: nil}}
@@ -48,7 +49,20 @@ func TestServiceInvokesSessionTreeHandler(t *testing.T) {
 		Request: mo.Some(sessiontree.RequestHandlerAction{}),
 		Result:  mo.None[sessiontree.ResultHandlerAction](), Observer: mo.None[sessiontree.ObserverAction](),
 	}
-	runtime.EXPECT().Handle(t.Context(), "request", request).Return(response, nil)
+	runtime.EXPECT().
+		Handle(t.Context(), "request", gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, payload HandlerInvocation) (HandlerAction, error) {
+			assert.Equal(t, request.Context, payload.Context)
+			assert.Equal(t, InvocationRequest, payload.Kind)
+			return HandlerAction{
+				Kind:          InvocationRequest,
+				Cancel:        false,
+				RequestAction: 0,
+				Request:       mo.None[Navigation](),
+				ResultAction:  0,
+				Result:        mo.None[Summary](),
+			}, nil
+		})
 
 	// Act through the session-tree-owned runtime interface.
 	available := service.HandlerRuntimeAvailable(pending.Registrations[0].ID)

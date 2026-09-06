@@ -15,9 +15,6 @@ import (
 
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
-	lifecycle "github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
-	sessiontree "github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
-	startup "github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -126,10 +123,10 @@ func (mr *MockExtensionRuntimeMockRecorder) Execute(ctx, name, argumentsJSON, ha
 }
 
 // Handle mocks base method.
-func (m *MockExtensionRuntime) Handle(ctx context.Context, handlerID string, request sessiontree.HandlerRequest) (sessiontree.HandlerResponse, error) {
+func (m *MockExtensionRuntime) Handle(ctx context.Context, handlerID string, request HandlerInvocation) (HandlerAction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Handle", ctx, handlerID, request)
-	ret0, _ := ret[0].(sessiontree.HandlerResponse)
+	ret0, _ := ret[0].(HandlerAction)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -141,24 +138,24 @@ func (mr *MockExtensionRuntimeMockRecorder) Handle(ctx, handlerID, request any) 
 }
 
 // ObserveLifecycle mocks base method.
-func (m *MockExtensionRuntime) ObserveLifecycle(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 lifecycle.Event) error {
+func (m *MockExtensionRuntime) ObserveLifecycle(arg0 context.Context, arg1 string, arg2 LifecycleInvocation) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObserveLifecycle", arg0, arg1, arg2, arg3)
+	ret := m.ctrl.Call(m, "ObserveLifecycle", arg0, arg1, arg2)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ObserveLifecycle indicates an expected call of ObserveLifecycle.
-func (mr *MockExtensionRuntimeMockRecorder) ObserveLifecycle(arg0, arg1, arg2, arg3 any) *gomock.Call {
+func (mr *MockExtensionRuntimeMockRecorder) ObserveLifecycle(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveLifecycle", reflect.TypeOf((*MockExtensionRuntime)(nil).ObserveLifecycle), arg0, arg1, arg2, arg3)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveLifecycle", reflect.TypeOf((*MockExtensionRuntime)(nil).ObserveLifecycle), arg0, arg1, arg2)
 }
 
 // Register mocks base method.
-func (m *MockExtensionRuntime) Register(ctx context.Context) (startup.PendingRegistration, error) {
+func (m *MockExtensionRuntime) Register(ctx context.Context) (Registration, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Register", ctx)
-	ret0, _ := ret[0].(startup.PendingRegistration)
+	ret0, _ := ret[0].(Registration)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -206,4 +203,42 @@ func (m *MockRuntimeFactory) Start(ctx context.Context, candidate Candidate) (Ex
 func (mr *MockRuntimeFactoryMockRecorder) Start(ctx, candidate any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockRuntimeFactory)(nil).Start), ctx, candidate)
+}
+
+// MockFailureReporter is a mock of FailureReporter interface.
+type MockFailureReporter struct {
+	ctrl     *gomock.Controller
+	recorder *MockFailureReporterMockRecorder
+	isgomock struct{}
+}
+
+// MockFailureReporterMockRecorder is the mock recorder for MockFailureReporter.
+type MockFailureReporterMockRecorder struct {
+	mock *MockFailureReporter
+}
+
+// NewMockFailureReporter creates a new mock instance.
+func NewMockFailureReporter(ctrl *gomock.Controller) *MockFailureReporter {
+	mock := &MockFailureReporter{ctrl: ctrl}
+	mock.recorder = &MockFailureReporterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockFailureReporter) EXPECT() *MockFailureReporterMockRecorder {
+	return m.recorder
+}
+
+// ReportRuntimeFailure mocks base method.
+func (m *MockFailureReporter) ReportRuntimeFailure(arg0 context.Context, arg1 extension.RuntimeFailure) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReportRuntimeFailure", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ReportRuntimeFailure indicates an expected call of ReportRuntimeFailure.
+func (mr *MockFailureReporterMockRecorder) ReportRuntimeFailure(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportRuntimeFailure", reflect.TypeOf((*MockFailureReporter)(nil).ReportRuntimeFailure), arg0, arg1)
 }

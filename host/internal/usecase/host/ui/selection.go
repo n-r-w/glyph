@@ -30,16 +30,6 @@ type SelectionIssue struct {
 	Err error
 }
 
-// Warning preserves one excluded candidate as user-visible startup content.
-func (i SelectionIssue) Warning() StartupContent {
-	return StartupContent{
-		Severity: ContentSeverityWarning,
-		Text: fmt.Sprintf(
-			"excluded UI %s at %s: %v", i.Candidate.ID, i.Candidate.Path, i.Err,
-		),
-	}
-}
-
 // Selection contains the selected UI identity and candidate issues, not a process connection.
 type Selection struct {
 	// ID identifies the selected UI plugin.
@@ -74,6 +64,10 @@ func (s *Selector) Select(ctx context.Context, request SelectionRequest) (Select
 		"active_ui", activeID,
 	)
 	discovery, err := s.catalog.Discover(ctx, request.Directory)
+	var candidates []Candidate
+	if err == nil {
+		candidates, err = s.acceptDiscovery(request.Directory, discovery)
+	}
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to load UI plugins",
 			"directory", request.Directory.Path,
@@ -87,9 +81,9 @@ func (s *Selector) Select(ctx context.Context, request SelectionRequest) (Select
 	}
 	var selection Selection
 	if selectedID != "" {
-		selection, err = s.startSelected(ctx, discovery.Candidates, selectedID)
+		selection, err = s.startSelected(ctx, candidates, selectedID)
 	} else {
-		selection, err = s.selectCompatible(ctx, discovery.Candidates)
+		selection, err = s.selectCompatible(ctx, candidates)
 	}
 	if err != nil {
 		slog.ErrorContext(ctx, "failed to load UI plugin",
@@ -142,7 +136,9 @@ func (s *Selector) selectCompatible(
 			continue
 		}
 		compatible = append(compatible, candidate)
-		s.runtime.Close()
+		if closeErr := s.runtime.Close(); closeErr != nil {
+			return Selection{ID: "", Issues: issues}, fmt.Errorf("close UI probe %q: %w", candidate.ID, closeErr)
+		}
 	}
 	if len(compatible) == 0 {
 		return Selection{ID: "", Issues: issues}, errors.New("no compatible UI plugin is available")

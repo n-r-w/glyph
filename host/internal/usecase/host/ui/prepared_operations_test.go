@@ -33,12 +33,15 @@ func TestInitializeFailurePreservesCause(t *testing.T) {
 	source := errors.New("UI process exited during initialization")
 	wrapped := fmt.Errorf("send initialization frame: %w", source)
 	channel.EXPECT().Initialize(gomock.Any(), gomock.Any()).Return(wrapped)
-	activated := false
+	catalog := NewMockModelCatalog(controller)
+	catalog.EXPECT().Models().Return(nil)
+	catalog.EXPECT().ActiveSelection().Return(model.Selection{})
+	active := NewMockActiveSessions(controller)
+	active.EXPECT().ActiveInformation().Return(session.Info{}, session.Statistics{})
+	activation := NewMockRuntimeActivation(controller)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, nil, nil, func(context.Context) { activated = true },
-
-		Initialization{},
+		catalog, active, nil, nil, activation,
 	)
 
 	// Act through Host startup.
@@ -47,7 +50,6 @@ func TestInitializeFailurePreservesCause(t *testing.T) {
 	// Assert cause preservation and no Host activation or operation receipt.
 	require.ErrorIs(t, err, source)
 	require.ErrorContains(t, err, wrapped.Error())
-	assert.False(t, activated)
 }
 
 // TestActivationCleanupCancelsAndJoinsAuthenticationCheck verifies startup worker ownership.
@@ -58,20 +60,23 @@ func TestActivationCleanupCancelsAndJoinsAuthenticationCheck(t *testing.T) {
 	controller := gomock.NewController(t)
 	channel := NewMockOutput(controller)
 	authenticator := NewMockAuthenticator(controller)
+	activation := NewMockRuntimeActivation(controller)
+	activated := activation.EXPECT().Activate(gomock.Any())
 	started := make(chan struct{})
 	stopped := make(chan struct{})
-	authenticator.EXPECT().CheckAuthentication(gomock.Any()).DoAndReturn(func(ctx context.Context) error {
-		close(started)
-		<-ctx.Done()
-		close(stopped)
-		return context.Cause(ctx)
-	})
+	authenticator.EXPECT().
+		CheckAuthentication(gomock.Any()).
+		After(activated).
+		DoAndReturn(func(ctx context.Context) error {
+			close(started)
+			<-ctx.Done()
+			close(stopped)
+			return context.Cause(ctx)
+		})
 	authenticator.EXPECT().IsSignInRequired(gomock.Any()).AnyTimes().Return(false)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, activation,
 	)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -97,9 +102,7 @@ func TestPrepareRejectsOrdinaryOperationBeforeAuthenticationReadiness(t *testing
 	controller := gomock.NewController(t)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), NewMockActiveSessions(controller), nil, nil, func(context.Context) {},
-
-		Initialization{},
+		NewMockModelCatalog(controller), NewMockActiveSessions(controller), nil, nil, nil,
 	)
 	command := newCommandForPreparedTest(controllerui.CommandGetSessionInfo)
 
@@ -130,9 +133,7 @@ func TestPrepareReservesSessionMutationBeforeRun(t *testing.T) {
 	}, nil, nil)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, func(context.Context) {},
-
-		Initialization{},
+		NewMockModelCatalog(controller), control, nil, gate, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandCreateSession)
@@ -207,9 +208,7 @@ func TestPreparedFailurePreservesCategoryTextAndCause(t *testing.T) {
 	control.EXPECT().CreateActive().Return(session.Info{}, nil, source)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, func(context.Context) {},
-
-		Initialization{},
+		NewMockModelCatalog(controller), control, nil, gate, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	prepared, err := service.Prepare(t.Context(), newCommandForPreparedTest(controllerui.CommandCreateSession))

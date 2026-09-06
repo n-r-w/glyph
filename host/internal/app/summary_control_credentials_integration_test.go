@@ -39,10 +39,12 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 			// Arrange a real extension and catalog whose configured summary credentials always fail.
 			directory := t.TempDir()
 			writeHandlerFixtureScript(t, directory, "control", mode, "")
+			reporter := extensionmanager.NewMockFailureReporter(gomock.NewController(t))
+			reporter.EXPECT().ReportRuntimeFailure(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 			extensions := extensionmanager.New(
 				catalog.New(),
 				extensionruntime.NewFactory(),
-				func(context.Context, extension.RuntimeFailure) error { return nil },
+				reporter,
 			)
 			t.Cleanup(extensions.Close)
 			controller := gomock.NewController(t)

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"sync"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -11,8 +10,6 @@ import (
 type Session struct {
 	// output projects application state and binds operation-scoped progress.
 	output Output
-	// initialization is the assembled startup state for this session.
-	initialization Initialization
 	// runner prepares and executes Agent Core runs.
 	runner AgentRunner
 	// authenticator manages provider authentication.
@@ -25,8 +22,8 @@ type Session struct {
 	navigator Navigator
 	// gate owns admission against agent execution.
 	gate Gate
-	// afterInitialization starts work that requires a connected UI.
-	afterInitialization func(context.Context)
+	// runtime starts monitoring after initialized output owns its writer and failures.
+	runtime RuntimeActivation
 	// operationMutex protects readiness and operation-specific reservations.
 	operationMutex sync.Mutex
 	// operationAvailability controls operation admission.
@@ -46,18 +43,16 @@ func NewSession(
 	activeSessions ActiveSessions,
 	navigator Navigator,
 	gate Gate,
-	afterInitialization func(context.Context),
-	initialization Initialization,
+	runtime RuntimeActivation,
 ) *Session {
 	return &Session{
 		output:         output,
-		initialization: initialization,
 		runner:         runner,
 		authenticator:  authenticator,
 		modelCatalog:   modelCatalog,
 		gate:           gate,
 		activeSessions: activeSessions, navigator: navigator,
-		afterInitialization:   afterInitialization,
+		runtime:               runtime,
 		operationMutex:        sync.Mutex{},
 		operationAvailability: AvailabilityCheckingAuthentication,
 		selectionActive:       false,

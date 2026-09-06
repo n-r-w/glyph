@@ -46,7 +46,7 @@ func New(
 	return &Service{runtimes: runtimes, tools: tools, sessionTree: sessionTree, lifecycle: lifecycle}
 }
 
-// Start loads extensions and reports the complete headless startup state.
+// Start loads extensions and reports the complete startup state to the selected output.
 func (s *Service) Start(ctx context.Context, request Request, reporter Reporter) (LoadReport, error) {
 	report, err := s.Load(ctx, request)
 	if err != nil {

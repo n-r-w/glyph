@@ -156,6 +156,8 @@ The [U3 evidence](solution.md#u3-session-queries-navigation-and-publication) rec
 - Recommendation: Move catalogue acceptance decisions to extension startup/runtime orchestration and UI selection. Keep filesystem inspection in adapters. Pass validated timeout intent through the controller-owned bash command and let the bash usecase own the timer and its cleanup.
 - Verification: Preserve the distinct approved UI and extension duplicate/failure outcomes. Preserve bash timeout text, duration interpretation, parent cancellation, process-group termination, output spill, and progress delivery through existing behavioral tests.
 
+The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) records the implemented runtime/startup portions of FND-01, FND-02, FND-03, and FND-07. Runtime management owns filtered process payloads and trusted identity binding. Catalog adapters return filesystem observations; Host consumers own their distinct acceptance rules. App forwarding and Host interactions are removed. UI output owns startup reporting, warnings, and authorization presentation. Required project checks and uncached affected tests passed. Main-agent source verification remains pending. The bundled-tool timeout and other later-unit findings remain open.
+
 ### Minor
 
 #### FND-08: Consumer contracts and implementation assertions are incomplete

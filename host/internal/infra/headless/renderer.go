@@ -8,6 +8,8 @@ import (
 	"io"
 	"strings"
 
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
@@ -287,3 +289,5 @@ func writeText(writer io.Writer, content string) error {
 	}
 	return nil
 }
+
+var _ extensionruntime.FailureReporter = (*Renderer)(nil)

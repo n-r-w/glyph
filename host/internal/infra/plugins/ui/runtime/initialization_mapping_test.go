@@ -22,13 +22,13 @@ func TestMapInitializationPreservesWarningAndExtensionPath(t *testing.T) {
 	// Arrange the inline payload for mapInitialization to verify public UI diagnostics mapping.
 
 	// Act by invoking mapInitialization to exercise public UI diagnostics mapping.
-	mapped, err := mapInitialization(hostui.Initialization{
+	mapped, err := mapInitialization(Initialization{
 		SelectedUIID: "ui",
-		StartupContent: []hostui.StartupContent{{
-			Severity: hostui.ContentSeverityWarning,
+		StartupContent: []StartupContent{{
+			Severity: ContentSeverityWarning,
 			Text:     "excluded optional UI",
 		}},
-		Extensions: []hostui.ExtensionAvailability{{
+		Extensions: []ExtensionAvailability{{
 			PluginID: "tools",
 			Path:     "/plugins/tools",
 			Tools:    []string{"read"},

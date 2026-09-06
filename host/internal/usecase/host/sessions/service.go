@@ -83,6 +83,14 @@ func New(
 	}
 }
 
+// BindPricingCatalog connects the actual provider catalog after storage initialization and before activation.
+func (s *Service) BindPricingCatalog(pricing PricingCatalog) {
+	if s.pricing != nil || pricing == nil {
+		panic("pricing catalog binding must be completed exactly once")
+	}
+	s.pricing = pricing
+}
+
 // Initialize prepares storage and creates one empty process-active session.
 func (s *Service) Initialize(ctx context.Context) error {
 	if err := s.repository.Initialize(ctx); err != nil {

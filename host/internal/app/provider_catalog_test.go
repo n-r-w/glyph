@@ -14,8 +14,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence"
 	settingstore "github.com/n-r-w/glyph/host/internal/infra/persistence/settings"
-
-	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 )
 
 // testSettingsReasoning builds a reasoning fixture from the supported choices.
@@ -142,7 +140,7 @@ func TestNewProviderCatalogBuildsEveryConfiguredProvider(t *testing.T) {
 	}
 
 	// Act by building the shared Host provider catalog.
-	catalog, err := newProviderCatalog(configured, paths, interactions.New())
+	catalog, err := newProviderCatalog(configured, paths, nil)
 
 	// Assert every configured model, order, and default selection are exact.
 	require.NoError(t, err)

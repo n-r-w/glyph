@@ -5,8 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/n-r-w/glyph/host/internal/domain/extension"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -14,15 +13,14 @@ import (
 func (r *Runtime) ObserveLifecycle(
 	ctx context.Context,
 	handlerID string,
-	binding extension.Context,
-	event lifecycle.Event,
+	event extensionruntime.LifecycleInvocation,
 ) error {
 	invocation, err := mapLifecycleEvent(event)
 	if err != nil {
 		return fmt.Errorf("map lifecycle observer %q: %w", handlerID, err)
 	}
 	request := extensionpb.HandleRequest_builder{
-		HandlerId: new(handlerID), Context: mapContext(binding),
+		HandlerId: new(handlerID), Context: mapContext(event.Context),
 		SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Lifecycle: invocation,
 	}.Build()
 	hostRequest := new(extensionpb.HostRequest)

@@ -10,26 +10,30 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
 // emptyLifecycleSource creates one source event with every optional payload absent.
-func emptyLifecycleSource(eventType agent.EventType) agent.Event {
-	return agent.Event{
-		Type:       eventType,
-		RunID:      "run",
-		Position:   mo.None[int](),
-		Content:    mo.None[model.Content](),
-		Message:    mo.None[model.Response](),
-		Preview:    mo.None[model.ToolCallPreview](),
-		ToolCall:   mo.None[model.ToolCall](),
-		Progress:   mo.None[tool.Progress](),
-		ToolResult: mo.None[agent.ToolResult](),
-		Turn:       mo.None[agent.TurnSummary](),
-		Agent:      mo.None[agent.RunSummary](),
+func emptyLifecycleSource(eventType agent.EventType) extensionruntime.LifecycleInvocation {
+	return extensionruntime.LifecycleInvocation{
+		Context:      extension.Context{},
+		Settled:      false,
+		TurnResults:  nil,
+		Outcome:      mo.None[agent.RunOutcome](),
+		ErrorMessage: mo.None[string](),
+		Type:         eventType,
+		RunID:        "run",
+		Position:     mo.None[int](),
+		Content:      mo.None[extensionruntime.Content](),
+		Response:     mo.None[extensionruntime.Response](),
+		Preview:      mo.None[model.ToolCallPreview](),
+		ToolCall:     mo.None[model.ToolCall](),
+		Progress:     mo.None[tool.Progress](),
+		ToolResult:   mo.None[agent.ToolResult](),
 	}
 }
 
@@ -38,7 +42,7 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one valid source event for each Agent Core lifecycle group.
-	response := model.Response{
+	response := extensionruntime.Response{
 		Content: nil, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](),
 		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
@@ -47,62 +51,62 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 	result := agent.ToolResult{CallID: "call", ToolName: "tool", Contents: tool.TextContents("done"), IsError: false}
 	tests := []struct {
 		name  string
-		event lifecycle.Event
+		event extensionruntime.LifecycleInvocation
 		check func(*extensionpb.LifecycleInvocation) bool
 	}{
 		{
 			name:  "agent start",
-			event: lifecycle.Event{Agent: emptyLifecycleSource(agent.EventAgentStart), Settled: false},
+			event: emptyLifecycleSource(agent.EventAgentStart),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetAgentStart() != nil },
 		},
 		{
 			name:  "agent end",
-			event: lifecycle.Event{Agent: lifecycleSourceWithAgent(), Settled: false},
+			event: lifecycleSourceWithAgent(),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetAgentEnd() != nil },
 		},
 		{
 			name:  "agent settled",
-			event: lifecycle.Event{Agent: emptyLifecycleSource(agent.EventAgentEnd), Settled: true},
+			event: settledLifecycleSource(),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetAgentSettled() != nil },
 		},
 		{
 			name:  "turn start",
-			event: lifecycle.Event{Agent: emptyLifecycleSource(agent.EventTurnStart), Settled: false},
+			event: emptyLifecycleSource(agent.EventTurnStart),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetTurnStart() != nil },
 		},
 		{
 			name:  "turn end",
-			event: lifecycle.Event{Agent: lifecycleSourceWithTurn(response), Settled: false},
+			event: lifecycleSourceWithTurn(response),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetTurnEnd() != nil },
 		},
 		{
 			name:  "message start",
-			event: lifecycle.Event{Agent: emptyLifecycleSource(agent.EventMessageStart), Settled: false},
+			event: emptyLifecycleSource(agent.EventMessageStart),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetMessageStart() != nil },
 		},
 		{
 			name:  "message update",
-			event: lifecycle.Event{Agent: lifecycleSourceWithContent(), Settled: false},
+			event: lifecycleSourceWithContent(),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetMessageUpdate() != nil },
 		},
 		{
 			name:  "message end",
-			event: lifecycle.Event{Agent: lifecycleSourceWithMessage(response), Settled: false},
+			event: lifecycleSourceWithMessage(response),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetMessageEnd() != nil },
 		},
 		{
 			name:  "tool execution start",
-			event: lifecycle.Event{Agent: lifecycleSourceWithCall(agent.EventToolExecutionStart, call), Settled: false},
+			event: lifecycleSourceWithCall(agent.EventToolExecutionStart, call),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetToolExecutionStart() != nil },
 		},
 		{
 			name:  "tool execution update",
-			event: lifecycle.Event{Agent: lifecycleSourceWithProgress(), Settled: false},
+			event: lifecycleSourceWithProgress(),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetToolExecutionUpdate() != nil },
 		},
 		{
 			name:  "tool execution end",
-			event: lifecycle.Event{Agent: lifecycleSourceWithResult(result), Settled: false},
+			event: lifecycleSourceWithResult(result),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetToolExecutionEnd() != nil },
 		},
 	}
@@ -116,53 +120,49 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 }
 
 // lifecycleSourceWithAgent creates one terminal agent source.
-func lifecycleSourceWithAgent() agent.Event {
+func lifecycleSourceWithAgent() extensionruntime.LifecycleInvocation {
 	event := emptyLifecycleSource(agent.EventAgentEnd)
-	event.Agent = mo.Some(
-		agent.RunSummary{Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: mo.None[string]()},
-	)
+	event.Outcome = mo.Some(agent.RunOutcomeCompleted)
 	return event
 }
 
 // lifecycleSourceWithTurn creates one terminal turn source.
-func lifecycleSourceWithTurn(response model.Response) agent.Event {
+func lifecycleSourceWithTurn(response extensionruntime.Response) extensionruntime.LifecycleInvocation {
 	event := emptyLifecycleSource(agent.EventTurnEnd)
-	event.Turn = mo.Some(agent.TurnSummary{Response: response, ToolResults: nil})
+	event.Response = mo.Some(response)
 	return event
 }
 
 // lifecycleSourceWithContent creates one visible message update source.
-func lifecycleSourceWithContent() agent.Event {
+func lifecycleSourceWithContent() extensionruntime.LifecycleInvocation {
 	event := emptyLifecycleSource(agent.EventTextDelta)
 	event.Position = mo.Some(0)
 	event.Content = mo.Some(
-		model.Content{
-			Kind:            model.ContentText,
-			Text:            mo.Some("delta"),
-			Final:           false,
-			ProviderContext: mo.None[model.ProviderContext](),
-			ToolCall:        mo.None[model.ToolCall](),
+		extensionruntime.Content{
+			Kind:     model.ContentText,
+			Text:     mo.Some("delta"),
+			ToolCall: mo.None[model.ToolCall](),
 		},
 	)
 	return event
 }
 
 // lifecycleSourceWithMessage creates one terminal message source.
-func lifecycleSourceWithMessage(response model.Response) agent.Event {
+func lifecycleSourceWithMessage(response extensionruntime.Response) extensionruntime.LifecycleInvocation {
 	event := emptyLifecycleSource(agent.EventMessageEnd)
-	event.Message = mo.Some(response)
+	event.Response = mo.Some(response)
 	return event
 }
 
 // lifecycleSourceWithCall creates one tool call source.
-func lifecycleSourceWithCall(eventType agent.EventType, call model.ToolCall) agent.Event {
+func lifecycleSourceWithCall(eventType agent.EventType, call model.ToolCall) extensionruntime.LifecycleInvocation {
 	event := emptyLifecycleSource(eventType)
 	event.ToolCall = mo.Some(call)
 	return event
 }
 
 // lifecycleSourceWithProgress creates one tool progress source.
-func lifecycleSourceWithProgress() agent.Event {
+func lifecycleSourceWithProgress() extensionruntime.LifecycleInvocation {
 	event := emptyLifecycleSource(agent.EventToolExecutionUpdate)
 	event.ToolCall = mo.Some(model.ToolCall{ID: "call", Name: "tool", Arguments: map[string]any{}})
 	event.Progress = mo.Some(tool.Progress{Channel: tool.ProgressChannelStatus, Content: "working"})
@@ -170,7 +170,7 @@ func lifecycleSourceWithProgress() agent.Event {
 }
 
 // lifecycleSourceWithResult creates one terminal tool execution source.
-func lifecycleSourceWithResult(result agent.ToolResult) agent.Event {
+func lifecycleSourceWithResult(result agent.ToolResult) extensionruntime.LifecycleInvocation {
 	event := emptyLifecycleSource(agent.EventToolExecutionEnd)
 	event.ToolResult = mo.Some(result)
 	return event
@@ -181,16 +181,14 @@ func TestMapLifecyclePreservesNestedProviderNeutralContent(t *testing.T) {
 	t.Parallel()
 
 	// Arrange source payloads that carry data beyond their top-level lifecycle kind.
-	response := model.Response{
+	response := extensionruntime.Response{
 		Content: nil, Outcome: mo.None[model.Outcome](), ErrorMessage: mo.None[string](),
 		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
 	result := agent.ToolResult{CallID: "call", ToolName: "tool", Contents: tool.TextContents("done"), IsError: false}
 	turn := lifecycleSourceWithTurn(response)
-	turnSummary, _ := turn.Turn.Get()
-	turnSummary.ToolResults = []agent.ToolResult{result}
-	turn.Turn = mo.Some(turnSummary)
+	turn.TurnResults = []agent.ToolResult{result}
 	progress := lifecycleSourceWithProgress()
 	progress.ToolCall = mo.Some(model.ToolCall{ID: "call", Name: "tool", Arguments: map[string]any{}})
 	preview := emptyLifecycleSource(agent.EventToolCallDelta)
@@ -204,9 +202,9 @@ func TestMapLifecyclePreservesNestedProviderNeutralContent(t *testing.T) {
 	})
 
 	// Act by mapping each nested source payload.
-	mappedTurn, turnErr := mapLifecycleEvent(lifecycle.Event{Agent: turn, Settled: false})
-	mappedProgress, progressErr := mapLifecycleEvent(lifecycle.Event{Agent: progress, Settled: false})
-	mappedPreview, previewErr := mapLifecycleEvent(lifecycle.Event{Agent: preview, Settled: false})
+	mappedTurn, turnErr := mapLifecycleEvent(turn)
+	mappedProgress, progressErr := mapLifecycleEvent(progress)
+	mappedPreview, previewErr := mapLifecycleEvent(preview)
 
 	// Assert all provider-neutral content is retained in typed public fields.
 	require.NoError(t, turnErr)
@@ -228,43 +226,19 @@ func TestMapLifecycleAgentEndUsesStableOutcome(t *testing.T) {
 
 	// Arrange one completed Agent Core terminal event.
 	event := emptyLifecycleSource(agent.EventAgentEnd)
-	event.Agent = mo.Some(agent.RunSummary{
-		Outcome: agent.RunOutcomeCompleted, AddedHistory: nil, ErrorMessage: mo.None[string](),
-	})
+	event.Outcome = mo.Some(agent.RunOutcomeCompleted)
 
 	// Act by mapping it to the public lifecycle contract.
-	mapped, err := mapLifecycleEvent(lifecycle.Event{Agent: event, Settled: false})
+	mapped, err := mapLifecycleEvent(event)
 
 	// Assert the public outcome is stable text instead of an internal numeric value.
 	require.NoError(t, err)
 	assert.Equal(t, "completed", mapped.GetAgentEnd().GetOutcome())
 }
 
-// TestMapLifecycleMessageUpdateExcludesProviderContext verifies private reasoning payloads do not escape.
-func TestMapLifecycleMessageUpdateExcludesProviderContext(t *testing.T) {
-	t.Parallel()
-
-	// Arrange one reasoning transition with only provider-owned replay context.
-	event := emptyLifecycleSource(agent.EventContentStart)
-	event.Position = mo.Some(0)
-	event.Content = mo.Some(model.Content{
-		Kind: model.ContentReasoning, Text: mo.None[string](), Final: false,
-		ProviderContext: mo.Some(model.ProviderContext{
-			Source: model.ProviderContextSource{
-				ProviderID: "provider", API: "private", Model: "model", CompatibilityKey: mo.None[string](),
-			},
-			Payload: []byte("credential-like private context"),
-		}),
-		ToolCall: mo.None[model.ToolCall](),
-	})
-
-	// Act by mapping the transition.
-	mapped, err := mapLifecycleEvent(lifecycle.Event{Agent: event, Settled: false})
-
-	// Assert the transition identity remains while private content is omitted.
-	require.NoError(t, err)
-	update := mapped.GetMessageUpdate()
-	require.NotNil(t, update)
-	assert.Equal(t, extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_CONTENT_START, update.GetKind())
-	assert.Nil(t, update.GetContent())
+// settledLifecycleSource creates a Host settlement notification without an agent payload.
+func settledLifecycleSource() extensionruntime.LifecycleInvocation {
+	event := emptyLifecycleSource(agent.EventAgentEnd)
+	event.Settled = true
+	return event
 }

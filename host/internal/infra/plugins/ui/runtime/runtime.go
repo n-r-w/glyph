@@ -4,9 +4,12 @@ package runtime
 import (
 	"context"
 	"fmt"
+	"io"
 	"os/exec"
 	"sync"
 	"sync/atomic"
+
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -17,6 +20,16 @@ import (
 
 // Service retains the candidate selected by Host policy and its output state.
 type Service struct {
+	// browser launches authorization URLs after presentation.
+	browser Browser
+	// selectedUIID identifies the selected process in initialization output.
+	selectedUIID string
+	// selectionIssues remains pending until initialization delivery or close fallback.
+	selectionIssues []hostui.SelectionIssue
+	// warningWriter receives selection warnings when initialization cannot deliver them.
+	warningWriter io.Writer
+	// startupReport is the authoritative completed extension load report.
+	startupReport startup.LoadReport
 	// client owns the selected process connection.
 	client *uisdk.Client
 	// openOnce limits the selected process to one stream.
@@ -52,9 +65,23 @@ var (
 // New creates the selected-process owner before candidate selection.
 func New() *Service {
 	return &Service{
-		client: nil, openOnce: sync.Once{}, openErr: nil, stream: nil, cancel: nil,
-		closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false, writer: nil,
-		progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false, failConnection: nil,
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
+		browser:          nil,
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           nil,
+		cancel:           nil,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            false,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressBound:    false,
+		failConnection:   nil,
 	}
 }
 
@@ -89,7 +116,7 @@ func (s *Service) Open(ctx context.Context) (controllerui.Connection, error) {
 }
 
 // Close closes a successful probe or stops the selected process and its opened stream.
-func (s *Service) Close() {
+func (s *Service) Close() error {
 	if s.cancel != nil && s.closed.CompareAndSwap(false, true) {
 		s.cancel()
 	}
@@ -97,4 +124,5 @@ func (s *Service) Close() {
 		s.client.Close()
 		s.client = nil
 	}
+	return s.flushSelectionWarnings()
 }

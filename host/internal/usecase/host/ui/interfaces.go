@@ -22,7 +22,7 @@ type Catalog interface {
 // Runtime starts and closes candidates while retaining the selected process.
 type Runtime interface {
 	Start(context.Context, Candidate) error
-	Close()
+	Close() error
 }
 
 // Output publishes Host state and binds operation-scoped progress.
@@ -87,4 +87,10 @@ type Authenticator interface {
 type Gate interface {
 	// TryAcquire returns a release function when the shared reservation is available.
 	TryAcquire() (func(), bool)
+}
+
+// RuntimeActivation starts accepted extension monitoring after initialized output is connected.
+type RuntimeActivation interface {
+	// Activate starts asynchronous runtime observation without waiting for authentication.
+	Activate(context.Context)
 }

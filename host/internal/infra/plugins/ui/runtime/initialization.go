@@ -30,7 +30,7 @@ type initializationReceive struct {
 
 // Initialize maps and runs startup through the normal writer and tracker.
 func (c *Service) Initialize(ctx context.Context, initialization hostui.Initialization) error {
-	request, err := mapInitializationFrame(initialization)
+	request, err := mapInitializationFrame(c.buildInitialization(initialization))
 	if err != nil {
 		return err
 	}
@@ -40,6 +40,7 @@ func (c *Service) Initialize(ctx context.Context, initialization hostui.Initiali
 	request.SetOperationId(initializationOperationID)
 	initializationErr := c.initialize(ctx, request)
 	if initializationErr == nil {
+		c.selectionIssues = nil
 		return nil
 	}
 	closeErr := c.closeUnsuccessfulInitialization()

@@ -4,7 +4,6 @@ package runtime
 
 import (
 	"testing"
-	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -13,7 +12,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -27,52 +26,50 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 		Provider: model.ProviderID("provider"), Model: model.ID("model"),
 		ReasoningChoice: model.ReasoningChoice("medium"),
 	}
-	request := sessiontree.HandlerNavigationRequest{
-		Navigation: sessiontree.NavigationRequest{
-			TargetEntryID: "target", SummaryMode: sessiontree.SummaryModeSummarize,
-			CustomFocus: mo.None[string](),
-		},
-		SummaryModel: selection,
+	request := extensionruntime.Navigation{
+		TargetEntryID: "target",
+		SummaryMode:   2,
+		CustomFocus:   mo.None[string](),
+		SummaryModel:  selection,
 	}
-	entry := session.Entry{
-		ID: "extension-entry", ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0),
-		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
-		ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.Some(session.ExtensionEnvelope{
-			ExtensionID: "owner", EntryType: "private", Data: []byte("secret"),
-		}),
-		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+	entry := extensionruntime.TreeEntry{
+		ID:               "extension-entry",
+		User:             mo.None[session.UserMessage](),
+		Model:            mo.None[[]extensionruntime.Content](),
+		ToolResult:       mo.None[session.ToolResult](),
+		BranchSummary:    mo.None[string](),
+		Extension:        mo.Some(extensionruntime.ExtensionIdentity{ExtensionID: "owner", EntryType: "private"}),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
-	state := sessiontree.HandlerNavigationState{
-		SessionID: "session", PrecedingActiveLeafID: mo.Some("leaf"), Request: request,
-		Preparation: session.NavigationPreparation{
-			DestinationID: mo.Some("destination"), NextInput: mo.None[string](),
-			CommonAncestorID: mo.Some("common"), AbandonedPath: []session.Entry{entry},
-		},
+	state := extensionruntime.Preparation{
+		SessionID:             "session",
+		PrecedingActiveLeafID: mo.Some("leaf"),
+		Request:               request,
+		DestinationID:         mo.Some("destination"),
+		CommonAncestorID:      mo.Some("common"),
+		Entries:               []extensionruntime.TreeEntry{entry},
 	}
-	invocation := sessiontree.RequestHandlerInvocation{
-		Original: state, Current: state,
-		CurrentResult: mo.Some(sessiontree.HandlerBranchSummaryResult{
-			Summary: "ready", Source: session.BranchSummarySource{
-				ExtensionID: mo.Some("producer"), Model: mo.None[session.BranchSummaryModelSource](),
+	invocation := handlerInvocation(extensionruntime.InvocationRequest)
+	invocation.Context = extension.Context{
+		ID:                "binding",
+		ExtensionID:       "extension",
+		RuntimeInstanceID: "runtime",
+		SessionID:         "session",
+		WorkingDirectory:  "/project",
+	}
+	invocation.Original = state
+	invocation.Current = state
+	invocation.CurrentResult = mo.Some(
+		extensionruntime.Summary{
+			Summary: "ready",
+			Source: session.BranchSummarySource{
+				ExtensionID: mo.Some("producer"),
+				Model:       mo.None[session.BranchSummaryModelSource](),
 			},
-		}),
-	}
-
-	// Act by mapping the typed Host invocation to protobuf.
-	mapped, err := mapHandleRequest("handler", sessiontree.HandlerRequest{
-		Context: extension.Context{
-			ID:                "binding",
-			ExtensionID:       "extension",
-			RuntimeInstanceID: "runtime",
-			SessionID:         "session",
-			WorkingDirectory:  "/project",
 		},
-		Request:  mo.Some(invocation),
-		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
-		Observer: mo.None[sessiontree.TreeObserverInvocation](),
-	})
+	)
+	// Act by encoding the runtime-filtered invocation.
+	mapped, err := mapHandleRequest("handler", invocation)
 
 	// Assert identity, configured model, Host preparation, handler order payload, and opaque extension projection.
 	require.NoError(t, err)
@@ -100,24 +97,13 @@ func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 	t.Parallel()
 
 	// Arrange an observer invocation and one typed ordinary handler failure.
-	request := sessiontree.TreeObserverInvocation{
-		SessionID: "session", TargetEntryID: "target", PrecedingActiveLeafID: mo.None[string](),
-		NavigationDestinationID: mo.None[string](), CommittedActiveLeafID: mo.None[string](),
-		CreatedSummary: mo.None[session.Entry](),
-	}
 	//nolint:exhaustruct_v5 // The response builder sets only the ordinary error outcome.
 	response := extensionpb.HandleResponse_builder{
 		Error: extensionpb.HandlerError_builder{Message: new("handler failed")}.Build(),
 	}.Build()
 
 	// Act by mapping the typed ordinary failure.
-	mapped, err := mapHandleResponse(sessiontree.HandlerRequest{
-		Context: extension.Context{},
-
-		Request:  mo.None[sessiontree.RequestHandlerInvocation](),
-		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
-		Observer: mo.Some(request),
-	}, response)
+	mapped, err := mapHandleResponse(handlerInvocation(extensionruntime.InvocationObserver), response)
 
 	// Assert no action is returned and the safe handler failure is preserved.
 	assert.Empty(t, mapped)
@@ -129,54 +115,28 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a request-handler invocation and an observer-only response.
-	request := sessiontree.RequestHandlerInvocation{
-		Original: sessiontree.HandlerNavigationState{
-			SessionID: "", PrecedingActiveLeafID: mo.None[string](),
-			Request: sessiontree.HandlerNavigationRequest{
-				Navigation: sessiontree.NavigationRequest{
-					TargetEntryID: "", SummaryMode: 0, CustomFocus: mo.None[string](),
-				},
-				SummaryModel: model.Selection{
-					Provider: "", Model: "", ReasoningChoice: "",
-				},
-			},
-			Preparation: session.NavigationPreparation{
-				DestinationID: mo.None[string](), NextInput: mo.None[string](),
-				CommonAncestorID: mo.None[string](), AbandonedPath: nil,
-			},
-		},
-		Current: sessiontree.HandlerNavigationState{
-			SessionID: "", PrecedingActiveLeafID: mo.None[string](),
-			Request: sessiontree.HandlerNavigationRequest{
-				Navigation: sessiontree.NavigationRequest{
-					TargetEntryID: "", SummaryMode: 0, CustomFocus: mo.None[string](),
-				},
-				SummaryModel: model.Selection{
-					Provider: "", Model: "", ReasoningChoice: "",
-				},
-			},
-			Preparation: session.NavigationPreparation{
-				DestinationID: mo.None[string](), NextInput: mo.None[string](),
-				CommonAncestorID: mo.None[string](), AbandonedPath: nil,
-			},
-		},
-		CurrentResult: mo.None[sessiontree.HandlerBranchSummaryResult](),
-	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	response := extensionpb.HandleResponse_builder{
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 	}.Build()
 
 	// Act by validating the response against the invoked kind.
-	mapped, err := mapHandleResponse(sessiontree.HandlerRequest{
-		Context: extension.Context{},
-
-		Request:  mo.Some(request),
-		Result:   mo.None[sessiontree.ResultHandlerInvocation](),
-		Observer: mo.None[sessiontree.TreeObserverInvocation](),
-	}, response)
+	mapped, err := mapHandleResponse(handlerInvocation(extensionruntime.InvocationRequest), response)
 
 	// Assert the protocol mismatch is rejected without an action.
 	assert.Empty(t, mapped)
 	require.ErrorContains(t, err, "another action kind")
+}
+
+// handlerInvocation constructs an empty typed process payload for transport variant tests.
+func handlerInvocation(kind extensionruntime.InvocationKind) extensionruntime.HandlerInvocation {
+	return extensionruntime.HandlerInvocation{
+		Context:        extension.Context{},
+		Kind:           kind,
+		Original:       extensionruntime.Preparation{},
+		Current:        extensionruntime.Preparation{},
+		OriginalResult: mo.None[extensionruntime.Summary](),
+		CurrentResult:  mo.None[extensionruntime.Summary](),
+		Commit:         mo.None[extensionruntime.TreeCommit](),
+	}
 }

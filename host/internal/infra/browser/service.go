@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"os/exec"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
+	uiruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/ui/runtime"
 )
 
 // Service launches one browser URL.
 type Service struct{}
 
-var _ interactions.Browser = (*Service)(nil)
+var _ uiruntime.Browser = (*Service)(nil)
 
 // New creates a macOS browser service.
 func New() *Service {

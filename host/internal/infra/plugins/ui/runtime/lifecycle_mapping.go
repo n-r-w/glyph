@@ -8,7 +8,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
-	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 
 	"github.com/samber/lo"
 
@@ -21,8 +20,8 @@ import (
 )
 
 // mapInitialization converts one complete startup state.
-func mapInitialization(initialization hostui.Initialization) (*uiv1.Initialization, error) {
-	startup := lo.Map(initialization.StartupContent, func(content hostui.StartupContent, _ int) *uiv1.StartupContent {
+func mapInitialization(initialization Initialization) (*uiv1.Initialization, error) {
+	startup := lo.Map(initialization.StartupContent, func(content StartupContent, _ int) *uiv1.StartupContent {
 		return uiv1.StartupContent_builder{
 			Severity: new(mapSeverity(content.Severity)),
 			Text:     new(content.Text),
@@ -30,7 +29,7 @@ func mapInitialization(initialization hostui.Initialization) (*uiv1.Initializati
 	})
 	extensions := lo.Map(
 		initialization.Extensions,
-		func(extension hostui.ExtensionAvailability, _ int) *uiv1.ExtensionAvailability {
+		func(extension ExtensionAvailability, _ int) *uiv1.ExtensionAvailability {
 			return uiv1.ExtensionAvailability_builder{
 				PluginId: new(extension.PluginID),
 				Tools:    slices.Clone(extension.Tools),

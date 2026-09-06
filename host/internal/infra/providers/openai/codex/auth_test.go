@@ -84,6 +84,13 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 	options.authorizationURL = tokenServer.URL + "/authorize"
 	options.tokenURL = tokenServer.URL
 	options.httpClient = tokenServer.Client()
+	// Callback requests must not leave speculative idle connections when the callback server shuts down.
+	callbackTransport, ok := options.httpClient.Transport.(*http.Transport)
+	require.True(t, ok)
+	callbackTransport = callbackTransport.Clone()
+	callbackTransport.DisableKeepAlives = true
+	callbackClient := &http.Client{Transport: callbackTransport, CheckRedirect: nil, Jar: nil, Timeout: 0}
+	t.Cleanup(callbackClient.CloseIdleConnections)
 	options.listen = func(network, address string) (net.Listener, error) {
 		attemptedAddresses = append(attemptedAddresses, address)
 		if strings.HasSuffix(address, ":1455") {
@@ -111,7 +118,7 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 					nil,
 				)
 				require.NoError(t, err)
-				mismatchResponse, err := options.httpClient.Do(mismatchRequest)
+				mismatchResponse, err := callbackClient.Do(mismatchRequest)
 				require.NoError(t, err)
 				require.NoError(t, mismatchResponse.Body.Close())
 				assert.Equal(t, http.StatusBadRequest, mismatchResponse.StatusCode)
@@ -123,7 +130,7 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 					nil,
 				)
 				require.NoError(t, err)
-				callbackResponse, err := options.httpClient.Do(callbackRequest)
+				callbackResponse, err := callbackClient.Do(callbackRequest)
 				require.NoError(t, err)
 				require.NoError(t, callbackResponse.Body.Close())
 				assert.Equal(t, http.StatusOK, callbackResponse.StatusCode)

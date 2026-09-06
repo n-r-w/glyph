@@ -3,7 +3,6 @@
 package ui
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -33,9 +32,7 @@ func TestAuthenticationCheckRequiresExplicitRetry(t *testing.T) {
 	)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, nil,
 	)
 
 	// Act through startup authentication classification.
@@ -62,9 +59,7 @@ func TestAuthenticationCheckUsesInternalCategoryForOtherFailures(t *testing.T) {
 	)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, nil,
 	)
 
 	// Act through startup authentication classification.
@@ -105,9 +100,7 @@ func TestAuthenticationRetryTransitionsToIdle(t *testing.T) {
 	authenticator.EXPECT().SignIn(gomock.Any()).Return(nil)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, nil,
 	)
 	service.setOperationAvailability(AvailabilityAuthenticationFailed)
 	command := newCommandForPreparedTest(controllerui.CommandRetryAuthentication)
@@ -138,9 +131,7 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	authenticator.EXPECT().SignIn(gomock.Any()).Return(source)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, nil,
 	)
 	service.setOperationAvailability(AvailabilityAuthenticationFailed)
 	command := newCommandForPreparedTest(controllerui.CommandRetryAuthentication)
@@ -163,8 +154,6 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 func authenticationService(controller *gomock.Controller) *Session {
 	return NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, nil, nil, func(context.Context) {},
-
-		Initialization{},
+		NewMockModelCatalog(controller), nil, nil, nil, nil,
 	)
 }

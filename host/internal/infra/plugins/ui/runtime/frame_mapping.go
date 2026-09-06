@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
-	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 
 	"github.com/samber/lo"
 
@@ -255,7 +254,7 @@ func mapRestoredUserContent(item model.InputContent, index int) (*uiv1.UserConte
 }
 
 // mapInitializationFrame validates and maps the selected initialization payload.
-func mapInitializationFrame(initialization hostui.Initialization) (*uiv1.OpenRequest, error) {
+func mapInitializationFrame(initialization Initialization) (*uiv1.OpenRequest, error) {
 	mapped, err := mapInitialization(initialization)
 	if err != nil {
 		return nil, err

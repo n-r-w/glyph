@@ -26,7 +26,6 @@ import (
 
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/interactions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
@@ -53,7 +52,7 @@ func runProgrammaticWithPaths(
 
 	delivery := programmaticoutput.New()
 	extensionFactory := extensionruntime.NewFactory()
-	extensions := extensionmanager.New(catalog.New(), extensionFactory, delivery.ReportRuntimeFailure)
+	extensions := extensionmanager.New(catalog.New(), extensionFactory, delivery)
 	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
@@ -80,13 +79,13 @@ func runProgrammaticWithPaths(
 	}
 	extensions.Activate(ctx)
 
-	providerCatalog, err := newProviderCatalog(configured, paths, interactions.New())
+	providerCatalog, err := newProviderCatalog(configured, paths, nil)
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
 	contexts.BindCatalog(providerCatalog)
-	sessionServices.pricing.Bind(providerCatalog)
-	sessionServices.modelRequester.Bind(providerCatalog)
+	sessionServices.active.BindPricingCatalog(providerCatalog)
+	sessionServices.tree.BindModelRequester(providerCatalog)
 	dispatcher := events.NewDispatcher(delivery, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,

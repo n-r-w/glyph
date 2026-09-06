@@ -8,20 +8,19 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// mapLifecycleResponse maps one terminal response and excludes opaque provider context.
-func mapLifecycleResponse(response model.Response) (*extensionpb.ConfiguredModelResult, error) {
+// mapLifecycleResponse encodes the runtime-filtered terminal response.
+func mapLifecycleResponse(response extensionruntime.Response) (*extensionpb.ConfiguredModelResult, error) {
 	contents := make([]*extensionpb.ConfiguredModelContent, 0, len(response.Content))
 	for index := range response.Content {
-		mapped, visible, err := mapLifecycleContent(response.Content[index])
+		mapped, err := mapLifecycleContent(response.Content[index])
 		if err != nil {
 			return nil, err
 		}
-		if visible {
-			contents = append(contents, mapped)
-		}
+		contents = append(contents, mapped)
 	}
 	result := new(extensionpb.ConfiguredModelResult)
 	result.SetContent(contents)
@@ -64,17 +63,14 @@ func mapLifecycleResponse(response model.Response) (*extensionpb.ConfiguredModel
 	return result, nil
 }
 
-// mapLifecycleContent maps visible response content and excludes provider-context-only reasoning.
-func mapLifecycleContent(content model.Content) (*extensionpb.ConfiguredModelContent, bool, error) {
+// mapLifecycleContent encodes public content and validates required wire fields.
+func mapLifecycleContent(content extensionruntime.Content) (*extensionpb.ConfiguredModelContent, error) {
 	mapped := new(extensionpb.ConfiguredModelContent)
 	switch content.Kind {
 	case model.ContentText, model.ContentRefusal, model.ContentReasoning:
 		text, present := content.Text.Get()
 		if !present {
-			if content.Kind == model.ContentReasoning && content.ProviderContext.IsSome() {
-				return nil, false, nil
-			}
-			return nil, false, errors.New("lifecycle public text is missing")
+			return nil, errors.New("lifecycle public text is missing")
 		}
 		value := extensionpb.ConfiguredModelText_builder{Text: new(text)}.Build()
 		switch content.Kind {
@@ -89,19 +85,19 @@ func mapLifecycleContent(content model.Content) (*extensionpb.ConfiguredModelCon
 	case model.ContentToolCall:
 		call, present := content.ToolCall.Get()
 		if !present {
-			return nil, false, errors.New("lifecycle tool call is missing")
+			return nil, errors.New("lifecycle tool call is missing")
 		}
 		arguments, err := json.Marshal(call.Arguments)
 		if err != nil {
-			return nil, false, fmt.Errorf("encode lifecycle tool call arguments: %w", err)
+			return nil, fmt.Errorf("encode lifecycle tool call arguments: %w", err)
 		}
 		mapped.SetToolCall(extensionpb.ConfiguredModelToolCall_builder{
 			Id: new(call.ID), Name: new(call.Name), ArgumentsJson: arguments,
 		}.Build())
 	default:
-		return nil, false, fmt.Errorf("unknown lifecycle content kind %d", content.Kind)
+		return nil, fmt.Errorf("unknown lifecycle content kind %d", content.Kind)
 	}
-	return mapped, true, nil
+	return mapped, nil
 }
 
 // mapLifecycleAgentOutcome maps one closed agent outcome to stable public text.

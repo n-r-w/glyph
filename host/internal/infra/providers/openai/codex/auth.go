@@ -63,6 +63,9 @@ type loopbackServer struct {
 	err error
 }
 
+// ErrInteractionUnavailable identifies authorization presentation without an active Glyph client.
+var ErrInteractionUnavailable = errors.New("glyph client interaction is unavailable")
+
 // SignIn performs browser OAuth and persists the resulting provider payload.
 func (s *Driver) SignIn(ctx context.Context) error {
 	state, err := newOAuthState()
@@ -86,8 +89,7 @@ func (s *Driver) SignIn(ctx context.Context) error {
 		oauth2.SetAuthURLParam("codex_cli_simplified_flow", "true"),
 		oauth2.SetAuthURLParam("originator", "glyph"),
 	)
-	presentationErr := s.interaction.PresentAuthorizationURL(ctx, authorizationURL)
-	if presentationErr != nil {
+	if presentationErr := s.presentAuthorizationURL(ctx, authorizationURL); presentationErr != nil {
 		return fmt.Errorf("present OpenAI Codex authorization URL: %w", presentationErr)
 	}
 	// Browser launch cannot replace URL presentation and therefore never blocks sign-in.
@@ -135,6 +137,14 @@ func (s *Driver) SignIn(ctx context.Context) error {
 		return fmt.Errorf("persist OpenAI Codex credentials: %w", persistErr)
 	}
 	return nil
+}
+
+// presentAuthorizationURL preserves unavailable interaction at the presentation step after OAuth setup.
+func (s *Driver) presentAuthorizationURL(ctx context.Context, authorizationURL string) error {
+	if s.interaction == nil {
+		return ErrInteractionUnavailable
+	}
+	return s.interaction.PresentAuthorizationURL(ctx, authorizationURL)
 }
 
 // SignOut deletes only the OpenAI Codex provider payload.

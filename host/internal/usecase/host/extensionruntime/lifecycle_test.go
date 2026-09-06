@@ -29,24 +29,29 @@ func TestServiceLifecycleRuntimeFailureDisablesOnlyOwner(t *testing.T) {
 	catalog := NewMockCatalog(controller)
 	factory := NewMockRuntimeFactory(controller)
 	runtime := NewMockExtensionRuntime(controller)
-	catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).Return(Discovery{
-		Candidates: []Candidate{{ID: "observer", Path: "/observer", InstanceID: ""}}, Issues: nil,
+	catalog.EXPECT().Discover(t.Context(), Directory{Path: "/plugins"}).Return(Discovery{
+		DirectoryError: nil,
+		Candidates:     []Executable{{ID: "observer", Path: "/observer"}}, Issues: nil,
 	}, nil)
 	factory.EXPECT().Start(t.Context(), gomock.Any()).Return(runtime, nil)
 	runtime.EXPECT().
 		Register(t.Context()).
-		Return(startup.PendingRegistration{ID: "", Path: "", Tools: nil, Handlers: nil}, nil)
+		Return(Registration{Tools: nil, Handlers: nil}, nil)
 	reported := make(chan extension.RuntimeFailure, 1)
-	service := New(catalog, factory, func(_ context.Context, failure extension.RuntimeFailure) error {
-		reported <- failure
-		return nil
-	})
+	service := New(
+		catalog,
+		factory,
+		newRuntimeReporter(t, func(_ context.Context, failure extension.RuntimeFailure) error {
+			reported <- failure
+			return nil
+		}),
+	)
 	pending, err := service.LoadPending(t.Context(), startup.Directory{Path: "/plugins", Explicit: true})
 	require.NoError(t, err)
 	service.Accept([]startup.AcceptedRegistration{{ID: "observer", Path: "/observer", Tools: nil, Handlers: nil}})
 	binding := runtimeBindingForTest(service, "observer")
 	failure := fmt.Errorf("%w: process exited: exact cause", ErrExtensionUnavailable)
-	runtime.EXPECT().ObserveLifecycle(t.Context(), "handler", binding, gomock.Any()).Return(failure)
+	runtime.EXPECT().ObserveLifecycle(t.Context(), "handler", gomock.Any()).Return(failure)
 	runtime.EXPECT().Close()
 
 	// Act through the lifecycle-owned runtime interface.

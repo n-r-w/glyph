@@ -6,26 +6,10 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
-	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
-
-// testInitialization provides typed startup state for transport scenarios.
-func testInitialization() hostui.Initialization {
-	return hostui.Initialization{
-		SelectedUIID:   "ui",
-		StartupContent: []hostui.StartupContent{{Severity: hostui.ContentSeverityInformation, Text: "ready"}},
-		Extensions: []hostui.ExtensionAvailability{
-			{PluginID: "tools", Path: "/plugins/tools", Tools: []string{"read"}},
-		},
-		Availability:   hostui.AvailabilityCheckingAuthentication,
-		Models:         nil,
-		ModelSelection: mo.Some(model.Selection{}),
-		SessionInfo:    session.Info{},
-	}
-}
 
 // testLifecycleFrame creates one complete lifecycle mapping fixture.
 func testLifecycleFrame() controllerui.Frame {

@@ -31,13 +31,13 @@ func mapReasoningChoice(value model.ReasoningChoice) uiv1.ReasoningChoice {
 }
 
 // mapSeverity converts startup severity to the public contract.
-func mapSeverity(value hostui.ContentSeverity) uiv1.ContentSeverity {
+func mapSeverity(value ContentSeverity) uiv1.ContentSeverity {
 	switch value {
-	case hostui.ContentSeverityInformation:
+	case ContentSeverityInformation:
 		return uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION
-	case hostui.ContentSeverityError:
+	case ContentSeverityError:
 		return uiv1.ContentSeverity_CONTENT_SEVERITY_ERROR
-	case hostui.ContentSeverityWarning:
+	case ContentSeverityWarning:
 		return uiv1.ContentSeverity_CONTENT_SEVERITY_WARNING
 	default:
 		return uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION

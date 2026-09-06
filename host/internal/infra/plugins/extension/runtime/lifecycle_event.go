@@ -7,35 +7,35 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
 // mapLifecycleEvent maps one provider-neutral source event without provider reasoning context.
-func mapLifecycleEvent(event lifecycle.Event) (*extensionpb.LifecycleInvocation, error) {
+func mapLifecycleEvent(event extensionruntime.LifecycleInvocation) (*extensionpb.LifecycleInvocation, error) {
 	if event.Settled {
 		mapped := new(extensionpb.LifecycleInvocation)
-		mapped.SetAgentSettled(extensionpb.AgentSettled_builder{RunId: new(event.Agent.RunID)}.Build())
+		mapped.SetAgentSettled(extensionpb.AgentSettled_builder{RunId: new(event.RunID)}.Build())
 		return mapped, nil
 	}
-	switch event.Agent.Type {
+	switch event.Type {
 	case agent.EventAgentStart, agent.EventAgentEnd, agent.EventTurnStart, agent.EventTurnEnd:
-		return mapLifecycleBoundary(event.Agent)
+		return mapLifecycleBoundary(event)
 	case agent.EventMessageStart, agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,
 		agent.EventToolCallStart, agent.EventToolCallDelta, agent.EventToolCallEnd, agent.EventMessageEnd:
-		return mapLifecycleMessage(event.Agent)
+		return mapLifecycleMessage(event)
 	case agent.EventToolExecutionStart,
 		agent.EventToolExecutionUpdate,
 		agent.EventToolExecutionEnd,
 		agent.EventToolResult:
-		return mapLifecycleTool(event.Agent)
+		return mapLifecycleTool(event)
 	default:
-		return nil, fmt.Errorf("unsupported lifecycle event type %d", event.Agent.Type)
+		return nil, fmt.Errorf("unsupported lifecycle event type %d", event.Type)
 	}
 }
 
 // mapLifecycleBoundary maps agent and turn boundary events.
-func mapLifecycleBoundary(source agent.Event) (*extensionpb.LifecycleInvocation, error) {
+func mapLifecycleBoundary(source extensionruntime.LifecycleInvocation) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
 	switch source.Type {
 	case agent.EventAgentStart:
@@ -65,7 +65,7 @@ func mapLifecycleBoundary(source agent.Event) (*extensionpb.LifecycleInvocation,
 }
 
 // mapLifecycleMessage maps message boundaries and content transitions.
-func mapLifecycleMessage(source agent.Event) (*extensionpb.LifecycleInvocation, error) {
+func mapLifecycleMessage(source extensionruntime.LifecycleInvocation) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
 	switch source.Type {
 	case agent.EventMessageStart:
@@ -94,7 +94,7 @@ func mapLifecycleMessage(source agent.Event) (*extensionpb.LifecycleInvocation, 
 }
 
 // mapLifecycleTool maps tool execution lifecycle events.
-func mapLifecycleTool(source agent.Event) (*extensionpb.LifecycleInvocation, error) {
+func mapLifecycleTool(source extensionruntime.LifecycleInvocation) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
 	switch source.Type {
 	case agent.EventToolExecutionStart:
@@ -129,15 +129,15 @@ func mapLifecycleTool(source agent.Event) (*extensionpb.LifecycleInvocation, err
 }
 
 // mapLifecycleAgentEnd maps one terminal agent summary.
-func mapLifecycleAgentEnd(source agent.Event) (*extensionpb.AgentEnd, error) {
+func mapLifecycleAgentEnd(source extensionruntime.LifecycleInvocation) (*extensionpb.AgentEnd, error) {
 	payload := extensionpb.AgentEnd_builder{RunId: new(source.RunID), Outcome: nil, ErrorMessage: nil}
-	if summary, present := source.Agent.Get(); present {
-		outcome, err := mapLifecycleAgentOutcome(summary.Outcome)
+	if terminal, present := source.Outcome.Get(); present {
+		outcome, err := mapLifecycleAgentOutcome(terminal)
 		if err != nil {
 			return nil, err
 		}
 		payload.Outcome = new(outcome)
-		if message, available := summary.ErrorMessage.Get(); available {
+		if message, available := source.ErrorMessage.Get(); available {
 			payload.ErrorMessage = new(message)
 		}
 	}
@@ -145,17 +145,17 @@ func mapLifecycleAgentEnd(source agent.Event) (*extensionpb.AgentEnd, error) {
 }
 
 // mapLifecycleTurnEnd maps one terminal turn response.
-func mapLifecycleTurnEnd(source agent.Event) (*extensionpb.TurnEnd, error) {
+func mapLifecycleTurnEnd(source extensionruntime.LifecycleInvocation) (*extensionpb.TurnEnd, error) {
 	payload := extensionpb.TurnEnd_builder{RunId: new(source.RunID), Response: nil, ToolResults: nil}
-	if summary, present := source.Turn.Get(); present {
-		response, err := mapLifecycleResponse(summary.Response)
+	if terminal, present := source.Response.Get(); present {
+		response, err := mapLifecycleResponse(terminal)
 		if err != nil {
 			return nil, err
 		}
 		payload.Response = response
-		payload.ToolResults = make([]*extensionpb.ToolExecutionEnd, len(summary.ToolResults))
-		for index := range summary.ToolResults {
-			mapped, mapErr := mapLifecycleToolResult(source.RunID, summary.ToolResults[index])
+		payload.ToolResults = make([]*extensionpb.ToolExecutionEnd, len(source.TurnResults))
+		for index := range source.TurnResults {
+			mapped, mapErr := mapLifecycleToolResult(source.RunID, source.TurnResults[index])
 			if mapErr != nil {
 				return nil, mapErr
 			}
@@ -166,9 +166,9 @@ func mapLifecycleTurnEnd(source agent.Event) (*extensionpb.TurnEnd, error) {
 }
 
 // mapLifecycleMessageEnd maps one finalized model response.
-func mapLifecycleMessageEnd(source agent.Event) (*extensionpb.MessageEnd, error) {
+func mapLifecycleMessageEnd(source extensionruntime.LifecycleInvocation) (*extensionpb.MessageEnd, error) {
 	payload := extensionpb.MessageEnd_builder{RunId: new(source.RunID), Response: nil}
-	if response, present := source.Message.Get(); present {
+	if response, present := source.Response.Get(); present {
 		mapped, err := mapLifecycleResponse(response)
 		if err != nil {
 			return nil, err
@@ -179,7 +179,7 @@ func mapLifecycleMessageEnd(source agent.Event) (*extensionpb.MessageEnd, error)
 }
 
 // mapLifecycleToolStart maps one tool execution identity.
-func mapLifecycleToolStart(source agent.Event) (*extensionpb.ToolExecutionStart, error) {
+func mapLifecycleToolStart(source extensionruntime.LifecycleInvocation) (*extensionpb.ToolExecutionStart, error) {
 	call, present := source.ToolCall.Get()
 	if !present {
 		return nil, errors.New("tool execution start is missing its tool call")
@@ -190,7 +190,7 @@ func mapLifecycleToolStart(source agent.Event) (*extensionpb.ToolExecutionStart,
 }
 
 // mapLifecycleToolUpdate maps one tool progress fragment.
-func mapLifecycleToolUpdate(source agent.Event) (*extensionpb.ToolExecutionUpdate, error) {
+func mapLifecycleToolUpdate(source extensionruntime.LifecycleInvocation) (*extensionpb.ToolExecutionUpdate, error) {
 	call, callPresent := source.ToolCall.Get()
 	if !callPresent {
 		return nil, errors.New("tool execution update is missing its tool call")
@@ -210,7 +210,7 @@ func mapLifecycleToolUpdate(source agent.Event) (*extensionpb.ToolExecutionUpdat
 }
 
 // mapLifecycleToolEnd maps one terminal tool result.
-func mapLifecycleToolEnd(source agent.Event) (*extensionpb.ToolExecutionEnd, error) {
+func mapLifecycleToolEnd(source extensionruntime.LifecycleInvocation) (*extensionpb.ToolExecutionEnd, error) {
 	result, present := source.ToolResult.Get()
 	if !present {
 		return nil, errors.New("tool execution end is missing its result")
@@ -231,7 +231,7 @@ func mapLifecycleToolResult(runID string, result agent.ToolResult) (*extensionpb
 }
 
 // mapLifecycleMessageUpdate maps content and tool-call transitions in source order.
-func mapLifecycleMessageUpdate(event agent.Event) (*extensionpb.MessageUpdate, error) {
+func mapLifecycleMessageUpdate(event extensionruntime.LifecycleInvocation) (*extensionpb.MessageUpdate, error) {
 	kind, kindErr := lifecycleMessageUpdateKind(event.Type)
 	if kindErr != nil {
 		return nil, kindErr
@@ -247,13 +247,11 @@ func mapLifecycleMessageUpdate(event agent.Event) (*extensionpb.MessageUpdate, e
 		builder.Position = new(int64(position))
 	}
 	if content, present := event.Content.Get(); present {
-		mapped, visible, err := mapLifecycleContent(content)
+		mapped, err := mapLifecycleContent(content)
 		if err != nil {
 			return nil, err
 		}
-		if visible {
-			builder.Content = mapped
-		}
+		builder.Content = mapped
 	}
 	if call, present := event.ToolCall.Get(); present {
 		arguments, err := json.Marshal(call.Arguments)

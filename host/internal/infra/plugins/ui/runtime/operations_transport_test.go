@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
 	"github.com/stretchr/testify/assert"
@@ -105,6 +107,8 @@ func TestRunOperationsTransportFailurePreservesCauseAndJoinsWork(t *testing.T) {
 			})
 			_, cancelChannel := context.WithCancel(t.Context())
 			transport := &Service{
+				selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+				browser:  nil,
 				client:   nil,
 				openOnce: sync.Once{},
 				openErr:  nil,
@@ -177,6 +181,8 @@ func TestRunOperationsJoinsOperationAndTerminalTransportFailures(t *testing.T) {
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,
@@ -257,6 +263,8 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,
@@ -326,6 +334,8 @@ func TestRunOperationsRequestedClosePreservesCloseSendFailure(t *testing.T) {
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,
@@ -374,6 +384,8 @@ func TestRunOperationsWriterFailureDuringCloseStillHalfClosesAndJoinsReceive(t *
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,
@@ -431,6 +443,8 @@ func TestRunOperationsLocalCloseFailsNewRequestsBeforePeerClose(t *testing.T) {
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,
@@ -477,6 +491,8 @@ func TestRunOperationsPeerCloseFailsNewRequests(t *testing.T) {
 	stream.EXPECT().CloseSend().Return(nil)
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,

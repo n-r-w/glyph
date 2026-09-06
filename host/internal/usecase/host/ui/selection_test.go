@@ -21,7 +21,9 @@ func TestSelectorUsesExplicitSelectionWithoutFallback(t *testing.T) {
 	factory := NewMockRuntime(gomock.NewController(t))
 	directory := Directory{Path: "/ui"}
 	candidates := []Candidate{{ID: "first", Path: "/ui/first"}, {ID: "second", Path: "/ui/second"}}
-	catalog.EXPECT().Discover(gomock.Any(), directory).Return(Discovery{Candidates: candidates}, nil)
+	catalog.EXPECT().
+		Discover(gomock.Any(), directory).
+		Return(Discovery{Failures: nil, DirectoryError: nil, Candidates: candidates}, nil)
 	factory.EXPECT().Start(gomock.Any(), candidates[1]).Return(nil)
 
 	// Act: select using a value that requires shared normalization.
@@ -45,7 +47,7 @@ func TestSelectorUsesActiveSelectionWhenExplicitIsAbsent(t *testing.T) {
 	directory := Directory{Path: "/ui"}
 	candidate := Candidate{ID: "active-ui", Path: "/ui/active"}
 	catalog.EXPECT().Discover(gomock.Any(), directory).Return(
-		Discovery{Candidates: []Candidate{candidate}}, nil,
+		Discovery{Failures: nil, DirectoryError: nil, Candidates: []Candidate{candidate}}, nil,
 	)
 	factory.EXPECT().Start(gomock.Any(), candidate).Return(nil)
 
@@ -68,6 +70,7 @@ func TestSelectorRejectsAbsentExplicitSelectionWithoutProbing(t *testing.T) {
 	factory := NewMockRuntime(gomock.NewController(t))
 	directory := Directory{Path: "/ui"}
 	catalog.EXPECT().Discover(gomock.Any(), directory).Return(Discovery{
+		Failures: nil, DirectoryError: nil,
 		Candidates: []Candidate{{ID: "other", Path: "/ui/other"}},
 	}, nil)
 
@@ -93,7 +96,7 @@ func TestSelectorDoesNotFallbackWhenExplicitStartFails(t *testing.T) {
 	candidate := Candidate{ID: "selected", Path: "/ui/selected"}
 	catalog.EXPECT().
 		Discover(gomock.Any(), directory).
-		Return(Discovery{Candidates: []Candidate{candidate}}, nil)
+		Return(Discovery{Failures: nil, DirectoryError: nil, Candidates: []Candidate{candidate}}, nil)
 	factory.EXPECT().Start(gomock.Any(), candidate).Return(errors.New("startup failed"))
 
 	// Act by invoking Selector.Select to exercise a selected startup failure is terminal.
@@ -119,7 +122,7 @@ func TestSelectorProbesEveryCandidateAndRestartsSoleCompatible(t *testing.T) {
 	second := Candidate{ID: "second", Path: "/ui/second"}
 	catalog.EXPECT().
 		Discover(gomock.Any(), directory).
-		Return(Discovery{Candidates: []Candidate{first, second}}, nil)
+		Return(Discovery{Failures: nil, DirectoryError: nil, Candidates: []Candidate{first, second}}, nil)
 	gomock.InOrder(
 		factory.EXPECT().Start(gomock.Any(), first).Return(nil),
 		factory.EXPECT().Close(),
@@ -150,7 +153,7 @@ func TestSelectorReportsEveryExcludedCandidateWhenNoCompatible(t *testing.T) {
 	first := Candidate{ID: "first", Path: "/ui/first"}
 	second := Candidate{ID: "second", Path: "/ui/second"}
 	catalog.EXPECT().Discover(gomock.Any(), directory).Return(
-		Discovery{Candidates: []Candidate{first, second}}, nil,
+		Discovery{Failures: nil, DirectoryError: nil, Candidates: []Candidate{first, second}}, nil,
 	)
 	factory.EXPECT().Start(gomock.Any(), first).Return(errors.New("first unavailable"))
 	factory.EXPECT().Start(gomock.Any(), second).Return(errors.New("second incompatible"))
@@ -181,7 +184,7 @@ func TestSelectorRetainsProbeIssuesWhenSelectedRestartFails(t *testing.T) {
 	first := Candidate{ID: "first", Path: "/ui/first"}
 	second := Candidate{ID: "second", Path: "/ui/second"}
 	catalog.EXPECT().Discover(gomock.Any(), directory).Return(
-		Discovery{Candidates: []Candidate{first, second}}, nil,
+		Discovery{Failures: nil, DirectoryError: nil, Candidates: []Candidate{first, second}}, nil,
 	)
 	gomock.InOrder(
 		factory.EXPECT().Start(gomock.Any(), first).Return(nil),
@@ -217,7 +220,7 @@ func TestSelectorRejectsMultipleCompatibleCandidates(t *testing.T) {
 	second := Candidate{ID: "second", Path: "/ui/second"}
 	catalog.EXPECT().
 		Discover(gomock.Any(), directory).
-		Return(Discovery{Candidates: []Candidate{first, second}}, nil)
+		Return(Discovery{Failures: nil, DirectoryError: nil, Candidates: []Candidate{first, second}}, nil)
 	gomock.InOrder(
 		factory.EXPECT().Start(gomock.Any(), first).Return(nil),
 		factory.EXPECT().Close(),

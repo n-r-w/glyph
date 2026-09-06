@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
@@ -324,3 +326,5 @@ func progressChannel(channel tool.ProgressChannel) controllerui.ProgressChannel 
 		return 0
 	}
 }
+
+var _ extensionruntime.FailureReporter = (*Service)(nil)

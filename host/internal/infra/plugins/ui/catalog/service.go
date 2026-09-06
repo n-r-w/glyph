@@ -2,76 +2,44 @@
 package catalog
 
 import (
-	"cmp"
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"slices"
 
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
-// Service discovers one complete UI catalog.
+// Service discovers filesystem UI candidates.
 type Service struct{}
 
 var _ hostui.Catalog = (*Service)(nil)
 
 // New creates a UI catalog service.
-func New() *Service {
-	return &Service{}
-}
+func New() *Service { return &Service{} }
 
-// Discover returns the valid executable candidates in the effective directory.
+// Discover returns executable observations and filesystem failures without selecting candidates.
 func (*Service) Discover(ctx context.Context, directory hostui.Directory) (hostui.Discovery, error) {
 	if err := ctx.Err(); err != nil {
 		return hostui.Discovery{}, fmt.Errorf("discover UI catalog: %w", err)
 	}
 	entries, err := os.ReadDir(filepath.Clean(directory.Path))
-	if err != nil {
-		return hostui.Discovery{}, fmt.Errorf("read UI directory %q: %w", directory.Path, err)
-	}
-
-	groups := make(map[string][]hostui.Candidate)
-	var catalogErr error
+	candidates := make([]hostui.Candidate, 0, len(entries))
+	var failures []hostui.CandidateFailure
 	for _, entry := range entries {
 		info, infoErr := entry.Info()
 		if infoErr != nil {
-			catalogErr = errors.Join(catalogErr, fmt.Errorf("inspect UI candidate %q: %w", entry.Name(), infoErr))
+			failures = append(failures, hostui.CandidateFailure{Name: entry.Name(), Err: infoErr})
 			continue
 		}
 		if !info.Mode().IsRegular() || info.Mode().Perm()&0o111 == 0 {
 			continue
 		}
-		candidate := hostui.Candidate{
+		candidates = append(candidates, hostui.Candidate{
 			ID:   pluginid.Normalize(entry.Name()),
 			Path: filepath.Join(directory.Path, entry.Name()),
-		}
-		if candidate.ID == "" {
-			catalogErr = errors.Join(
-				catalogErr,
-				fmt.Errorf("UI candidate %q has an empty normalized ID", candidate.Path),
-			)
-			continue
-		}
-		groups[candidate.ID] = append(groups[candidate.ID], candidate)
+		})
 	}
-
-	candidates := make([]hostui.Candidate, 0, len(groups))
-	for id, group := range groups {
-		if len(group) > 1 {
-			catalogErr = errors.Join(catalogErr, fmt.Errorf("UI candidate duplicate normalized ID %q", id))
-			continue
-		}
-		candidates = append(candidates, group[0])
-	}
-	if catalogErr != nil {
-		return hostui.Discovery{}, fmt.Errorf("validate UI catalog: %w", catalogErr)
-	}
-	slices.SortFunc(candidates, func(left, right hostui.Candidate) int {
-		return cmp.Compare(left.ID, right.ID)
-	})
-	return hostui.Discovery{Candidates: candidates}, nil
+	return hostui.Discovery{Candidates: candidates, Failures: failures, DirectoryError: err}, nil
 }

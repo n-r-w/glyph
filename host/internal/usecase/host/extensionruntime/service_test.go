@@ -47,8 +47,8 @@ func TestRuntimeUnavailableShutdownReleasesCommitLockBeforeTransportClose(t *tes
 	state.work.Add(1)
 	service := &Service{
 		catalog: nil, factory: nil,
-		reportFailure: func(context.Context, extension.RuntimeFailure) error { return nil },
-		mutex:         sync.RWMutex{}, runtimes: map[string]*runtimeState{"extension": state},
+		reporter: newRuntimeReporter(t, func(context.Context, extension.RuntimeFailure) error { return nil }),
+		mutex:    sync.RWMutex{}, runtimes: map[string]*runtimeState{"extension": state},
 		monitoring: false, monitorContext: nil, closing: false,
 	}
 	finishDone := make(chan struct{})
@@ -94,7 +94,7 @@ func TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit(t *testing.T) {
 		invalidateOnce: sync.Once{},
 	}
 	runtimes := &Service{
-		catalog: nil, factory: nil, reportFailure: nil, mutex: sync.RWMutex{},
+		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
 		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
 		monitorContext: nil, closing: false,
 	}
@@ -197,7 +197,7 @@ func TestRuntimeReplacementBeforeFinalAppendValidationRejectsCommit(t *testing.T
 		invalidateOnce: sync.Once{},
 	}
 	runtimes := &Service{
-		catalog: nil, factory: nil, reportFailure: nil, mutex: sync.RWMutex{},
+		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
 		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
 		monitorContext: nil, closing: false,
 	}
@@ -274,7 +274,7 @@ func TestRuntimeReplacementBeforeMessageCommitPreservesStaleCategory(t *testing.
 		invalidateOnce: sync.Once{},
 	}
 	runtimes := &Service{
-		catalog: nil, factory: nil, reportFailure: nil, mutex: sync.RWMutex{},
+		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
 		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
 		monitorContext: nil, closing: false,
 	}
@@ -347,10 +347,9 @@ func TestServiceLoadsPendingAndActivatesAcceptedRuntime(t *testing.T) {
 	factory := NewMockRuntimeFactory(controller)
 	runtime := NewMockExtensionRuntime(controller)
 	catalog.EXPECT().
-		Discover(t.Context(), Directory{Path: "/plugins", Explicit: true}).
-		Return(Discovery{Candidates: []Candidate{{
-			InstanceID: "",
-			ID:         "tools", Path: "/tools",
+		Discover(t.Context(), Directory{Path: "/plugins"}).
+		Return(Discovery{DirectoryError: nil, Candidates: []Executable{{
+			ID: "tools", Path: "/tools",
 		}}, Issues: nil}, nil)
 	var startedInstance string
 	factory.EXPECT().
@@ -364,8 +363,8 @@ func TestServiceLoadsPendingAndActivatesAcceptedRuntime(t *testing.T) {
 		})
 	runtime.EXPECT().
 		Register(t.Context()).
-		Return(startup.PendingRegistration{ID: "", Path: "", Tools: nil, Handlers: nil}, nil)
-	service := New(catalog, factory, discardRuntimeFailure)
+		Return(Registration{Tools: nil, Handlers: nil}, nil)
+	service := New(catalog, factory, newRuntimeReporter(t, nil))
 	// Act load the runtime as pending, then accept it.
 	pending, err := service.LoadPending(t.Context(), startup.Directory{Path: "/plugins", Explicit: true})
 	before := service.ToolRuntimeAvailable("tools")
@@ -407,16 +406,20 @@ func TestRuntimeReplacementInvalidatesInstance(t *testing.T) {
 		second.EXPECT().Done().Return(secondDone).AnyTimes()
 		catalog.EXPECT().
 			Discover(gomock.Any(), gomock.Any()).
-			Return(Discovery{Candidates: []Candidate{{ID: "extension", Path: "/extension", InstanceID: ""}}, Issues: nil}, nil).
+			Return(Discovery{
+				DirectoryError: nil,
+				Candidates:     []Executable{{ID: "extension", Path: "/extension"}},
+				Issues:         nil,
+			}, nil).
 			Times(2)
 		gomock.InOrder(
 			factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(first, nil),
-			first.EXPECT().Register(gomock.Any()).Return(startup.PendingRegistration{}, nil),
+			first.EXPECT().Register(gomock.Any()).Return(Registration{}, nil),
 			first.EXPECT().Close().Do(func() { close(firstDone) }),
 			factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(second, nil),
-			second.EXPECT().Register(gomock.Any()).Return(startup.PendingRegistration{}, nil),
+			second.EXPECT().Register(gomock.Any()).Return(Registration{}, nil),
 		)
-		service := New(catalog, factory, discardRuntimeFailure)
+		service := New(catalog, factory, newRuntimeReporter(t, nil))
 		accepted := []startup.AcceptedRegistration{{ID: "extension", Path: "/extension", Tools: nil, Handlers: nil}}
 		_, err := service.LoadPending(t.Context(), startup.Directory{})
 		require.NoError(t, err)
@@ -483,19 +486,22 @@ func TestServiceRejectPendingClosesWithoutFailure(t *testing.T) {
 	failures := make([]extension.RuntimeFailure, 0)
 	catalog.EXPECT().
 		Discover(gomock.Any(), gomock.Any()).
-		Return(Discovery{Candidates: []Candidate{{
-			InstanceID: "",
-			ID:         "bad", Path: "/bad",
+		Return(Discovery{DirectoryError: nil, Candidates: []Executable{{
+			ID: "bad", Path: "/bad",
 		}}, Issues: nil}, nil)
 	factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(runtime, nil)
 	runtime.EXPECT().
 		Register(gomock.Any()).
-		Return(startup.PendingRegistration{ID: "", Path: "", Tools: nil, Handlers: nil}, nil)
+		Return(Registration{Tools: nil, Handlers: nil}, nil)
 	runtime.EXPECT().Close()
-	service := New(catalog, factory, func(_ context.Context, failure extension.RuntimeFailure) error {
-		failures = append(failures, failure)
-		return nil
-	})
+	service := New(
+		catalog,
+		factory,
+		newRuntimeReporter(t, func(_ context.Context, failure extension.RuntimeFailure) error {
+			failures = append(failures, failure)
+			return nil
+		}),
+	)
 	_, err := service.LoadPending(t.Context(), startup.Directory{})
 	require.NoError(t, err)
 	// Act reject the pending process.
@@ -516,22 +522,25 @@ func TestServiceExecuteToolPreservesUnavailableCause(t *testing.T) {
 	failures := make([]extension.RuntimeFailure, 0)
 	catalog.EXPECT().
 		Discover(gomock.Any(), gomock.Any()).
-		Return(Discovery{Candidates: []Candidate{{
-			InstanceID: "",
-			ID:         "tools", Path: "/tools",
+		Return(Discovery{DirectoryError: nil, Candidates: []Executable{{
+			ID: "tools", Path: "/tools",
 		}}, Issues: nil}, nil)
 	factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(runtime, nil)
 	runtime.EXPECT().
 		Register(gomock.Any()).
-		Return(startup.PendingRegistration{ID: "", Path: "", Tools: nil, Handlers: nil}, nil)
+		Return(Registration{Tools: nil, Handlers: nil}, nil)
 	runtime.EXPECT().
 		Execute(gomock.Any(), "read", []byte(`{}`), gomock.Any(), gomock.Any()).
 		Return(tool.Result{}, fmt.Errorf("process crashed: %w", ErrExtensionUnavailable))
 	runtime.EXPECT().Close()
-	service := New(catalog, factory, func(_ context.Context, failure extension.RuntimeFailure) error {
-		failures = append(failures, failure)
-		return nil
-	})
+	service := New(
+		catalog,
+		factory,
+		newRuntimeReporter(t, func(_ context.Context, failure extension.RuntimeFailure) error {
+			failures = append(failures, failure)
+			return nil
+		}),
+	)
 	_, err := service.LoadPending(t.Context(), startup.Directory{})
 	require.NoError(t, err)
 	service.Accept([]startup.AcceptedRegistration{{ID: "tools", Path: "/tools", Tools: nil, Handlers: nil}})
@@ -567,20 +576,22 @@ func TestServiceReportsIdleRuntimeExit(t *testing.T) {
 	failures := make(chan extension.RuntimeFailure, 1)
 	catalog.EXPECT().
 		Discover(gomock.Any(), gomock.Any()).
-		Return(Discovery{Candidates: []Candidate{{
-			InstanceID: "",
-			ID:         "tools", Path: "/tools",
+		Return(Discovery{DirectoryError: nil, Candidates: []Executable{{
+			ID: "tools", Path: "/tools",
 		}}, Issues: nil}, nil)
 	factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(runtime, nil)
 	runtime.EXPECT().
 		Register(gomock.Any()).
-		Return(startup.PendingRegistration{ID: "", Path: "", Tools: nil, Handlers: nil}, nil)
+		Return(Registration{Tools: nil, Handlers: nil}, nil)
 	runtime.EXPECT().Done().Return(done)
 	runtime.EXPECT().Close().Do(func() { close(closed) })
 	service := New(
 		catalog,
 		factory,
-		func(_ context.Context, failure extension.RuntimeFailure) error { failures <- failure; return nil },
+		newRuntimeReporter(
+			t,
+			func(_ context.Context, failure extension.RuntimeFailure) error { failures <- failure; return nil },
+		),
 	)
 	_, err := service.LoadPending(t.Context(), startup.Directory{})
 	require.NoError(t, err)
@@ -618,14 +629,13 @@ func TestServiceReportsExitAfterActiveExecution(t *testing.T) {
 	failures := make(chan extension.RuntimeFailure, 1)
 	catalog.EXPECT().
 		Discover(gomock.Any(), gomock.Any()).
-		Return(Discovery{Candidates: []Candidate{{
-			InstanceID: "",
-			ID:         "tools", Path: "/tools",
+		Return(Discovery{DirectoryError: nil, Candidates: []Executable{{
+			ID: "tools", Path: "/tools",
 		}}, Issues: nil}, nil)
 	factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(runtime, nil)
 	runtime.EXPECT().
 		Register(gomock.Any()).
-		Return(startup.PendingRegistration{ID: "", Path: "", Tools: nil, Handlers: nil}, nil)
+		Return(Registration{Tools: nil, Handlers: nil}, nil)
 	runtime.EXPECT().Done().Return(done)
 	runtime.EXPECT().
 		Execute(gomock.Any(), "read", []byte(`{}`), gomock.Any(), gomock.Any()).
@@ -638,7 +648,10 @@ func TestServiceReportsExitAfterActiveExecution(t *testing.T) {
 	service := New(
 		catalog,
 		factory,
-		func(_ context.Context, failure extension.RuntimeFailure) error { failures <- failure; return nil },
+		newRuntimeReporter(
+			t,
+			func(_ context.Context, failure extension.RuntimeFailure) error { failures <- failure; return nil },
+		),
 	)
 	_, err := service.LoadPending(t.Context(), startup.Directory{})
 	require.NoError(t, err)
@@ -687,11 +700,15 @@ func TestServiceCloseJoinsExtensionInitiatedAccounting(t *testing.T) {
 		runtime := NewMockExtensionRuntime(controller)
 		catalog.EXPECT().
 			Discover(gomock.Any(), gomock.Any()).
-			Return(Discovery{Candidates: []Candidate{{ID: "extension", Path: "/extension", InstanceID: ""}}, Issues: nil}, nil)
+			Return(Discovery{
+				DirectoryError: nil,
+				Candidates:     []Executable{{ID: "extension", Path: "/extension"}},
+				Issues:         nil,
+			}, nil)
 		factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(runtime, nil)
-		runtime.EXPECT().Register(gomock.Any()).Return(startup.PendingRegistration{}, nil)
+		runtime.EXPECT().Register(gomock.Any()).Return(Registration{}, nil)
 		runtime.EXPECT().Close()
-		service := New(catalog, factory, discardRuntimeFailure)
+		service := New(catalog, factory, newRuntimeReporter(t, nil))
 		_, err := service.LoadPending(t.Context(), startup.Directory{})
 		require.NoError(t, err)
 		service.Accept([]startup.AcceptedRegistration{{ID: "extension", Path: "/extension", Tools: nil, Handlers: nil}})
@@ -728,9 +745,13 @@ func TestRuntimeExitReportsAfterAllContextOperations(t *testing.T) {
 		runtime := NewMockExtensionRuntime(controller)
 		catalog.EXPECT().
 			Discover(gomock.Any(), gomock.Any()).
-			Return(Discovery{Candidates: []Candidate{{ID: "extension", Path: "/extension", InstanceID: ""}}, Issues: nil}, nil)
+			Return(Discovery{
+				DirectoryError: nil,
+				Candidates:     []Executable{{ID: "extension", Path: "/extension"}},
+				Issues:         nil,
+			}, nil)
 		factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(runtime, nil)
-		runtime.EXPECT().Register(gomock.Any()).Return(startup.PendingRegistration{}, nil)
+		runtime.EXPECT().Register(gomock.Any()).Return(Registration{}, nil)
 		done := make(chan struct{})
 		runtime.EXPECT().Done().Return(done)
 		runtime.EXPECT().Close()
@@ -738,7 +759,7 @@ func TestRuntimeExitReportsAfterAllContextOperations(t *testing.T) {
 		service := New(
 			catalog,
 			factory,
-			func(context.Context, extension.RuntimeFailure) error { reports++; return nil },
+			newRuntimeReporter(t, func(context.Context, extension.RuntimeFailure) error { reports++; return nil }),
 		)
 		_, err := service.LoadPending(t.Context(), startup.Directory{})
 		require.NoError(t, err)
@@ -776,16 +797,20 @@ func TestFreshRuntimeManagersNeverReuseInstanceIDs(t *testing.T) {
 	runtime := NewMockExtensionRuntime(controller)
 	catalog.EXPECT().
 		Discover(gomock.Any(), gomock.Any()).
-		Return(Discovery{Candidates: []Candidate{{ID: "extension", Path: "/extension", InstanceID: ""}}, Issues: nil}, nil).
+		Return(Discovery{
+			DirectoryError: nil,
+			Candidates:     []Executable{{ID: "extension", Path: "/extension"}},
+			Issues:         nil,
+		}, nil).
 		Times(2)
 	factory.EXPECT().Start(gomock.Any(), gomock.Any()).Return(runtime, nil).Times(2)
-	runtime.EXPECT().Register(gomock.Any()).Return(startup.PendingRegistration{}, nil).Times(2)
+	runtime.EXPECT().Register(gomock.Any()).Return(Registration{}, nil).Times(2)
 	runtime.EXPECT().Close().Times(2)
 	instances := make([]string, 0, 2)
 
 	// Act: start and accept the first process instance under each manager.
 	for range 2 {
-		service := New(catalog, factory, discardRuntimeFailure)
+		service := New(catalog, factory, newRuntimeReporter(t, nil))
 		_, err := service.LoadPending(t.Context(), startup.Directory{})
 		require.NoError(t, err)
 		service.Accept([]startup.AcceptedRegistration{{ID: "extension", Path: "/extension", Tools: nil, Handlers: nil}})
@@ -811,5 +836,18 @@ func runtimeBindingForTest(service *Service, extensionID string) extension.Conte
 	}
 }
 
-// discardRuntimeFailure accepts one failure in tests that do not exercise delivery.
-func discardRuntimeFailure(context.Context, extension.RuntimeFailure) error { return nil }
+// newRuntimeReporter supplies a mockgen output dependency with an optional observation action.
+func newRuntimeReporter(
+	t *testing.T,
+	callback func(context.Context, extension.RuntimeFailure) error,
+) *MockFailureReporter {
+	t.Helper()
+	reporter := NewMockFailureReporter(gomock.NewController(t))
+	call := reporter.EXPECT().ReportRuntimeFailure(gomock.Any(), gomock.Any()).AnyTimes()
+	if callback == nil {
+		call.Return(nil)
+	} else {
+		call.DoAndReturn(callback)
+	}
+	return reporter
+}

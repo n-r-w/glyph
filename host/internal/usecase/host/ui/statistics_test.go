@@ -3,7 +3,6 @@
 package ui
 
 import (
-	"context"
 	"testing"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -25,9 +24,7 @@ func TestSessionInformationOperationReturnsCoherentStatistics(t *testing.T) {
 	control.EXPECT().ActiveInformation().Return(session.Info{}, session.Statistics{})
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, func(context.Context) {},
-
-		Initialization{},
+		NewMockModelCatalog(controller), control, nil, gate, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 

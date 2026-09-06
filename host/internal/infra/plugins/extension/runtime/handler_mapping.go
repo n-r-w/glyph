@@ -9,19 +9,19 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
 // mapNavigationRequest maps navigation behavior and configured summary model selection.
-func mapNavigationRequest(request sessiontree.HandlerNavigationRequest) *extensionpb.SessionTreeNavigationRequest {
+func mapNavigationRequest(request extensionruntime.Navigation) *extensionpb.SessionTreeNavigationRequest {
 	builder := extensionpb.SessionTreeNavigationRequest_builder{
-		TargetEntryId: new(request.Navigation.TargetEntryID),
-		SummaryMode:   new(mapSummaryMode(request.Navigation.SummaryMode)),
+		TargetEntryId: new(request.TargetEntryID),
+		SummaryMode:   new(mapSummaryMode(request.SummaryMode)),
 		CustomFocus:   nil,
 		SummaryModel:  mapModelSelection(request.SummaryModel),
 	}
-	if customFocus, ok := request.Navigation.CustomFocus.Get(); ok {
+	if customFocus, ok := request.CustomFocus.Get(); ok {
 		builder.CustomFocus = new(customFocus)
 	}
 	return builder.Build()
@@ -30,7 +30,7 @@ func mapNavigationRequest(request sessiontree.HandlerNavigationRequest) *extensi
 // mapNavigationRequestFromProto maps a handler-provided replacement request.
 func mapNavigationRequestFromProto(
 	request *extensionpb.SessionTreeNavigationRequest,
-) sessiontree.HandlerNavigationRequest {
+) extensionruntime.Navigation {
 	customFocus := mo.None[string]()
 	if request.HasCustomFocus() {
 		customFocus = mo.Some(request.GetCustomFocus())
@@ -43,45 +43,16 @@ func mapNavigationRequestFromProto(
 			ReasoningChoice: model.ReasoningChoice(selection.GetReasoningChoice()),
 		}
 	}
-	return sessiontree.HandlerNavigationRequest{
-		Navigation: sessiontree.NavigationRequest{
-			TargetEntryID: request.GetTargetEntryId(),
-			SummaryMode:   mapSummaryModeFromProto(request.GetSummaryMode()),
-			CustomFocus:   customFocus,
-		},
-		SummaryModel: mappedSelection,
+	return extensionruntime.Navigation{
+		TargetEntryID: request.GetTargetEntryId(),
+		SummaryMode:   int32(request.GetSummaryMode()),
+		CustomFocus:   customFocus,
+		SummaryModel:  mappedSelection,
 	}
 }
 
-// mapSummaryMode maps the internal closed summary mode.
-func mapSummaryMode(mode sessiontree.SummaryMode) extensionpb.SummaryMode {
-	switch mode {
-	case sessiontree.SummaryModeNoSummary:
-		return extensionpb.SummaryMode_SUMMARY_MODE_NO_SUMMARY
-	case sessiontree.SummaryModeSummarize:
-		return extensionpb.SummaryMode_SUMMARY_MODE_SUMMARIZE
-	case sessiontree.SummaryModeSummarizeWithCustomPrompt:
-		return extensionpb.SummaryMode_SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT
-	default:
-		return extensionpb.SummaryMode_SUMMARY_MODE_UNSPECIFIED
-	}
-}
-
-// mapSummaryModeFromProto maps known modes and leaves invalid values for composition validation.
-func mapSummaryModeFromProto(mode extensionpb.SummaryMode) sessiontree.SummaryMode {
-	switch mode {
-	case extensionpb.SummaryMode_SUMMARY_MODE_NO_SUMMARY:
-		return sessiontree.SummaryModeNoSummary
-	case extensionpb.SummaryMode_SUMMARY_MODE_SUMMARIZE:
-		return sessiontree.SummaryModeSummarize
-	case extensionpb.SummaryMode_SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT:
-		return sessiontree.SummaryModeSummarizeWithCustomPrompt
-	case extensionpb.SummaryMode_SUMMARY_MODE_UNSPECIFIED:
-		return 0
-	default:
-		return 0
-	}
-}
+// mapSummaryMode encodes the runtime-projected process discriminator.
+func mapSummaryMode(mode int32) extensionpb.SummaryMode { return extensionpb.SummaryMode(mode) }
 
 // mapModelSelection maps one configured model identity without credentials.
 func mapModelSelection(selection model.Selection) *extensionpb.ModelSelection {
@@ -92,8 +63,8 @@ func mapModelSelection(selection model.Selection) *extensionpb.ModelSelection {
 }
 
 // mapPreparation maps immutable Host-computed navigation context.
-func mapPreparation(state sessiontree.HandlerNavigationState) (*extensionpb.SessionTreePreparation, error) {
-	entries, err := mapSessionEntries(state.Preparation.AbandonedPath)
+func mapPreparation(state extensionruntime.Preparation) (*extensionpb.SessionTreePreparation, error) {
+	entries, err := mapSessionEntries(state.Entries)
 	if err != nil {
 		return nil, err
 	}
@@ -107,17 +78,17 @@ func mapPreparation(state sessiontree.HandlerNavigationState) (*extensionpb.Sess
 	if value, ok := state.PrecedingActiveLeafID.Get(); ok {
 		builder.PrecedingActiveLeafId = new(value)
 	}
-	if value, ok := state.Preparation.DestinationID.Get(); ok {
+	if value, ok := state.DestinationID.Get(); ok {
 		builder.NavigationDestinationId = new(value)
 	}
-	if value, ok := state.Preparation.CommonAncestorID.Get(); ok {
+	if value, ok := state.CommonAncestorID.Get(); ok {
 		builder.CommonAncestorId = new(value)
 	}
 	return builder.Build(), nil
 }
 
 // mapSessionEntries maps abandoned entries in their declared root-first order.
-func mapSessionEntries(entries []session.Entry) ([]*extensionpb.SessionTreeEntry, error) {
+func mapSessionEntries(entries []extensionruntime.TreeEntry) ([]*extensionpb.SessionTreeEntry, error) {
 	result := make([]*extensionpb.SessionTreeEntry, 0, len(entries))
 	for index := range entries {
 		mapped, err := mapSessionEntry(entries[index])
@@ -130,7 +101,7 @@ func mapSessionEntries(entries []session.Entry) ([]*extensionpb.SessionTreeEntry
 }
 
 // mapSessionEntry maps one supported provider-neutral or opaque entry projection.
-func mapSessionEntry(entry session.Entry) (*extensionpb.SessionTreeEntry, error) {
+func mapSessionEntry(entry extensionruntime.TreeEntry) (*extensionpb.SessionTreeEntry, error) {
 	//nolint:exhaustruct_v5 // The entry builder sets only the active projected payload.
 	builder := extensionpb.SessionTreeEntry_builder{Id: new(entry.ID)}
 	if user, present := entry.User.Get(); present {
@@ -150,7 +121,7 @@ func mapSessionEntry(entry session.Entry) (*extensionpb.SessionTreeEntry, error)
 		return builder.Build(), nil
 	}
 	if summary, present := entry.BranchSummary.Get(); present {
-		builder.BranchSummary = extensionpb.SessionTreeBranchSummary_builder{Summary: new(summary.Summary)}.Build()
+		builder.BranchSummary = extensionpb.SessionTreeBranchSummary_builder{Summary: new(summary)}.Build()
 		return builder.Build(), nil
 	}
 	if extension, present := entry.Extension.Get(); present {
@@ -193,10 +164,10 @@ func mapUserMessage(message session.UserMessage) *extensionpb.SessionTreeUserMes
 }
 
 // mapModelResponse maps ordered finalized model content without provider-owned replay context.
-func mapModelResponse(response session.ModelResponse) (*extensionpb.SessionTreeModelResponse, error) {
-	content := make([]*extensionpb.SessionTreeModelContent, 0, len(response.Content))
-	for index := range response.Content {
-		item := response.Content[index]
+func mapModelResponse(response []extensionruntime.Content) (*extensionpb.SessionTreeModelResponse, error) {
+	content := make([]*extensionpb.SessionTreeModelContent, 0, len(response))
+	for index := range response {
+		item := response[index]
 		kind := mapModelContentKind(item.Kind)
 		builder := extensionpb.SessionTreeModelContent_builder{
 			Kind: new(kind), Text: nil, ToolCall: nil,
@@ -265,7 +236,7 @@ func mapToolResultContentsToProto(contents []tool.ResultContent) []*extensionpb.
 
 // mapOptionalSummaryResult maps summary-result presence.
 func mapOptionalSummaryResult(
-	result mo.Option[sessiontree.HandlerBranchSummaryResult],
+	result mo.Option[extensionruntime.Summary],
 ) *extensionpb.BranchSummaryResult {
 	value, ok := result.Get()
 	if !ok {
@@ -275,7 +246,7 @@ func mapOptionalSummaryResult(
 }
 
 // mapSummaryResult maps summary text and its explicit source.
-func mapSummaryResult(result sessiontree.HandlerBranchSummaryResult) *extensionpb.BranchSummaryResult {
+func mapSummaryResult(result extensionruntime.Summary) *extensionpb.BranchSummaryResult {
 	return extensionpb.BranchSummaryResult_builder{
 		Summary: new(result.Summary), Source: mapSummarySource(result.Source),
 	}.Build()
@@ -284,11 +255,11 @@ func mapSummaryResult(result sessiontree.HandlerBranchSummaryResult) *extensionp
 // mapOptionalSummaryResultFromProto maps summary-result presence from protobuf.
 func mapOptionalSummaryResultFromProto(
 	result *extensionpb.BranchSummaryResult,
-) mo.Option[sessiontree.HandlerBranchSummaryResult] {
+) mo.Option[extensionruntime.Summary] {
 	if result == nil {
-		return mo.None[sessiontree.HandlerBranchSummaryResult]()
+		return mo.None[extensionruntime.Summary]()
 	}
-	return mo.Some(sessiontree.HandlerBranchSummaryResult{
+	return mo.Some(extensionruntime.Summary{
 		Summary: result.GetSummary(), Source: mapSummarySourceFromProto(result.GetSource()),
 	})
 }
@@ -312,7 +283,7 @@ func mapTokenUsageFromProto(usage *extensionpb.TokenUsage) session.TokenUsage {
 }
 
 // mapSessionTreeInvocation maps committed navigation and optional complete summary data.
-func mapSessionTreeInvocation(invocation sessiontree.TreeObserverInvocation) *extensionpb.SessionTreeInvocation {
+func mapSessionTreeInvocation(invocation extensionruntime.TreeCommit) *extensionpb.SessionTreeInvocation {
 	builder := extensionpb.SessionTreeInvocation_builder{
 		SessionId: new(invocation.SessionID), TargetEntryId: new(invocation.TargetEntryID),
 		PrecedingActiveLeafId: nil, NavigationDestinationId: nil,
@@ -334,11 +305,8 @@ func mapSessionTreeInvocation(invocation sessiontree.TreeObserverInvocation) *ex
 }
 
 // mapCommittedSummary maps one complete committed branch-summary entry.
-func mapCommittedSummary(entry session.Entry) *extensionpb.CommittedBranchSummary {
-	summary, ok := entry.BranchSummary.Get()
-	if !ok {
-		return nil
-	}
+func mapCommittedSummary(entry extensionruntime.CommittedSummary) *extensionpb.CommittedBranchSummary {
+	summary := entry.Summary
 	builder := extensionpb.CommittedBranchSummary_builder{
 		EntryId: new(entry.ID), Summary: new(summary.Summary), FirstEntryId: new(summary.FirstEntryID),
 		LastEntryId: new(summary.LastEntryID), Source: mapSummarySource(summary.Source), EstimatedCost: nil,

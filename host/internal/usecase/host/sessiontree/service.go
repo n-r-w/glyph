@@ -52,6 +52,14 @@ func New(active ActiveSession, modelRequester ModelRequester, runtime Runtime) *
 	}
 }
 
+// BindModelRequester connects the actual provider catalog before navigation can start.
+func (s *Service) BindModelRequester(requester ModelRequester) {
+	if s.modelRequester != nil || requester == nil {
+		panic("model catalog binding must be completed exactly once")
+	}
+	s.modelRequester = requester
+}
+
 // BindContextIssuer completes invocation composition before handler registration.
 func (s *Service) BindContextIssuer(contexts ContextIssuer) { s.contexts = contexts }
 

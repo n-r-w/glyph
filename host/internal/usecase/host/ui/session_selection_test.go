@@ -3,7 +3,6 @@
 package ui
 
 import (
-	"context"
 	"testing"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -31,9 +30,7 @@ func TestSelectionOperationCommitsAndReturnsSelection(t *testing.T) {
 	catalog.EXPECT().SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).Return(selection, nil)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSelectModel)
@@ -94,9 +91,7 @@ func TestSelectionReadinessAndActiveRunIndependence(t *testing.T) {
 				NewMockAuthenticator(controller),
 				catalog,
 				nil, nil,
-				nil, func(context.Context) {},
-
-				Initialization{},
+				nil, nil,
 			)
 			service.setOperationAvailability(test.availability)
 			command := newCommandForPreparedTest(controllerui.CommandSelectModel)
@@ -134,9 +129,7 @@ func TestSelectionPreparationRejectsConcurrentCommit(t *testing.T) {
 	catalog.EXPECT().ActiveSelection().Return(selection)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil, nil,
-		nil, func(context.Context) {},
-
-		Initialization{},
+		nil, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSelectModel)

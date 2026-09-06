@@ -35,18 +35,21 @@ func TestDiscoverReturnsSortedExecutableCandidates(t *testing.T) {
 	}, discovery.Candidates)
 }
 
-// TestDiscoverRejectsDirectoryFailure verifies missing and unreadable effective directories fail.
-func TestDiscoverRejectsDirectoryFailure(t *testing.T) {
+// TestDiscoverRecordsDirectoryFailure retains the complete directory cause for UI acceptance.
+func TestDiscoverRecordsDirectoryFailure(t *testing.T) {
 	t.Parallel()
-
-	_, err := New().Discover(t.Context(), hostui.Directory{Path: filepath.Join(t.TempDir(), "missing")})
-
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "read UI directory")
+	// Arrange a missing effective directory.
+	path := filepath.Join(t.TempDir(), "missing")
+	// Act through the real filesystem adapter.
+	discovery, err := New().Discover(t.Context(), hostui.Directory{Path: path})
+	// Assert that the read failure remains distinct from discovery cancellation.
+	require.NoError(t, err)
+	require.ErrorIs(t, discovery.DirectoryError, os.ErrNotExist)
+	require.ErrorContains(t, discovery.DirectoryError, path)
 }
 
-// TestDiscoverRejectsEmptyNormalizedID verifies one invalid executable invalidates the full catalog.
-func TestDiscoverRejectsEmptyNormalizedID(t *testing.T) {
+// TestDiscoverRecordsEmptyNormalizedID retains the executable for UI acceptance.
+func TestDiscoverRecordsEmptyNormalizedID(t *testing.T) {
 	t.Parallel()
 
 	directory := t.TempDir()
@@ -55,13 +58,15 @@ func TestDiscoverRejectsEmptyNormalizedID(t *testing.T) {
 
 	discovery, err := New().Discover(t.Context(), hostui.Directory{Path: directory})
 
-	require.Error(t, err)
-	assert.Empty(t, discovery.Candidates)
-	assert.ErrorContains(t, err, "empty normalized ID")
+	require.NoError(t, err)
+	assert.Equal(t, []hostui.Candidate{
+		{ID: "", Path: filepath.Join(directory, "___---")},
+		{ID: "valid", Path: filepath.Join(directory, "valid")},
+	}, discovery.Candidates)
 }
 
-// TestDiscoverRejectsDuplicateNormalizedIDs verifies any duplicate group invalidates the full catalog.
-func TestDiscoverRejectsDuplicateNormalizedIDs(t *testing.T) {
+// TestDiscoverRecordsDuplicateNormalizedIDs retains each executable for UI acceptance.
+func TestDiscoverRecordsDuplicateNormalizedIDs(t *testing.T) {
 	t.Parallel()
 
 	directory := t.TempDir()
@@ -71,9 +76,12 @@ func TestDiscoverRejectsDuplicateNormalizedIDs(t *testing.T) {
 
 	discovery, err := New().Discover(t.Context(), hostui.Directory{Path: directory})
 
-	require.Error(t, err)
-	assert.Empty(t, discovery.Candidates)
-	assert.ErrorContains(t, err, "duplicate normalized ID")
+	require.NoError(t, err)
+	assert.Equal(t, []hostui.Candidate{
+		{ID: "duplicate-ui", Path: filepath.Join(directory, "Duplicate_UI")},
+		{ID: "duplicate-ui", Path: filepath.Join(directory, "duplicate ui")},
+		{ID: "valid", Path: filepath.Join(directory, "valid")},
+	}, discovery.Candidates)
 }
 
 // writeCandidate creates one deterministic catalog entry.

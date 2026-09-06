@@ -16,6 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
+	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
 // Service owns extension processes and their runtime availability.
@@ -24,8 +25,8 @@ type Service struct {
 	catalog Catalog
 	// factory starts extension runtimes.
 	factory RuntimeFactory
-	// reportFailure publishes extension availability failures.
-	reportFailure func(context.Context, extension.RuntimeFailure) error
+	// reporter publishes extension availability failures.
+	reporter FailureReporter
 	// mutex protects runtime state.
 	mutex sync.RWMutex
 	// runtimes contains extension runtime state by plugin ID.
@@ -39,10 +40,11 @@ type Service struct {
 }
 
 var (
-	_ startup.RuntimeLoader = (*Service)(nil)
-	_ toolservice.Runtime   = (*Service)(nil)
-	_ sessiontree.Runtime   = (*Service)(nil)
-	_ lifecycle.Runtime     = (*Service)(nil)
+	_ startup.RuntimeLoader    = (*Service)(nil)
+	_ hostui.RuntimeActivation = (*Service)(nil)
+	_ toolservice.Runtime      = (*Service)(nil)
+	_ sessiontree.Runtime      = (*Service)(nil)
+	_ lifecycle.Runtime        = (*Service)(nil)
 )
 
 // runtimeState contains one extension process and its availability state.
@@ -85,12 +87,12 @@ type operationOwner struct {
 func New(
 	catalog Catalog,
 	factory RuntimeFactory,
-	reportFailure func(context.Context, extension.RuntimeFailure) error,
+	reporter FailureReporter,
 ) *Service {
 	return &Service{
 		catalog:        catalog,
 		factory:        factory,
-		reportFailure:  reportFailure,
+		reporter:       reporter,
 		mutex:          sync.RWMutex{},
 		runtimes:       make(map[string]*runtimeState),
 		monitoring:     false,
@@ -124,7 +126,10 @@ func (s *Service) Activate(ctx context.Context) {
 
 // LoadPending discovers, starts, and registers runtimes without making them available.
 func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) (startup.PendingLoad, error) {
-	discovery, err := s.catalog.Discover(ctx, Directory{Path: directory.Path, Explicit: directory.Explicit})
+	discovery, err := s.catalog.Discover(ctx, Directory{Path: directory.Path})
+	if err == nil {
+		discovery, err = s.acceptDiscovery(directory, discovery)
+	}
 	if err != nil {
 		return startup.PendingLoad{}, fmt.Errorf("discover extensions: %w", err)
 	}
@@ -136,8 +141,8 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 		)
 	}
 	registrations := make([]startup.PendingRegistration, 0, len(discovery.Candidates))
-	for _, candidate := range discovery.Candidates {
-		candidate.InstanceID = s.replaceInstance(candidate.ID)
+	for _, observed := range discovery.Candidates {
+		candidate := Candidate{ID: observed.ID, Path: observed.Path, InstanceID: s.replaceInstance(observed.ID)}
 		runtime, startErr := s.factory.Start(ctx, candidate)
 		if startErr != nil {
 			issues = append(
@@ -155,8 +160,7 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 			)
 			continue
 		}
-		registration.ID = candidate.ID
-		registration.Path = candidate.Path
+		pending := s.bindRegistration(candidate, registration)
 		s.mutex.Lock()
 		s.runtimes[candidate.ID] = &runtimeState{
 			runtime:          runtime,
@@ -173,7 +177,7 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 			invalidateOnce:   sync.Once{},
 		}
 		s.mutex.Unlock()
-		registrations = append(registrations, registration)
+		registrations = append(registrations, pending)
 	}
 	return startup.PendingLoad{Issues: issues, Registrations: registrations}, nil
 }
@@ -298,9 +302,18 @@ func (s *Service) HandleHandler(
 			handlerID,
 		)
 	}
-	response, handleErr := owner.state.runtime.Handle(ctx, handlerID, request)
+	payload, projectErr := s.projectHandler(request)
+	if projectErr != nil {
+		s.finishAndReport(ctx, owner, projectErr)
+		return sessiontree.HandlerResponse{}, projectErr
+	}
+	payload.Context.ExtensionID = extensionID
+	response, handleErr := owner.state.runtime.Handle(ctx, handlerID, payload)
 	s.finishAndReport(ctx, owner, handleErr)
-	return response, handleErr
+	if handleErr != nil {
+		return sessiontree.HandlerResponse{}, handleErr
+	}
+	return s.capabilityAction(response), nil
 }
 
 // ObserveLifecycle invokes one observer while retaining runtime availability and operation accounting.
@@ -315,7 +328,8 @@ func (s *Service) ObserveLifecycle(
 	if !available {
 		return true, fmt.Errorf("%w: lifecycle observer %q is unavailable", ErrExtensionUnavailable, handlerID)
 	}
-	observeErr := owner.state.runtime.ObserveLifecycle(ctx, handlerID, binding, event)
+	binding.ExtensionID = extensionID
+	observeErr := owner.state.runtime.ObserveLifecycle(ctx, handlerID, s.projectLifecycle(binding, event))
 	s.finishAndReport(ctx, owner, observeErr)
 	return errors.Is(observeErr, ErrExtensionUnavailable), observeErr
 }
@@ -465,7 +479,7 @@ func (s *Service) disableLocked(state *runtimeState) bool {
 
 // report forwards one classified runtime failure and logs delivery failure without retry.
 func (s *Service) report(ctx context.Context, failure extension.RuntimeFailure) {
-	if err := s.reportFailure(ctx, failure); err != nil {
+	if err := s.reporter.ReportRuntimeFailure(ctx, failure); err != nil {
 		slog.ErrorContext(
 			ctx,
 			"report extension runtime failure",

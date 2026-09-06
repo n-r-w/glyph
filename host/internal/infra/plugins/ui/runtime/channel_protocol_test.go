@@ -10,6 +10,8 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
 	"github.com/stretchr/testify/assert"
@@ -58,6 +60,8 @@ func TestChannelRejectsOrdinaryRequestBeforeReadiness(t *testing.T) {
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:          nil,
 		client:           nil,
 		openOnce:         sync.Once{},
 		openErr:          nil,
@@ -94,6 +98,8 @@ func TestChannelSendAfterWriterCloseDoesNotFailConnection(t *testing.T) {
 	deliveryFailures := make(chan error, 1)
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:          nil,
 		client:           nil,
 		openOnce:         sync.Once{},
 		openErr:          nil,
@@ -191,6 +197,8 @@ func TestStartupCancellationRejectionCategories(t *testing.T) {
 			)
 			_, cancel := context.WithCancel(t.Context())
 			transport := &Service{
+				selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+				browser:  nil,
 				client:   nil,
 				openOnce: sync.Once{},
 				openErr:  nil,
@@ -239,6 +247,8 @@ func TestInitializationRejectsMismatchedCompletedPayload(t *testing.T) {
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:          nil,
 		client:           nil,
 		openOnce:         sync.Once{},
 		openErr:          nil,
@@ -309,6 +319,8 @@ func TestInitializationCancellationUsesSeparateOperation(t *testing.T) {
 	stream.EXPECT().Recv().Return(uiCancellationLifecycleResponse(completed), nil)
 	_, cancelStream := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,
@@ -364,6 +376,8 @@ func TestUnsuccessfulInitializationClosesTransportAfterTerminalDrain(t *testing.
 	stream.EXPECT().CloseSend().Return(nil)
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,
@@ -407,6 +421,8 @@ func TestInitializationFailurePreservesCategoryTextAndCause(t *testing.T) {
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
+		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		browser:          nil,
 		client:           nil,
 		openOnce:         sync.Once{},
 		openErr:          nil,

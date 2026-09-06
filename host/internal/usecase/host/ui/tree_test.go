@@ -257,9 +257,7 @@ func treeOperationService(
 ) *Session {
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, navigator, gate, func(context.Context) {},
-
-		Initialization{},
+		NewMockModelCatalog(controller), control, navigator, gate, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	return service
