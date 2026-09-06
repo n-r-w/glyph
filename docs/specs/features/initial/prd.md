@@ -133,7 +133,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Every operation shall define closed rejection and accepted-operation failure category sets. Categories not listed for that operation shall map to `INTERNAL` without changing the error text.
 - A parent operation shall define whether each nested operation error becomes a parent failure, result data, cancellation, or a reported error after which the parent continues.
 - Provider retry classification and terminal Glyph error category shall remain separate. Retry classification shall control retry decisions, while the terminal category shall describe the final result exposed by Glyph.
-- The component that receives external error data shall apply one documented finite size limit. Later Glyph layers shall preserve the bounded text without further truncation.
+- Glyph shall preserve complete external error text without truncation except for secret redaction. Transport message-size limits and queue limits shall remain separate from error-text preservation.
 - Only secrets may be redacted. Error text, events, logs, and diagnostics shall not expose credentials, authorization headers, OAuth values, or provider reasoning context.
 - When error delivery fails, Glyph shall preserve both the source error and the delivery error.
 
