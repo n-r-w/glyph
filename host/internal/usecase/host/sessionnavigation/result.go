@@ -17,32 +17,42 @@ const (
 	OperationIssueInvalidHandlerAction
 	// OperationIssueObserverError reports a failed post-commit observer.
 	OperationIssueObserverError
+	// OperationIssueDeliveryFailed reports failed publication after a navigation commit.
+	OperationIssueDeliveryFailed
 )
 
 // OperationIssue reports handler identity and the complete received failure text.
 type OperationIssue struct {
 	// Code identifies the issue class.
 	Code OperationIssueCode
-	// ExtensionID identifies the owning extension.
+	// ExtensionID identifies the owning extension when applicable.
 	ExtensionID string
-	// HandlerID identifies the registered handler.
+	// HandlerID identifies the registered handler when applicable.
 	HandlerID string
 	// Message preserves the received failure and all context already added to it.
 	Message string
 }
 
-// Result contains one committed navigation state or canceled outcome.
+// Progress contains the committed state published before post-commit observers.
+type Progress struct {
+	// Tree is the complete committed active-session tree.
+	Tree session.Tree
+	// ActiveBranch contains committed active-branch entries in root-first order.
+	ActiveBranch []session.Entry
+}
+
+// Result contains terminal navigation metadata or a canceled outcome.
 type Result struct {
 	// Canceled reports that a handler stopped navigation before commit.
 	Canceled bool
-	// Tree is the complete committed active-session tree.
-	Tree session.Tree
-	// ActiveLeafID identifies the committed destination or is absent for the implicit root.
+	// DestinationID identifies the committed navigation destination.
+	DestinationID mo.Option[string]
+	// ActiveLeafID identifies the navigation commit's active leaf.
 	ActiveLeafID mo.Option[string]
-	// ActiveBranch contains committed active-branch entries in root-first order.
-	ActiveBranch []session.Entry
-	// NextInput contains exact selected user text when the navigation target is a user message.
+	// CreatedSummary contains summary metadata created by the navigation commit.
+	CreatedSummary mo.Option[session.Entry]
+	// NextInput contains exact selected user text when present.
 	NextInput mo.Option[string]
-	// Issues contains nonterminal extension failures in occurrence order.
+	// Issues contains nonterminal failures in occurrence order.
 	Issues []OperationIssue
 }

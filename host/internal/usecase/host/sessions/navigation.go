@@ -9,47 +9,52 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
-// CommitNavigation atomically persists and publishes one active-leaf change with an optional branch summary.
-func (s *Service) CommitNavigation(ctx context.Context, command sessiontree.CommitCommand) (session.Tree, error) {
+// CommitNavigation atomically persists state and enqueues its client snapshot under the session lock.
+func (s *Service) CommitNavigation(
+	ctx context.Context,
+	command sessiontree.CommitCommand,
+	publisher func(sessionnavigation.Progress) error,
+) (sessiontree.NavigationCommit, error) {
 	if err := ctx.Err(); err != nil {
-		return session.Tree{}, err
+		return sessiontree.NavigationCommit{}, err
 	}
 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if err := ctx.Err(); err != nil {
-		return session.Tree{}, err
+		return sessiontree.NavigationCommit{}, err
 	}
 	if s.writeUnavailable {
-		return session.Tree{}, session.ErrPersistenceUnavailable
+		return sessiontree.NavigationCommit{}, session.ErrPersistenceUnavailable
 	}
 	if s.active.Tree.ActiveLeafID() != command.ExpectedActiveLeafID {
-		return session.Tree{}, errors.New("commit session navigation: active leaf changed")
+		return sessiontree.NavigationCommit{}, errors.New("commit session navigation: active leaf changed")
 	}
 
 	candidateTree := s.active.Tree.Clone()
 	if err := candidateTree.SetActiveLeaf(command.DestinationID); err != nil {
-		return session.Tree{}, fmt.Errorf("validate session navigation destination: %w", err)
+		return sessiontree.NavigationCommit{}, fmt.Errorf("validate session navigation destination: %w", err)
 	}
 	summaryEntry := mo.None[session.Entry]()
 	if draft, present := command.BranchSummary.Get(); present {
 		if err := validateBranchSummaryDraft(s.active.Tree, command.ExpectedActiveLeafID, draft); err != nil {
-			return session.Tree{}, fmt.Errorf("validate branch summary: %w", err)
+			return sessiontree.NavigationCommit{}, fmt.Errorf("validate branch summary: %w", err)
 		}
 		entry, err := s.buildBranchSummaryEntry(draft, command.DestinationID)
 		if err != nil {
-			return session.Tree{}, err
+			return sessiontree.NavigationCommit{}, err
 		}
 		if candidateErr := candidateTree.Add(entry); candidateErr != nil {
-			return session.Tree{}, fmt.Errorf("append branch summary candidate: %w", candidateErr)
+			return sessiontree.NavigationCommit{}, fmt.Errorf("append branch summary candidate: %w", candidateErr)
 		}
 		summaryEntry = mo.Some(entry)
 	}
 	if err := ctx.Err(); err != nil {
-		return session.Tree{}, err
+		return sessiontree.NavigationCommit{}, err
 	}
 	result, err := s.repository.Apply(ctx, ApplyCommand{
 		Header:      s.active.Header,
@@ -68,14 +73,29 @@ func (s *Service) CommitNavigation(ctx context.Context, command sessiontree.Comm
 		logPersistenceFailure(ctx, persistenceOperationNavigation, s.active.Header.ID, err)
 		// Keep the preceding durable snapshot readable while blocking later process-local mutations.
 		s.writeUnavailable = true
-		return session.Tree{}, fmt.Errorf("%w: commit session navigation: %w", session.ErrPersistenceUnavailable, err)
+		return sessiontree.NavigationCommit{}, fmt.Errorf(
+			"%w: commit session navigation: %w",
+			session.ErrPersistenceUnavailable,
+			err,
+		)
 	}
 
-	// Publish the complete destination and optional summary only after storage synchronization.
+	// Publish state and enqueue its client snapshot under the same ordered session boundary.
 	s.active.StoragePath = result.StoragePath
 	s.active.Tree = candidateTree
 	s.history = sessiontree.HistoryFromEntries(candidateTree.ActiveBranch())
-	return candidateTree.Clone(), nil
+	commit := sessiontree.NavigationCommit{
+		Committed:      true,
+		Tree:           candidateTree.Clone(),
+		CreatedSummary: summaryEntry,
+	}
+	if publishErr := publisher(sessionnavigation.Progress{
+		Tree:         commit.Tree,
+		ActiveBranch: commit.Tree.ActiveBranch(),
+	}); publishErr != nil {
+		return commit, fmt.Errorf("publish committed session navigation: %w", publishErr)
+	}
+	return commit, nil
 }
 
 // buildBranchSummaryEntry assigns identity, time, and cost for the actual summary source.

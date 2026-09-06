@@ -3,6 +3,7 @@
 package programmatic
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -15,6 +16,23 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
+
+// handleTreeCommandForTest routes navigation with an accepting generated progress publisher.
+func handleTreeCommandForTest(
+	t *testing.T,
+	service *Service,
+	ctx context.Context,
+	command controller.Command,
+) (controller.Response, *activeRun, error) {
+	t.Helper()
+	if command.Kind != controller.CommandNavigateSessionTree {
+		return service.handle(ctx, command)
+	}
+	response, err := service.navigateSessionTree(
+		ctx, command, func(sessionnavigation.Progress) error { return nil },
+	)
+	return response, nil, err
+}
 
 // TestSessionTreeQueryReturnsCompleteSnapshot verifies the query returns the session-control tree unchanged.
 func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
@@ -31,7 +49,7 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	command := treeCommand("tree", controller.CommandGetSessionTree)
 
 	// Act by requesting the active-session tree.
-	response, operation, err := service.handle(t.Context(), command)
+	response, operation, err := handleTreeCommandForTest(t, service, t.Context(), command)
 
 	// Assert the complete snapshot is returned without starting a run.
 	require.NoError(t, err)
@@ -49,8 +67,7 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	)
 }
 
-// TestNoSummaryNavigationReturnsCommittedState verifies navigation returns committed tree, transcript, and exact next
-// input.
+// TestNoSummaryNavigationReturnsCommittedState verifies navigation returns committed metadata and exact next input.
 func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	t.Parallel()
 
@@ -59,21 +76,21 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	coordinator := NewMockCoordinator(mockController)
 	catalog := NewMockModelCatalog(mockController)
 	control := NewMockSessionControl(mockController)
-	tree := programmaticTree(t)
 	committed := sessionnavigation.Result{
-		Canceled: false, Tree: tree, ActiveLeafID: mo.Some("root"), ActiveBranch: tree.ActiveBranch(),
-		NextInput: mo.Some("exact input"), Issues: []sessionnavigation.OperationIssue{{
+		Canceled: false, DestinationID: mo.Some("root"), ActiveLeafID: mo.Some("root"),
+		CreatedSummary: mo.None[session.Entry](), NextInput: mo.Some("exact input"),
+		Issues: []sessionnavigation.OperationIssue{{
 			Code: sessionnavigation.OperationIssueHandlerError, ExtensionID: "extension",
 			HandlerID: "handler", Message: "safe message",
 		}},
 	}
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(committed, nil)
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(committed, nil)
 	service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 	command := treeCommand("navigate", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
 
 	// Act by requesting no-summary navigation.
-	response, operation, err := service.handle(t.Context(), command)
+	response, operation, err := handleTreeCommandForTest(t, service, t.Context(), command)
 
 	// Assert the result is committed and contains no speculative substitutions.
 	require.NoError(t, err)
@@ -82,8 +99,9 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	result := response.TreeNavigation.MustGet()
 	require.Equal(t, controller.TreeNavigationStatusCommitted, result.Status)
 	mapped := result.Committed.MustGet()
+	require.Equal(t, committed.DestinationID, mapped.DestinationID)
+	require.Equal(t, committed.ActiveLeafID, mapped.ActiveLeafID)
 	require.Equal(t, committed.NextInput, mapped.NextInput)
-	require.Equal(t, mo.Some("extension"), mapped.Tree.ActiveLeafID)
 	require.Equal(t, []controller.OperationIssue{{
 		Code: controller.OperationIssueHandlerError, ExtensionID: "extension",
 		HandlerID: "handler", Message: "safe message",
@@ -99,9 +117,13 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	coordinator := NewMockCoordinator(mockController)
 	catalog := NewMockModelCatalog(mockController)
 	control := NewMockSessionControl(mockController)
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
-		Canceled: true, Tree: session.Tree{}, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
-		NextInput: mo.None[string](), Issues: []sessionnavigation.OperationIssue{{
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
+		Canceled:       true,
+		DestinationID:  mo.None[string](),
+		ActiveLeafID:   mo.None[string](),
+		CreatedSummary: mo.None[session.Entry](),
+		NextInput:      mo.None[string](),
+		Issues: []sessionnavigation.OperationIssue{{
 			Code: sessionnavigation.OperationIssueInvalidHandlerAction, ExtensionID: "extension",
 			HandlerID: "handler", Message: "safe message",
 		}},
@@ -111,7 +133,7 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	command.TargetEntryID = mo.Some("user")
 
 	// Act by navigating with a client operation that ends before commit.
-	response, operation, err := service.handle(t.Context(), command)
+	response, operation, err := handleTreeCommandForTest(t, service, t.Context(), command)
 
 	// Assert cancellation is a typed result with no speculative tree or input state.
 	require.NoError(t, err)
@@ -212,7 +234,7 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 			control := NewMockSessionControl(mockController)
 			if _, present := test.target.Get(); present {
 				control.EXPECT().
-					Navigate(gomock.Any(), gomock.Any()).
+					Navigate(gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(sessionnavigation.Result{}, test.navigationErr)
 			}
 			service := New(coordinator, catalog, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
@@ -221,7 +243,7 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 			command.SummaryMode = test.summaryMode
 
 			// Act by requesting the failing navigation.
-			response, operation, err := service.handle(t.Context(), command)
+			response, operation, err := handleTreeCommandForTest(t, service, t.Context(), command)
 
 			// Assert the operation does not expose speculative state and uses the closed code.
 			require.NoError(t, err)

@@ -4,6 +4,7 @@ package sessiontree
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -16,6 +17,17 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
+
+// navigateTreeForTest invokes navigation with an accepting progress publisher.
+func navigateTreeForTest(
+	t *testing.T,
+	service *Service,
+	ctx context.Context,
+	request sessionnavigation.Request,
+) (sessionnavigation.Result, error) {
+	t.Helper()
+	return service.NavigateTree(ctx, request, func(sessionnavigation.Progress) error { return nil })
+}
 
 // TestNavigateCommitsPreparedDestination verifies user and non-user targets select their defined destinations.
 func TestNavigateCommitsPreparedDestination(t *testing.T) {
@@ -66,10 +78,10 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 				ExpectedActiveLeafID: mo.Some("active"), DestinationID: test.expectedLeaf,
 				BranchSummary: mo.None[BranchSummaryDraft](),
-			}).Return(committed, nil)
+			}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 			// Act by navigating to the selected tree entry.
-			result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+			result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 				TargetEntryID: test.targetID, SummaryMode: sessionnavigation.SummaryModeNoSummary,
 				CustomFocus: mo.None[string](),
 			})
@@ -77,11 +89,50 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			// Assert the committed leaf and editable user text match the prepared target semantics.
 			require.NoError(t, err)
 			assert.Equal(t, sessionnavigation.Result{
-				Canceled: false, Tree: committed, ActiveLeafID: test.expectedLeaf,
-				ActiveBranch: committed.ActiveBranch(), NextInput: test.expectedNextInput, Issues: nil,
+				Canceled: false, DestinationID: test.expectedLeaf, ActiveLeafID: test.expectedLeaf,
+				CreatedSummary: mo.None[session.Entry](), NextInput: test.expectedNextInput, Issues: nil,
 			}, result)
 		})
 	}
+}
+
+// TestNavigateReturnsCommittedMetadataAfterPublicationFailure verifies post-commit errors remain nonterminal issues.
+func TestNavigateReturnsCommittedMetadataAfterPublicationFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a committed no-summary navigation with a failed client enqueue.
+	controller := gomock.NewController(t)
+	active := NewMockActiveSession(controller)
+	models := NewMockModelRequester(controller)
+	runtime := NewMockRuntime(controller)
+	service := New(active, models, runtime)
+	tree := navigationTree(t, time.Unix(1, 0).UTC())
+	committed := tree.Clone()
+	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
+	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().SessionID().Return("session")
+	models.EXPECT().ActiveSelection().Return(model.Selection{})
+	deliveryErr := errors.New("enqueue navigation progress: queue closed")
+	active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).Return(
+		NavigationCommit{
+			Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry](),
+		},
+		deliveryErr,
+	)
+
+	// Act through navigation orchestration after the state owner reports a committed delivery failure.
+	result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
+		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
+		CustomFocus: mo.None[string](),
+	})
+
+	// Assert terminal metadata and the delivery cause remain reachable without rollback.
+	require.NoError(t, err)
+	assert.Equal(t, mo.Some("root"), result.DestinationID)
+	assert.Equal(t, mo.Some("root"), result.ActiveLeafID)
+	require.Len(t, result.Issues, 1)
+	assert.Equal(t, sessionnavigation.OperationIssueDeliveryFailed, result.Issues[0].Code)
+	assert.ErrorContains(t, errors.New(result.Issues[0].Message), deliveryErr.Error())
 }
 
 // TestNavigateRejectsUnknownTargetWithoutCommit verifies target validation precedes active-session mutation.
@@ -97,7 +148,7 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 
 	// Act by selecting an unknown entry.
-	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+	_, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 		TargetEntryID: "unknown", SummaryMode: sessionnavigation.SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
@@ -120,7 +171,7 @@ func TestNavigateHonorsCanceledContextBeforeReadingTree(t *testing.T) {
 	cancel()
 
 	// Act after cancellation.
-	_, err := service.NavigateTree(ctx, sessionnavigation.Request{
+	_, err := navigateTreeForTest(t, service, ctx, sessionnavigation.Request{
 		TargetEntryID: "root", SummaryMode: sessionnavigation.SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})

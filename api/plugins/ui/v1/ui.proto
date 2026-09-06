@@ -57,6 +57,7 @@ message HostProgress {
   oneof progress {
     AgentEvent agent_event = 1;
     AuthorizationRequest authorization = 2;
+    SessionTreeNavigationProgress session_tree_navigation = 3;
   }
 }
 

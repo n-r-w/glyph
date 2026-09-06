@@ -65,10 +65,10 @@ func TestCancellationDoesNotAffectTargetBeforeRunning(t *testing.T) {
 	// Arrange running target work and block cancellation Accepted delivery.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	target := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	target := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	targetContext := make(chan context.Context, 1)
 	target.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+		func(ctx context.Context, _ operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 			targetContext <- ctx
 			<-ctx.Done()
 			return operation.Canceled[Response]()
@@ -128,11 +128,11 @@ func TestCancellationUsesTerminalStateCompletedBeforeExecution(t *testing.T) {
 	// Arrange a running target and block cancellation Accepted delivery after admission.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	target := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	target := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	releaseTarget := make(chan struct{})
 	targetReturned := make(chan struct{})
 	target.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(context.Context, operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+		func(context.Context, operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 			<-releaseTarget
 			close(targetReturned)
 			return operation.Completed(testResponse(ResponseMessages))
@@ -202,7 +202,7 @@ func TestCancellationAdmitsTargetUntilTerminalDelivery(t *testing.T) {
 	// Arrange completed target work whose terminal Send remains blocked.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	target := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	target := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	target.EXPECT().Run(gomock.Any(), gomock.Any()).Return(operation.Completed(testResponse(ResponseMessages)))
 	target.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(target, nil)
@@ -272,7 +272,7 @@ func TestTerminalDeliveryFailureDoesNotCompleteCancellation(t *testing.T) {
 	// Arrange completed target work whose terminal Send fails after cancellation admission.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	target := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	target := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	target.EXPECT().Run(gomock.Any(), gomock.Any()).Return(operation.Completed(testResponse(ResponseMessages)))
 	target.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(target, nil)
@@ -340,10 +340,10 @@ func TestDuplicateCancellationIdentifierPrecedesTargetAdmission(t *testing.T) {
 	// Arrange an active operation whose identifier is reused by a cancellation request.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	active := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	active := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	releaseRun := make(chan struct{})
 	active.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(context.Context, operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+		func(context.Context, operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 			<-releaseRun
 			return operation.Completed(testResponse(ResponseMessages))
 		},
@@ -393,7 +393,7 @@ func TestAcceptedFailureRemovesPreparedRegistryTarget(t *testing.T) {
 	// Arrange successful preparation followed by a blocked Accepted send that fails.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	prepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	prepared.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
 	registry := newTargetRegistry()
@@ -408,7 +408,7 @@ func TestAcceptedFailureRemovesPreparedRegistryTarget(t *testing.T) {
 	delivery := &streamDelivery{
 		context: t.Context(), writer: writer, registry: registry, fail: func(error) {},
 	}
-	owner := operation.NewOwner[AgentEvent, Response](t.Context(), delivery)
+	owner := operation.NewOwner[OperationProgress, Response](t.Context(), delivery)
 	writerResult := make(chan error, 1)
 	go func() { writerResult <- writer.Run(t.Context()) }()
 	stream := NewMockOpenStream(controller)
@@ -433,7 +433,7 @@ func TestAcceptedFailureRemovesPreparedRegistryTarget(t *testing.T) {
 	cancellation := &cancellationPrepared{owner: owner, targetID: "target", target: target}
 	cancellationResult := make(chan operation.Outcome[Response], 1)
 	go func() {
-		var reporter operation.Reporter[AgentEvent]
+		var reporter operation.Reporter[OperationProgress]
 		cancellationResult <- cancellation.Run(t.Context(), reporter)
 	}()
 
@@ -464,9 +464,9 @@ func TestCancellationCompletesAfterTargetTerminalOrder(t *testing.T) {
 	// Arrange one operation that stops only after its context is canceled.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	target := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	target := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	target.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+		func(ctx context.Context, _ operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 			<-ctx.Done()
 			return operation.Canceled[Response]()
 		},

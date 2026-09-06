@@ -17,6 +17,7 @@ import (
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
+	sessionnavigation "github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -45,18 +46,18 @@ func (m *MockActiveSession) EXPECT() *MockActiveSessionMockRecorder {
 }
 
 // CommitNavigation mocks base method.
-func (m *MockActiveSession) CommitNavigation(arg0 context.Context, arg1 CommitCommand) (session.Tree, error) {
+func (m *MockActiveSession) CommitNavigation(arg0 context.Context, arg1 CommitCommand, arg2 func(sessionnavigation.Progress) error) (NavigationCommit, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CommitNavigation", arg0, arg1)
-	ret0, _ := ret[0].(session.Tree)
+	ret := m.ctrl.Call(m, "CommitNavigation", arg0, arg1, arg2)
+	ret0, _ := ret[0].(NavigationCommit)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // CommitNavigation indicates an expected call of CommitNavigation.
-func (mr *MockActiveSessionMockRecorder) CommitNavigation(arg0, arg1 any) *gomock.Call {
+func (mr *MockActiveSessionMockRecorder) CommitNavigation(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitNavigation", reflect.TypeOf((*MockActiveSession)(nil).CommitNavigation), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitNavigation", reflect.TypeOf((*MockActiveSession)(nil).CommitNavigation), arg0, arg1, arg2)
 }
 
 // SessionID mocks base method.

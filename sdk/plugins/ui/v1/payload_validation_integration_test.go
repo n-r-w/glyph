@@ -297,15 +297,44 @@ func malformedHostPayloadCases() []invalidHostPayloadCase {
 			}),
 		},
 		{
-			name:    "navigation active branch",
+			name:    "navigation created summary fields",
 			request: navigationUIRequest(),
 			event: malformedCompletion(func(value *uiv1.HostCompleted) {
 				result := new(uiv1.SessionTreeNavigationResult)
 				result.SetStatus(uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED)
-				result.SetTree(new(uiv1.SessionTree))
-				result.SetActiveBranch([]*uiv1.SessionEntry{nil})
+				result.SetCreatedSummary(new(uiv1.SessionTreeEntry))
 				value.SetSessionTreeNavigation(result)
 			}),
+		},
+		{
+			name:    "navigation created summary payload",
+			request: navigationUIRequest(),
+			event: malformedCompletion(func(value *uiv1.HostCompleted) {
+				entry := new(uiv1.SessionTreeEntry)
+				entry.SetId("not-a-summary")
+				entry.SetCreatedTime(validSessionInfo().GetCreatedTime())
+				entry.SetExtension(uiv1.ExtensionEntry_builder{
+					ExtensionId: new("extension"), EntryType: new("state"),
+				}.Build())
+				result := new(uiv1.SessionTreeNavigationResult)
+				result.SetStatus(uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED)
+				result.SetCreatedSummary(entry)
+				value.SetSessionTreeNavigation(result)
+			}),
+		},
+		{
+			name:    "navigation progress active branch",
+			request: navigationUIRequest(),
+			event: func() *uiv1.HostEvent {
+				result := new(uiv1.SessionTreeNavigationProgress)
+				result.SetTree(new(uiv1.SessionTree))
+				result.SetActiveBranch([]*uiv1.SessionEntry{nil})
+				progress := new(uiv1.HostProgress)
+				progress.SetSessionTreeNavigation(result)
+				event := new(uiv1.HostEvent)
+				event.SetProgress(progress)
+				return event
+			}(),
 		},
 		{
 			name:    "forked session entry",

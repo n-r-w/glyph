@@ -54,19 +54,25 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			coordinator := NewMockCoordinator(mockController)
 			catalog := NewMockModelCatalog(mockController)
 			control := NewMockSessionControl(mockController)
-			control.EXPECT().Navigate(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(_ context.Context, request sessionnavigation.Request) (sessionnavigation.Result, error) {
+			control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(
+					_ context.Context,
+					request sessionnavigation.Request,
+					_ func(sessionnavigation.Progress) error,
+				) (sessionnavigation.Result, error) {
 					require.Equal(t, "target", request.TargetEntryID)
 					require.Equal(t, test.internalMode, request.SummaryMode)
 					require.Equal(t, test.focus, request.CustomFocus)
 					if test.cancel {
 						return sessionnavigation.Result{}, context.Canceled
 					}
-					tree, err := session.NewTree(nil, mo.None[string](), nil)
-					require.NoError(t, err)
 					return sessionnavigation.Result{
-						Canceled: false, Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
-						NextInput: mo.None[string](), Issues: nil,
+						Canceled:       false,
+						DestinationID:  mo.None[string](),
+						ActiveLeafID:   mo.None[string](),
+						CreatedSummary: mo.None[session.Entry](),
+						NextInput:      mo.None[string](),
+						Issues:         nil,
 					}, nil
 				},
 			)
@@ -77,7 +83,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			command.CustomFocus = test.focus
 
 			// Act through Programmatic Control.
-			response, operation, err := service.handle(t.Context(), command)
+			response, operation, err := handleTreeCommandForTest(t, service, t.Context(), command)
 
 			// Assert the committed or canceled terminal result survives equivalent request forwarding.
 			require.NoError(t, err)

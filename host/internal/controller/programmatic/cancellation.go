@@ -101,7 +101,7 @@ type registeredPrepared struct {
 	// id identifies the registered operation.
 	id string
 	// prepared is the Host-prepared work.
-	prepared operation.Prepared[AgentEvent, Response]
+	prepared operation.Prepared[OperationProgress, Response]
 	// registry owns the operation metadata.
 	registry *targetRegistry
 	// target is the registry entry owned by this wrapper.
@@ -114,12 +114,12 @@ type registeredPrepared struct {
 	release sync.Once
 }
 
-var _ operation.Prepared[AgentEvent, Response] = (*registeredPrepared)(nil)
+var _ operation.Prepared[OperationProgress, Response] = (*registeredPrepared)(nil)
 
 // Run marks domain work started and passes the Owner context unchanged.
 func (p *registeredPrepared) Run(
 	ctx context.Context,
-	reporter operation.Reporter[AgentEvent],
+	reporter operation.Reporter[OperationProgress],
 ) operation.Outcome[Response] {
 	p.mutex.Lock()
 	p.started = true
@@ -143,17 +143,20 @@ func (p *registeredPrepared) Release() {
 // cancellationPrepared cancels one operation through its Owner after Running is queued.
 type cancellationPrepared struct {
 	// owner controls the target operation context and completion.
-	owner *operation.Owner[AgentEvent, Response]
+	owner *operation.Owner[OperationProgress, Response]
 	// targetID identifies the operation selected during preparation.
 	targetID string
 	// target preserves terminal delivery state across Owner removal.
 	target *cancellationTarget
 }
 
-var _ operation.Prepared[AgentEvent, Response] = (*cancellationPrepared)(nil)
+var _ operation.Prepared[OperationProgress, Response] = (*cancellationPrepared)(nil)
 
 // Run requests Owner cancellation and preserves captured terminal state if the target completed first.
-func (p *cancellationPrepared) Run(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+func (p *cancellationPrepared) Run(
+	ctx context.Context,
+	_ operation.Reporter[OperationProgress],
+) operation.Outcome[Response] {
 	state, err := p.owner.CancelAndWait(ctx, p.targetID)
 	if errors.Is(err, operation.ErrTargetNotActive) {
 		state, err = p.waitForCapturedTarget(ctx)

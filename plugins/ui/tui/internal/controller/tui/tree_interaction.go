@@ -153,6 +153,14 @@ func (model Model) applyTreeEvent(kind presentationdomain.EventKind, event prese
 		model.treeAwaiting = presentationdomain.CommandUnspecified
 		model.treeRequest = mo.None[presentationdomain.TreePurpose]()
 		model.treeStatus = event.FailureMessage.OrElse(treeOperationFailedText)
+	case presentationdomain.EventSessionTreeNavigationProgress:
+		if tree, present := event.Tree.Get(); present {
+			if panel, panelPresent := model.treePanel.Get(); panelPresent {
+				panel.Reconcile(tree)
+				model.treePanel = mo.Some(panel)
+			}
+		}
+		model.replaceTranscript(event.RestoredTranscript)
 	case presentationdomain.EventSessionTreeNavigation:
 		model = model.applyTreeNavigationResult(event)
 	case presentationdomain.EventSessionForked, presentationdomain.EventSessionCloned:
@@ -179,7 +187,6 @@ func (model Model) applyTreeNavigationResult(event presentationdomain.TreeEvent)
 	model.treeStatus = formatOperationIssues(event.Issues)
 	switch event.NavigationStatus {
 	case presentationdomain.TreeNavigationCommitted:
-		model.replaceTranscript(event.RestoredTranscript)
 		model.setExactNextInput(event.NextInput)
 		return model.closeTree()
 	case presentationdomain.TreeNavigationCanceled:

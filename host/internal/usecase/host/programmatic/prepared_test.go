@@ -37,8 +37,12 @@ func TestPreparedOwnerCancellationStopsSummaryNavigation(t *testing.T) {
 	started := make(chan struct{})
 	var committed atomic.Bool
 	control.EXPECT().TryAcquire().Return(func() {}, true)
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ sessionnavigation.Request) (sessionnavigation.Result, error) {
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(
+			ctx context.Context,
+			_ sessionnavigation.Request,
+			_ func(sessionnavigation.Progress) error,
+		) (sessionnavigation.Result, error) {
 			close(started)
 			<-ctx.Done()
 			return sessionnavigation.Result{}, ctx.Err()
@@ -56,7 +60,7 @@ func TestPreparedOwnerCancellationStopsSummaryNavigation(t *testing.T) {
 
 	// Act by canceling the owner context after navigation starts.
 	go func() {
-		outcomeResult <- prepared.Run(ctx, operation.Reporter[controller.AgentEvent]{})
+		outcomeResult <- prepared.Run(ctx, operation.Reporter[controller.OperationProgress]{})
 	}()
 	<-started
 	cancel()
@@ -94,7 +98,7 @@ func TestPreparedOwnerCancellationStopsStoredSessionMutation(t *testing.T) {
 
 	// Act by canceling the owner context after mutation work starts.
 	go func() {
-		outcomeResult <- prepared.Run(ctx, operation.Reporter[controller.AgentEvent]{})
+		outcomeResult <- prepared.Run(ctx, operation.Reporter[controller.OperationProgress]{})
 	}()
 	<-started
 	cancel()
@@ -112,9 +116,9 @@ func TestPreparedDomainCanceledNavigationCompletes(t *testing.T) {
 	// Arrange admitted navigation that completes with a domain-canceled result.
 	control := NewMockSessionControl(gomock.NewController(t))
 	control.EXPECT().TryAcquire().Return(func() {}, true)
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
-		Canceled: true, Tree: session.Tree{}, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
-		NextInput: mo.None[string](), Issues: nil,
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
+		Canceled: true, DestinationID: mo.None[string](), ActiveLeafID: mo.None[string](),
+		CreatedSummary: mo.None[session.Entry](), NextInput: mo.None[string](), Issues: nil,
 	}, nil)
 	service := New(nil, nil, idleStateSnapshot, emptyHistorySnapshot, control, NewDelivery())
 	command := treeCommand("domain-cancel", controller.CommandNavigateSessionTree)
@@ -124,7 +128,7 @@ func TestPreparedDomainCanceledNavigationCompletes(t *testing.T) {
 	defer prepared.Release()
 
 	// Act with an active operation context.
-	outcome := prepared.Run(t.Context(), operation.Reporter[controller.AgentEvent]{})
+	outcome := prepared.Run(t.Context(), operation.Reporter[controller.OperationProgress]{})
 
 	// Assert the domain result remains completed and carries its canceled navigation status.
 	require.Equal(t, operation.TerminalStateCompleted, outcome.State())
@@ -161,7 +165,7 @@ func TestPreparedCommittedMutationWinsCancellation(t *testing.T) {
 
 	// Act by canceling after work starts and allowing the successful commit to return.
 	go func() {
-		outcomeResult <- prepared.Run(ctx, operation.Reporter[controller.AgentEvent]{})
+		outcomeResult <- prepared.Run(ctx, operation.Reporter[controller.OperationProgress]{})
 	}()
 	<-started
 	cancel()
@@ -202,7 +206,7 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 
 	// Act by canceling after work starts while the independent storage failure returns.
 	go func() {
-		outcomeResult <- prepared.Run(ctx, operation.Reporter[controller.AgentEvent]{})
+		outcomeResult <- prepared.Run(ctx, operation.Reporter[controller.OperationProgress]{})
 	}()
 	<-started
 	cancel()
@@ -276,7 +280,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		writerResult := make(chan error, 1)
 		go func() { writerResult <- writer.Run(t.Context()) }()
 		connectionErr := status.Error(codes.Unavailable, "send failed")
-		ownerDelivery := operationmock.NewMockOperationDelivery[controller.AgentEvent, controller.Response](
+		ownerDelivery := operationmock.NewMockOperationDelivery[controller.OperationProgress, controller.Response](
 			mockController,
 		)
 		ownerDelivery.EXPECT().Accepted("progress-failure").DoAndReturn(
@@ -288,7 +292,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		ownerDelivery.EXPECT().Progress("progress-failure", gomock.Any()).Return(connectionErr)
 		owner := operation.NewOwner(t.Context(), ownerDelivery)
 		require.NoError(t, owner.Start("progress-failure", func() (
-			operation.Prepared[controller.AgentEvent, controller.Response], error,
+			operation.Prepared[controller.OperationProgress, controller.Response], error,
 		) {
 			return prepared, nil
 		}))
@@ -366,7 +370,7 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 			cancel()
 
 			// Act after cancellation and settlement have both completed.
-			outcome := prepared.Run(ctx, operation.Reporter[controller.AgentEvent]{})
+			outcome := prepared.Run(ctx, operation.Reporter[controller.OperationProgress]{})
 
 			// Assert only an independent failure overrides pure cancellation.
 			require.Equal(t, test.expectedState, outcome.State())

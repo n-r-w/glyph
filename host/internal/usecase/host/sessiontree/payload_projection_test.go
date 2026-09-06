@@ -13,6 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 )
 
@@ -62,10 +63,10 @@ func TestNavigateProjectsExtensionEntriesWithoutPayload(t *testing.T) {
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
 		BranchSummary: mo.None[BranchSummaryDraft](),
-	}).Return(committed, nil)
+	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 	// Act by navigating away from the entry that owns opaque extension data.
-	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+	_, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})

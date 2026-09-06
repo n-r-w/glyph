@@ -46,17 +46,17 @@ func TestMapTreeFramePreservesPublicState(t *testing.T) {
 	require.Equal(t, "example", tree.GetEntries()[0].GetExtension().GetExtensionId())
 }
 
-// TestMapCommittedTreeNavigationPreservesExactInput verifies committed UI results contain tree and editable input.
+// TestMapCommittedTreeNavigationPreservesExactInput verifies terminal UI results contain commit metadata and editable input.
 func TestMapCommittedTreeNavigationPreservesExactInput(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one committed navigation frame with an implicit-root tree and exact next input.
+	// Arrange one committed navigation frame with exact metadata and next input.
 	frame := runtimeTreeFrame(domainui.FrameSessionTreeNavigation)
 	frame.TreeNavigation = mo.Some(domainui.TreeNavigationResult{
 		Status: domainui.TreeNavigationStatusCommitted,
 		Committed: mo.Some(domainui.TreeNavigationCommitted{
-			Tree:         domainui.SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()},
-			ActiveBranch: nil, NextInput: mo.Some("exact input"),
+			DestinationID: mo.Some("destination"), ActiveLeafID: mo.Some("leaf"),
+			CreatedSummary: mo.None[domainui.SessionTreeEntry](), NextInput: mo.Some("exact input"),
 		}),
 		Issues: []domainui.OperationIssue{
 			{
@@ -71,11 +71,12 @@ func TestMapCommittedTreeNavigationPreservesExactInput(t *testing.T) {
 	// Act by mapping the committed frame.
 	wire, err := mapFrame(frame)
 
-	// Assert committed status, tree presence, and exact next input reach the contract.
+	// Assert committed status, metadata, and exact next input reach the contract.
 	require.NoError(t, err)
 	result := wire.GetEvent().GetCompleted().GetSessionTreeNavigation()
 	require.Equal(t, uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED, result.GetStatus())
-	require.True(t, result.HasTree())
+	require.Equal(t, "destination", result.GetDestinationId())
+	require.Equal(t, "leaf", result.GetActiveLeafId())
 	require.True(t, result.HasNextInput())
 	require.Equal(t, "exact input", result.GetNextInput())
 	require.Equal(t, uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_OBSERVER_ERROR, result.GetIssues()[0].GetCode())
@@ -98,12 +99,10 @@ func TestMapCanceledTreeNavigationOmitsSpeculativeState(t *testing.T) {
 	// Act by mapping the canceled frame.
 	wire, err := mapFrame(frame)
 
-	// Assert no tree, active transcript, or next input is emitted.
+	// Assert canceled status and omitted next input are emitted.
 	require.NoError(t, err)
 	result := wire.GetEvent().GetCompleted().GetSessionTreeNavigation()
 	require.Equal(t, uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED, result.GetStatus())
-	require.False(t, result.HasTree())
-	require.Empty(t, result.GetActiveBranch())
 	require.False(t, result.HasNextInput())
 }
 
@@ -127,7 +126,8 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 	navigationFrame.TreeNavigation = mo.Some(domainui.TreeNavigationResult{
 		Status: domainui.TreeNavigationStatusCommitted,
 		Committed: mo.Some(domainui.TreeNavigationCommitted{
-			Tree: tree, ActiveBranch: nil, NextInput: mo.Some(""),
+			DestinationID: mo.Some(""), ActiveLeafID: mo.Some(""),
+			CreatedSummary: mo.None[domainui.SessionTreeEntry](), NextInput: mo.Some(""),
 		}),
 		Issues: nil,
 	})

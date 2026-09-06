@@ -341,8 +341,8 @@ func TestTreeCommandDeliveryFailurePreservesTranscriptAndEditor(t *testing.T) {
 	require.Contains(t, model.treeStatus, "stream closed")
 }
 
-// TestDurableTreeResultsOwnTranscriptAndExactEditorReplacement verifies commit and failure boundaries.
-func TestDurableTreeResultsOwnTranscriptAndExactEditorReplacement(t *testing.T) {
+// TestNavigationProgressOwnsTranscriptAndTerminalOwnsExactEditorReplacement verifies commit and completion boundaries.
+func TestNavigationProgressOwnsTranscriptAndTerminalOwnsExactEditorReplacement(t *testing.T) {
 	t.Parallel()
 
 	// Arrange existing transcript, editor, and open tree state.
@@ -389,22 +389,32 @@ func TestDurableTreeResultsOwnTranscriptAndExactEditorReplacement(t *testing.T) 
 	require.Equal(t, "draft", string(model.input))
 	require.Contains(t, model.View().Content, "safe issue")
 
-	// Act by applying a committed navigation with exact optional next input.
+	// Act by applying committed progress, then terminal metadata with exact optional next input.
+	model = updateModel(
+		t,
+		model,
+		treeControllerEvent(presentationdomain.EventSessionTreeNavigationProgress, presentationdomain.TreeEvent{
+			Tree: mo.Some(controllerTree()), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
+			SessionInfo:        mo.None[presentationdomain.SessionInfo](),
+			RestoredTranscript: []presentationdomain.Line{controllerLine("new")},
+			NextInput:          mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+		}),
+	)
 	model = updateModel(
 		t,
 		model,
 		treeControllerEvent(presentationdomain.EventSessionTreeNavigation, presentationdomain.TreeEvent{
-			Tree:               mo.Some(controllerTree()),
+			Tree:               mo.None[presentationdomain.SessionTree](),
 			NavigationStatus:   presentationdomain.TreeNavigationCommitted,
 			SessionInfo:        mo.None[presentationdomain.SessionInfo](),
-			RestoredTranscript: []presentationdomain.Line{controllerLine("new")},
+			RestoredTranscript: nil,
 			NextInput:          mo.Some(" exact next input "),
 			Issues:             nil,
 			FailureMessage:     mo.None[string](),
 		}),
 	)
 
-	// Assert durable state replaces transcript and editor without submitting the next input.
+	// Assert progress replaces transcript and completion edits without submitting the next input.
 	require.Equal(t, []presentationdomain.Line{controllerLine("new")}, model.state.Transcript)
 	require.Equal(t, " exact next input ", string(model.input))
 	require.Equal(t, len([]rune(" exact next input ")), model.cursor)

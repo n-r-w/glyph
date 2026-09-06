@@ -327,6 +327,43 @@ func sendProgrammaticOperation(
 	return completeProgrammaticRequest(t, fixture, request)
 }
 
+// sendProgrammaticOperationWithProgress sends one request and returns ordered progress with completion.
+func sendProgrammaticOperationWithProgress(
+	t *testing.T,
+	fixture *programmaticFixture,
+	operationID string,
+	configure func(*programmaticv1.OpenRequest),
+	onProgress func(*programmaticv1.HostProgress),
+) (*programmaticv1.HostCompleted, []*programmaticv1.HostProgress) {
+	t.Helper()
+	request := new(programmaticv1.OpenRequest)
+	request.SetOperationId(operationID)
+	request.SetRequest(new(programmaticv1.ControllerRequest))
+	configure(request)
+	require.NoError(t, fixture.stream.Send(request))
+	progress := make([]*programmaticv1.HostProgress, 0, 1)
+	for {
+		response, err := fixture.stream.Recv()
+		require.NoError(t, err)
+		if response.GetOperationId() != operationID || !response.HasEvent() {
+			continue
+		}
+		event := response.GetEvent()
+		if event.HasProgress() {
+			progress = append(progress, event.GetProgress())
+			if onProgress != nil {
+				onProgress(event.GetProgress())
+			}
+		}
+		if event.HasCompleted() {
+			return event.GetCompleted(), progress
+		}
+		if event.HasRejected() || event.HasFailed() || event.HasCanceled() {
+			require.FailNow(t, "Programmatic operation did not complete")
+		}
+	}
+}
+
 // sendProgrammaticFailure sends one request and returns its Failed machine code.
 func sendProgrammaticFailure(
 	t *testing.T,

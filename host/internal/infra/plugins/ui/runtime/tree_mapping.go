@@ -57,6 +57,7 @@ func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
 		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
 		domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
+		domainui.FrameSessionTreeNavigationProgress,
 		domainui.FrameSessionForked, domainui.FrameSessionCloned, domainui.FrameSubmitCompleted,
 		domainui.FrameAuthenticationCompleted:
 		return nil, false, nil
@@ -65,7 +66,25 @@ func mapTreeFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 	}
 }
 
-// mapTreeNavigation maps committed state or cancellation without speculative fields.
+// mapTreeNavigationProgress maps committed state for operation progress.
+func mapTreeNavigationProgress(
+	progress domainui.TreeNavigationProgress,
+) (*uiv1.SessionTreeNavigationProgress, error) {
+	tree, err := mapSessionTree(progress.Tree)
+	if err != nil {
+		return nil, err
+	}
+	branch, err := mapRestoredSessionEntries(progress.ActiveBranch)
+	if err != nil {
+		return nil, fmt.Errorf("map UI tree navigation progress active branch: %w", err)
+	}
+	result := new(uiv1.SessionTreeNavigationProgress)
+	result.SetTree(tree)
+	result.SetActiveBranch(branch)
+	return result, nil
+}
+
+// mapTreeNavigation maps terminal metadata or cancellation without speculative fields.
 func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uiv1.SessionTreeNavigationResult, error) {
 	wire := new(uiv1.SessionTreeNavigationResult)
 	switch navigation.Status {
@@ -74,17 +93,20 @@ func mapTreeNavigation(navigation domainui.TreeNavigationResult) (*uiv1.SessionT
 		if !present {
 			return nil, errors.New("map UI tree navigation: committed state is absent")
 		}
-		tree, err := mapSessionTree(committed.Tree)
-		if err != nil {
-			return nil, err
-		}
-		branch, err := mapRestoredSessionEntries(committed.ActiveBranch)
-		if err != nil {
-			return nil, fmt.Errorf("map UI tree navigation active branch: %w", err)
-		}
 		wire.SetStatus(uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED)
-		wire.SetTree(tree)
-		wire.SetActiveBranch(branch)
+		if destinationID, destinationPresent := committed.DestinationID.Get(); destinationPresent {
+			wire.SetDestinationId(destinationID)
+		}
+		if activeLeafID, activeLeafPresent := committed.ActiveLeafID.Get(); activeLeafPresent {
+			wire.SetActiveLeafId(activeLeafID)
+		}
+		if createdSummary, summaryPresent := committed.CreatedSummary.Get(); summaryPresent {
+			mappedSummary, err := mapSessionTreeEntry(createdSummary)
+			if err != nil {
+				return nil, err
+			}
+			wire.SetCreatedSummary(mappedSummary)
+		}
 		if nextInput, nextInputPresent := committed.NextInput.Get(); nextInputPresent {
 			wire.SetNextInput(nextInput)
 		}

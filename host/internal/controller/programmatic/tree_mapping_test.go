@@ -51,17 +51,17 @@ func TestMapSessionTreeResponsePreservesPublicTreeState(t *testing.T) {
 	require.Equal(t, "state", entry.GetExtension().GetEntryType())
 }
 
-// TestMapCommittedNavigationPreservesExactInput verifies committed wire state contains tree and editable input.
+// TestMapCommittedNavigationPreservesExactInput verifies terminal wire state contains metadata and editable input.
 func TestMapCommittedNavigationPreservesExactInput(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one committed navigation result with an implicit-root tree and exact next input.
+	// Arrange one committed navigation result with exact metadata and next input.
 	response := treeControllerResponse("commit", ResponseSessionTreeNavigation)
 	response.TreeNavigation = mo.Some(TreeNavigationResult{
 		Status: TreeNavigationStatusCommitted,
 		Committed: mo.Some(TreeNavigationCommitted{
-			Tree:         SessionTree{Entries: nil, ActiveLeafID: mo.None[string]()},
-			ActiveBranch: nil, NextInput: mo.Some("exact input"),
+			DestinationID: mo.Some("destination"), ActiveLeafID: mo.Some("leaf"),
+			CreatedSummary: mo.None[SessionTreeEntry](), NextInput: mo.Some("exact input"),
 		}),
 		Issues: []OperationIssue{{
 			Code: OperationIssueHandlerError, ExtensionID: "extension", HandlerID: "handler", Message: "safe message",
@@ -71,7 +71,7 @@ func TestMapCommittedNavigationPreservesExactInput(t *testing.T) {
 	// Act by mapping the committed result.
 	wire, err := mapResponse(response)
 
-	// Assert committed status, tree presence, and exact next input reach the contract.
+	// Assert committed status, metadata, and exact next input reach the contract.
 	require.NoError(t, err)
 	result := wire.GetSessionTreeNavigation()
 	require.Equal(
@@ -79,7 +79,8 @@ func TestMapCommittedNavigationPreservesExactInput(t *testing.T) {
 		programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED,
 		result.GetStatus(),
 	)
-	require.True(t, result.HasTree())
+	require.Equal(t, "destination", result.GetDestinationId())
+	require.Equal(t, "leaf", result.GetActiveLeafId())
 	require.True(t, result.HasNextInput())
 	require.Equal(t, "exact input", result.GetNextInput())
 	require.Equal(
@@ -105,7 +106,7 @@ func TestMapCanceledNavigationOmitsSpeculativeState(t *testing.T) {
 	// Act by mapping the canceled result.
 	wire, err := mapResponse(response)
 
-	// Assert no tree, transcript, or next input is emitted.
+	// Assert canceled status and omitted next input are emitted.
 	require.NoError(t, err)
 	result := wire.GetSessionTreeNavigation()
 	require.Equal(
@@ -113,8 +114,6 @@ func TestMapCanceledNavigationOmitsSpeculativeState(t *testing.T) {
 		programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED,
 		result.GetStatus(),
 	)
-	require.False(t, result.HasTree())
-	require.Empty(t, result.GetActiveBranch())
 	require.False(t, result.HasNextInput())
 }
 
@@ -138,7 +137,8 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 	navigationResponse.TreeNavigation = mo.Some(TreeNavigationResult{
 		Status: TreeNavigationStatusCommitted,
 		Committed: mo.Some(TreeNavigationCommitted{
-			Tree: tree, ActiveBranch: nil, NextInput: mo.Some(""),
+			DestinationID: mo.Some(""), ActiveLeafID: mo.Some(""),
+			CreatedSummary: mo.None[SessionTreeEntry](), NextInput: mo.Some(""),
 		}),
 		Issues: nil,
 	})

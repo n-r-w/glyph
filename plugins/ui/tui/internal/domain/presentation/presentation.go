@@ -131,7 +131,9 @@ const (
 	EventSessionInformation
 	// EventSessionTree delivers a complete active-session tree snapshot.
 	EventSessionTree
-	// EventSessionTreeNavigation reports committed or canceled tree navigation.
+	// EventSessionTreeNavigationProgress applies committed navigation state before observers.
+	EventSessionTreeNavigationProgress
+	// EventSessionTreeNavigation reports terminal navigation metadata.
 	EventSessionTreeNavigation
 	// EventTreeOperationFailed reports a rejected tree operation.
 	EventTreeOperationFailed

@@ -25,7 +25,7 @@ func TestSendFailureCancelsAndJoinsOwnedWork(t *testing.T) {
 	// Arrange accepted work and a writer that fails its first delivery.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	prepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	prepared.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
 	stream := NewMockOpenStream(controller)

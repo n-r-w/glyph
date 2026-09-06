@@ -146,13 +146,17 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 				ExtensionID: mo.Some("02-refine"), Model: mo.None[session.BranchSummaryModelSource](),
 			},
 		}),
-	}).Return(committed, nil)
+	}, gomock.Any()).Return(sessiontree.NavigationCommit{
+		Committed: true, Tree: committed, CreatedSummary: mo.Some(grpcSummaryEntry()),
+	}, nil)
+
+	publisher := func(sessionnavigation.Progress) error { return nil }
 
 	// Act: through request supply, result refinement, atomic commit, and observer delivery.
 	result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
 		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
-	})
+	}, publisher)
 
 	// Assert: the refined result committed before the real observer recorded the event.
 	require.NoError(t, err)
@@ -218,7 +222,7 @@ func (operation *handlerFixtureRegisterOperation) Run(
 	var handlers []*extensionpb.HandlerDescriptor
 	switch fixture.mode {
 	case summaryControlExtensionMode, summaryControlMissingMode, summaryControlModelMode, summaryControlClearMode,
-		summaryControlInvalidMode, summaryControlCancelMode:
+		summaryControlInvalidMode, summaryControlCancelMode, summaryControlBlockedMode:
 		return summaryControlRegistration(fixture.mode), nil
 	case handlerFixtureSupplyMode:
 		handlers = []*extensionpb.HandlerDescriptor{
@@ -252,7 +256,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 	s := operation.fixture
 	switch s.mode {
 	case summaryControlExtensionMode, summaryControlMissingMode, summaryControlModelMode, summaryControlClearMode,
-		summaryControlInvalidMode, summaryControlCancelMode:
+		summaryControlInvalidMode, summaryControlCancelMode, summaryControlBlockedMode:
 		return operation.runSummaryControlHandler()
 	}
 	switch request.GetHandlerId() {

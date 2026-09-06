@@ -412,8 +412,8 @@ func (s *Session) prepareSessionOperation(
 		}
 	}
 	return &preparedUIOperation{
-		run: func(ctx context.Context, _ operation.Reporter[domainui.Frame]) (domainui.Frame, error) {
-			return s.runSessionOperation(ctx, command)
+		run: func(ctx context.Context, reporter operation.Reporter[domainui.Frame]) (domainui.Frame, error) {
+			return s.runSessionOperation(ctx, command, reporter)
 		},
 		failureCode: sessionOperationFailureCode,
 		release:     release, releaseOnce: sync.Once{},
@@ -483,7 +483,11 @@ func isUISessionMutation(kind domainui.CommandKind) bool {
 // runSessionOperation executes admitted session work and returns one complete result frame.
 //
 //nolint:gocyclo // The closed operation union maps directly to distinct domain calls.
-func (s *Session) runSessionOperation(ctx context.Context, command domainui.Command) (domainui.Frame, error) {
+func (s *Session) runSessionOperation(
+	ctx context.Context,
+	command domainui.Command,
+	reporter operation.Reporter[domainui.Frame],
+) (domainui.Frame, error) {
 	switch command.Kind {
 	case domainui.CommandCreateSession:
 		replacement, err := s.sessionControl.Create(ctx)
@@ -515,7 +519,7 @@ func (s *Session) runSessionOperation(ctx context.Context, command domainui.Comm
 		mode, _ := summaryModeFromUI(command.SummaryMode)
 		result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
 			TargetEntryID: command.TargetEntryID.MustGet(), SummaryMode: mode, CustomFocus: command.CustomFocus,
-		})
+		}, navigationProgressCallback(reporter))
 		if err != nil {
 			return domainui.Frame{}, err
 		}

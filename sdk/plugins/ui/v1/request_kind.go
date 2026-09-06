@@ -112,7 +112,8 @@ func validateHostPayload(kind requestKind, event *uiv1.HostEvent) error {
 	}
 	if progress := event.GetProgress(); progress != nil {
 		valid := kind == requestSubmit && progress.GetAgentEvent() != nil ||
-			kind == requestAuthentication && progress.GetAuthorization() != nil
+			kind == requestAuthentication && progress.GetAuthorization() != nil ||
+			kind == requestNavigateSessionTree && progress.GetSessionTreeNavigation() != nil
 		if !valid {
 			return fmt.Errorf("Host progress payload does not match UI request kind %d", kind)
 		}

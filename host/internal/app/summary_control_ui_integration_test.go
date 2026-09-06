@@ -5,8 +5,10 @@ package app
 import (
 	"bytes"
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -34,6 +36,7 @@ func TestUIBranchSummaryControl(t *testing.T) {
 			directory := t.TempDir()
 			writeHandlerFixtureScript(t, directory, "control", mode, "")
 			trace := filepath.Join(t.TempDir(), "navigation.json")
+			progressTrace := trace + ".progress"
 
 			// Act through UI Plugin Contract navigation and then restart with read-only tree retrieval.
 			runSummaryControlUI(t, paths, directory, trace, "summary-control")
@@ -41,6 +44,10 @@ func TestUIBranchSummaryControl(t *testing.T) {
 			require.NoError(t, err)
 			result := new(uiv1.SessionTreeNavigationResult)
 			require.NoError(t, protojson.Unmarshal(data, result))
+			progressData, err := os.ReadFile(progressTrace)
+			require.NoError(t, err)
+			progress := new(uiv1.SessionTreeNavigationProgress)
+			require.NoError(t, protojson.Unmarshal(progressData, progress))
 
 			// Assert all three complete causes and actual-source accounting reached the UI process.
 			require.Equal(
@@ -64,11 +71,14 @@ func TestUIBranchSummaryControl(t *testing.T) {
 				}
 				assert.Equal(t, code, issue.GetCode())
 			}
-			entries := result.GetTree().GetEntries()
+			entries := progress.GetTree().GetEntries()
 			require.Len(t, entries, 5)
 			last := entries[len(entries)-1]
-			assert.Equal(t, last.GetId(), result.GetTree().GetActiveLeafId())
-			summary := last.GetBranchSummary()
+			assert.Equal(t, last.GetId(), progress.GetTree().GetActiveLeafId())
+			assert.Equal(t, "root", result.GetDestinationId())
+			assert.Equal(t, last.GetId(), result.GetActiveLeafId())
+			assert.True(t, proto.Equal(last, result.GetCreatedSummary()))
+			summary := result.GetCreatedSummary().GetBranchSummary()
 			require.NotNil(t, summary)
 			if mode == summaryControlModelMode {
 				expected := uiv1.BranchSummaryModelSource_builder{
@@ -101,9 +111,40 @@ func TestUIBranchSummaryControl(t *testing.T) {
 			require.NoError(t, err)
 			restored := new(uiv1.SessionTree)
 			require.NoError(t, protojson.Unmarshal(data, restored))
-			assert.True(t, proto.Equal(result.GetTree(), restored))
+			assert.True(t, proto.Equal(progress.GetTree(), restored))
 		})
 	}
+}
+
+// TestUINavigationProgressReleasesBlockedObserver verifies progress crosses the real UI contract before observers
+// finish.
+func TestUINavigationProgressReleasesBlockedObserver(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a real UI process and extension observer blocked on a named pipe.
+	paths := testPaths(t, summaryControlSettings)
+	seedSummaryControlSession(t, paths)
+	directory := t.TempDir()
+	trace := filepath.Join(t.TempDir(), "blocked-navigation.json")
+	gate := trace + ".gate"
+	require.NoError(t, syscall.Mkfifo(gate, 0o600))
+	writeHandlerFixtureScript(t, directory, "control", summaryControlBlockedMode, gate)
+
+	// Act through the UI contract. Its progress callback releases the blocked observer.
+	runSummaryControlUI(t, paths, directory, trace, "summary-blocked")
+
+	// Assert both typed progress and metadata-only terminal completion crossed the process contract.
+	progressData, err := os.ReadFile(trace + ".progress")
+	require.NoError(t, err)
+	progress := new(uiv1.SessionTreeNavigationProgress)
+	require.NoError(t, protojson.Unmarshal(progressData, progress))
+	require.NotNil(t, progress.GetTree())
+	terminalData, err := os.ReadFile(trace)
+	require.NoError(t, err)
+	terminal := new(uiv1.SessionTreeNavigationResult)
+	require.NoError(t, protojson.Unmarshal(terminalData, terminal))
+	require.Equal(t, progress.GetTree().GetActiveLeafId(), terminal.GetActiveLeafId())
+	require.NotNil(t, terminal.GetCreatedSummary().GetBranchSummary())
 }
 
 // runSummaryControlUI starts a fresh Host and one UI fixture process for a stored session.
@@ -134,6 +175,8 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 		return err
 	}
 	var payload proto.Message
+	var navigationProgress *uiv1.SessionTreeNavigationProgress
+	var progressReleaseErr error
 	if os.Getenv(appUIBehaviorEnvironment) == "summary-read" {
 		request := new(uiv1.UIRequest)
 		request.SetGetSessionTree(new(uiv1.GetSessionTreeCommand))
@@ -147,7 +190,11 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 		}
 		return writeSummaryControlObservation(ctx, host, result.GetSessionTree().GetTree())
 	}
-	for _, id := range []string{"navigate-first", "navigate-again"} {
+	navigationIDs := []string{"navigate-first", "navigate-again"}
+	if os.Getenv(appUIBehaviorEnvironment) == "summary-blocked" {
+		navigationIDs = navigationIDs[:1]
+	}
+	for _, id := range navigationIDs {
 		request := new(uiv1.UIRequest)
 		request.SetNavigateSessionTree(uiv1.NavigateSessionTreeCommand_builder{
 			TargetEntryId: new("user"), SummaryMode: new(uiv1.SummaryMode_SUMMARY_MODE_SUMMARIZE), CustomFocus: nil,
@@ -156,11 +203,34 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 		if err != nil {
 			return err
 		}
-		result, err := operation.Wait(ctx, nil)
+		result, err := operation.Wait(ctx, func(progress *uiv1.HostProgress) {
+			if !progress.HasSessionTreeNavigation() {
+				return
+			}
+			navigationProgress = progress.GetSessionTreeNavigation()
+			if os.Getenv(appUIBehaviorEnvironment) == "summary-blocked" {
+				progressReleaseErr = os.WriteFile(
+					os.Getenv(appUITraceEnvironment)+".gate", []byte("release"), 0o600,
+				)
+			}
+		})
 		if err != nil {
 			return err
 		}
+		if progressReleaseErr != nil {
+			return progressReleaseErr
+		}
 		payload = result.GetSessionTreeNavigation()
+	}
+	if navigationProgress == nil {
+		return errors.New("navigation progress was not received")
+	}
+	progressData, err := protojson.Marshal(navigationProgress)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(os.Getenv(appUITraceEnvironment)+".progress", progressData, 0o600); err != nil {
+		return err
 	}
 	return writeSummaryControlObservation(ctx, host, payload)
 }

@@ -200,18 +200,18 @@ func (mr *MockSessionControlMockRecorder) List(arg0 any) *gomock.Call {
 }
 
 // Navigate mocks base method.
-func (m *MockSessionControl) Navigate(arg0 context.Context, arg1 sessionnavigation.Request) (sessionnavigation.Result, error) {
+func (m *MockSessionControl) Navigate(arg0 context.Context, arg1 sessionnavigation.Request, arg2 func(sessionnavigation.Progress) error) (sessionnavigation.Result, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Navigate", arg0, arg1)
+	ret := m.ctrl.Call(m, "Navigate", arg0, arg1, arg2)
 	ret0, _ := ret[0].(sessionnavigation.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Navigate indicates an expected call of Navigate.
-func (mr *MockSessionControlMockRecorder) Navigate(arg0, arg1 any) *gomock.Call {
+func (mr *MockSessionControlMockRecorder) Navigate(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Navigate", reflect.TypeOf((*MockSessionControl)(nil).Navigate), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Navigate", reflect.TypeOf((*MockSessionControl)(nil).Navigate), arg0, arg1, arg2)
 }
 
 // Resume mocks base method.

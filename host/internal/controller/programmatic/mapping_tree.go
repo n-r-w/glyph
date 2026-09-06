@@ -22,7 +22,25 @@ func mapSessionTreeCompleted(wire *programmaticv1.HostCompleted, tree SessionTre
 	return nil
 }
 
-// mapTreeNavigationCompleted maps a committed or canceled navigation result.
+// mapTreeNavigationProgress maps committed state to typed operation progress.
+func mapTreeNavigationProgress(
+	progress TreeNavigationProgress,
+) (*programmaticv1.SessionTreeNavigationProgress, error) {
+	tree, err := mapSessionTree(progress.Tree)
+	if err != nil {
+		return nil, err
+	}
+	activeBranch, err := mapSessionEntries(progress.ActiveBranch)
+	if err != nil {
+		return nil, fmt.Errorf("map navigation progress active branch: %w", err)
+	}
+	result := new(programmaticv1.SessionTreeNavigationProgress)
+	result.SetTree(tree)
+	result.SetActiveBranch(activeBranch)
+	return result, nil
+}
+
+// mapTreeNavigationCompleted maps committed metadata or a canceled result.
 func mapTreeNavigationCompleted(wire *programmaticv1.HostCompleted, navigation TreeNavigationResult) error {
 	result := new(programmaticv1.SessionTreeNavigationResult)
 	switch navigation.Status {
@@ -31,17 +49,20 @@ func mapTreeNavigationCompleted(wire *programmaticv1.HostCompleted, navigation T
 		if !present {
 			return errors.New("map tree navigation: committed state is absent")
 		}
-		tree, err := mapSessionTree(committed.Tree)
-		if err != nil {
-			return err
-		}
-		branch, err := mapSessionEntries(committed.ActiveBranch)
-		if err != nil {
-			return fmt.Errorf("map tree navigation active branch: %w", err)
-		}
 		result.SetStatus(programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED)
-		result.SetTree(tree)
-		result.SetActiveBranch(branch)
+		if destinationID, destinationPresent := committed.DestinationID.Get(); destinationPresent {
+			result.SetDestinationId(destinationID)
+		}
+		if activeLeafID, activeLeafPresent := committed.ActiveLeafID.Get(); activeLeafPresent {
+			result.SetActiveLeafId(activeLeafID)
+		}
+		if createdSummary, summaryPresent := committed.CreatedSummary.Get(); summaryPresent {
+			mappedSummary, err := mapSessionTreeEntry(createdSummary)
+			if err != nil {
+				return err
+			}
+			result.SetCreatedSummary(mappedSummary)
+		}
 		if nextInput, nextInputPresent := committed.NextInput.Get(); nextInputPresent {
 			result.SetNextInput(nextInput)
 		}

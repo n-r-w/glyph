@@ -59,6 +59,29 @@ func mapTreeRequest(request *uiv1.HostCompleted) (presentationdomain.Event, bool
 }
 
 // mapTreeNavigation maps committed or canceled navigation without speculative state.
+// mapTreeNavigationProgress maps committed state before terminal observer completion.
+func mapTreeNavigationProgress(
+	value *uiv1.SessionTreeNavigationProgress,
+) (presentationdomain.Event, error) {
+	if value == nil || !value.HasTree() {
+		return presentationdomain.Event{}, errors.New("session tree navigation progress is incomplete")
+	}
+	tree, err := mapSessionTree(value.GetTree())
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
+	transcript, err := mapRestoredTranscript(value.GetActiveBranch())
+	if err != nil {
+		return presentationdomain.Event{}, err
+	}
+	return treeEvent(presentationdomain.EventSessionTreeNavigationProgress, presentationdomain.TreeEvent{
+		Tree: mo.Some(tree), NavigationStatus: presentationdomain.TreeNavigationUnspecified,
+		SessionInfo: mo.None[presentationdomain.SessionInfo](), RestoredTranscript: transcript,
+		NextInput: mo.None[string](), Issues: nil, FailureMessage: mo.None[string](),
+	}), nil
+}
+
+// mapTreeNavigation maps terminal navigation metadata.
 func mapTreeNavigation(value *uiv1.SessionTreeNavigationResult) (presentationdomain.TreeEvent, error) {
 	if value == nil || !value.HasStatus() {
 		return presentationdomain.TreeEvent{}, errors.New("session tree navigation status is required")
@@ -85,17 +108,7 @@ func mapTreeNavigation(value *uiv1.SessionTreeNavigationResult) (presentationdom
 	}
 	switch value.GetStatus() {
 	case uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED:
-		tree, mapErr := mapSessionTree(value.GetTree())
-		if mapErr != nil {
-			return presentationdomain.TreeEvent{}, mapErr
-		}
-		transcript, mapErr := mapRestoredTranscript(value.GetActiveBranch())
-		if mapErr != nil {
-			return presentationdomain.TreeEvent{}, mapErr
-		}
-		mapped.Tree = mo.Some(tree)
 		mapped.NavigationStatus = presentationdomain.TreeNavigationCommitted
-		mapped.RestoredTranscript = transcript
 		if value.HasNextInput() {
 			mapped.NextInput = mo.Some(value.GetNextInput())
 		}

@@ -30,7 +30,7 @@ var lineBreaks = regexp.MustCompile(`[\r\n]+`)
 
 // Service owns the process-active session.
 type Service struct {
-	// mutex makes active replacement and durable name updates atomic to readers.
+	// mutex makes session commits and their ordered client publication atomic to readers and competing mutations.
 	mutex sync.RWMutex
 	// repository persists records for the canonical working directory.
 	repository Repository

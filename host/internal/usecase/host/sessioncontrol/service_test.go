@@ -72,12 +72,17 @@ func TestNavigateReleasesGateOnEveryNavigatorResult(t *testing.T) {
 			released := false
 			tryAcquire := func() (func(), bool) { return func() { released = true }, true }
 			active := NewMockActiveSessions(controller)
-			navigator.EXPECT().NavigateTree(gomock.Any(), testNavigationRequest()).DoAndReturn(
-				func(_ context.Context, _ sessionnavigation.Request) (sessionnavigation.Result, error) {
+			publisher := testProgressPublisher(t)
+			navigator.EXPECT().NavigateTree(gomock.Any(), testNavigationRequest(), gomock.Any()).DoAndReturn(
+				func(
+					_ context.Context,
+					_ sessionnavigation.Request,
+					_ func(sessionnavigation.Progress) error,
+				) (sessionnavigation.Result, error) {
 					require.False(t, released)
 					return sessionnavigation.Result{
-						Canceled: false, Tree: session.Tree{}, ActiveLeafID: mo.Some("destination"),
-						ActiveBranch: nil, NextInput: mo.None[string](), Issues: nil,
+						Canceled: false, DestinationID: mo.Some("destination"), ActiveLeafID: mo.Some("destination"),
+						CreatedSummary: mo.None[session.Entry](), NextInput: mo.None[string](), Issues: nil,
 					}, test.navigationErr
 				},
 			)
@@ -86,7 +91,7 @@ func TestNavigateReleasesGateOnEveryNavigatorResult(t *testing.T) {
 			// Act after the caller acquires navigation ownership.
 			release, acquired := service.TryAcquire()
 			require.True(t, acquired)
-			_, err := service.Navigate(t.Context(), testNavigationRequest())
+			_, err := service.Navigate(t.Context(), testNavigationRequest(), publisher)
 
 			// Assert the terminal result is preserved and caller cleanup releases the gate.
 			if test.navigationErr == nil {
@@ -101,34 +106,40 @@ func TestNavigateReleasesGateOnEveryNavigatorResult(t *testing.T) {
 	}
 }
 
-// TestNavigateReturnsCommittedSnapshots verifies navigation returns tree and active-branch state after commit.
-func TestNavigateReturnsCommittedSnapshots(t *testing.T) {
+// TestNavigateReturnsCommittedMetadata verifies navigation forwards publication and terminal metadata.
+func TestNavigateReturnsCommittedMetadata(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a successful navigation and committed active-session snapshots.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSessions(controller)
 	navigator := NewMockNavigator(controller)
-	tree, err := session.NewTree(nil, mo.None[string](), nil)
-	require.NoError(t, err)
-	branch := []session.Entry{}
-	navigator.EXPECT().NavigateTree(gomock.Any(), testNavigationRequest()).Return(sessionnavigation.Result{
-		Canceled: false, Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: branch,
-		NextInput: mo.Some("exact input"), Issues: nil,
-	}, nil)
+	publisher := testProgressPublisher(t)
+	navigator.EXPECT().
+		NavigateTree(gomock.Any(), testNavigationRequest(), gomock.Any()).
+		Return(sessionnavigation.Result{
+			Canceled: false, DestinationID: mo.Some("destination"), ActiveLeafID: mo.Some("leaf"),
+			CreatedSummary: mo.None[session.Entry](), NextInput: mo.Some("exact input"), Issues: nil,
+		}, nil)
 	service := New(active, navigator, func() (func(), bool) { return func() {}, true })
 
 	// Act after the caller acquires navigation ownership.
 	release, acquired := service.TryAcquire()
 	require.True(t, acquired)
-	result, err := service.Navigate(t.Context(), testNavigationRequest())
+	result, err := service.Navigate(t.Context(), testNavigationRequest(), publisher)
 	release()
 
-	// Assert committed snapshots and exact next input are returned together.
+	// Assert committed metadata and exact next input are returned together.
 	require.NoError(t, err)
-	assert.Equal(t, tree, result.Tree)
-	assert.Equal(t, branch, result.ActiveBranch)
+	assert.Equal(t, mo.Some("destination"), result.DestinationID)
+	assert.Equal(t, mo.Some("leaf"), result.ActiveLeafID)
 	assert.Equal(t, mo.Some("exact input"), result.NextInput)
+}
+
+// testProgressPublisher creates one accepting operation progress publisher.
+func testProgressPublisher(t *testing.T) func(sessionnavigation.Progress) error {
+	t.Helper()
+	return func(sessionnavigation.Progress) error { return nil }
 }
 
 // testNavigationRequest creates the no-summary request used by session-control tests.

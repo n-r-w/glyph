@@ -39,14 +39,24 @@ type CommitCommand struct {
 	BranchSummary mo.Option[BranchSummaryDraft]
 }
 
+// NavigationCommit contains durable state even when its client publication fails.
+type NavigationCommit struct {
+	// Committed reports that persistence and in-memory publication succeeded.
+	Committed bool
+	// Tree is the navigation commit snapshot.
+	Tree session.Tree
+	// CreatedSummary contains the persisted summary entry when one was created.
+	CreatedSummary mo.Option[session.Entry]
+}
+
 // ActiveSession exposes the tree snapshot and atomic navigation commit needed by navigation.
 type ActiveSession interface {
 	// SessionID returns the active session identifier.
 	SessionID() string
 	// Tree returns an independent active-session tree snapshot.
 	Tree() session.Tree
-	// CommitNavigation persists one destination change and optional summary when the active leaf is unchanged.
-	CommitNavigation(context.Context, CommitCommand) (session.Tree, error)
+	// CommitNavigation persists state and enqueues its client snapshot before releasing the commit boundary.
+	CommitNavigation(context.Context, CommitCommand, func(sessionnavigation.Progress) error) (NavigationCommit, error)
 }
 
 // HandlerKind identifies one session-tree extension point.

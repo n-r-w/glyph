@@ -83,7 +83,7 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 		active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 			ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("extension"),
 			BranchSummary: mo.None[BranchSummaryDraft](),
-		}).Return(committed, nil),
+		}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry]()}, nil),
 		expectObserver(handlers, observer, TreeObserverInvocation{
 			SessionID: "session", TargetEntryID: "extension", PrecedingActiveLeafID: mo.Some("active"),
 			NavigationDestinationID: mo.Some("extension"), CommittedActiveLeafID: mo.Some("extension"),
@@ -92,7 +92,7 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	)
 
 	// Act by navigating through the complete request and observer chain.
-	result, err := service.NavigateTree(t.Context(), original.Request.Navigation)
+	result, err := navigateTreeForTest(t, service, t.Context(), original.Request.Navigation)
 
 	// Assert the replacement target commits and complete causes preserve occurrence order.
 	require.NoError(t, err)
@@ -150,10 +150,10 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
 		BranchSummary: mo.None[BranchSummaryDraft](),
-	}).Return(committed, nil)
+	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 	// Act with the invalid action.
-	result, err := service.NavigateTree(t.Context(), state.Request.Navigation)
+	result, err := navigateTreeForTest(t, service, t.Context(), state.Request.Navigation)
 
 	// Assert original state commits and one safe invalid-action issue is returned.
 	require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	}, nil)
 
 	// Act through the canceling request chain.
-	result, err := service.NavigateTree(t.Context(), state.Request.Navigation)
+	result, err := navigateTreeForTest(t, service, t.Context(), state.Request.Navigation)
 
 	// Assert cancellation is a state-free result with only preceding issues.
 	require.NoError(t, err)
@@ -270,10 +270,10 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 			Summary: "refined", FirstEntryID: "user", LastEntryID: "active", CommonAncestorID: mo.Some("root"),
 			Source: source,
 		}),
-	}).Return(tree, nil)
+	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: tree, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 	// Act after the ready result is cleared.
-	result, err := service.NavigateTree(t.Context(), request)
+	result, err := navigateTreeForTest(t, service, t.Context(), request)
 
 	// Assert failure preserves the generated result for the later handler and reports its complete cause.
 	require.NoError(t, err)
@@ -315,7 +315,7 @@ func TestNavigateResultHandlerCancellationStopsBeforeValidation(t *testing.T) {
 	}, nil)
 
 	// Act through the canceling result chain.
-	result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+	result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
 	})
@@ -345,10 +345,12 @@ func TestNavigateObserversIgnorePostCommitCancellation(t *testing.T) {
 	models.EXPECT().ActiveSelection().Return(selection)
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
-	active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(context.Context, CommitCommand) (session.Tree, error) {
+	active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(context.Context, CommitCommand, func(sessionnavigation.Progress) error) (NavigationCommit, error) {
 			cancel()
-			return committed, nil
+			return NavigationCommit{
+				Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry](),
+			}, nil
 		},
 	)
 	registerTestHandlers(service, handlers, HandlerKindObserver, []Handler{observer})
@@ -367,7 +369,7 @@ func TestNavigateObserversIgnorePostCommitCancellation(t *testing.T) {
 	})
 
 	// Act with cancellation occurring only after the commit returns.
-	_, err := service.NavigateTree(ctx, sessionnavigation.Request{
+	_, err := navigateTreeForTest(t, service, ctx, sessionnavigation.Request{
 		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
@@ -402,7 +404,7 @@ func TestNavigateRejectsInconsistentHandlerResultWithoutCommit(t *testing.T) {
 	}, nil)
 
 	// Act with no-summary mode and an extension-provided result.
-	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+	_, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeNoSummary,
 		CustomFocus: mo.None[string](),
 	})
@@ -444,10 +446,10 @@ func TestNavigateEmptyAbandonedPathSkipsModelExecution(t *testing.T) {
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 		ExpectedActiveLeafID: mo.Some("extension"), DestinationID: mo.Some("extension"),
 		BranchSummary: mo.None[BranchSummaryDraft](),
-	}).Return(tree, nil)
+	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: tree, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 	// Act with summarization enabled and no abandoned entries.
-	result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+	result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 		TargetEntryID: "extension", SummaryMode: sessionnavigation.SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
 	})

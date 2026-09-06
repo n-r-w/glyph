@@ -31,6 +31,8 @@ func mapHostProgress(progress *uiv1.HostProgress) (presentationdomain.Event, err
 			return presentationdomain.Event{}, errors.New("authorization URL is required")
 		}
 		return textEvent(presentationdomain.EventAuthorization, authorization.GetUrl()), nil
+	case uiv1.HostProgress_SessionTreeNavigation_case:
+		return mapTreeNavigationProgress(progress.GetSessionTreeNavigation())
 	case uiv1.HostProgress_Progress_not_set_case:
 		return presentationdomain.Event{}, errors.New("host progress payload is required")
 	default:

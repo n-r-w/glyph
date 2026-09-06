@@ -39,7 +39,11 @@ type SessionControl interface {
 	// Tree returns the complete active-session tree snapshot.
 	Tree() session.Tree
 	// Navigate commits tree navigation while the caller owns the mutation gate.
-	Navigate(context.Context, sessionnavigation.Request) (sessionnavigation.Result, error)
+	Navigate(
+		context.Context,
+		sessionnavigation.Request,
+		func(sessionnavigation.Progress) error,
+	) (sessionnavigation.Result, error)
 	// Fork creates a replacement while the caller owns the mutation gate.
 	Fork(context.Context, string) (session.Replacement, string, error)
 	// Clone creates a copy while the caller owns the mutation gate.

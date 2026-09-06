@@ -74,7 +74,7 @@ func TestCommitNavigationBuildsAndPersistsOneValidatedSummaryMutation(t *testing
 	)
 
 	// Act by committing navigation with a validated summary draft.
-	committed, err := service.CommitNavigation(t.Context(), sessiontree.CommitCommand{
+	committed, err := commitNavigationForTest(t, service, t.Context(), sessiontree.CommitCommand{
 		ExpectedActiveLeafID: mo.Some("abandoned"), DestinationID: mo.Some("destination"),
 		BranchSummary: mo.Some(sessiontree.BranchSummaryDraft{
 			Summary: "generated", FirstEntryID: "abandoned", LastEntryID: "abandoned",
@@ -88,10 +88,10 @@ func TestCommitNavigationBuildsAndPersistsOneValidatedSummaryMutation(t *testing
 
 	// Assert the summary becomes the published active leaf only after persistence succeeds.
 	require.NoError(t, err)
-	assert.Equal(t, mo.Some("summary-entry"), committed.ActiveLeafID())
+	assert.Equal(t, mo.Some("summary-entry"), committed.Tree.ActiveLeafID())
 	assert.Equal(t, mo.Some("summary-entry"), service.Tree().ActiveLeafID())
-	require.Len(t, committed.ActiveBranch(), 3)
-	assert.Equal(t, "summary-entry", committed.ActiveBranch()[2].ID)
+	require.Len(t, committed.Tree.ActiveBranch(), 3)
+	assert.Equal(t, "summary-entry", committed.Tree.ActiveBranch()[2].ID)
 }
 
 // TestCommitNavigationKeepsUsageAndCostAbsentWhenProviderUsageIsAbsent verifies missing accounting stays missing.
@@ -119,7 +119,7 @@ func TestCommitNavigationKeepsUsageAndCostAbsentWhenProviderUsageIsAbsent(t *tes
 	)
 
 	// Act by committing a generated summary without usage.
-	_, err := service.CommitNavigation(t.Context(), sessiontree.CommitCommand{
+	_, err := commitNavigationForTest(t, service, t.Context(), sessiontree.CommitCommand{
 		ExpectedActiveLeafID: mo.Some("abandoned"), DestinationID: mo.Some("destination"),
 		BranchSummary: mo.Some(sessiontree.BranchSummaryDraft{
 			Summary:          "generated",

@@ -243,16 +243,16 @@ func (m *MockNavigator) EXPECT() *MockNavigatorMockRecorder {
 }
 
 // NavigateTree mocks base method.
-func (m *MockNavigator) NavigateTree(arg0 context.Context, arg1 sessionnavigation.Request) (sessionnavigation.Result, error) {
+func (m *MockNavigator) NavigateTree(arg0 context.Context, arg1 sessionnavigation.Request, arg2 func(sessionnavigation.Progress) error) (sessionnavigation.Result, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NavigateTree", arg0, arg1)
+	ret := m.ctrl.Call(m, "NavigateTree", arg0, arg1, arg2)
 	ret0, _ := ret[0].(sessionnavigation.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NavigateTree indicates an expected call of NavigateTree.
-func (mr *MockNavigatorMockRecorder) NavigateTree(arg0, arg1 any) *gomock.Call {
+func (mr *MockNavigatorMockRecorder) NavigateTree(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NavigateTree", reflect.TypeOf((*MockNavigator)(nil).NavigateTree), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NavigateTree", reflect.TypeOf((*MockNavigator)(nil).NavigateTree), arg0, arg1, arg2)
 }

@@ -88,7 +88,7 @@ func (s *Service) open(stream OpenStream) error {
 	defer cancelConnection(context.Canceled)
 	registry := newTargetRegistry()
 	writer := operation.NewWriter(stream.Send)
-	var owner *operation.Owner[AgentEvent, Response]
+	var owner *operation.Owner[OperationProgress, Response]
 	delivery := &streamDelivery{
 		context:  connectionContext,
 		writer:   writer,
@@ -252,7 +252,7 @@ type localClosingState struct {
 func (s *Service) receive(
 	ctx context.Context,
 	stream OpenStream,
-	owner *operation.Owner[AgentEvent, Response],
+	owner *operation.Owner[OperationProgress, Response],
 	delivery *streamDelivery,
 	registry *targetRegistry,
 	closing *localClosingState,
@@ -289,7 +289,7 @@ func (s *Service) receive(
 			}
 			return mapErr
 		}
-		err = owner.Start(command.OperationID, func() (operation.Prepared[AgentEvent, Response], error) {
+		err = owner.Start(command.OperationID, func() (operation.Prepared[OperationProgress, Response], error) {
 			prepared, prepareErr := s.session.Prepare(ctx, command)
 			if prepareErr != nil {
 				return nil, prepareErr
@@ -323,7 +323,7 @@ func (s *Service) receive(
 // prepareCancellation validates and starts one controller-owned cancellation operation.
 func (s *Service) prepareCancellation(
 	request *programmaticv1.OpenRequest,
-	owner *operation.Owner[AgentEvent, Response],
+	owner *operation.Owner[OperationProgress, Response],
 	delivery *streamDelivery,
 	registry *targetRegistry,
 ) error {
@@ -338,7 +338,7 @@ func (s *Service) prepareCancellation(
 		)
 	}
 	targetID := cancelRequest.GetTargetOperationId()
-	err := owner.Start(operationID, func() (operation.Prepared[AgentEvent, Response], error) {
+	err := owner.Start(operationID, func() (operation.Prepared[OperationProgress, Response], error) {
 		target, active := registry.active(targetID)
 		if !active {
 			return nil, Reject(

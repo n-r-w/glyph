@@ -390,7 +390,9 @@ const (
 	FrameSessionInformation
 	// FrameSessionTree carries a complete tree query result.
 	FrameSessionTree
-	// FrameSessionTreeNavigation carries committed or canceled navigation.
+	// FrameSessionTreeNavigationProgress carries committed navigation state before observers.
+	FrameSessionTreeNavigationProgress
+	// FrameSessionTreeNavigation carries committed or canceled navigation metadata.
 	FrameSessionTreeNavigation
 	// FrameSessionForked carries a durable fork replacement and exact next input.
 	FrameSessionForked
@@ -430,6 +432,8 @@ type Frame struct {
 	SessionStatistics mo.Option[session.Statistics]
 	// SessionTree is present only on a complete tree frame.
 	SessionTree mo.Option[SessionTree]
+	// TreeNavigationProgress is present only on a navigation progress frame.
+	TreeNavigationProgress mo.Option[TreeNavigationProgress]
 	// TreeNavigation is present only on a navigation result frame.
 	TreeNavigation mo.Option[TreeNavigationResult]
 }

@@ -46,7 +46,7 @@ func TestCommitExtensionSummaryPreservesSource(t *testing.T) {
 	)
 
 	// Act by atomically committing the extension result with navigation.
-	tree, err := service.CommitNavigation(t.Context(), sessiontree.CommitCommand{
+	tree, err := commitNavigationForTest(t, service, t.Context(), sessiontree.CommitCommand{
 		ExpectedActiveLeafID: mo.Some("abandoned"), DestinationID: mo.Some("destination"),
 		BranchSummary: mo.Some(sessiontree.BranchSummaryDraft{
 			Summary: "extension context", FirstEntryID: "abandoned", LastEntryID: "abandoned",
@@ -56,7 +56,7 @@ func TestCommitExtensionSummaryPreservesSource(t *testing.T) {
 
 	// Assert the persisted result becomes the active leaf.
 	require.NoError(t, err)
-	assert.Equal(t, mo.Some("summary"), tree.ActiveLeafID())
+	assert.Equal(t, mo.Some("summary"), tree.Tree.ActiveLeafID())
 }
 
 // TestExtensionSummaryKeepsModelTotalsComplete verifies non-model work does not make accounting incomplete.

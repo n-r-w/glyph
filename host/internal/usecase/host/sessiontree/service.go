@@ -58,6 +58,7 @@ func (s *Service) BindContextIssuer(contexts ContextIssuer) { s.contexts = conte
 func (s *Service) NavigateTree(
 	ctx context.Context,
 	request sessionnavigation.Request,
+	publisher func(sessionnavigation.Progress) error,
 ) (sessionnavigation.Result, error) {
 	if err := ctx.Err(); err != nil {
 		return sessionnavigation.Result{}, err
@@ -115,19 +116,31 @@ func (s *Service) NavigateTree(
 	if contextErr := ctx.Err(); contextErr != nil {
 		return sessionnavigation.Result{}, contextErr
 	}
-	committed, err := s.active.CommitNavigation(ctx, CommitCommand{
+	commit, err := s.active.CommitNavigation(ctx, CommitCommand{
 		ExpectedActiveLeafID: expectedActiveLeafID,
 		DestinationID:        preparation.DestinationID,
 		BranchSummary:        summary,
-	})
-	if err != nil {
+	}, publisher)
+	if err != nil && !commit.Committed {
 		return sessionnavigation.Result{}, err
 	}
+	if err != nil {
+		issues = append(issues, sessionnavigation.OperationIssue{
+			Code:        sessionnavigation.OperationIssueDeliveryFailed,
+			ExtensionID: "",
+			HandlerID:   "",
+			Message:     err.Error(),
+		})
+	}
 
-	issues = s.runObservers(ctx, current, committed, summary.IsSome(), issues)
+	issues = s.runObservers(ctx, current, commit.Tree, commit.CreatedSummary.IsSome(), issues)
 	return sessionnavigation.Result{
-		Canceled: false, Tree: committed, ActiveLeafID: committed.ActiveLeafID(),
-		ActiveBranch: committed.ActiveBranch(), NextInput: preparation.NextInput, Issues: issues,
+		Canceled:       false,
+		DestinationID:  preparation.DestinationID,
+		ActiveLeafID:   commit.Tree.ActiveLeafID(),
+		CreatedSummary: commit.CreatedSummary,
+		NextInput:      preparation.NextInput,
+		Issues:         issues,
 	}, nil
 }
 
@@ -170,8 +183,12 @@ func (s *Service) runAvailableResultHandlers(
 // canceledResult creates a state-free cancellation outcome with preceding issues.
 func canceledResult(issues []sessionnavigation.OperationIssue) sessionnavigation.Result {
 	return sessionnavigation.Result{
-		Canceled: true, Tree: session.Tree{}, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
-		NextInput: mo.None[string](), Issues: issues,
+		Canceled:       true,
+		DestinationID:  mo.None[string](),
+		ActiveLeafID:   mo.None[string](),
+		CreatedSummary: mo.None[session.Entry](),
+		NextInput:      mo.None[string](),
+		Issues:         issues,
 	}
 }
 

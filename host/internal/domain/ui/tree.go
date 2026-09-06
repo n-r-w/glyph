@@ -44,6 +44,8 @@ const (
 	OperationIssueInvalidHandlerAction
 	// OperationIssueObserverError reports a failed post-commit observer.
 	OperationIssueObserverError
+	// OperationIssueDeliveryFailed reports failed publication after commit.
+	OperationIssueDeliveryFailed
 )
 
 // OperationIssue reports one safe ordered handler or observer issue.
@@ -68,14 +70,24 @@ type TreeNavigationResult struct {
 	Issues []OperationIssue
 }
 
-// TreeNavigationCommitted contains exact state published after navigation.
+// TreeNavigationCommitted contains terminal metadata for one navigation commit.
 type TreeNavigationCommitted struct {
+	// DestinationID identifies the navigation destination.
+	DestinationID mo.Option[string]
+	// ActiveLeafID identifies the navigation commit's active leaf.
+	ActiveLeafID mo.Option[string]
+	// CreatedSummary contains the created summary entry when present.
+	CreatedSummary mo.Option[SessionTreeEntry]
+	// NextInput contains exact editable user input when present.
+	NextInput mo.Option[string]
+}
+
+// TreeNavigationProgress contains committed state published before observers.
+type TreeNavigationProgress struct {
 	// Tree is the complete committed tree.
 	Tree SessionTree
 	// ActiveBranch contains the committed public transcript.
 	ActiveBranch []SessionEntry
-	// NextInput contains exact editable user input when present.
-	NextInput mo.Option[string]
 }
 
 // SessionTree contains every public tree entry and optional active leaf.

@@ -106,10 +106,10 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 						}),
 					},
 				}),
-			}).Return(tree, nil)
+			}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: tree, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 			// Act by navigating to the earlier user message with summarization enabled.
-			_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+			_, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 				TargetEntryID: "user", SummaryMode: test.mode, CustomFocus: test.focus,
 			})
 
@@ -147,7 +147,7 @@ func TestNavigateSerializationFailureDoesNotRequestModelOrCommit(t *testing.T) {
 	models.EXPECT().ActiveSelection().Return(selection)
 
 	// Act by navigating with built-in summarization.
-	_, err = service.NavigateTree(t.Context(), sessionnavigation.Request{
+	_, err = navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
 	})
@@ -176,7 +176,7 @@ func TestNavigateRejectsInvalidSummaryResponseWithoutCommit(t *testing.T) {
 	)
 
 	// Act with built-in summarization.
-	_, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+	_, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 		TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
 	})

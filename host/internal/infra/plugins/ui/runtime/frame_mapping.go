@@ -21,6 +21,19 @@ import (
 //
 //nolint:gocyclo // The closed frame union requires one explicit mapping for each public payload.
 func mapFrame(frame domainui.Frame) (*uiv1.OpenRequest, error) {
+	if frame.Kind == domainui.FrameSessionTreeNavigationProgress {
+		progress, present := frame.TreeNavigationProgress.Get()
+		if !present {
+			return nil, errors.New("map UI tree navigation progress: payload is required")
+		}
+		mapped, err := mapTreeNavigationProgress(progress)
+		if err != nil {
+			return nil, err
+		}
+		payload := new(uiv1.HostProgress)
+		payload.SetSessionTreeNavigation(mapped)
+		return progressRequest(payload), nil
+	}
 	if completed, handled, err := mapTreeFrame(frame); handled {
 		return completedRequest(completed), err
 	}
@@ -92,7 +105,8 @@ func mapFrame(frame domainui.Frame) (*uiv1.OpenRequest, error) {
 		completed.SetModelSelection(uiv1.ModelSelectionChanged_builder{Selection: mapModelSelection(selection)}.Build())
 		return completedRequest(completed), nil
 	case domainui.FrameSessionList, domainui.FrameSessionChanged, domainui.FrameSessionInformation,
-		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation, domainui.FrameSessionForked,
+		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigationProgress,
+		domainui.FrameSessionTreeNavigation, domainui.FrameSessionForked,
 		domainui.FrameSessionCloned, domainui.FrameEntryLabelSet:
 		return nil, errors.New("map UI frame: completed payload was not mapped")
 	default:
@@ -152,7 +166,8 @@ func mapSessionFrame(frame domainui.Frame) (*uiv1.HostCompleted, bool, error) {
 		return request, true, nil
 	case domainui.FrameInitialization, domainui.FrameLifecycle, domainui.FrameAuthorization,
 		domainui.FrameInformation, domainui.FrameError, domainui.FrameModelSelectionChanged,
-		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigation,
+		domainui.FrameSessionTree, domainui.FrameSessionTreeNavigationProgress,
+		domainui.FrameSessionTreeNavigation,
 		domainui.FrameEntryLabelSet, domainui.FrameSubmitCompleted, domainui.FrameAuthenticationCompleted:
 		return nil, false, nil
 	default:

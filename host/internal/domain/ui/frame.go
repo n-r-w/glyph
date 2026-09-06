@@ -13,6 +13,7 @@ func NewFrame(kind FrameKind) Frame {
 		AuthorizationURL: mo.None[string](), Text: mo.None[string](), ErrorCode: mo.None[string](),
 		ModelSelection: mo.None[ModelSelection](), SessionInfo: mo.None[session.Info](), Sessions: nil,
 		SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[SessionTree](),
-		TreeNavigation: mo.None[TreeNavigationResult](),
+		TreeNavigationProgress: mo.None[TreeNavigationProgress](),
+		TreeNavigation:         mo.None[TreeNavigationResult](),
 	}
 }

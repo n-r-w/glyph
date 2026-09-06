@@ -15,7 +15,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
@@ -98,10 +97,15 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 			tree := grpcNavigationTree(t)
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
+			publisher := func(sessionnavigation.Progress) error { return nil }
 			if mode != summaryControlClearMode {
 				active.EXPECT().
-					CommitNavigation(gomock.Any(), gomock.Any()).
-					DoAndReturn(func(_ context.Context, command sessiontree.CommitCommand) (session.Tree, error) {
+					CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).
+					DoAndReturn(func(
+						_ context.Context,
+						command sessiontree.CommitCommand,
+						_ func(sessionnavigation.Progress) error,
+					) (sessiontree.NavigationCommit, error) {
 						assert.Equal(
 							t,
 							mo.Some(summaryControlProducer),
@@ -110,7 +114,9 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 						committed := tree.Clone()
 						require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 						require.NoError(t, committed.Add(grpcSummaryEntry()))
-						return committed, nil
+						return sessiontree.NavigationCommit{
+							Committed: true, Tree: committed, CreatedSummary: mo.Some(grpcSummaryEntry()),
+						}, nil
 					})
 			}
 
@@ -119,7 +125,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				TargetEntryID: "user",
 				SummaryMode:   sessionnavigation.SummaryModeSummarize,
 				CustomFocus:   mo.None[string](),
-			})
+			}, publisher)
 
 			// Assert replacement avoids credential checks, while clearing performs one check before any commit.
 			if mode == summaryControlClearMode {

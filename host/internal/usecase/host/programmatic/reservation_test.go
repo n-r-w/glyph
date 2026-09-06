@@ -68,7 +68,7 @@ func (s *ServiceSuite) TestSessionMutationOwnsGate() {
 				return
 			}
 			s.Require().NoError(err)
-			var reporter operation.Reporter[controller.AgentEvent]
+			var reporter operation.Reporter[controller.OperationProgress]
 			outcome := prepared.Run(s.T().Context(), reporter)
 			prepared.Release()
 

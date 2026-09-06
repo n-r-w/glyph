@@ -143,10 +143,10 @@ func TestControllerHalfCloseCancelsAndJoinsOwnedWork(t *testing.T) {
 	// Arrange work that exits only after connection closure cancels it.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	prepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	joined := make(chan struct{})
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+		func(ctx context.Context, _ operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 			<-ctx.Done()
 			close(joined)
 			return operation.Canceled[Response]()
@@ -206,10 +206,10 @@ func TestHostClosureRejectsLateRequestAndJoinsOwnedWork(t *testing.T) {
 	// Arrange work that records when Host-requested closure has joined it.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	prepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	joined := make(chan struct{})
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+		func(ctx context.Context, _ operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 			<-ctx.Done()
 			close(joined)
 			return operation.Canceled[Response]()

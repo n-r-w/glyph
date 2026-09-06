@@ -990,6 +990,15 @@ func (x *HostProgress) GetAuthorization() *AuthorizationRequest {
 	return nil
 }
 
+func (x *HostProgress) GetSessionTreeNavigation() *SessionTreeNavigationProgress {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Progress.(*hostProgress_SessionTreeNavigation); ok {
+			return x.SessionTreeNavigation
+		}
+	}
+	return nil
+}
+
 func (x *HostProgress) SetAgentEvent(v *AgentEvent) {
 	if v == nil {
 		x.xxx_hidden_Progress = nil
@@ -1004,6 +1013,14 @@ func (x *HostProgress) SetAuthorization(v *AuthorizationRequest) {
 		return
 	}
 	x.xxx_hidden_Progress = &hostProgress_Authorization{v}
+}
+
+func (x *HostProgress) SetSessionTreeNavigation(v *SessionTreeNavigationProgress) {
+	if v == nil {
+		x.xxx_hidden_Progress = nil
+		return
+	}
+	x.xxx_hidden_Progress = &hostProgress_SessionTreeNavigation{v}
 }
 
 func (x *HostProgress) HasProgress() bool {
@@ -1029,6 +1046,14 @@ func (x *HostProgress) HasAuthorization() bool {
 	return ok
 }
 
+func (x *HostProgress) HasSessionTreeNavigation() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Progress.(*hostProgress_SessionTreeNavigation)
+	return ok
+}
+
 func (x *HostProgress) ClearProgress() {
 	x.xxx_hidden_Progress = nil
 }
@@ -1045,9 +1070,16 @@ func (x *HostProgress) ClearAuthorization() {
 	}
 }
 
+func (x *HostProgress) ClearSessionTreeNavigation() {
+	if _, ok := x.xxx_hidden_Progress.(*hostProgress_SessionTreeNavigation); ok {
+		x.xxx_hidden_Progress = nil
+	}
+}
+
 const HostProgress_Progress_not_set_case case_HostProgress_Progress = 0
 const HostProgress_AgentEvent_case case_HostProgress_Progress = 1
 const HostProgress_Authorization_case case_HostProgress_Progress = 2
+const HostProgress_SessionTreeNavigation_case case_HostProgress_Progress = 3
 
 func (x *HostProgress) WhichProgress() case_HostProgress_Progress {
 	if x == nil {
@@ -1058,6 +1090,8 @@ func (x *HostProgress) WhichProgress() case_HostProgress_Progress {
 		return HostProgress_AgentEvent_case
 	case *hostProgress_Authorization:
 		return HostProgress_Authorization_case
+	case *hostProgress_SessionTreeNavigation:
+		return HostProgress_SessionTreeNavigation_case
 	default:
 		return HostProgress_Progress_not_set_case
 	}
@@ -1069,8 +1103,9 @@ type HostProgress_builder struct {
 	// The progress payload.
 
 	// Fields of oneof xxx_hidden_Progress:
-	AgentEvent    *AgentEvent
-	Authorization *AuthorizationRequest
+	AgentEvent            *AgentEvent
+	Authorization         *AuthorizationRequest
+	SessionTreeNavigation *SessionTreeNavigationProgress
 	// -- end of xxx_hidden_Progress
 }
 
@@ -1083,6 +1118,9 @@ func (b0 HostProgress_builder) Build() *HostProgress {
 	}
 	if b.Authorization != nil {
 		x.xxx_hidden_Progress = &hostProgress_Authorization{b.Authorization}
+	}
+	if b.SessionTreeNavigation != nil {
+		x.xxx_hidden_Progress = &hostProgress_SessionTreeNavigation{b.SessionTreeNavigation}
 	}
 	return m0
 }
@@ -1109,9 +1147,15 @@ type hostProgress_Authorization struct {
 	Authorization *AuthorizationRequest `protobuf:"bytes,2,opt,name=authorization,oneof"`
 }
 
+type hostProgress_SessionTreeNavigation struct {
+	SessionTreeNavigation *SessionTreeNavigationProgress `protobuf:"bytes,3,opt,name=session_tree_navigation,json=sessionTreeNavigation,oneof"`
+}
+
 func (*hostProgress_AgentEvent) isHostProgress_Progress() {}
 
 func (*hostProgress_Authorization) isHostProgress_Progress() {}
+
+func (*hostProgress_SessionTreeNavigation) isHostProgress_Progress() {}
 
 // HostCompleted carries one operation-specific completed payload.
 type HostCompleted struct {
@@ -4265,11 +4309,12 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\bcanceled\x18\x05 \x01(\v2\x1c.glyph.operation.v1.CanceledH\x00R\bcanceled\x124\n" +
 	"\x06failed\x18\x06 \x01(\v2\x1a.glyph.operation.v1.FailedH\x00R\x06failed\x12:\n" +
 	"\brejected\x18\a \x01(\v2\x1c.glyph.operation.v1.RejectedH\x00R\brejectedB\a\n" +
-	"\x05event\"\xb1\x01\n" +
+	"\x05event\"\x9f\x02\n" +
 	"\fHostProgress\x12B\n" +
 	"\vagent_event\x18\x01 \x01(\v2\x1f.glyph.plugins.ui.v1.AgentEventH\x00R\n" +
 	"agentEvent\x12Q\n" +
-	"\rauthorization\x18\x02 \x01(\v2).glyph.plugins.ui.v1.AuthorizationRequestH\x00R\rauthorizationB\n" +
+	"\rauthorization\x18\x02 \x01(\v2).glyph.plugins.ui.v1.AuthorizationRequestH\x00R\rauthorization\x12l\n" +
+	"\x17session_tree_navigation\x18\x03 \x01(\v22.glyph.plugins.ui.v1.SessionTreeNavigationProgressH\x00R\x15sessionTreeNavigationB\n" +
 	"\n" +
 	"\bprogress\"\xde\a\n" +
 	"\rHostCompleted\x12=\n" +
@@ -4364,63 +4409,64 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 var file_api_plugins_ui_v1_ui_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_api_plugins_ui_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_api_plugins_ui_v1_ui_proto_goTypes = []any{
-	(ContentSeverity)(0),                 // 0: glyph.plugins.ui.v1.ContentSeverity
-	(*OpenRequest)(nil),                  // 1: glyph.plugins.ui.v1.OpenRequest
-	(*HostRequest)(nil),                  // 2: glyph.plugins.ui.v1.HostRequest
-	(*HostEvent)(nil),                    // 3: glyph.plugins.ui.v1.HostEvent
-	(*HostProgress)(nil),                 // 4: glyph.plugins.ui.v1.HostProgress
-	(*HostCompleted)(nil),                // 5: glyph.plugins.ui.v1.HostCompleted
-	(*SubmitCompleted)(nil),              // 6: glyph.plugins.ui.v1.SubmitCompleted
-	(*Initialization)(nil),               // 7: glyph.plugins.ui.v1.Initialization
-	(*StartupContent)(nil),               // 8: glyph.plugins.ui.v1.StartupContent
-	(*Information)(nil),                  // 9: glyph.plugins.ui.v1.Information
-	(*HostConnectionEvent)(nil),          // 10: glyph.plugins.ui.v1.HostConnectionEvent
-	(*Error)(nil),                        // 11: glyph.plugins.ui.v1.Error
-	(*AvailabilityChanged)(nil),          // 12: glyph.plugins.ui.v1.AvailabilityChanged
-	(*OpenResponse)(nil),                 // 13: glyph.plugins.ui.v1.OpenResponse
-	(*UIRequest)(nil),                    // 14: glyph.plugins.ui.v1.UIRequest
-	(*UIEvent)(nil),                      // 15: glyph.plugins.ui.v1.UIEvent
-	(*UICompleted)(nil),                  // 16: glyph.plugins.ui.v1.UICompleted
-	(*Initialized)(nil),                  // 17: glyph.plugins.ui.v1.Initialized
-	(*SubmitCommand)(nil),                // 18: glyph.plugins.ui.v1.SubmitCommand
-	(*v1.CloseConnection)(nil),           // 19: glyph.operation.v1.CloseConnection
-	(*v1.CancelOperation)(nil),           // 20: glyph.operation.v1.CancelOperation
-	(*v1.Accepted)(nil),                  // 21: glyph.operation.v1.Accepted
-	(*v1.Running)(nil),                   // 22: glyph.operation.v1.Running
-	(*v1.Canceled)(nil),                  // 23: glyph.operation.v1.Canceled
-	(*v1.Failed)(nil),                    // 24: glyph.operation.v1.Failed
-	(*v1.Rejected)(nil),                  // 25: glyph.operation.v1.Rejected
-	(*AgentEvent)(nil),                   // 26: glyph.plugins.ui.v1.AgentEvent
-	(*AuthorizationRequest)(nil),         // 27: glyph.plugins.ui.v1.AuthorizationRequest
-	(*v1.CancelCompleted)(nil),           // 28: glyph.operation.v1.CancelCompleted
-	(*AuthenticationCompleted)(nil),      // 29: glyph.plugins.ui.v1.AuthenticationCompleted
-	(*ModelSelectionChanged)(nil),        // 30: glyph.plugins.ui.v1.ModelSelectionChanged
-	(*SessionChanged)(nil),               // 31: glyph.plugins.ui.v1.SessionChanged
-	(*SessionList)(nil),                  // 32: glyph.plugins.ui.v1.SessionList
-	(*SessionInformation)(nil),           // 33: glyph.plugins.ui.v1.SessionInformation
-	(*SessionTreeResult)(nil),            // 34: glyph.plugins.ui.v1.SessionTreeResult
-	(*SessionTreeNavigationResult)(nil),  // 35: glyph.plugins.ui.v1.SessionTreeNavigationResult
-	(*SessionForked)(nil),                // 36: glyph.plugins.ui.v1.SessionForked
-	(*SessionCloned)(nil),                // 37: glyph.plugins.ui.v1.SessionCloned
-	(*EntryLabelSet)(nil),                // 38: glyph.plugins.ui.v1.EntryLabelSet
-	(*ExtensionAvailability)(nil),        // 39: glyph.plugins.ui.v1.ExtensionAvailability
-	(Availability)(0),                    // 40: glyph.plugins.ui.v1.Availability
-	(*ConfiguredModel)(nil),              // 41: glyph.plugins.ui.v1.ConfiguredModel
-	(*ModelSelection)(nil),               // 42: glyph.plugins.ui.v1.ModelSelection
-	(*SessionInfo)(nil),                  // 43: glyph.plugins.ui.v1.SessionInfo
-	(*RetryAuthenticationCommand)(nil),   // 44: glyph.plugins.ui.v1.RetryAuthenticationCommand
-	(*SelectModelCommand)(nil),           // 45: glyph.plugins.ui.v1.SelectModelCommand
-	(*SelectReasoningChoiceCommand)(nil), // 46: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
-	(*CreateSessionCommand)(nil),         // 47: glyph.plugins.ui.v1.CreateSessionCommand
-	(*ListSessionsCommand)(nil),          // 48: glyph.plugins.ui.v1.ListSessionsCommand
-	(*ResumeSessionCommand)(nil),         // 49: glyph.plugins.ui.v1.ResumeSessionCommand
-	(*SetSessionNameCommand)(nil),        // 50: glyph.plugins.ui.v1.SetSessionNameCommand
-	(*GetSessionInfoCommand)(nil),        // 51: glyph.plugins.ui.v1.GetSessionInfoCommand
-	(*GetSessionTreeCommand)(nil),        // 52: glyph.plugins.ui.v1.GetSessionTreeCommand
-	(*NavigateSessionTreeCommand)(nil),   // 53: glyph.plugins.ui.v1.NavigateSessionTreeCommand
-	(*ForkSessionCommand)(nil),           // 54: glyph.plugins.ui.v1.ForkSessionCommand
-	(*CloneSessionCommand)(nil),          // 55: glyph.plugins.ui.v1.CloneSessionCommand
-	(*SetEntryLabelCommand)(nil),         // 56: glyph.plugins.ui.v1.SetEntryLabelCommand
+	(ContentSeverity)(0),                  // 0: glyph.plugins.ui.v1.ContentSeverity
+	(*OpenRequest)(nil),                   // 1: glyph.plugins.ui.v1.OpenRequest
+	(*HostRequest)(nil),                   // 2: glyph.plugins.ui.v1.HostRequest
+	(*HostEvent)(nil),                     // 3: glyph.plugins.ui.v1.HostEvent
+	(*HostProgress)(nil),                  // 4: glyph.plugins.ui.v1.HostProgress
+	(*HostCompleted)(nil),                 // 5: glyph.plugins.ui.v1.HostCompleted
+	(*SubmitCompleted)(nil),               // 6: glyph.plugins.ui.v1.SubmitCompleted
+	(*Initialization)(nil),                // 7: glyph.plugins.ui.v1.Initialization
+	(*StartupContent)(nil),                // 8: glyph.plugins.ui.v1.StartupContent
+	(*Information)(nil),                   // 9: glyph.plugins.ui.v1.Information
+	(*HostConnectionEvent)(nil),           // 10: glyph.plugins.ui.v1.HostConnectionEvent
+	(*Error)(nil),                         // 11: glyph.plugins.ui.v1.Error
+	(*AvailabilityChanged)(nil),           // 12: glyph.plugins.ui.v1.AvailabilityChanged
+	(*OpenResponse)(nil),                  // 13: glyph.plugins.ui.v1.OpenResponse
+	(*UIRequest)(nil),                     // 14: glyph.plugins.ui.v1.UIRequest
+	(*UIEvent)(nil),                       // 15: glyph.plugins.ui.v1.UIEvent
+	(*UICompleted)(nil),                   // 16: glyph.plugins.ui.v1.UICompleted
+	(*Initialized)(nil),                   // 17: glyph.plugins.ui.v1.Initialized
+	(*SubmitCommand)(nil),                 // 18: glyph.plugins.ui.v1.SubmitCommand
+	(*v1.CloseConnection)(nil),            // 19: glyph.operation.v1.CloseConnection
+	(*v1.CancelOperation)(nil),            // 20: glyph.operation.v1.CancelOperation
+	(*v1.Accepted)(nil),                   // 21: glyph.operation.v1.Accepted
+	(*v1.Running)(nil),                    // 22: glyph.operation.v1.Running
+	(*v1.Canceled)(nil),                   // 23: glyph.operation.v1.Canceled
+	(*v1.Failed)(nil),                     // 24: glyph.operation.v1.Failed
+	(*v1.Rejected)(nil),                   // 25: glyph.operation.v1.Rejected
+	(*AgentEvent)(nil),                    // 26: glyph.plugins.ui.v1.AgentEvent
+	(*AuthorizationRequest)(nil),          // 27: glyph.plugins.ui.v1.AuthorizationRequest
+	(*SessionTreeNavigationProgress)(nil), // 28: glyph.plugins.ui.v1.SessionTreeNavigationProgress
+	(*v1.CancelCompleted)(nil),            // 29: glyph.operation.v1.CancelCompleted
+	(*AuthenticationCompleted)(nil),       // 30: glyph.plugins.ui.v1.AuthenticationCompleted
+	(*ModelSelectionChanged)(nil),         // 31: glyph.plugins.ui.v1.ModelSelectionChanged
+	(*SessionChanged)(nil),                // 32: glyph.plugins.ui.v1.SessionChanged
+	(*SessionList)(nil),                   // 33: glyph.plugins.ui.v1.SessionList
+	(*SessionInformation)(nil),            // 34: glyph.plugins.ui.v1.SessionInformation
+	(*SessionTreeResult)(nil),             // 35: glyph.plugins.ui.v1.SessionTreeResult
+	(*SessionTreeNavigationResult)(nil),   // 36: glyph.plugins.ui.v1.SessionTreeNavigationResult
+	(*SessionForked)(nil),                 // 37: glyph.plugins.ui.v1.SessionForked
+	(*SessionCloned)(nil),                 // 38: glyph.plugins.ui.v1.SessionCloned
+	(*EntryLabelSet)(nil),                 // 39: glyph.plugins.ui.v1.EntryLabelSet
+	(*ExtensionAvailability)(nil),         // 40: glyph.plugins.ui.v1.ExtensionAvailability
+	(Availability)(0),                     // 41: glyph.plugins.ui.v1.Availability
+	(*ConfiguredModel)(nil),               // 42: glyph.plugins.ui.v1.ConfiguredModel
+	(*ModelSelection)(nil),                // 43: glyph.plugins.ui.v1.ModelSelection
+	(*SessionInfo)(nil),                   // 44: glyph.plugins.ui.v1.SessionInfo
+	(*RetryAuthenticationCommand)(nil),    // 45: glyph.plugins.ui.v1.RetryAuthenticationCommand
+	(*SelectModelCommand)(nil),            // 46: glyph.plugins.ui.v1.SelectModelCommand
+	(*SelectReasoningChoiceCommand)(nil),  // 47: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	(*CreateSessionCommand)(nil),          // 48: glyph.plugins.ui.v1.CreateSessionCommand
+	(*ListSessionsCommand)(nil),           // 49: glyph.plugins.ui.v1.ListSessionsCommand
+	(*ResumeSessionCommand)(nil),          // 50: glyph.plugins.ui.v1.ResumeSessionCommand
+	(*SetSessionNameCommand)(nil),         // 51: glyph.plugins.ui.v1.SetSessionNameCommand
+	(*GetSessionInfoCommand)(nil),         // 52: glyph.plugins.ui.v1.GetSessionInfoCommand
+	(*GetSessionTreeCommand)(nil),         // 53: glyph.plugins.ui.v1.GetSessionTreeCommand
+	(*NavigateSessionTreeCommand)(nil),    // 54: glyph.plugins.ui.v1.NavigateSessionTreeCommand
+	(*ForkSessionCommand)(nil),            // 55: glyph.plugins.ui.v1.ForkSessionCommand
+	(*CloneSessionCommand)(nil),           // 56: glyph.plugins.ui.v1.CloneSessionCommand
+	(*SetEntryLabelCommand)(nil),          // 57: glyph.plugins.ui.v1.SetEntryLabelCommand
 }
 var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	2,  // 0: glyph.plugins.ui.v1.OpenRequest.request:type_name -> glyph.plugins.ui.v1.HostRequest
@@ -4438,62 +4484,63 @@ var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	25, // 12: glyph.plugins.ui.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
 	26, // 13: glyph.plugins.ui.v1.HostProgress.agent_event:type_name -> glyph.plugins.ui.v1.AgentEvent
 	27, // 14: glyph.plugins.ui.v1.HostProgress.authorization:type_name -> glyph.plugins.ui.v1.AuthorizationRequest
-	28, // 15: glyph.plugins.ui.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	6,  // 16: glyph.plugins.ui.v1.HostCompleted.submit:type_name -> glyph.plugins.ui.v1.SubmitCompleted
-	29, // 17: glyph.plugins.ui.v1.HostCompleted.authentication:type_name -> glyph.plugins.ui.v1.AuthenticationCompleted
-	30, // 18: glyph.plugins.ui.v1.HostCompleted.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
-	31, // 19: glyph.plugins.ui.v1.HostCompleted.session_changed:type_name -> glyph.plugins.ui.v1.SessionChanged
-	32, // 20: glyph.plugins.ui.v1.HostCompleted.session_list:type_name -> glyph.plugins.ui.v1.SessionList
-	33, // 21: glyph.plugins.ui.v1.HostCompleted.session_information:type_name -> glyph.plugins.ui.v1.SessionInformation
-	34, // 22: glyph.plugins.ui.v1.HostCompleted.session_tree:type_name -> glyph.plugins.ui.v1.SessionTreeResult
-	35, // 23: glyph.plugins.ui.v1.HostCompleted.session_tree_navigation:type_name -> glyph.plugins.ui.v1.SessionTreeNavigationResult
-	36, // 24: glyph.plugins.ui.v1.HostCompleted.session_forked:type_name -> glyph.plugins.ui.v1.SessionForked
-	37, // 25: glyph.plugins.ui.v1.HostCompleted.session_cloned:type_name -> glyph.plugins.ui.v1.SessionCloned
-	38, // 26: glyph.plugins.ui.v1.HostCompleted.entry_label_set:type_name -> glyph.plugins.ui.v1.EntryLabelSet
-	8,  // 27: glyph.plugins.ui.v1.Initialization.startup_content:type_name -> glyph.plugins.ui.v1.StartupContent
-	39, // 28: glyph.plugins.ui.v1.Initialization.extensions:type_name -> glyph.plugins.ui.v1.ExtensionAvailability
-	40, // 29: glyph.plugins.ui.v1.Initialization.availability:type_name -> glyph.plugins.ui.v1.Availability
-	41, // 30: glyph.plugins.ui.v1.Initialization.models:type_name -> glyph.plugins.ui.v1.ConfiguredModel
-	42, // 31: glyph.plugins.ui.v1.Initialization.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelection
-	43, // 32: glyph.plugins.ui.v1.Initialization.session_info:type_name -> glyph.plugins.ui.v1.SessionInfo
-	0,  // 33: glyph.plugins.ui.v1.StartupContent.severity:type_name -> glyph.plugins.ui.v1.ContentSeverity
-	9,  // 34: glyph.plugins.ui.v1.HostConnectionEvent.information:type_name -> glyph.plugins.ui.v1.Information
-	11, // 35: glyph.plugins.ui.v1.HostConnectionEvent.error:type_name -> glyph.plugins.ui.v1.Error
-	12, // 36: glyph.plugins.ui.v1.HostConnectionEvent.availability_changed:type_name -> glyph.plugins.ui.v1.AvailabilityChanged
-	40, // 37: glyph.plugins.ui.v1.AvailabilityChanged.availability:type_name -> glyph.plugins.ui.v1.Availability
-	14, // 38: glyph.plugins.ui.v1.OpenResponse.request:type_name -> glyph.plugins.ui.v1.UIRequest
-	15, // 39: glyph.plugins.ui.v1.OpenResponse.event:type_name -> glyph.plugins.ui.v1.UIEvent
-	19, // 40: glyph.plugins.ui.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
-	18, // 41: glyph.plugins.ui.v1.UIRequest.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
-	20, // 42: glyph.plugins.ui.v1.UIRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
-	44, // 43: glyph.plugins.ui.v1.UIRequest.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
-	45, // 44: glyph.plugins.ui.v1.UIRequest.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
-	46, // 45: glyph.plugins.ui.v1.UIRequest.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
-	47, // 46: glyph.plugins.ui.v1.UIRequest.create_session:type_name -> glyph.plugins.ui.v1.CreateSessionCommand
-	48, // 47: glyph.plugins.ui.v1.UIRequest.list_sessions:type_name -> glyph.plugins.ui.v1.ListSessionsCommand
-	49, // 48: glyph.plugins.ui.v1.UIRequest.resume_session:type_name -> glyph.plugins.ui.v1.ResumeSessionCommand
-	50, // 49: glyph.plugins.ui.v1.UIRequest.set_session_name:type_name -> glyph.plugins.ui.v1.SetSessionNameCommand
-	51, // 50: glyph.plugins.ui.v1.UIRequest.get_session_info:type_name -> glyph.plugins.ui.v1.GetSessionInfoCommand
-	52, // 51: glyph.plugins.ui.v1.UIRequest.get_session_tree:type_name -> glyph.plugins.ui.v1.GetSessionTreeCommand
-	53, // 52: glyph.plugins.ui.v1.UIRequest.navigate_session_tree:type_name -> glyph.plugins.ui.v1.NavigateSessionTreeCommand
-	54, // 53: glyph.plugins.ui.v1.UIRequest.fork_session:type_name -> glyph.plugins.ui.v1.ForkSessionCommand
-	55, // 54: glyph.plugins.ui.v1.UIRequest.clone_session:type_name -> glyph.plugins.ui.v1.CloneSessionCommand
-	56, // 55: glyph.plugins.ui.v1.UIRequest.set_entry_label:type_name -> glyph.plugins.ui.v1.SetEntryLabelCommand
-	21, // 56: glyph.plugins.ui.v1.UIEvent.accepted:type_name -> glyph.operation.v1.Accepted
-	22, // 57: glyph.plugins.ui.v1.UIEvent.running:type_name -> glyph.operation.v1.Running
-	16, // 58: glyph.plugins.ui.v1.UIEvent.completed:type_name -> glyph.plugins.ui.v1.UICompleted
-	23, // 59: glyph.plugins.ui.v1.UIEvent.canceled:type_name -> glyph.operation.v1.Canceled
-	24, // 60: glyph.plugins.ui.v1.UIEvent.failed:type_name -> glyph.operation.v1.Failed
-	25, // 61: glyph.plugins.ui.v1.UIEvent.rejected:type_name -> glyph.operation.v1.Rejected
-	17, // 62: glyph.plugins.ui.v1.UICompleted.initialized:type_name -> glyph.plugins.ui.v1.Initialized
-	28, // 63: glyph.plugins.ui.v1.UICompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	1,  // 64: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
-	13, // 65: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
-	65, // [65:66] is the sub-list for method output_type
-	64, // [64:65] is the sub-list for method input_type
-	64, // [64:64] is the sub-list for extension type_name
-	64, // [64:64] is the sub-list for extension extendee
-	0,  // [0:64] is the sub-list for field type_name
+	28, // 15: glyph.plugins.ui.v1.HostProgress.session_tree_navigation:type_name -> glyph.plugins.ui.v1.SessionTreeNavigationProgress
+	29, // 16: glyph.plugins.ui.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	6,  // 17: glyph.plugins.ui.v1.HostCompleted.submit:type_name -> glyph.plugins.ui.v1.SubmitCompleted
+	30, // 18: glyph.plugins.ui.v1.HostCompleted.authentication:type_name -> glyph.plugins.ui.v1.AuthenticationCompleted
+	31, // 19: glyph.plugins.ui.v1.HostCompleted.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
+	32, // 20: glyph.plugins.ui.v1.HostCompleted.session_changed:type_name -> glyph.plugins.ui.v1.SessionChanged
+	33, // 21: glyph.plugins.ui.v1.HostCompleted.session_list:type_name -> glyph.plugins.ui.v1.SessionList
+	34, // 22: glyph.plugins.ui.v1.HostCompleted.session_information:type_name -> glyph.plugins.ui.v1.SessionInformation
+	35, // 23: glyph.plugins.ui.v1.HostCompleted.session_tree:type_name -> glyph.plugins.ui.v1.SessionTreeResult
+	36, // 24: glyph.plugins.ui.v1.HostCompleted.session_tree_navigation:type_name -> glyph.plugins.ui.v1.SessionTreeNavigationResult
+	37, // 25: glyph.plugins.ui.v1.HostCompleted.session_forked:type_name -> glyph.plugins.ui.v1.SessionForked
+	38, // 26: glyph.plugins.ui.v1.HostCompleted.session_cloned:type_name -> glyph.plugins.ui.v1.SessionCloned
+	39, // 27: glyph.plugins.ui.v1.HostCompleted.entry_label_set:type_name -> glyph.plugins.ui.v1.EntryLabelSet
+	8,  // 28: glyph.plugins.ui.v1.Initialization.startup_content:type_name -> glyph.plugins.ui.v1.StartupContent
+	40, // 29: glyph.plugins.ui.v1.Initialization.extensions:type_name -> glyph.plugins.ui.v1.ExtensionAvailability
+	41, // 30: glyph.plugins.ui.v1.Initialization.availability:type_name -> glyph.plugins.ui.v1.Availability
+	42, // 31: glyph.plugins.ui.v1.Initialization.models:type_name -> glyph.plugins.ui.v1.ConfiguredModel
+	43, // 32: glyph.plugins.ui.v1.Initialization.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelection
+	44, // 33: glyph.plugins.ui.v1.Initialization.session_info:type_name -> glyph.plugins.ui.v1.SessionInfo
+	0,  // 34: glyph.plugins.ui.v1.StartupContent.severity:type_name -> glyph.plugins.ui.v1.ContentSeverity
+	9,  // 35: glyph.plugins.ui.v1.HostConnectionEvent.information:type_name -> glyph.plugins.ui.v1.Information
+	11, // 36: glyph.plugins.ui.v1.HostConnectionEvent.error:type_name -> glyph.plugins.ui.v1.Error
+	12, // 37: glyph.plugins.ui.v1.HostConnectionEvent.availability_changed:type_name -> glyph.plugins.ui.v1.AvailabilityChanged
+	41, // 38: glyph.plugins.ui.v1.AvailabilityChanged.availability:type_name -> glyph.plugins.ui.v1.Availability
+	14, // 39: glyph.plugins.ui.v1.OpenResponse.request:type_name -> glyph.plugins.ui.v1.UIRequest
+	15, // 40: glyph.plugins.ui.v1.OpenResponse.event:type_name -> glyph.plugins.ui.v1.UIEvent
+	19, // 41: glyph.plugins.ui.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
+	18, // 42: glyph.plugins.ui.v1.UIRequest.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
+	20, // 43: glyph.plugins.ui.v1.UIRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
+	45, // 44: glyph.plugins.ui.v1.UIRequest.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
+	46, // 45: glyph.plugins.ui.v1.UIRequest.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
+	47, // 46: glyph.plugins.ui.v1.UIRequest.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	48, // 47: glyph.plugins.ui.v1.UIRequest.create_session:type_name -> glyph.plugins.ui.v1.CreateSessionCommand
+	49, // 48: glyph.plugins.ui.v1.UIRequest.list_sessions:type_name -> glyph.plugins.ui.v1.ListSessionsCommand
+	50, // 49: glyph.plugins.ui.v1.UIRequest.resume_session:type_name -> glyph.plugins.ui.v1.ResumeSessionCommand
+	51, // 50: glyph.plugins.ui.v1.UIRequest.set_session_name:type_name -> glyph.plugins.ui.v1.SetSessionNameCommand
+	52, // 51: glyph.plugins.ui.v1.UIRequest.get_session_info:type_name -> glyph.plugins.ui.v1.GetSessionInfoCommand
+	53, // 52: glyph.plugins.ui.v1.UIRequest.get_session_tree:type_name -> glyph.plugins.ui.v1.GetSessionTreeCommand
+	54, // 53: glyph.plugins.ui.v1.UIRequest.navigate_session_tree:type_name -> glyph.plugins.ui.v1.NavigateSessionTreeCommand
+	55, // 54: glyph.plugins.ui.v1.UIRequest.fork_session:type_name -> glyph.plugins.ui.v1.ForkSessionCommand
+	56, // 55: glyph.plugins.ui.v1.UIRequest.clone_session:type_name -> glyph.plugins.ui.v1.CloneSessionCommand
+	57, // 56: glyph.plugins.ui.v1.UIRequest.set_entry_label:type_name -> glyph.plugins.ui.v1.SetEntryLabelCommand
+	21, // 57: glyph.plugins.ui.v1.UIEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	22, // 58: glyph.plugins.ui.v1.UIEvent.running:type_name -> glyph.operation.v1.Running
+	16, // 59: glyph.plugins.ui.v1.UIEvent.completed:type_name -> glyph.plugins.ui.v1.UICompleted
+	23, // 60: glyph.plugins.ui.v1.UIEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	24, // 61: glyph.plugins.ui.v1.UIEvent.failed:type_name -> glyph.operation.v1.Failed
+	25, // 62: glyph.plugins.ui.v1.UIEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	17, // 63: glyph.plugins.ui.v1.UICompleted.initialized:type_name -> glyph.plugins.ui.v1.Initialized
+	29, // 64: glyph.plugins.ui.v1.UICompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	1,  // 65: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
+	13, // 66: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
+	66, // [66:67] is the sub-list for method output_type
+	65, // [65:66] is the sub-list for method input_type
+	65, // [65:65] is the sub-list for extension type_name
+	65, // [65:65] is the sub-list for extension extendee
+	0,  // [0:65] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_ui_proto_init() }
@@ -4526,6 +4573,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 	file_api_plugins_ui_v1_ui_proto_msgTypes[3].OneofWrappers = []any{
 		(*hostProgress_AgentEvent)(nil),
 		(*hostProgress_Authorization)(nil),
+		(*hostProgress_SessionTreeNavigation)(nil),
 	}
 	file_api_plugins_ui_v1_ui_proto_msgTypes[4].OneofWrappers = []any{
 		(*hostCompleted_Cancel)(nil),

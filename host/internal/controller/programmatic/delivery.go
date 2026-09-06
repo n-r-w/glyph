@@ -26,7 +26,7 @@ type streamDelivery struct {
 	fail func(error)
 }
 
-var _ operation.Delivery[AgentEvent, Response] = (*streamDelivery)(nil)
+var _ operation.Delivery[OperationProgress, Response] = (*streamDelivery)(nil)
 
 // Accepted queues operation acceptance and returns its delivery acknowledgement.
 func (d *streamDelivery) Accepted(id string) (*operation.Acknowledgement, error) {
@@ -43,13 +43,23 @@ func (d *streamDelivery) Running(id string) error {
 }
 
 // Progress maps and queues one agent-run progress event.
-func (d *streamDelivery) Progress(id string, progress AgentEvent) error {
-	mapped, err := mapEvent(progress)
-	if err != nil {
-		return d.failed(fmt.Errorf("map Programmatic progress: %w", err))
-	}
+func (d *streamDelivery) Progress(id string, progress OperationProgress) error {
 	payload := new(programmaticv1.HostProgress)
-	payload.SetAgentEvent(mapped)
+	if agentEvent, present := progress.AgentEvent.Get(); present {
+		mapped, err := mapEvent(agentEvent)
+		if err != nil {
+			return d.failed(fmt.Errorf("map Programmatic progress: %w", err))
+		}
+		payload.SetAgentEvent(mapped)
+	} else if navigation, navigationPresent := progress.TreeNavigation.Get(); navigationPresent {
+		mapped, err := mapTreeNavigationProgress(navigation)
+		if err != nil {
+			return d.failed(fmt.Errorf("map Programmatic navigation progress: %w", err))
+		}
+		payload.SetSessionTreeNavigation(mapped)
+	} else {
+		return d.failed(errors.New("map Programmatic progress: payload is required"))
+	}
 	event := new(programmaticv1.HostEvent)
 	event.SetProgress(payload)
 	return d.enqueue(id, event)

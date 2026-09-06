@@ -123,7 +123,7 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 	)
 	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)
-	outcome := prepared.Run(t.Context(), operation.Reporter[programmaticcontroller.AgentEvent]{})
+	outcome := prepared.Run(t.Context(), operation.Reporter[programmaticcontroller.OperationProgress]{})
 	prepared.Release()
 
 	// Assert busy is a preparation rejection and admitted work commits only in Run.

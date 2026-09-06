@@ -6,6 +6,8 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/samber/mo"
+
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/internal/operation"
 )
@@ -14,7 +16,7 @@ import (
 func (s *Service) Prepare(
 	ctx context.Context,
 	command controller.Command,
-) (operation.Prepared[controller.AgentEvent, controller.Response], error) {
+) (operation.Prepared[controller.OperationProgress, controller.Response], error) {
 	_, rejection, err := s.preflight(command)
 	if err != nil {
 		return nil, err
@@ -59,14 +61,25 @@ type commandPrepared struct {
 	release func()
 }
 
-var _ operation.Prepared[controller.AgentEvent, controller.Response] = (*commandPrepared)(nil)
+var _ operation.Prepared[controller.OperationProgress, controller.Response] = (*commandPrepared)(nil)
 
 // Run executes one admitted non-agent operation.
 func (p *commandPrepared) Run(
 	ctx context.Context,
-	_ operation.Reporter[controller.AgentEvent],
+	reporter operation.Reporter[controller.OperationProgress],
 ) operation.Outcome[controller.Response] {
-	response, active, err := p.service.handle(ctx, p.command)
+	var response controller.Response
+	var active *activeRun
+	var err error
+	if p.command.Kind == controller.CommandNavigateSessionTree {
+		response, err = p.service.navigateSessionTree(
+			ctx,
+			p.command,
+			programmaticNavigationCallback(reporter),
+		)
+	} else {
+		response, active, err = p.service.handle(ctx, p.command)
+	}
 	if err != nil {
 		if isOperationCancellation(ctx, err) {
 			return operation.Canceled[controller.Response]()
@@ -104,18 +117,21 @@ type runPrepared struct {
 	release sync.Once
 }
 
-var _ operation.Prepared[controller.AgentEvent, controller.Response] = (*runPrepared)(nil)
+var _ operation.Prepared[controller.OperationProgress, controller.Response] = (*runPrepared)(nil)
 
 // Run starts Agent Core after Running and reports progress until settlement finishes.
 func (p *runPrepared) Run(
 	ctx context.Context,
-	reporter operation.Reporter[controller.AgentEvent],
+	reporter operation.Reporter[controller.OperationProgress],
 ) operation.Outcome[controller.Response] {
 	stop := context.AfterFunc(ctx, p.active.cancel)
 	defer stop()
 	p.active.Start()
 	for event := range p.active.Events() {
-		if err := reporter.Report(event); err != nil {
+		if err := reporter.Report(controller.OperationProgress{
+			AgentEvent:     mo.Some(event),
+			TreeNavigation: mo.None[controller.TreeNavigationProgress](),
+		}); err != nil {
 			return operation.Failed[controller.Response](controller.FailureCodeInternal, err)
 		}
 	}

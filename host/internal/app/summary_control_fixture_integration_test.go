@@ -4,6 +4,7 @@ package app
 
 import (
 	"fmt"
+	"os"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -21,6 +22,8 @@ const (
 	summaryControlInvalidMode = "control-invalid"
 	// summaryControlCancelMode cancels from a result handler before persistence.
 	summaryControlCancelMode = "control-cancel"
+	// summaryControlBlockedMode blocks the post-commit observer on a client-controlled pipe.
+	summaryControlBlockedMode = "control-blocked"
 	// summaryControlProducer identifies the explicit source, not the forwarding handler.
 	summaryControlProducer = "cooperating-producer"
 	// summaryRequestCause is the nested ordinary request-handler failure.
@@ -166,6 +169,11 @@ func (operation *handlerFixtureHandleOperation) runSummaryControlHandler() (*ext
 		if invocation.GetCreatedSummary().GetSummary() != "refined" ||
 			invocation.GetCommittedActiveLeafId() != invocation.GetCreatedSummary().GetEntryId() {
 			return nil, fmt.Errorf("observer did not receive the committed summary")
+		}
+		if operation.fixture.mode == summaryControlBlockedMode {
+			if _, err := os.ReadFile(operation.fixture.observerPath); err != nil {
+				return nil, fmt.Errorf("wait for navigation progress release: %w", err)
+			}
 		}
 		wire := new(extensionpb.HandleResponse)
 		wire.SetSessionTree(new(extensionpb.SessionTreeAction))

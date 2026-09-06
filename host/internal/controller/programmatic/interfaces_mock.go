@@ -43,10 +43,10 @@ func (m *MockHostSession) EXPECT() *MockHostSessionMockRecorder {
 }
 
 // Prepare mocks base method.
-func (m *MockHostSession) Prepare(ctx context.Context, command Command) (operation.Prepared[AgentEvent, Response], error) {
+func (m *MockHostSession) Prepare(ctx context.Context, command Command) (operation.Prepared[OperationProgress, Response], error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Prepare", ctx, command)
-	ret0, _ := ret[0].(operation.Prepared[AgentEvent, Response])
+	ret0, _ := ret[0].(operation.Prepared[OperationProgress, Response])
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -3,7 +3,9 @@
 package app
 
 import (
+	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 	"time"
 
@@ -94,17 +96,19 @@ func TestProgrammaticBranchSummaryControl(t *testing.T) {
 			var committed *programmaticv1.SessionTree
 			for _, operationID := range []string{"navigate-first", "navigate-again"} {
 				// Act twice to prove ordinary failures leave the real extension active.
-				result := sendProgrammaticOperation(t, fixture, operationID, func(request *programmaticv1.OpenRequest) {
-					programmaticRequest(request).SetNavigateSessionTree(programmaticv1.NavigateSessionTree_builder{
-						TargetEntryId: new(
-							"user",
-						),
-						SummaryMode: new(programmaticv1.SummaryMode_SUMMARY_MODE_SUMMARIZE),
-						CustomFocus: nil,
-					}.Build())
-				}).GetSessionTreeNavigation()
+				completed, progressEvents := sendProgrammaticOperationWithProgress(
+					t, fixture, operationID, func(request *programmaticv1.OpenRequest) {
+						programmaticRequest(request).SetNavigateSessionTree(programmaticv1.NavigateSessionTree_builder{
+							TargetEntryId: new(
+								"user",
+							),
+							SummaryMode: new(programmaticv1.SummaryMode_SUMMARY_MODE_SUMMARIZE),
+							CustomFocus: nil,
+						}.Build())
+					}, nil)
+				result := completed.GetSessionTreeNavigation()
 
-				// Assert all causes reach the wire and post-error state still commits.
+				// Assert progress precedes completion and post-error state still commits.
 				require.NotNil(t, result)
 				require.Equal(
 					t,
@@ -127,11 +131,15 @@ func TestProgrammaticBranchSummaryControl(t *testing.T) {
 					}
 					assert.Equal(t, code, issue.GetCode())
 				}
-				committed = result.GetTree()
+				require.Len(t, progressEvents, 1)
+				committed = progressEvents[0].GetSessionTreeNavigation().GetTree()
 				entries := committed.GetEntries()
 				last := entries[len(entries)-1]
 				assert.Equal(t, last.GetId(), committed.GetActiveLeafId())
-				assertProgrammaticSummarySource(t, last.GetBranchSummary(), mode)
+				assert.Equal(t, "root", result.GetDestinationId())
+				assert.Equal(t, last.GetId(), result.GetActiveLeafId())
+				assert.True(t, proto.Equal(last, result.GetCreatedSummary()))
+				assertProgrammaticSummarySource(t, result.GetCreatedSummary().GetBranchSummary(), mode)
 			}
 			fixture.closeOwner(t)
 			restarted := startProgrammaticFixtureWithExtension(t, paths, directory)
@@ -148,6 +156,58 @@ func TestProgrammaticBranchSummaryControl(t *testing.T) {
 			restarted.closeOwner(t)
 		})
 	}
+}
+
+// TestProgrammaticNavigationProgressReleasesBlockedObserver verifies progress crosses the real controller contract
+// before an observer finishes.
+func TestProgrammaticNavigationProgressReleasesBlockedObserver(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a real Programmatic connection and extension observer blocked on a named pipe.
+	paths := testPaths(t, summaryControlSettings)
+	seedSummaryControlSession(t, paths)
+	directory := t.TempDir()
+	gate := filepath.Join(t.TempDir(), "observer-gate")
+	require.NoError(t, syscall.Mkfifo(gate, 0o600))
+	writeHandlerFixtureScript(t, directory, "control", summaryControlBlockedMode, gate)
+	fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
+	t.Cleanup(fixture.cancel)
+	sendProgrammaticOperation(t, fixture, "resume", func(request *programmaticv1.OpenRequest) {
+		programmaticRequest(request).SetResumeSession(
+			programmaticv1.ResumeSession_builder{SessionId: new("source")}.Build(),
+		)
+	})
+	var releaseErr error
+
+	// Act by releasing the observer only from the typed navigation progress callback.
+	completed, progressEvents := sendProgrammaticOperationWithProgress(
+		t,
+		fixture,
+		"navigate-blocked",
+		func(request *programmaticv1.OpenRequest) {
+			programmaticRequest(request).SetNavigateSessionTree(programmaticv1.NavigateSessionTree_builder{
+				TargetEntryId: new("user"),
+				SummaryMode:   new(programmaticv1.SummaryMode_SUMMARY_MODE_SUMMARIZE),
+				CustomFocus:   nil,
+			}.Build())
+		},
+		func(progress *programmaticv1.HostProgress) {
+			if progress.HasSessionTreeNavigation() {
+				releaseErr = os.WriteFile(gate, []byte("release"), 0o600)
+			}
+		},
+	)
+
+	// Assert progress was observable while the observer was blocked, then terminal metadata completed.
+	require.NoError(t, releaseErr)
+	require.Len(t, progressEvents, 1)
+	progress := progressEvents[0].GetSessionTreeNavigation()
+	require.NotNil(t, progress.GetTree())
+	terminal := completed.GetSessionTreeNavigation()
+	require.NotNil(t, terminal)
+	require.Equal(t, progress.GetTree().GetActiveLeafId(), terminal.GetActiveLeafId())
+	require.NotNil(t, terminal.GetCreatedSummary().GetBranchSummary())
+	fixture.closeOwner(t)
 }
 
 // assertProgrammaticSummarySource checks attribution and accounting through the headless contract.

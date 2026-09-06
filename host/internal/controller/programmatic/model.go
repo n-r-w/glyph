@@ -235,6 +235,14 @@ const (
 	AgentEventAgentEnd
 )
 
+// OperationProgress contains exactly one typed operation progress payload.
+type OperationProgress struct {
+	// AgentEvent contains Agent Core lifecycle progress when present.
+	AgentEvent mo.Option[AgentEvent]
+	// TreeNavigation contains committed navigation state when present.
+	TreeNavigation mo.Option[TreeNavigationProgress]
+}
+
 // AgentEvent is one progress event from an active user operation.
 type AgentEvent struct {
 	// OperationID identifies the active user operation.

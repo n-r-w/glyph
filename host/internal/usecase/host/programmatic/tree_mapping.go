@@ -76,18 +76,39 @@ func mapSessionTreeEntry(entry session.Entry, label string) (controller.SessionT
 	return mapped, nil
 }
 
-// mapTreeNavigationCommitted projects committed navigation snapshots for Programmatic Control.
-func mapTreeNavigationCommitted(result sessionnavigation.Result) (controller.TreeNavigationCommitted, error) {
-	tree, err := mapSessionTree(result.Tree)
+// mapTreeNavigationProgress projects committed navigation state for Programmatic progress.
+func mapTreeNavigationProgress(progress sessionnavigation.Progress) (controller.TreeNavigationProgress, error) {
+	tree, err := mapSessionTree(progress.Tree)
 	if err != nil {
-		return controller.TreeNavigationCommitted{}, err
+		return controller.TreeNavigationProgress{}, err
 	}
-	activeBranch, err := mapSessionEntries(result.ActiveBranch)
+	activeBranch, err := mapSessionEntries(progress.ActiveBranch)
 	if err != nil {
-		return controller.TreeNavigationCommitted{}, fmt.Errorf("map active branch: %w", err)
+		return controller.TreeNavigationProgress{}, fmt.Errorf("map active branch: %w", err)
+	}
+	return controller.TreeNavigationProgress{Tree: tree, ActiveBranch: activeBranch}, nil
+}
+
+// mapTreeNavigationCommitted projects terminal commit metadata for Programmatic Control.
+func mapTreeNavigationCommitted(result sessionnavigation.Result) (controller.TreeNavigationCommitted, error) {
+	createdSummary := mo.None[controller.SessionTreeEntry]()
+	if entry, present := result.CreatedSummary.Get(); present {
+		mapped, err := mapSessionTreeEntry(entry, "")
+		if err != nil {
+			return controller.TreeNavigationCommitted{}, fmt.Errorf("map created branch summary: %w", err)
+		}
+		if mapped.BranchSummary.IsNone() {
+			return controller.TreeNavigationCommitted{}, errors.New(
+				"map created branch summary: summary payload is required",
+			)
+		}
+		createdSummary = mo.Some(mapped)
 	}
 	return controller.TreeNavigationCommitted{
-		Tree: tree, ActiveBranch: activeBranch, NextInput: result.NextInput,
+		DestinationID:  result.DestinationID,
+		ActiveLeafID:   result.ActiveLeafID,
+		CreatedSummary: createdSummary,
+		NextInput:      result.NextInput,
 	}, nil
 }
 

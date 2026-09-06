@@ -50,15 +50,21 @@ func TestReadySummaryUsesActualSource(t *testing.T) {
 					Summary: "ready", Source: source,
 				}),
 			}, nil)
-			active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(_ context.Context, command CommitCommand) (session.Tree, error) {
+			active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(
+					_ context.Context,
+					command CommitCommand,
+					_ func(sessionnavigation.Progress) error,
+				) (NavigationCommit, error) {
 					assert.Equal(t, source, command.BranchSummary.OrEmpty().Source)
-					return tree, nil
+					return NavigationCommit{
+						Committed: true, Tree: tree, CreatedSummary: mo.None[session.Entry](),
+					}, nil
 				},
 			)
 
 			// Act with no availability, credential, or model-request expectation.
-			result, err := service.NavigateTree(t.Context(), sessionnavigation.Request{
+			result, err := navigateTreeForTest(t, service, t.Context(), sessionnavigation.Request{
 				TargetEntryID: "user",
 				SummaryMode:   sessionnavigation.SummaryModeSummarize,
 				CustomFocus:   mo.None[string](),

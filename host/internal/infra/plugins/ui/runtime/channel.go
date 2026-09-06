@@ -99,7 +99,7 @@ func (c *channel) reportDeliveryFailure(err error) {
 
 // isOperationProgress reports whether one frame belongs to a running operation.
 func isOperationProgress(frame domainui.Frame) bool {
-	if frame.Kind == domainui.FrameAuthorization {
+	if frame.Kind == domainui.FrameAuthorization || frame.Kind == domainui.FrameSessionTreeNavigationProgress {
 		return true
 	}
 	if frame.Kind != domainui.FrameLifecycle {

@@ -17,8 +17,20 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
+
+// commitNavigationForTest commits with an accepting client publisher.
+func commitNavigationForTest(
+	t *testing.T,
+	service *Service,
+	ctx context.Context,
+	command sessiontree.CommitCommand,
+) (sessiontree.NavigationCommit, error) {
+	t.Helper()
+	return service.CommitNavigation(ctx, command, func(sessionnavigation.Progress) error { return nil })
+}
 
 // TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination verifies atomic branch-preserving
 // navigation.
@@ -56,9 +68,9 @@ func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(
 	clock.EXPECT().Now().Return(createdAt.Add(3 * time.Second))
 
 	// Act by navigating and then appending the next user entry.
-	committed, err := service.CommitNavigation(t.Context(), navigationCommit("abandoned", "destination"))
+	committed, err := commitNavigationForTest(t, service, t.Context(), navigationCommit("abandoned", "destination"))
 	require.NoError(t, err)
-	require.Equal(t, mo.Some("destination"), committed.ActiveLeafID())
+	require.Equal(t, mo.Some("destination"), committed.Tree.ActiveLeafID())
 	err = service.Append(t.Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("continued")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
@@ -66,13 +78,79 @@ func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(
 
 	// Assert navigation commits first, continuation advances from it, and the abandoned branch remains stored.
 	require.NoError(t, err)
-	assert.Equal(t, mo.Some("destination"), committed.ActiveLeafID())
+	assert.Equal(t, mo.Some("destination"), committed.Tree.ActiveLeafID())
 	assert.Equal(t, mo.Some("continuation"), service.Tree().ActiveLeafID())
 	assert.Equal(
 		t,
 		[]string{"root", "destination", "abandoned", "continuation"},
 		treeBehaviorEntryIDs(service.Tree().Entries()),
 	)
+}
+
+// TestCommitNavigationEnqueuesSnapshotInsidePublicationBoundary verifies persistence, state, and enqueue ordering.
+func TestCommitNavigationEnqueuesSnapshotInsidePublicationBoundary(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a navigation commit and a publisher that inspects the session lock and committed snapshot.
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	createdAt := time.Unix(1, 0).UTC()
+	service := New(repository, nil, nil, nil, "/project")
+	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(
+		ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil,
+	)
+	published := false
+	publisher := func(progress sessionnavigation.Progress) error {
+		published = true
+		if service.mutex.TryRLock() {
+			service.mutex.RUnlock()
+			t.Error("navigation publication ran outside the session commit boundary")
+		}
+		assert.Equal(t, mo.Some("destination"), progress.Tree.ActiveLeafID())
+		assert.Equal(t, []string{"root", "destination"}, treeBehaviorEntryIDs(progress.ActiveBranch))
+		return nil
+	}
+
+	// Act by committing through the state owner with an operation progress publisher.
+	commit, err := service.CommitNavigation(
+		t.Context(), navigationCommit("abandoned", "destination"), publisher,
+	)
+
+	// Assert the committed snapshot was enqueued before the owner released its publication boundary.
+	require.NoError(t, err)
+	assert.True(t, published)
+	assert.True(t, commit.Committed)
+	assert.Equal(t, mo.Some("destination"), commit.Tree.ActiveLeafID())
+}
+
+// TestCommitNavigationPublicationFailureRetainsCommittedState verifies enqueue failure cannot roll back persistence.
+func TestCommitNavigationPublicationFailureRetainsCommittedState(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a durable navigation whose client progress enqueue fails.
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	createdAt := time.Unix(1, 0).UTC()
+	service := New(repository, nil, nil, nil, "/project")
+	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(
+		ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil,
+	)
+	deliveryErr := errors.New("ordered writer queue is closed")
+
+	publisher := func(sessionnavigation.Progress) error { return deliveryErr }
+
+	// Act by committing with a publisher that cannot enqueue progress.
+	commit, err := service.CommitNavigation(
+		t.Context(), navigationCommit("abandoned", "destination"), publisher,
+	)
+
+	// Assert the caller receives the delivery cause with the committed snapshot still available.
+	require.ErrorIs(t, err, deliveryErr)
+	assert.True(t, commit.Committed)
+	assert.Equal(t, mo.Some("destination"), commit.Tree.ActiveLeafID())
+	assert.Equal(t, mo.Some("destination"), service.Tree().ActiveLeafID())
 }
 
 // TestCommitNavigationRejectsChangedActiveLeafWithoutPersistence verifies optimistic leaf comparison precedes storage.
@@ -89,7 +167,7 @@ func TestCommitNavigationRejectsChangedActiveLeafWithoutPersistence(t *testing.T
 	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
 
 	// Act with a stale expected active leaf.
-	_, err := service.CommitNavigation(t.Context(), navigationCommit("destination", "root"))
+	_, err := commitNavigationForTest(t, service, t.Context(), navigationCommit("destination", "root"))
 
 	// Assert no repository call occurs and the preceding active leaf remains published.
 	require.Error(t, err)
@@ -112,7 +190,7 @@ func TestCommitNavigationCancellationWritesNothing(t *testing.T) {
 	cancel()
 
 	// Act after cancellation.
-	_, err := service.CommitNavigation(ctx, navigationCommit("abandoned", "destination"))
+	_, err := commitNavigationForTest(t, service, ctx, navigationCommit("abandoned", "destination"))
 
 	// Assert cancellation is returned and the active leaf is unchanged.
 	require.ErrorIs(t, err, context.Canceled)
@@ -151,7 +229,7 @@ func TestExtensionStateIsCoherentDuringNavigation(t *testing.T) {
 	)
 	navigationDone := make(chan error, 1)
 	go func() {
-		_, navigationErr := service.CommitNavigation(
+		_, navigationErr := commitNavigationForTest(t, service,
 			t.Context(), navigationCommit("checkpoint", "destination"),
 		)
 		navigationDone <- navigationErr
@@ -198,7 +276,7 @@ func TestCommitNavigationPersistenceFailurePreservesPublishedTree(t *testing.T) 
 	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(ApplyResult{}, errors.New("sync failed"))
 
 	// Act by committing navigation.
-	_, err := service.CommitNavigation(t.Context(), navigationCommit("abandoned", "destination"))
+	_, err := commitNavigationForTest(t, service, t.Context(), navigationCommit("abandoned", "destination"))
 
 	// Assert persistence failure preserves the preceding active leaf and all entries.
 	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)

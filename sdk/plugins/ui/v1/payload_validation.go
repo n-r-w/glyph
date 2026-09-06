@@ -19,6 +19,17 @@ func validateHostProgressFields(progress *uiv1.HostProgress) error {
 		}
 		return nil
 	}
+	if navigation := progress.GetSessionTreeNavigation(); navigation != nil {
+		if err := validateSessionTree(navigation.GetTree()); err != nil {
+			return fmt.Errorf("Host navigation progress tree is invalid: %w", err)
+		}
+		for index, entry := range navigation.GetActiveBranch() {
+			if err := validateSessionEntry(entry); err != nil {
+				return fmt.Errorf("Host navigation progress entry %d is invalid: %w", index, err)
+			}
+		}
+		return nil
+	}
 	event := progress.GetAgentEvent()
 	if event == nil {
 		return errors.New("Host agent event is required")
@@ -387,12 +398,12 @@ func validateNavigation(result *uiv1.SessionTreeNavigationResult) error {
 	}
 	switch result.GetStatus() {
 	case uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED:
-		if err := validateSessionTree(result.GetTree()); err != nil {
-			return err
-		}
-		for index, entry := range result.GetActiveBranch() {
-			if err := validateSessionEntry(entry); err != nil {
-				return fmt.Errorf("Host navigation active branch entry %d: %w", index, err)
+		if createdSummary := result.GetCreatedSummary(); createdSummary != nil {
+			if err := validateSessionTreeEntry(createdSummary); err != nil {
+				return fmt.Errorf("Host navigation created summary is invalid: %w", err)
+			}
+			if createdSummary.WhichEntry() != uiv1.SessionTreeEntry_BranchSummary_case {
+				return errors.New("Host navigation created summary must contain branch summary content")
 			}
 		}
 	case uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_CANCELED:

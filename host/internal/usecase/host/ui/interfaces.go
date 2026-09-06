@@ -76,7 +76,11 @@ type SessionControl interface {
 	// Tree returns the complete active-session tree snapshot.
 	Tree() session.Tree
 	// Navigate commits one tree navigation with optional built-in summarization.
-	Navigate(context.Context, sessionnavigation.Request) (sessionnavigation.Result, error)
+	Navigate(
+		context.Context,
+		sessionnavigation.Request,
+		func(sessionnavigation.Progress) error,
+	) (sessionnavigation.Result, error)
 	// Fork creates and activates a replacement before one user message.
 	Fork(context.Context, string) (session.Replacement, string, error)
 	// Clone creates and activates a copy of the complete active branch.

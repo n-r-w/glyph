@@ -67,8 +67,9 @@ func (s *Service) SetLabel(ctx context.Context, targetID, label string) (session
 func (s *Service) Navigate(
 	ctx context.Context,
 	request sessionnavigation.Request,
+	publisher func(sessionnavigation.Progress) error,
 ) (sessionnavigation.Result, error) {
-	return s.navigator.NavigateTree(ctx, request)
+	return s.navigator.NavigateTree(ctx, request, publisher)
 }
 
 // SetName updates the active session under the caller-owned reservation.

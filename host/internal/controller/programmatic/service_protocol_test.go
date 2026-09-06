@@ -50,7 +50,7 @@ func TestReceiveFailureJoinsBlockedWriter(t *testing.T) {
 			// Arrange an Accepted send that remains blocked when Recv fails.
 			controller := gomock.NewController(t)
 			host := NewMockHostSession(controller)
-			prepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+			prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 			prepared.EXPECT().Release()
 			host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
 			stream := NewMockOpenStream(controller)
@@ -108,11 +108,11 @@ func TestBlockedOperationDoesNotBlockLaterRequest(t *testing.T) {
 	// Arrange one blocked operation followed by a snapshot query.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	blocked := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
-	query := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	blocked := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
+	query := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	releaseRun := make(chan struct{})
 	blocked.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(context.Context, operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+		func(context.Context, operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 			<-releaseRun
 			return operation.Completed(testResponse(ResponseUserRequestCompleted))
 		},
@@ -123,7 +123,7 @@ func TestBlockedOperationDoesNotBlockLaterRequest(t *testing.T) {
 	query.EXPECT().Run(gomock.Any(), gomock.Any()).Return(operation.Completed(queryResult))
 	query.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, command Command) (operation.Prepared[AgentEvent, Response], error) {
+		func(_ context.Context, command Command) (operation.Prepared[OperationProgress, Response], error) {
 			if command.OperationID == "blocked" {
 				return blocked, nil
 			}
@@ -215,19 +215,19 @@ func TestInvalidSessionMutationPayloadsStayBeforeAcceptance(t *testing.T) {
 			// Arrange one valid request after the invalid request on the same stream.
 			controller := gomock.NewController(t)
 			host := NewMockHostSession(controller)
-			validPrepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+			validPrepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 			validPrepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
 				operation.Completed(testResponse(ResponseUserRequestCompleted)),
 			).AnyTimes()
 			validPrepared.EXPECT().Release().AnyTimes()
-			invalidPrepared := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+			invalidPrepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 			invalidPrepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
 				operation.Failed[Response]("INTERNAL", errors.New("invalid payload reached preparation")),
 			).AnyTimes()
 			invalidPrepared.EXPECT().Release().AnyTimes()
 			prepareCalls := 0
 			host.EXPECT().Prepare(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(_ context.Context, command Command) (operation.Prepared[AgentEvent, Response], error) {
+				func(_ context.Context, command Command) (operation.Prepared[OperationProgress, Response], error) {
 					prepareCalls++
 					if command.OperationID == "invalid" {
 						return invalidPrepared, nil
@@ -298,11 +298,11 @@ func TestMalformedDuplicateAndFailedOperationsKeepStreamOpen(t *testing.T) {
 	// Arrange one active operation, one duplicate, one malformed request, and one failed operation.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
-	active := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
-	failed := operationmock.NewMockOperationPrepared[AgentEvent, Response](controller)
+	active := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
+	failed := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	releaseActive := make(chan struct{})
 	active.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(context.Context, operation.Reporter[AgentEvent]) operation.Outcome[Response] {
+		func(context.Context, operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 			<-releaseActive
 			return operation.Completed(testResponse(ResponseUserRequestCompleted))
 		},
@@ -313,7 +313,7 @@ func TestMalformedDuplicateAndFailedOperationsKeepStreamOpen(t *testing.T) {
 	)
 	failed.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, command Command) (operation.Prepared[AgentEvent, Response], error) {
+		func(_ context.Context, command Command) (operation.Prepared[OperationProgress, Response], error) {
 			if command.OperationID == "active" {
 				return active, nil
 			}

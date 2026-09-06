@@ -11,7 +11,7 @@ import (
 
 // HostSession prepares transport-independent Programmatic operations.
 type HostSession interface {
-	Prepare(ctx context.Context, command Command) (operation.Prepared[AgentEvent, Response], error)
+	Prepare(ctx context.Context, command Command) (operation.Prepared[OperationProgress, Response], error)
 }
 
 // OpenStream is the gRPC stream surface used by the controller.

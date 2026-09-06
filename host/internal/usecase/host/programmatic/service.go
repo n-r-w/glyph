@@ -181,9 +181,6 @@ func (s *Service) handleSessionImmediate(
 		return sessionStatisticsResponse(command.OperationID, s.sessionControl.Statistics()), true, nil
 	case controller.CommandGetSessionTree:
 		return s.sessionTree(command), true, nil
-	case controller.CommandNavigateSessionTree:
-		response, err := s.navigateSessionTree(ctx, command)
-		return response, true, err
 	case controller.CommandForkSession:
 		response, err := s.forkSession(ctx, command)
 		return response, true, err
@@ -195,7 +192,8 @@ func (s *Service) handleSessionImmediate(
 		return response, true, err
 	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandCancel,
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
-		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
+		controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
+		controller.CommandNavigateSessionTree:
 		return controller.Response{}, false, nil
 	default:
 		return controller.Response{}, false, nil
@@ -424,7 +422,11 @@ func (s *Service) setEntryLabel(ctx context.Context, command controller.Command)
 }
 
 // navigateSessionTree commits requested navigation or returns one classified terminal result.
-func (s *Service) navigateSessionTree(ctx context.Context, command controller.Command) (controller.Response, error) {
+func (s *Service) navigateSessionTree(
+	ctx context.Context,
+	command controller.Command,
+	publisher func(sessionnavigation.Progress) error,
+) (controller.Response, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
 		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("target entry ID is required")), nil
@@ -442,7 +444,7 @@ func (s *Service) navigateSessionTree(ctx context.Context, command controller.Co
 	}
 	result, err := s.sessionControl.Navigate(ctx, sessionnavigation.Request{
 		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
-	})
+	}, publisher)
 	if err != nil {
 		if isOperationCancellation(ctx, err) {
 			return controller.Response{}, err

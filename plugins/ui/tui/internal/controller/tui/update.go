@@ -114,7 +114,8 @@ func (model Model) applyEvent(event presentationdomain.Event) Model {
 		presentationdomain.EventTurnEnded, presentationdomain.EventAgentSettled,
 		presentationdomain.EventAuthorization, presentationdomain.EventError,
 		presentationdomain.EventModelSelectionChanged,
-		presentationdomain.EventSessionTree, presentationdomain.EventSessionTreeNavigation,
+		presentationdomain.EventSessionTree, presentationdomain.EventSessionTreeNavigationProgress,
+		presentationdomain.EventSessionTreeNavigation,
 		presentationdomain.EventTreeOperationFailed, presentationdomain.EventSessionForked,
 		presentationdomain.EventSessionCloned, presentationdomain.EventEntryLabelSet:
 	}

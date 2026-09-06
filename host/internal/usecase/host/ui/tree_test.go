@@ -66,16 +66,22 @@ func TestTreeNavigationPreservesSummaryModeAndCustomFocus(t *testing.T) {
 			controller := gomock.NewController(t)
 			control := NewMockSessionControl(controller)
 			expectSessionMutationGate(control, 1)
-			tree, err := session.NewTree(nil, mo.None[string](), nil)
-			require.NoError(t, err)
-			control.EXPECT().Navigate(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(_ context.Context, request sessionnavigation.Request) (sessionnavigation.Result, error) {
+			control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(
+					_ context.Context,
+					request sessionnavigation.Request,
+					_ func(sessionnavigation.Progress) error,
+				) (sessionnavigation.Result, error) {
 					assert.Equal(t, "target", request.TargetEntryID)
 					assert.Equal(t, test.internalMode, request.SummaryMode)
 					assert.Equal(t, test.focus, request.CustomFocus)
 					return sessionnavigation.Result{
-						Canceled: false, Tree: tree, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
-						NextInput: mo.None[string](), Issues: nil,
+						Canceled:       false,
+						DestinationID:  mo.None[string](),
+						ActiveLeafID:   mo.None[string](),
+						CreatedSummary: mo.None[session.Entry](),
+						NextInput:      mo.None[string](),
+						Issues:         nil,
 					}, nil
 				},
 			)
@@ -103,9 +109,13 @@ func TestCanceledTreeNavigationReturnsStateFreeData(t *testing.T) {
 	controller := gomock.NewController(t)
 	control := NewMockSessionControl(controller)
 	expectSessionMutationGate(control, 1)
-	control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
-		Canceled: true, Tree: session.Tree{}, ActiveLeafID: mo.None[string](), ActiveBranch: nil,
-		NextInput: mo.None[string](), Issues: []sessionnavigation.OperationIssue{{
+	control.EXPECT().Navigate(gomock.Any(), gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{
+		Canceled:       true,
+		DestinationID:  mo.None[string](),
+		ActiveLeafID:   mo.None[string](),
+		CreatedSummary: mo.None[session.Entry](),
+		NextInput:      mo.None[string](),
+		Issues: []sessionnavigation.OperationIssue{{
 			Code: sessionnavigation.OperationIssueObserverError, ExtensionID: "extension",
 			HandlerID: "handler", Message: "observer failed",
 		}},
@@ -160,7 +170,9 @@ func TestTreeNavigationFailureCategoriesPreserveCauses(t *testing.T) {
 			control := NewMockSessionControl(controller)
 			expectSessionMutationGate(control, 1)
 			source := fmt.Errorf("navigate target: %w", test.sentinel)
-			control.EXPECT().Navigate(gomock.Any(), gomock.Any()).Return(sessionnavigation.Result{}, source)
+			control.EXPECT().
+				Navigate(gomock.Any(), gomock.Any(), gomock.Any()).
+				Return(sessionnavigation.Result{}, source)
 			command := newCommandForPreparedTest(domainui.CommandNavigateSessionTree)
 			command.TargetEntryID = mo.Some("target")
 			command.SummaryMode = domainui.SummaryModeNoSummary

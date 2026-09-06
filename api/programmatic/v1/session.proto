@@ -181,18 +181,28 @@ message SessionTreeResult {
   // The committed active-session tree.
   SessionTree tree = 1;
 }
+// SessionTreeNavigationProgress publishes committed session state.
+message SessionTreeNavigationProgress {
+  // The committed active-session tree.
+  SessionTree tree = 1;
+  // The committed active-branch transcript.
+  repeated SessionEntry active_branch = 2;
+}
+
 // SessionTreeNavigationResult reports one committed or canceled navigation.
 message SessionTreeNavigationResult {
   // The navigation terminal status.
   SessionTreeNavigationStatus status = 1;
-  // The committed tree. It is absent for canceled navigation.
-  SessionTree tree = 2;
-  // The committed active-branch transcript.
-  repeated SessionEntry active_branch = 3;
-  // The exact editable user input when the selected target is a user message.
-  string next_input = 4;
+  // The committed navigation destination when navigation committed.
+  string destination_id = 2;
+  // The navigation commit's active leaf when navigation committed.
+  string active_leaf_id = 3;
+  // The branch-summary entry created by the navigation commit when present.
+  SessionTreeEntry created_summary = 4;
+  // The exact editable user input when present.
+  string next_input = 5;
   // Safe ordered operation issues.
-  repeated OperationIssue issues = 5;
+  repeated OperationIssue issues = 6;
 }
 // SessionTree contains every persisted conversation entry and the active leaf.
 message SessionTree {
@@ -354,4 +364,6 @@ enum OperationIssueCode {
   OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION = 2;
   // A post-commit observer returned an error.
   OPERATION_ISSUE_CODE_OBSERVER_ERROR = 3;
+  // Client publication failed after navigation committed.
+  OPERATION_ISSUE_CODE_DELIVERY_FAILED = 4;
 }

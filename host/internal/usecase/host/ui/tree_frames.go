@@ -12,6 +12,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	domainui "github.com/n-r-w/glyph/host/internal/domain/ui"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessionnavigation"
+	"github.com/n-r-w/glyph/internal/operation"
 )
 
 // sessionTreeFrame projects the complete tree without private extension payload bytes.
@@ -25,24 +26,49 @@ func sessionTreeFrame(tree session.Tree) (domainui.Frame, error) {
 	return frame, nil
 }
 
-// navigationFrame projects committed navigation state.
+// navigationProgressCallback maps and enqueues committed navigation state.
+func navigationProgressCallback(
+	reporter operation.Reporter[domainui.Frame],
+) func(sessionnavigation.Progress) error {
+	return func(progress sessionnavigation.Progress) error {
+		tree, err := mapSessionTree(progress.Tree)
+		if err != nil {
+			return err
+		}
+		branch, err := mapSessionEntries(progress.ActiveBranch)
+		if err != nil {
+			return fmt.Errorf("map active branch: %w", err)
+		}
+		frame := emptyTreeFrame(domainui.FrameSessionTreeNavigationProgress)
+		frame.TreeNavigationProgress = mo.Some(domainui.TreeNavigationProgress{Tree: tree, ActiveBranch: branch})
+		return reporter.Report(frame)
+	}
+}
+
+// navigationFrame projects terminal navigation metadata.
 func navigationFrame(result sessionnavigation.Result) (domainui.Frame, error) {
 	if result.Canceled {
 		return canceledNavigationFrame(mapOperationIssues(result.Issues)), nil
 	}
-	tree, err := mapSessionTree(result.Tree)
-	if err != nil {
-		return domainui.Frame{}, err
-	}
-	branch, err := mapSessionEntries(result.ActiveBranch)
-	if err != nil {
-		return domainui.Frame{}, fmt.Errorf("map active branch: %w", err)
+	createdSummary := mo.None[domainui.SessionTreeEntry]()
+	if entry, present := result.CreatedSummary.Get(); present {
+		mapped, err := mapSessionTreeEntry(entry, "")
+		if err != nil {
+			return domainui.Frame{}, fmt.Errorf("map created branch summary: %w", err)
+		}
+		if mapped.BranchSummary.IsNone() {
+			return domainui.Frame{}, errors.New("map created branch summary: summary payload is required")
+		}
+		createdSummary = mo.Some(mapped)
 	}
 	frame := emptyTreeFrame(domainui.FrameSessionTreeNavigation)
 	frame.TreeNavigation = mo.Some(domainui.TreeNavigationResult{
 		Status: domainui.TreeNavigationStatusCommitted,
 		Committed: mo.Some(domainui.TreeNavigationCommitted{
-			Tree: tree, ActiveBranch: branch, NextInput: result.NextInput,
+			DestinationID:  result.DestinationID,
+			ActiveLeafID:   result.ActiveLeafID,
+			CreatedSummary: createdSummary,
+			NextInput:      result.NextInput,
 		}),
 		Issues: mapOperationIssues(result.Issues),
 	})
@@ -66,7 +92,9 @@ func emptyTreeFrame(kind domainui.FrameKind) domainui.Frame {
 		AuthorizationURL: mo.None[string](), Text: mo.None[string](), ErrorCode: mo.None[string](),
 		ModelSelection: mo.None[domainui.ModelSelection](), SessionInfo: mo.None[session.Info](), Sessions: nil,
 		SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](),
-		SessionTree: mo.None[domainui.SessionTree](), TreeNavigation: mo.None[domainui.TreeNavigationResult](),
+		SessionTree:            mo.None[domainui.SessionTree](),
+		TreeNavigationProgress: mo.None[domainui.TreeNavigationProgress](),
+		TreeNavigation:         mo.None[domainui.TreeNavigationResult](),
 	}
 }
 

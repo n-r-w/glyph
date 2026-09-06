@@ -86,6 +86,7 @@ message HostProgress {
   // The progress payload.
   oneof progress {
     AgentEvent agent_event = 1;
+    SessionTreeNavigationProgress session_tree_navigation = 2;
   }
 }
 // HostCompleted carries one operation-specific completed payload.

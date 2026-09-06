@@ -96,7 +96,7 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 			)
 
 			// Act by requesting built-in summarization.
-			_, err := service.NavigateTree(ctx, sessionnavigation.Request{
+			_, err := navigateTreeForTest(t, service, ctx, sessionnavigation.Request{
 				TargetEntryID: "user", SummaryMode: sessionnavigation.SummaryModeSummarize,
 				CustomFocus: mo.None[string](),
 			})
