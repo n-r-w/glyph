@@ -21,7 +21,7 @@ type roundTripResult struct {
 	err      error
 }
 
-// TestErrorCaptureTransportCapturesAndRestoresFailedBody verifies bounded SDK-visible error bodies.
+// TestErrorCaptureTransportCapturesAndRestoresFailedBody verifies SDK-visible error bodies.
 func TestErrorCaptureTransportCapturesAndRestoresFailedBody(t *testing.T) {
 	t.Parallel()
 
@@ -93,11 +93,12 @@ func TestErrorCaptureTransportDoesNotBufferSuccess(t *testing.T) {
 	assert.Nil(t, transport.ErrorBody())
 }
 
-// TestErrorCaptureTransportBoundsBodyAndDetail verifies memory and user-visible limits.
-func TestErrorCaptureTransportBoundsBodyAndDetail(t *testing.T) {
+// TestErrorCaptureTransportPreservesCompleteBody verifies captured and SDK-visible bytes beyond 64 KiB.
+func TestErrorCaptureTransportPreservesCompleteBody(t *testing.T) {
 	t.Parallel()
 
-	oversized := strings.Repeat("x", maxProviderErrorBody+100)
+	// Arrange a valid error body with a diagnostic suffix beyond 64 KiB.
+	oversized := `{"detail":"` + strings.Repeat("界", 22000) + ` complete HTTP diagnostic suffix"}`
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.WriteHeader(http.StatusBadRequest)
 		_, _ = io.WriteString(writer, oversized)
@@ -107,12 +108,16 @@ func TestErrorCaptureTransportBoundsBodyAndDetail(t *testing.T) {
 	request, err := http.NewRequestWithContext(t.Context(), http.MethodGet, server.URL, nil)
 	require.NoError(t, err)
 
+	// Act through the capture transport and the restored SDK body.
 	response, err := transport.RoundTrip(request)
-
 	require.NoError(t, err)
-	assert.Len(t, transport.ErrorBody(), maxProviderErrorBody)
+	body, err := io.ReadAll(response.Body)
+
+	// Assert both consumers receive the original complete valid JSON.
+	require.NoError(t, err)
+	assert.Equal(t, oversized, string(transport.ErrorBody()))
+	assert.Equal(t, oversized, string(body))
 	require.NoError(t, response.Body.Close())
-	assert.Len(t, []rune(boundedDetail(strings.Repeat("界", maxProviderErrorDetail+20))), maxProviderErrorDetail)
 }
 
 // TestProviderErrorDetailRecognizesApprovedShapes verifies both backend JSON formats.

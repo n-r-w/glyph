@@ -94,9 +94,11 @@ func (s *Service) open(stream OpenStream) error {
 	defer unbind()
 	var owner *operation.Owner[OperationProgress, Response]
 	delivery := &streamDelivery{
-		context:  connectionContext,
-		writer:   writer,
-		registry: registry,
+		context:        connectionContext,
+		writer:         writer,
+		registry:       registry,
+		mutex:          sync.Mutex{},
+		failureSources: make(map[string]error),
 		fail: func(err error) {
 			cancelConnection(mapDeliveryError(err))
 			if owner != nil {
@@ -184,6 +186,12 @@ func (s *Service) open(stream OpenStream) error {
 		completion, rpcErr = waitForControllerHalfClose(
 			connectionContext, s.applicationContext.Err(), cancelConnection, writer, receiveResult, writerResult,
 		)
+	}
+	// Every branch above joins owned work before reading its undelivered terminal causes.
+	// Writer or receive failure can win the select before Terminal reports acknowledgement failure.
+	_, completion.Err = delivery.joinFailureSources(completion.Err)
+	if joined, combined := delivery.joinFailureSources(rpcErr); joined {
+		rpcErr = newCausedStatusError(status.Code(rpcErr), combined.Error(), combined)
 	}
 	s.completions <- completion
 	return rpcErr
@@ -396,6 +404,10 @@ func newCausedStatusError(code codes.Code, message string, cause error) error {
 
 // mapDeliveryError maps local bounded delivery failures to stream status.
 func mapDeliveryError(err error) error {
+	// A local status already classifies delivery independently of any joined operation source.
+	if _, mapped := errors.AsType[*causedStatusError](err); mapped {
+		return err
+	}
 	if errors.Is(err, operation.ErrQueueFull) {
 		return newCausedStatusError(
 			codes.ResourceExhausted,

@@ -54,7 +54,11 @@ func (s *Service) Start(ctx context.Context, request Request, reporter Reporter)
 	}
 	for _, issue := range report.Issues {
 		if reportErr := reporter.ReportIssue(ctx, issue); reportErr != nil {
-			return LoadReport{}, fmt.Errorf("report extension startup failure: %w", reportErr)
+			// A reporter can already retain the issue, as the headless renderer does.
+			if !errors.Is(reportErr, issue.Err) {
+				reportErr = errors.Join(issue.Err, reportErr)
+			}
+			return report, fmt.Errorf("report extension startup failure: %w", reportErr)
 		}
 	}
 	if summaryErr := reporter.ReportSummary(ctx, report); summaryErr != nil {

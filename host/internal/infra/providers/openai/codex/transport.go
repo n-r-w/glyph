@@ -10,18 +10,13 @@ import (
 	"sync"
 )
 
-const (
-	maxProviderErrorBody   = 64 << 10
-	maxProviderErrorDetail = 4000
-)
-
-// errorCaptureTransport retains only one bounded failed response body for SDK error normalization.
+// errorCaptureTransport retains one complete failed response body for SDK error normalization.
 type errorCaptureTransport struct {
 	// base sends provider HTTP requests.
 	base http.RoundTripper
 	// mu protects body.
 	mu sync.Mutex
-	// body contains one bounded failed response body.
+	// body contains one complete failed response body.
 	body []byte
 }
 
@@ -42,7 +37,7 @@ func (t *errorCaptureTransport) RoundTrip(request *http.Request) (*http.Response
 	if err != nil || response.StatusCode < http.StatusBadRequest || response.StatusCode > 599 {
 		return response, err
 	}
-	body, readErr := io.ReadAll(io.LimitReader(response.Body, maxProviderErrorBody))
+	body, readErr := io.ReadAll(response.Body)
 	closeErr := response.Body.Close()
 	if readErr != nil {
 		return nil, fmt.Errorf("capture failed Codex response: %w", readErr)
@@ -57,7 +52,7 @@ func (t *errorCaptureTransport) RoundTrip(request *http.Request) (*http.Response
 	return response, nil
 }
 
-// ErrorBody returns a defensive copy of the last bounded failed response body.
+// ErrorBody returns a defensive copy of the last complete failed response body.
 func (t *errorCaptureTransport) ErrorBody() []byte {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -75,17 +70,8 @@ func providerErrorDetail(body []byte) string {
 	if err := json.Unmarshal(body, &payload); err != nil {
 		return ""
 	}
-	if detail := strings.TrimSpace(payload.Detail); detail != "" {
-		return boundedDetail(detail)
+	if strings.TrimSpace(payload.Detail) != "" {
+		return payload.Detail
 	}
-	return boundedDetail(strings.TrimSpace(payload.Error.Message))
-}
-
-// boundedDetail limits user-visible provider text by Unicode character count.
-func boundedDetail(detail string) string {
-	runes := []rune(detail)
-	if len(runes) > maxProviderErrorDetail {
-		runes = runes[:maxProviderErrorDetail]
-	}
-	return string(runes)
+	return payload.Error.Message
 }

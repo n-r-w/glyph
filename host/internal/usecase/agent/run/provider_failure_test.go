@@ -131,7 +131,8 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
 	tools.EXPECT().Tools().Return(nil)
-	safeMessage := "Provider rate limit reached."
+	// Arrange provider detail with a diagnostic suffix beyond 4000 Unicode characters.
+	safeMessage := strings.Repeat("界", 4001) + " complete provider failure suffix..."
 	actualModel := model.ID("gpt-actual")
 	response := model.Response{
 		Content: []model.Content{
@@ -162,9 +163,11 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 		),
 		Diagnostics: []model.Diagnostic{{Code: "provider_error", Message: safeMessage}},
 	}
+	// Keep the returned cause distinct from the response diagnostic to verify both contracts.
+	providerErr := errors.New("provider transport failed: " + safeMessage)
 	provider.EXPECT().
 		Stream(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(streamResult(response, errors.New("provider transport failed")))
+		DoAndReturn(streamResult(response, providerErr))
 	delivered := make([]agent.Event, 0)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, event agent.Event) error {
@@ -182,8 +185,11 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 		events,
 	)
 
+	// Act through Core finalization and persisted-history publication.
 	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-safe-error", UserText: "go"})
-	require.Error(t, err)
+	// Assert the full provider message survives every Core terminal boundary.
+	require.ErrorIs(t, err, providerErr)
+	require.ErrorContains(t, err, providerErr.Error())
 	require.True(t, result.SettlementRequired)
 	history := service.History()
 	require.Len(t, history, 2)

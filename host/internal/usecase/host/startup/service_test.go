@@ -4,6 +4,7 @@ package startup
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/samber/mo"
@@ -84,7 +85,7 @@ func TestServiceLoadAppliesValidationInApprovedOrder(t *testing.T) {
 	require.Len(t, report.Issues, 3)
 	assert.ErrorContains(t, report.Issues[0].Err, "tool name")
 	assert.ErrorContains(t, report.Issues[1].Err, "handler invalid")
-	assert.ErrorContains(t, report.Issues[2].Err, "validate extension registration: local invalid")
+	require.ErrorContains(t, report.Issues[2].Err, "validate extension registration: local invalid")
 }
 
 // TestServiceLoadPartitionsHandlersAndRestoresRegistrationOrder verifies capability ownership keeps common order.
@@ -173,31 +174,43 @@ func TestServiceLoadWrapsRuntimeLoadFailure(t *testing.T) {
 // TestServiceStartReportsIssuesAndSummary verifies delivery order and errors.
 func TestServiceStartReportsIssuesAndSummary(t *testing.T) {
 	t.Parallel()
-	// Arrange one pending-load issue and no registrations.
-	controller := gomock.NewController(t)
-	runtimes := NewMockRuntimeLoader(controller)
-	tools := NewMockToolRegistrar(controller)
-	handlers := NewMockSessionTreeRegistrar(controller)
-	lifecycle := NewMockLifecycleRegistrar(controller)
-	reporter := NewMockReporter(controller)
-	issue := Issue{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("failed")}
-	runtimes.EXPECT().
-		LoadPending(gomock.Any(), gomock.Any()).
-		Return(PendingLoad{Issues: []Issue{issue}, Registrations: nil}, nil)
-	tools.EXPECT().Conflicts([]AcceptedRegistration{}).Return(nil)
-	runtimes.EXPECT().RejectPending([]string{})
-	tools.EXPECT().Commit([]AcceptedRegistration{})
-	handlers.EXPECT().CommitSessionTreeHandlers([]AcceptedRegistration{})
-	lifecycle.EXPECT().CommitLifecycleHandlers([]AcceptedRegistration{})
-	runtimes.EXPECT().Accept([]AcceptedRegistration{})
-	reporter.EXPECT().ReportIssue(t.Context(), issue).Return(nil)
-	reporter.EXPECT().
-		ReportSummary(t.Context(), LoadReport{Issues: []Issue{issue}, Extensions: []AcceptedRegistration{}}).
-		Return(nil)
-	service := New(runtimes, tools, handlers, lifecycle)
-	// Act start and report extension state.
-	report, err := service.Start(t.Context(), Request{DataDirectory: "/data", ExtensionDirectory: ""}, reporter)
-	// Assert issue and summary delivery succeeds.
-	require.NoError(t, err)
-	assert.Equal(t, []Issue{issue}, report.Issues)
+	for _, reportErr := range []error{nil, errors.New("startup diagnostic writer failed")} {
+		t.Run(fmt.Sprint(reportErr), func(t *testing.T) {
+			t.Parallel()
+			// Arrange one pending-load issue and no registrations.
+			controller := gomock.NewController(t)
+			runtimes := NewMockRuntimeLoader(controller)
+			tools := NewMockToolRegistrar(controller)
+			handlers := NewMockSessionTreeRegistrar(controller)
+			lifecycle := NewMockLifecycleRegistrar(controller)
+			reporter := NewMockReporter(controller)
+			issue := Issue{PluginIDs: []string{"broken"}, Path: "/broken", Err: errors.New("failed")}
+			runtimes.EXPECT().
+				LoadPending(gomock.Any(), gomock.Any()).
+				Return(PendingLoad{Issues: []Issue{issue}, Registrations: nil}, nil)
+			tools.EXPECT().Conflicts([]AcceptedRegistration{}).Return(nil)
+			runtimes.EXPECT().RejectPending([]string{})
+			tools.EXPECT().Commit([]AcceptedRegistration{})
+			handlers.EXPECT().CommitSessionTreeHandlers([]AcceptedRegistration{})
+			lifecycle.EXPECT().CommitLifecycleHandlers([]AcceptedRegistration{})
+			runtimes.EXPECT().Accept([]AcceptedRegistration{})
+			reporter.EXPECT().ReportIssue(t.Context(), issue).Return(reportErr)
+			if reportErr == nil {
+				reporter.EXPECT().
+					ReportSummary(t.Context(), LoadReport{Issues: []Issue{issue}, Extensions: []AcceptedRegistration{}}).
+					Return(nil)
+			}
+			service := New(runtimes, tools, handlers, lifecycle)
+			// Act start and report extension state.
+			report, err := service.Start(t.Context(), Request{DataDirectory: "/data", ExtensionDirectory: ""}, reporter)
+			// Assert output failure retains both causes and the loaded report without a summary retry.
+			if reportErr != nil {
+				require.ErrorIs(t, err, issue.Err)
+				require.ErrorIs(t, err, reportErr)
+			} else {
+				require.NoError(t, err)
+			}
+			assert.Equal(t, []Issue{issue}, report.Issues)
+		})
+	}
 }

@@ -261,6 +261,8 @@ func TestDriverStreamPreservesMalformedReasoningCause(t *testing.T) {
 func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 	t.Parallel()
 
+	// Arrange valid HTTP error JSON whose source exceeds 64 KiB before its diagnostic suffix.
+	longSource := "  " + strings.Repeat("界", 22000) + " complete HTTP diagnostic suffix...  "
 	testCases := map[string]struct {
 		// status is the provider HTTP failure status.
 		status int
@@ -285,6 +287,20 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			body:               `{"error":{"message":"backend unavailable"}}`,
 			expectedText:       "backend unavailable",
 			expectedSourceText: "backend unavailable",
+			signInRequired:     false,
+		},
+		"large unauthorized": {
+			status:             http.StatusUnauthorized,
+			body:               fmt.Sprintf(`{"detail":%q}`, longSource),
+			expectedText:       signInRequiredMessage,
+			expectedSourceText: longSource,
+			signInRequired:     true,
+		},
+		"large server error": {
+			status:             http.StatusInternalServerError,
+			body:               fmt.Sprintf(`{"error":{"message":%q}}`, longSource),
+			expectedText:       "complete HTTP diagnostic suffix",
+			expectedSourceText: longSource,
 			signInRequired:     false,
 		},
 	}
@@ -359,6 +375,8 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 	t.Parallel()
 
+	// Arrange a Unicode source with significant whitespace and punctuation beyond the former detail limit.
+	source := "  " + strings.Repeat("界", 4001) + " complete streaming failure suffix...  "
 	testCases := map[string]struct {
 		event           string
 		expectedOutcome model.Outcome
@@ -372,9 +390,20 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 			expectsError:    false,
 		},
 		"failure": {
-			event: `{"type":"response.failed","response":{"id":"resp",` +
-				`"status":"failed","error":{"code":"server_error","message":"safe ` +
-				`failure"},"output":[]}}`,
+			event: fmt.Sprintf(`{"type":"response.failed","response":{"id":"resp",`+
+				`"status":"failed","error":{"code":"server_error","message":%q},"output":[]}}`, source),
+			expectedOutcome: model.OutcomeFailed,
+			expectsError:    true,
+		},
+		"incomplete failure": {
+			event: fmt.Sprintf(`{"type":"response.incomplete","response":{"id":"resp",`+
+				`"status":"incomplete","incomplete_details":{"reason":"content_filter"},`+
+				`"error":{"code":"server_error","message":%q},"output":[]}}`, source),
+			expectedOutcome: model.OutcomeFailed,
+			expectsError:    true,
+		},
+		"error": {
+			event:           fmt.Sprintf(`{"type":"error","code":"server_error","message":%q}`, source),
 			expectedOutcome: model.OutcomeFailed,
 			expectsError:    true,
 		},
@@ -428,8 +457,11 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 			)
 			response := terminalResponse(events)
 
+			// Assert every failed SSE branch retains the exact source at both adapter boundaries.
 			if testCase.expectsError {
 				require.Error(t, err)
+				assert.Contains(t, err.Error(), source)
+				assert.Contains(t, response.ErrorMessage.OrEmpty(), source)
 			} else {
 				require.NoError(t, err)
 			}

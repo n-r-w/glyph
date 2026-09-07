@@ -77,9 +77,9 @@ func (s *Service) flushSelectionWarnings() error {
 		}
 		written, err := io.WriteString(s.warningWriter, line)
 		if err != nil {
-			result = errors.Join(result, fmt.Errorf("write CLI warning: %w", err))
+			result = errors.Join(result, issue.Err, fmt.Errorf("write CLI warning: %w", err))
 		} else if written != len(line) {
-			result = errors.Join(result, fmt.Errorf("write CLI warning: %w", io.ErrShortWrite))
+			result = errors.Join(result, issue.Err, fmt.Errorf("write CLI warning: %w", io.ErrShortWrite))
 		}
 	}
 	return result

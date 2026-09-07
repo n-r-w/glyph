@@ -407,6 +407,7 @@ func TestAcceptedFailureRemovesPreparedRegistryTarget(t *testing.T) {
 	})
 	delivery := &streamDelivery{
 		context: t.Context(), writer: writer, registry: registry, fail: func(error) {},
+		mutex: sync.Mutex{}, failureSources: make(map[string]error),
 	}
 	owner := operation.NewOwner[OperationProgress, Response](t.Context(), delivery)
 	writerResult := make(chan error, 1)

@@ -3,6 +3,7 @@ package codex
 import (
 	"cmp"
 	"encoding/json/v2"
+	"errors"
 	"fmt"
 	"reflect"
 	"slices"
@@ -179,8 +180,8 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 			return terminalModelResponse(
 					requestFailedMessage,
 					model.OutcomeFailed,
-				), true, safeError(
-					requestFailedMessage,
+				), true, errors.New(
+					requestFailedCause,
 				)
 		}
 		a.completedOutputByPosition[done.OutputIndex] = done.Item
@@ -225,7 +226,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		}
 		providerEvent := event.AsError()
 		message := providerFailureMessage(providerEvent.Message)
-		return terminalModelResponse(message, model.OutcomeFailed), true, safeError(message)
+		return terminalModelResponse(message, model.OutcomeFailed), true, errors.New(message)
 	}
 	return model.Response{}, false, nil
 }
@@ -343,16 +344,16 @@ func (finalized finalizedFunctionOutput) Validate(
 ) error {
 	if finalized.itemID != itemID || finalized.callID != callID || finalized.name != name ||
 		finalized.custom != custom {
-		return safeError(requestFailedMessage)
+		return errors.New(requestFailedCause)
 	}
 	if custom {
 		if finalized.customInput != customInput {
-			return safeError(requestFailedMessage)
+			return errors.New(requestFailedCause)
 		}
 		return nil
 	}
 	if !reflect.DeepEqual(finalized.arguments, arguments) {
-		return safeError(requestFailedMessage)
+		return errors.New(requestFailedCause)
 	}
 	return nil
 }
@@ -385,7 +386,7 @@ func (a *semanticAssembler) start(
 	kind model.ContentKind,
 ) (outputSlot, error) {
 	if outputIndex < 0 || outputIndex > int64(^uint(0)>>1) || contentIndex < -1 {
-		return outputSlot{}, safeError(requestFailedMessage)
+		return outputSlot{}, errors.New(requestFailedCause)
 	}
 	key := outputKey{outputIndex: outputIndex, contentIndex: contentIndex}
 	if slot, ok := a.slots[key]; ok {
@@ -464,7 +465,7 @@ func semanticStreamEvent(
 
 func (a *semanticAssembler) allocatePosition(outputIndex int64, width int) (int, error) {
 	if outputIndex < 0 || outputIndex > int64(^uint(0)>>1) {
-		return 0, safeError(requestFailedMessage)
+		return 0, errors.New(requestFailedCause)
 	}
 	position := max(int(outputIndex), a.next)
 	a.next = position + width
@@ -479,7 +480,7 @@ func (a *semanticAssembler) startFunction(
 	arguments string,
 ) error {
 	if itemID == "" || callID == "" || name == "" {
-		return safeError(requestFailedMessage)
+		return errors.New(requestFailedCause)
 	}
 	if _, exists := a.functionCalls[outputIndex]; exists {
 		return fmt.Errorf("codex function output %d already started", outputIndex)
@@ -541,7 +542,7 @@ func (a *semanticAssembler) startCustom(
 ) error {
 	property, ok := a.grammarInputProperties[name]
 	if !ok || property == "" || itemID == "" || callID == "" || name == "" {
-		return safeError(requestFailedMessage)
+		return errors.New(requestFailedCause)
 	}
 	if _, exists := a.functionCalls[outputIndex]; exists {
 		return fmt.Errorf("codex custom output %d already started", outputIndex)
@@ -592,11 +593,11 @@ func identitiesConflict(expected, actual string) bool {
 // recordPendingFunction records delta identity without creating a provider-neutral lifecycle.
 func (a *semanticAssembler) recordPendingFunction(outputIndex int64, itemID string, custom bool) error {
 	if outputIndex < 0 || outputIndex > int64(^uint(0)>>1) {
-		return safeError(requestFailedMessage)
+		return errors.New(requestFailedCause)
 	}
 	pending, ok := a.pendingFunctionCalls[outputIndex]
 	if ok && (pending.custom != custom || identitiesConflict(pending.itemID, itemID)) {
-		return safeError(requestFailedMessage)
+		return errors.New(requestFailedCause)
 	}
 	if !ok || pending.itemID == "" {
 		a.pendingFunctionCalls[outputIndex] = pendingFunctionOutput{itemID: itemID, custom: custom}
@@ -611,7 +612,7 @@ func (a *semanticAssembler) validatePendingFunction(outputIndex int64, itemID st
 		return nil
 	}
 	if pending.custom != custom || identitiesConflict(pending.itemID, itemID) {
-		return safeError(requestFailedMessage)
+		return errors.New(requestFailedCause)
 	}
 	return nil
 }

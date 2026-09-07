@@ -103,7 +103,7 @@ None.
 
 ## Open questions
 
-No unresolved ownership or behavior question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-05 with implementation and independent verification evidence. [U8 implementation evidence](u8-evidence.md) includes completed main-agent inspection and repeated checks. Independent integrated verification and explicit user acceptance remain pending.
+No unresolved ownership or behavior question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-05 with implementation and independent verification evidence. [U8 implementation evidence](u8-evidence.md) includes completed main-agent inspection and repeated checks. Independent integrated review found [FND-10 and FND-11](audit.md#fnd-10-codex-streaming-failures-truncate-source-text). Their [bounded U6 correction](solution.md#u6-follow-up-complete-source-and-delivery-causes) has executable evidence and awaits independent acceptance. The phase remains blocked and explicit user acceptance remains pending.
 
 ## References
 

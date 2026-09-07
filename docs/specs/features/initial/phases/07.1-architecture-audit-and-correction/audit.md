@@ -19,7 +19,7 @@ Outcome: Request changes.
 - FND-03 and FND-04 require ownership of interface-specific types and storage metadata at their consumers and storage implementation.
 - FND-05 through FND-09 cover lost error information, text-dependent TUI state, misplaced execution policy, incomplete contracts, and a forwarding owner with no behavior.
 
-The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. Findings below describe the audit baseline; passing compilation or tests alone does not close them. [U8 accounting](u8-evidence.md) records the resulting dispositions for all nine findings and 72 baseline packages. Main-agent U8 inspection passed. Independent integrated verification and explicit user acceptance remain pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified. The user authorized the remaining units after committing the assertion-placement correction.
+The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. Findings below describe the audit baseline; passing compilation or tests alone does not close them. [U8 accounting](u8-evidence.md) records the resulting dispositions for all nine findings and 72 baseline packages. Main-agent U8 inspection passed. Independent integrated review of `9a275b2b2bc5964e5ecd1f0cefc4f7444c971c2a` found FND-10 and FND-11. Their bounded U6 correction has executable evidence below but still requires independent acceptance. The phase remains blocked and explicit user acceptance remains pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified. The user authorized the remaining units after committing the assertion-placement correction.
 
 ## Issues overview
 
@@ -32,6 +32,9 @@ The user approved the original [correction plan](solution.md), then authorized r
 - **Major FND-07**. Filesystem catalogues decide startup acceptance, and the bash input controller owns execution timeout.
 - **Minor FND-08**. Several consumed error contracts and handwritten implementations lack assertions; two UI port methods have no use at their declared consumer.
 - **Minor FND-09**. The baseline presentation usecase only forwards to `State.Apply`. Removing that wrapper alone does not establish the correct owner of TUI application behavior. Revised U5 resolves that ownership through the real application usecase and separate input/output owners.
+
+- **Major FND-10**. Codex failed SSE branches truncate source diagnostics before returning the cause and failed response.
+- **Major FND-11**. Failed Programmatic terminal delivery and startup diagnostic writes discard the source cause.
 
 ## Findings
 
@@ -161,6 +164,26 @@ U7 closes this baseline finding and [BLK-05](tui-ownership-gap.md#blk-05-persist
 - Verification: Preserve the distinct approved UI and extension duplicate/failure outcomes. Preserve bash timeout text, duration interpretation, parent cancellation, process-group termination, output spill, and progress delivery through existing behavioral tests.
 
 The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) records the implemented runtime/startup portions of FND-01, FND-02, FND-03, and FND-07. Runtime management owns filtered process payloads and trusted identity binding. Catalog adapters return filesystem observations; Host consumers own their distinct acceptance rules. App forwarding and Host interactions are removed. UI output owns startup reporting, warnings, and authorization presentation. Required project checks and uncached affected tests passed. Main-agent U4 inspection passed as recorded in the linked evidence. U5 implemented the bundled-tool timeout correction. [U8 accounting](u8-evidence.md) records the combined implementation; independent whole-product verification and user acceptance remain pending.
+
+#### FND-10: Codex streaming failures truncate source text
+
+- Location: `host/internal/infra/providers/openai/codex/assembler.go`, `semanticAssembler.consume`; `provider.go`, `providerFailureMessage` and `failedResponseFromSDK`; `transport.go`, `errorCaptureTransport.RoundTrip` and the removed `boundedDetail`.
+- Issue: At integrated-review commit `9a275b2b2bc5964e5ecd1f0cefc4f7444c971c2a`, `response.failed`, non-token-limit `response.incomplete` and `error` cut provider detail to 4000 runes. `safeError` also removed trailing periods. The original HTTP 401 correction did not repair these streaming paths. The HTTP capture transport also accepted failed responses but restored only their first 65,536 bytes for the SDK. That truncation could turn valid error JSON into incomplete JSON; it was not a size-admission rule.
+- Impact: Core, persisted failed responses and client terminal errors cannot recover the discarded suffix.
+- Scenario: A supported SSE failure contains a non-secret explanation beyond rune 4000, or an HTTP 401 or 500 response contains a valid diagnostic beyond 64 KiB.
+- Assessing realism: Medium. Supported provider input reaches the branch without malformed input or a race. No occurrence rate is assumed.
+- Recommendation: Preserve the entire source message at both adapter boundaries without increasing a presentation limit or adding provider categories.
+- Verification: [U6 follow-up evidence](solution.md#u6-follow-up-complete-source-and-delivery-causes) records assertion RED and GREEN for all three SSE branches and complete HTTP 401 and 500 diagnostics beyond 64 KiB, plus Core and client contract checks. The correction is implemented; independent acceptance remains pending.
+
+#### FND-11: Failed error output discards the source cause
+
+- Location: `host/internal/controller/programmatic/delivery.go`, `streamDelivery.Terminal`; `service.go`, `Service.open`; `host/internal/usecase/host/startup/service.go`, `Service.Start`; `host/internal/infra/headless/renderer.go`, `Renderer.ReportIssue`; `host/internal/infra/plugins/ui/runtime/startup.go`, `Service.flushSelectionWarnings`.
+- Issue: At the integrated-review commit, terminal enqueue or acknowledgement failure returned only delivery error. The writer-result branch could complete independently with that same loss. Startup reporting and fallback warning writes likewise discarded their source issue after output failed.
+- Impact: RPC and application completion can explain failed output without explaining the operation or startup issue that required output.
+- Scenario: A failed operation reaches a disconnected stream, or an excluded plugin diagnostic reaches a closed stderr writer.
+- Assessing realism: High for disconnected operation output; medium for failed startup diagnostics. Both use implemented paths.
+- Recommendation: Retain undelivered source causes at the existing output owners and join them into actual completion errors. Preserve delivery categories, cancellation, ordering and one-attempt warning output.
+- Verification: [U6 follow-up evidence](solution.md#u6-follow-up-complete-source-and-delivery-causes) records assertion RED and GREEN through actual operation completion and startup reporting boundaries. The correction is implemented; independent acceptance remains pending.
 
 ### Minor
 

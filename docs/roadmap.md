@@ -120,9 +120,9 @@ Documents:
 
 ## PHS-07.1: Architecture audit and correction
 
-Status: In progress
+Status: Blocked pending independent acceptance
 
-Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 8 are implemented and verified by the main agent. TUI ownership blockers BLK-01 through BLK-05 are closed. [U7 evidence](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u7-run-persistence-cause-and-tui-cleanup) records source-backed persistence classification, complete causes, and application cleanup. [U8 implementation and package accounting](specs/features/initial/phases/07.1-architecture-audit-and-correction/u8-evidence.md) include completed main-agent inspection and repeated checks. Independent integrated verification and explicit user acceptance remain pending.
+Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 8 are implemented and verified by the main agent. TUI ownership blockers BLK-01 through BLK-05 are closed. [U7 evidence](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u7-run-persistence-cause-and-tui-cleanup) records source-backed persistence classification, complete causes, and application cleanup. [U8 implementation and package accounting](specs/features/initial/phases/07.1-architecture-audit-and-correction/u8-evidence.md) include completed main-agent inspection and repeated checks. Independent integrated review found FND-10 and FND-11. Their [bounded U6 correction](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u6-follow-up-complete-source-and-delivery-causes) has executable evidence but still requires independent acceptance. Explicit user acceptance remains pending.
 
 Documents:
 - [Ticket](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md)

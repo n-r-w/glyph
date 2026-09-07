@@ -42,18 +42,22 @@ func TestClosePreservesAllWarningWriterFailures(t *testing.T) {
 	// Arrange a failing writer followed by a short write for the second warning.
 	writer := NewMockWriter(gomock.NewController(t))
 	cause := errors.New("complete writer failure suffix")
+	firstSource := errors.New("first excluded candidate source")
+	secondSource := errors.New("second excluded candidate source")
 	gomock.InOrder(
 		writer.EXPECT().Write(gomock.Any()).Return(0, cause),
 		writer.EXPECT().Write(gomock.Any()).Return(0, nil),
 	)
 	service := New()
 	service.BindSelection(hostui.Selection{ID: "", Issues: []hostui.SelectionIssue{
-		{Candidate: hostui.Candidate{ID: "first", Path: "/first"}, Err: errors.New("excluded")},
-		{Candidate: hostui.Candidate{ID: "second", Path: "/second"}, Err: errors.New("excluded")},
+		{Candidate: hostui.Candidate{ID: "first", Path: "/first"}, Err: firstSource},
+		{Candidate: hostui.Candidate{ID: "second", Path: "/second"}, Err: secondSource},
 	}}, writer)
 	// Act through the fallback close owner.
 	err := service.Close()
 	// Assert shutdown can join every original writer cause with the retained context.
+	require.ErrorIs(t, err, firstSource)
+	require.ErrorIs(t, err, secondSource)
 	require.ErrorIs(t, err, cause)
 	require.ErrorIs(t, err, io.ErrShortWrite)
 	require.ErrorContains(t, err, "write CLI warning: complete writer failure suffix")

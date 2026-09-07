@@ -5,6 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
+	"slices"
+	"sync"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -24,6 +27,10 @@ type streamDelivery struct {
 	registry *targetRegistry
 	// fail reports connection-fatal delivery failures.
 	fail func(error)
+	// mutex protects failureSources while operations and connection completion run concurrently.
+	mutex sync.Mutex
+	// failureSources retains failed outcomes until terminal delivery succeeds or connection completion joins them.
+	failureSources map[string]error
 }
 
 var _ operation.Delivery[OperationProgress, Response] = (*streamDelivery)(nil)
@@ -91,6 +98,9 @@ func (d *streamDelivery) Terminal(id string, outcome operation.Outcome[Response]
 		if failureErr == nil || failureErr.Error() == "" {
 			return nil, d.failed(errors.New("map Programmatic failure: complete error text is required"))
 		}
+		d.mutex.Lock()
+		d.failureSources[id] = failureErr
+		d.mutex.Unlock()
 		code := failureCodeForCommand(d.registry.kind(id), outcome.Code())
 		failed := new(operationv1.Failed)
 		failed.SetCode(code)
@@ -113,6 +123,9 @@ func (d *streamDelivery) Terminal(id string, outcome operation.Outcome[Response]
 	if err = acknowledgement.Wait(d.context); err != nil {
 		return nil, d.failed(err)
 	}
+	d.mutex.Lock()
+	delete(d.failureSources, id)
+	d.mutex.Unlock()
 	d.registry.finish(id, outcome.State())
 	return acknowledgement, nil
 }
@@ -245,9 +258,35 @@ func (d *streamDelivery) enqueueAcknowledged(
 
 // failed maps bounded writer failure and starts connection failure once.
 func (d *streamDelivery) failed(err error) error {
-	if errors.Is(err, operation.ErrQueueFull) {
+	// A canceled acknowledgement can carry an already classified connection failure.
+	if _, classified := errors.AsType[*causedStatusError](err); !classified && errors.Is(err, operation.ErrQueueFull) {
 		err = fmt.Errorf("programmatic delivery overflow: %w", err)
+	}
+	// Preserve the delivery category even when a source error has its own gRPC status.
+	mapped := mapDeliveryError(err)
+	if joined, combined := d.joinFailureSources(err); joined {
+		err = newCausedStatusError(status.Code(mapped), combined.Error(), combined)
 	}
 	d.fail(err)
 	return err
+}
+
+// joinFailureSources retains undelivered operation causes without repeating causes already in the error.
+func (d *streamDelivery) joinFailureSources(err error) (bool, error) {
+	if err == nil {
+		return false, nil
+	}
+	d.mutex.Lock()
+	defer d.mutex.Unlock()
+	// joined reports whether the caller must rebuild its outer transport status.
+	joined := false
+	// Stable identifier order makes concurrent failure diagnostics reproducible.
+	for _, id := range slices.Sorted(maps.Keys(d.failureSources)) {
+		source := d.failureSources[id]
+		if !errors.Is(err, source) {
+			err = errors.Join(err, source)
+			joined = true
+		}
+	}
+	return joined, err
 }

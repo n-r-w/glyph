@@ -4,6 +4,7 @@ package ui
 
 import (
 	"errors"
+	"strings"
 	"testing"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -122,7 +123,7 @@ func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) 
 	channel := NewMockOutput(controller)
 	runner := NewMockAgentRunner(controller)
 	authenticator := NewMockAuthenticator(controller)
-	source := errors.New("credentials expired")
+	source := errors.New(strings.Repeat("界", 4001) + " complete credentials failure suffix...")
 	runner.EXPECT().PrepareRun().Return("run", nil)
 	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
@@ -145,6 +146,7 @@ func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) 
 
 	// Assert failed run terminal semantics.
 	assert.Equal(t, operation.TerminalStateFailed, outcome.State())
-	assert.ErrorIs(t, outcome.Err(), source)
+	require.ErrorIs(t, outcome.Err(), source)
+	require.EqualError(t, outcome.Err(), source.Error())
 	assert.Equal(t, AvailabilityAuthenticationFailed, service.operationAvailabilitySnapshot())
 }

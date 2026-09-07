@@ -23,7 +23,10 @@ import (
 )
 
 const (
-	requestFailedMessage   = "OpenAI Codex request failed."
+	// requestFailedCause is the local fallback cause when the provider supplies no diagnostic.
+	requestFailedCause = "OpenAI Codex request failed"
+	// requestFailedMessage adds display punctuation to the local fallback only.
+	requestFailedMessage   = requestFailedCause + "."
 	requestCanceledMessage = "OpenAI Codex request was canceled."
 	// responseItemTypeReasoning identifies provider reasoning output.
 	responseItemTypeReasoning = "reasoning"
@@ -93,12 +96,12 @@ func (s *Driver) executeRequest(
 ) (model.Response, error) {
 	credentials, err := s.resolveCredentials(ctx)
 	if err != nil {
-		return terminalModelResponse(boundedErrorMessage(err), model.OutcomeFailed), err
+		return terminalModelResponse(requestErrorMessage(err), model.OutcomeFailed), err
 	}
 	params, err := s.requestParams(request)
 	if err != nil {
-		message := boundedErrorMessage(err)
-		return terminalModelResponse(message, model.OutcomeFailed), safeError(message)
+		message := requestErrorMessage(err)
+		return terminalModelResponse(message, model.OutcomeFailed), errors.New(message)
 	}
 
 	baseTransport := s.options.httpClient.Transport
@@ -146,7 +149,7 @@ func (s *Driver) executeRequest(
 	if streamErr != nil {
 		return s.streamError(ctx, streamErr, errorTransport)
 	}
-	return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), safeError(requestFailedMessage)
+	return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), errors.New(requestFailedCause)
 }
 
 // requestParams maps one provider-neutral Agent Core request to an ordered Codex Responses request.
@@ -397,14 +400,14 @@ func failedResponseFromSDK(
 ) (model.Response, error) {
 	converted, err := modelResponse(response, model.OutcomeFailed, grammarInputProperties)
 	if err != nil {
-		return terminalModelResponse(message, model.OutcomeFailed), errors.Join(safeError(message), err)
+		return terminalModelResponse(message, model.OutcomeFailed), errors.Join(errors.New(message), err)
 	}
 	converted.Outcome = mo.Some(model.OutcomeFailed)
 	converted.ErrorMessage = mo.Some(message)
-	return converted, safeError(message)
+	return converted, errors.New(message)
 }
 
-// streamError maps cancellation, 401, and bounded provider details without replay.
+// streamError maps cancellation, 401, and complete provider details without replay.
 func (s *Driver) streamError(
 	ctx context.Context,
 	streamErr error,
@@ -419,7 +422,7 @@ func (s *Driver) streamError(
 			detail = providerErrorDetail(transport.ErrorBody())
 		}
 		if detail == "" {
-			detail = boundedDetail(strings.TrimSpace(apiError.Message))
+			detail = apiError.Message
 		}
 		if apiError.StatusCode == http.StatusUnauthorized {
 			return unauthorizedFailure(streamErr, detail)
@@ -456,26 +459,20 @@ func combineHandlerError(streamErr, handlerErr error) error {
 	return errors.Join(streamErr, handlerErr)
 }
 
-// safeError removes terminal punctuation required only in user-facing model text.
-func safeError(message string) error {
-	return errors.New(strings.TrimRight(message, "."))
-}
-
-// providerFailureMessage adds bounded provider detail only when present.
+// providerFailureMessage adds complete provider detail only when present.
 func providerFailureMessage(detail string) string {
-	detail = boundedDetail(strings.TrimSpace(detail))
-	if detail == "" {
+	if strings.TrimSpace(detail) == "" {
 		return requestFailedMessage
 	}
 	return "OpenAI Codex request failed: " + detail
 }
 
-// boundedErrorMessage returns bounded error text and preserves ErrSignInRequired presentation.
-func boundedErrorMessage(err error) string {
+// requestErrorMessage preserves complete error text and ErrSignInRequired presentation.
+func requestErrorMessage(err error) string {
 	if errors.Is(err, ErrSignInRequired) {
 		return signInRequiredMessage
 	}
-	return boundedDetail(err.Error())
+	return err.Error()
 }
 
 // terminalModelResponse creates a payload-free terminal response for a failed or aborted request.

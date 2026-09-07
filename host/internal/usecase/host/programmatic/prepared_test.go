@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -218,7 +219,7 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *testing.T) {
 	t.Parallel()
 
-	independentErr := errors.New("settlement failed")
+	independentErr := errors.New(strings.Repeat("界", 4001) + " complete run failure suffix...")
 	tests := []struct {
 		name          string
 		activeErr     error

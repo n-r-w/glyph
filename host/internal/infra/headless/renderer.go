@@ -197,7 +197,10 @@ func (r *Renderer) ReportIssue(_ context.Context, issue startup.Issue) error {
 	if issue.Path != "" {
 		identity += " (" + issue.Path + ")"
 	}
-	return writePrefixed(r.stderr, "[extension:error] ", identity+": "+issue.Err.Error())
+	if err := writePrefixed(r.stderr, "[extension:error] ", identity+": "+issue.Err.Error()); err != nil {
+		return errors.Join(issue.Err, err)
+	}
+	return nil
 }
 
 // ReportSummary writes one informational headless startup summary.
