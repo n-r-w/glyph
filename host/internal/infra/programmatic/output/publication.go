@@ -7,13 +7,7 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
-)
-
-var (
-	_ lifecycle.IssueDelivery = (*Service)(nil)
-	_ sessions.EntryPublisher = (*Service)(nil)
 )
 
 // DeliverExtensionIssue enqueues one typed nonterminal issue without an operation ID.

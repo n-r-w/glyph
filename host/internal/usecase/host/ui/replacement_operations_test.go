@@ -116,7 +116,8 @@ func TestApplyReplacementAndLabelCommandsReturnsCommittedFrames(t *testing.T) {
 			},
 		},
 		{
-			name: "label", command: uiReplacementCommand(controllerui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch")),
+			name:    "label",
+			command: uiReplacementCommand(controllerui.CommandSetEntryLabel, mo.Some("target"), mo.Some("branch")),
 			expect: func(control *MockActiveSessions) {
 				tree, err := session.NewTree(nil, mo.None[string](), nil)
 				require.NoError(t, err)

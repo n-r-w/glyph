@@ -8,15 +8,9 @@ import (
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 	"github.com/n-r-w/glyph/internal/operation"
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-)
-
-var (
-	_ lifecycle.IssueDelivery = (*Service)(nil)
-	_ sessions.EntryPublisher = (*Service)(nil)
 )
 
 // SetAvailability projects Host admission state to a connection event.

@@ -19,7 +19,7 @@ Outcome: Request changes.
 - FND-03 and FND-04 require ownership of interface-specific types and storage metadata at their consumers and storage implementation.
 - FND-05 through FND-09 cover lost error information, text-dependent TUI state, misplaced execution policy, incomplete contracts, and a forwarding owner with no behavior.
 
-The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. Findings below describe the audit baseline; passing compilation or tests alone does not close them. Whole-scope architectural acceptance remains pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified. The user authorized the remaining units after committing the assertion-placement correction.
+The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. Findings below describe the audit baseline; passing compilation or tests alone does not close them. [U8 accounting](u8-evidence.md) records the resulting dispositions for all nine findings and 72 baseline packages. Main-agent U8 inspection passed. Independent integrated verification and explicit user acceptance remain pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified. The user authorized the remaining units after committing the assertion-placement correction.
 
 ## Issues overview
 
@@ -54,7 +54,7 @@ The user approved the original [correction plan](solution.md), then authorized r
 - Impact: Local replacement of a callback with an interface can close an import cycle without resolving responsibility. The named UI controller's interface covers session startup, not receipt of UI commands. The coordinator's separate settlement inference can leave Core and Programmatic output active after a canceled operation has ended.
 - Scenario: A UI command reaches `Session.Prepare` from infrastructure without passing through `controller/ui`. An extension message reaches Programmatic output through a callback into the same package that consumes the Host input interface. Canceling a run during an `AgentStart` observer, before the first history append, follows the settlement mismatch traced below.
 - Assessing realism: High. These are normal request, event, authentication, commit and targeted-cancellation paths. The cancellation consequence is source-derived; this audit did not add an executable reproduction. No existing compiler cycle is inferred merely from runtime call direction.
-- Recommendation: Separate actual input consumers, application orchestration, and output implementations. Define each service dependency at its caller. Core must report settlement need from its own transition to awaiting settlement, not from history length or error classification. Core can implement Host-owned contracts under APC-13; remove the existing reverse edges before adding its assertions. Keep local transformations, release functions, construction callbacks, and asynchronous acknowledgements that do not conceal a service owner. The observable cancellation-recovery correction is approved under [QST-03](solution.md#qst-03-cancellation-settlement-recovery). [U2 evidence](solution.md#u2-run-control-events-and-admission) records its implementation and executable RED/GREEN results; other FND-02 corrections remain open.
+- Recommendation: Separate actual input consumers, application orchestration, and output implementations. Define each service dependency at its caller. Core must report settlement need from its own transition to awaiting settlement, not from history length or error classification. Core can implement Host-owned contracts under APC-13; remove the existing reverse edges before adding its assertions. Keep local transformations, release functions, construction callbacks, and asynchronous acknowledgements that do not conceal a service owner. The observable cancellation-recovery correction is approved under [QST-03](solution.md#qst-03-cancellation-settlement-recovery). [U2 evidence](solution.md#u2-run-control-events-and-admission) records its implementation and executable RED/GREEN results. [U8 accounting](u8-evidence.md#finding-dispositions) records the resulting FND-02 owners.
 - Verification: Trace imports and runtime calls for every ledger row. Add a failing observer-cancellation regression before the behavioral correction. Preserve reservation lifetime through settlement, client delivery before observers, one terminal result, navigation/append enqueue order, and waits outside the session commit lock.
 
 ##### Settlement-state mismatch
@@ -63,7 +63,7 @@ The user approved the original [correction plan](solution.md), then authorized r
 
 [Coordinator.RunPrepared](../../../../../../host/internal/usecase/host/events/coordinator.go), lines 100 through 115, skips Core settlement and settled delivery when history is empty and the error is not the persistence sentinel. Its deferred gate release still runs. [Programmatic Delivery.finish](../../../../../../host/internal/usecase/host/programmatic/delivery.go), lines 125 through 139, does not clear the active association; the skipped `DeliverSettled` owns that transition at lines 235 through 245. A subsequent Programmatic request can therefore remain Busy. UI prepared cleanup can announce Idle while Core still rejects another run. Core's actual transition, not the coordinator's history inference, must determine settlement.
 
-The mismatch above describes the audit baseline. The implemented run-control result now reports Core's settlement transition directly. The [U2 evidence](solution.md#u2-run-control-events-and-admission) records direct client gate consumption and dispatcher/output assertions. The [U3 evidence](solution.md#u3-session-queries-navigation-and-publication) records direct session and navigation contracts, sessions-owned entry publication, and removal of sessioncontrol. Other ledger responsibilities remain assigned to later corrections.
+The mismatch above describes the audit baseline. The implemented run-control result now reports Core's settlement transition directly. The [U2 evidence](solution.md#u2-run-control-events-and-admission) records direct client gate consumption and dispatcher/output assertions. The [U3 evidence](solution.md#u3-session-queries-navigation-and-publication) records direct session and navigation contracts, sessions-owned entry publication, and removal of sessioncontrol. [U8 accounting](u8-evidence.md#finding-dispositions) records the resulting owners for the other ledger responsibilities.
 
 ##### Outgoing boundary ledger
 
@@ -124,7 +124,7 @@ The operation-scoped navigation reporter in [CommitNavigation](../../../../../..
 - Recommendation: Make the repository select and validate the wire version. Retain domain session identity and metadata without its storage schema selector.
 - Verification: Creation, append, replay, fork, and clone must retain the version-2 serialized format and recovery behavior. This is ownership correction, not a migration or compatibility layer.
 
-The [U3 evidence](solution.md#u3-session-queries-navigation-and-publication) records the implemented session portion of FND-03 and the repository-only version ownership from FND-04. Host clients own the consumed navigation and stored-list results. Sessions projects validated loaded state into those results. Public row and entry projection remains at the Host clients. Version-2 replay and replacement tests passed uncached. Main-agent inspection and whole-scope acceptance remain open.
+The [U3 evidence](solution.md#u3-session-queries-navigation-and-publication) records the implemented session portion of FND-03 and the repository-only version ownership from FND-04. Host clients own the consumed navigation and stored-list results. Sessions projects validated loaded state into those results. Public row and entry projection remains at the Host clients. Version-2 replay and replacement tests passed uncached. Main-agent U3 inspection passed as recorded in the linked evidence. Independent whole-product verification and user acceptance remain pending.
 
 #### FND-05: Error boundaries discard source causes
 
@@ -160,7 +160,7 @@ U7 closes this baseline finding and [BLK-05](tui-ownership-gap.md#blk-05-persist
 - Recommendation: Move catalogue acceptance decisions to extension startup/runtime orchestration and UI selection. Keep filesystem inspection in adapters. Pass validated timeout intent through the controller-owned bash command and let the bash usecase own the timer and its cleanup.
 - Verification: Preserve the distinct approved UI and extension duplicate/failure outcomes. Preserve bash timeout text, duration interpretation, parent cancellation, process-group termination, output spill, and progress delivery through existing behavioral tests.
 
-The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) records the implemented runtime/startup portions of FND-01, FND-02, FND-03, and FND-07. Runtime management owns filtered process payloads and trusted identity binding. Catalog adapters return filesystem observations; Host consumers own their distinct acceptance rules. App forwarding and Host interactions are removed. UI output owns startup reporting, warnings, and authorization presentation. Required project checks and uncached affected tests passed. Main-agent source verification remains pending. The bundled-tool timeout and other later-unit findings remain open.
+The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) records the implemented runtime/startup portions of FND-01, FND-02, FND-03, and FND-07. Runtime management owns filtered process payloads and trusted identity binding. Catalog adapters return filesystem observations; Host consumers own their distinct acceptance rules. App forwarding and Host interactions are removed. UI output owns startup reporting, warnings, and authorization presentation. Required project checks and uncached affected tests passed. Main-agent U4 inspection passed as recorded in the linked evidence. U5 implemented the bundled-tool timeout correction. [U8 accounting](u8-evidence.md) records the combined implementation; independent whole-product verification and user acceptance remain pending.
 
 ### Minor
 
@@ -186,7 +186,7 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 
 ### TUI follow-up status
 
-The [revised U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records implemented application, input, SDK, terminal, and tree responsibilities. Source traces and migrated behavior tests close [BLK-01 through BLK-04](tui-ownership-gap.md#blockers). The record includes executable RED/GREEN for the local `/name` snapshot regression. The retained bash ownership and external-assertion changes pass the complete unit's checks. Main-agent source inspection and repeated project checks passed. [U6](solution.md#u6-complete-error-text) closes FND-05. [U7](solution.md#u7-run-persistence-cause-and-tui-cleanup) closes BLK-05 and FND-06. U8 and whole-product acceptance remain open.
+The [revised U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records implemented application, input, SDK, terminal, and tree responsibilities. Source traces and migrated behavior tests close [BLK-01 through BLK-04](tui-ownership-gap.md#blockers). The record includes executable RED/GREEN for the local `/name` snapshot regression. The retained bash ownership and external-assertion changes pass the complete unit's checks. Main-agent source inspection and repeated project checks passed. [U6](solution.md#u6-complete-error-text) closes FND-05. [U7](solution.md#u7-run-persistence-cause-and-tui-cleanup) closes BLK-05 and FND-06. [U8 implementation evidence](u8-evidence.md) is ready for main-agent inspection. Independent integrated verification and user acceptance remain pending.
 
 ## Package and contract coverage
 
@@ -289,7 +289,7 @@ All 16 sources use edition 2023. Counts, positions, sizes, and token quantities 
 
 ### Scope dispositions
 
-- The TUI plugin endpoint's initialization admission, terminal/program lifetime, notification routing, operation correlation, and local foreground Stop target are transport/presentation lifecycle. They do not establish Host run/session policy ownership. No separate TUI application usecase is required for those responsibilities. FND-03 and FND-09 remain separate corrections.
+- The baseline TUI disposition was incomplete. The [TUI ownership gap](tui-ownership-gap.md) supersedes it. Initialization admission, pending-command correlation, foreground Stop, and display transitions belong to the presentation application owner. SDK and terminal implementations own I/O and framework lifetime. Host retains authoritative run/session state.
 - [internal/operation](../../../../../../internal/operation) consumes its own `Prepared` and `Delivery` interfaces and owns their generic lifecycle behavior. It is not an interface-free contract package. Its release, progress, and acknowledgement mechanisms are not replaced solely because they use functions or generics.
 - The edit usecase owns replacement decisions; the filesystem adapter executes that transformation while holding its mutation lock. This callback is an atomic mutation operation, not a hidden substitute for its existing consumer-owned filesystem interface.
 - [experiments/codex-oauth-spike](../../../../../../experiments/codex-oauth-spike) and [experiments/plugin-runtime-spike](../../../../../../experiments/plugin-runtime-spike) are separate non-product modules. Their source, spike protobuf, and generated spike protocol are not production modules.
@@ -305,12 +305,12 @@ The baseline traced catalogue failure policy, bash timer ownership, input mappin
 
 ## Open questions
 
-QST-01, QST-02 and QST-03 are closed by the [approved behavior decisions](solution.md#approved-behavior-decisions). The [TUI gap](tui-ownership-gap.md) records known implementation blockers, not unanswered ownership questions. Revised U5 is implemented and verified. Later production findings remain open until their implementation and verification.
+QST-01, QST-02 and QST-03 are closed by the [approved behavior decisions](solution.md#approved-behavior-decisions). The [TUI gap](tui-ownership-gap.md) records the source-backed closure of BLK-01 through BLK-05. [U8 accounting](u8-evidence.md) records all resulting package and finding dispositions. Independent integrated verification and explicit user acceptance remain pending.
 
 ## Next steps
 
-- Complete the approved [correction plan](solution.md).
-- Close findings through source-based boundary review and the ticket's verification requirements, not through compilation alone.
+- Inspect [U8](u8-evidence.md) and prepare its separate local commit.
+- Complete independent integrated verification and obtain explicit user acceptance before PHS-07 resumes.
 
 ## Verification evidence
 

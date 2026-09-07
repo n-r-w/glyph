@@ -12,7 +12,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/codex"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -70,6 +72,8 @@ var (
 	_ extensionruntime.FailureReporter = (*Service)(nil)
 	_ startup.Reporter                 = (*Service)(nil)
 	_ controllerui.Connection          = (*Service)(nil)
+	_ lifecycle.IssueDelivery          = (*Service)(nil)
+	_ sessions.EntryPublisher          = (*Service)(nil)
 )
 
 // New creates the selected-process owner before candidate selection.

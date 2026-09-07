@@ -122,7 +122,7 @@ Documents:
 
 Status: In progress
 
-Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 7 are implemented and verified. TUI ownership blockers BLK-01 through BLK-05 are closed. [U7 evidence](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u7-run-persistence-cause-and-tui-cleanup) records source-backed persistence classification, complete causes, and application cleanup. Correction 8 and whole-product architectural acceptance remain open.
+Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 8 are implemented and verified by the main agent. TUI ownership blockers BLK-01 through BLK-05 are closed. [U7 evidence](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u7-run-persistence-cause-and-tui-cleanup) records source-backed persistence classification, complete causes, and application cleanup. [U8 implementation and package accounting](specs/features/initial/phases/07.1-architecture-audit-and-correction/u8-evidence.md) include completed main-agent inspection and repeated checks. Independent integrated verification and explicit user acceptance remain pending.
 
 Documents:
 - [Ticket](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md)

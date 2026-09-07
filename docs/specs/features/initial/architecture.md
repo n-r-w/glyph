@@ -182,7 +182,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - APC-05: Every Host controller package declares the smallest Host interface and method types needed by that controller. Host use cases implement those interfaces.
 - APC-06: Every Host use case declares each outbound dependency interface at its use site, including interfaces for Agent Core, repositories, providers, plugin runtimes, clocks, identifiers, and client delivery. Agent Core or infrastructure packages implement those interfaces.
 - APC-07: PHS-05.1 removed `host/internal/hooks`. Extension dispatch contracts belong to Host, while Agent Core depends only on APC-01 through APC-04 and does not regain a generic Host hook dependency.
-- APC-07.1: Each TUI input controller owns its neutral application contract and payloads; the presentation usecase directly implements both. The usecase owns outgoing Host, display-snapshot, and runtime ports. SDK and terminal adapters implement those ports. Terminal infrastructure owns its consumed notification-source contract. Assertions stay with implementations; input controllers have no dependency on concrete usecases or output adapters.
+- APC-07.1: Each TUI input controller owns its neutral application contract and payloads; the presentation usecase directly implements both. The usecase owns outgoing Host, display-snapshot, and runtime ports. SDK and terminal adapters implement those ports. Terminal infrastructure owns its consumed notification-source contract. Assertions are directly beneath their implementing structs; input controllers have no dependency on concrete usecases or output adapters.
 
 ## Contracts
 
@@ -326,4 +326,4 @@ None.
 - REF-06: `host/internal/usecase/host` is the current Host use-case package group.
 - REF-07: `api`, `pkg`, and `sdk` contain the current public process contracts and plugin SDKs.
 - REF-08: `docs/specs/features/initial/phases/05.1-extension-boundary-cleanup/solution.md` defines the implemented package ownership that establishes CNS-11 before PHS-07.
-- REF-09: [TUI ownership gap](phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md) records corrected TUI ownership and the remaining persistence-cause blocker.
+- REF-09: [TUI ownership gap](phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md) records corrected TUI ownership and the source-backed closure of all five blockers. [U8 accounting](phases/07.1-architecture-audit-and-correction/u8-evidence.md) records resulting package ownership; independent integrated verification and user acceptance remain pending.

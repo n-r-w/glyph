@@ -15,58 +15,55 @@ import (
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
-// TestAuthenticationCheckRequiresExplicitRetry verifies startup does not create an uncorrelated sign-in operation.
-func TestAuthenticationCheckRequiresExplicitRetry(t *testing.T) {
+// TestAuthenticationCheckClassifiesFailure verifies startup reports the cause and requires explicit retry.
+func TestAuthenticationCheckClassifiesFailure(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one failed check that requires sign-in.
-	controller := gomock.NewController(t)
-	channel := NewMockOutput(controller)
-	authenticator := NewMockAuthenticator(controller)
-	source := errors.New("sign-in required")
-	authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(source)
-	authenticator.EXPECT().IsSignInRequired(source).Return(true)
-	gomock.InOrder(
-		channel.EXPECT().ReportError(controllerui.FailureCodeAuthentication, source.Error()).Return(nil),
-		channel.EXPECT().SetAvailability(AvailabilityAuthenticationFailed).Return(nil),
-	)
-	service := NewSession(
-		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, nil,
-	)
+	for _, test := range []struct {
+		// name identifies the authentication source condition.
+		name string
+		// message is the complete source diagnostic.
+		message string
+		// signInRequired selects the authentication category.
+		signInRequired bool
+		// code is the expected client failure category.
+		code string
+	}{
+		{
+			name: "sign-in required", message: "sign-in required",
+			signInRequired: true, code: controllerui.FailureCodeAuthentication,
+		},
+		{
+			name: "other failure", message: "credential store failed",
+			signInRequired: false, code: controllerui.FailureCodeInternal,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Act through startup authentication classification.
-	service.checkOperationAuthentication(t.Context())
+			// Arrange a failed authentication check with its explicit source classification.
+			controller := gomock.NewController(t)
+			channel := NewMockOutput(controller)
+			authenticator := NewMockAuthenticator(controller)
+			source := errors.New(test.message)
+			authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(source)
+			authenticator.EXPECT().IsSignInRequired(source).Return(test.signInRequired)
+			gomock.InOrder(
+				channel.EXPECT().ReportError(test.code, source.Error()).Return(nil),
+				channel.EXPECT().SetAvailability(AvailabilityAuthenticationFailed).Return(nil),
+			)
+			service := NewSession(
+				channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
+				nil, nil,
+			)
 
-	// Assert the authentication category and failed availability.
-	assert.Equal(t, AvailabilityAuthenticationFailed, service.operationAvailabilitySnapshot())
-}
+			// Act through startup authentication classification without starting sign-in.
+			service.checkOperationAuthentication(t.Context())
 
-// TestAuthenticationCheckUsesInternalCategoryForOtherFailures verifies explicit source classification.
-func TestAuthenticationCheckUsesInternalCategoryForOtherFailures(t *testing.T) {
-	t.Parallel()
-
-	// Arrange a failed check that does not require sign-in.
-	controller := gomock.NewController(t)
-	channel := NewMockOutput(controller)
-	authenticator := NewMockAuthenticator(controller)
-	source := errors.New("credential store failed")
-	authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(source)
-	authenticator.EXPECT().IsSignInRequired(source).Return(false)
-	gomock.InOrder(
-		channel.EXPECT().ReportError(controllerui.FailureCodeInternal, source.Error()).Return(nil),
-		channel.EXPECT().SetAvailability(AvailabilityAuthenticationFailed).Return(nil),
-	)
-	service := NewSession(
-		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, nil,
-	)
-
-	// Act through startup authentication classification.
-	service.checkOperationAuthentication(t.Context())
-
-	// Assert the source selects INTERNAL without a retry flag.
-	assert.Equal(t, AvailabilityAuthenticationFailed, service.operationAvailabilitySnapshot())
+			// Assert the failed availability requires an explicit retry for either cause.
+			assert.Equal(t, AvailabilityAuthenticationFailed, service.operationAvailabilitySnapshot())
+		})
+	}
 }
 
 // TestAuthenticationRetryRequiresFailedAvailability verifies bounded retry admission.

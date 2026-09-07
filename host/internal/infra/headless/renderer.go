@@ -40,17 +40,14 @@ var (
 	_ events.ClientDelivery            = (*Renderer)(nil)
 	_ runcontrol.SettledDelivery       = (*Renderer)(nil)
 	_ extensionruntime.FailureReporter = (*Renderer)(nil)
+	_ startup.Reporter                 = (*Renderer)(nil)
+	_ sessions.EntryPublisher          = (*Renderer)(nil)
+	_ lifecycle.IssueDelivery          = (*Renderer)(nil)
 )
 
 const (
 	// extensionIssueFormat keeps headless observer diagnostics stable and identifiable.
 	extensionIssueFormat = "[extension:issue] extension=%s handler=%s code=%s %s"
-)
-
-var (
-	_ startup.Reporter        = (*Renderer)(nil)
-	_ sessions.EntryPublisher = (*Renderer)(nil)
-	_ lifecycle.IssueDelivery = (*Renderer)(nil)
 )
 
 // NewRenderer creates the headless output recipient.

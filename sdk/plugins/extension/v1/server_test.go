@@ -623,7 +623,7 @@ func TestMapExtensionEventRejectsInvalidCodesAndCancelStates(t *testing.T) {
 	}
 }
 
-// TestMapExtensionEventPreservesCompleteExternalErrorText verifies Failed ingress retains complete Unicode text and category.
+// TestMapExtensionEventPreservesCompleteExternalErrorText verifies intact Unicode text and category on Failed ingress.
 func TestMapExtensionEventPreservesCompleteExternalErrorText(t *testing.T) {
 	t.Parallel()
 

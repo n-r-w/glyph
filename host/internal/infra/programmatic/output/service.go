@@ -9,7 +9,9 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 
 	"github.com/samber/mo"
 
@@ -48,6 +50,8 @@ var (
 	_ events.ClientDelivery            = (*Service)(nil)
 	_ runcontrol.SettledDelivery       = (*Service)(nil)
 	_ extensionruntime.FailureReporter = (*Service)(nil)
+	_ lifecycle.IssueDelivery          = (*Service)(nil)
+	_ sessions.EntryPublisher          = (*Service)(nil)
 )
 
 // New creates an output owner before the connection is opened.

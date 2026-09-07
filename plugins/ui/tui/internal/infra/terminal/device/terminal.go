@@ -21,28 +21,7 @@ type Service struct {
 	open openTTY
 }
 
-var (
-	_ terminalinfra.Device = (*Service)(nil)
-	_ terminalinfra.Files  = (*Session)(nil)
-)
-
-// Session owns the input and output files for one TUI program.
-type Session struct {
-	// input is the controlling-terminal input file.
-	input *os.File
-	// output is the controlling-terminal output file.
-	output *os.File
-}
-
-// New creates a controlling-terminal service backed by tea.OpenTTY.
-func New() *Service {
-	return newWithOpen(tea.OpenTTY)
-}
-
-// newWithOpen builds a terminal service around one controlling-terminal opener.
-func newWithOpen(open openTTY) *Service {
-	return &Service{open: open}
-}
+var _ terminalinfra.Device = (*Service)(nil)
 
 // Open creates one terminal session without using process standard streams.
 func (service *Service) Open() (terminalinfra.Files, error) {
@@ -52,6 +31,16 @@ func (service *Service) Open() (terminalinfra.Files, error) {
 	}
 	return &Session{input: input, output: output}, nil
 }
+
+// Session owns the input and output files for one TUI program.
+type Session struct {
+	// input is the controlling-terminal input file.
+	input *os.File
+	// output is the controlling-terminal output file.
+	output *os.File
+}
+
+var _ terminalinfra.Files = (*Session)(nil)
 
 // Input returns the controlling-terminal input file.
 func (session *Session) Input() io.Reader {
@@ -69,4 +58,14 @@ func (session *Session) Close() error {
 		return session.input.Close()
 	}
 	return errors.Join(session.input.Close(), session.output.Close())
+}
+
+// New creates a controlling-terminal service backed by tea.OpenTTY.
+func New() *Service {
+	return newWithOpen(tea.OpenTTY)
+}
+
+// newWithOpen builds a terminal service around one controlling-terminal opener.
+func newWithOpen(open openTTY) *Service {
+	return &Service{open: open}
 }

@@ -311,15 +311,19 @@ func TestHostClosurePreservesReceiveFailure(t *testing.T) {
 func TestHostClosurePreservesWriterFailure(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a Host closure whose CloseConnection send fails.
+	// Arrange a Host closure whose CloseConnection send fails after receive starts.
 	controller := gomock.NewController(t)
 	host := NewMockHostSession(controller)
 	applicationContext, cancelApplication := context.WithCancel(t.Context())
-	cancelApplication()
+	defer cancelApplication()
 	stopReceive := make(chan struct{})
+	receiveStarted := make(chan struct{})
+	receiveFinished := make(chan struct{})
 	stream := NewMockOpenStream(controller)
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
+		defer close(receiveFinished)
+		close(receiveStarted)
 		<-stopReceive
 		return nil, io.EOF
 	})
@@ -329,9 +333,12 @@ func TestHostClosurePreservesWriterFailure(t *testing.T) {
 	result := make(chan error, 1)
 	go func() { result <- service.open(stream) }()
 
-	// Act by waiting for the writer failure, then release the receive goroutine.
+	// Act after receive starts, then finish its interaction before mock cleanup.
+	<-receiveStarted
+	cancelApplication()
 	err := <-result
 	close(stopReceive)
+	<-receiveFinished
 
 	// Assert Host closure preserves the writer failure.
 	require.Equal(t, codes.Unavailable, status.Code(err))

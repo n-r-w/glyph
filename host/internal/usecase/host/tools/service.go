@@ -58,6 +58,11 @@ type Service struct {
 	owners map[string]*owner
 }
 
+var (
+	_ run.ToolRuntime       = (*Service)(nil)
+	_ startup.ToolRegistrar = (*Service)(nil)
+)
+
 // owner contains one accepted descriptor, schema, and extension identity.
 type owner struct {
 	// extensionID identifies the owning extension runtime.
@@ -67,11 +72,6 @@ type owner struct {
 	// schema validates deterministic invocation arguments.
 	schema *jsonschema.Schema
 }
-
-var (
-	_ run.ToolRuntime       = (*Service)(nil)
-	_ startup.ToolRegistrar = (*Service)(nil)
-)
 
 // New creates the Host tool capability service.
 func New(runtime Runtime) *Service {

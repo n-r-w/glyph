@@ -8,7 +8,7 @@ The [ticket](ticket.md) defines PHS-07.1. The [audit](audit.md) records nine bas
 
 ### Status and scope
 
-Corrections 1 through 7 are implemented and verified. The revised TUI design replaces the stopped correction-5 attempt. The user then corrected assertion placement in `b07707e` and authorized sequential U6, U7, U8, and independent integrated verification. Overall user acceptance remains required. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
+Corrections 1 through 8 are implemented and verified by the main agent. [U8 accounting](u8-evidence.md) covers the full resulting product. Independent integrated verification and explicit user acceptance remain pending. The revised TUI design replaces the stopped correction-5 attempt. The user then corrected assertion placement in `b07707e` and authorized sequential U6, U7, U8, and independent integrated verification. Overall user acceptance remains required. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
 
 Core implements Host consumer contracts with implementation-package assertions. It remains logically independent of concrete Host implementations, Host state, and Host policy. No assertion exception or forwarding Core adapter is required.
 
@@ -409,7 +409,7 @@ Supplemental unit-tag lint was also run over extensionruntime, Host UI, UI outpu
 
 #### U5: Bundled tool and TUI ownership
 
-Revised correction 5 is implemented and independently verified. [Gap BLK-01 through BLK-04](tui-ownership-gap.md#blockers) are closed by the source and behavior evidence below. The verified unit is the complete scope of its separate local commit. BLK-05 and corrections 6 through 8 remain open. No complete-error or persistence-cause behavior was changed.
+Revised correction 5 is implemented and independently verified. [Gap BLK-01 through BLK-04](tui-ownership-gap.md#blockers) are closed by the source and behavior evidence below. The verified unit is the complete scope of its separate local commit. At U5 completion, BLK-05 and corrections 6 through 8 remained open. U6 and U7 subsequently completed the approved error corrections. U5 itself changed no complete-error or persistence-cause behavior.
 
 The [presentation service](../../../../../../plugins/ui/tui/internal/usecase/presentation/service.go) owns private projection and interaction state, initialization admission, and runtime policy. Its [command owner](../../../../../../plugins/ui/tui/internal/usecase/presentation/commands.go) records prepared command correlation and the first foreground target before any I/O. Terminal notifications release foreground ownership immediately. Correlation survives an earlier terminal notification until its outstanding dispatch acknowledgement arrives. Failed dispatch and Quit need no operation terminal notification.
 
@@ -450,7 +450,7 @@ The final dry run produced no proposals. Local compile and lint failures were re
 
 #### U6: Complete error text
 
-Correction 6 is implemented and independently verified above `b07707e`. Corrections 7 and 8 remain open.
+Correction 6 is implemented and independently verified above `b07707e`. Corrections 7 and 8 were pending at U6 completion; their evidence follows.
 
 The Extension SDK no longer truncates `Failed`, `Rejected`, ordinary `HandlerError`, malformed-event context, or gRPC status text. `Connection.receive` uses the existing transport error mapping directly. The removed `external_error.go` limit no longer replaces a received gRPC status or discards its cause. Diagnostics above 65,536 bytes retain their Unicode suffix, category, and original status cause.
 
@@ -473,11 +473,11 @@ The same four commands exited 0 after the production changes. The real child-pro
 - `go test -count=1 ./host/internal/usecase/host/programmatic -run '^TestReplacementFailuresReturnClassifiedStateFreeRejections$'`.
 - `go test -count=1 ./host/internal/usecase/host/ui -run '^TestUISessionMutationOwnsGate$'`.
 
-All implementation checks exited 0: `task fmt`; `task fix_dry_run`, with no proposals; `task lint`, with zero issues and `ifaceguard: no errors found`; `task test`; `task itest`; `task test-coverage`, with 83.5% against the 80.0% threshold; `task build`; and `git diff --check`. No contract or mock changed, so generation was not required. The clean baseline and one final check attempt had the same intermittent `task test-coverage` failure in `TestHostClosurePreservesWriterFailure` because an expected `MockOpenStream.Recv()` call was missed. `task test` passed before both failures. The implementation coverage rerun passed at 83.5%. Main-agent source review traced the original causes through the changed boundaries and retained classifiers. Main-agent verification repeated the full project sequence and affected uncached race suites; all passed, with 83.6% combined coverage and no fix proposals. No new interface, assertion, public schema, dependency, or generated contract was introduced. The Programmatic test starts with an already-canceled application context and does not wait for its receive goroutine before mock cleanup. U8 must make that phase-introduced fixture deterministic; a successful repeat is not its resolution.
+All implementation checks exited 0: `task fmt`; `task fix_dry_run`, with no proposals; `task lint`, with zero issues and `ifaceguard: no errors found`; `task test`; `task itest`; `task test-coverage`, with 83.5% against the 80.0% threshold; `task build`; and `git diff --check`. No contract or mock changed, so generation was not required. The clean baseline and one final check attempt had the same intermittent `task test-coverage` failure in `TestHostClosurePreservesWriterFailure` because an expected `MockOpenStream.Recv()` call was missed. `task test` passed before both failures. The implementation coverage rerun passed at 83.5%. Main-agent source review traced the original causes through the changed boundaries and retained classifiers. Main-agent verification repeated the full project sequence and affected uncached race suites; all passed, with 83.6% combined coverage and no fix proposals. No new interface, assertion, public schema, dependency, or generated contract was introduced. The Programmatic test starts with an already-canceled application context and does not wait for its receive goroutine before mock cleanup. [U8](u8-evidence.md#scoped-changes) adds explicit receive synchronization; a successful repeat alone is not its resolution.
 
 #### U7: Run-persistence cause and TUI cleanup
 
-Correction 7 is implemented and independently verified. BLK-05 and audit FND-06 are closed. U8 and whole-product acceptance remain separate gates. The known Programmatic `TestHostClosurePreservesWriterFailure` fixture race remains outside this unit's code changes.
+Correction 7 is implemented and independently verified. BLK-05 and audit FND-06 are closed. The Programmatic `TestHostClosurePreservesWriterFailure` fixture race was outside U7's code changes and is corrected under [U8](u8-evidence.md#scoped-changes). Independent whole-product verification and user acceptance remain separate gates.
 
 Source traces:
 
@@ -515,6 +515,10 @@ Affected uncached verification exited 0:
 The public persistence tests passed three uncached repetitions under `TestClientAppSuites`; the six TUI SDK scenarios passed five uncached repetitions. The 75-package root-module import graph has no reverse transitive dependency for the added domain imports or the retained TUI input/output assertion pairs. Neither client usecase depends on the Core implementation.
 
 Public schema, category scope, connection-event kinds, dependencies, existing assertion placement, U5 event-loop ownership, and navigation ordering are unchanged. Main-agent inspection traced the shared source identity, both client classifications and output allowlists, complete joined causes, input categories, and application-owned cleanup. The main agent repeated the full required project sequence and both affected uncached race suites; all passed with 83.6% coverage. Two further generation runs preserved all 73 hashes. All 45 handed-off Go paths stayed unchanged during verification. The shared identity and both client usecases have no reverse Core dependency. The complete verified unit receives its separate local commit.
+
+#### U8: Residue and whole-product accounting
+
+[U8 evidence](u8-evidence.md) records the scoped assertion correction, deterministic Programmatic fixture, phase-introduced lint dispositions, all nine finding groups, all 72 baseline packages, and the five removed/five added owners. Required checks and affected uncached suites pass. Generation is repeatable. Main-agent source/diff inspection and repeated verification passed. The complete scope forms one separate local U8 commit; independent integrated verification and explicit user acceptance are not claimed.
 
 ### Execution control
 
@@ -563,13 +567,13 @@ Approved scope is defined under [Core invocation, events and state queries](#cor
 
 ## Open questions
 
-No unresolved behavior or ownership question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-05. U8 includes the recorded phase-introduced Programmatic test race. Later-unit verification and whole-product acceptance remain pending.
+No unresolved behavior or ownership question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-05. [U8 evidence](u8-evidence.md) records the fixture correction and resulting ownership/accounting. Main-agent U8 inspection passed. Independent integrated verification and explicit user acceptance remain pending.
 
 ## References
 
 - [Audit](audit.md) contains source locations, runtime paths, proposed-cycle diagnostics, coverage and baseline checks.
 - [Ticket](ticket.md) defines FRQ-01 through FRQ-14, behavior-preservation gates and final acceptance.
-- [TUI ownership gap](tui-ownership-gap.md) separates the inspected implementation from the revised target and records its open blockers.
+- [TUI ownership gap](tui-ownership-gap.md) records the revised TUI ownership and source-backed closure of BLK-01 through BLK-05.
 - [Architecture](../../architecture.md) defines Core logical independence and consumer-owned contracts.
 - [Project rules](../../../../../../AGENTS.md) define assertions, error preservation, testing and verification.
 - [PHS-04 solution](../04-persistent-linear-sessions/solution.md) defines storage and publication failure boundaries.

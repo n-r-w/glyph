@@ -9,20 +9,17 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
-var (
-	_ runcontrol.Gate   = (*Service)(nil)
-	_ ui.Gate           = (*Service)(nil)
-	_ programmatic.Gate = (*Service)(nil)
-)
-
 // Service is one process-local nonblocking operation gate.
 type Service struct {
 	// occupied has one owner at a time and never blocks a caller waiting for release.
 	occupied atomic.Bool
 }
 
-// New creates an idle operation gate.
-func New() *Service { return &Service{} }
+var (
+	_ runcontrol.Gate   = (*Service)(nil)
+	_ ui.Gate           = (*Service)(nil)
+	_ programmatic.Gate = (*Service)(nil)
+)
 
 // TryAcquire reserves the gate and returns an idempotent release function.
 func (s *Service) TryAcquire() (func(), bool) {
@@ -37,3 +34,6 @@ func (s *Service) TryAcquire() (func(), bool) {
 		}
 	}, true
 }
+
+// New creates an idle operation gate.
+func New() *Service { return &Service{} }

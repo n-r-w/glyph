@@ -1,6 +1,6 @@
 # TUI ownership gap
 
-Revised correction 5 closes BLK-01 through BLK-04. Correction 7 closes BLK-05 with [source and executable evidence](solution.md#u7-run-persistence-cause-and-tui-cleanup). Main-agent source verification and repeated project checks passed. U5 has a separate verified local commit; the user authorized the remaining correction units. [U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records the implementation, test migration, local regression correction, and verification results.
+Revised correction 5 closes BLK-01 through BLK-04. Correction 7 closes BLK-05 with [source and executable evidence](solution.md#u7-run-persistence-cause-and-tui-cleanup). Main-agent source verification and repeated project checks passed. U5 has a separate verified local commit; the user authorized the remaining correction units. [U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records the implementation, test migration, local regression correction, and verification results. [U8 accounting](u8-evidence.md) retains these owners and completes assertion placement. Independent integrated verification and user acceptance remain pending.
 
 The stopped attempt above commit `5f9fb7863b67d4e1767d8d62e9243999d3e65265` established this gap. That attempt kept domain `State.Apply` beside direct controller mutations. The revised implementation replaces those owners rather than accepting the stopped attempt. [Ticket FRQ-11 through FRQ-14 and NFQ-05](ticket.md#requirements) remain the acceptance requirements.
 

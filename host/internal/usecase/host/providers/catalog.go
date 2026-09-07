@@ -51,6 +51,13 @@ type SelectionError struct {
 	cause error
 }
 
+var (
+	_ extensioncontext.RequestFailure   = (*SelectionError)(nil)
+	_ sessiontree.SelectionFailure      = (*SelectionError)(nil)
+	_ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
+	_ hostui.SelectionFailure           = (*SelectionError)(nil)
+)
+
 // Error implements error and includes only the validator's secret-free cause.
 func (e *SelectionError) Error() string {
 	if e.cause != nil {
@@ -95,23 +102,13 @@ type Catalog struct {
 }
 
 var (
-	_ extensioncontext.Catalog          = (*Catalog)(nil)
-	_ extensioncontext.RequestFailure   = (*SelectionError)(nil)
-	_ sessiontree.SelectionFailure      = (*SelectionError)(nil)
-	_ hostprogrammatic.ModelCatalog     = (*Catalog)(nil)
-	_ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
-)
-
-var (
-	_ hostsessions.PricingCatalog = (*Catalog)(nil)
-	_ sessiontree.ModelRequester  = (*Catalog)(nil)
-)
-
-var (
-	_ agentrun.ModelRuntime   = (*Catalog)(nil)
-	_ hostui.Authenticator    = (*Catalog)(nil)
-	_ hostui.ModelCatalog     = (*Catalog)(nil)
-	_ hostui.SelectionFailure = (*SelectionError)(nil)
+	_ extensioncontext.Catalog      = (*Catalog)(nil)
+	_ hostprogrammatic.ModelCatalog = (*Catalog)(nil)
+	_ hostsessions.PricingCatalog   = (*Catalog)(nil)
+	_ sessiontree.ModelRequester    = (*Catalog)(nil)
+	_ agentrun.ModelRuntime         = (*Catalog)(nil)
+	_ hostui.Authenticator          = (*Catalog)(nil)
+	_ hostui.ModelCatalog           = (*Catalog)(nil)
 )
 
 // New creates a catalog from configured entries and a valid default selection.

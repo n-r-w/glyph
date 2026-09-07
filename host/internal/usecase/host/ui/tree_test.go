@@ -185,11 +185,26 @@ func TestTreeNavigationFailureCategoriesPreserveCauses(t *testing.T) {
 		sentinel error
 		code     string
 	}{
-		{name: "model unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeModelUnavailable), code: controllerui.FailureCodeModelUnavailable},
-		{name: "credential unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeProviderAuth), code: controllerui.FailureCodeProviderAuth},
-		{name: "model failed", sentinel: navigationFailure(t, controllerui.FailureCodeModelFailed), code: controllerui.FailureCodeModelFailed},
-		{name: "extension invalid result", sentinel: navigationFailure(t, controllerui.FailureCodeExtensionInvalid), code: controllerui.FailureCodeExtensionInvalid},
-		{name: "extension unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeExtension), code: controllerui.FailureCodeExtension},
+		{
+			name: "model unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeModelUnavailable),
+			code: controllerui.FailureCodeModelUnavailable,
+		},
+		{
+			name: "credential unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeProviderAuth),
+			code: controllerui.FailureCodeProviderAuth,
+		},
+		{
+			name: "model failed", sentinel: navigationFailure(t, controllerui.FailureCodeModelFailed),
+			code: controllerui.FailureCodeModelFailed,
+		},
+		{
+			name: "extension invalid result", sentinel: navigationFailure(t, controllerui.FailureCodeExtensionInvalid),
+			code: controllerui.FailureCodeExtensionInvalid,
+		},
+		{
+			name: "extension unavailable", sentinel: navigationFailure(t, controllerui.FailureCodeExtension),
+			code: controllerui.FailureCodeExtension,
+		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
