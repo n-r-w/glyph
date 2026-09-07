@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -42,47 +41,17 @@ func TestBashSchemaAcceptsOnlyPositiveTimeout(t *testing.T) {
 	}
 }
 
-// TestBashExecutionContextClampsSubNanosecondTimeout accepts every positive schema value.
-func TestBashExecutionContextClampsSubNanosecondTimeout(t *testing.T) {
-	t.Parallel()
-
-	// Arrange: choose a positive timeout below one nanosecond.
-	seconds := 1e-10
-	// Act: create the bounded bash execution context.
-	ctx, stop, err := bashExecutionContext(t.Context(), mo.Some(seconds))
-	require.NoError(t, err)
-	defer stop()
-	select {
-	case <-ctx.Done():
-	case <-time.After(100 * time.Millisecond):
-		require.FailNow(t, "sub-nanosecond bash timeout did not fire")
-	}
-	// Assert: report the configured timeout cause after the clamped duration.
-	var timeoutErr bashTimeoutError
-	require.ErrorAs(t, context.Cause(ctx), &timeoutErr)
-}
-
 // TestServiceExecuteBashTimeout returns a model-visible timeout instead of external cancellation.
 func TestServiceExecuteBashTimeout(t *testing.T) {
 	t.Parallel()
 
-	// Arrange: make bash wait for its operation timeout and return the timeout cause.
+	// Arrange a validated timeout command and a usecase timeout outcome.
 	bashTool := NewMockBashTool(gomock.NewController(t))
-	bashTool.EXPECT().Execute(gomock.Any(), "sleep 30", gomock.Any()).DoAndReturn(
-		func(ctx context.Context, _ string, _ func(BashProgress) error) (BashResult, error) {
-			select {
-			case <-ctx.Done():
-				cause := context.Cause(ctx)
-				return BashResult{
-					Text: "started\n\n[" + cause.Error() + "]\n", ExitCode: -1,
-					Truncation: textbudget.Truncation{
-						Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: "",
-					},
-				}, cause
-			case <-time.After(250 * time.Millisecond):
-				return BashResult{}, errors.New("bash timeout was not applied")
-			}
-		},
+	bashTool.EXPECT().Execute(gomock.Any(), BashCommand{Text: "sleep 30", Timeout: mo.Some(0.01)}, gomock.Any()).Return(
+		BashResult{
+			Text: "started\n\n[bash command timed out after 0.01 seconds]\n", ExitCode: -1,
+			Truncation: textbudget.Truncation{Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: ""},
+		}, fmt.Errorf("run bash command: %w", errors.New("bash command timed out after 0.01 seconds")),
 	)
 	client := newTestClientWithBash(t, bashTool)
 
@@ -116,19 +85,21 @@ func TestServiceExecuteBashBoundsRetainedOutputAndRunnerError(t *testing.T) {
 	require.Equal(t, textbudget.MaximumLines, strings.Count(boundedOutput, "\n"))
 
 	bashTool := NewMockBashTool(gomock.NewController(t))
-	bashTool.EXPECT().Execute(gomock.Any(), "partial", gomock.Any()).Return(
-		BashResult{
-			Text:     boundedOutput,
-			ExitCode: -1,
-			Truncation: textbudget.Truncation{
-				Truncated:      true,
-				TotalBytes:     int64(textbudget.MaximumBytes + 1),
-				TotalLines:     int64(textbudget.MaximumLines + 1),
-				FullOutputPath: fullOutputPath,
+	bashTool.EXPECT().
+		Execute(gomock.Any(), BashCommand{Text: "partial", Timeout: mo.None[float64]()}, gomock.Any()).
+		Return(
+			BashResult{
+				Text:     boundedOutput,
+				ExitCode: -1,
+				Truncation: textbudget.Truncation{
+					Truncated:      true,
+					TotalBytes:     int64(textbudget.MaximumBytes + 1),
+					TotalLines:     int64(textbudget.MaximumLines + 1),
+					FullOutputPath: fullOutputPath,
+				},
 			},
-		},
-		fmt.Errorf("run bash command: %w", errors.New("unique runner failure")),
-	)
+			fmt.Errorf("run bash command: %w", errors.New("unique runner failure")),
+		)
 	client := newTestClientWithBash(t, bashTool)
 
 	// Act: execute bash through the extension controller.
@@ -154,15 +125,17 @@ func TestServiceExecuteBashRetainedOutputCancellationPreservesCancellation(t *te
 
 	// Arrange: a runner result with retained output and wrapped cancellation.
 	bashTool := NewMockBashTool(gomock.NewController(t))
-	bashTool.EXPECT().Execute(gomock.Any(), "cancel", gomock.Any()).Return(
-		BashResult{
-			Text: "partial output", ExitCode: -1,
-			Truncation: textbudget.Truncation{
-				Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: "",
+	bashTool.EXPECT().
+		Execute(gomock.Any(), BashCommand{Text: "cancel", Timeout: mo.None[float64]()}, gomock.Any()).
+		Return(
+			BashResult{
+				Text: "partial output", ExitCode: -1,
+				Truncation: textbudget.Truncation{
+					Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: "",
+				},
 			},
-		},
-		fmt.Errorf("run bash command: %w", context.Canceled),
-	)
+			fmt.Errorf("run bash command: %w", context.Canceled),
+		)
 	client := newTestClientWithBash(t, bashTool)
 
 	// Act: execute bash through the extension controller.
@@ -182,15 +155,17 @@ func TestServiceExecuteBashReturnsBoundedText(t *testing.T) {
 
 	// Arrange: make bash return one bounded successful output.
 	bashTool := NewMockBashTool(gomock.NewController(t))
-	bashTool.EXPECT().Execute(gomock.Any(), "printf ok", gomock.Any()).Return(
-		BashResult{
-			Text: "ok\n\n[Exit code: 0]\n", ExitCode: 0,
-			Truncation: textbudget.Truncation{
-				Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: "",
+	bashTool.EXPECT().
+		Execute(gomock.Any(), BashCommand{Text: "printf ok", Timeout: mo.None[float64]()}, gomock.Any()).
+		Return(
+			BashResult{
+				Text: "ok\n\n[Exit code: 0]\n", ExitCode: 0,
+				Truncation: textbudget.Truncation{
+					Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: "",
+				},
 			},
-		},
-		nil,
-	)
+			nil,
+		)
 	client := newTestClientWithBash(t, bashTool)
 
 	// Act: prepare and run the public bash operation.

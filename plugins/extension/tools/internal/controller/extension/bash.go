@@ -25,12 +25,11 @@ func (s *Service) executeBash(
 	if err := json.Unmarshal(arguments, &input); err != nil {
 		return textResult(fmt.Sprintf("decode bash arguments: %v", err), true), nil
 	}
-	executionContext, stopTimeout, err := bashExecutionContext(ctx, input.Timeout)
-	if err != nil {
+	if err := validateBashTimeout(input.Timeout); err != nil {
 		return textResult(err.Error(), true), nil
 	}
-	defer stopTimeout()
-	result, err := s.bashTool.Execute(executionContext, input.Command, func(progress BashProgress) error {
+	command := BashCommand{Text: input.Command, Timeout: input.Timeout}
+	result, err := s.bashTool.Execute(ctx, command, func(progress BashProgress) error {
 		return reportProgress(ctx, report, progress)
 	})
 	if err != nil {
@@ -69,32 +68,18 @@ func bashResult(result BashResult, isError bool) (*extensionv1.ToolResult, error
 	return textResult(result.Text, isError), nil
 }
 
-// bashExecutionContext cancels one command with a timeout-specific cause.
-func bashExecutionContext(parent context.Context, timeout mo.Option[float64]) (context.Context, func(), error) {
+// validateBashTimeout checks the public duration range before dispatch.
+func validateBashTimeout(timeout mo.Option[float64]) error {
 	seconds, ok := timeout.Get()
 	if !ok {
-		return parent, func() {}, nil
+		return nil
 	}
 	if seconds <= 0 {
-		return nil, nil, errors.New("bash timeout must be positive")
+		return errors.New("bash timeout must be positive")
 	}
 	maximumSeconds := float64(math.MaxInt64) / float64(time.Second)
 	if seconds > maximumSeconds {
-		return nil, nil, errors.New("bash timeout exceeds supported duration")
+		return errors.New("bash timeout exceeds supported duration")
 	}
-	duration := time.Duration(seconds * float64(time.Second))
-	if duration == 0 {
-		duration = time.Nanosecond
-	}
-	ctx, cancel := context.WithCancelCause(parent)
-	timer := time.AfterFunc(duration, func() {
-		cancel(bashTimeoutError{
-			seconds: seconds,
-		})
-	})
-	stop := func() {
-		timer.Stop()
-		cancel(nil)
-	}
-	return ctx, stop, nil
+	return nil
 }

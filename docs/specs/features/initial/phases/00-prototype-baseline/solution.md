@@ -14,7 +14,7 @@
 
 ### Status
 
-- SOL-01: This document defines the approved implementation-ready technical solution for the prototype.
+- SOL-01: This document records the implemented prototype baseline, not target component ownership. The [target architecture](../../architecture.md) governs subsequent ownership changes. The [TUI ownership record](../07.1-architecture-audit-and-correction/tui-ownership-gap.md) records the corrected boundaries and the remaining persistence-cause gap.
 
 ### Process Topology
 
@@ -190,7 +190,7 @@ plugins/ui/tui/
 - DGM-04: Top-level project roots and nested `internal` directories enforce source ownership. Intermediate grouping directories do not become Go packages unless implementation adds source files with an approved responsibility.
 - CMP-15: The Host project contains Agent Core, internal hooks, Host use cases, headless and UI command controllers, provider and plugin infrastructure, terminal recovery, persistence, schema validation, and the Host composition root.
 - CMP-13: The standard tools extension project contains independent tool use cases, one extension contract controller, shared project-filesystem and bash-process adapters, and its own composition root.
-- CMP-14: The standard TUI project contains a non-authoritative presentation projection, presentation use cases, separate plugin-contract and Bubble Tea controllers, terminal infrastructure, and its own composition root.
+- CMP-14: The prototype TUI contained a non-authoritative presentation projection, a presentation service, separate plugin-contract and Bubble Tea controllers, terminal infrastructure, and its own composition root. This describes the baseline, not closure of its later ownership findings.
 
 ### Approved Decisions
 
@@ -206,7 +206,7 @@ plugins/ui/tui/
 - DEC-66: Use `host`, `plugins/extension/tools`, and `plugins/ui/tui` as project roots. Each project owns its `cmd` entry point and nested `internal/app` composition root; nested `internal` visibility enforces project isolation.
 - DEC-67: Use the Host package tree in DGM-04, including `domain/model`, `domain/pluginid`, `domain/ui`, `usecase/host/providers`, `usecase/host/ui`, `controller/cli/headless`, separate extension and UI `catalog` and `runtime` packages, and `infra/terminal`. Extension runtime infrastructure owns prototype tool-catalog schema compilation and profile validation.
 - DEC-68: Use shared standard-tools project layers with separate `read`, `edit`, and `bash` use cases, one extension controller, and shared filesystem and process infrastructure adapters.
-- DEC-69: Give the standard TUI its own `domain/presentation` state, `usecase/presentation` behavior, plugin-contract controller, Bubble Tea controller, terminal adapter, and composition root.
+- DEC-69: The prototype placed state in `domain/presentation`, a service in `usecase/presentation`, and input in plugin-contract and Bubble Tea controllers. This baseline arrangement does not justify retaining a forwarding service or treating all presentation payloads as domain concepts. SOL-01 identifies the target ownership authority.
 - DEC-70: Preserve grouping directories when approved target behavior provides plausible sibling responsibilities. Do not create empty Go packages or speculative Go interfaces solely to materialize the documented hierarchy.
 - DEC-71: Use `~/.glyph/plugins/extension/` and `~/.glyph/plugins/ui/` as default catalog roots. `--extension-dir <path>` replaces the extension directory for one UI or headless invocation. `--ui-dir <path>` replaces the UI directory for one UI invocation; combining it with `glyph run` fails startup. Overrides do not change settings. Source builds place plugin executables under `bin/plugins/{extension,ui}` and run `bin/glyph` with these overrides; no staging task copies files outside the repository.
 - DEC-72: Derive a plugin ID from its executable filename by converting it to lowercase, replacing runs of whitespace and `_` with one `-`, collapsing repeated `-`, and trimming leading or trailing `-`. Normalize catalog entries, `--ui`, and `activeUI` before comparison. In the extension catalog, exclude and report each empty-ID candidate and every candidate in a duplicate-ID group while retaining unaffected candidates. In the UI catalog, an empty normalized ID or duplicate normalized IDs make the catalog invalid.

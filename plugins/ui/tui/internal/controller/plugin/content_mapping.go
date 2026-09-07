@@ -9,11 +9,10 @@ import (
 	"github.com/samber/mo"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
 // mapContents rejects malformed blocks before they reach presentation state.
-func mapContents(contents []*uiv1.ToolResultContent, allowEmpty bool) ([]presentationdomain.Content, error) {
+func mapContents(contents []*uiv1.ToolResultContent, allowEmpty bool) ([]Content, error) {
 	if len(contents) == 0 && !allowEmpty {
 		return nil, errors.New("tool result contents are empty")
 	}
@@ -22,13 +21,13 @@ func mapContents(contents []*uiv1.ToolResultContent, allowEmpty bool) ([]present
 	}
 	return lo.MapErr(
 		contents,
-		func(content *uiv1.ToolResultContent, index int) (presentationdomain.Content, error) {
+		func(content *uiv1.ToolResultContent, index int) (Content, error) {
 			if content == nil {
-				return presentationdomain.Content{}, fmt.Errorf("tool result content %d is missing", index)
+				return Content{}, fmt.Errorf("tool result content %d is missing", index)
 			}
 			switch content.WhichContent() {
 			case uiv1.ToolResultContent_Text_case:
-				return presentationdomain.Content{
+				return Content{
 					Text:      mo.Some(content.GetText()),
 					MediaType: mo.None[string](),
 					Data:      mo.None[[]byte](),
@@ -36,25 +35,25 @@ func mapContents(contents []*uiv1.ToolResultContent, allowEmpty bool) ([]present
 			case uiv1.ToolResultContent_Image_case:
 				image := content.GetImage()
 				if image == nil || image.GetMediaType() == "" || !image.HasData() {
-					return presentationdomain.Content{}, fmt.Errorf("tool result image %d is invalid", index)
+					return Content{}, fmt.Errorf("tool result image %d is invalid", index)
 				}
-				return presentationdomain.Content{
+				return Content{
 					MediaType: mo.Some(image.GetMediaType()),
 					Data:      mo.Some(bytes.Clone(image.GetData())),
 					Text:      mo.None[string](),
 				}, nil
 			case uiv1.ToolResultContent_Content_not_set_case:
-				return presentationdomain.Content{}, fmt.Errorf("tool result content %d is missing", index)
+				return Content{}, fmt.Errorf("tool result content %d is missing", index)
 			default:
-				return presentationdomain.Content{}, fmt.Errorf("tool result content %d is invalid", index)
+				return Content{}, fmt.Errorf("tool result content %d is invalid", index)
 			}
 		},
 	)
 }
 
 // mapModelResponseContent rejects malformed finalized blocks before projection.
-func mapModelResponseContent(content []*uiv1.ModelResponseContent) ([]presentationdomain.ModelResponseContent, error) {
-	result := make([]presentationdomain.ModelResponseContent, 0, len(content))
+func mapModelResponseContent(content []*uiv1.ModelResponseContent) ([]ModelResponseContent, error) {
+	result := make([]ModelResponseContent, 0, len(content))
 	for index, item := range content {
 		if item == nil {
 			return nil, fmt.Errorf("model response content %d is missing", index)
@@ -73,7 +72,7 @@ func mapModelResponseContent(content []*uiv1.ModelResponseContent) ([]presentati
 		if !item.HasText() {
 			return nil, fmt.Errorf("model response content %d text is missing", index)
 		}
-		result = append(result, presentationdomain.ModelResponseContent{
+		result = append(result, ModelResponseContent{
 			Kind: kind,
 			Text: mo.Some(item.GetText()),
 		})
@@ -86,13 +85,13 @@ func mapModelContentDiscriminators(
 	lifecycleType uiv1.LifecycleType,
 	contentType uiv1.ModelContentType,
 	contentKind uiv1.ModelContentKind,
-) (presentationdomain.ModelContentKind, error) {
+) (ModelContentKind, error) {
 	expectedType, err := expectedModelContentType(lifecycleType)
 	if err != nil {
-		return presentationdomain.ModelContentUnspecified, err
+		return ModelContentUnspecified, err
 	}
 	if contentType != expectedType {
-		return presentationdomain.ModelContentUnspecified, fmt.Errorf(
+		return ModelContentUnspecified, fmt.Errorf(
 			"model content type %d does not match lifecycle type %d",
 			contentType, lifecycleType,
 		)
@@ -117,34 +116,35 @@ func expectedModelContentType(lifecycleType uiv1.LifecycleType) (uiv1.ModelConte
 }
 
 // mapModelContentKind converts public content identity into the TUI presentation contract.
-func mapModelContentKind(kind uiv1.ModelContentKind) (presentationdomain.ModelContentKind, error) {
+func mapModelContentKind(kind uiv1.ModelContentKind) (ModelContentKind, error) {
 	switch kind {
 	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT:
-		return presentationdomain.ModelContentText, nil
+		return ModelContentText, nil
 	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL:
-		return presentationdomain.ModelContentRefusal, nil
+		return ModelContentRefusal, nil
 	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING:
-		return presentationdomain.ModelContentReasoning, nil
+		return ModelContentReasoning, nil
 	case uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED:
-		return presentationdomain.ModelContentUnspecified, errors.New("model content kind is unspecified")
+		return ModelContentUnspecified, errors.New("model content kind is unspecified")
 	default:
-		return presentationdomain.ModelContentUnspecified, fmt.Errorf("model content kind %d is invalid", kind)
+		return ModelContentUnspecified, fmt.Errorf("model content kind %d is invalid", kind)
 	}
 }
 
-func mapToolCallPreview(preview *uiv1.ToolCallPreview) (presentationdomain.ToolCallState, error) {
+// mapToolCallPreview validates argument presence and preserves complete and prefix fields.
+func mapToolCallPreview(preview *uiv1.ToolCallPreview) (ToolCallState, error) {
 	if !preview.HasCallId() || !preview.HasName() || !preview.HasPosition() || !preview.HasProvisional() {
-		return presentationdomain.ToolCallState{}, errors.New("tool call preview scalar is missing")
+		return ToolCallState{}, errors.New("tool call preview scalar is missing")
 	}
-	fields := make([]presentationdomain.ToolCallField, len(preview.GetFields()))
+	fields := make([]ToolCallField, len(preview.GetFields()))
 	for index, field := range preview.GetFields() {
 		if field == nil {
-			return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d is nil", index)
+			return ToolCallState{}, fmt.Errorf("tool call preview field %d is nil", index)
 		}
 		if !field.HasName() {
-			return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d name is missing", index)
+			return ToolCallState{}, fmt.Errorf("tool call preview field %d name is missing", index)
 		}
-		mapped := presentationdomain.ToolCallField{
+		mapped := ToolCallField{
 			Name:   field.GetName(),
 			Value:  mo.None[any](),
 			Prefix: mo.None[string](),
@@ -153,20 +153,20 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) (presentationdomain.ToolC
 		case uiv1.ToolCallPreviewField_Value_case:
 			value := field.GetValue()
 			if value == nil {
-				return presentationdomain.ToolCallState{}, fmt.Errorf("tool call preview field %d value is nil", index)
+				return ToolCallState{}, fmt.Errorf("tool call preview field %d value is nil", index)
 			}
 			mapped.Value = mo.Some(value.AsInterface())
 		case uiv1.ToolCallPreviewField_Prefix_case:
 			mapped.Prefix = mo.Some(field.GetPrefix())
 		case uiv1.ToolCallPreviewField_Content_not_set_case:
-			return presentationdomain.ToolCallState{}, fmt.Errorf(
+			return ToolCallState{}, fmt.Errorf(
 				"tool call preview field %d content is missing",
 				index,
 			)
 		}
 		fields[index] = mapped
 	}
-	return presentationdomain.ToolCallState{
+	return ToolCallState{
 		CallID:      preview.GetCallId(),
 		Name:        preview.GetName(),
 		Position:    int(preview.GetPosition()),
@@ -177,17 +177,17 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) (presentationdomain.ToolC
 }
 
 // mapProgress validates the closed progress-channel enum and assigns its output kind.
-func mapProgress(event *presentationdomain.Event, channel uiv1.ProgressChannel) error {
+func mapProgress(event *AgentUpdate, channel uiv1.ProgressChannel) error {
 	switch channel {
 	case uiv1.ProgressChannel_PROGRESS_CHANNEL_STATUS:
-		event.Kind = presentationdomain.EventToolProgress
+		event.Kind = AgentToolProgress
 		event.Status = mo.Some("progress")
 	case uiv1.ProgressChannel_PROGRESS_CHANNEL_STDOUT:
-		event.Kind = presentationdomain.EventToolOutput
-		event.Stream = mo.Some(presentationdomain.OutputStdout)
+		event.Kind = AgentToolOutput
+		event.Stream = mo.Some(OutputStdout)
 	case uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR:
-		event.Kind = presentationdomain.EventToolOutput
-		event.Stream = mo.Some(presentationdomain.OutputStderr)
+		event.Kind = AgentToolOutput
+		event.Stream = mo.Some(OutputStderr)
 	case uiv1.ProgressChannel_PROGRESS_CHANNEL_UNSPECIFIED:
 		return errors.New("tool progress channel is unspecified")
 	default:
@@ -197,21 +197,21 @@ func mapProgress(event *presentationdomain.Event, channel uiv1.ProgressChannel) 
 }
 
 // mapAvailability rejects unspecified or unknown Host availability values.
-func mapAvailability(availability uiv1.Availability) (presentationdomain.Availability, error) {
+func mapAvailability(availability uiv1.Availability) (Availability, error) {
 	switch availability {
 	case uiv1.Availability_AVAILABILITY_CHECKING_AUTHENTICATION:
-		return presentationdomain.AvailabilityChecking, nil
+		return AvailabilityChecking, nil
 	case uiv1.Availability_AVAILABILITY_AUTHENTICATING:
-		return presentationdomain.AvailabilityAuthenticating, nil
+		return AvailabilityAuthenticating, nil
 	case uiv1.Availability_AVAILABILITY_AUTHENTICATION_FAILED:
-		return presentationdomain.AvailabilityAuthenticationFailed, nil
+		return AvailabilityAuthenticationFailed, nil
 	case uiv1.Availability_AVAILABILITY_IDLE:
-		return presentationdomain.AvailabilityIdle, nil
+		return AvailabilityIdle, nil
 	case uiv1.Availability_AVAILABILITY_RUNNING:
-		return presentationdomain.AvailabilityRunning, nil
+		return AvailabilityRunning, nil
 	case uiv1.Availability_AVAILABILITY_UNSPECIFIED:
-		return presentationdomain.AvailabilityUnspecified, errors.New("availability is unspecified")
+		return AvailabilityUnspecified, errors.New("availability is unspecified")
 	default:
-		return presentationdomain.AvailabilityUnspecified, fmt.Errorf("unknown availability %d", availability)
+		return AvailabilityUnspecified, fmt.Errorf("unknown availability %d", availability)
 	}
 }

@@ -1,8 +1,6 @@
 package extension
 
 import (
-	"fmt"
-
 	"github.com/samber/mo"
 )
 
@@ -38,17 +36,6 @@ type bashArguments struct {
 	Command string `json:"command"`
 	// Timeout contains the execution limit in seconds.
 	Timeout mo.Option[float64] `json:"timeout"`
-}
-
-// bashTimeoutError distinguishes a tool timeout from caller cancellation.
-type bashTimeoutError struct {
-	// seconds contains the configured execution limit.
-	seconds float64
-}
-
-// Error returns the model-visible timeout outcome.
-func (e bashTimeoutError) Error() string {
-	return fmt.Sprintf("bash command timed out after %g seconds", e.seconds)
 }
 
 // grepArguments is the transport-local grep input.

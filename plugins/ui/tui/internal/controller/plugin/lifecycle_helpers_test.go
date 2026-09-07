@@ -8,16 +8,15 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"google.golang.org/protobuf/proto"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
+// roundTripLifecycle checks the public envelope across a protobuf serialization round trip.
 func roundTripLifecycle(t *testing.T, lifecycle *uiv1.AgentEvent) *uiv1.AgentEvent {
 	t.Helper()
 	data, err := proto.Marshal(lifecycle)
@@ -82,6 +81,7 @@ func buildModelContentLifecycle(
 	}.Build()
 }
 
+// messageEndLifecycle constructs a complete terminal response with the selected content.
 func messageEndLifecycle(t *testing.T, content []*uiv1.ModelResponseContent) *uiv1.AgentEvent {
 	t.Helper()
 	return roundTripLifecycle(t, uiv1.AgentEvent_builder{
@@ -110,16 +110,15 @@ func TestMapAuthenticationFailureConnectionEventsPreservesTextAndAvailability(t 
 	}.Build())
 
 	// Act through connection-event mapping.
-	mappedError, err := mapConnectionEvent(errorEvent)
+	mappedError, err := DecodeConnectionEvent(errorEvent)
 	require.NoError(t, err)
-	mappedAvailability, err := mapConnectionEvent(availabilityEvent)
+	mappedAvailability, err := DecodeConnectionEvent(availabilityEvent)
 	require.NoError(t, err)
 
 	// Assert complete error text and authentication-failed availability remain visible.
-	assert.Equal(t, presentationdomain.EventError, mappedError.Kind)
-	assert.Equal(t, mo.Some("Authentication failed."), mappedError.Text)
-	assert.Equal(t, presentationdomain.EventAvailability, mappedAvailability.Kind)
-	assert.Equal(t, mo.Some(presentationdomain.AvailabilityAuthenticationFailed), mappedAvailability.Availability)
+	assert.Equal(t, TextError, mappedError.Text.Kind)
+	assert.Equal(t, "Authentication failed.", mappedError.Text.Text)
+	assert.Equal(t, AvailabilityAuthenticationFailed, mappedAvailability.Availability)
 }
 
 // initializationRequest builds the first valid Host frame used by stream tests.
@@ -149,6 +148,7 @@ func initializationRequest() *uiv1.OpenRequest {
 	}.Build()
 }
 
+// testSessionInfo supplies complete metadata for input validation fixtures.
 func testSessionInfo() *uiv1.SessionInfo {
 	createdAt := timestamppb.New(time.Unix(1, 0).UTC())
 	return uiv1.SessionInfo_builder{
@@ -159,14 +159,7 @@ func testSessionInfo() *uiv1.SessionInfo {
 	}.Build()
 }
 
-func testReasoning(choices ...presentationdomain.ReasoningChoice) presentationdomain.ReasoningCapabilities {
-	return presentationdomain.ReasoningCapabilities{
-		Supported: true,
-		Choices:   choices,
-		Default:   choices[len(choices)-1],
-	}
-}
-
+// testUIReasoning creates public reasoning capabilities for input validation.
 func testUIReasoning(choices ...uiv1.ReasoningChoice) *uiv1.ReasoningCapabilities {
 	return uiv1.ReasoningCapabilities_builder{
 		Supported:     new(true),

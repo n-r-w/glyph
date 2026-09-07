@@ -48,6 +48,7 @@
 - Dependencies: PHS-05.2, PHS-04.1
 - Ticket: [Ticket](phases/07.1-architecture-audit-and-correction/ticket.md)
 - Execution point: Audit the implemented product, including partial PHS-07 work, before PHS-07 resumes. This phase does not depend on PHS-07 completion.
+- Remaining TUI gap: [Persistence-cause behavior, BLK-05](phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md#blk-05-persistence-cause-cleanup-still-targets-the-old-presentation-boundary). Revised U5 closes BLK-01 through BLK-04. The phase cannot complete while BLK-05 or another audit finding remains open.
 
 ### PHS-07. Extension context and lifecycle
 - Dependencies: PHS-05.2, PHS-04.1, PHS-07.1

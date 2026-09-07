@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
 // TestRestoredTranscriptOmitsOnlyHiddenExtensionMessages verifies standard TUI ordinary transcript visibility.
@@ -43,7 +42,7 @@ func TestRestoredTranscriptOmitsOnlyHiddenExtensionMessages(t *testing.T) {
 	// Assert only the visible exact text is presented.
 	require.NoError(t, err)
 	require.Len(t, lines, 1)
-	assert.Equal(t, presentationdomain.LineUser, lines[0].Kind)
+	assert.Equal(t, TranscriptUser, lines[0].Kind)
 	assert.Equal(t, mo.Some("visible\ntext"), lines[0].Text)
 }
 
@@ -72,7 +71,7 @@ func TestRestoredTerminalFailuresRemainVisible(t *testing.T) {
 			// Assert the terminal failure remains one visible error line with the safe text.
 			require.NoError(t, err)
 			require.Len(t, lines, 1)
-			assert.Equal(t, presentationdomain.LineError, lines[0].Kind)
+			assert.Equal(t, TranscriptError, lines[0].Kind)
 			assert.Equal(t, mo.Some(errorMessage), lines[0].Text)
 		})
 	}
@@ -152,19 +151,18 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 	event, _, err := mapSessionRequest(request)
 	// Assert the event preserves transcript order and public content.
 	require.NoError(t, err)
-	require.Empty(t, event.Startup)
-	require.Len(t, event.RestoredTranscript, 4)
-	assert.Equal(t, presentationdomain.LineUser, event.RestoredTranscript[0].Kind)
-	assert.Equal(t, mo.Some(userText), event.RestoredTranscript[0].Text)
-	assert.Equal(t, presentationdomain.LineModel, event.RestoredTranscript[1].Kind)
-	assert.Equal(t, mo.Some(modelText), event.RestoredTranscript[1].Text)
-	assert.Equal(t, presentationdomain.LineToolStatus, event.RestoredTranscript[2].Kind)
-	assert.Equal(t, mo.Some(toolName), event.RestoredTranscript[2].ToolName)
-	assert.Equal(t, mo.Some("arguments"), event.RestoredTranscript[2].Status)
-	assert.JSONEq(t, `{"path":"input.txt"}`, event.RestoredTranscript[2].Text.MustGet())
-	assert.Equal(t, presentationdomain.LineToolDone, event.RestoredTranscript[3].Kind)
-	assert.Equal(t, mo.Some(toolName), event.RestoredTranscript[3].ToolName)
-	assert.Equal(t, mo.Some(toolResultText), event.RestoredTranscript[3].Text)
+	require.Len(t, event.Session.Transcript, 4)
+	assert.Equal(t, TranscriptUser, event.Session.Transcript[0].Kind)
+	assert.Equal(t, mo.Some(userText), event.Session.Transcript[0].Text)
+	assert.Equal(t, TranscriptModel, event.Session.Transcript[1].Kind)
+	assert.Equal(t, mo.Some(modelText), event.Session.Transcript[1].Text)
+	assert.Equal(t, TranscriptToolStatus, event.Session.Transcript[2].Kind)
+	assert.Equal(t, mo.Some(toolName), event.Session.Transcript[2].ToolName)
+	assert.Equal(t, mo.Some("arguments"), event.Session.Transcript[2].Status)
+	assert.JSONEq(t, `{"path":"input.txt"}`, event.Session.Transcript[2].Text.MustGet())
+	assert.Equal(t, TranscriptToolDone, event.Session.Transcript[3].Kind)
+	assert.Equal(t, mo.Some(toolName), event.Session.Transcript[3].ToolName)
+	assert.Equal(t, mo.Some(toolResultText), event.Session.Transcript[3].Text)
 }
 
 // TestSessionChangedAcceptsStoredToolResultContentStates verifies valid empty and image states restore safely.
@@ -256,8 +254,8 @@ func TestSessionChangedAcceptsStoredToolResultContentStates(t *testing.T) {
 
 			// Assert exact slice, option, byte ownership, and rendered text state.
 			require.NoError(t, err)
-			require.Len(t, event.RestoredTranscript, 1)
-			line := event.RestoredTranscript[0]
+			require.Len(t, event.Session.Transcript, 1)
+			line := event.Session.Transcript[0]
 			require.True(t, line.Contents.IsPresent())
 			mapped := line.Contents.MustGet()
 			if test.expectNil {
@@ -349,13 +347,13 @@ func TestRestoredTranscriptMapsDisplayableEntries(t *testing.T) {
 	require.Len(t, lines, 5)
 	require.True(t, lines[0].Contents.IsPresent())
 	require.Equal(t, []byte{1, 2, 3}, lines[0].Contents.MustGet()[1].Data.MustGet())
-	require.Equal(t, presentationdomain.LineReasoning, lines[1].Kind)
+	require.Equal(t, TranscriptReasoning, lines[1].Kind)
 	require.Equal(t, mo.Some(reasoning), lines[1].Text)
-	require.Equal(t, presentationdomain.LineRefusal, lines[2].Kind)
+	require.Equal(t, TranscriptRefusal, lines[2].Kind)
 	require.Equal(t, mo.Some(refusal), lines[2].Text)
-	require.Equal(t, presentationdomain.LineBranchSummary, lines[3].Kind)
+	require.Equal(t, TranscriptBranchSummary, lines[3].Kind)
 	require.Equal(t, mo.Some(summary), lines[3].Text)
-	require.Equal(t, presentationdomain.LineToolDone, lines[4].Kind)
+	require.Equal(t, TranscriptToolDone, lines[4].Kind)
 	require.Equal(t, []byte{4, 5, 6}, lines[4].Contents.MustGet()[0].Data.MustGet())
 	require.Equal(t, mo.Some("[image image/webp, 3 bytes]"), lines[4].Text)
 }

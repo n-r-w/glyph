@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
 // TestMapLifecycleProjectsModelToolSettlementAndAvailability verifies every approved lifecycle mapping.
@@ -25,7 +24,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 	testCases := []struct {
 		name      string
 		lifecycle *uiv1.AgentEvent
-		expected  presentationdomain.Event
+		expected  AgentUpdate
 	}{
 		{
 			name: "model delta",
@@ -51,31 +50,21 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				FinalToolCall:      nil,
 				ToolResultContents: nil,
 			}.Build(),
-			expected: presentationdomain.Event{
-				RestoredTranscript:   nil,
-				Kind:                 presentationdomain.EventModelDelta,
+			expected: AgentUpdate{
+				Kind:                 AgentModelDelta,
 				Position:             mo.Some(2),
 				Text:                 mo.Some("delta"),
-				Startup:              nil,
-				Extensions:           nil,
-				Availability:         mo.None[presentationdomain.Availability](),
-				ModelContentKind:     mo.Some(presentationdomain.ModelContentText),
+				ModelContentKind:     mo.Some(ModelContentText),
 				ModelResponseContent: nil,
 				ToolCallID:           mo.None[string](),
 				ToolName:             mo.None[string](),
 				Status:               mo.None[string](),
-				Stream:               mo.None[presentationdomain.OutputStream](),
-				Contents:             mo.None[[]presentationdomain.Content](),
+				Stream:               mo.None[OutputStream](),
+				Contents:             mo.None[[]Content](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
-				ToolCall:             mo.None[presentationdomain.ToolCallState](),
-				Models:               nil,
-				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-				Sessions:             nil,
-				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-				TreeEvent:            mo.None[presentationdomain.TreeEvent](),
+				ToolCall:             mo.None[ToolCallState](),
 			},
 		},
 		{
@@ -97,31 +86,21 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				FinalToolCall:      nil,
 				ToolResultContents: nil,
 			}.Build(),
-			expected: presentationdomain.Event{
-				RestoredTranscript:   nil,
-				Kind:                 presentationdomain.EventToolStarted,
+			expected: AgentUpdate{
+				Kind:                 AgentToolStarted,
 				ToolCallID:           mo.Some("call-1"),
 				ToolName:             mo.Some("read"),
 				Status:               mo.Some("started"),
-				Startup:              nil,
-				Extensions:           nil,
-				Availability:         mo.None[presentationdomain.Availability](),
 				Position:             mo.None[int](),
-				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+				ModelContentKind:     mo.None[ModelContentKind](),
 				ModelResponseContent: nil,
-				Stream:               mo.None[presentationdomain.OutputStream](),
+				Stream:               mo.None[OutputStream](),
 				Text:                 mo.None[string](),
-				Contents:             mo.None[[]presentationdomain.Content](),
+				Contents:             mo.None[[]Content](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
-				ToolCall:             mo.None[presentationdomain.ToolCallState](),
-				Models:               nil,
-				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-				Sessions:             nil,
-				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-				TreeEvent:            mo.None[presentationdomain.TreeEvent](),
+				ToolCall:             mo.None[ToolCallState](),
 			},
 		},
 		{
@@ -143,31 +122,21 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				FinalToolCall:      nil,
 				ToolResultContents: nil,
 			}.Build(),
-			expected: presentationdomain.Event{
-				RestoredTranscript:   nil,
-				Kind:                 presentationdomain.EventToolOutput,
+			expected: AgentUpdate{
+				Kind:                 AgentToolOutput,
 				ToolCallID:           mo.Some("call-1"),
-				Stream:               mo.Some(presentationdomain.OutputStderr),
+				Stream:               mo.Some(OutputStderr),
 				Text:                 mo.Some("warning"),
-				Startup:              nil,
-				Extensions:           nil,
-				Availability:         mo.None[presentationdomain.Availability](),
 				Position:             mo.None[int](),
-				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+				ModelContentKind:     mo.None[ModelContentKind](),
 				ModelResponseContent: nil,
 				ToolName:             mo.None[string](),
 				Status:               mo.None[string](),
-				Contents:             mo.None[[]presentationdomain.Content](),
+				Contents:             mo.None[[]Content](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
 				Failure:              mo.None[bool](),
-				ToolCall:             mo.None[presentationdomain.ToolCallState](),
-				Models:               nil,
-				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-				Sessions:             nil,
-				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-				TreeEvent:            mo.None[presentationdomain.TreeEvent](),
+				ToolCall:             mo.None[ToolCallState](),
 			},
 		},
 		{
@@ -194,35 +163,25 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 				ToolCallPreview: nil,
 				FinalToolCall:   nil,
 			}.Build(),
-			expected: presentationdomain.Event{
-				RestoredTranscript: nil,
-				Kind:               presentationdomain.EventToolResult,
-				ToolCallID:         mo.Some("call-1"),
-				ToolName:           mo.Some("read"),
-				Failure:            mo.Some(true),
-				Contents: mo.Some([]presentationdomain.Content{{
+			expected: AgentUpdate{
+				Kind:       AgentToolResult,
+				ToolCallID: mo.Some("call-1"),
+				ToolName:   mo.Some("read"),
+				Failure:    mo.Some(true),
+				Contents: mo.Some([]Content{{
 					Text:      mo.Some("denied"),
 					MediaType: mo.None[string](),
 					Data:      mo.None[[]byte](),
 				}}),
-				Startup:              nil,
-				Extensions:           nil,
-				Availability:         mo.None[presentationdomain.Availability](),
 				Position:             mo.None[int](),
-				ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+				ModelContentKind:     mo.None[ModelContentKind](),
 				ModelResponseContent: nil,
 				Status:               mo.None[string](),
-				Stream:               mo.None[presentationdomain.OutputStream](),
+				Stream:               mo.None[OutputStream](),
 				Text:                 mo.None[string](),
 				ErrorText:            mo.None[string](),
 				ExitCode:             mo.None[int](),
-				ToolCall:             mo.None[presentationdomain.ToolCallState](),
-				Models:               nil,
-				ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-				SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-				Sessions:             nil,
-				SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-				TreeEvent:            mo.None[presentationdomain.TreeEvent](),
+				ToolCall:             mo.None[ToolCallState](),
 			},
 		},
 	}
@@ -232,8 +191,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
 			// Arrange the case-specific lifecycle payload and expected presentation event.
-			// Act by mapping the lifecycle payload through mapLifecycle.
-			event, err := mapLifecycle(testCase.lifecycle)
+			// Act by mapping the lifecycle payload through DecodeLifecycle.
+			event, err := DecodeLifecycle(testCase.lifecycle)
 			// Assert every lifecycle maps to its exact presentation event.
 			require.NoError(t, err)
 			assert.Equal(t, testCase.expected, event)
@@ -243,7 +202,7 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 
 // TestMapToolCallPreviewPreservesCompleteSnapshot verifies direct protobuf projection without truncation.
 func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
-	// Arrange completeValue, nullValue, and preview for mapToolCallPreview to verify direct protobuf projection without truncation.
+	// Arrange complete, null, and partial preview fields for lossless input decoding.
 	t.Parallel()
 
 	completeValue, err := structpb.NewValue(map[string]any{
@@ -280,12 +239,12 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 	mapped, err := mapToolCallPreview(preview)
 	// Assert direct protobuf projection without truncation.
 	require.NoError(t, err)
-	assert.Equal(t, presentationdomain.ToolCallState{
+	assert.Equal(t, ToolCallState{
 		CallID:      "call-17",
 		Name:        "sample",
 		Position:    23,
 		Provisional: true,
-		Fields: []presentationdomain.ToolCallField{
+		Fields: []ToolCallField{
 			{
 				Name: "complete",
 				Value: mo.Some[any](map[string]any{

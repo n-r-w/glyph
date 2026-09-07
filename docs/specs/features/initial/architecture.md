@@ -62,9 +62,9 @@
 - CMP-11: Programmatic Control transport. `api/programmatic/v1`, `pkg/programmatic/v1`, `host/internal/controller/programmatic`, `host/internal/infra/programmatic/output`, and `host/internal/infra/programmatic/socket` expose Host commands and events through bidirectional gRPC over a Unix socket inside `glyph`. The output implementation owns the single active run/output association. Prepared Host work owns execution, and Core implements the Host consumer's minimal activity query.
 - CMP-12: Extension public boundary. `api/plugins/extension/v1`, `pkg/plugins/extension/v1`, and `sdk/plugins/extension/v1` define and support the Host-owned extension process contract without exposing Host or Agent Core internal types.
 - CMP-13: UI plugin public boundary. `api/plugins/ui/v1`, `pkg/plugins/ui/v1`, and `sdk/plugins/ui/v1` define and support the Host-owned UI plugin process contract.
-- CMP-14: Standard tools extension. `plugins/extension/tools` implements bundled coding tools as an ordinary extension process and owns its tool use cases, filesystem adapters, process adapters, and composition.
+- CMP-14: Standard tools extension. `plugins/extension/tools` implements bundled coding tools as an ordinary extension process and owns its tool use cases, filesystem adapters, process adapters, and composition. Its extension controller parses and validates bash input and owns the consumed command contract. The bash usecase owns execution timers, timeout causes, and cancellation cleanup. The process adapter owns process groups, termination, output streaming, and output spill.
 - CMP-15: Bundled resource extension. This logical extension converts collected skills and context files into resolved instructions and model context and exposes prompt templates through Host. Agent Core receives no resource types.
-- CMP-16: Standard TUI. `plugins/ui/tui` owns terminal input, terminal lifecycle and cleanup, transcript projection, rendering, editor behavior, and TUI extension presentation inside the UI plugin process. It does not execute agent behavior.
+- CMP-16: Standard TUI. `plugins/ui/tui` owns client interaction and rendering, not agent execution or authoritative session state. The presentation usecase owns private display/interaction state, pending-command policy, and its transitions. Input controllers decode Host notifications and terminal input. SDK infrastructure owns connection binding and command/notification I/O; terminal infrastructure owns Bubble Tea, terminal resources, geometry, and rendering. Tree visibility and selection rules remain with application state. The [TUI solution](phases/07.1-architecture-audit-and-correction/solution.md#tui) defines the paths and contracts. Terminal runtime consumes device/file ports implemented by `infra/terminal/device`. Projection mutations invalidate detached display data; editor-only transitions reuse it. The [TUI ownership record](phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md) closes BLK-01 through BLK-04 and keeps the separately approved persistence-cause correction open.
 
 ## Component diagram
 
@@ -152,6 +152,12 @@ The architecture keeps one `glyph` process and separate project roots for Host a
     - plugins/ui/runtime/ - selected UI process stream and output
 - plugins/extension/tools/ - existing bundled tools extension project root
 - plugins/ui/tui/ - existing standard TUI project root
+  - internal/controller/plugin/ - Host notification and initialization input
+  - internal/controller/tui/ - terminal input decoding
+  - internal/usecase/presentation/ - private application state and interaction policy
+  - internal/infra/host/ - initialized SDK command and notification I/O
+  - internal/infra/terminal/ - Bubble Tea runtime, snapshots and rendering
+    - device/ - controlling-terminal file acquisition and cleanup
 - docs/specs/features/initial/architecture.md - target architecture authority
 ```
 
@@ -173,9 +179,10 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - APC-02: Agent Core declares its logical model-execution interface in `host/internal/usecase/agent/run`. Host model execution implements provider selection snapshot, middleware, retry coordination, and provider dispatch.
 - APC-03: Agent Core declares its tool-runtime interface in `host/internal/usecase/agent/run`. Host tools implement registry lookup, middleware, extension dispatch, and runtime-failure mapping.
 - APC-04: Agent Core declares history and event interfaces in `host/internal/usecase/agent/run`. Host session and event adapters implement persistence and client delivery.
-- APC-05: Every controller package declares the smallest Host interface and method types needed by that controller. Host use cases implement those interfaces.
+- APC-05: Every Host controller package declares the smallest Host interface and method types needed by that controller. Host use cases implement those interfaces.
 - APC-06: Every Host use case declares each outbound dependency interface at its use site, including interfaces for Agent Core, repositories, providers, plugin runtimes, clocks, identifiers, and client delivery. Agent Core or infrastructure packages implement those interfaces.
 - APC-07: PHS-05.1 removed `host/internal/hooks`. Extension dispatch contracts belong to Host, while Agent Core depends only on APC-01 through APC-04 and does not regain a generic Host hook dependency.
+- APC-07.1: Each TUI input controller owns its neutral application contract and payloads; the presentation usecase directly implements both. The usecase owns outgoing Host, display-snapshot, and runtime ports. SDK and terminal adapters implement those ports. Terminal infrastructure owns its consumed notification-source contract. Assertions stay with implementations; input controllers have no dependency on concrete usecases or output adapters.
 
 ## Contracts
 
@@ -248,6 +255,11 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - STP-22: Ordered selection handlers preserve, replace, or reject the current selection. Rejection stops later selection handlers. An ordinary handler error or invalid action is reported, preserves the current selection received by that handler, and does not stop later handlers or deactivate the extension. Host validates model existence, reasoning capability, and authentication only after the handler chain completes without rejection.
 - STP-23: Host commits the complete selection atomically and emits the matching event. A rejected request or failed final validation preserves the preceding active selection and emits no selection event.
 
+### TUI interaction flow
+
+- STP-24: During interaction, the terminal event loop delivers decoded Host notifications and user actions to the presentation application owner. That owner updates private state and produces a coherent immutable display snapshot. Background notification reads and command I/O do not mutate application state.
+- STP-25: Rejected resume retains the draft and preceding transcript. Committed navigation progress updates the transcript before terminal navigation metadata supplies exact next input and closes the interaction. Session replacement clears the preceding draft only after Host confirmation. One transition owner preserves these distinct steps.
+
 ## Configuration
 
 - CFG-01: `~/.glyph/settings.yaml` owns provider instances, model descriptors, retry defaults, active UI selection, and other Host settings. Loading uses strict field and value validation.
@@ -263,6 +275,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - NFQ-04: Context cancellation reaches provider requests, retry delays, tool calls, plugin RPCs, and client delivery.
 - NFQ-05: Structured logs use `log/slog` with context. Logs, events, and diagnostics exclude OAuth tokens, API keys, authorization headers, and provider reasoning payloads. Persisted sessions exclude authentication secrets and retain provider reasoning context only as opaque provider-owned data passed to its owning compatible provider implementation.
 - NFQ-06: Public behavior is verified through Programmatic Control for headless scenarios and through the UI Plugin Contract for terminal scenarios. Package-level tests verify consumer-owned interfaces and failure boundaries.
+- NFQ-07: TUI state transitions remain serialized by the Bubble Tea event loop. Prepared command work remains asynchronous. The ownership correction adds no application event queue and preserves initialized connection context, foreground cancellation, and resource cleanup.
 
 ## Architectural Decisions
 
@@ -274,6 +287,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - DEC-06: Let the consumer own every internal Go interface. Host adapters implement Agent Core needs instead of making Agent Core import a Host hooks contract.
 - DEC-07: Route bundled and separately delivered providers through one extension registration path. When active extensions register the same provider identifier, Host rejects every registration in that duplicate group instead of selecting a load-order winner.
 - DEC-08: Keep environment reload user- or client-triggered. Extensions receive no reload operation.
+- DEC-09: Give the TUI presentation usecase actual interaction state and transition policy. A forwarding service isolates no behavior; keeping related decisions in controllers permits direct mutation around the reducer. Rendering receives snapshots instead of ownership of application state.
 
 ## Architecture Risks
 
@@ -312,3 +326,4 @@ None.
 - REF-06: `host/internal/usecase/host` is the current Host use-case package group.
 - REF-07: `api`, `pkg`, and `sdk` contain the current public process contracts and plugin SDKs.
 - REF-08: `docs/specs/features/initial/phases/05.1-extension-boundary-cleanup/solution.md` defines the implemented package ownership that establishes CNS-11 before PHS-07.
+- REF-09: [TUI ownership gap](phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md) records corrected TUI ownership and the remaining persistence-cause blocker.

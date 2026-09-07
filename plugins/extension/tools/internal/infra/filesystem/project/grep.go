@@ -163,6 +163,8 @@ type boundedLine struct {
 	sourceErr error
 }
 
+var _ io.RuneReader = (*boundedLine)(nil)
+
 // ReadRune returns one rune while retaining only the displayed line prefix.
 func (l *boundedLine) ReadRune() (r rune, size int, err error) {
 	if ctxErr := l.ctx.Err(); ctxErr != nil {

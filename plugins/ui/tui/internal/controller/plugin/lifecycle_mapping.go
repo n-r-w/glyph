@@ -7,50 +7,40 @@ import (
 	"github.com/samber/mo"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
-func mapLifecycle(lifecycle *uiv1.AgentEvent) (presentationdomain.Event, error) {
+// DecodeLifecycle validates an SDK lifecycle envelope and returns only its active model or tool input.
+func DecodeLifecycle(lifecycle *uiv1.AgentEvent) (AgentUpdate, error) {
 	if lifecycle == nil {
-		return presentationdomain.Event{}, errors.New("lifecycle event is nil")
+		return AgentUpdate{}, errors.New("lifecycle event is nil")
 	}
 	if err := validateLifecycleEnvelope(lifecycle); err != nil {
-		return presentationdomain.Event{}, err
+		return AgentUpdate{}, err
 	}
-	event := presentationdomain.Event{
-		RestoredTranscript:   nil,
-		Kind:                 presentationdomain.EventUnspecified,
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
+	event := AgentUpdate{
+		Kind:                 AgentUnspecified,
 		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
+		ModelContentKind:     mo.None[ModelContentKind](),
 		ModelResponseContent: nil,
 		ToolCallID:           mo.None[string](),
 		ToolName:             mo.None[string](),
 		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
+		Stream:               mo.None[OutputStream](),
 		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
+		Contents:             mo.None[[]Content](),
 		ErrorText:            mo.None[string](),
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          mo.None[presentationdomain.SessionInfo](),
-		Sessions:             nil,
-		SessionStatistics:    mo.None[presentationdomain.SessionStatistics](),
-		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
+		ToolCall:             mo.None[ToolCallState](),
 	}
 
 	var err error
 	switch lifecycle.GetType() {
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START:
-		event.Kind = presentationdomain.EventTurnStarted
+		event.Kind = AgentTurnStarted
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START:
-		event.Kind = presentationdomain.EventModelDelta
+		event.Kind = AgentModelDelta
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
@@ -69,12 +59,12 @@ func mapLifecycle(lifecycle *uiv1.AgentEvent) (presentationdomain.Event, error) 
 		uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
 		err = mapTerminalLifecycle(&event, lifecycle)
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED:
-		return presentationdomain.Event{}, errors.New("lifecycle type is unspecified")
+		return AgentUpdate{}, errors.New("lifecycle type is unspecified")
 	default:
-		return presentationdomain.Event{}, fmt.Errorf("unknown lifecycle type %d", lifecycle.GetType())
+		return AgentUpdate{}, fmt.Errorf("unknown lifecycle type %d", lifecycle.GetType())
 	}
 	if err != nil {
-		return presentationdomain.Event{}, err
+		return AgentUpdate{}, err
 	}
 	return event, nil
 }
@@ -83,20 +73,35 @@ func mapLifecycle(lifecycle *uiv1.AgentEvent) (presentationdomain.Event, error) 
 type lifecycleFields uint16
 
 const (
+	// lifecycleFieldType records presence of the lifecycle discriminator.
 	lifecycleFieldType lifecycleFields = 1 << iota
+	// lifecycleFieldRunID records presence of the run identifier.
 	lifecycleFieldRunID
+	// lifecycleFieldText records presence of plain lifecycle text.
 	lifecycleFieldText
+	// lifecycleFieldToolCallID records presence of the tool call identifier.
 	lifecycleFieldToolCallID
+	// lifecycleFieldToolName records presence of the tool name.
 	lifecycleFieldToolName
+	// lifecycleFieldProgressChannel records presence of the active tool output channel.
 	lifecycleFieldProgressChannel
+	// lifecycleFieldIsError records presence of the tool or run failure flag.
 	lifecycleFieldIsError
+	// lifecycleFieldOutcome records presence of the terminal outcome.
 	lifecycleFieldOutcome
+	// lifecycleFieldErrorMessage records presence of the original diagnostic.
 	lifecycleFieldErrorMessage
+	// lifecycleFieldAvailability records presence of the Host admission state.
 	lifecycleFieldAvailability
+	// lifecycleFieldModelContent records presence of the streamed model block.
 	lifecycleFieldModelContent
+	// lifecycleFieldModelResponse records presence of the terminal model response.
 	lifecycleFieldModelResponse
+	// lifecycleFieldToolCallPreview records presence of the provisional tool arguments.
 	lifecycleFieldToolCallPreview
+	// lifecycleFieldFinalToolCall records presence of the completed tool arguments.
 	lifecycleFieldFinalToolCall
+	// lifecycleFieldContents records presence of the complete tool result content.
 	lifecycleFieldContents
 )
 
@@ -210,10 +215,10 @@ func presentLifecycleFields(lifecycle *uiv1.AgentEvent) lifecycleFields {
 }
 
 // mapModelLifecycle preserves optional streaming and terminal model payloads.
-func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
+func mapModelLifecycle(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error {
 	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END {
 		response := lifecycle.GetModelResponse()
-		event.Kind = presentationdomain.EventModelEnd
+		event.Kind = AgentModelEnd
 		if response == nil {
 			return errors.New("model response is missing")
 		}
@@ -251,7 +256,7 @@ func mapModelLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEve
 	if err != nil {
 		return err
 	}
-	event.Kind = presentationdomain.EventModelDelta
+	event.Kind = AgentModelDelta
 	event.Position = mo.Some(int(content.GetPosition()))
 	event.ModelContentKind = mo.Some(kind)
 	if content.HasText() {
@@ -275,7 +280,7 @@ func validateModelContentText(lifecycleType uiv1.LifecycleType, content *uiv1.Mo
 }
 
 // mapToolCallLifecycle validates preview and final call payloads before projection.
-func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
+func mapToolCallLifecycle(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error {
 	if lifecycle.GetType() != uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END {
 		preview := lifecycle.GetToolCallPreview()
 		if preview == nil {
@@ -285,7 +290,7 @@ func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Agent
 		if err != nil {
 			return err
 		}
-		event.Kind = presentationdomain.EventToolCallPreview
+		event.Kind = AgentToolCallPreview
 		event.ToolCall = mo.Some(mapped)
 		return nil
 	}
@@ -296,8 +301,8 @@ func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Agent
 	if !call.HasCallId() || !call.HasName() || !call.HasPosition() {
 		return errors.New("final tool call scalar is missing")
 	}
-	event.Kind = presentationdomain.EventToolCallFinal
-	event.ToolCall = mo.Some(presentationdomain.ToolCallState{
+	event.Kind = AgentToolCallFinal
+	event.ToolCall = mo.Some(ToolCallState{
 		CallID:      call.GetCallId(),
 		Name:        call.GetName(),
 		Position:    int(call.GetPosition()),
@@ -309,7 +314,7 @@ func mapToolCallLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Agent
 }
 
 // mapToolLifecycle projects execution updates and terminal result payloads.
-func mapToolLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
+func mapToolLifecycle(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error {
 	lifecycleType := lifecycle.GetType()
 	var err error
 	switch int(lifecycleType) {
@@ -342,28 +347,31 @@ func mapToolLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEven
 	return nil
 }
 
-func mapToolStarted(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
+// mapToolStarted requires tool identity and marks execution start.
+func mapToolStarted(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() {
 		return errors.New("started tool identity is missing")
 	}
-	event.Kind = presentationdomain.EventToolStarted
+	event.Kind = AgentToolStarted
 	event.ToolName = mo.Some(lifecycle.GetToolName())
 	event.Status = mo.Some("started")
 	return nil
 }
 
-func mapToolProgress(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
+// mapToolProgress validates the active progress channel before decoding its payload.
+func mapToolProgress(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasText() || !lifecycle.HasProgressChannel() {
 		return errors.New("tool progress is missing")
 	}
 	return mapProgress(event, lifecycle.GetProgressChannel())
 }
 
-func mapToolEnded(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
+// mapToolEnded retains execution success and complete failure diagnostics.
+func mapToolEnded(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() || !lifecycle.HasIsError() {
 		return errors.New("ended tool result is missing")
 	}
-	event.Kind = presentationdomain.EventToolEnded
+	event.Kind = AgentToolEnded
 	failure := lifecycle.GetIsError() || lifecycle.GetErrorMessage() != ""
 	event.Failure = mo.Some(failure)
 	if failure {
@@ -374,7 +382,8 @@ func mapToolEnded(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) e
 	return nil
 }
 
-func mapToolResult(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
+// mapToolResult requires complete result content and preserves tool failure status.
+func mapToolResult(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error {
 	if !lifecycle.HasToolCallId() || !lifecycle.HasToolName() || !lifecycle.HasIsError() {
 		return errors.New("tool result is missing")
 	}
@@ -382,18 +391,18 @@ func mapToolResult(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) 
 	if err != nil {
 		return err
 	}
-	event.Kind = presentationdomain.EventToolResult
+	event.Kind = AgentToolResult
 	event.Contents = mo.Some(contents)
 	event.Failure = mo.Some(lifecycle.GetIsError() || lifecycle.GetErrorMessage() != "")
 	return nil
 }
 
 // mapTerminalLifecycle preserves turn and agent outcome presence.
-func mapTerminalLifecycle(event *presentationdomain.Event, lifecycle *uiv1.AgentEvent) error {
+func mapTerminalLifecycle(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error {
 	if err := validateTerminalLifecyclePresence(lifecycle); err != nil {
 		return err
 	}
-	event.Kind = presentationdomain.EventTurnEnded
+	event.Kind = AgentTurnEnded
 	if lifecycle.HasErrorMessage() {
 		event.ErrorText = mo.Some(lifecycle.GetErrorMessage())
 	}
@@ -401,6 +410,7 @@ func mapTerminalLifecycle(event *presentationdomain.Event, lifecycle *uiv1.Agent
 	return nil
 }
 
+// validateTerminalLifecyclePresence checks fields required by terminal agent envelopes.
 func validateTerminalLifecyclePresence(lifecycle *uiv1.AgentEvent) error {
 	if lifecycle.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END && !lifecycle.HasText() {
 		return errors.New("turn summary is missing")

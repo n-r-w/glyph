@@ -12,7 +12,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
 // TestMapInitializationRequiresScalarPresence verifies initialization keeps its handwritten required fields.
@@ -60,7 +59,7 @@ func TestMapInitializationRequiresScalarPresence(t *testing.T) {
 	for name, clear := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange request and initialization for mapInitialization to verify initialization keeps its handwritten required fields.
+			// Arrange one initialization with a missing required field.
 
 			request := proto.Clone(initializationRequest()).(*uiv1.OpenRequest)
 			initialization := request.GetRequest().GetInitialize()
@@ -92,8 +91,6 @@ func TestMapInitializationPreservesPresentZeroScalars(t *testing.T) {
 	event, err := mapInitialization(initialization)
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some(""), event.Startup[0].Text)
-	assert.Empty(t, event.Extensions[0].ID)
-	assert.Empty(t, event.Extensions[0].Path)
 	assert.Empty(t, event.Models[0].ProviderID)
 	assert.Empty(t, event.Models[0].ModelID)
 	assert.False(t, event.Models[0].Reasoning.Supported)
@@ -106,15 +103,15 @@ func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 
 	values := []struct {
 		public       uiv1.ReasoningChoice
-		presentation presentationdomain.ReasoningChoice
+		presentation ReasoningChoice
 	}{
-		{uiv1.ReasoningChoice_REASONING_CHOICE_OFF, presentationdomain.ReasoningChoiceOff},
-		{uiv1.ReasoningChoice_REASONING_CHOICE_MINIMAL, presentationdomain.ReasoningChoiceMinimal},
-		{uiv1.ReasoningChoice_REASONING_CHOICE_LOW, presentationdomain.ReasoningChoiceLow},
-		{uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM, presentationdomain.ReasoningChoiceMedium},
-		{uiv1.ReasoningChoice_REASONING_CHOICE_HIGH, presentationdomain.ReasoningChoiceHigh},
-		{uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH, presentationdomain.ReasoningChoiceXHigh},
-		{uiv1.ReasoningChoice_REASONING_CHOICE_MAX, presentationdomain.ReasoningChoiceMax},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_OFF, ReasoningChoiceOff},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_MINIMAL, ReasoningChoiceMinimal},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_LOW, ReasoningChoiceLow},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_MEDIUM, ReasoningChoiceMedium},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_HIGH, ReasoningChoiceHigh},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_XHIGH, ReasoningChoiceXHigh},
+		{uiv1.ReasoningChoice_REASONING_CHOICE_MAX, ReasoningChoiceMax},
 	}
 	for _, value := range values {
 		// Act by invoking the reasoning choice mappers to exercise public and presentation enums stay exact.
@@ -122,7 +119,6 @@ func TestReasoningMappingsCoverEveryValue(t *testing.T) {
 		// Assert public and presentation enums stay exact.
 		require.NoError(t, err)
 		assert.Equal(t, value.presentation, mapped)
-		assert.Equal(t, value.public, mapReasoningChoiceToProto(value.presentation))
 	}
 	_, err := mapReasoningChoice(uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED)
 	require.Error(t, err)

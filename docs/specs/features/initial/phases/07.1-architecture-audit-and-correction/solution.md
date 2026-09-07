@@ -2,13 +2,13 @@
 
 ## Problem statement
 
-The [ticket](ticket.md) defines PHS-07.1. The [audit](audit.md) records nine groups of violations across the implemented product and distinguishes them from future capabilities.
+The [ticket](ticket.md) defines PHS-07.1. The [audit](audit.md) records nine baseline finding groups. The separate [TUI ownership gap](tui-ownership-gap.md) records the incomplete boundary correction that the initial audit disposition did not address.
 
 ## Proposed solution
 
 ### Status and scope
 
-The user approved this correction plan and its implementation. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
+Corrections 1 through 5 are implemented and verified. The revised TUI design replaces the stopped correction-5 attempt. After the documentation update, the user authorized only revised U5, its checks, and its separate local commit. Execution stops at U5; corrections 6 through 8 are not included in this continuation. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
 
 Core implements Host consumer contracts with implementation-package assertions. It remains logically independent of concrete Host implementations, Host state, and Host policy. No assertion exception or forwarding Core adapter is required.
 
@@ -36,12 +36,14 @@ Existing source links identify the work to move. New paths below contain behavio
 | Extension process payloads and catalogue acceptance | [host/extensionruntime](../../../../../../host/internal/usecase/host/extensionruntime) | Own process-facing invocation types, runtime binding/accounting and extension discovery outcomes. |
 | Filesystem catalogue observations | [extension catalogue](../../../../../../host/internal/infra/plugins/extension/catalog) and [UI catalogue](../../../../../../host/internal/infra/plugins/ui/catalog) | Return candidates and failures, not application acceptance decisions. |
 | Storage version and wire records | [session repository](../../../../../../host/internal/infra/persistence/sessions) | Encode/decode version 2 without a domain/usecase schema selector. |
-| TUI command input and command contract | [controller/tui](../../../../../../plugins/ui/tui/internal/controller/tui) | Own the command-sender interface and move Host command payloads out of presentation domain. |
-| TUI SDK dispatch and endpoint lifetime | [controller/plugin](../../../../../../plugins/ui/tui/internal/controller/plugin) | Directly implement command sending; retain initialization, operation correlation, foreground Stop and stream lifetime. |
-| Bubble Tea program construction and framework I/O | [infra/terminal](../../../../../../plugins/ui/tui/internal/infra/terminal) | Receive the concrete factory/program behavior from [tui/program.go](../../../../../../plugins/ui/tui/internal/controller/tui/program.go). |
+| TUI terminal input | [controller/tui](../../../../../../plugins/ui/tui/internal/controller/tui) | Decode terminal input and own the consumed interaction contract, without private application state or rendering. |
+| TUI Host notification input | [controller/plugin](../../../../../../plugins/ui/tui/internal/controller/plugin) | Decode SDK inputs and own the consumed presentation-input contract, without command-specific display or foreground policy. |
+| TUI interaction and state transitions | Target `plugins/ui/tui/internal/usecase/presentation` | Own private display/interaction state, pending commands, foreground policy, and outgoing Host/display/runtime ports. Replace the former forwarding body with actual application behavior. |
+| TUI SDK connection and I/O | New `plugins/ui/tui/internal/infra/host` | Own SDK binding, outbound encoding and dispatch, notification reads, and SDK lifecycle translation. |
+| Bubble Tea program, terminal resources and rendering | [infra/terminal](../../../../../../plugins/ui/tui/internal/infra/terminal) | Own framework execution and terminal cleanup; implement application output/runtime ports and invoke input controllers from the event loop. |
 | Bash timeout | [bash usecase](../../../../../../plugins/extension/tools/internal/usecase/tools/bash) | Receive timer creation, cancellation cause and cleanup from the input controller. |
 
-Remove the [sessioncontrol](../../../../../../host/internal/usecase/host/sessioncontrol), [sessionnavigation](../../../../../../host/internal/usecase/host/sessionnavigation), [interactions](../../../../../../host/internal/usecase/host/interactions), and [domain/ui](../../../../../../host/internal/domain/ui) packages after their behavior and contracts reach these owners. Remove the empty [TUI presentation usecase](../../../../../../plugins/ui/tui/internal/usecase/presentation). No aliases, duplicated old declarations, or replacement forwarding services remain.
+Remove `host/internal/usecase/host/sessioncontrol`, `host/internal/usecase/host/sessionnavigation`, `host/internal/usecase/host/interactions`, and `host/internal/domain/ui` after their behavior and contracts reach their owners. Remove TUI `internal/domain/presentation` after its state, interaction rules, rendering calculations, and boundary payloads reach the TUI owners below. Do not restore the empty presentation forwarding service or retain aliases and duplicate declarations.
 
 ### Core invocation, events and state queries
 
@@ -125,12 +127,16 @@ Move provider-neutral process filtering from [handler mapping](../../../../../..
 
 #### TUI
 
-- Move `CommandKind`, `Command` and `TreeCommand` from presentation domain beside a command-sender interface consumed by the terminal input Model. Change all producers, receivers and mappings together. Keep genuine presentation values and projection events/state in the domain.
-- The plugin endpoint directly implements command sending through its SDK dispatch and correlation behavior. It retains the initialized connection and active run context during its endpoint lifetime. Program construction receives that initialized sender; shutdown cancellation reaches command dispatch.
-- Move the concrete Bubble Tea factory/program into the existing terminal infrastructure package. Keep `ProgramFactory` and `Program` interfaces at the plugin endpoint, their lifecycle consumer. The factory passes the Model-owned command sender into the Model.
-- This removes `controller/tui → controller/plugin`. The new assertion import is `controller/plugin → controller/tui`; terminal infrastructure imports both consumers. No reverse path remains through the factory implementation.
-- Call `State.Apply` directly at the projection consumer and remove the empty usecase and its `Apply` callback. Preserve meaningful projection tests at the state or caller, rather than testing a replacement wrapper.
-- Terminal input still emits a `tea.Cmd`. The endpoint remains the terminal-file cleanup owner; moving program construction does not add a second cleanup path or a new application service.
+The [recorded gap](tui-ownership-gap.md) distinguishes the inspected implementation from this target. A pure reducer is not sufficient evidence of domain ownership. The replacement has one application transition owner and separate input and output responsibilities.
+
+- `usecase/presentation` owns private transcript/model/tool projection, editor drafts, selector state, tree interaction, pending commands, and first-foreground cancellation policy. Move the application decisions from `State.Apply`, `Model.applyEvent`, `Model.applyEmissionResult`, tree interaction, and the plugin controller into that owner. Controllers and renderers do not mutate its state.
+- `controller/plugin` decodes Host notifications into its own neutral input contract, including operation identity, typed results, semantic failure, and complete diagnostic text. It does not decide whether a failure updates resume status, tree status, or transcript. `controller/tui` decodes terminal input into its own interaction contract. The presentation usecase directly implements both contracts, with assertions at the implementation.
+- Keep input payloads beside those input interfaces. Keep outgoing Host commands, coherent immutable display snapshots, and runtime method types beside the usecase ports that consume them. Do not move the old `Event`/`TreeEvent` union unchanged into another shared package. Boundary projections must perform input validation or construct display data, not copy fields solely to avoid imports.
+- The usecase owns tree filtering, folding, visible-entry order, and selection reconciliation together. Split those decisions from `TreePanel.VisibleRows` geometry. `infra/terminal` owns Bubble Tea, terminal files, dimensions, connectors, wrapping, and rendering. Its framework model invokes the input controllers and displays application snapshots; it owns no second application state.
+- `infra/host` owns the initialized SDK Host, active connection context, outbound encoding, Start/Cancel/Close calls, and notification reads. It implements the usecase's Host port and the notification-source contract consumed by terminal infrastructure. SDK lifecycle translation belongs to this adapter; application initialization and shutdown policy use the presentation usecase's runtime port. The plugin input controller does not implement an outgoing usecase port.
+- Preserve the existing notification pump and Bubble Tea event loop. During interaction, both terminal actions and Host notifications reach the usecase on that loop. Command I/O remains asynchronous through `tea.Cmd` execution of prepared work; background work returns results without mutating presentation state. Add no application event queue. Keep initialized sender context, foreground targeting, and cancellation/join/resource cleanup behavior.
+- Preserve the two navigation transitions: committed progress updates the transcript, then terminal metadata applies exact next input and closes the interaction. Rejected resume retains the draft and preceding transcript. Fork/clone and session replacement update state only on Host confirmation. Do not interpret one state owner as permission to collapse these events.
+- Remove `domain/presentation` after assigning all of its contents to these owners. Preserve projection and interaction tests at the actual application owner and geometry tests at terminal output. The new usecase has state and policy; it is not a wrapper around the old reducer.
 
 #### Bash
 
@@ -155,7 +161,7 @@ FND-05 requires these source-to-client changes:
 
 Move the single history-recording failure identity from Core to `domain/agent`. Core detects that failure and wraps the shared identity together with the original cause. Both client Host usecases classify it with `errors.Is`, without importing Core or matching text. Update all producers and consumers together; retain no alias or duplicate declaration. Update Programmatic's [command-specific failure allowlist](../../../../../../host/internal/controller/programmatic/delivery.go), which otherwise replaces the new accepted-run category with `INTERNAL`.
 
-Map that source-backed category to a presentation-owned persistence cause. Keep text separately and remove prefix-based domain behavior. Connection-error mapping also retains semantic classification instead of deriving it from text; this plan adds no new connection-event kind. Implement the approved APC-20 amendment tracked by the cross-phase issue. Do not add retry, provider source categories, or a general error taxonomy.
+The TUI plugin input contract carries the source-backed persistence cause and complete text separately. `usecase/presentation` applies provisional-state cleanup from that cause; neither domain state nor rendering selects cleanup from diagnostic wording. Connection-error mapping also retains semantic classification instead of deriving it from text. U5 preserves behavior while moving the owners; U7 supplies the approved cause-based correction and its RED/GREEN tests. This plan adds no new connection-event kind. Implement the approved APC-20 amendment tracked by the cross-phase issue. Do not add retry, provider source categories, or a general error taxonomy.
 
 ### Contract and assertion closure
 
@@ -185,10 +191,12 @@ Arrows here are Go imports. Runtime direction can be opposite. `H` means `host/i
 | Mode output implementations | Their controller, events, lifecycle, sessions, startup/runtime consumers as actually used. UI output also implements the Codex interaction contract. |
 | Extension process transport | Runtime-manager process contracts, domain, SDK and protobuf. No borrowed startup/tree/lifecycle aggregates. |
 | Browser implementation | UI output's browser-consumer contract, not the removed Host interactions service. |
-| TUI plugin endpoint | Terminal-input command contract. |
-| TUI terminal infrastructure | Plugin lifecycle contracts and input Model. Input Model no longer imports the plugin endpoint. |
+| TUI `controller/plugin` and `controller/tui` | Their own neutral input contracts and external input types. No usecase implementation, other TUI controller, or infrastructure import. |
+| TUI `usecase/presentation` | Both input-controller contracts and its own outgoing types. No SDK or terminal implementation dependency. |
+| TUI `infra/terminal` | Presentation output/runtime contracts, both input controllers, and framework APIs. Owns the consumed notification-source contract. |
+| TUI `infra/host` | Presentation Host contract, terminal notification-source contract, plugin input controller, and SDK APIs. No usecase or terminal implementation calls behind those port imports. |
 
-The target owner graph was checked against the retained baseline package imports and has no cycle. This is a design-graph check, not a compilation result. Key removed edges are the coordinator's consumer imports in events, client imports of Core, headless input imports for output, the Host-to-Codex interaction import, and all imports of deleted contract/forwarding packages. During implementation, compare every actual new import and generated mock dependency with the full graph before adding its assertion.
+The target owner graph was checked against the retained baseline package imports and has no cycle. This is a design-graph check, not a compilation result. Key removed edges are the coordinator's consumer imports in events, client imports of Core, headless input imports for output, the Host-to-Codex interaction import, and all imports of deleted contract/forwarding packages. The revised TUI graph was separately overlaid on the inspected root-module imports above `5f9fb78`. It has no cycle, and its five implementation/consumer package pairs have no reverse transitive path. [Gap QST-04](tui-ownership-gap.md#qst-04-the-revised-target-has-an-acyclic-dependency-graph) records the scope of that check. During implementation, compare every actual new import and generated mock dependency with the full graph before adding its assertion.
 
 ### Execution order
 
@@ -236,13 +244,13 @@ The corrections below are dependency slices, not feature releases. No compatibil
 
 #### 5. Bundled tool and TUI ownership
 
-**Goal.** Put bash execution timeout and TUI command/projection behavior at their owners.
+**Goal.** Give TUI interaction transitions one application owner and give bash timeout execution its usecase owner.
 
-**Work and deliverables.** Apply the TUI and bash designs above. Remove the empty presentation usecase. Add the scoped SDK/I/O assertions with their implementation changes. This slice uses baseline public contracts and can be developed independently of Host structural slices, but not in a concurrently modified shared checkout.
+**Work and deliverables.** Apply the [revised TUI design](#tui) across both inputs, application state, SDK I/O, and terminal output. Replace the stopped attempt, close [gap BLK-01 through BLK-04](tui-ownership-gap.md#blockers), and retain the bash correction and scoped external assertions. This remains one complete implementation unit and one local commit. Public SDK/protobuf behavior does not change.
 
-**Exit criteria.** Bash timeout/cancellation/output behavior and TUI initialization, command dispatch, projection, foreground cancellation and terminal cleanup remain unchanged. No domain Host-command DTO or TUI reverse factory import remains.
+**Exit criteria.** Ticket FRQ-11 through FRQ-13 and NFQ-05 pass. No direct controller/rendering mutation, presentation-domain contract union, controller-implemented usecase output port, or reverse assertion path remains. Resume rejection, navigation progress/completion, fork/clone, asynchronous commands, foreground Stop, initialization, and cleanup retain their behavior. Bash timeout/cancellation/output behavior is retained. Gap BLK-05 remains assigned to U7.
 
-**Risks.** Moving the sender must retain the active SDK context. Moving the timer must retain fractional timeout behavior and complete output. Reuse the linked bash tests, TUI domain/controller tests and real terminal/plugin integration tests; do not test the absence of the forwarding service.
+**Risks.** Moving only types or the reducer leaves the application policy at the old controllers. Moving visibility policy into rendering makes selection depend on output. Keep one transition execution loop and preserve the two-stage navigation update. Reuse application behavior tests, tree selection/geometry tests, real SDK/terminal tests, and bash tests. No artificial RED is needed for structure-only changes.
 
 #### 6. Complete error text
 
@@ -256,9 +264,9 @@ The corrections below are dependency slices, not feature releases. No compatibil
 
 #### 7. Run-persistence cause and TUI cleanup
 
-**Goal.** Implement QST-02's approved persistence distinction and remove diagnostic-text-dependent domain behavior.
+**Goal.** Implement QST-02's approved persistence distinction and make the TUI application owner apply cleanup from the semantic cause.
 
-**Work and deliverables.** Implement the approved run-failure mapping, carry the Core persistence cause through both client mappings, map TUI semantic causes, and remove the prefix rule. Record implementation and verification status in the cross-phase issue and governing error-contract documentation in the same slice.
+**Work and deliverables.** Implement the approved run-failure mapping, carry the Core persistence cause through both client mappings and the revised TUI input contract, and remove the prefix rule from presentation application behavior. Close [gap BLK-05](tui-ownership-gap.md#blk-05-persistence-cause-cleanup-still-targets-the-old-presentation-boundary). Record implementation and verification status in the cross-phase issue and governing error-contract documentation in the same slice.
 
 **Exit criteria.** Both client contracts expose the approved persistence category for the same source failure. TUI cleanup depends on that cause, not text. Other run failures remain `INTERNAL`; no new retry/provider categories or connection event kinds exist.
 
@@ -270,7 +278,7 @@ The corrections below are dependency slices, not feature releases. No compatibil
 
 **Work and deliverables.** Remove obsolete declarations, packages, generated mocks and bindings from the owning slices. Update architecture component/ownership sections, this phase's evidence, and roadmap/issue status to match implemented results. Run the project verification sequence, then obtain independent whole-scope boundary review.
 
-**Exit criteria.** Every FND-01 through FND-09 disposition is implemented and reviewed. Generation is repeatable. Required checks pass. No unresolved architectural violation remains in the audited scope. Only then can PHS-07 resume.
+**Exit criteria.** Every FND-01 through FND-09 disposition and every blocker in the [TUI ownership gap](tui-ownership-gap.md) is implemented and reviewed. Generation is repeatable. Required checks pass. No unresolved architectural violation remains in the audited scope. Only then can PHS-07 resume.
 
 **Risks.** Passing tests can preserve a wrong boundary. Final review must repeat the 72-package baseline coverage accounting against the resulting package set and inspect both imports and runtime paths. No unrelated cleanup is included.
 
@@ -373,7 +381,7 @@ Main-agent inspection covered commit/append protection, immutable publication sn
 
 #### U4: Runtime boundaries, discovery and startup
 
-Correction 4 is implemented. Main-agent source verification covered runtime filtering, trusted identity, discovery acceptance, direct provider binding, startup warning ownership, and initialized activation. Independent uncached race tests passed for the runtime/startup/UI usecases, UI output, both filesystem catalogues, Codex OAuth, and public handler/lifecycle/catalogue/configured-request paths. The [architecture components](../../architecture.md#components) describe the resulting owners. Corrections 5 through 8 and whole-product architectural acceptance remain open.
+Correction 4 is implemented. Main-agent source verification covered runtime filtering, trusted identity, discovery acceptance, direct provider binding, startup warning ownership, and initialized activation. Independent uncached race tests passed for the runtime/startup/UI usecases, UI output, both filesystem catalogues, Codex OAuth, and public handler/lifecycle/catalogue/configured-request paths. The [architecture components](../../architecture.md#components) describe the resulting owners. Subsequent evidence sections track corrections 5 through 8. Whole-product architectural acceptance remains open.
 
 The [runtime process contracts](../../../../../../host/internal/usecase/host/extensionruntime/interfaces.go) no longer borrow startup, sessiontree, or lifecycle aggregates. Registration contains process declarations without discovered identity. Runtime management attaches the accepted executable ID/path, retains runtime accounting, and projects original/current navigation state and lifecycle facts into process-visible payloads. Those payloads have no provider-context or hidden-extension-data field. Raw actions retain presence and preserve/replace/clear distinctions; capability owners still decide acceptance and composition. Transport retains SDK correlation, response-variant validation, and encoding. All three mode outputs directly implement runtime-failure reporting.
 
@@ -399,9 +407,50 @@ One additional parallel Codex run exposed a pre-existing test-client connection-
 
 Supplemental unit-tag lint was also run over extensionruntime, Host UI, UI output, and extension transport. The full command still exits 1 on 28 pre-existing findings: two duplication findings, eight incomplete test literals, ten long lines, six error-assertion findings, one redundant conversion, and one integration-only fixture constant unused under unit tags. All introduced findings were corrected. The same command with `--new-from-rev=HEAD` exited 0 against the U4 parent `a63248d`. The 28 findings are pre-existing relative to that parent, not evidence that they predate the whole architecture correction. These results do not claim that the supplemental full command passed; its baseline findings remain outside this unit's cleanup scope.
 
+#### U5: Bundled tool and TUI ownership
+
+Revised correction 5 is implemented and independently verified. [Gap BLK-01 through BLK-04](tui-ownership-gap.md#blockers) are closed by the source and behavior evidence below. The verified unit is the complete scope of its separate local commit. BLK-05 and corrections 6 through 8 remain open. No complete-error or persistence-cause behavior was changed.
+
+The [presentation service](../../../../../../plugins/ui/tui/internal/usecase/presentation/service.go) owns private projection and interaction state, initialization admission, and runtime policy. Its [command owner](../../../../../../plugins/ui/tui/internal/usecase/presentation/commands.go) records prepared command correlation and the first foreground target before any I/O. Terminal notifications release foreground ownership immediately. Correlation survives an earlier terminal notification until its outstanding dispatch acknowledgement arrives. Failed dispatch and Quit need no operation terminal notification.
+
+The [plugin input controller](../../../../../../plugins/ui/tui/internal/controller/plugin/controller.go) decodes SDK input into controller-owned initialization and tagged payload groups. The [terminal input controller](../../../../../../plugins/ui/tui/internal/controller/tui/controller.go) decodes framework keys into its neutral interaction contract. The application owns outgoing Host commands, [runtime/display ports](../../../../../../plugins/ui/tui/internal/usecase/presentation/interfaces.go), and [snapshots](../../../../../../plugins/ui/tui/internal/usecase/presentation/snapshot.go). `domain/presentation` is removed. Private reducer events do not cross an input or output interface.
+
+The [Host adapter](../../../../../../plugins/ui/tui/internal/infra/host/service.go) owns initialized SDK binding, the active dispatch context, outbound encoding, and notification reads. The [terminal runtime](../../../../../../plugins/ui/tui/internal/infra/terminal/program.go) sends those notifications to the existing Bubble Tea event loop. Its [framework Model](../../../../../../plugins/ui/tui/internal/infra/terminal/model.go) calls both input controllers there and executes prepared I/O through `tea.Cmd`. Background work never changes application state. Runtime/device separation puts controlling-terminal file I/O in [infra/terminal/device](../../../../../../plugins/ui/tui/internal/infra/terminal/device/terminal.go), whose assertions target runtime-owned ports. App constructs and binds every concrete owner before SDK activation.
+
+[Application tree policy](../../../../../../plugins/ui/tui/internal/usecase/presentation/tree.go) owns filtering, folding, visible-entry order, nearest visible parents, active-branch facts, and selection reconciliation. [Terminal geometry](../../../../../../plugins/ui/tui/internal/infra/terminal/tree_geometry.go) computes indentation and connectors from that semantic snapshot. Rendering receives no mutable application state. Committed navigation progress still replaces the transcript before terminal metadata applies exact next input and closes the interaction. Rejected resume and unconfirmed fork/clone retain preceding input and transcript state.
+
+The [bash controller](../../../../../../plugins/extension/tools/internal/controller/extension/bash.go) retains JSON parsing and duration validation and passes `BashCommand` with optional seconds. The [bash usecase](../../../../../../plugins/extension/tools/internal/usecase/tools/bash/timeout.go) owns timer creation, the timeout cause, and cancellation cleanup. Process-group termination, progress delivery, and bounded output remain in the process and output owners. [Timeout tests](../../../../../../plugins/extension/tools/internal/usecase/tools/bash/timeout_test.go) cover fractional seconds, the one-nanosecond clamp, parent cancellation, and cleanup. [Real-process verification](../../../../../../plugins/extension/tools/internal/usecase/tools/bash/timeout_integration_test.go) covers termination, partial output, progress order, and exact timeout text. Controller tests cover absent timeout, the maximum duration boundary, timeout-intent dispatch, and bounded result mapping.
+
+The UI SDK asserts `plugin.Plugin` and `plugin.GRPCPlugin` on `grpcUIPlugin`. Process bash asserts `io.Writer` on `streamWriter`; filesystem grep asserts `io.RuneReader` on `boundedLine`. No SDK/protobuf behavior or dependency changed.
+
+Test migration preserves the behavioral responsibilities rather than the removed package boundary:
+
+- Projection tests remain with the application reducer. Editor, selector, draft, tree, and command tests now exercise the presentation owner and generated outgoing-port mocks.
+- Decoder tests remain at plugin input. Real decoder-plus-projection sequences now run under the integration tag at the application owner.
+- SDK initialization, active-context, error, and operation-stream tests moved to the Host adapter. Real Bubble Tea and controlling-terminal file tests run under terminal infrastructure's integration tests. App PTY tests retain the real executable path.
+- Geometry, cell-width, wrapping, viewport, selector, and transcript rendering tests consume explicit display snapshots. Semantic tree tests no longer depend on rendered row geometry.
+- [Command lifecycle tests](../../../../../../plugins/ui/tui/internal/usecase/presentation/command_lifecycle_test.go) cover foreground targeting, terminal-before-acknowledgement, failed dispatch, Quit, absent completed payloads, and background-work isolation. [Snapshot tests](../../../../../../plugins/ui/tui/internal/usecase/presentation/snapshot_test.go) cover detached image/JSON data, expansion state, and editor-only publication cost.
+
+The structure-only migration reused behavioral tests without an artificial RED test. Main-agent inspection then found a local `/name` regression: the key transition changed private transcript state but reused a stale detached body. The [regression test](../../../../../../plugins/ui/tui/internal/usecase/presentation/local_name_test.go) initializes the real service, types `/name`, presses Enter, and captures actual `Display.Publish` calls without Host transport. Its first uncached run failed for both named and unnamed sessions because the published transcript had zero items instead of one. [Projection mutation](../../../../../../plugins/ui/tui/internal/usecase/presentation/projection.go) now owns cache invalidation; callers no longer choose a publication-refresh boolean. Tree replacement and entry addition also invalidate the detached body. The same test passes after the correction and checks immediate output and editor clearing.
+
+A lifecycle trace also found introduced state retained across sequential SDK connections. [The application lifetime test](../../../../../../plugins/ui/tui/internal/usecase/presentation/initialization_lifetime_test.go) first failed because the second `Run` still saw the preceding running flag. [The terminal lifetime test](../../../../../../plugins/ui/tui/internal/infra/terminal/runtime_lifetime_test.go) first failed because the next frame retained the preceding source error. After executable RED, application close clears the running flag and terminal open creates fresh framework state while keeping the input bindings. Both uncached tests pass. The SDK integration suite also opens and closes two sequential connections against one service instance.
+
+All final verification commands exited 0:
+
+- `task fmt`; `task fix_dry_run`; `task lint`; `task test`; `task itest`; `task test-coverage`; `task build`; `git diff --check`.
+- `go test -race -count=1 ./plugins/ui/tui/... ./plugins/extension/tools/... ./sdk/plugins/ui/v1`.
+- `go test -race -tags=integration -p 1 -parallel 1 -count=1 ./plugins/ui/tui/... ./plugins/extension/tools/... ./sdk/plugins/ui/v1`.
+- `go tool golangci-lint run --config .golangci.yml ./plugins/ui/tui/...`, with zero unit-tag findings. This does not close the separately recorded Host supplemental lint work for U8.
+- `go test -count=1 ./plugins/ui/tui/internal/usecase/presentation -run '^TestLocalNameQueryPublishesProjection$'`, with exit 1 for executable RED and exit 0 for GREEN.
+- Two `task generate` runs produced identical SHA-256 maps for all 71 generated Go files outside experiments. This includes protobuf generation and mockgen. Generated bodies were not edited manually.
+
+Actual `go list` dependency closures exclude each implementation from its consumer. Both input controllers have no other TUI implementation dependency. The application imports neither adapter implementation. Terminal runtime imports neither the concrete Host adapter nor terminal device. `ReceiveNotification` avoids falsely treating the public SDK Host as the bound adapter port. No forwarding `Receive` compatibility method, shared command package, type alias, application event queue, new warning suppression, or SDK-to-TUI import was added. `ifaceguard` passes.
+
+The final dry run produced no proposals. Local compile and lint failures were resolved with complete contract/test migration, typed payload groups, consumer/implementation separation, explicit struct fields, indexed iteration, and formatting/comment corrections. No dependency change or cache clearing was used. The implementation check measured 83.5% combined coverage, above the 80.0% threshold. Main-agent verification repeated the complete project sequence, both uncached affected race suites, TUI unit-tag lint, and two generation runs. Every command passed; the repeated coverage result was 83.6%. All 843 non-document source paths remained unchanged during those checks, and all 71 generated-file hashes remained identical. Independent source inspection confirmed the input/application/output boundaries, serialized transitions, snapshot invalidation, tree policy/geometry split, initialization cleanup, and bash timer ownership. `BenchmarkEditorSnapshot` measured 486.0, 486.7, and 464.9 ns/op for 100, 10,000, and 100,000 transcript lines on the verification machine, with 504 B/op and four allocations in every case. Editor-only publication does not clone the full transcript per key.
+
 ### Execution control
 
-The user selected `final_only`. Execute corrections 1 through 8 in the stated order, with no concurrent source changes in the shared checkout. Each correction is one implementation unit, U1 through U8, and has one separate local commit after its checks pass. Do not push. Rework of a committed unit produces a corrective commit. Overall user review follows integrated verification.
+The user selected `final_only`. The complete plan retains corrections 1 through 8 in the stated order, with no concurrent source changes in the shared checkout. The current authorization ends after revised U5 and its separate commit; it does not authorize advancing to U6. Each correction is one implementation unit, U1 through U8, and has one separate local commit after its checks pass. Do not push. Rework of a committed unit produces a corrective commit. Overall user review follows integrated verification.
 
 The [execution order](#execution-order) defines each unit's inputs, affected components, expected result, dependencies, risks, tests, and exit criteria. U1 establishes client contracts used by U2 and U3; U4 uses U1 through U3. U5 is independent of the Host structural changes but runs sequentially to avoid checkout interference. U6 corrects error paths at the owners established by the structural units. U7 uses run control, client mappings, and TUI ownership from U1, U2, and U5. U8 closes the combined result. Sequential execution is not an additional architectural dependency.
 
@@ -422,7 +471,7 @@ Each instance owns one atomic unit. Continuation of an instance is limited to co
 
 ## Overengineering and overspecification considerations
 
-- Three new Host packages contain moved behavior. Five redundant or misowned Host/TUI packages are removed. No generic capability bus, second output queue, provider execution subsystem, or new TUI application service is added.
+- Three new Host packages contain moved behavior, and four redundant Host packages are removed. The TUI replaces its empty forwarding service with one real presentation usecase and moves SDK work into one adapter. Its misowned presentation-domain package is removed. No generic capability bus, second application queue, provider execution subsystem, or compatibility layer is added.
 - Boundary mapping must perform input validation, consumer-specific query projection, trusted runtime binding, private-data filtering, storage encoding, or output construction. A field-for-field copy used only to preserve an old caller is not a correction.
 - Keep operation reporters, release functions, commit guards and local mutation callbacks where they represent one operation. Replace persistent service method-value wiring at its real consumer.
 - Private helper names and file splits remain implementation choices. Ownership, removed dependency edges, approved behavior and commit/settlement order define the plan's scope.
@@ -430,7 +479,7 @@ Each instance owns one atomic unit. Continuation of an instance is limited to co
 
 ## Approved behavior decisions
 
-The user approved QST-01 through QST-03 under ticket NFQ-01. QST-01 and QST-02 remain unimplemented and require the specified failing regressions. QST-03 has executable RED/GREEN evidence under U2. The user also approved the complete correction plan and execution policy.
+The user approved QST-01 through QST-03 under ticket NFQ-01. QST-01 and QST-02 remain unimplemented and require the specified failing regressions. QST-03 has executable RED/GREEN evidence under U2. The user also approved the original correction plan and execution policy. The revised TUI target was documented first, then implemented under the user's U5-only authorization.
 
 ### QST-01: Complete error-text corrections
 
@@ -446,12 +495,13 @@ Approved scope is defined under [Core invocation, events and state queries](#cor
 
 ## Open questions
 
-No unresolved behavioral, factual ownership, or execution-policy questions remain for this plan.
+No unresolved behavior or ownership question remains for revised U5. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-04. BLK-05 remains assigned to U7. Execution stops after the U5 local commit; later units and whole-product acceptance remain pending.
 
 ## References
 
 - [Audit](audit.md) contains source locations, runtime paths, proposed-cycle diagnostics, coverage and baseline checks.
-- [Ticket](ticket.md) defines FRQ-01 through FRQ-10, behavior-preservation gates and final acceptance.
+- [Ticket](ticket.md) defines FRQ-01 through FRQ-14, behavior-preservation gates and final acceptance.
+- [TUI ownership gap](tui-ownership-gap.md) separates the inspected implementation from the revised target and records its open blockers.
 - [Architecture](../../architecture.md) defines Core logical independence and consumer-owned contracts.
 - [Project rules](../../../../../../AGENTS.md) define assertions, error preservation, testing and verification.
 - [PHS-04 solution](../04-persistent-linear-sessions/solution.md) defines storage and publication failure boundaries.

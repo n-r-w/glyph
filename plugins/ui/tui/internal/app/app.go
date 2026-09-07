@@ -2,18 +2,24 @@
 package app
 
 import (
-	plugincontroller "github.com/n-r-w/glyph/plugins/ui/tui/internal/controller/plugin"
-	tuicontroller "github.com/n-r-w/glyph/plugins/ui/tui/internal/controller/tui"
+	plugininput "github.com/n-r-w/glyph/plugins/ui/tui/internal/controller/plugin"
+	tuiinput "github.com/n-r-w/glyph/plugins/ui/tui/internal/controller/tui"
+	hostinfra "github.com/n-r-w/glyph/plugins/ui/tui/internal/infra/host"
 	terminalinfra "github.com/n-r-w/glyph/plugins/ui/tui/internal/infra/terminal"
-	presentationusecase "github.com/n-r-w/glyph/plugins/ui/tui/internal/usecase/presentation"
+	terminaldevice "github.com/n-r-w/glyph/plugins/ui/tui/internal/infra/terminal/device"
+	"github.com/n-r-w/glyph/plugins/ui/tui/internal/usecase/presentation"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
 
-// Serve assembles the standard TUI and starts the UI plugin server.
+// Serve binds concrete input, application, SDK, and terminal owners before activation.
 func Serve() error {
-	projection := presentationusecase.New()
-	programs := tuicontroller.NewFactory(projection.Apply)
-	controller := plugincontroller.New(terminalinfra.New(), programs)
-	uisdk.Serve(controller)
+	host := hostinfra.New()
+	terminal := terminalinfra.NewRuntime(terminaldevice.New())
+	application := presentation.New(host, terminal, terminal)
+	plugin := plugininput.New(application)
+	input := tuiinput.New(application)
+	host.BindInput(plugin)
+	terminal.BindInput(input, plugin, host)
+	uisdk.Serve(host)
 	return nil
 }

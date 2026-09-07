@@ -15,12 +15,12 @@ import (
 // TestMapLifecycleRejectsInactiveAgentStartResponse verifies stale lifecycle payloads fail at ingress.
 func TestMapLifecycleRejectsInactiveAgentStartResponse(t *testing.T) {
 	t.Parallel()
-	// Arrange lifecycle for mapLifecycle to verify stale lifecycle payloads fail at ingress.
+	// Arrange lifecycle for DecodeLifecycle to verify stale lifecycle payloads fail at ingress.
 
 	lifecycle := messageEndLifecycle(t, nil)
 	lifecycle.SetType(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START)
-	// Act by invoking mapLifecycle to exercise stale lifecycle payloads fail at ingress.
-	_, err := mapLifecycle(lifecycle)
+	// Act by invoking DecodeLifecycle to exercise stale lifecycle payloads fail at ingress.
+	_, err := DecodeLifecycle(lifecycle)
 
 	// Assert stale lifecycle payloads fail at ingress.
 	require.Error(t, err)
@@ -121,22 +121,22 @@ func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) 
 	for _, lifecycleType := range lifecycleTypes {
 		t.Run(lifecycleType.String(), func(t *testing.T) {
 			t.Parallel()
-			// Arrange valid for mapLifecycle to verify the complete lifecycle shape table.
+			// Arrange valid for DecodeLifecycle to verify the complete lifecycle shape table.
 			valid := roundTripLifecycle(t, validLifecycle(lifecycleType))
-			// Act by invoking mapLifecycle to exercise the complete lifecycle shape table.
-			_, err := mapLifecycle(valid)
+			// Act by invoking DecodeLifecycle to exercise the complete lifecycle shape table.
+			_, err := DecodeLifecycle(valid)
 			// Assert the complete lifecycle shape table.
 			require.NoError(t, err)
 
 			malformed := roundTripLifecycle(t, validLifecycle(lifecycleType))
 			malformed.SetAvailability(uiv1.Availability_AVAILABILITY_IDLE)
-			_, err = mapLifecycle(malformed)
+			_, err = DecodeLifecycle(malformed)
 			require.Error(t, err)
 		})
 	}
 }
 
-// TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads verifies selected nested lifecycle payloads cannot be nil.
+// TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads verifies required nested payloads.
 func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T) {
 	t.Parallel()
 
@@ -230,9 +230,9 @@ func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T)
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange the inline payload for mapLifecycle to verify map lifecycle rejects missing selected model and preview payloads.
-			// Act by invoking mapLifecycle to exercise map lifecycle rejects missing selected model and preview payloads.
-			_, err := mapLifecycle(testCase.lifecycle)
+			// Arrange a lifecycle envelope without its selected model or preview payload.
+			// Act by invoking DecodeLifecycle to exercise map lifecycle rejects missing selected model and preview payloads.
+			_, err := DecodeLifecycle(testCase.lifecycle)
 			// Assert map lifecycle rejects missing selected model and preview payloads.
 			require.Error(t, err)
 		})
@@ -297,9 +297,9 @@ func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange the inline payload for mapLifecycle to verify each lifecycle variant checks its scalar contract.
-			// Act by invoking mapLifecycle to exercise each lifecycle variant checks its scalar contract.
-			_, err := mapLifecycle(roundTripLifecycle(t, test.lifecycle))
+			// Arrange the inline payload for DecodeLifecycle to verify each lifecycle variant checks its scalar contract.
+			// Act by invoking DecodeLifecycle to exercise each lifecycle variant checks its scalar contract.
+			_, err := DecodeLifecycle(roundTripLifecycle(t, test.lifecycle))
 			// Assert each lifecycle variant checks its scalar contract.
 			require.Error(t, err)
 		})

@@ -10,78 +10,38 @@
 package plugin
 
 import (
-	io "io"
+	context "context"
 	reflect "reflect"
 
-	presentation "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 	gomock "go.uber.org/mock/gomock"
 )
 
-// MockTerminal is a mock of Terminal interface.
-type MockTerminal struct {
+// MockPresentation is a mock of Presentation interface.
+type MockPresentation struct {
 	ctrl     *gomock.Controller
-	recorder *MockTerminalMockRecorder
+	recorder *MockPresentationMockRecorder
 	isgomock struct{}
 }
 
-// MockTerminalMockRecorder is the mock recorder for MockTerminal.
-type MockTerminalMockRecorder struct {
-	mock *MockTerminal
+// MockPresentationMockRecorder is the mock recorder for MockPresentation.
+type MockPresentationMockRecorder struct {
+	mock *MockPresentation
 }
 
-// NewMockTerminal creates a new mock instance.
-func NewMockTerminal(ctrl *gomock.Controller) *MockTerminal {
-	mock := &MockTerminal{ctrl: ctrl}
-	mock.recorder = &MockTerminalMockRecorder{mock}
+// NewMockPresentation creates a new mock instance.
+func NewMockPresentation(ctrl *gomock.Controller) *MockPresentation {
+	mock := &MockPresentation{ctrl: ctrl}
+	mock.recorder = &MockPresentationMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockTerminal) EXPECT() *MockTerminalMockRecorder {
-	return m.recorder
-}
-
-// Open mocks base method.
-func (m *MockTerminal) Open() (TerminalSession, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Open")
-	ret0, _ := ret[0].(TerminalSession)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Open indicates an expected call of Open.
-func (mr *MockTerminalMockRecorder) Open() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Open", reflect.TypeOf((*MockTerminal)(nil).Open))
-}
-
-// MockTerminalSession is a mock of TerminalSession interface.
-type MockTerminalSession struct {
-	ctrl     *gomock.Controller
-	recorder *MockTerminalSessionMockRecorder
-	isgomock struct{}
-}
-
-// MockTerminalSessionMockRecorder is the mock recorder for MockTerminalSession.
-type MockTerminalSessionMockRecorder struct {
-	mock *MockTerminalSession
-}
-
-// NewMockTerminalSession creates a new mock instance.
-func NewMockTerminalSession(ctrl *gomock.Controller) *MockTerminalSession {
-	mock := &MockTerminalSession{ctrl: ctrl}
-	mock.recorder = &MockTerminalSessionMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockTerminalSession) EXPECT() *MockTerminalSessionMockRecorder {
+func (m *MockPresentation) EXPECT() *MockPresentationMockRecorder {
 	return m.recorder
 }
 
 // Close mocks base method.
-func (m *MockTerminalSession) Close() error {
+func (m *MockPresentation) Close() error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Close")
 	ret0, _ := ret[0].(error)
@@ -89,135 +49,100 @@ func (m *MockTerminalSession) Close() error {
 }
 
 // Close indicates an expected call of Close.
-func (mr *MockTerminalSessionMockRecorder) Close() *gomock.Call {
+func (mr *MockPresentationMockRecorder) Close() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockTerminalSession)(nil).Close))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockPresentation)(nil).Close))
 }
 
-// Input mocks base method.
-func (m *MockTerminalSession) Input() io.Reader {
+// Notify mocks base method.
+func (m *MockPresentation) Notify(arg0 Notification) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Input")
-	ret0, _ := ret[0].(io.Reader)
+	ret := m.ctrl.Call(m, "Notify", arg0)
+	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// Input indicates an expected call of Input.
-func (mr *MockTerminalSessionMockRecorder) Input() *gomock.Call {
+// Notify indicates an expected call of Notify.
+func (mr *MockPresentationMockRecorder) Notify(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Input", reflect.TypeOf((*MockTerminalSession)(nil).Input))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Notify", reflect.TypeOf((*MockPresentation)(nil).Notify), arg0)
 }
 
-// Output mocks base method.
-func (m *MockTerminalSession) Output() io.Writer {
+// PrepareInitialize mocks base method.
+func (m *MockPresentation) PrepareInitialize(arg0 Initialization) (InitializationOperation, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Output")
-	ret0, _ := ret[0].(io.Writer)
-	return ret0
+	ret := m.ctrl.Call(m, "PrepareInitialize", arg0)
+	ret0, _ := ret[0].(InitializationOperation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// Output indicates an expected call of Output.
-func (mr *MockTerminalSessionMockRecorder) Output() *gomock.Call {
+// PrepareInitialize indicates an expected call of PrepareInitialize.
+func (mr *MockPresentationMockRecorder) PrepareInitialize(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Output", reflect.TypeOf((*MockTerminalSession)(nil).Output))
-}
-
-// MockProgramFactory is a mock of ProgramFactory interface.
-type MockProgramFactory struct {
-	ctrl     *gomock.Controller
-	recorder *MockProgramFactoryMockRecorder
-	isgomock struct{}
-}
-
-// MockProgramFactoryMockRecorder is the mock recorder for MockProgramFactory.
-type MockProgramFactoryMockRecorder struct {
-	mock *MockProgramFactory
-}
-
-// NewMockProgramFactory creates a new mock instance.
-func NewMockProgramFactory(ctrl *gomock.Controller) *MockProgramFactory {
-	mock := &MockProgramFactory{ctrl: ctrl}
-	mock.recorder = &MockProgramFactoryMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockProgramFactory) EXPECT() *MockProgramFactoryMockRecorder {
-	return m.recorder
-}
-
-// New mocks base method.
-func (m *MockProgramFactory) New(initial presentation.Event, input io.Reader, output io.Writer, emit Emit) Program {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "New", initial, input, output, emit)
-	ret0, _ := ret[0].(Program)
-	return ret0
-}
-
-// New indicates an expected call of New.
-func (mr *MockProgramFactoryMockRecorder) New(initial, input, output, emit any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "New", reflect.TypeOf((*MockProgramFactory)(nil).New), initial, input, output, emit)
-}
-
-// MockProgram is a mock of Program interface.
-type MockProgram struct {
-	ctrl     *gomock.Controller
-	recorder *MockProgramMockRecorder
-	isgomock struct{}
-}
-
-// MockProgramMockRecorder is the mock recorder for MockProgram.
-type MockProgramMockRecorder struct {
-	mock *MockProgram
-}
-
-// NewMockProgram creates a new mock instance.
-func NewMockProgram(ctrl *gomock.Controller) *MockProgram {
-	mock := &MockProgram{ctrl: ctrl}
-	mock.recorder = &MockProgramMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockProgram) EXPECT() *MockProgramMockRecorder {
-	return m.recorder
-}
-
-// Quit mocks base method.
-func (m *MockProgram) Quit() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Quit")
-}
-
-// Quit indicates an expected call of Quit.
-func (mr *MockProgramMockRecorder) Quit() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Quit", reflect.TypeOf((*MockProgram)(nil).Quit))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareInitialize", reflect.TypeOf((*MockPresentation)(nil).PrepareInitialize), arg0)
 }
 
 // Run mocks base method.
-func (m *MockProgram) Run() error {
+func (m *MockPresentation) Run(arg0 context.Context) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run")
+	ret := m.ctrl.Call(m, "Run", arg0)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Run indicates an expected call of Run.
-func (mr *MockProgramMockRecorder) Run() *gomock.Call {
+func (mr *MockPresentationMockRecorder) Run(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockProgram)(nil).Run))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockPresentation)(nil).Run), arg0)
 }
 
-// Send mocks base method.
-func (m *MockProgram) Send(arg0 presentation.Event) {
+// MockInitializationOperation is a mock of InitializationOperation interface.
+type MockInitializationOperation struct {
+	ctrl     *gomock.Controller
+	recorder *MockInitializationOperationMockRecorder
+	isgomock struct{}
+}
+
+// MockInitializationOperationMockRecorder is the mock recorder for MockInitializationOperation.
+type MockInitializationOperationMockRecorder struct {
+	mock *MockInitializationOperation
+}
+
+// NewMockInitializationOperation creates a new mock instance.
+func NewMockInitializationOperation(ctrl *gomock.Controller) *MockInitializationOperation {
+	mock := &MockInitializationOperation{ctrl: ctrl}
+	mock.recorder = &MockInitializationOperationMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockInitializationOperation) EXPECT() *MockInitializationOperationMockRecorder {
+	return m.recorder
+}
+
+// Release mocks base method.
+func (m *MockInitializationOperation) Release() {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Send", arg0)
+	m.ctrl.Call(m, "Release")
 }
 
-// Send indicates an expected call of Send.
-func (mr *MockProgramMockRecorder) Send(arg0 any) *gomock.Call {
+// Release indicates an expected call of Release.
+func (mr *MockInitializationOperationMockRecorder) Release() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Send", reflect.TypeOf((*MockProgram)(nil).Send), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockInitializationOperation)(nil).Release))
+}
+
+// Run mocks base method.
+func (m *MockInitializationOperation) Run(arg0 context.Context) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Run", arg0)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Run indicates an expected call of Run.
+func (mr *MockInitializationOperationMockRecorder) Run(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockInitializationOperation)(nil).Run), arg0)
 }

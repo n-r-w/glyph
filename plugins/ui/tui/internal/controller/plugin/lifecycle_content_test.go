@@ -87,9 +87,9 @@ func TestMapLifecycleRejectsInvalidModelContentDiscriminators(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange the inline payload for mapLifecycle to verify public discriminator consistency.
-			// Act by invoking mapLifecycle to exercise public discriminator consistency.
-			_, err := mapLifecycle(modelContentLifecycle(testCase.outer, testCase.nested, testCase.kind))
+			// Arrange the inline payload for DecodeLifecycle to verify public discriminator consistency.
+			// Act by invoking DecodeLifecycle to exercise public discriminator consistency.
+			_, err := DecodeLifecycle(modelContentLifecycle(testCase.outer, testCase.nested, testCase.kind))
 			// Assert public discriminator consistency.
 			require.ErrorContains(t, err, testCase.errorContains)
 		})
@@ -121,9 +121,9 @@ func TestMapLifecycleAcceptsMatchingModelContentDiscriminators(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange the inline payload for mapLifecycle to verify each valid discriminator pair.
-			// Act by invoking mapLifecycle to exercise each valid discriminator pair.
-			_, err := mapLifecycle(modelContentLifecycle(
+			// Arrange the inline payload for DecodeLifecycle to verify each valid discriminator pair.
+			// Act by invoking DecodeLifecycle to exercise each valid discriminator pair.
+			_, err := DecodeLifecycle(modelContentLifecycle(
 				testCase.outer,
 				testCase.nested,
 				uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,
@@ -137,10 +137,10 @@ func TestMapLifecycleAcceptsMatchingModelContentDiscriminators(t *testing.T) {
 // TestMapLifecycleAcceptsPresentZeroPositionAndEmptyText verifies present zero values survive mapping.
 func TestMapLifecycleAcceptsPresentZeroPositionAndEmptyText(t *testing.T) {
 	t.Parallel()
-	// Arrange the inline payload for mapLifecycle to verify present zero values survive mapping.
+	// Arrange the inline payload for DecodeLifecycle to verify present zero values survive mapping.
 
-	// Act by invoking mapLifecycle to exercise present zero values survive mapping.
-	event, err := mapLifecycle(uiv1.AgentEvent_builder{
+	// Act by invoking DecodeLifecycle to exercise present zero values survive mapping.
+	event, err := DecodeLifecycle(uiv1.AgentEvent_builder{
 		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 		RunId:           new("run"),
 		Text:            nil,
@@ -178,7 +178,7 @@ func TestMapLifecycleRequiresToolFailurePresence(t *testing.T) {
 	} {
 		t.Run(lifecycleType.String(), func(t *testing.T) {
 			t.Parallel()
-			// Arrange build and contents for mapLifecycle to verify absent false differs from present false on the wire.
+			// Arrange build and contents for DecodeLifecycle to verify absent false differs from present false on the wire.
 			build := func(isError *bool) *uiv1.AgentEvent {
 				contents := []*uiv1.ToolResultContent(nil)
 				if lifecycleType == uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT {
@@ -196,11 +196,11 @@ func TestMapLifecycleRequiresToolFailurePresence(t *testing.T) {
 				}.Build())
 			}
 
-			// Act by invoking mapLifecycle to exercise absent false differs from present false on the wire.
-			_, err := mapLifecycle(build(nil))
+			// Act by invoking DecodeLifecycle to exercise absent false differs from present false on the wire.
+			_, err := DecodeLifecycle(build(nil))
 			// Assert absent false differs from present false on the wire.
 			require.Error(t, err)
-			event, err := mapLifecycle(build(new(false)))
+			event, err := DecodeLifecycle(build(new(false)))
 			require.NoError(t, err)
 			assert.Equal(t, mo.Some(false), event.Failure)
 		})
@@ -246,15 +246,15 @@ func TestMapLifecycleValidatesFinalResponseContent(t *testing.T) {
 	for _, test := range invalid {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange the inline payload for mapLifecycle to verify malformed items fail and present empty text survives.
-			// Act by invoking mapLifecycle to exercise malformed items fail and present empty text survives.
-			_, err := mapLifecycle(messageEndLifecycle(t, []*uiv1.ModelResponseContent{test.item}))
+			// Arrange the inline payload for DecodeLifecycle to verify malformed items fail and present empty text survives.
+			// Act by invoking DecodeLifecycle to exercise malformed items fail and present empty text survives.
+			_, err := DecodeLifecycle(messageEndLifecycle(t, []*uiv1.ModelResponseContent{test.item}))
 			// Assert malformed items fail and present empty text survives.
 			require.Error(t, err)
 		})
 	}
 
-	event, err := mapLifecycle(messageEndLifecycle(t, []*uiv1.ModelResponseContent{valid}))
+	event, err := DecodeLifecycle(messageEndLifecycle(t, []*uiv1.ModelResponseContent{valid}))
 	require.NoError(t, err)
 	require.Len(t, event.ModelResponseContent, 1)
 	assert.Equal(t, mo.Some(""), event.ModelResponseContent[0].Text)
@@ -280,10 +280,10 @@ func TestMapLifecycleRejectsInactiveModelContentText(t *testing.T) {
 	for name, testCase := range testCases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange the inline payload for mapLifecycle to verify structural variants reject nested text.
+			// Arrange the inline payload for DecodeLifecycle to verify structural variants reject nested text.
 
-			// Act by invoking mapLifecycle to exercise structural variants reject nested text.
-			_, err := mapLifecycle(modelContentLifecycleWithText(
+			// Act by invoking DecodeLifecycle to exercise structural variants reject nested text.
+			_, err := DecodeLifecycle(modelContentLifecycleWithText(
 				testCase.outer,
 				testCase.nested,
 				uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT,

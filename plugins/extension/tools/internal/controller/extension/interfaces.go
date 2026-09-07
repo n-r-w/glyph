@@ -79,9 +79,17 @@ type BashResult struct {
 	Truncation textbudget.Truncation
 }
 
+// BashCommand contains validated shell input and optional execution timeout intent.
+type BashCommand struct {
+	// Text contains the shell command to execute.
+	Text string
+	// Timeout contains a validated positive execution limit in seconds, or no limit.
+	Timeout mo.Option[float64]
+}
+
 // BashTool executes one command.
 type BashTool interface {
-	Execute(context.Context, string, func(BashProgress) error) (BashResult, error)
+	Execute(context.Context, BashCommand, func(BashProgress) error) (BashResult, error)
 }
 
 // GrepArguments contains validated grep input.

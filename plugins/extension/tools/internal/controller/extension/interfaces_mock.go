@@ -157,7 +157,7 @@ func (m *MockBashTool) EXPECT() *MockBashToolMockRecorder {
 }
 
 // Execute mocks base method.
-func (m *MockBashTool) Execute(arg0 context.Context, arg1 string, arg2 func(BashProgress) error) (BashResult, error) {
+func (m *MockBashTool) Execute(arg0 context.Context, arg1 BashCommand, arg2 func(BashProgress) error) (BashResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", arg0, arg1, arg2)
 	ret0, _ := ret[0].(BashResult)

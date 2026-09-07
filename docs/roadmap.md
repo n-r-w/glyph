@@ -122,11 +122,12 @@ Documents:
 
 Status: In progress
 
-Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 4 are implemented. Correction 4 awaits main-agent source verification and its separate local commit. Remaining corrections and whole-product architectural acceptance are open.
+Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 5 are implemented and verified. The current execution ends with the separate U5 local commit. Its TUI ownership blockers BLK-01 through BLK-04 are closed; persistence-cause blocker BLK-05 remains with correction 7. Corrections 6 through 8 and whole-product architectural acceptance are open.
 
 Documents:
 - [Ticket](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md)
-- [Completed correction evidence](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#implementation-evidence)
+- [Correction status and evidence](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#implementation-evidence)
+- [TUI ownership gap](specs/features/initial/phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md)
 
 ## PHS-07: Extension context and lifecycle
 

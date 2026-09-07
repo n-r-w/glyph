@@ -22,9 +22,11 @@ func New(runner ProcessRunner) *Service { return &Service{runner: runner} }
 // Execute streams status and command output and returns a bounded terminal result.
 func (s *Service) Execute(
 	ctx context.Context,
-	command string,
+	command extensioncontroller.BashCommand,
 	handleProgress func(extensioncontroller.BashProgress) error,
 ) (extensioncontroller.BashResult, error) {
+	executionCtx, stopTimeout := executionContext(ctx, command.Timeout)
+	defer stopTimeout()
 	status := extensioncontroller.BashProgress{
 		Channel: extensioncontroller.BashProgressStatus,
 		Content: "running",
@@ -32,7 +34,7 @@ func (s *Service) Execute(
 	if err := handleProgress(status); err != nil {
 		return extensioncontroller.BashResult{}, fmt.Errorf("deliver bash status: %w", err)
 	}
-	result, err := s.runner.Run(ctx, command, func(stream Stream, content string) error {
+	result, err := s.runner.Run(executionCtx, command.Text, func(stream Stream, content string) error {
 		channel := extensioncontroller.BashProgressStatus
 		switch stream {
 		case StreamStdout:

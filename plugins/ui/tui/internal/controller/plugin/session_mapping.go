@@ -10,58 +10,21 @@ import (
 	"github.com/samber/mo"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
-
-// sessionEvent initializes fields that are absent from session lifecycle frames.
-func sessionEvent(
-	kind presentationdomain.EventKind,
-	info mo.Option[presentationdomain.SessionInfo],
-	sessions []presentationdomain.SessionSummary,
-	restored []presentationdomain.Line,
-	statistics mo.Option[presentationdomain.SessionStatistics],
-) presentationdomain.Event {
-	return presentationdomain.Event{
-		RestoredTranscript:   restored,
-		Kind:                 kind,
-		Startup:              nil,
-		Extensions:           nil,
-		Availability:         mo.None[presentationdomain.Availability](),
-		Position:             mo.None[int](),
-		ModelContentKind:     mo.None[presentationdomain.ModelContentKind](),
-		ModelResponseContent: nil,
-		ToolCallID:           mo.None[string](),
-		ToolName:             mo.None[string](),
-		Status:               mo.None[string](),
-		Stream:               mo.None[presentationdomain.OutputStream](),
-		Text:                 mo.None[string](),
-		Contents:             mo.None[[]presentationdomain.Content](),
-		ErrorText:            mo.None[string](),
-		ExitCode:             mo.None[int](),
-		Failure:              mo.None[bool](),
-		ToolCall:             mo.None[presentationdomain.ToolCallState](),
-		Models:               nil,
-		ModelSelection:       mo.None[presentationdomain.ModelSelection](),
-		SessionInfo:          info,
-		Sessions:             sessions,
-		SessionStatistics:    statistics,
-		TreeEvent:            mo.None[presentationdomain.TreeEvent](),
-	}
-}
 
 // mapRestoredTranscript rebuilds public transcript lines without replaying lifecycle events.
 //
 //nolint:gocyclo // The closed transcript union maps each payload to distinct presentation lines.
-func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.Line, error) {
-	lines := make([]presentationdomain.Line, 0, len(entries))
+func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]Transcript, error) {
+	lines := make([]Transcript, 0, len(entries))
 	for _, entry := range entries {
 		if user := entry.GetUser(); user != nil {
 			contents, text, err := mapRestoredContents(user.GetContent())
 			if err != nil {
 				return nil, err
 			}
-			lines = append(lines, presentationdomain.Line{
-				Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
+			lines = append(lines, Transcript{
+				Kind: TranscriptUser, ToolName: mo.None[string](), Status: mo.None[string](),
 				Text: mo.Some(text), Contents: mo.Some(contents),
 			})
 			continue
@@ -88,9 +51,9 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.L
 			}
 			switch message.GetVisibility() {
 			case uiv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE:
-				lines = append(lines, presentationdomain.Line{
-					Kind: presentationdomain.LineUser, ToolName: mo.None[string](), Status: mo.None[string](),
-					Text: mo.Some(message.GetText()), Contents: mo.Some([]presentationdomain.Content{{
+				lines = append(lines, Transcript{
+					Kind: TranscriptUser, ToolName: mo.None[string](), Status: mo.None[string](),
+					Text: mo.Some(message.GetText()), Contents: mo.Some([]Content{{
 						Text: mo.Some(message.GetText()), MediaType: mo.None[string](), Data: mo.None[[]byte](),
 					}}),
 				})
@@ -104,9 +67,9 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.L
 			continue
 		}
 		if summary := entry.GetBranchSummary(); summary != nil {
-			lines = append(lines, presentationdomain.Line{
-				Kind: presentationdomain.LineBranchSummary, ToolName: mo.None[string](), Status: mo.None[string](),
-				Text: mo.Some(summary.GetSummary()), Contents: mo.None[[]presentationdomain.Content](),
+			lines = append(lines, Transcript{
+				Kind: TranscriptBranchSummary, ToolName: mo.None[string](), Status: mo.None[string](),
+				Text: mo.Some(summary.GetSummary()), Contents: mo.None[[]Content](),
 			})
 		}
 	}
@@ -114,8 +77,8 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]presentationdomain.L
 }
 
 // mapRestoredContents maps ordered user text and images with owned image bytes.
-func mapRestoredContents(contents []*uiv1.UserContent) ([]presentationdomain.Content, string, error) {
-	mapped := make([]presentationdomain.Content, 0, len(contents))
+func mapRestoredContents(contents []*uiv1.UserContent) ([]Content, string, error) {
+	mapped := make([]Content, 0, len(contents))
 	var text strings.Builder
 	for index, content := range contents {
 		if content == nil {
@@ -124,7 +87,7 @@ func mapRestoredContents(contents []*uiv1.UserContent) ([]presentationdomain.Con
 		switch content.WhichContent() {
 		case uiv1.UserContent_Text_case:
 			value := content.GetText()
-			mapped = append(mapped, presentationdomain.Content{
+			mapped = append(mapped, Content{
 				Text: mo.Some(value), MediaType: mo.None[string](), Data: mo.None[[]byte](),
 			})
 			text.WriteString(value)
@@ -134,7 +97,7 @@ func mapRestoredContents(contents []*uiv1.UserContent) ([]presentationdomain.Con
 				return nil, "", fmt.Errorf("restored user image %d is invalid", index)
 			}
 			data := bytes.Clone(image.GetData())
-			mapped = append(mapped, presentationdomain.Content{
+			mapped = append(mapped, Content{
 				Text: mo.None[string](), MediaType: mo.Some(image.GetMediaType()), Data: mo.Some(data),
 			})
 			text.WriteString(imagePlaceholder(image.GetMediaType(), len(data)))
@@ -148,40 +111,40 @@ func mapRestoredContents(contents []*uiv1.UserContent) ([]presentationdomain.Con
 }
 
 // mapRestoredModelResponse keeps stored visible model content and terminal failures in display order.
-func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomain.Line, error) {
-	lines := make([]presentationdomain.Line, 0, len(response.GetContent()))
+func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]Transcript, error) {
+	lines := make([]Transcript, 0, len(response.GetContent()))
 	for _, content := range response.GetContent() {
 		if call := content.GetToolCall(); call != nil {
 			arguments, err := json.Marshal(call.GetArguments().AsMap())
 			if err != nil {
 				return nil, fmt.Errorf("map restored tool call: %w", err)
 			}
-			lines = append(lines, presentationdomain.Line{
-				Kind: presentationdomain.LineToolStatus, ToolName: mo.Some(call.GetName()),
+			lines = append(lines, Transcript{
+				Kind: TranscriptToolStatus, ToolName: mo.Some(call.GetName()),
 				Status: mo.Some("arguments"), Text: mo.Some(string(arguments)),
-				Contents: mo.None[[]presentationdomain.Content](),
+				Contents: mo.None[[]Content](),
 			})
 			continue
 		}
-		kind := presentationdomain.LineModel
+		kind := TranscriptModel
 		switch content.GetKind() {
 		case uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED,
 			uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT:
 		case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL:
-			kind = presentationdomain.LineRefusal
+			kind = TranscriptRefusal
 		case uiv1.ModelContentKind_MODEL_CONTENT_KIND_REASONING:
-			kind = presentationdomain.LineReasoning
+			kind = TranscriptReasoning
 		}
-		lines = append(lines, presentationdomain.Line{
+		lines = append(lines, Transcript{
 			Kind: kind, ToolName: mo.None[string](), Status: mo.None[string](),
-			Text: mo.Some(content.GetText()), Contents: mo.None[[]presentationdomain.Content](),
+			Text: mo.Some(content.GetText()), Contents: mo.None[[]Content](),
 		})
 	}
 	if outcome := response.GetOutcome(); outcome == "aborted" || outcome == "failed" {
 		if response.HasErrorMessage() {
-			lines = append(lines, presentationdomain.Line{
-				Kind: presentationdomain.LineError, ToolName: mo.None[string](), Status: mo.None[string](),
-				Text: mo.Some(response.GetErrorMessage()), Contents: mo.None[[]presentationdomain.Content](),
+			lines = append(lines, Transcript{
+				Kind: TranscriptError, ToolName: mo.None[string](), Status: mo.None[string](),
+				Text: mo.Some(response.GetErrorMessage()), Contents: mo.None[[]Content](),
 			})
 		}
 	}
@@ -189,22 +152,23 @@ func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]presentationdomai
 }
 
 // mapRestoredToolResult uses the same terminal line kinds as live tool completion.
-func mapRestoredToolResult(result *uiv1.ToolResult) (presentationdomain.Line, error) {
+func mapRestoredToolResult(result *uiv1.ToolResult) (Transcript, error) {
 	contents, err := mapContents(result.GetContents(), true)
 	if err != nil {
-		return presentationdomain.Line{}, fmt.Errorf("map restored tool result: %w", err)
+		return Transcript{}, fmt.Errorf("map restored tool result: %w", err)
 	}
-	kind := presentationdomain.LineToolDone
+	kind := TranscriptToolDone
 	if result.GetIsError() {
-		kind = presentationdomain.LineToolError
+		kind = TranscriptToolError
 	}
-	return presentationdomain.Line{
+	return Transcript{
 		Kind: kind, ToolName: mo.Some(result.GetToolName()), Status: mo.None[string](),
 		Text: mo.Some(restoredToolResultText(contents)), Contents: mo.Some(contents),
 	}, nil
 }
 
-func restoredToolResultText(contents []presentationdomain.Content) string {
+// restoredToolResultText combines public tool-result content for transcript display.
+func restoredToolResultText(contents []Content) string {
 	var result strings.Builder
 	for _, content := range contents {
 		if text, present := content.Text.Get(); present {
@@ -220,23 +184,24 @@ func restoredToolResultText(contents []presentationdomain.Content) string {
 	return result.String()
 }
 
+// imagePlaceholder describes image content that a plain terminal cannot display.
 func imagePlaceholder(mediaType string, size int) string {
 	return fmt.Sprintf("[image %s, %d bytes]", mediaType, size)
 }
 
 // mapSessionStatistics validates and reconstructs optional token and cost values from the UI wire boundary.
-func mapSessionStatistics(statistics *uiv1.SessionStatistics) (presentationdomain.SessionStatistics, error) {
+func mapSessionStatistics(statistics *uiv1.SessionStatistics) (SessionStatistics, error) {
 	if statistics == nil {
-		return presentationdomain.SessionStatistics{}, errors.New("map session statistics: value is required")
+		return SessionStatistics{}, errors.New("map session statistics: value is required")
 	}
-	result := presentationdomain.SessionStatistics{
+	result := SessionStatistics{
 		UserMessages: int(statistics.GetUserMessages()), ModelResponses: int(statistics.GetModelResponses()),
 		ToolCalls: int(statistics.GetToolCalls()), ToolResults: int(statistics.GetToolResults()),
-		TotalMessages: int(statistics.GetTotalMessages()), TokenUsage: mo.None[presentationdomain.TokenUsage](),
-		EstimatedCost: mo.None[presentationdomain.EstimatedCost](), CostBreakdown: nil,
+		TotalMessages: int(statistics.GetTotalMessages()), TokenUsage: mo.None[TokenUsage](),
+		EstimatedCost: mo.None[EstimatedCost](), CostBreakdown: nil,
 	}
 	if tokens := statistics.GetTokens(); tokens != nil {
-		result.TokenUsage = mo.Some(presentationdomain.TokenUsage{
+		result.TokenUsage = mo.Some(TokenUsage{
 			InputTokens: tokens.GetInputTokens(), OutputTokens: tokens.GetOutputTokens(),
 			CacheReadTokens: tokens.GetCacheReadTokens(), CacheWriteTokens: tokens.GetCacheWriteTokens(),
 			ReasoningTokens: tokens.GetReasoningTokens(), TotalTokens: tokens.GetTotalTokens(),
@@ -245,23 +210,23 @@ func mapSessionStatistics(statistics *uiv1.SessionStatistics) (presentationdomai
 	if cost := statistics.GetEstimatedCost(); cost != nil {
 		mapped, err := mapEstimatedCost(cost)
 		if err != nil {
-			return presentationdomain.SessionStatistics{}, err
+			return SessionStatistics{}, err
 		}
 		result.EstimatedCost = mo.Some(mapped)
 	}
-	result.CostBreakdown = make([]presentationdomain.ProviderModelCost, len(statistics.GetCostBreakdown()))
+	result.CostBreakdown = make([]ProviderModelCost, len(statistics.GetCostBreakdown()))
 	for groupIndex, group := range statistics.GetCostBreakdown() {
 		if group == nil || !group.HasProviderId() || !group.HasModelId() {
-			return presentationdomain.SessionStatistics{}, errors.New("map provider-model cost: identity is required")
+			return SessionStatistics{}, errors.New("map provider-model cost: identity is required")
 		}
-		mapped := presentationdomain.ProviderModelCost{
+		mapped := ProviderModelCost{
 			ProviderID: group.GetProviderId(), ModelID: group.GetModelId(),
-			EstimatedCost: mo.None[presentationdomain.EstimatedCost](),
+			EstimatedCost: mo.None[EstimatedCost](),
 		}
 		if cost := group.GetEstimatedCost(); cost != nil {
 			groupCost, err := mapEstimatedCost(cost)
 			if err != nil {
-				return presentationdomain.SessionStatistics{}, err
+				return SessionStatistics{}, err
 			}
 			mapped.EstimatedCost = mo.Some(groupCost)
 		}
@@ -271,24 +236,24 @@ func mapSessionStatistics(statistics *uiv1.SessionStatistics) (presentationdomai
 }
 
 // mapEstimatedCost requires all five persisted values and preserves configured zero.
-func mapEstimatedCost(cost *uiv1.EstimatedCost) (presentationdomain.EstimatedCost, error) {
+func mapEstimatedCost(cost *uiv1.EstimatedCost) (EstimatedCost, error) {
 	if cost == nil || !cost.HasInput() || !cost.HasOutput() || !cost.HasCacheRead() ||
 		!cost.HasCacheWrite() || !cost.HasTotal() {
-		return presentationdomain.EstimatedCost{}, errors.New("map estimated cost: all values are required")
+		return EstimatedCost{}, errors.New("map estimated cost: all values are required")
 	}
-	return presentationdomain.EstimatedCost{
+	return EstimatedCost{
 		Input: cost.GetInput(), Output: cost.GetOutput(), CacheRead: cost.GetCacheRead(),
 		CacheWrite: cost.GetCacheWrite(), Total: cost.GetTotal(),
 	}, nil
 }
 
 // mapSessionInfo validates required identity, project, and timestamp fields while preserving optional values.
-func mapSessionInfo(value *uiv1.SessionInfo) (presentationdomain.SessionInfo, error) {
+func mapSessionInfo(value *uiv1.SessionInfo) (SessionInfo, error) {
 	if value == nil || !value.HasId() || !value.HasWorkingDirectory() ||
 		!value.HasCreatedTime() || !value.HasUpdateTime() {
-		return presentationdomain.SessionInfo{}, errors.New("session information is incomplete")
+		return SessionInfo{}, errors.New("session information is incomplete")
 	}
-	return presentationdomain.SessionInfo{
+	return SessionInfo{
 		ID:               value.GetId(),
 		Name:             value.GetName(),
 		NamePresent:      value.HasName(),
@@ -301,15 +266,15 @@ func mapSessionInfo(value *uiv1.SessionInfo) (presentationdomain.SessionInfo, er
 }
 
 // mapSessionSummary validates one selector row and preserves first-user-text presence.
-func mapSessionSummary(value *uiv1.SessionSummary) (presentationdomain.SessionSummary, error) {
+func mapSessionSummary(value *uiv1.SessionSummary) (SessionSummary, error) {
 	if value == nil || !value.HasInfo() || !value.HasTotalMessages() {
-		return presentationdomain.SessionSummary{}, errors.New("session summary is incomplete")
+		return SessionSummary{}, errors.New("session summary is incomplete")
 	}
 	info, err := mapSessionInfo(value.GetInfo())
 	if err != nil {
-		return presentationdomain.SessionSummary{}, err
+		return SessionSummary{}, err
 	}
-	return presentationdomain.SessionSummary{
+	return SessionSummary{
 		Info:          info,
 		FirstUserText: value.GetFirstUserText(),
 		TextPresent:   value.HasFirstUserText(),

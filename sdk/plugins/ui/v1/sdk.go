@@ -48,6 +48,11 @@ type grpcUIPlugin struct {
 	server uiv1.UIServiceServer
 }
 
+var (
+	_ plugin.Plugin     = (*grpcUIPlugin)(nil)
+	_ plugin.GRPCPlugin = (*grpcUIPlugin)(nil)
+)
+
 // uiGRPCClient retains the generated client and go-plugin lifecycle signal.
 type uiGRPCClient struct {
 	// service is the generated UI gRPC client.

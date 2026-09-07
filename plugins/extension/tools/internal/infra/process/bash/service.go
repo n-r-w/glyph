@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"sync"
@@ -40,6 +41,8 @@ type streamWriter struct {
 	// pending retains an incomplete UTF-8 sequence.
 	pending []byte
 }
+
+var _ io.Writer = (*streamWriter)(nil)
 
 // New creates a bash process service.
 func New() *Service { return &Service{} }

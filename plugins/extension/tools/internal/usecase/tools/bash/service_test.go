@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -20,6 +21,7 @@ import (
 func TestServiceExecute(t *testing.T) {
 	t.Parallel()
 
+	// Arrange the process output and progress stream.
 	runner := NewMockProcessRunner(gomock.NewController(t))
 	runner.EXPECT().Run(t.Context(), "printf ok", gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ string, handler ProgressHandler) (ProcessResult, error) {
@@ -34,11 +36,16 @@ func TestServiceExecute(t *testing.T) {
 	)
 	events := make([]string, 0, 2)
 
-	result, err := New(runner).Execute(t.Context(), "printf ok", func(progress extensioncontroller.BashProgress) error {
-		events = append(events, fmt.Sprintf("%d:%s", progress.Channel, progress.Content))
-		return nil
-	})
+	// Act by executing the validated command.
+	result, err := New(runner).Execute(
+		t.Context(), extensioncontroller.BashCommand{Text: "printf ok", Timeout: mo.None[float64]()},
+		func(progress extensioncontroller.BashProgress) error {
+			events = append(events, fmt.Sprintf("%d:%s", progress.Channel, progress.Content))
+			return nil
+		},
+	)
 
+	// Assert status precedes output and the terminal result is unchanged.
 	require.NoError(t, err)
 	assert.Equal(t, []string{"0:running", "1:ok"}, events)
 	assert.Equal(t, extensioncontroller.BashResult{
@@ -54,6 +61,7 @@ func TestServiceExecutePreservesTimeoutOutput(t *testing.T) {
 	t.Parallel()
 
 	timeoutErr := errors.New("bash command timed out after 1 seconds")
+	// Arrange the process output and progress stream.
 	runner := NewMockProcessRunner(gomock.NewController(t))
 	runner.EXPECT().Run(t.Context(), "sleep 30", gomock.Any()).Return(
 		ProcessResult{
@@ -65,12 +73,14 @@ func TestServiceExecutePreservesTimeoutOutput(t *testing.T) {
 		timeoutErr,
 	)
 
+	// Act by executing the validated command.
 	result, err := New(runner).Execute(
 		t.Context(),
-		"sleep 30",
+		extensioncontroller.BashCommand{Text: "sleep 30", Timeout: mo.None[float64]()},
 		func(extensioncontroller.BashProgress) error { return nil },
 	)
 
+	// Assert the complete cause and bounded output.
 	require.ErrorIs(t, err, timeoutErr)
 	assert.Equal(t, "started\n\n[bash command timed out after 1 seconds]\n", result.Text)
 }

@@ -11,7 +11,6 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	"github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
 // TestMapSessionTreeRetainsExtensionMessageState verifies exact message data remains available outside the transcript.
@@ -20,8 +19,17 @@ func TestMapSessionTreeRetainsExtensionMessageState(t *testing.T) {
 
 	// Arrange one complete tree with a hidden-client extension message.
 	entry := uiv1.SessionTreeEntry_builder{
-		Id: new("message"), ParentId: new("parent"), CreatedTime: timestamppb.New(time.Unix(1, 0).UTC()),
-		Label: new(""), User: nil, Model: nil, ToolResult: nil, Extension: nil, BranchSummary: nil,
+		Id:          new("message"),
+		ParentId:    new("parent"),
+		CreatedTime: timestamppb.New(time.Unix(1, 0).UTC()),
+		Label: new(
+			"",
+		),
+		User:          nil,
+		Model:         nil,
+		ToolResult:    nil,
+		Extension:     nil,
+		BranchSummary: nil,
 		ExtensionMessage: uiv1.ExtensionMessage_builder{
 			ExtensionId: new("example"), EntryType: new("note"), Text: new("exact text"),
 			Visibility: new(uiv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
@@ -37,9 +45,9 @@ func TestMapSessionTreeRetainsExtensionMessageState(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, mo.Some("message"), tree.ActiveLeafID)
 	require.Len(t, tree.Entries, 1)
-	require.Equal(t, presentation.TreeEntryExtensionMessage, tree.Entries[0].Kind)
+	require.Equal(t, TreeEntryExtensionMessage, tree.Entries[0].Kind)
 	require.Equal(t, "exact text", tree.Entries[0].ExtensionMessage.MustGet().Text)
-	require.Equal(t, presentation.ClientVisibilityHidden, tree.Entries[0].ExtensionMessage.MustGet().Visibility)
+	require.Equal(t, ClientVisibilityHidden, tree.Entries[0].ExtensionMessage.MustGet().Visibility)
 }
 
 // TestMapRequestDecodesTreeReplacementAndLabelFrames verifies every new Host frame is supported.
@@ -53,7 +61,7 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 				Id: new("entry"), ParentId: nil, CreatedTime: createdAt, Label: new("checkpoint"), User: nil,
 				Model: nil, ToolResult: nil,
 				Extension:     uiv1.ExtensionEntry_builder{ExtensionId: new("audit"), EntryType: new("record")}.Build(),
-				BranchSummary: nil,
+				BranchSummary: nil, ExtensionMessage: nil,
 			}.Build(),
 		},
 		ActiveLeafId: new("entry"),
@@ -63,7 +71,7 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 	for _, testCase := range []struct {
 		name      string
 		request   *uiv1.HostCompleted
-		kind      presentation.EventKind
+		kind      TreeKind
 		nextInput mo.Option[string]
 	}{
 		{
@@ -72,7 +80,7 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 			request: uiv1.HostCompleted_builder{
 				SessionForked: uiv1.SessionForked_builder{Session: session, NextInput: new(" exact input ")}.Build(),
 			}.Build(),
-			kind: presentation.EventSessionForked, nextInput: mo.Some(" exact input "),
+			kind: TreeForked, nextInput: mo.Some(" exact input "),
 		},
 		{
 			name: "cloned",
@@ -80,7 +88,7 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 			request: uiv1.HostCompleted_builder{
 				SessionCloned: uiv1.SessionCloned_builder{Session: session}.Build(),
 			}.Build(),
-			kind: presentation.EventSessionCloned, nextInput: mo.None[string](),
+			kind: TreeCloned, nextInput: mo.None[string](),
 		},
 		{
 			name: "label set",
@@ -88,7 +96,7 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 			request: uiv1.HostCompleted_builder{
 				EntryLabelSet: uiv1.EntryLabelSet_builder{Tree: tree}.Build(),
 			}.Build(),
-			kind: presentation.EventEntryLabelSet, nextInput: mo.None[string](),
+			kind: TreeLabelSet, nextInput: mo.None[string](),
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -102,103 +110,16 @@ func TestMapRequestDecodesTreeReplacementAndLabelFrames(t *testing.T) {
 			// Assert the frame maps to typed presentation state instead of an unknown frame.
 			// Assert every new Host frame is supported.
 			require.NoError(t, err)
-			require.Equal(t, testCase.kind, event.Kind)
-			mapped, present := event.TreeEvent.Get()
-			require.True(t, present)
+			require.Equal(t, testCase.kind, event.Tree.Kind)
+			mapped := event.Tree
 			require.Equal(t, testCase.nextInput, mapped.NextInput)
-			if testCase.kind == presentation.EventEntryLabelSet {
+			if testCase.kind == TreeLabelSet {
 				mappedTree, treePresent := mapped.Tree.Get()
 				require.True(t, treePresent)
 				require.Equal(t, "checkpoint", mappedTree.Entries[0].Label)
-				require.Equal(t, presentation.TreeEntryExtension, mappedTree.Entries[0].Kind)
+				require.Equal(t, TreeEntryExtension, mappedTree.Entries[0].Kind)
 				require.Equal(t, "audit record", mappedTree.Entries[0].Text)
 			}
 		})
-	}
-}
-
-// TestMapCommandEncodesTreeOperations verifies typed tree commands use the public UI contract.
-func TestMapCommandEncodesTreeOperations(t *testing.T) {
-	t.Parallel()
-
-	for _, testCase := range []struct {
-		name    string
-		command presentation.Command
-		assert  func(*testing.T, *uiv1.UIRequest)
-	}{
-		{
-			name: "get tree",
-			command: treeMappingCommand(presentation.CommandGetSessionTree, presentation.TreeCommand{
-				TargetEntryID: mo.None[string](), SummaryMode: presentation.SummaryModeUnspecified,
-				CustomFocus: mo.None[string](), Label: mo.None[string](),
-			}),
-			assert: func(t *testing.T, response *uiv1.UIRequest) { require.NotNil(t, response.GetGetSessionTree()) },
-		},
-		{
-			name: "navigate with custom focus",
-			command: treeMappingCommand(presentation.CommandNavigateSessionTree, presentation.TreeCommand{
-				TargetEntryID: mo.Some("target"), SummaryMode: presentation.SummaryModeCustomFocus,
-				CustomFocus: mo.Some("focus"), Label: mo.None[string](),
-			}),
-			assert: func(t *testing.T, response *uiv1.UIRequest) {
-				command := response.GetNavigateSessionTree()
-				require.Equal(t, "target", command.GetTargetEntryId())
-				require.Equal(t, uiv1.SummaryMode_SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT, command.GetSummaryMode())
-				require.Equal(t, "focus", command.GetCustomFocus())
-			},
-		},
-		{
-			name: "fork",
-			command: treeMappingCommand(presentation.CommandForkSession, presentation.TreeCommand{
-				TargetEntryID: mo.Some("target"), SummaryMode: presentation.SummaryModeUnspecified,
-				CustomFocus: mo.None[string](), Label: mo.None[string](),
-			}),
-			assert: func(t *testing.T, response *uiv1.UIRequest) {
-				require.Equal(t, "target", response.GetForkSession().GetTargetEntryId())
-			},
-		},
-		{
-			name: "clone",
-			command: treeMappingCommand(presentation.CommandCloneSession, presentation.TreeCommand{
-				TargetEntryID: mo.None[string](), SummaryMode: presentation.SummaryModeUnspecified,
-				CustomFocus: mo.None[string](), Label: mo.None[string](),
-			}),
-			assert: func(t *testing.T, response *uiv1.UIRequest) { require.NotNil(t, response.GetCloneSession()) },
-		},
-		{
-			name: "set label",
-			command: treeMappingCommand(presentation.CommandSetEntryLabel, presentation.TreeCommand{
-				TargetEntryID: mo.Some("target"), SummaryMode: presentation.SummaryModeUnspecified,
-				CustomFocus: mo.None[string](), Label: mo.Some(""),
-			}),
-			assert: func(t *testing.T, response *uiv1.UIRequest) {
-				command := response.GetSetEntryLabel()
-				require.True(t, command.HasLabel())
-				require.Empty(t, command.GetLabel())
-			},
-		},
-	} {
-		t.Run(testCase.name, func(t *testing.T) {
-			t.Parallel()
-			// Arrange the inline payload for mapCommand to verify typed tree commands use the public UI contract.
-
-			// Act by mapping one presentation command.
-			// Act by invoking mapCommand to exercise typed tree commands use the public UI contract.
-			response, err := mapCommand(testCase.command)
-
-			// Assert the matching typed contract command is populated.
-			// Assert typed tree commands use the public UI contract.
-			require.NoError(t, err)
-			testCase.assert(t, response)
-		})
-	}
-}
-
-// treeMappingCommand creates a complete tree command for mapping tests.
-func treeMappingCommand(kind presentation.CommandKind, treeCommand presentation.TreeCommand) presentation.Command {
-	return presentation.Command{
-		Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
-		ReasoningChoice: mo.None[presentation.ReasoningChoice](), SessionID: mo.None[string](),
-		SessionName: mo.None[string](), TreeCommand: mo.Some(treeCommand),
 	}
 }

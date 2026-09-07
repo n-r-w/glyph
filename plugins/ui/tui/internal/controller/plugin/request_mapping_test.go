@@ -5,13 +5,11 @@ package plugin
 import (
 	"testing"
 
-	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
-	presentationdomain "github.com/n-r-w/glyph/plugins/ui/tui/internal/domain/presentation"
 )
 
 // TestMapConnectionEventRetainsAddedMessageState verifies hidden messages reach tree state without transcript lines.
@@ -31,15 +29,15 @@ func TestMapConnectionEventRetainsAddedMessageState(t *testing.T) {
 	connection.SetSessionEntryAdded(uiv1.SessionEntryAdded_builder{Entry: entry}.Build())
 
 	// Act by mapping the connection event to presentation state.
-	event, err := mapConnectionEvent(connection)
+	event, err := DecodeConnectionEvent(connection)
 
 	// Assert complete tree data remains and ordinary transcript projection is empty.
 	require.NoError(t, err)
-	require.Equal(t, presentationdomain.EventSessionEntryAdded, event.Kind)
-	treeEvent := event.TreeEvent.MustGet()
-	require.Empty(t, treeEvent.RestoredTranscript)
+	require.Equal(t, TreeEntryAdded, event.Tree.Kind)
+	treeEvent := event.Tree
+	require.Empty(t, treeEvent.Transcript)
 	require.Equal(t, "exact text", treeEvent.AddedEntry.MustGet().ExtensionMessage.MustGet().Text)
-	require.Equal(t, presentationdomain.ClientVisibilityHidden,
+	require.Equal(t, ClientVisibilityHidden,
 		treeEvent.AddedEntry.MustGet().ExtensionMessage.MustGet().Visibility)
 }
 
@@ -57,48 +55,30 @@ func TestOperationMappersRequireSelectedPayloadPresence(t *testing.T) {
 
 	connection := new(uiv1.HostConnectionEvent)
 	connection.SetInformation(new(uiv1.Information))
-	_, informationErr := mapConnectionEvent(connection)
+	_, informationErr := DecodeConnectionEvent(connection)
 	require.Error(t, informationErr)
 
 	connectionError := new(uiv1.HostConnectionEvent)
 	connectionError.SetError(new(uiv1.Error))
-	_, errorErr := mapConnectionEvent(connectionError)
+	_, errorErr := DecodeConnectionEvent(connectionError)
 	require.Error(t, errorErr)
 }
 
 // TestOperationMappersPreservePresentEmptyText verifies empty present text remains distinct from absence.
 func TestOperationMappersPreservePresentEmptyText(t *testing.T) {
 	t.Parallel()
-	// Arrange information for mapConnectionEvent to verify empty present text remains distinct from absence.
+	// Arrange information for DecodeConnectionEvent to verify empty present text remains distinct from absence.
 
 	information := new(uiv1.HostConnectionEvent)
 	information.SetInformation(uiv1.Information_builder{Text: new("")}.Build())
-	// Act by invoking mapConnectionEvent to exercise empty present text remains distinct from absence.
-	informationEvent, err := mapConnectionEvent(information)
+	// Act by invoking DecodeConnectionEvent to exercise empty present text remains distinct from absence.
+	informationEvent, err := DecodeConnectionEvent(information)
 	// Assert empty present text remains distinct from absence.
 	require.NoError(t, err)
-	assert.Equal(t, mo.Some(""), informationEvent.Text)
+	assert.Empty(t, informationEvent.Text.Text)
 
 	connectionError := new(uiv1.HostConnectionEvent)
 	connectionError.SetError(uiv1.Error_builder{Code: new("INTERNAL"), Text: new("")}.Build())
-	_, err = mapConnectionEvent(connectionError)
+	_, err = DecodeConnectionEvent(connectionError)
 	require.EqualError(t, err, "connection error category and text are required")
-}
-
-// TestMapCommandRejectsMissingSelectedPayload verifies command option ownership remains strict.
-func TestMapCommandRejectsMissingSelectedPayload(t *testing.T) {
-	t.Parallel()
-	// Arrange tests for mapCommand to verify command option ownership remains strict.
-
-	tests := []presentationdomain.Command{
-		commandFixture(presentationdomain.CommandSubmit, mo.None[string]()),
-		commandFixture(presentationdomain.CommandResumeSession, mo.None[string]()),
-		commandFixture(presentationdomain.CommandSetSessionName, mo.None[string]()),
-	}
-	for _, command := range tests {
-		// Act by invoking mapCommand to exercise command option ownership remains strict.
-		_, err := mapCommand(command)
-		// Assert command option ownership remains strict.
-		require.Error(t, err)
-	}
 }

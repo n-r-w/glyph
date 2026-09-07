@@ -24,6 +24,14 @@ Each behavior and mutable state has an explicit owner. Package dependencies foll
 - Required behavior: Trace ownership, data flow, and dependencies through the complete behavior. Identify root causes, agree the correction plan, and correct every affected boundary.
 - Example input and expected output: A behavior crosses input handling, application policy, state ownership, and external I/O. The audit produces source-based findings and corrections that preserve approved behavior and establish the required dependency direction.
 
+### SCN-02: Keep TUI state consistent across a session operation
+
+- Actor: User of the standard TUI.
+- Pre-condition: The TUI has an editor draft, a displayed transcript, and an open session or tree selector.
+- Trigger: Host rejects resume, publishes committed navigation progress, or completes session replacement.
+- Required behavior: One application owner applies the corresponding display and interaction transitions. Rejected resume preserves the draft and preceding transcript. Committed navigation progress replaces the transcript; terminal navigation metadata supplies exact next input and closes the interaction. Session replacement clears the preceding draft only after Host confirmation.
+- Example input and expected output: A rejected resume leaves the user's draft available. A later successful navigation displays the committed branch before applying the terminal next-input value, without submitting that value.
+
 ## Scope
 
 In scope:
@@ -59,6 +67,10 @@ Remove architectural causes rather than make individual imports, assertions, or 
 - FRQ-08: Findings shall identify source locations, actual responsibilities, the violated principle, the dependency path, and the effect on behavior or maintenance. Distinguish an existing dependency from one introduced by a proposed change. Group symptoms that share an architectural cause.
 - FRQ-09: Derive the correction plan from the complete audit before choosing package moves or new components. Do not hide invalid responsibilities through forwarding functions, aliases, adapters, copied types, shared contract packages, or replacement of interfaces with callbacks. Ordinary boundary adapters are acceptable only when their responsibility and dependency direction are correct.
 - FRQ-10: Correct every confirmed violation across its affected paths. Update architecture documentation to describe the resulting ownership and dependencies. Do not leave known violations behind smaller local fixes.
+- FRQ-11: The standard TUI shall have one application owner for presentation state transitions, editor drafts, selectors, tree interaction, pending commands, and foreground cancellation policy. Controllers and output implementations shall not mutate that private state directly. TUI state remains a projection; Host retains authoritative session and agent state.
+- FRQ-12: TUI input controllers shall decode Host notifications and terminal input through their own usecase contracts. Event and response aggregates shall not be treated as domain concepts merely because their transformation is pure. Outgoing Host commands and coherent display snapshots shall belong beside the ports through which the application owner sends them.
+- FRQ-13: The TUI application owner shall keep tree filtering, folding, visible-entry order, and selection reconciliation together. Terminal infrastructure shall own Bubble Tea, terminal resources, row geometry, wrapping, and rendering. SDK infrastructure shall own the initialized SDK connection, notification reads, and outbound encoding and dispatch, not pending-command or foreground-selection policy.
+- FRQ-14: TUI input mapping shall preserve the source error category and complete text. The application state owner shall apply the approved persistence-cause cleanup. Neither rendering nor diagnostic wording shall select that cleanup behavior.
 
 ### Non-functional requirements
 
@@ -66,6 +78,7 @@ Remove architectural causes rather than make individual imports, assertions, or 
 - NFQ-02: Preserve asynchronous operation lifecycles, cancellation, event ordering, state consistency, UI responsiveness, and complete error causes across changed boundaries.
 - NFQ-03: Use existing behavioral tests for structure-only changes. Behavioral corrections require a failing executable test before implementation. Run the required project verification defined in [AGENTS.md](../../../../../../AGENTS.md) and verify repeatable generation for changed generated contracts or mocks.
 - NFQ-04: Apply KISS and YAGNI. A proposed abstraction must resolve an observed responsibility or dependency problem, not a hypothetical future need.
+- NFQ-05: During TUI interaction, the Bubble Tea event loop shall serialize application state transitions. Notification reads and command I/O shall not mutate that state from background work. The correction shall add no application event queue and shall preserve the progress-before-terminal transitions in SCN-02, asynchronous command dispatch, initialized sender context, and cancellation/cleanup order.
 
 ## Acceptance criteria
 
@@ -73,6 +86,7 @@ Remove architectural causes rather than make individual imports, assertions, or 
 - ACC-02: Findings meet FRQ-08 and have agreed dispositions. Every confirmed violation is corrected; no unresolved architectural violation remains in the audited scope.
 - ACC-03: The resulting code satisfies FRQ-02 through FRQ-07. No assertion, adapter, alias, callback, or relocated type hides an invalid dependency.
 - ACC-04: Required verification passes, approved behavior is retained, and architecture documents match the corrected implementation. Compilation and passing tests do not replace review of dependency direction.
+- ACC-05: TUI source traces for resume rejection, navigation progress/completion, fork/clone, command-send failure, and foreground cancellation show one owner of state transitions and no direct controller/rendering mutation. Behavioral tests preserve SCN-02 and NFQ-05. Implementation-package assertions introduce no reverse dependency, and every blocker in the separately recorded TUI ownership gap is closed by source and verification evidence.
 
 ## Overengineering and overspecification considerations
 
@@ -89,7 +103,7 @@ None.
 
 ## Open questions
 
-None about the audit scope. Findings and the correction plan are outputs of the audit.
+No unresolved ownership or behavior question remains for revised U5. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-04 with implementation evidence. BLK-05 remains open for correction 7. Main-agent source inspection and repeated U5 checks passed. The current execution ends with the U5 local commit; whole-product acceptance remains pending.
 
 ## References
 
@@ -97,15 +111,16 @@ None about the audit scope. Findings and the correction plan are outputs of the 
 - [Target architecture](../../architecture.md)
 - [Product requirements](../../prd.md)
 - [Delivery plan](../../delivery-plan.md)
+- [TUI ownership gap](tui-ownership-gap.md)
 
 ## Technical supplement
 
 ### Known example: a controller implements a usecase interface
 
-In [host/internal/controller/cli/headless/renderer.go](../../../../../../host/internal/controller/cli/headless/renderer.go), `Renderer` implements `startup.Reporter` and declares:
+At the audit baseline, `host/internal/controller/cli/headless/renderer.go` placed the outgoing `Renderer` implementation in the input-controller package and declared:
 
 ```go
 var _ startup.Reporter = (*Renderer)(nil)
 ```
 
-`Reporter` is defined in [host/internal/usecase/host/startup/interfaces.go](../../../../../../host/internal/usecase/host/startup/interfaces.go). An implementation of a usecase-owned reporting port is therefore placed in the controller layer and imports that usecase package. This conflicts with the responsibility boundaries in FRQ-02 and FRQ-03. The assertion exposes the relationship; the assertion itself is not the defect.
+`Reporter` is defined in [host/internal/usecase/host/startup/interfaces.go](../../../../../../host/internal/usecase/host/startup/interfaces.go). An implementation of a usecase-owned reporting port is therefore placed in the controller layer and imports that usecase package. That baseline placement conflicts with the responsibility boundaries in FRQ-02 and FRQ-03. The assertion exposes the relationship; the assertion itself is not the defect. Correction 1 moved this implementation to [headless output](../../../../../../host/internal/infra/headless/renderer.go).

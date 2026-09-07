@@ -19,7 +19,7 @@ Outcome: Request changes.
 - FND-03 and FND-04 require ownership of interface-specific types and storage metadata at their consumers and storage implementation.
 - FND-05 through FND-09 cover lost error information, text-dependent TUI state, misplaced execution policy, incomplete contracts, and a forwarding owner with no behavior.
 
-The user approved the [correction plan](solution.md). Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. Findings below describe the audit baseline; passing compilation or tests alone does not close them. Whole-scope architectural acceptance remains pending.
+The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. Findings below describe the audit baseline; passing compilation or tests alone does not close them. Whole-scope architectural acceptance remains pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified; the current execution stops after its separate local commit.
 
 ## Issues overview
 
@@ -31,7 +31,7 @@ The user approved the [correction plan](solution.md). Its [implementation eviden
 - **Major FND-06**. TUI state cleanup depends on diagnostic wording after the supplied error category has been discarded.
 - **Major FND-07**. Filesystem catalogues decide startup acceptance, and the bash input controller owns execution timeout.
 - **Minor FND-08**. Several consumed error contracts and handwritten implementations lack assertions; two UI port methods have no use at their declared consumer.
-- **Minor FND-09**. The presentation usecase only forwards to the domain state that owns the behavior.
+- **Minor FND-09**. The baseline presentation usecase only forwards to `State.Apply`. Removing that wrapper alone does not establish the correct owner of TUI application behavior. Revised U5 resolves that ownership through the real application usecase and separate input/output owners.
 
 ## Findings
 
@@ -106,7 +106,7 @@ The operation-scoped navigation reporter in [CommitNavigation](../../../../../..
 
 #### FND-03: Method types have no owning consumer at their location
 
-- Location: [domain/ui](../../../../../../host/internal/domain/ui), `Command`, `Frame`, `Initialization`, `Discovery`, and navigation projections; [sessionnavigation](../../../../../../host/internal/usecase/host/sessionnavigation), `Request`, `Progress`, `Result`, and `OperationIssue`; [domain/session/session.go](../../../../../../host/internal/domain/session/session.go), `Replacement`, `Summary`, and `InformationSnapshot`; [extensionruntime/interfaces.go](../../../../../../host/internal/usecase/host/extensionruntime/interfaces.go), `ExtensionRuntime`; [TUI presentation commands](../../../../../../plugins/ui/tui/internal/domain/presentation/presentation.go), lines 458 through 516, and [TreeCommand](../../../../../../plugins/ui/tui/internal/domain/presentation/tree.go), lines 91 through 101.
+- Location: audit-baseline `host/internal/domain/ui`, `Command`, `Frame`, `Initialization`, `Discovery`, and navigation projections; audit-baseline `host/internal/usecase/host/sessionnavigation`, `Request`, `Progress`, `Result`, and `OperationIssue`; [domain/session/session.go](../../../../../../host/internal/domain/session/session.go), `Replacement`, `Summary`, and `InformationSnapshot`; [extensionruntime/interfaces.go](../../../../../../host/internal/usecase/host/extensionruntime/interfaces.go), `ExtensionRuntime`; audit-baseline TUI commands in `plugins/ui/tui/internal/domain/presentation/presentation.go`, lines 458 through 516, and audit-baseline `TreeCommand` in `plugins/ui/tui/internal/domain/presentation/tree.go`, lines 91 through 101.
 - Issue: UI and TUI command unions describe input/output contracts, not shared domain entities. Navigation types occupy an interface-free shared package. Session query/replacement aggregates are domain members. Runtime-manager method signatures reuse startup, session-tree, and lifecycle consumer aggregates across another interface boundary. FRQ-04 requires commands and response aggregates beside their consuming interfaces.
 - Impact: A client response change alters domain or shared-contract packages. Runtime transport signatures depend on another capability's response aggregate rather than their actual consumer's contract.
 - Scenario: UI preparation consumes a command created by transport; session replacement returns an information aggregate through client usecases; registration passes `startup.PendingRegistration` through the runtime manager's outgoing interface; terminal input sends `presentation.Command` to Host dispatch.
@@ -138,8 +138,8 @@ The [U3 evidence](solution.md#u3-session-queries-navigation-and-publication) rec
 
 #### FND-06: TUI persistence cleanup depends on diagnostic wording
 
-- Location: [request_mapping.go](../../../../../../plugins/ui/tui/internal/controller/plugin/request_mapping.go), `mapConnectionError`, lines 124 through 132; [controller.go](../../../../../../plugins/ui/tui/internal/controller/plugin/controller.go), `operationErrorEvent`, lines 239 through 256; [presentation/state.go](../../../../../../plugins/ui/tui/internal/domain/presentation/state.go), `State.applyError`, lines 150 through 164.
-- Issue: The plugin mapping discards the connection category and `FailureError.Code()`. Domain state then clears provisional model and tool output only for text beginning with `session persistence failed`. The public category becomes an implicit English-text protocol, contrary to FRQ-04, FRQ-05, and NFQ-02.
+- Location after U5: [request_mapping.go](../../../../../../plugins/ui/tui/internal/controller/plugin/request_mapping.go), `mapConnectionError`; [application commands](../../../../../../plugins/ui/tui/internal/usecase/presentation/commands.go), `operationErrorEvent`; [application state](../../../../../../plugins/ui/tui/internal/usecase/presentation/state.go), `projection.applyError`.
+- Issue: Connection mapping discards the category, and application operation-failure policy reduces `FailureError` to text. Application state still clears provisional model and tool output only for text beginning with `session persistence failed`. The public category becomes an implicit English-text protocol, contrary to FRQ-04, FRQ-05, and NFQ-02.
 - Impact: Adding error context can change projection cleanup while leaving the supplied failure category unchanged. Matching unrelated text can also trigger cleanup.
 - Scenario: A session operation supplies `PERSISTENCE_UNAVAILABLE`, but the TUI drops that category. An accepted agent run instead always supplies `INTERNAL` through [prepareSubmit](../../../../../../host/internal/usecase/host/ui/prepared_operations.go), lines 208 through 226. Its Core persistence sentinel has the text used by the domain prefix test, so retaining the existing run category alone cannot replace that test.
 - Assessing realism: High for the information loss and maintenance dependency. The audit does not claim an uncached end-to-end reproduction of every cleanup path.
@@ -172,17 +172,21 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 
 #### FND-09: A presentation usecase forwards behavior without owning it
 
-- Location: [presentation usecase](../../../../../../plugins/ui/tui/internal/usecase/presentation/service.go), lines 6 through 17; [TUI assembly](../../../../../../plugins/ui/tui/internal/app/app.go), lines 13 through 16; [TUI model](../../../../../../plugins/ui/tui/internal/controller/tui/model.go), `Model.apply` and `NewModel`; [presentation state](../../../../../../plugins/ui/tui/internal/domain/presentation/state.go), `State.Apply`.
+- Audit-baseline location: `plugins/ui/tui/internal/usecase/presentation/service.go`, lines 6 through 17; `plugins/ui/tui/internal/app/app.go`, lines 13 through 16; `plugins/ui/tui/internal/controller/tui/model.go`, `Model.apply` and `NewModel`; `plugins/ui/tui/internal/domain/presentation/state.go`, `State.Apply`.
 - Issue: An empty service forwards every call to `state.Apply(event)`. It owns no state, policy, transformation, or outgoing port. NFQ-04 does not justify the extra owner.
 - Impact: Assembly and tests carry an abstraction that isolates no behavior.
 - Scenario: Initialization and every projected Host event pass through the forwarding function.
 - Assessing realism: High. The service is wired into the normal TUI path.
-- Recommendation: Use the domain state behavior directly at the projection consumer. Do not add an interface around the empty service or move the wrapper to another package.
-- Verification: Preserve projection tests and terminal behavior. No new test of the removed forwarding call is needed.
+- Recommendation: Replace the empty forwarding body with the real state and interaction policy identified in the [TUI ownership gap](tui-ownership-gap.md). Do not keep direct controller mutations around a domain reducer or add an interface around the empty service. The [revised solution](solution.md#tui) assigns input contracts, application transitions, SDK work, and rendering to their consumers and owners.
+- Verification: Preserve projection, interaction, and terminal behavior tests at those owners. Close gap BLK-01 through BLK-04 in U5 and the separately approved cause-based cleanup in U7. No test of an absent forwarding call is needed.
+
+### TUI follow-up status
+
+The [revised U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records implemented application, input, SDK, terminal, and tree responsibilities. Source traces and migrated behavior tests close [BLK-01 through BLK-04](tui-ownership-gap.md#blockers). The record includes executable RED/GREEN for the local `/name` snapshot regression. The retained bash ownership and external-assertion changes pass the complete unit's checks. Main-agent source inspection and repeated project checks passed. BLK-05, FND-05, and FND-06 remain assigned to corrections 6 and 7.
 
 ## Package and contract coverage
 
-Each production package received responsibility, state, interface/type, import, and runtime-boundary inspection. The table records actual work and links findings, rather than assigning a layer from its directory name. A dash means no separate finding was recorded for that package.
+Each production package received responsibility, state, interface/type, import, and runtime-boundary inspection. The table records baseline inspection and findings. The later [TUI ownership gap](tui-ownership-gap.md) corrects the incomplete disposition of its presentation and controller responsibilities without changing the baseline package count. A dash means no separate finding was recorded at that baseline.
 
 ### Host packages
 
@@ -259,7 +263,7 @@ These 21 handwritten packages contain 86 production Go files. The two SDK rows a
 | [plugins/ui/tui/internal/app](../../../../../../plugins/ui/tui/internal/app) | Terminal, rendering program, endpoint, and SDK assembly. | FND-09 |
 | [plugins/ui/tui/internal/controller/plugin](../../../../../../plugins/ui/tui/internal/controller/plugin) | SDK endpoint, initialization, terminal/program lifetime, notification mapping, correlation. | FND-03, FND-06 |
 | [plugins/ui/tui/internal/controller/tui](../../../../../../plugins/ui/tui/internal/controller/tui) | Bubble Tea input/rendering, editor/selectors/tree state, asynchronous commands. | FND-03, FND-09 |
-| [plugins/ui/tui/internal/domain/presentation](../../../../../../plugins/ui/tui/internal/domain/presentation) | Projection state, transcript/tree behavior, plus Host command payloads. | FND-03, FND-06 |
+| `plugins/ui/tui/internal/domain/presentation`, removed by U5 | Projection state, transcript/tree behavior, plus Host command payloads. | FND-03, FND-06 |
 | [plugins/ui/tui/internal/infra/terminal](../../../../../../plugins/ui/tui/internal/infra/terminal) | Controlling-terminal files and cleanup. | — |
 | [plugins/ui/tui/internal/usecase/presentation](../../../../../../plugins/ui/tui/internal/usecase/presentation) | Empty forwarding service. | FND-09 |
 | [sdk/plugins/extension/v1](../../../../../../sdk/plugins/extension/v1) | Bootstrap, bidirectional operation namespaces, protocol validation, tracking and delivery. | FND-05 |
@@ -293,11 +297,11 @@ All 16 sources use edition 2023. Counts, positions, sizes, and token quantities 
 
 ## Assumptions
 
-No source finding assumes that a package name establishes its layer. Catalogue failure policy, bash timer ownership, input mapping, output delivery, and state mutation were traced through their concrete callers and implementations. Proposed cycles above distinguish absent assertion imports from the acyclic baseline.
+The baseline traced catalogue failure policy, bash timer ownership, input mapping, output delivery, and state mutation. The [TUI follow-up](tui-ownership-gap.md) found that its presentation disposition still lacked a justified owner for interaction policy and boundary payloads. Proposed cycles distinguish absent assertion imports from the acyclic inspected source.
 
 ## Open questions
 
-QST-01, QST-02 and QST-03 are closed by the [approved behavior decisions](solution.md#approved-behavior-decisions). No unresolved behavioral or factual coverage questions remain for this audit. The production findings remain open until implementation and verification. The user approved the complete correction plan and implementation.
+QST-01, QST-02 and QST-03 are closed by the [approved behavior decisions](solution.md#approved-behavior-decisions). The [TUI gap](tui-ownership-gap.md) records known implementation blockers, not unanswered ownership questions. Revised U5 is implemented and verified. Later production findings remain open until their implementation and verification.
 
 ## Next steps
 
