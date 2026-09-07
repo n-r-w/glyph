@@ -7,6 +7,8 @@ import (
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
+
+	plugininput "github.com/n-r-w/glyph/plugins/ui/tui/internal/controller/plugin"
 )
 
 // Apply returns a copy of the state with one Host event applied.
@@ -155,7 +157,7 @@ func (state *projection) applyError(event event) {
 	if event.Text.IsNone() {
 		return
 	}
-	if strings.HasPrefix(event.Text.OrEmpty(), "session persistence failed") {
+	if event.FailureCode == plugininput.FailureCodePersistence {
 		clear(state.ActiveModel)
 		clear(state.ActiveToolCalls)
 		clear(state.ActiveTools)

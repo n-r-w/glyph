@@ -58,6 +58,8 @@ type Notification struct {
 	OperationID string
 	// Payload contains the validated update when the stage has one.
 	Payload mo.Option[Payload]
+	// FailureCode retains the source category separately from diagnostic text.
+	FailureCode string
 	// Failure retains the source error when the operation failed.
 	Failure error
 }

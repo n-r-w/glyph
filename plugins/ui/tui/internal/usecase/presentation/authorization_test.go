@@ -63,6 +63,7 @@ func TestStatePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 		"nested": []any{[]byte{1, 2, 3}},
 	}
 	state := (projection{}).Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolCallPreview,
 		Startup:              nil,
@@ -110,6 +111,7 @@ func TestStatePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 
 	// Act by applying content with absent text and optional JSON.
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventModelDelta,
 		Startup:              nil,

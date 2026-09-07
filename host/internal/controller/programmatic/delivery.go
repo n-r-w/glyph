@@ -120,6 +120,10 @@ func (d *streamDelivery) Terminal(id string, outcome operation.Outcome[Response]
 // failureCodeForCommand restricts a proposed failure code to the command's documented closed set.
 func failureCodeForCommand(command CommandKind, proposed string) string {
 	switch command {
+	case CommandUserRequest:
+		if proposed == FailureCodePersistenceUnavailable {
+			return proposed
+		}
 	case CommandSelectModel, CommandSelectReasoningChoice:
 		if proposed == FailureCodeCredentialUnavailable {
 			return proposed
@@ -138,7 +142,7 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 		default:
 			return FailureCodeInternal
 		}
-	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
+	case CommandUnspecified, CommandCancel, CommandGetRunState, CommandGetMessages,
 		CommandGetModels, CommandGetSessionInfo, CommandGetSessionEntries, CommandGetSessionStats,
 		CommandGetSessionTree:
 		return FailureCodeInternal

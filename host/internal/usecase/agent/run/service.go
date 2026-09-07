@@ -92,7 +92,7 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 		)
 	}
 	// The user entry must transfer to history ownership before any turn or provider request can depend on it.
-	if err := s.historyStore.Append(ctx, agent.HistoryEntry{
+	if err := s.appendHistory(ctx, agent.HistoryEntry{
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(request.UserText)),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}); err != nil {
@@ -715,7 +715,7 @@ func (s *Service) clearPartial() {
 
 // appendModel transfers one finalized model response to canonical history ownership.
 func (s *Service) appendModel(ctx context.Context, response model.Response) error {
-	return s.historyStore.Append(ctx, agent.HistoryEntry{
+	return s.appendHistory(ctx, agent.HistoryEntry{
 		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
 		Model: mo.Some(response.Clone()), ToolResult: mo.None[agent.ToolResult](),
 	})
@@ -723,10 +723,19 @@ func (s *Service) appendModel(ctx context.Context, response model.Response) erro
 
 // appendToolResult transfers one completed tool result to the active history owner.
 func (s *Service) appendToolResult(ctx context.Context, result agent.ToolResult) error {
-	return s.historyStore.Append(ctx, agent.HistoryEntry{
+	return s.appendHistory(ctx, agent.HistoryEntry{
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](),
 		Model: mo.None[model.Response](), ToolResult: mo.Some(result.Clone()),
 	})
+}
+
+// appendHistory classifies failed history writes and preserves the original storage cause.
+func (s *Service) appendHistory(ctx context.Context, entry agent.HistoryEntry) error {
+	err := s.historyStore.Append(ctx, entry)
+	if err == nil || errors.Is(err, agent.ErrPersistenceUnavailable) {
+		return err
+	}
+	return fmt.Errorf("%w: %w", agent.ErrPersistenceUnavailable, err)
 }
 
 // deliver performs one synchronous Host event call without queuing or retry.

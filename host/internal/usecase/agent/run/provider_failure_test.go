@@ -303,7 +303,7 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
 	providerErr := errors.New("unique provider failure")
-	persistenceErr := fmt.Errorf("%w: unique failed-response persistence failure", ErrPersistenceUnavailable)
+	persistenceErr := fmt.Errorf("%w: unique failed-response persistence failure", agent.ErrPersistenceUnavailable)
 	history := make([]agent.HistoryEntry, 0, 1)
 	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -341,7 +341,7 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 	require.ErrorIs(t, err, persistenceErr)
 	// text is the diagnostic delivered in the terminal event, separate from the returned error.
 	text := agentEnd.ErrorMessage.OrEmpty()
-	assert.True(t, strings.HasPrefix(text, ErrPersistenceUnavailable.Error()), text)
+	assert.True(t, strings.HasPrefix(text, agent.ErrPersistenceUnavailable.Error()), text)
 	assert.Equal(t, 1, strings.Count(text, providerErr.Error()), text)
 	assert.Equal(t, 1, strings.Count(text, persistenceErr.Error()), text)
 }

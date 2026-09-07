@@ -140,12 +140,14 @@ The [U6 evidence](solution.md#u6-complete-error-text) records the implemented FN
 
 #### FND-06: TUI persistence cleanup depends on diagnostic wording
 
+U7 closes this baseline finding and [BLK-05](tui-ownership-gap.md#blk-05-persistence-cause-cleanup-still-targets-the-old-presentation-boundary). [Source traces and executable RED/GREEN](solution.md#u7-run-persistence-cause-and-tui-cleanup) cover both client contracts and the TUI application owner. The observations below describe the audited baseline.
+
 - Location after U5: [request_mapping.go](../../../../../../plugins/ui/tui/internal/controller/plugin/request_mapping.go), `mapConnectionError`; [application commands](../../../../../../plugins/ui/tui/internal/usecase/presentation/commands.go), `operationErrorEvent`; [application state](../../../../../../plugins/ui/tui/internal/usecase/presentation/state.go), `projection.applyError`.
 - Issue: Connection mapping discards the category, and application operation-failure policy reduces `FailureError` to text. Application state still clears provisional model and tool output only for text beginning with `session persistence failed`. The public category becomes an implicit English-text protocol, contrary to FRQ-04, FRQ-05, and NFQ-02.
 - Impact: Adding error context can change projection cleanup while leaving the supplied failure category unchanged. Matching unrelated text can also trigger cleanup.
 - Scenario: A session operation supplies `PERSISTENCE_UNAVAILABLE`, but the TUI drops that category. An accepted agent run instead always supplies `INTERNAL` through [prepareSubmit](../../../../../../host/internal/usecase/host/ui/prepared_operations.go), lines 208 through 226. Its Core persistence sentinel has the text used by the domain prefix test, so retaining the existing run category alone cannot replace that test.
 - Assessing realism: High for the information loss and maintenance dependency. The audit does not claim an uncached end-to-end reproduction of every cleanup path.
-- Recommendation: Carry a source-backed persistence distinction to a presentation-owned semantic cause and apply cleanup to that cause. Preserve diagnostic text separately. The baseline still emits only `INTERNAL` for accepted-run failures. The public-contract change is approved under [QST-02](solution.md#qst-02-narrow-run-persistence-distinction) and remains unimplemented; moving the text comparison into a mapper would not correct the cause.
+- Recommendation: Carry a source-backed persistence distinction to a presentation-owned semantic cause and apply cleanup to that cause. Preserve diagnostic text separately. The baseline still emits only `INTERNAL` for accepted-run failures. The public-contract change is approved under [QST-02](solution.md#qst-02-narrow-run-persistence-distinction) and is implemented in U7; moving the text comparison into a mapper would not correct the cause.
 - Verification: Exercise operation and connection mappings and the source-to-client run path. Equal persistence causes with different text must produce equal cleanup; unrelated causes with the old prefix must not trigger persistence cleanup. Keep Programmatic Control and UI run-failure semantics aligned.
 
 #### FND-07: Input and filesystem adapters own application execution policy
@@ -184,7 +186,7 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 
 ### TUI follow-up status
 
-The [revised U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records implemented application, input, SDK, terminal, and tree responsibilities. Source traces and migrated behavior tests close [BLK-01 through BLK-04](tui-ownership-gap.md#blockers). The record includes executable RED/GREEN for the local `/name` snapshot regression. The retained bash ownership and external-assertion changes pass the complete unit's checks. Main-agent source inspection and repeated project checks passed. BLK-05, FND-05, and FND-06 remain assigned to corrections 6 and 7.
+The [revised U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records implemented application, input, SDK, terminal, and tree responsibilities. Source traces and migrated behavior tests close [BLK-01 through BLK-04](tui-ownership-gap.md#blockers). The record includes executable RED/GREEN for the local `/name` snapshot regression. The retained bash ownership and external-assertion changes pass the complete unit's checks. Main-agent source inspection and repeated project checks passed. [U6](solution.md#u6-complete-error-text) closes FND-05. [U7](solution.md#u7-run-persistence-cause-and-tui-cleanup) closes BLK-05 and FND-06. U8 and whole-product acceptance remain open.
 
 ## Package and contract coverage
 

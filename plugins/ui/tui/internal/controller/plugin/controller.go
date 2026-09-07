@@ -46,7 +46,7 @@ func (controller *Controller) Notify(notification *uisdk.Notification) error {
 	}
 	input := Notification{
 		Kind: NotificationConnection, OperationID: notification.OperationID(),
-		Payload: mo.None[Payload](), Failure: nil,
+		Payload: mo.None[Payload](), Failure: nil, FailureCode: "",
 	}
 	var err error
 	switch notification.Kind() {
@@ -64,6 +64,7 @@ func (controller *Controller) Notify(notification *uisdk.Notification) error {
 	case uisdk.NotificationFailed:
 		input.Kind = NotificationFailed
 		input.Failure = notification.OperationError()
+		input.FailureCode = operationFailureCode(input.Failure)
 	case uisdk.NotificationConnectionEvent:
 		var payload Payload
 		payload, err = DecodeConnectionEvent(notification.ConnectionEvent())
@@ -75,6 +76,17 @@ func (controller *Controller) Notify(notification *uisdk.Notification) error {
 		return err
 	}
 	return controller.presentation.Notify(input)
+}
+
+// operationFailureCode decodes SDK categories without choosing application cleanup or display policy.
+func operationFailureCode(err error) string {
+	if failure, ok := errors.AsType[*uisdk.FailureError](err); ok {
+		return failure.Code()
+	}
+	if rejection, ok := errors.AsType[*uisdk.RejectionError](err); ok {
+		return rejection.Code()
+	}
+	return ""
 }
 
 // Run enters the initialized application runtime from the SDK lifecycle.

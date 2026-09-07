@@ -43,10 +43,13 @@ func TestDisplaySnapshotIsDetached(t *testing.T) {
 
 	// Act by changing application state after publishing the snapshot.
 	require.NoError(t, service.Notify(plugininput.Notification{
+		FailureCode: "",
 		Kind:        plugininput.NotificationConnection,
 		OperationID: "",
 		Payload: mo.Some(
-			plugininput.TextPayload(plugininput.TextUpdate{Kind: plugininput.TextInformation, Text: "later"}),
+			plugininput.TextPayload(
+				plugininput.TextUpdate{FailureCode: "", Kind: plugininput.TextInformation, Text: "later"},
+			),
 		),
 		Failure: nil,
 	}))

@@ -13,8 +13,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnavailable verifies snapshot preservation and local write
@@ -59,7 +57,7 @@ func (s *ServiceSuite) TestSetNameMutationFailureMakesOnlyActiveSessionWriteUnav
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("blocked content")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	})
-	s.Require().ErrorIs(err, agentrun.ErrPersistenceUnavailable)
+	s.Require().ErrorIs(err, agent.ErrPersistenceUnavailable)
 }
 
 // TestCreateAndSuccessfulResumeRestoreWrites verifies only active replacement clears local persistence failure.
@@ -78,7 +76,7 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("first")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	})
-	s.Require().ErrorIs(err, agentrun.ErrPersistenceUnavailable)
+	s.Require().ErrorIs(err, agent.ErrPersistenceUnavailable)
 	before := service.ActiveInfo()
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("broken")).Return(LoadedSession{}, session.ErrUnavailable)
 
@@ -90,7 +88,7 @@ func (s *ServiceSuite) TestCreateAndSuccessfulResumeRestoreWrites() {
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("still blocked")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	})
-	s.Require().ErrorIs(err, agentrun.ErrPersistenceUnavailable)
+	s.Require().ErrorIs(err, agent.ErrPersistenceUnavailable)
 
 	resumedAt := createdAt.Add(time.Minute)
 	s.repository.EXPECT().Load(gomock.Any(), session.ID("stored")).Return(LoadedSession{

@@ -507,6 +507,7 @@ func treeControllerEvent(
 	treeEvent treeEvent,
 ) event {
 	return event{
+		FailureCode:          "",
 		Kind:                 kind,
 		Startup:              nil,
 		RestoredTranscript:   nil,

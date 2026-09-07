@@ -62,6 +62,7 @@ func TestTerminalBeforeAcknowledgementReleasesForeground(t *testing.T) {
 
 	// Act by consuming terminal data before the command result returns to the event loop.
 	require.NoError(t, service.Notify(plugininput.Notification{
+		FailureCode: "",
 		Kind:        plugininput.NotificationCompleted,
 		OperationID: result.ID,
 		Payload:     mo.Some(plugininput.NewPayload(plugininput.PayloadSettled)),
@@ -126,7 +127,8 @@ func TestCompletionWithoutPayloadReleasesOperation(t *testing.T) {
 
 	// Act by consuming a terminal notification with explicitly absent payload data.
 	err := service.Notify(plugininput.Notification{
-		Kind: plugininput.NotificationCompleted, OperationID: result.ID,
+		FailureCode: "",
+		Kind:        plugininput.NotificationCompleted, OperationID: result.ID,
 		Payload: mo.None[plugininput.Payload](), Failure: nil,
 	})
 

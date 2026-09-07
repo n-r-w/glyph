@@ -31,7 +31,7 @@ func mapHostProgress(progress *uiv1.HostProgress) (Payload, error) {
 		if authorization == nil || !authorization.HasUrl() {
 			return Payload{}, errors.New("authorization URL is required")
 		}
-		return TextPayload(TextUpdate{Kind: TextAuthorization, Text: authorization.GetUrl()}), nil
+		return TextPayload(TextUpdate{Kind: TextAuthorization, Text: authorization.GetUrl(), FailureCode: ""}), nil
 	case uiv1.HostProgress_SessionTreeNavigation_case:
 		return mapTreeNavigationProgress(progress.GetSessionTreeNavigation())
 	case uiv1.HostProgress_Progress_not_set_case:
@@ -112,16 +112,16 @@ func mapInformation(information *uiv1.Information) (Payload, error) {
 	if information == nil || !information.HasText() {
 		return Payload{}, errors.New("information text is required")
 	}
-	return TextPayload(TextUpdate{Kind: TextInformation, Text: information.GetText()}), nil
+	return TextPayload(TextUpdate{Kind: TextInformation, Text: information.GetText(), FailureCode: ""}), nil
 }
 
-// mapConnectionError validates a connection failure and retains its diagnostic text.
+// mapConnectionError retains a validated connection failure's category and complete diagnostic text.
 func mapConnectionError(failure *uiv1.Error) (Payload, error) {
 	if failure == nil || !failure.HasCode() || failure.GetCode() == "" ||
 		!failure.HasText() || failure.GetText() == "" {
 		return Payload{}, errors.New("connection error category and text are required")
 	}
-	return TextPayload(TextUpdate{Kind: TextError, Text: failure.GetText()}), nil
+	return TextPayload(TextUpdate{Kind: TextError, Text: failure.GetText(), FailureCode: failure.GetCode()}), nil
 }
 
 // mapExtensionIssue validates and identifies one nonterminal observer issue.
@@ -130,7 +130,7 @@ func mapExtensionIssue(issue *uiv1.ExtensionIssue) (Payload, error) {
 		issue.GetCode() == "" || issue.GetText() == "" {
 		return Payload{}, errors.New("extension issue identity, code, and text are required")
 	}
-	return TextPayload(TextUpdate{Kind: TextError, Text: fmt.Sprintf(
+	return TextPayload(TextUpdate{Kind: TextError, FailureCode: issue.GetCode(), Text: fmt.Sprintf(
 		extensionIssueFormat, issue.GetExtensionId(), issue.GetHandlerId(), issue.GetCode(), issue.GetText(),
 	)}), nil
 }

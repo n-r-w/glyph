@@ -146,7 +146,9 @@ func (service *Service) Notify(input plugininput.Notification) error {
 	}
 	if input.Kind == plugininput.NotificationFailed {
 		if !errors.Is(input.Failure, context.Canceled) {
-			service.model = service.model.applyEvent(operationErrorEvent(pending.command, input.Failure))
+			service.model = service.model.applyEvent(
+				operationErrorEvent(pending.command, input.FailureCode, input.Failure),
+			)
 		}
 	} else if err := service.applyInput(input.Payload); err != nil {
 		return err
@@ -156,7 +158,7 @@ func (service *Service) Notify(input plugininput.Notification) error {
 }
 
 // operationErrorEvent chooses the failed interaction's display destination from its initiating command.
-func operationErrorEvent(command Command, err error) event {
+func operationErrorEvent(command Command, failureCode string, err error) event {
 	if command.Kind == CommandResumeSession {
 		return textEvent(eventInformation, err.Error())
 	}
@@ -169,5 +171,7 @@ func operationErrorEvent(command Command, err error) event {
 		})
 		return update
 	}
-	return textEvent(eventError, err.Error())
+	update := textEvent(eventError, err.Error())
+	update.FailureCode = failureCode
+	return update
 }

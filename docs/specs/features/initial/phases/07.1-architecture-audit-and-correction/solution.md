@@ -8,11 +8,11 @@ The [ticket](ticket.md) defines PHS-07.1. The [audit](audit.md) records nine bas
 
 ### Status and scope
 
-Corrections 1 through 6 are implemented and verified. The revised TUI design replaces the stopped correction-5 attempt. The user then corrected assertion placement in `b07707e` and authorized sequential U6, U7, U8, and independent integrated verification. Overall user acceptance remains required. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
+Corrections 1 through 7 are implemented and verified. The revised TUI design replaces the stopped correction-5 attempt. The user then corrected assertion placement in `b07707e` and authorized sequential U6, U7, U8, and independent integrated verification. Overall user acceptance remains required. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
 
 Core implements Host consumer contracts with implementation-package assertions. It remains logically independent of concrete Host implementations, Host state, and Host policy. No assertion exception or forwarding Core adapter is required.
 
-All structural corrections preserve the public behavior defined by the implemented phases. Error-text corrections, the source-backed run-persistence distinction, and cancellation settlement recovery are [approved behavior decisions](#approved-behavior-decisions). Cancellation settlement recovery is implemented under U2. Complete error-text corrections are implemented under U6. Persistence-category corrections remain open for U7. Implementation remains subject to the verification and acceptance gates below. PHS-07 stays paused until the ticket's acceptance criteria pass. PHS-06 retry/compaction/model execution and PHS-12 provider migration are not brought into this plan.
+All structural corrections preserve the public behavior defined by the implemented phases. Error-text corrections, the source-backed run-persistence distinction, and cancellation settlement recovery are [approved behavior decisions](#approved-behavior-decisions). Cancellation settlement recovery is implemented under U2. Complete error-text corrections are implemented under U6. Persistence-category corrections and semantic TUI cleanup are implemented under U7. Implementation remains subject to the verification and acceptance gates below. PHS-07 stays paused until the ticket's acceptance criteria pass. PHS-06 retry/compaction/model execution and PHS-12 provider migration are not brought into this plan.
 
 ### Responsibility changes
 
@@ -157,7 +157,7 @@ FND-05 requires these source-to-client changes:
 
 #### Source-backed persistence classification
 
-[APC-20](../../../../issues/blocking-contract-operation-processing/solution.md#operation-inventory) defines the approved run-failure mapping, including joined failures. PHS-07.1 implements the history-persistence distinction for both client contracts. The production baseline still emits only `INTERNAL` for accepted-run failures, so retaining that category in TUI alone cannot replace the text test. Ordinary tool errors remain tool results. The [agent-run failure issue](../../../../issues/agent-run-failure-semantics/problem.md) retains broader model/provider classification in product PHS-06/PHS-12.
+[APC-20](../../../../issues/blocking-contract-operation-processing/solution.md#operation-inventory) defines the approved run-failure mapping, including joined failures. PHS-07.1 implements the history-persistence distinction for both client contracts. The audited baseline emitted only `INTERNAL` for accepted-run failures. [U7 evidence](#u7-run-persistence-cause-and-tui-cleanup) records the implemented source-to-client distinction and TUI cleanup. Ordinary tool errors remain tool results. The [agent-run failure issue](../../../../issues/agent-run-failure-semantics/problem.md) retains broader model/provider classification in product PHS-06/PHS-12.
 
 Move the single history-recording failure identity from Core to `domain/agent`. Core detects that failure and wraps the shared identity together with the original cause. Both client Host usecases classify it with `errors.Is`, without importing Core or matching text. Update all producers and consumers together; retain no alias or duplicate declaration. Update Programmatic's [command-specific failure allowlist](../../../../../../host/internal/controller/programmatic/delivery.go), which otherwise replaces the new accepted-run category with `INTERNAL`.
 
@@ -475,6 +475,47 @@ The same four commands exited 0 after the production changes. The real child-pro
 
 All implementation checks exited 0: `task fmt`; `task fix_dry_run`, with no proposals; `task lint`, with zero issues and `ifaceguard: no errors found`; `task test`; `task itest`; `task test-coverage`, with 83.5% against the 80.0% threshold; `task build`; and `git diff --check`. No contract or mock changed, so generation was not required. The clean baseline and one final check attempt had the same intermittent `task test-coverage` failure in `TestHostClosurePreservesWriterFailure` because an expected `MockOpenStream.Recv()` call was missed. `task test` passed before both failures. The implementation coverage rerun passed at 83.5%. Main-agent source review traced the original causes through the changed boundaries and retained classifiers. Main-agent verification repeated the full project sequence and affected uncached race suites; all passed, with 83.6% combined coverage and no fix proposals. No new interface, assertion, public schema, dependency, or generated contract was introduced. The Programmatic test starts with an already-canceled application context and does not wait for its receive goroutine before mock cleanup. U8 must make that phase-introduced fixture deterministic; a successful repeat is not its resolution.
 
+#### U7: Run-persistence cause and TUI cleanup
+
+Correction 7 is implemented and independently verified. BLK-05 and audit FND-06 are closed. U8 and whole-product acceptance remain separate gates. The known Programmatic `TestHostClosurePreservesWriterFailure` fixture race remains outside this unit's code changes.
+
+Source traces:
+
+- [Agent identity](../../../../../../host/internal/domain/agent/errors.go) is the single history-persistence sentinel. [Core `appendHistory`](../../../../../../host/internal/usecase/agent/run/service.go) classifies raw first-user, model, and tool-result append failures while retaining their causes. [Sessions](../../../../../../host/internal/usecase/host/sessions/service.go) uses that identity without a Core alias. General session-mutation classification remains separate.
+- [Run control](../../../../../../host/internal/usecase/host/runcontrol/coordinator.go) retains joined run and settlement errors. [Programmatic `failureCode`](../../../../../../host/internal/usecase/host/programmatic/prepared.go) and [UI `runFailureCode`](../../../../../../host/internal/usecase/host/ui/prepared_operations.go) use `errors.Is`. [Programmatic's command allowlist](../../../../../../host/internal/controller/programmatic/delivery.go) admits `PERSISTENCE_UNAVAILABLE` for `UserRequest`. Unrelated run errors remain `INTERNAL`, and ordinary tool errors remain tool results.
+- UI's cancellation filter retains the original error when no cancellation cause exists. Its new complete-text regression exposed that rebuilding a multi-cause wrapper changed its diagnostic text. The correction preserves both original text and error identity for these failures.
+- [Plugin operation mapping](../../../../../../plugins/ui/tui/internal/controller/plugin/controller.go) and [connection mapping](../../../../../../plugins/ui/tui/internal/controller/plugin/request_mapping.go) carry `FailureCode` separately from diagnostics. [Application operation policy](../../../../../../plugins/ui/tui/internal/usecase/presentation/commands.go) and [payload input](../../../../../../plugins/ui/tui/internal/usecase/presentation/input.go) retain it in the private event. The [application reducer](../../../../../../plugins/ui/tui/internal/usecase/presentation/state.go) selects provisional-state cleanup by category, not text. No controller or renderer owns cleanup policy.
+
+Executable RED evidence, before the corresponding behavior changes:
+
+| Command | Exit and observed assertion |
+| --- | --- |
+| `go test -race -count=1 ./host/internal/usecase/agent/run -run 'TestServiceRun(StopsBeforeProviderWhenUserPersistenceFails\|StopsAfterCompletedToolWhenResultPersistenceFails\|HidesMessageEndWhenModelPersistenceFails)$'` | 1. All three raw append errors lacked the history-persistence identity. |
+| `go test -race -count=1 ./host/internal/usecase/host/ui ./host/internal/usecase/host/programmatic -run 'TestSubmitClassifiesPersistenceCause\|TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure'` | 1. Both clients returned `INTERNAL` for persistence and joined persistence failures. |
+| `go test -race -tags=integration -count=1 -timeout=90s -v ./host/internal/app -run '^TestUIPersistenceFailureCategories$'` | 1. The real UI client received `INTERNAL` after its first history append failed. |
+| `go test -race -tags=integration -p 1 -parallel 1 -count=1 -timeout=120s ./host/internal/app -run '^TestProgrammaticAppSuite/(TestRuntimePersistenceFailureProcessPaths\|TestTerminalModelPersistenceFailureProcessPath\|TestTerminalToolResultPersistenceFailureProcessPath)$'` | 1. Public first-user, model, and tool-result failures returned `INTERNAL`. |
+| `go test -race -tags=integration -count=1 -timeout=60s ./host/internal/app -run '^TestProgrammaticJoinedPersistenceFailure$'` | 1. The joined provider and storage failure returned `INTERNAL`. |
+| `go test -race -tags=integration -count=1 -timeout=60s ./plugins/ui/tui/internal/infra/host -run '^TestSDKPersistenceCleanupUsesCause$'` | 1. Both SDK input paths retained provisional state for changed persistence wording and cleared it for unrelated or unknown categories with the old prefix. |
+| `go test -race -count=1 ./plugins/ui/tui/internal/usecase/presentation -run '^TestStateClearsUnconfirmedModelOnlyOnPersistenceFailure$'` | 1. The reducer failed the corresponding model, tool-call, and tool-execution state assertions. Only the category field existed before this run; it had no behavior. |
+
+An earlier combined public test attempt timed out because the new UI fixture stopped inside the SDK callback on an assertion. It is not RED evidence. The fixture now returns failed expectations through the SDK lifecycle; the public RED run above exited on the expected category failure. The client-unit GREEN attempt also exposed the UI wrapper-text loss described above before that correction.
+
+The Core, client-unit, public-client, reducer, and SDK regressions passed uncached after their corrections. Public UI tests cover first append, joined provider/model append failure, and unrelated provider failure. Public Programmatic tests also cover tool-result append failure. The SDK tests cover both operation and connection input, persistence with different wording, unrelated and unknown categories with the old prefix, retained user transcript, and complete diagnostics above 65,536 bytes.
+
+The application test entry is now `TestClientAppSuites`, with sequential `Programmatic` and `UIRunFailure` suites. Both require exclusive access to the process-wide HTTP transport. They reuse the runner's existing parallel-test exemption; U7 adds no suppression. The prior RED commands above record the test names at execution time. The complete application suite below exercises their new names.
+
+All final project checks exited 0: `task fmt`; `task fix_dry_run`, with no proposals after applying the `errors.AsType` proposal; `task lint`; `task test`; `task itest`; `task test-coverage`, with 83.6% against 80.0%; `task build`; and `git diff --check`. Two `task generate` runs exited 0 and produced identical SHA-256 snapshots for all 73 generated Go files, with no generated-source diff.
+
+Affected uncached verification exited 0:
+
+- `go test -race -count=1 ./host/internal/usecase/agent/run ./host/internal/usecase/host/ui ./host/internal/usecase/host/programmatic ./host/internal/usecase/host/sessions ./host/internal/controller/programmatic ./plugins/ui/tui/internal/controller/plugin ./plugins/ui/tui/internal/usecase/presentation`.
+- `go test -race -tags=integration -p 1 -parallel 1 -count=1 ./host/internal/app ./host/internal/infra/plugins/ui/runtime ./host/internal/infra/programmatic/output ./plugins/ui/tui/internal/infra/host ./plugins/ui/tui/internal/infra/terminal ./plugins/ui/tui/internal/usecase/presentation`.
+- `go tool golangci-lint run --config .golangci.yml --new-from-rev=df819cd4b7175aecd65c6493537af55442c5cb96 ./plugins/ui/tui/internal/... ./host/internal/usecase/host/ui/...`. This extra unit-tag check reports no new issue. Its unrestricted run exited 1 with 15 findings in unchanged Host UI unit-test files: 2 duplicate-code, 8 line-length, 4 assertion-style, and 1 redundant-conversion findings. The required project lint uses the integration tag and passes.
+
+The public persistence tests passed three uncached repetitions under `TestClientAppSuites`; the six TUI SDK scenarios passed five uncached repetitions. The 75-package root-module import graph has no reverse transitive dependency for the added domain imports or the retained TUI input/output assertion pairs. Neither client usecase depends on the Core implementation.
+
+Public schema, category scope, connection-event kinds, dependencies, existing assertion placement, U5 event-loop ownership, and navigation ordering are unchanged. Main-agent inspection traced the shared source identity, both client classifications and output allowlists, complete joined causes, input categories, and application-owned cleanup. The main agent repeated the full required project sequence and both affected uncached race suites; all passed with 83.6% coverage. Two further generation runs preserved all 73 hashes. All 45 handed-off Go paths stayed unchanged during verification. The shared identity and both client usecases have no reverse Core dependency. The complete verified unit receives its separate local commit.
+
 ### Execution control
 
 The user selected `final_only` and authorized sequential execution of U6, U7, and U8 after revised U5. The complete plan retains corrections 1 through 8 in the stated order, with no concurrent source changes in the shared checkout. Each correction is one implementation unit, U1 through U8, and has one separate local commit after its checks pass. Do not push. Rework of a committed unit produces a corrective commit. Overall user review follows integrated verification.
@@ -506,7 +547,7 @@ Each instance owns one atomic unit. Continuation of an instance is limited to co
 
 ## Approved behavior decisions
 
-The user approved QST-01 through QST-03 under ticket NFQ-01. QST-01 has executable RED/GREEN evidence under U6. QST-02 remains open for U7. QST-03 has executable RED/GREEN evidence under U2. The user also approved the original correction plan and execution policy. The revised TUI target was documented first, then implemented under the user's U5-only authorization.
+The user approved QST-01 through QST-03 under ticket NFQ-01. QST-01 has executable RED/GREEN evidence under U6. QST-02 has executable RED/GREEN evidence under U7. QST-03 has executable RED/GREEN evidence under U2. The user also approved the original correction plan and execution policy. The revised TUI target was documented first, then implemented under the user's U5-only authorization.
 
 ### QST-01: Complete error-text corrections
 
@@ -522,7 +563,7 @@ Approved scope is defined under [Core invocation, events and state queries](#cor
 
 ## Open questions
 
-No unresolved behavior or ownership question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-04. BLK-05 remains assigned to U7. U8 includes the recorded phase-introduced Programmatic test race. Later-unit verification and whole-product acceptance remain pending.
+No unresolved behavior or ownership question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-05. U8 includes the recorded phase-introduced Programmatic test race. Later-unit verification and whole-product acceptance remain pending.
 
 ## References
 

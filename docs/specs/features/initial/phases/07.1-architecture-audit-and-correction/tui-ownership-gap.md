@@ -1,6 +1,6 @@
 # TUI ownership gap
 
-Revised correction 5 closes BLK-01 through BLK-04. BLK-05 remains open for correction 7. Main-agent source verification and repeated project checks passed. U5 has a separate verified local commit; the user authorized the remaining correction units. [U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records the implementation, test migration, local regression correction, and verification results.
+Revised correction 5 closes BLK-01 through BLK-04. Correction 7 closes BLK-05 with [source and executable evidence](solution.md#u7-run-persistence-cause-and-tui-cleanup). Main-agent source verification and repeated project checks passed. U5 has a separate verified local commit; the user authorized the remaining correction units. [U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records the implementation, test migration, local regression correction, and verification results.
 
 The stopped attempt above commit `5f9fb7863b67d4e1767d8d62e9243999d3e65265` established this gap. That attempt kept domain `State.Apply` beside direct controller mutations. The revised implementation replaces those owners rather than accepting the stopped attempt. [Ticket FRQ-11 through FRQ-14 and NFQ-05](ticket.md#requirements) remain the acceptance requirements.
 
@@ -75,7 +75,7 @@ The stopped attempt above commit `5f9fb7863b67d4e1767d8d62e9243999d3e65265` esta
 
 ### BLK-05: Persistence-cause cleanup still targets the old presentation boundary
 
-- Status: Open for correction 7. Revised U5 changes its location, not its semantics.
-- [Audit FND-06](audit.md#fnd-06-tui-persistence-cleanup-depends-on-diagnostic-wording) remains open. [Connection-error input mapping](../../../../../../plugins/ui/tui/internal/controller/plugin/request_mapping.go) still discards the category. Application operation-failure policy still reduces errors to text. The private [projection reducer](../../../../../../plugins/ui/tui/internal/usecase/presentation/state.go) still selects cleanup from the diagnostic prefix.
-- Resolution: Correction 7 must preserve the approved category and complete text at the input boundary and make the application owner clear provisional state from the semantic cause. Keep the public category scope and add no connection-event kind. Executable RED/GREEN evidence is still required.
+- Status: Closed by independently verified U7. Whole-product acceptance remains a separate gate.
+- [Plugin operation input](../../../../../../plugins/ui/tui/internal/controller/plugin/controller.go) and [connection-error mapping](../../../../../../plugins/ui/tui/internal/controller/plugin/request_mapping.go) retain the source category separately from complete text. The private [application reducer](../../../../../../plugins/ui/tui/internal/usecase/presentation/state.go) clears provisional model, tool-call, and tool-execution state only for `PERSISTENCE_UNAVAILABLE`.
+- [U7 evidence](solution.md#u7-run-persistence-cause-and-tui-cleanup) traces the history source through both client contracts and records executable RED/GREEN. [SDK integration](../../../../../../plugins/ui/tui/internal/infra/host/persistence_integration_test.go) covers operation and connection inputs with changed persistence wording, unrelated and unknown categories with the old prefix, and complete diagnostics above 65,536 bytes. Public category scope and connection-event kinds are unchanged.
 - Resolution source of truth: [ticket FRQ-14](ticket.md#functional-requirements); [source-backed persistence classification](solution.md#source-backed-persistence-classification).

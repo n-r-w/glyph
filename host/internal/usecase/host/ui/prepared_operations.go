@@ -11,6 +11,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -81,8 +82,8 @@ func (prepared *preparedUIOperation) Run(
 
 // withoutCancellationLeaves removes only pure cancellation leaves from joined errors.
 func withoutCancellationLeaves(err error) error {
-	if err == nil {
-		return nil
+	if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
+		return err
 	}
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
 		remaining := make([]error, 0, len(joined.Unwrap()))
@@ -224,7 +225,7 @@ func (s *Session) prepareSubmit(
 			terminalRunErr = runErr
 			return controllerui.NewFrame(controllerui.FrameSubmitCompleted), runErr
 		},
-		failureCode: func(error) string { return controllerui.FailureCodeInternal },
+		failureCode: runFailureCode,
 		release: func() {
 			s.runner.CancelPrepared(runID)
 			availability := AvailabilityIdle
@@ -238,6 +239,14 @@ func (s *Session) prepareSubmit(
 		},
 		releaseOnce: sync.Once{},
 	}, nil
+}
+
+// runFailureCode distinguishes history persistence from other accepted-run failures.
+func runFailureCode(err error) string {
+	if errors.Is(err, agent.ErrPersistenceUnavailable) {
+		return controllerui.FailureCodePersistence
+	}
+	return controllerui.FailureCodeInternal
 }
 
 // prepareAuthentication reserves one interactive authentication attempt.

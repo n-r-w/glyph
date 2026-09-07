@@ -18,6 +18,7 @@ func TestStateAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 	state := (projection{}).Apply(testToolEndedEvent("read", "completed", false))
 	// Act by applying the terminal tool-result event.
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolResult,
 		ToolName:             mo.Some("read"),
@@ -70,30 +71,34 @@ func TestStateAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 	}, state.Transcript)
 }
 
-// TestStateClearsUnconfirmedModelOnlyOnPersistenceFailure verifies contextual persistence detection.
+// TestStateClearsUnconfirmedModelOnlyOnPersistenceFailure verifies category-based provisional-state cleanup.
 func TestStateClearsUnconfirmedModelOnlyOnPersistenceFailure(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
-		name        string
+		name string
+		// failureCode is the source category independent of diagnostic wording.
+		failureCode string
 		errorText   string
 		clearsState bool
 	}{
 		{
 			name:        "persistence error with independent sibling cause",
-			errorText:   "session persistence failed: disk full\nprovider request failed",
+			failureCode: "PERSISTENCE_UNAVAILABLE",
+			errorText:   "write rejected: disk full\nprovider request failed",
 			clearsState: true,
 		},
 		{
-			name:        "provider error containing persistence phrase",
-			errorText:   "provider request failed: session persistence failed upstream",
+			name:        "unrelated error with old persistence prefix",
+			failureCode: "INTERNAL",
+			errorText:   "session persistence failed upstream",
 			clearsState: false,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange one confirmed user line and one streamed model fragment without a terminal model event.
+			// Arrange one user line and one streamed model fragment without a terminal model event.
 			state := (projection{}).Apply(testPresentationEvent(
 				eventUserSubmitted,
 				mo.Some("durable user"),
@@ -113,11 +118,9 @@ func TestStateClearsUnconfirmedModelOnlyOnPersistenceFailure(t *testing.T) {
 			state.ActiveTools = map[string]string{"call-1": "running"}
 
 			// Act by applying a Host error after the streamed model and tool state.
-			state = state.Apply(testPresentationEvent(
-				eventError,
-				mo.Some(test.errorText),
-				mo.None[int](),
-			))
+			update := testPresentationEvent(eventError, mo.Some(test.errorText), mo.None[int]())
+			update.FailureCode = test.failureCode
+			state = state.Apply(update)
 
 			// Assert only persistence failures discard unconfirmed model and tool state.
 			if test.clearsState {
@@ -148,6 +151,7 @@ func TestStateRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 		testFailureEvent(eventModelEnd, "Provider failed."),
 		testFailureEvent(eventTurnEnded, "Provider failed."),
 		{
+			FailureCode:          "",
 			RestoredTranscript:   nil,
 			Kind:                 eventAgentSettled,
 			Failure:              mo.Some(true),
@@ -173,6 +177,7 @@ func TestStateRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 			treeEvent:            mo.None[treeEvent](),
 		},
 		{
+			FailureCode:          "",
 			RestoredTranscript:   nil,
 			Kind:                 eventError,
 			Text:                 mo.Some("Provider failed."),

@@ -19,9 +19,9 @@ Documents:
 
 ### Agent run failure semantics
 
-Status: Planned
+Status: In progress
 
-Execution position: Shared error transport in Blocking contract operation processing, the approved but unimplemented history-persistence failure distinction in PHS-07.1, broader logical model execution semantics in PHS-06, provider source classification in PHS-12, and final closure after PHS-12.
+Execution position: Shared error transport in Blocking contract operation processing, the implemented and verified history-persistence failure distinction in PHS-07.1 U7, broader logical model execution semantics in PHS-06, provider source classification in PHS-12, and final closure after PHS-12.
 
 Track the cross-phase closure of terminal agent-run failure semantics across their owning roadmap phases.
 
@@ -122,7 +122,7 @@ Documents:
 
 Status: In progress
 
-Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 6 are implemented and verified. Its complete-text cases retain SDK, provider, navigation, and label causes and classifications. TUI ownership blockers BLK-01 through BLK-04 are closed; persistence-cause blocker BLK-05 remains with correction 7. Corrections 7 and 8 and whole-product architectural acceptance are open.
+Audit responsibilities, dependency direction, interface ownership, and command and response types across the implemented product. Correct the architectural causes before PHS-07 resumes. Corrections 1 through 7 are implemented and verified. TUI ownership blockers BLK-01 through BLK-05 are closed. [U7 evidence](specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u7-run-persistence-cause-and-tui-cleanup) records source-backed persistence classification, complete causes, and application cleanup. Correction 8 and whole-product architectural acceptance remain open.
 
 Documents:
 - [Ticket](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md)

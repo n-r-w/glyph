@@ -2,11 +2,11 @@
 
 ## Context
 
-The [Blocking contract operation processing Technical Solution](../blocking-contract-operation-processing/solution.md#operation-inventory) defines `Failed.code` for an accepted Programmatic `UserRequest` and UI `SubmitCommand`. The approved [PHS-07.1 correction](../../features/initial/phases/07.1-architecture-audit-and-correction/solution.md#source-backed-persistence-classification) adds a source-backed history-persistence distinction to `RUN-F`. That behavior is not implemented. Logical model-execution outcomes beyond this distinction remain in PHS-06, and provider source classification remains in PHS-12.
+The [Blocking contract operation processing Technical Solution](../blocking-contract-operation-processing/solution.md#operation-inventory) defines `Failed.code` for an accepted Programmatic `UserRequest` and UI `SubmitCommand`. The approved [PHS-07.1 correction](../../features/initial/phases/07.1-architecture-audit-and-correction/solution.md#source-backed-persistence-classification) adds a source-backed history-persistence distinction to `RUN-F`. That distinction is implemented and verified under [U7](../../features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u7-run-persistence-cause-and-tui-cleanup). Logical model-execution outcomes beyond this distinction remain in PHS-06, and provider source classification remains in PHS-12.
 
 ## Problem Statement
 
-Beyond the approved history-persistence distinction, Glyph has no agreed end-to-end definition of terminal agent-run failure categories. The runtime still exposes only `INTERNAL` for accepted-run failures; the approved distinction and broader model/provider classifications are not implemented at the client boundary.
+Beyond the approved history-persistence distinction, Glyph has no agreed end-to-end definition of terminal agent-run failure categories. Both clients distinguish source-classified history persistence failures as `PERSISTENCE_UNAVAILABLE`. Other accepted-run failures remain `INTERNAL`; broader model/provider classifications remain undefined.
 
 ## Who is affected
 
@@ -17,16 +17,15 @@ Beyond the approved history-persistence distinction, Glyph has no agreed end-to-
 ## Evidence
 
 - [APC-20](../blocking-contract-operation-processing/solution.md#operation-inventory) defines the approved `RUN-F` mapping and assigns the history-persistence correction to PHS-07.1. Broader category work remains in PHS-06 and PHS-12.
-- `host/internal/usecase/agent/run/interfaces.go` exposes the history-persistence failure identity, which the baseline client mappings do not distinguish.
-- `host/internal/usecase/host/programmatic/prepared.go` maps every unclassified accepted-run error to `INTERNAL` through `failureCode`.
+- `host/internal/domain/agent/errors.go` owns the history-persistence identity. Core retains it with the source cause, and both client usecases classify it with `errors.Is`.
+- [U7 source and executable evidence](../../features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u7-run-persistence-cause-and-tui-cleanup) covers first and later appends, joined failures, complete text, and unrelated `INTERNAL` failures through both clients.
 - Provider errors reach Agent Core as Go errors without a provider-neutral terminal failure kind.
 - Extension tool execution errors become model-visible error tool results and do not directly fail the parent agent run.
 - The [target architecture](../../features/initial/architecture.md) assigns provider response classification to provider implementations, terminal model-call results to Host model execution, and terminal agent-run outcomes to Agent Core.
 
 ## Impact
 
-- Clients can distinguish terminal agent-run failures only as `INTERNAL`.
-- The approved history-persistence distinction is not yet exposed to either client. Source conditions and ownership for broader terminal distinctions remain undefined.
+- Clients distinguish history-persistence failures, but source conditions and ownership for broader terminal distinctions remain undefined.
 - PHS-06 and PHS-12 can define incompatible failure semantics unless the cross-phase issue is resolved.
 
 ## Reproduction Steps
@@ -38,7 +37,7 @@ Beyond the approved history-persistence distinction, Glyph has no agreed end-to-
 
 ## Current State
 
-The Programmatic and UI run boundaries expose only `INTERNAL` for accepted-run failures. The source-backed persistence behavior specified by APC-20 is approved but awaits PHS-07.1 implementation and verification. Other failure information remains provider-specific, is removed before client boundaries, or is represented as nonterminal model-visible tool data. PHS-06 and PHS-12 retain the broader classification work. This issue remains planned, not completed.
+The APC-20 history-persistence distinction is implemented and verified through both clients and TUI cleanup. Other terminal failures retain `INTERNAL` and complete diagnostic text. Ordinary tool failures remain model-visible tool results. PHS-06 and PHS-12 retain broader classification work. This issue is in progress, not completed.
 
 ## Desired Outcome
 

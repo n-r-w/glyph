@@ -29,7 +29,7 @@ func TestOperationMappersRejectUnknownLifecycleAndMapSafeError(t *testing.T) {
 	// Assert malformed lifecycle fails while safe error text remains visible.
 	require.Error(t, unknownErr)
 	require.NoError(t, err)
-	assert.Equal(t, TextPayload(TextUpdate{Kind: TextError, Text: "safe error"}), event)
+	assert.Equal(t, TextPayload(TextUpdate{FailureCode: "INTERNAL", Kind: TextError, Text: "safe error"}), event)
 }
 
 // TestMapLifecycleRejectsEmptyToolResultContents verifies missing terminal output fails at the UI boundary.

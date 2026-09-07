@@ -28,6 +28,7 @@ func TestStateUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 
 	// Act by applying host initialization.
 	state := (projection{}).Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventInitialization,
 		Models:               models,
@@ -69,6 +70,7 @@ func TestStateUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		ReasoningChoice: ReasoningChoiceHigh,
 	}
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventModelSelectionChanged,
 		ModelSelection:       mo.Some(confirmed),
@@ -105,6 +107,7 @@ func TestStateReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 
 	// Arrange a provisional tool call in presentation state.
 	state := (projection{}).Apply(event{
+		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventToolCallPreview,
 		ToolCall: mo.Some(ToolCallState{
@@ -143,6 +146,7 @@ func TestStateReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 	require.True(t, state.ActiveToolCalls["call-1"].Provisional)
 	// Act by applying final-call and execution-start events.
 	state = state.Apply(event{
+		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventToolCallFinal,
 		ToolCall: mo.Some(ToolCallState{
@@ -177,6 +181,7 @@ func TestStateReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 	// Assert the final call replaces provisional fields before execution starts.
 	require.False(t, state.ActiveToolCalls["call-1"].Provisional)
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventModelEnd,
 		Status:               mo.Some("tool_use"),
@@ -203,6 +208,7 @@ func TestStateReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 	})
 	require.Contains(t, state.ActiveToolCalls, "call-1")
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolStarted,
 		ToolCallID:           mo.Some("call-1"),

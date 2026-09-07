@@ -16,7 +16,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 )
 
 // TestExecuteMapsCompletedRunToZero verifies one parsed request reaches concrete composition.
@@ -96,7 +96,7 @@ func TestExecuteWritesSafePersistenceFailure(t *testing.T) {
 	exitCode := execute(
 		t.Context(), []string{"run", "request"}, &bytes.Buffer{}, &stderr,
 		func(context.Context, cli.Command, io.Writer, io.Writer) error {
-			return agentrun.ErrPersistenceUnavailable
+			return agent.ErrPersistenceUnavailable
 		},
 	)
 

@@ -21,8 +21,8 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	headlessoutput "github.com/n-r-w/glyph/host/internal/infra/headless"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 type headlessPersistenceFaultWriter struct {
@@ -115,7 +115,7 @@ func TestRunWithPathsHeadlessPersistenceFailurePreservesContext(t *testing.T) {
 	require.True(t, faultAttempted)
 	require.NoError(t, faultErr)
 	require.NotEmpty(t, projectDirectory)
-	require.ErrorIs(t, runErr, agentrun.ErrPersistenceUnavailable)
+	require.ErrorIs(t, runErr, agent.ErrPersistenceUnavailable)
 	assert.Contains(t, runErr.Error(), "session persistence failed")
 	assert.Contains(t, strings.ToLower(runErr.Error()), "permission")
 	assert.Equal(t, "[error] "+runErr.Error()+"\n", cliStderr.String())

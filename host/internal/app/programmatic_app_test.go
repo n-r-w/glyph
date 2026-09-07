@@ -13,9 +13,10 @@ type ProgrammaticAppSuite struct {
 	suite.Suite
 }
 
-// TestProgrammaticAppSuite runs the real Unix-socket process contract.
+// TestClientAppSuites runs client process contracts with exclusive provider transport access.
 //
 //nolint:paralleltest // Suite cases temporarily replace the process-wide HTTP transport.
-func TestProgrammaticAppSuite(t *testing.T) {
-	suite.Run(t, new(ProgrammaticAppSuite))
+func TestClientAppSuites(t *testing.T) {
+	t.Run("Programmatic", func(t *testing.T) { suite.Run(t, new(ProgrammaticAppSuite)) })
+	t.Run("UIRunFailure", func(t *testing.T) { suite.Run(t, new(UIRunFailureSuite)) })
 }

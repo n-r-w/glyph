@@ -44,7 +44,9 @@ func (service *Service) applyInput(input mo.Option[plugininput.Payload]) error {
 			kind = eventError
 		case plugininput.TextInformation:
 		}
-		service.model = service.model.applyEvent(textEvent(kind, payload.Text.Text))
+		update := textEvent(kind, payload.Text.Text)
+		update.FailureCode = payload.Text.FailureCode
+		service.model = service.model.applyEvent(update)
 	case plugininput.PayloadAvailability:
 		update := newEvent(eventAvailability)
 		update.Availability = mo.Some(Availability(payload.Availability))
@@ -190,6 +192,7 @@ func textEvent(kind eventKind, text string) event {
 // newEvent creates a private transition with no active payload fields.
 func newEvent(kind eventKind) event {
 	return event{
+		FailureCode:          "",
 		Kind:                 kind,
 		RestoredTranscript:   nil,
 		Startup:              nil,

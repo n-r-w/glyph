@@ -17,8 +17,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // TestHistoryAppendPersistsTextBeforePublishingImmutableSnapshot verifies complete user and model entries become
@@ -330,9 +328,9 @@ func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistory
 		ToolResult: mo.Some(result),
 	})
 	// Assert the Agent Core boundary keeps one persistence classification and the storage cause.
-	s.Require().ErrorIs(err, agentrun.ErrPersistenceUnavailable)
+	s.Require().ErrorIs(err, agent.ErrPersistenceUnavailable)
 	s.Require().ErrorContains(err, "sync failed")
-	s.Equal(1, strings.Count(err.Error(), agentrun.ErrPersistenceUnavailable.Error()))
+	s.Equal(1, strings.Count(err.Error(), agent.ErrPersistenceUnavailable.Error()))
 	s.Empty(active.ActiveEntries())
 	s.Empty(active.Snapshot())
 }

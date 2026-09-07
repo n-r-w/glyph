@@ -76,12 +76,17 @@ const (
 	TextError
 )
 
+// FailureCodePersistence identifies source-classified history-persistence failures.
+const FailureCodePersistence = "PERSISTENCE_UNAVAILABLE"
+
 // TextUpdate carries a text input without choosing where the application displays it.
 type TextUpdate struct {
 	// Kind identifies the source message meaning.
 	Kind TextKind
 	// Text is the complete diagnostic or URL.
 	Text string
+	// FailureCode retains the source category for diagnostics and is empty for other text.
+	FailureCode string
 }
 
 // SessionKind identifies a validated session result.

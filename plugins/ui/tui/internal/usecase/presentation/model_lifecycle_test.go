@@ -48,6 +48,7 @@ func TestStatePreservesFinalizedRefusalBlocks(t *testing.T) {
 	)
 	// Act by applying the model-end event.
 	state = state.Apply(event{
+		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventModelEnd,
 		ModelResponseContent: []ModelResponseContent{

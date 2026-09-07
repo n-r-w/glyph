@@ -33,6 +33,7 @@ func testEvent(
 		models = nil
 	}
 	return event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 payload.Kind,
 		Startup:              nil,

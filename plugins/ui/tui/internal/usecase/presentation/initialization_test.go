@@ -76,6 +76,7 @@ func TestStateAppliesInitializationAndLifecycleWithoutOwningHostState(t *testing
 	assert.Empty(t, state.ActiveModel)
 
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolStarted,
 		ToolCallID:           mo.Some("call-1"),
@@ -101,6 +102,7 @@ func TestStateAppliesInitializationAndLifecycleWithoutOwningHostState(t *testing
 		treeEvent:            mo.None[treeEvent](),
 	})
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolProgress,
 		Status:               mo.Some("in_progress"),
@@ -129,6 +131,7 @@ func TestStateAppliesInitializationAndLifecycleWithoutOwningHostState(t *testing
 	state = state.Apply(testToolOutputEvent(OutputStderr, "warning"))
 	state = state.Apply(testToolEndedEvent("read", "completed", false))
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolResult,
 		ToolName:             mo.Some("read"),
@@ -158,6 +161,7 @@ func TestStateAppliesInitializationAndLifecycleWithoutOwningHostState(t *testing
 		treeEvent:         mo.None[treeEvent](),
 	})
 	state = state.Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolResult,
 		ToolName:             mo.Some("edit"),

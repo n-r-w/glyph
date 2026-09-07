@@ -113,6 +113,7 @@ func (model interaction) applyEmissionResult(message emissionResultMsg) (interac
 			return model, false
 		}
 		model.applyProjection(event{
+			FailureCode:          "",
 			RestoredTranscript:   nil,
 			Kind:                 eventError,
 			Startup:              nil,
@@ -146,6 +147,7 @@ func (model interaction) applyEmissionResult(message emissionResultMsg) (interac
 			return model, false
 		}
 		model.applyProjection(event{
+			FailureCode:          "",
 			RestoredTranscript:   nil,
 			Kind:                 eventUserSubmitted,
 			Startup:              nil,

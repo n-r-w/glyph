@@ -108,6 +108,9 @@ func (testSuite *ProgrammaticAppSuite) TestRuntimePersistenceFailureProcessPaths
 			}
 		}
 		if response.GetEvent().HasCompleted() || response.GetEvent().HasFailed() || response.GetEvent().HasCanceled() {
+			require.True(t, response.GetEvent().HasFailed())
+			assert.Equal(t, "PERSISTENCE_UNAVAILABLE", response.GetEvent().GetFailed().GetCode())
+			assert.Contains(t, response.GetEvent().GetFailed().GetMessage(), terminalText)
 			break
 		}
 	}
@@ -252,6 +255,9 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalToolResultPersistenceFailureP
 			}
 		}
 		if response.GetEvent().HasCompleted() || response.GetEvent().HasFailed() || response.GetEvent().HasCanceled() {
+			require.True(t, response.GetEvent().HasFailed())
+			assert.Equal(t, "PERSISTENCE_UNAVAILABLE", response.GetEvent().GetFailed().GetCode())
+			assert.Contains(t, strings.ToLower(response.GetEvent().GetFailed().GetMessage()), "permission")
 			break
 		}
 	}
@@ -453,6 +459,9 @@ func receiveProgrammaticFailure(
 			}
 		}
 		if response.GetEvent().HasCompleted() || response.GetEvent().HasFailed() || response.GetEvent().HasCanceled() {
+			require.True(t, response.GetEvent().HasFailed())
+			assert.Equal(t, "PERSISTENCE_UNAVAILABLE", response.GetEvent().GetFailed().GetCode())
+			assert.Contains(t, response.GetEvent().GetFailed().GetMessage(), terminalText)
 			return events, terminalText
 		}
 	}

@@ -107,6 +107,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	model.model.resumeStatus = "stale rejection"
 
 	model = updateModel(t, model, event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventSessionList,
 		Startup:              nil,
@@ -213,6 +214,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	assert.Len(t, commands, 2)
 
 	model = updateModel(t, model, event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventInformation,
 		Startup:              nil,
@@ -264,6 +266,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		},
 	}
 	model = updateModel(t, model, event{
+		FailureCode:          "",
 		RestoredTranscript:   restored,
 		Kind:                 eventSessionChanged,
 		Startup:              nil,

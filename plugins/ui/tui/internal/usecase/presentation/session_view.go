@@ -167,6 +167,7 @@ func formatSessionInfo(info SessionInfo) string {
 // sessionInformationEvent adapts formatted session metadata to a non-session-changing information event.
 func sessionInformationEvent(text string) event {
 	return event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventInformation,
 		Startup:              nil,

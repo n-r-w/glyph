@@ -65,7 +65,7 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
-	persistErr := fmt.Errorf("%w: /secret/path user-content provider-context", ErrPersistenceUnavailable)
+	persistErr := errors.New("/secret/path user-content provider-context")
 	store.EXPECT().Snapshot().Return(nil).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistErr)
 	// agentEnd retains the terminal diagnostic emitted to the Host.
@@ -85,8 +85,9 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 
 	// Assert the first-append failure still reports its actual settlement transition and complete cause.
 	require.True(t, result.SettlementRequired)
-	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
+	require.ErrorIs(t, err, agent.ErrPersistenceUnavailable)
+	require.ErrorIs(t, err, persistErr)
+	assert.Equal(t, agent.ErrPersistenceUnavailable.Error()+": "+persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
 	assert.Equal(t, []agent.EventType{agent.EventAgentStart, agent.EventAgentEnd}, observed)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }
@@ -114,7 +115,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 			store := NewMockHistoryStore(controller)
 			toolErr := errors.New("unique tool execution failure")
 			progressErr := errors.New("unique progress delivery failure")
-			persistenceErr := fmt.Errorf("%w: unique ToolResult persistence failure", ErrPersistenceUnavailable)
+			persistenceErr := fmt.Errorf("%w: unique ToolResult persistence failure", agent.ErrPersistenceUnavailable)
 			call := model.ToolCall{ID: "combined-tool", Name: "write", Arguments: map[string]any{"path": "output.txt"}}
 			response := model.Response{
 				Content: []model.Content{testCallItem(call)}, Outcome: mo.Some(model.OutcomeToolUse),
@@ -179,7 +180,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 				assert.Equal(t, 1, strings.Count(text, persistenceErr.Error()), text)
 				assert.Equal(t, 1, strings.Count(text, expectedPriorErr.Error()), text)
 			}
-			assert.True(t, strings.HasPrefix(agentEnd.ErrorMessage.OrEmpty(), ErrPersistenceUnavailable.Error()))
+			assert.True(t, strings.HasPrefix(agentEnd.ErrorMessage.OrEmpty(), agent.ErrPersistenceUnavailable.Error()))
 			assert.NotContains(t, observed, agent.EventToolExecutionEnd)
 			assert.NotContains(t, observed, agent.EventToolResult)
 			require.Len(t, history, 2)
@@ -199,7 +200,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
-	persistErr := fmt.Errorf("%w: /secret/path tool-result provider-context", ErrPersistenceUnavailable)
+	persistErr := errors.New("/secret/path tool-result provider-context")
 	call := model.ToolCall{ID: "call", Name: "write", Arguments: map[string]any{"path": "output.txt"}}
 	response := model.Response{
 		Content: []model.Content{testCallItem(call)}, Outcome: mo.Some(model.OutcomeToolUse),
@@ -247,8 +248,9 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	require.True(t, result.SettlementRequired)
 
 	// Assert the external effect remains complete and the persistence cause reaches the terminal result.
-	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
+	require.ErrorIs(t, err, agent.ErrPersistenceUnavailable)
+	require.ErrorIs(t, err, persistErr)
+	assert.Equal(t, agent.ErrPersistenceUnavailable.Error()+"\n"+persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
 	require.True(t, toolCompleted)
 	assert.NotContains(t, observed, agent.EventToolExecutionEnd)
 	assert.NotContains(t, observed, agent.EventToolResult)
@@ -266,7 +268,7 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
-	persistErr := fmt.Errorf("%w: /secret/path model-content provider-context", ErrPersistenceUnavailable)
+	persistErr := errors.New("/secret/path model-content provider-context")
 	history := make([]agent.HistoryEntry, 0, 1)
 	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry { return cloneHistory(history) }).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -315,8 +317,9 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	require.True(t, result.SettlementRequired)
 
 	// Assert no terminal model event escapes and the persistence cause reaches the terminal result.
-	require.ErrorIs(t, err, ErrPersistenceUnavailable)
-	assert.Equal(t, persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
+	require.ErrorIs(t, err, agent.ErrPersistenceUnavailable)
+	require.ErrorIs(t, err, persistErr)
+	assert.Equal(t, agent.ErrPersistenceUnavailable.Error()+": "+persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
 	assert.NotContains(t, observed, agent.EventMessageEnd)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }

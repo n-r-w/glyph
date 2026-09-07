@@ -232,6 +232,16 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 			expectedCode:  controller.FailureCodeInternal, expectedCause: independentErr,
 		},
 		{
+			name: "persistence failure", activeErr: agent.ErrPersistenceUnavailable,
+			expectedState: operation.TerminalStateFailed,
+			expectedCode:  controller.FailureCodePersistenceUnavailable, expectedCause: agent.ErrPersistenceUnavailable,
+		},
+		{
+			name: "joined persistence failure", activeErr: errors.Join(independentErr, agent.ErrPersistenceUnavailable),
+			expectedState: operation.TerminalStateFailed,
+			expectedCode:  controller.FailureCodePersistenceUnavailable, expectedCause: independentErr,
+		},
+		{
 			name: "pure cancellation", activeErr: nil,
 			expectedState: operation.TerminalStateCanceled, expectedCode: "", expectedCause: nil,
 		},
@@ -261,6 +271,7 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 			require.Equal(t, test.expectedCode, outcome.Code())
 			if test.expectedCause != nil {
 				require.ErrorIs(t, outcome.Err(), test.expectedCause)
+				require.Equal(t, test.activeErr.Error(), outcome.Err().Error())
 			} else {
 				require.NoError(t, outcome.Err())
 			}

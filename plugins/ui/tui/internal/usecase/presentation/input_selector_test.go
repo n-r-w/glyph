@@ -91,6 +91,7 @@ func TestModelSelectorKeepsEveryRowReachable(t *testing.T) {
 		}
 	}
 	model := newTestApplication(event{
+		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventInitialization,
 		Availability:       mo.Some(AvailabilityIdle),

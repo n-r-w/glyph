@@ -22,6 +22,7 @@ func TestStateCopiesTypedToolResultImage(t *testing.T) {
 	}
 	// Act by applying the result and mutating the caller-owned bytes.
 	state := (projection{}).Apply(event{
+		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolResult,
 		ToolName:             mo.Some("read"),
@@ -121,6 +122,7 @@ func TestStateProjectsTypedToolResultTextInOrder(t *testing.T) {
 
 	// Arrange an event with ordered text and image tool-result content.
 	event := event{
+		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventToolResult,
 		ToolName:           mo.Some("read"),

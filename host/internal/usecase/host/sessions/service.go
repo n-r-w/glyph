@@ -264,7 +264,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.writeUnavailable {
-		return agentrun.ErrPersistenceUnavailable
+		return agent.ErrPersistenceUnavailable
 	}
 	projection, durable, err := terminalContinuationEntry(owned)
 	if err != nil {
@@ -319,7 +319,7 @@ func (s *Service) AppendExtension(
 	}
 	committed, err := s.appendEntryLocked(ctx, entry)
 	if err != nil {
-		if errors.Is(err, agentrun.ErrPersistenceUnavailable) {
+		if errors.Is(err, agent.ErrPersistenceUnavailable) {
 			return session.Entry{}, fmt.Errorf("%w: %w", session.ErrPersistenceUnavailable, err)
 		}
 		return session.Entry{}, err
@@ -362,7 +362,7 @@ func (s *Service) AppendExtensionMessage(
 	if err != nil {
 		releaseCommit()
 		s.mutex.Unlock()
-		if errors.Is(err, agentrun.ErrPersistenceUnavailable) {
+		if errors.Is(err, agent.ErrPersistenceUnavailable) {
 			return session.Entry{}, fmt.Errorf("%w: %w", session.ErrPersistenceUnavailable, err)
 		}
 		return session.Entry{}, err
@@ -431,7 +431,7 @@ func (s *Service) validateExpectedSessionLocked(ctx context.Context, expected ex
 // appendEntryLocked persists one candidate child and publishes it only after synchronization.
 func (s *Service) appendEntryLocked(ctx context.Context, entry session.Entry) (session.Entry, error) {
 	if s.writeUnavailable {
-		return session.Entry{}, agentrun.ErrPersistenceUnavailable
+		return session.Entry{}, agent.ErrPersistenceUnavailable
 	}
 	entryID, err := s.ids.NewID()
 	if err != nil {
@@ -455,7 +455,7 @@ func (s *Service) appendEntryLocked(ctx context.Context, entry session.Entry) (s
 		logPersistenceFailure(ctx, persistenceOperationHistory, s.active.Header.ID, err)
 		// Keep the last durable snapshot readable while blocking later process-local mutations.
 		s.writeUnavailable = true
-		return session.Entry{}, fmt.Errorf("%w: append session entry: %w", agentrun.ErrPersistenceUnavailable, err)
+		return session.Entry{}, fmt.Errorf("%w: append session entry: %w", agent.ErrPersistenceUnavailable, err)
 	}
 	// Publish active ownership only after the repository append is synchronized.
 	s.active.StoragePath = result.StoragePath

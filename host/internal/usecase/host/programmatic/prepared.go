@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -262,8 +263,11 @@ func mapPreparationRejection(response controller.Response) error {
 	}
 }
 
-// failureCode maps unclassified Host errors to the common machine code.
-func failureCode(error) string {
+// failureCode distinguishes source-classified history persistence from other Host errors.
+func failureCode(err error) string {
+	if errors.Is(err, agent.ErrPersistenceUnavailable) {
+		return controller.FailureCodePersistenceUnavailable
+	}
 	return controller.FailureCodeInternal
 }
 

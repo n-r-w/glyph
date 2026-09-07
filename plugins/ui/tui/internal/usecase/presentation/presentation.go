@@ -293,6 +293,8 @@ type SessionSummary struct {
 
 // event contains the fields used by one presentation update.
 type event struct {
+	// FailureCode retains the source category independently of diagnostic wording.
+	FailureCode string
 	// Kind identifies the presentation update and active payload.
 	Kind eventKind
 	// Startup contains ordered startup lines.
