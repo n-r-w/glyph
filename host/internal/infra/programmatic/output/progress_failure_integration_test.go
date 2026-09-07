@@ -106,7 +106,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		)
 		ownerDelivery.EXPECT().Accepted("progress-failure").DoAndReturn(
 			func(string) (*operation.Acknowledgement, error) {
-				return writer.EnqueueAcknowledged("accepted")
+				return writer.EnqueueAcknowledged("accepted", nil)
 			},
 		)
 		ownerDelivery.EXPECT().Running("progress-failure").Return(nil)

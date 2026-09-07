@@ -19,7 +19,7 @@ Outcome: Request changes.
 - FND-03 and FND-04 require ownership of interface-specific types and storage metadata at their consumers and storage implementation.
 - FND-05 through FND-09 cover lost error information, text-dependent TUI state, misplaced execution policy, incomplete contracts, and a forwarding owner with no behavior.
 
-The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. Findings below describe the audit baseline; passing compilation or tests alone does not close them. [U8 accounting](u8-evidence.md) records the resulting dispositions for all nine findings and 72 baseline packages. Main-agent U8 inspection passed. Independent integrated review of `9a275b2b2bc5964e5ecd1f0cefc4f7444c971c2a` found FND-10 and FND-11. Their bounded U6 correction has executable evidence below but still requires independent acceptance. The phase remains blocked and explicit user acceptance remains pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified. The user authorized the remaining units after committing the assertion-placement correction.
+The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. FND-01 through FND-09 describe the audit baseline. Subsequent findings identify their reviewed implementation commits. Passing compilation or tests alone does not close them. [U8 accounting](u8-evidence.md) records the resulting dispositions for all nine findings and 72 baseline packages. Main-agent U8 inspection passed. Independent integrated review of `9a275b2b2bc5964e5ecd1f0cefc4f7444c971c2a` found FND-10 and FND-11. Their U6 correction is committed as `b03095a839ba1a02d9c5c97217545436aeb3197e`. Review of that commit found FND-12 through FND-14. The O72-1 [U6 retention implementation and local checks](solution.md#u6-retention-correction) are ready for independent review; FND-12 through FND-14 are not independently closed. The phase remains blocked and explicit final acceptance remains pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified. The user authorized the remaining units after committing the assertion-placement correction.
 
 ## Issues overview
 
@@ -35,6 +35,9 @@ The user approved the original [correction plan](solution.md), then authorized r
 
 - **Major FND-10**. Codex failed SSE branches truncate source diagnostics before returning the cause and failed response.
 - **Major FND-11**. Failed Programmatic terminal delivery and startup diagnostic writes discard the source cause.
+- **Major FND-12**. The generic operation owner discards failed work after delivery cancellation prevents `Terminal`.
+- **Major FND-13**. Rejection, queued error output and SDK completion paths do not retain their source causes through connection completion.
+- **Major FND-14**. Compatible Responses ignores a top-level provider error event and substitutes an incomplete-stream message.
 
 ## Findings
 
@@ -184,6 +187,36 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 - Assessing realism: High for disconnected operation output; medium for failed startup diagnostics. Both use implemented paths.
 - Recommendation: Retain undelivered source causes at the existing output owners and join them into actual completion errors. Preserve delivery categories, cancellation, ordering and one-attempt warning output.
 - Verification: [U6 follow-up evidence](solution.md#u6-follow-up-complete-source-and-delivery-causes) records assertion RED and GREEN through actual operation completion and startup reporting boundaries. The correction is implemented; independent acceptance remains pending.
+
+#### FND-12: Failed work is discarded before terminal delivery
+
+- Location: [operation owner](../../../../../../internal/operation/operation.go), `Owner.run`, `Owner.Fail` and `Owner.Err`; [Programmatic prepared work](../../../../../../host/internal/usecase/host/programmatic/prepared.go), `runPrepared.Run`; [Programmatic completion](../../../../../../host/internal/controller/programmatic/service.go), `Service.open`.
+- Issue: At `b03095a839ba1a02d9c5c97217545436aeb3197e`, `Owner.run` receives the failed work outcome, calls `Release`, then drops `outcome.Err` when `deliveryContext` is canceled. It never calls `Terminal`. `Owner.Err` retains only the first delivery cause. NFQ-02 requires the source cause to reach local completion even when delivery cannot proceed.
+- Dependency and runtime path: Core provider failure and failed progress delivery reach run control and `runPrepared.Run` together. The generic owner discards the work cause before the Programmatic `Terminal` source map can store it. Waiting for the owner cannot recover a value it discarded.
+- Impact: RPC and `SessionCompletion` omit the distinct provider/work failure. A disconnected peer is not expected to receive a response; the defect is in retained local completion.
+- Scenario and realism: High. A provider failure followed by a stopped or full progress writer reaches this path during an accepted run.
+- Recommendation: Give the operation owner responsibility for failed work sources until final terminal-send confirmation. Keep release, cancellation and identifier lifetime unchanged. Collect retained sources after work and output cleanup.
+- Verification: Source inspection establishes the branch. A new executable RED has not been run. The [approved U6 revision](solution.md#complete-error-retention-revision) requires actual local-completion regression evidence before correction.
+
+#### FND-13: Error output loses sources outside selected terminal paths
+
+- Location: [Programmatic output](../../../../../../host/internal/controller/programmatic/delivery.go), `reject`; [Host UI operation output](../../../../../../host/internal/infra/plugins/ui/runtime/operations.go), `Reject`, `AttachOutput` and `enqueueAcknowledged`; [UI connection publication](../../../../../../host/internal/infra/plugins/ui/runtime/publication.go), `ReportError`; [Extension SDK output](../../../../../../sdk/plugins/extension/v1/server.go), `extensionDelivery.Terminal`; [Extension SDK Host output](../../../../../../sdk/plugins/extension/v1/host_owner.go), `hostDelivery.Terminal` and `rejectHostRequest`; [UI SDK output and cleanup](../../../../../../sdk/plugins/ui/v1/service.go), `uiDelivery.Terminal` and `finishServerOpen`.
+- Issue: At the same commit, these error outputs encode a source but do not retain it through every enqueue, write and cleanup branch. FRQ-03 and NFQ-02 apply to the actual output and completion owners, not just error-returning helpers.
+- Dependency and runtime paths: Rejections have no accepted operation to retain their cause. UI Failed sources are retrieved only by the actual send callback, which `Writer.resolveQueued` skips after an earlier write fails. UI asynchronous authentication reporting has no result channel. SDK terminal sources remain only in message payloads; their final collectors gather transport/cleanup errors instead. Extension `Connection.recordError` keeps only its first error.
+- Impact: Local completion can omit the admission, authentication, initialization or extension-operation failure that required output. Successful sending is not defective. A source still present only in a skipped message or inaccessible map does not satisfy the completion contract.
+- Scenarios and realism: High for occupied admission or error output queued behind another failed write; medium for initialization or extension failure combined with output failure. All use implemented operations and streams.
+- Recommendation: Separate failed-work retention from error-message retention and collect both at the connection owner. Cover immediate enqueue failure and messages never passed to `Send`. Stop and join error-producing work before final collection. Preserve successful rejection and ordinary-handler continuation.
+- Verification: The [approved U6 revision](solution.md#complete-error-retention-revision) defines the complete output inventory, including declared `HandlerError` completed payloads and startup/error diagnostics. Source traces establish the registered gaps; executable RED/GREEN for the revision remains pending. Existing passing Programmatic Failed-terminal checks cover neither pre-Terminal cancellation nor the other output directions.
+
+#### FND-14: Compatible Responses discards a provider error event
+
+- Location: [compatible Responses decoding](../../../../../../host/internal/infra/providers/openai/compatible/responses.go), `responsesAccumulator.consume` and `Driver.streamResponses`; [compatible driver](../../../../../../host/internal/infra/providers/openai/compatible/service.go), `Driver.Stream`.
+- Issue: `consume` has no branch for top-level `type="error"`. After clean EOF without another terminal response, `streamResponses` returns only "responses stream ended without a terminal response". NFQ-02 prohibits replacing the supplied error explanation.
+- Dependency and runtime path: The selected OpenAI SDK's `ResponseErrorEvent` supplies the top-level message to Glyph's accumulator. The SDK does not treat that event as a stream error merely because its `type` is `error`. Glyph discards it before Core, failed-response history or either client can receive it. The Codex regression exercises this event shape through the same SDK.
+- Impact: Failed model responses and operation errors contain the replacement rather than the original provider message.
+- Scenario and realism: Medium. A Responses endpoint sends HTTP 200 with a typed error SSE event followed by EOF. No malformed envelope or new provider capability is required.
+- Recommendation: Normalize the event through the adapter's failed-response path and preserve its complete non-secret message without new retries or categories.
+- Verification: Source inspection and the selected SDK event definition establish the path. A new compatible-adapter regression has not been executed. The [U6 revision](solution.md#complete-error-retention-revision) requires empty/partial-stream RED/GREEN and Core/client preservation checks.
 
 ### Minor
 

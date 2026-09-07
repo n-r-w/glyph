@@ -342,7 +342,7 @@ func TestChannelDeliversIdleExtensionFailureThroughHostReceive(t *testing.T) {
 		t,
 		transport.ReportError(
 			"EXTENSION_UNAVAILABLE",
-			"extension crashed-plugin unavailable: extension process exited",
+			errors.New("extension crashed-plugin unavailable: extension process exited"),
 		),
 	)
 	event := <-received

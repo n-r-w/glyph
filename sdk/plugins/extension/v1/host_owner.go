@@ -31,7 +31,7 @@ func (d *hostDelivery) Accepted(id string) (*operation.Acknowledgement, error) {
 func (d *hostDelivery) Running(id string) error {
 	event := new(extensionpb.HostEvent)
 	event.SetRunning(new(operationpb.Running))
-	err := d.connection.writer.Enqueue(hostEventEnvelope(id, event))
+	err := d.connection.writer.Enqueue(hostEventEnvelope(id, event), nil)
 	if err != nil {
 		d.connection.fail(mapDeliveryError(err))
 	}
@@ -77,7 +77,7 @@ func (d *hostDelivery) terminalFailure(cause error) (*operation.Acknowledgement,
 
 // send queues an acknowledged event and propagates queue failure to both peer lifecycles.
 func (d *hostDelivery) send(id string, event *extensionpb.HostEvent) (*operation.Acknowledgement, error) {
-	ack, err := d.connection.writer.EnqueueAcknowledged(hostEventEnvelope(id, event))
+	ack, err := d.connection.writer.EnqueueAcknowledged(hostEventEnvelope(id, event), nil)
 	if err != nil {
 		d.connection.fail(mapDeliveryError(err))
 	}
@@ -135,9 +135,9 @@ func (c *Connection) handleHostRequest(id string, request *extensionpb.Extension
 		}
 		if rejection, ok := errors.AsType[*RejectionError](err); ok {
 			if validationErr := validateHostRejectionCode(kind, rejection.Code()); validationErr != nil {
-				return errors.Join(validationErr, rejection)
+				return errors.Join(validationErr, err)
 			}
-			return c.rejectHostRequest(id, rejection.Code(), rejection)
+			return c.rejectHostRequest(id, rejection.Code(), err)
 		}
 		return err
 	}
@@ -148,7 +148,7 @@ func (c *Connection) handleHostRequest(id string, request *extensionpb.Extension
 func (c *Connection) rejectHostRequest(id, code string, cause error) error {
 	event := new(extensionpb.HostEvent)
 	event.SetRejected(operationpb.Rejected_builder{Code: new(code), Message: new(cause.Error())}.Build())
-	return c.writer.Enqueue(hostEventEnvelope(id, event))
+	return c.writer.Enqueue(hostEventEnvelope(id, event), cause)
 }
 
 // hostPrepared adapts public admitted Host work to the shared operation owner.
@@ -176,7 +176,21 @@ func (p *hostPrepared) Run(
 			errors.New("completed Host payload does not match its admitted request"),
 		)
 	}
-	return operation.Completed(result)
+	return operation.CompletedWithSource(result, hostCompletedSource(result))
+}
+
+// hostCompletedSource reads only explicitly declared diagnostics in completed Host contracts.
+func hostCompletedSource(result *extensionpb.HostCompleted) error {
+	var sources []error
+	if response := result.GetConfiguredModel(); response != nil && response.HasErrorMessage() {
+		sources = append(sources, errors.New(response.GetErrorMessage()))
+	}
+	for _, issue := range result.GetAppendExtensionMessage().GetIssues() {
+		if issue != nil {
+			sources = append(sources, errors.New(issue.GetMessage()))
+		}
+	}
+	return errors.Join(sources...)
 }
 
 // Release returns the runtime's active-operation reservation.

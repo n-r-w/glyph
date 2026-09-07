@@ -25,7 +25,7 @@ func (s *Service) DeliverExtensionIssue(ctx context.Context, issue lifecycle.Iss
 	if writer == nil {
 		return errors.New("programmatic connection writer is not active")
 	}
-	acknowledgement, err := writer.EnqueueAcknowledged(response)
+	acknowledgement, err := writer.EnqueueAcknowledged(response, nil)
 	if err != nil {
 		return err
 	}
@@ -54,7 +54,7 @@ func (s *Service) PublishSessionEntry(
 	if writer == nil {
 		return nil, errors.New("programmatic connection writer is not active")
 	}
-	acknowledgement, err := writer.EnqueueAcknowledged(response)
+	acknowledgement, err := writer.EnqueueAcknowledged(response, nil)
 	if err != nil {
 		return nil, err
 	}

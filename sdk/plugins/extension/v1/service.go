@@ -142,6 +142,9 @@ func (prepared *handlePrepared) Run(
 	}
 	completed := new(extensionpb.ExtensionCompleted)
 	completed.SetHandle(response)
+	if reported := response.GetError(); reported != nil {
+		return operation.CompletedWithSource(extensionResult{completed: completed}, errors.New(reported.GetMessage()))
+	}
 	return operation.Completed(extensionResult{completed: completed})
 }
 
@@ -226,7 +229,7 @@ func operationOutcome[R any](err error) operation.Outcome[R] {
 		return operation.Failed[R](failureCodeInternal, err)
 	}
 	if failure, ok := errors.AsType[*FailureError](err); ok {
-		return operation.Failed[R](failure.Code(), failure)
+		return operation.Failed[R](failure.Code(), err)
 	}
 	if errors.Is(err, context.Canceled) {
 		return operation.Canceled[R]()

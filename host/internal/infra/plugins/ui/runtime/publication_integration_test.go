@@ -99,7 +99,7 @@ func TestMapExtensionRuntimeFailureUsesConnectionCategory(t *testing.T) {
 	// Act through typed connection output rather than a mixed frame union.
 	mapped := captureConnection(
 		t,
-		func(output *Service) error { return output.ReportError("EXTENSION_UNAVAILABLE", text) },
+		func(output *Service) error { return output.ReportError("EXTENSION_UNAVAILABLE", errors.New(text)) },
 	)
 	// Assert classification and text remain separate and complete.
 	require.Empty(t, mapped.GetOperationId())

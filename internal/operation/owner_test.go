@@ -402,6 +402,9 @@ func TestOwnerCompletedOutcomeWinsCancellation(t *testing.T) {
 	prepared := NewMockPrepared[string, string](controller)
 	runStarted := make(chan struct{})
 	allowCompletion := make(chan struct{})
+	source := errors.Join(ErrQueueFull, context.Canceled)
+	releasedSource := make(chan error, 1)
+	owner := NewOwner(t.Context(), delivery)
 	delivery.EXPECT().Accepted("target").Return(resolvedAcknowledgement(nil), nil)
 	delivery.EXPECT().Running("target").Return(nil)
 	delivery.EXPECT().Terminal("target", gomock.Any()).DoAndReturn(
@@ -418,11 +421,10 @@ func TestOwnerCompletedOutcomeWinsCancellation(t *testing.T) {
 			close(runStarted)
 			<-ctx.Done()
 			<-allowCompletion
-			return Completed("committed")
+			return CompletedWithSource("committed", source)
 		},
 	)
-	prepared.EXPECT().Release()
-	owner := NewOwner(t.Context(), delivery)
+	prepared.EXPECT().Release().Do(func() { releasedSource <- owner.SourceErrors() })
 	require.NoError(t, owner.Start("target", preparedBy(prepared)))
 	<-runStarted
 	canceled := observeCancellation(owner, "target")
@@ -438,10 +440,12 @@ func TestOwnerCompletedOutcomeWinsCancellation(t *testing.T) {
 	<-canceled
 	close(allowCompletion)
 
-	// Assert the completed outcome wins and is returned by cancellation joining.
+	// Assert the completed outcome wins and successful confirmation clears its declared source.
 	require.Equal(t, TerminalStateCompleted, <-result)
 	require.NoError(t, <-errResult)
 	owner.Wait()
+	require.ErrorIs(t, <-releasedSource, source)
+	require.NoError(t, owner.SourceErrors())
 }
 
 // TestOwnerFailedOutcomeWinsCancellation tests the scenario where committed failure remains terminal after cancellation.

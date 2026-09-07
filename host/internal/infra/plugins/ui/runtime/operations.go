@@ -25,8 +25,6 @@ type operationDelivery struct {
 	mutex sync.Mutex
 	// kinds maps accepted identifiers to public request kinds.
 	kinds map[string]string
-	// failureSources retains failed operation causes until terminal transport delivery.
-	failureSources map[string]error
 }
 
 var (
@@ -93,7 +91,6 @@ func (delivery *operationDelivery) Terminal(
 		event.SetCanceled(new(operationv1.Canceled))
 		request = hostEventRequest(id, event)
 	case operation.TerminalStateFailed:
-		delivery.setFailureSource(id, outcome.Err())
 		slog.ErrorContext(
 			delivery.ctx, "Host UI operation failed",
 			slog.String("operation_id", id), slog.String("operation_kind", delivery.TakeKind(id)),
@@ -130,25 +127,9 @@ func (delivery *operationDelivery) TakeKind(id string) string {
 	return kind
 }
 
-// setFailureSource retains one source until the writer resolves terminal transport delivery.
-func (delivery *operationDelivery) setFailureSource(id string, source error) {
-	delivery.mutex.Lock()
-	defer delivery.mutex.Unlock()
-	delivery.failureSources[id] = source
-}
-
-// takeFailureSource removes one retained terminal source.
-func (delivery *operationDelivery) takeFailureSource(id string) error {
-	delivery.mutex.Lock()
-	defer delivery.mutex.Unlock()
-	source := delivery.failureSources[id]
-	delete(delivery.failureSources, id)
-	return source
-}
-
 // enqueue queues one message and closes the connection on failure.
 func (delivery *operationDelivery) enqueue(request *uiv1.OpenRequest) error {
-	err := delivery.writer.Enqueue(request)
+	err := delivery.writer.Enqueue(request, nil)
 	if err != nil {
 		delivery.fail(err)
 	}
@@ -159,9 +140,8 @@ func (delivery *operationDelivery) enqueue(request *uiv1.OpenRequest) error {
 func (delivery *operationDelivery) enqueueAcknowledged(
 	request *uiv1.OpenRequest,
 ) (*operation.Acknowledgement, error) {
-	acknowledgement, err := delivery.writer.EnqueueAcknowledged(request)
+	acknowledgement, err := delivery.writer.EnqueueAcknowledged(request, nil)
 	if err != nil {
-		err = errors.Join(delivery.takeFailureSource(request.GetOperationId()), err)
 		delivery.fail(err)
 	}
 	return acknowledgement, err
@@ -181,7 +161,7 @@ func (c *Service) ClearOutput() {
 func (delivery *operationDelivery) Reject(id, code string, cause error) error {
 	event := new(uiv1.HostEvent)
 	event.SetRejected(operationv1.Rejected_builder{Code: new(code), Message: new(cause.Error())}.Build())
-	return delivery.writer.Enqueue(hostEventRequest(id, event))
+	return delivery.writer.Enqueue(hostEventRequest(id, event), cause)
 }
 
 // AttachOutput creates the ordered writer shared by operation and connection events.
@@ -192,19 +172,9 @@ func (c *Service) AttachOutput(
 	delivery := &operationDelivery{
 		ctx: ctx, writer: nil,
 		fail:  func(err error) { fail(fmt.Errorf("deliver UI operation event: %w", err)) },
-		mutex: sync.Mutex{}, kinds: make(map[string]string), failureSources: make(map[string]error),
+		mutex: sync.Mutex{}, kinds: make(map[string]string),
 	}
-	writer := operation.NewWriter(func(request *uiv1.OpenRequest) error {
-		sendErr := c.stream.Send(request)
-		var source error
-		if request.GetEvent().GetFailed() != nil {
-			source = delivery.takeFailureSource(request.GetOperationId())
-		}
-		if sendErr != nil {
-			return errors.Join(source, sendErr)
-		}
-		return nil
-	})
+	writer := operation.NewWriter(c.stream.Send)
 	delivery.writer = writer
 	c.mutex.Lock()
 	c.writer = writer
@@ -223,7 +193,7 @@ func (c *Service) CloseSend() error { return c.stream.CloseSend() }
 func (delivery *operationDelivery) CloseConnection() (*operation.Acknowledgement, error) {
 	request := new(uiv1.OpenRequest)
 	request.SetClose(new(operationv1.CloseConnection))
-	return delivery.writer.EnqueueAcknowledged(request)
+	return delivery.writer.EnqueueAcknowledged(request, nil)
 }
 
 // mapCancellationCompletion encodes the actual target terminal state for the UI contract.

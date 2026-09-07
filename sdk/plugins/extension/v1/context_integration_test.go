@@ -331,7 +331,7 @@ func TestInvalidHostLifecycleKeepsProtocolStatus(t *testing.T) {
 	require.NoError(t, err)
 	payload := new(extensionpb.HostEvent)
 	payload.SetFailed(operationpb.Failed_builder{Code: new("INTERNAL"), Message: new("complete peer cause")}.Build())
-	require.NoError(t, connection.writer.Enqueue(hostEventEnvelope("unknown", payload)))
+	require.NoError(t, connection.writer.Enqueue(hostEventEnvelope("unknown", payload), nil))
 
 	// Act: join the stream after its server detects the invalid lifecycle.
 	err = connection.Close()

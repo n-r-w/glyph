@@ -65,7 +65,7 @@ func TestServiceLifecycleRuntimeFailureDisablesOnlyOwner(t *testing.T) {
 	assert.True(t, unavailable)
 	assert.False(t, service.HandlerRuntimeAvailable("observer"))
 	assert.Equal(t, "observer", (<-reported).PluginID)
-	service.Close()
+	require.NoError(t, service.Close())
 }
 
 // lifecycleEventForRuntime creates the minimal transport-neutral invocation payload.

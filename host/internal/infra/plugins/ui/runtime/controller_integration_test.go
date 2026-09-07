@@ -56,13 +56,13 @@ func testProgressOutput(
 	go func() { writerDone <- writer.Run(fixtureContext) }()
 	delivery := operationmock.NewMockOperationDelivery[controllerui.Frame, controllerui.Frame](mockController)
 	delivery.EXPECT().Accepted("operation").DoAndReturn(func(string) (*operation.Acknowledgement, error) {
-		return writer.EnqueueAcknowledged("accepted")
+		return writer.EnqueueAcknowledged("accepted", nil)
 	})
 	delivery.EXPECT().Running("operation").Return(nil)
 	delivery.EXPECT().
 		Terminal("operation", gomock.Any()).
 		DoAndReturn(func(string, operation.Outcome[controllerui.Frame]) (*operation.Acknowledgement, error) {
-			return writer.EnqueueAcknowledged("terminal")
+			return writer.EnqueueAcknowledged("terminal", nil)
 		})
 	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
 	bound := make(chan struct{})

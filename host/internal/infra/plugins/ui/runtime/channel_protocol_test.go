@@ -117,7 +117,7 @@ func TestChannelSendAfterWriterCloseDoesNotFailConnection(t *testing.T) {
 	}
 
 	// Act by sending a connection event after the writer closes.
-	err := transport.ReportError("INTERNAL", "late connection event")
+	err := transport.ReportError("INTERNAL", errors.New("late connection event"))
 
 	// Assert the caller receives the complete closure error without failing the closing connection.
 	require.ErrorIs(t, err, operation.ErrClosed)

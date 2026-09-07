@@ -46,7 +46,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				extensionruntime.NewFactory(),
 				reporter,
 			)
-			t.Cleanup(extensions.Close)
+			t.Cleanup(func() { require.NoError(t, extensions.Close()) })
 			controller := gomock.NewController(t)
 			active := sessiontree.NewMockActiveSession(controller)
 			provider := agentrun.NewMockModelProvider(controller)

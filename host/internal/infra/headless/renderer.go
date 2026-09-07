@@ -74,7 +74,10 @@ func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure extension.Run
 	if err != nil {
 		return fmt.Errorf("format extension runtime failure: %w", err)
 	}
-	return writePrefixed(r.stderr, "[extension:error] ", message)
+	if writeErr := writePrefixed(r.stderr, "[extension:error] ", message); writeErr != nil {
+		return errors.Join(errors.New(message), writeErr)
+	}
+	return nil
 }
 
 // DeliverExtensionIssue renders one typed nonterminal observer issue.

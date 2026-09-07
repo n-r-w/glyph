@@ -6,7 +6,6 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"log/slog"
 	"slices"
 	"sync"
 
@@ -39,6 +38,12 @@ type Service struct {
 	monitorContext context.Context
 	// closing reports whether service shutdown has started.
 	closing bool
+	// reportingStopped prevents new reporter calls without stopping process monitoring.
+	reportingStopped bool
+	// reporting joins callbacks admitted before reporting stopped.
+	reporting sync.WaitGroup
+	// reportErrors retains unreported failures and errors returned by admitted reporters.
+	reportErrors []error
 }
 
 var (
@@ -94,14 +99,17 @@ func New(
 	reporter FailureReporter,
 ) *Service {
 	return &Service{
-		catalog:        catalog,
-		factory:        factory,
-		reporter:       reporter,
-		mutex:          sync.RWMutex{},
-		runtimes:       make(map[string]*runtimeState),
-		monitoring:     false,
-		monitorContext: nil,
-		closing:        false,
+		catalog:          catalog,
+		factory:          factory,
+		reporter:         reporter,
+		mutex:            sync.RWMutex{},
+		runtimes:         make(map[string]*runtimeState),
+		monitoring:       false,
+		monitorContext:   nil,
+		closing:          false,
+		reportingStopped: false,
+		reporting:        sync.WaitGroup{},
+		reportErrors:     nil,
 	}
 }
 
@@ -351,8 +359,8 @@ func (s *Service) beginOperation(pluginID, runtimeID string) (operationOwner, bo
 	return operationOwner{pluginID: pluginID, state: state}, true
 }
 
-// Close stops every runtime without reporting planned shutdown.
-func (s *Service) Close() {
+// Close stops every runtime without reporting planned shutdown and returns retained diagnostics.
+func (s *Service) Close() error {
 	s.mutex.Lock()
 	s.closing = true
 	states := make([]*runtimeState, 0, len(s.runtimes))
@@ -361,6 +369,8 @@ func (s *Service) Close() {
 		states = append(states, state)
 	}
 	s.mutex.Unlock()
+	// Seal reporting without holding runtime or commit locks while callbacks finish.
+	s.StopReporting()
 	for _, state := range states {
 		state.commit.Lock()
 		s.mutex.Lock()
@@ -371,6 +381,9 @@ func (s *Service) Close() {
 		state.closeTransport()
 		state.join()
 	}
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return errors.Join(s.reportErrors...)
 }
 
 // invalidate announces that no later context commit can start.
@@ -479,20 +492,4 @@ func (s *Service) disableLocked(state *runtimeState) bool {
 	}
 	state.available = false
 	return true
-}
-
-// report forwards one classified runtime failure and logs delivery failure without retry.
-func (s *Service) report(ctx context.Context, failure extension.RuntimeFailure) {
-	if err := s.reporter.ReportRuntimeFailure(ctx, failure); err != nil {
-		slog.ErrorContext(
-			ctx,
-			"report extension runtime failure",
-			"plugin_id",
-			failure.PluginID,
-			"condition",
-			failure.Condition,
-			"error",
-			err,
-		)
-	}
 }

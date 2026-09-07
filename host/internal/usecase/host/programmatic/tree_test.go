@@ -14,6 +14,7 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/internal/operation"
 )
 
 // handleTreeCommandForTest routes navigation with an accepting generated progress publisher.
@@ -108,12 +109,16 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	command := treeCommand("navigate", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
 
-	// Act by requesting no-summary navigation.
-	response, operation, err := handleTreeCommandForTest(t, service, t.Context(), command)
+	// Act through the admitted producer that returns completed navigation with a declared issue.
+	prepared := &commandPrepared{service: service, command: command, release: func() {}}
+	outcome := prepared.Run(t.Context(), operation.Reporter[controller.OperationProgress]{})
+	prepared.Release()
+	response, completed := outcome.Result()
 
-	// Assert the result is committed and contains no speculative substitutions.
-	require.NoError(t, err)
-	require.Nil(t, operation)
+	// Assert the nonfatal source accompanies Completed without becoming failed work.
+	require.True(t, completed)
+	require.NoError(t, outcome.Err())
+	require.ErrorContains(t, outcome.SourceError(), "safe message")
 	require.Equal(t, controller.ResponseSessionTreeNavigation, response.Kind)
 	result := response.TreeNavigation.MustGet()
 	require.Equal(t, controller.TreeNavigationStatusCommitted, result.Status)

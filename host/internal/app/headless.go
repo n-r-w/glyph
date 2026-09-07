@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -33,7 +34,7 @@ func runHeadlessWithPaths(
 	paths persistence.Paths,
 	command headless.Command,
 	stdout, stderr io.Writer,
-) error {
+) (returnErr error) {
 	slog.InfoContext(ctx, "starting headless Glyph application")
 	configured, err := settingstore.New(paths.SettingsFile).Load()
 	if err != nil {
@@ -46,11 +47,10 @@ func runHeadlessWithPaths(
 	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
-		extensions.Close()
-		return fmt.Errorf("initialize Host sessions: %w", err)
+		return errors.Join(fmt.Errorf("initialize Host sessions: %w", err), extensions.Close())
 	}
 	defer func() {
-		extensions.Close()
+		returnErr = errors.Join(returnErr, extensions.Close())
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}()
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)

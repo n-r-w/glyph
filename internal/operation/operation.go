@@ -62,19 +62,26 @@ type Outcome[R any] struct {
 	result R
 	// code contains a machine-readable failure code.
 	code string
-	// err contains the internal failure cause.
+	// err contains the internal failed-work cause.
 	err error
+	// source is the declared diagnostic carried by the terminal output, independent of state.
+	source error
 }
 
 // Completed constructs a successful outcome.
 func Completed[R any](result R) Outcome[R] {
-	return Outcome[R]{state: TerminalStateCompleted, result: result, code: "", err: nil}
+	return Outcome[R]{state: TerminalStateCompleted, result: result, code: "", err: nil, source: nil}
+}
+
+// CompletedWithSource constructs completed data that explicitly reports a nonfatal error.
+func CompletedWithSource[R any](result R, source error) Outcome[R] {
+	return Outcome[R]{state: TerminalStateCompleted, result: result, code: "", err: nil, source: source}
 }
 
 // Canceled constructs a canceled outcome.
 func Canceled[R any]() Outcome[R] {
 	var zero R
-	return Outcome[R]{state: TerminalStateCanceled, result: zero, code: "", err: nil}
+	return Outcome[R]{state: TerminalStateCanceled, result: zero, code: "", err: nil, source: nil}
 }
 
 // Failed constructs a failed outcome with a machine code and internal error.
@@ -86,7 +93,7 @@ func Failed[R any](code string, err error) Outcome[R] {
 		panic("failed outcome error is required")
 	}
 	var zero R
-	return Outcome[R]{state: TerminalStateFailed, result: zero, code: code, err: err}
+	return Outcome[R]{state: TerminalStateFailed, result: zero, code: code, err: err, source: err}
 }
 
 // State returns the terminal state.
@@ -100,6 +107,9 @@ func (o Outcome[R]) Code() string { return o.code }
 
 // Err returns the internal failure error.
 func (o Outcome[R]) Err() error { return o.err }
+
+// SourceError returns the declared report cause without changing failed-work semantics.
+func (o Outcome[R]) SourceError() error { return o.source }
 
 // reporterState serializes progress delivery with reporter shutdown.
 type reporterState[P any] struct {
@@ -151,6 +161,14 @@ type ownedOperation struct {
 	err error
 }
 
+// terminalReport retains a declared source until the final terminal send can be inspected.
+type terminalReport struct {
+	// source is the original work or nonfatal completed diagnostic.
+	source error
+	// acknowledgement is absent when terminal delivery could not be enqueued.
+	acknowledgement *Acknowledgement
+}
+
 // Owner owns accepted operations for one connection.
 type Owner[P, R any] struct {
 	// workContext is the parent of every operation context.
@@ -167,6 +185,8 @@ type Owner[P, R any] struct {
 	mutex sync.Mutex
 	// operations contains identifiers until terminal delivery resolves.
 	operations map[string]*ownedOperation
+	// reports has a separate lifetime from operation identifiers and release callbacks.
+	reports map[*ownedOperation]terminalReport
 	// closed prevents new accepted operations.
 	closed bool
 	// cause records the first connection delivery failure.
@@ -192,6 +212,7 @@ func NewOwner[P, R any](ctx context.Context, delivery Delivery[P, R]) *Owner[P, 
 		delivery:        delivery,
 		mutex:           sync.Mutex{},
 		operations:      make(map[string]*ownedOperation),
+		reports:         make(map[*ownedOperation]terminalReport),
 		closed:          false,
 		cause:           nil,
 		preparations:    sync.WaitGroup{},
@@ -314,6 +335,12 @@ func (o *Owner[P, R]) run(
 		outcome = prepared.Run(ctx, reporter)
 		reporter.deactivate()
 	}
+	// Capture the source before Release or canceled delivery can bypass Terminal.
+	if outcome.SourceError() != nil {
+		o.mutex.Lock()
+		o.reports[owned] = terminalReport{source: outcome.SourceError(), acknowledgement: nil}
+		o.mutex.Unlock()
+	}
 	release()
 
 	// Unexpected cleanup cannot deliver a terminal event, so only release ownership.
@@ -322,6 +349,12 @@ func (o *Owner[P, R]) run(
 		return
 	}
 	terminal, err := o.delivery.Terminal(id, outcome)
+	// Even a canceled local wait can leave an in-flight send that later succeeds.
+	if outcome.SourceError() != nil {
+		o.mutex.Lock()
+		o.reports[owned] = terminalReport{source: outcome.SourceError(), acknowledgement: terminal}
+		o.mutex.Unlock()
+	}
 	if err != nil {
 		o.failOperation(id, owned, err)
 		return
@@ -330,7 +363,28 @@ func (o *Owner[P, R]) run(
 		o.failOperation(id, owned, err)
 		return
 	}
+	o.mutex.Lock()
+	delete(o.reports, owned)
+	o.mutex.Unlock()
 	o.finishOperation(id, owned, outcome.State(), nil)
+}
+
+// SourceErrors returns report causes whose final terminal send has not succeeded.
+// Connection cleanup calls this after accepted work and the writer have joined.
+func (o *Owner[P, R]) SourceErrors() error {
+	o.mutex.Lock()
+	defer o.mutex.Unlock()
+	var sources []error
+	for owned, report := range o.reports {
+		if report.acknowledgement != nil {
+			if finished, err := report.acknowledgement.Result(); finished && err == nil {
+				delete(o.reports, owned)
+				continue
+			}
+		}
+		sources = append(sources, report.source)
+	}
+	return errors.Join(sources...)
 }
 
 // failOperation records delivery failure and completes one operation waiter.

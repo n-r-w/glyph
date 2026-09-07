@@ -74,7 +74,7 @@ func runUIWithPaths(
 	defer func() {
 		returnErr = errors.Join(returnErr, transport.Close())
 		if extensions != nil {
-			extensions.Close()
+			returnErr = errors.Join(returnErr, extensions.Close())
 		}
 	}()
 	if err != nil {

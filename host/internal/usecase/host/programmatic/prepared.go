@@ -100,7 +100,14 @@ func (p *commandPrepared) Run(
 	if isCanceledNavigation(response) && errors.Is(ctx.Err(), context.Canceled) {
 		return operation.Canceled[controller.Response]()
 	}
-	return operation.Completed(response)
+	// Navigation issues are declared diagnostics even when navigation itself completed.
+	var sources []error
+	if navigation, present := response.TreeNavigation.Get(); present {
+		for _, issue := range navigation.Issues {
+			sources = append(sources, errors.New(issue.Message))
+		}
+	}
+	return operation.CompletedWithSource(response, errors.Join(sources...))
 }
 
 // Release frees the session-mutation reservation when present.

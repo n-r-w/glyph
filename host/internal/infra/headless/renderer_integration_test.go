@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 
@@ -18,6 +19,26 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
+
+// TestRendererRuntimeFailurePreservesSource verifies synchronous runtime reporting returns source and writer errors.
+func TestRendererRuntimeFailurePreservesSource(t *testing.T) {
+	t.Parallel()
+	// Arrange an unavailable extension and closed stderr output.
+	writer, err := os.Create(filepath.Join(t.TempDir(), "closed-runtime-stderr"))
+	require.NoError(t, err)
+	require.NoError(t, writer.Close())
+	failure := extension.RuntimeFailure{PluginID: "tools", Condition: extension.RuntimeUnavailableProcessExited}
+	message, err := failure.Message()
+	require.NoError(t, err)
+	renderer := NewRenderer(&bytes.Buffer{}, writer)
+
+	// Act through the runtime's synchronous reporting contract.
+	err = renderer.ReportRuntimeFailure(t.Context(), failure)
+
+	// Assert runtime cleanup can retain the complete declared source with its real write failure.
+	require.ErrorIs(t, err, os.ErrClosed)
+	require.ErrorContains(t, err, message)
+}
 
 // TestRendererPropagatesWriterFailure preserves a real file-write failure.
 func TestRendererPropagatesWriterFailure(t *testing.T) {

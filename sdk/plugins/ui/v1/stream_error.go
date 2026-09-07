@@ -32,19 +32,63 @@ func protocolFault(err error) error {
 	return &protocolError{cause: err}
 }
 
+// streamError exposes the selected gRPC code without replacing the local cause tree.
+type streamError struct {
+	// code is selected from delivery and protocol failures before adding report sources.
+	code codes.Code
+	// cause retains all independent completion errors.
+	cause error
+}
+
+// Error returns the standard gRPC rendering of the complete cause.
+func (e *streamError) Error() string { return e.GRPCStatus().Err().Error() }
+
+// GRPCStatus exposes the selected wire status and full diagnostic.
+func (e *streamError) GRPCStatus() *status.Status { return status.New(e.code, e.cause.Error()) }
+
+// Unwrap retains local error identities for SDK completion consumers.
+func (e *streamError) Unwrap() error { return e.cause }
+
+// joinOutputSources adds report snapshots only after classifying delivery failures.
+func joinOutputSources(delivery error, sources ...error) error {
+	classified := streamStatus(delivery)
+	source := errors.Join(sources...)
+	if source == nil {
+		return classified
+	}
+	code := status.Code(classified)
+	if code == codes.OK {
+		code = codes.Unavailable
+	}
+	return &streamError{code: code, cause: errors.Join(delivery, source)}
+}
+
+// pendingReceiveError collects an application failure without filtering cancellation from its source.
+func pendingReceiveError(received <-chan error) error {
+	select {
+	case err := <-received:
+		if withoutClosureLeaves(err) != nil {
+			return err
+		}
+		return nil
+	default:
+		return nil
+	}
+}
+
 // streamStatus preserves transport status and classifies local stream failures.
 func streamStatus(err error) error {
 	if err == nil {
 		return nil
 	}
 	if grpcStatus, ok := status.FromError(err); ok {
-		return status.Error(grpcStatus.Code(), err.Error())
+		return &streamError{code: grpcStatus.Code(), cause: err}
 	}
 	if _, ok := errors.AsType[*protocolError](err); ok {
-		return status.Error(codes.FailedPrecondition, err.Error())
+		return &streamError{code: codes.FailedPrecondition, cause: err}
 	}
 	if errors.Is(err, operation.ErrQueueFull) {
-		return status.Error(codes.ResourceExhausted, err.Error())
+		return &streamError{code: codes.ResourceExhausted, cause: err}
 	}
-	return status.Error(codes.Unavailable, err.Error())
+	return &streamError{code: codes.Unavailable, cause: err}
 }

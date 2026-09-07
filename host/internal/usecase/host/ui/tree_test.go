@@ -153,11 +153,17 @@ func TestCanceledTreeNavigationReturnsStateFreeData(t *testing.T) {
 	command.TargetEntryID = mo.Some("target")
 	command.SummaryMode = controllerui.SummaryModeNoSummary
 
-	// Act through the prepared Host UI operation.
-	frame, err := runPreparedCommand(t, treeOperationService(controller, control, gate, navigator), command)
-
-	// Assert canceled data has no speculative committed state and keeps issues.
+	// Act through the prepared Host UI operation and retain its complete outcome.
+	prepared, err := treeOperationService(controller, control, gate, navigator).Prepare(t.Context(), command)
 	require.NoError(t, err)
+	outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
+	prepared.Release()
+	frame, completed := outcome.Result()
+
+	// Assert canceled navigation data remains Completed and declares its nonfatal issue before delivery.
+	require.True(t, completed)
+	require.NoError(t, outcome.Err())
+	require.ErrorContains(t, outcome.SourceError(), "observer failed")
 	result := frame.TreeNavigation.MustGet()
 	assert.Equal(t, controllerui.TreeNavigationStatusCanceled, result.Status)
 	assert.True(t, result.Committed.IsNone())

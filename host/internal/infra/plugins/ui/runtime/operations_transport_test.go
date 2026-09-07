@@ -9,6 +9,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -149,64 +150,86 @@ func TestRunOperationsTransportFailurePreservesCauseAndJoinsWork(t *testing.T) {
 // TestRunOperationsJoinsOperationAndTerminalTransportFailures verifies terminal provenance.
 func TestRunOperationsJoinsOperationAndTerminalTransportFailures(t *testing.T) {
 	t.Parallel()
+	for _, mode := range []string{"terminal send", "queued terminal", "before terminal"} {
+		t.Run(mode, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange one failed operation whose Failed terminal message cannot be sent.
+				controller := gomock.NewController(t)
+				stream := NewMockUIService_OpenClient[uiv1.OpenRequest, uiv1.OpenResponse](controller)
+				streamContext, cancelStream := context.WithCancel(t.Context())
+				stream.EXPECT().Context().Return(streamContext).AnyTimes()
+				source := errors.New("session persistence failed")
+				transportCause := status.Error(codes.Unavailable, "terminal transport failed")
+				released := make(chan struct{})
+				prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](controller)
+				prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, _ operation.Reporter[controllerui.Frame]) operation.Outcome[controllerui.Frame] {
+						if mode == "before terminal" {
+							<-ctx.Done()
+						}
+						return operation.Failed[controllerui.Frame]("INTERNAL", source)
+					},
+				)
+				prepared.EXPECT().Release().Do(func() { close(released) })
+				stream.EXPECT().Recv().Return(operationRequest("failed", "work"), nil)
+				stream.EXPECT().Recv().DoAndReturn(func() (*uiv1.OpenResponse, error) {
+					<-streamContext.Done()
+					return nil, context.Cause(streamContext)
+				})
+				var sends atomic.Int32
+				releaseSend := make(chan struct{})
+				stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(*uiv1.OpenRequest) error {
+					number := sends.Add(1)
+					if mode != "terminal send" && number == 2 {
+						<-releaseSend
+						return transportCause
+					}
+					if number == 3 {
+						return transportCause
+					}
+					return nil
+				})
+				stream.EXPECT().CloseSend().DoAndReturn(func() error {
+					cancelStream()
+					return nil
+				})
+				_, cancelChannel := context.WithCancel(t.Context())
+				transport := &Service{
+					selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+					browser:  nil,
+					client:   nil,
+					openOnce: sync.Once{},
+					openErr:  nil,
+					stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+					writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
+					failConnection: nil,
+				}
 
-	// Arrange one failed operation whose Failed terminal message cannot be sent.
-	controller := gomock.NewController(t)
-	stream := NewMockUIService_OpenClient[uiv1.OpenRequest, uiv1.OpenResponse](controller)
-	streamContext, cancelStream := context.WithCancel(t.Context())
-	stream.EXPECT().Context().Return(streamContext).AnyTimes()
-	source := errors.New("session persistence failed")
-	transportCause := status.Error(codes.Unavailable, "terminal transport failed")
-	released := make(chan struct{})
-	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](controller)
-	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-		operation.Failed[controllerui.Frame]("INTERNAL", source),
-	)
-	prepared.EXPECT().Release().Do(func() { close(released) })
-	stream.EXPECT().Recv().Return(operationRequest("failed", "work"), nil)
-	stream.EXPECT().Recv().DoAndReturn(func() (*uiv1.OpenResponse, error) {
-		<-streamContext.Done()
-		return nil, context.Cause(streamContext)
-	})
-	var sends atomic.Int32
-	stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(*uiv1.OpenRequest) error {
-		if sends.Add(1) == 3 {
-			return transportCause
-		}
-		return nil
-	})
-	stream.EXPECT().CloseSend().DoAndReturn(func() error {
-		cancelStream()
-		return nil
-	})
-	_, cancelChannel := context.WithCancel(t.Context())
-	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-		browser:  nil,
-		client:   nil,
-		openOnce: sync.Once{},
-		openErr:  nil,
-		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-		failConnection: nil,
-	}
+				// Act after the queued terminal or unfinished work is blocked behind Running transport.
+				result := make(chan error, 1)
+				go func() {
+					result <- runTestOperations(t, transport, t.Context(), func() {}, func(
+						context.Context, controllerui.Command,
+					) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
+						return prepared, nil
+					})
+				}()
+				synctest.Wait()
+				close(releaseSend)
+				err := <-result
 
-	// Act through terminal transport failure.
-	err := runTestOperations(t, transport, t.Context(), func() {}, func(
-		context.Context,
-		controllerui.Command,
-	) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
-		return prepared, nil
-	})
-
-	// Assert operation and transport causes remain reachable after Release.
-	require.Error(t, err)
-	require.ErrorIs(t, err, source)
-	require.ErrorIs(t, err, transportCause)
-	select {
-	case <-released:
-	default:
-		t.Fatal("RunOperations returned before failed operation Release")
+				// Assert operation and transport causes remain reachable after Release.
+				require.Error(t, err)
+				require.ErrorIs(t, err, source)
+				require.ErrorIs(t, err, transportCause)
+				select {
+				case <-released:
+				default:
+					t.Fatal("RunOperations returned before failed operation Release")
+				}
+			})
+		})
 	}
 }
 

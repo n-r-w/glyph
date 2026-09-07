@@ -92,7 +92,7 @@ func (h *Host) Start(
 	}
 	h.operations[id] = kind
 	response := uiv1.OpenResponse_builder{OperationId: new(id), Request: request, Event: nil, Close: nil}.Build()
-	err = h.writer.Enqueue(response)
+	err = h.writer.Enqueue(response, nil)
 	if err != nil {
 		h.closed = true
 		delete(h.operations, id)

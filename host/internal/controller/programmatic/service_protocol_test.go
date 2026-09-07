@@ -301,8 +301,10 @@ func TestMalformedDuplicateAndFailedOperationsKeepStreamOpen(t *testing.T) {
 	active := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	failed := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 	releaseActive := make(chan struct{})
+	activeStarted := make(chan struct{})
 	active.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(context.Context, operation.Reporter[OperationProgress]) operation.Outcome[Response] {
+			close(activeStarted)
 			<-releaseActive
 			return operation.Completed(testResponse(ResponseUserRequestCompleted))
 		},
@@ -330,6 +332,7 @@ func TestMalformedDuplicateAndFailedOperationsKeepStreamOpen(t *testing.T) {
 		request.SetUserRequest(payload)
 	}
 	stream.requests <- testRequest("active", user)
+	<-activeStarted
 	stream.requests <- testRequest("active", user)
 	malformed := new(programmaticv1.OpenRequest)
 	malformed.SetOperationId("malformed")

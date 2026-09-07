@@ -19,17 +19,17 @@ func (s *Service) SetAvailability(availability hostui.Availability) error {
 	connection.SetAvailabilityChanged(uiv1.AvailabilityChanged_builder{
 		Availability: new(mapAvailability(availability)),
 	}.Build())
-	return s.enqueueConnection(connection)
+	return s.enqueueConnection(connection, nil)
 }
 
 // ReportError publishes a classified connection failure without an operation identifier.
-func (s *Service) ReportError(code, text string) error {
+func (s *Service) ReportError(code string, cause error) error {
 	if code == "" {
 		return errors.New("map UI frame: error category is required")
 	}
 	connection := new(uiv1.HostConnectionEvent)
-	connection.SetError(uiv1.Error_builder{Code: new(code), Text: new(text)}.Build())
-	return s.enqueueConnection(connection)
+	connection.SetError(uiv1.Error_builder{Code: new(code), Text: new(cause.Error())}.Build())
+	return s.enqueueConnection(connection, cause)
 }
 
 // DeliverExtensionIssue publishes one observer issue through the ordered connection writer.
@@ -42,7 +42,7 @@ func (s *Service) DeliverExtensionIssue(ctx context.Context, issue lifecycle.Iss
 		ExtensionId: new(issue.ExtensionID), HandlerId: new(issue.HandlerID),
 		Code: new(issue.Code), Text: new(issue.Err.Error()),
 	}.Build())
-	if err := s.enqueueConnection(connection); err != nil {
+	if err := s.enqueueConnection(connection, issue.Err); err != nil {
 		return fmt.Errorf("deliver UI extension issue: %w", err)
 	}
 	return nil
@@ -66,7 +66,7 @@ func (s *Service) PublishSessionEntry(entry session.Entry) (wait func(context.Co
 	if writer == nil {
 		return nil, errors.New("send acknowledged UI frame: operation writer is not running")
 	}
-	acknowledgement, err := writer.EnqueueAcknowledged(connectionRequest(connection))
+	acknowledgement, err := writer.EnqueueAcknowledged(connectionRequest(connection), nil)
 	if err != nil && !errors.Is(err, operation.ErrClosed) {
 		s.reportDeliveryFailure(err)
 	}
@@ -77,14 +77,14 @@ func (s *Service) PublishSessionEntry(entry session.Entry) (wait func(context.Co
 }
 
 // enqueueConnection uses the same writer as operation progress and terminal events.
-func (s *Service) enqueueConnection(connection *uiv1.HostConnectionEvent) error {
+func (s *Service) enqueueConnection(connection *uiv1.HostConnectionEvent, source error) error {
 	s.mutex.Lock()
 	writer := s.writer
 	s.mutex.Unlock()
 	if writer == nil {
 		return errors.New("send UI frame: operation writer is not running")
 	}
-	err := writer.Enqueue(connectionRequest(connection))
+	err := writer.Enqueue(connectionRequest(connection), source)
 	if err != nil && !errors.Is(err, operation.ErrClosed) {
 		s.reportDeliveryFailure(err)
 	}

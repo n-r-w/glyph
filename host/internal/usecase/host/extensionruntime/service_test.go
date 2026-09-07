@@ -50,6 +50,7 @@ func TestRuntimeUnavailableShutdownReleasesCommitLockBeforeTransportClose(t *tes
 		reporter: newRuntimeReporter(t, func(context.Context, extension.RuntimeFailure) error { return nil }),
 		mutex:    sync.RWMutex{}, runtimes: map[string]*runtimeState{"extension": state},
 		monitoring: false, monitorContext: nil, closing: false,
+		reportingStopped: false, reporting: sync.WaitGroup{}, reportErrors: nil,
 	}
 	finishDone := make(chan struct{})
 	go func() {
@@ -97,6 +98,7 @@ func TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit(t *testing.T) {
 		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
 		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
 		monitorContext: nil, closing: false,
+		reportingStopped: false, reporting: sync.WaitGroup{}, reportErrors: nil,
 	}
 	sessions := extensioncontext.NewMockSessionState(controller)
 	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
@@ -200,6 +202,7 @@ func TestRuntimeReplacementBeforeFinalAppendValidationRejectsCommit(t *testing.T
 		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
 		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
 		monitorContext: nil, closing: false,
+		reportingStopped: false, reporting: sync.WaitGroup{}, reportErrors: nil,
 	}
 	sessions := extensioncontext.NewMockSessionState(controller)
 	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
@@ -277,6 +280,7 @@ func TestRuntimeReplacementBeforeMessageCommitPreservesStaleCategory(t *testing.
 		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
 		runtimes: map[string]*runtimeState{"extension": state}, monitoring: false,
 		monitorContext: nil, closing: false,
+		reportingStopped: false, reporting: sync.WaitGroup{}, reportErrors: nil,
 	}
 	sessions := extensioncontext.NewMockSessionState(controller)
 	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
@@ -386,7 +390,7 @@ func TestServiceLoadsPendingAndActivatesAcceptedRuntime(t *testing.T) {
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "old-runtime")
 	runtime.EXPECT().Close()
-	service.Close()
+	require.NoError(t, service.Close())
 }
 
 // TestRuntimeReplacementInvalidatesInstance verifies replacement joins the old process and never accepts its identity
@@ -471,7 +475,7 @@ func TestRuntimeReplacementInvalidatesInstance(t *testing.T) {
 		synctest.Wait()
 		_, available = service.ContextRuntime("extension")
 		assert.False(t, available, "replacement runtime exit was not monitored")
-		service.Close()
+		require.NoError(t, service.Close())
 	})
 }
 
@@ -718,7 +722,7 @@ func TestServiceCloseJoinsExtensionInitiatedAccounting(t *testing.T) {
 		closed := make(chan struct{})
 
 		// Act: finish transport shutdown while the Host operation still owns its reservation.
-		go func() { service.Close(); close(closed) }()
+		go func() { assert.NoError(t, service.Close()); close(closed) }()
 		synctest.Wait()
 
 		// Assert: manager shutdown waits for release, then completes without a leaked operation count.
@@ -781,7 +785,7 @@ func TestRuntimeExitReportsAfterAllContextOperations(t *testing.T) {
 		second()
 		synctest.Wait()
 		assert.Equal(t, 1, reports)
-		service.Close()
+		require.NoError(t, service.Close())
 	})
 }
 
@@ -817,7 +821,7 @@ func TestFreshRuntimeManagersNeverReuseInstanceIDs(t *testing.T) {
 		instance, available := service.ContextRuntime("extension")
 		require.True(t, available)
 		instances = append(instances, instance)
-		service.Close()
+		require.NoError(t, service.Close())
 	}
 
 	// Assert: instance identity is not reused when a manager's in-memory counter would restart.

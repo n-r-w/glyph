@@ -85,7 +85,7 @@ func TestAcceptedOperationStartsExplicitlyAndBackpressures(t *testing.T) {
 		require.NoError(t, err)
 		delivery := operationmock.NewMockOperationDelivery[controller.OperationProgress, controller.Response](ctrl)
 		delivery.EXPECT().Accepted("c1").DoAndReturn(func(string) (*operation.Acknowledgement, error) {
-			return writer.EnqueueAcknowledged("accepted")
+			return writer.EnqueueAcknowledged("accepted", nil)
 		})
 		delivery.EXPECT().Running("c1").Return(nil)
 		delivery.EXPECT().
@@ -101,7 +101,7 @@ func TestAcceptedOperationStartsExplicitlyAndBackpressures(t *testing.T) {
 			DoAndReturn(func(_ string, outcome operation.Outcome[controller.Response]) (*operation.Acknowledgement, error) {
 				require.Equal(t, operation.TerminalStateCompleted, outcome.State())
 				require.Empty(t, output.ActiveOperation())
-				return writer.EnqueueAcknowledged("terminal")
+				return writer.EnqueueAcknowledged("terminal", nil)
 			})
 		owner := operation.NewOwner(t.Context(), delivery)
 		require.NoError(

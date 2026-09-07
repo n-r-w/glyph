@@ -56,15 +56,14 @@ func runProgrammaticWithPaths(
 	tools := toolservice.New(extensions)
 	sessionServices, err := newSessionComposition(ctx, paths, extensions)
 	if err != nil {
-		extensions.Close()
-		return fmt.Errorf("initialize Host sessions: %w", err)
+		return errors.Join(fmt.Errorf("initialize Host sessions: %w", err), extensions.Close())
 	}
 	extensionsClosed := false
 	closeExtensions := func() {
 		if extensionsClosed {
 			return
 		}
-		extensions.Close()
+		returnErr = errors.Join(returnErr, extensions.Close())
 		extensionsClosed = true
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}

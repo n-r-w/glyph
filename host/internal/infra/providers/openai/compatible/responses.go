@@ -18,6 +18,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
+// responsesErrorEventType identifies an explicit terminal Responses failure.
+const responsesErrorEventType = "error"
+
 type responseContext struct {
 	// ID identifies the provider reasoning item.
 	ID string `json:"id"`
@@ -93,9 +96,13 @@ func (s *Driver) streamResponses(
 	defer func() { _ = stream.Close() }()
 	state := newResponsesAccumulator(tagHandlerErrors(handle))
 	for stream.Next() {
-		consumeErr := state.consume(stream.Current(), s.providerID)
+		event := stream.Current()
+		consumeErr := state.consume(event, s.providerID)
 		if consumeErr != nil {
 			return model.Response{}, consumeErr
+		}
+		if event.Type == responsesErrorEventType {
+			break
 		}
 	}
 	if streamErr := stream.Err(); streamErr != nil {
@@ -111,7 +118,7 @@ func (s *Driver) streamResponses(
 		return model.Response{}, errors.New("responses stream ended without a terminal response")
 	}
 	if finishErr := state.finish(); finishErr != nil {
-		return model.Response{}, finishErr
+		return model.Response{}, errors.Join(responsesTerminalError(*state.terminal), finishErr)
 	}
 	for index := range state.terminal.Content {
 		content := &state.terminal.Content[index]
@@ -133,6 +140,13 @@ func (state *responsesAccumulator) consume(
 	providerID model.ProviderID,
 ) error {
 	switch event.Type {
+	case responsesErrorEventType:
+		message := event.AsError().Message
+		if message == "" {
+			message = requestFailedMessage
+		}
+		response := failureResponse(model.OutcomeFailed, message)
+		state.terminal = &response
 	case "response.output_text.delta":
 		delta := event.AsResponseOutputTextDelta()
 		key := responseContentKey("text", delta.OutputIndex, delta.ContentIndex)

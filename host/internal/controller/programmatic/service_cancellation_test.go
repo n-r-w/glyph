@@ -8,6 +8,7 @@ import (
 	"io"
 	"sync"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -198,71 +199,69 @@ func TestCancellationUsesTerminalStateCompletedBeforeExecution(t *testing.T) {
 // TestCancellationAdmitsTargetUntilTerminalDelivery verifies admission survives blocked terminal delivery.
 func TestCancellationAdmitsTargetUntilTerminalDelivery(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange completed target work whose terminal Send remains blocked.
+		controller := gomock.NewController(t)
+		host := NewMockHostSession(controller)
+		target := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
+		target.EXPECT().Run(gomock.Any(), gomock.Any()).Return(operation.Completed(testResponse(ResponseMessages)))
+		target.EXPECT().Release()
+		host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(target, nil)
+		targetTerminalStarted := make(chan struct{})
+		releaseTargetTerminal := make(chan struct{})
+		var terminalOnce sync.Once
+		stream := newObservedStreamHarness(t, t.Context(), nil, func(response *programmaticv1.OpenResponse) {
+			if response.GetOperationId() == "target" && response.GetEvent().HasCompleted() {
+				terminalOnce.Do(func() { close(targetTerminalStarted) })
+				<-releaseTargetTerminal
+			}
+		})
+		service := New(t.Context(), host, testConnectionOutput(t))
+		result := make(chan error, 1)
+		go func() { result <- service.open(stream.stream) }()
+		stream.requests <- testRequest("target", func(request *programmaticv1.ControllerRequest) {
+			request.SetGetMessages(new(programmaticv1.GetMessages))
+		})
+		<-targetTerminalStarted
 
-	// Arrange completed target work whose terminal Send remains blocked.
-	controller := gomock.NewController(t)
-	host := NewMockHostSession(controller)
-	target := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
-	target.EXPECT().Run(gomock.Any(), gomock.Any()).Return(operation.Completed(testResponse(ResponseMessages)))
-	target.EXPECT().Release()
-	host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(target, nil)
-	targetTerminalStarted := make(chan struct{})
-	releaseTargetTerminal := make(chan struct{})
-	cancellationProcessed := make(chan struct{})
-	var terminalOnce sync.Once
-	stream := newObservedStreamHarness(t, t.Context(), func(call int) {
-		if call == 3 {
-			close(cancellationProcessed)
+		// Act by admitting cancellation before terminal Send can return.
+		stream.requests <- testRequest("cancel", func(request *programmaticv1.ControllerRequest) {
+			payload := new(operationv1.CancelOperation)
+			payload.SetTargetOperationId("target")
+			request.SetCancel(payload)
+		})
+		// Raw receive progress does not imply admission. Join runnable processing before releasing Send.
+		synctest.Wait()
+		close(releaseTargetTerminal)
+		order := make([]string, 0, 4)
+		var targetState operationv1.TerminalState
+		for {
+			response := <-stream.responses
+			switch {
+			case response.GetOperationId() == "target" && response.GetEvent().HasCompleted():
+				order = append(order, "target completed")
+			case response.GetOperationId() == "cancel" && response.GetEvent().HasAccepted():
+				order = append(order, "cancel accepted")
+			case response.GetOperationId() == "cancel" && response.GetEvent().HasRunning():
+				order = append(order, "cancel running")
+			case response.GetOperationId() == "cancel" && response.GetEvent().HasCompleted():
+				order = append(order, "cancel completed")
+				targetState = response.GetEvent().GetCompleted().GetCancel().GetTargetState()
+			case response.GetOperationId() == "cancel" && response.GetEvent().HasRejected():
+				order = append(order, "cancel rejected")
+			}
+			if len(order) > 1 &&
+				(order[len(order)-1] == "cancel completed" || order[len(order)-1] == "cancel rejected") {
+				break
+			}
 		}
-	}, func(response *programmaticv1.OpenResponse) {
-		if response.GetOperationId() == "target" && response.GetEvent().HasCompleted() {
-			terminalOnce.Do(func() { close(targetTerminalStarted) })
-			<-releaseTargetTerminal
-		}
-	})
-	service := New(t.Context(), host, testConnectionOutput(t))
-	result := make(chan error, 1)
-	go func() { result <- service.open(stream.stream) }()
-	stream.requests <- testRequest("target", func(request *programmaticv1.ControllerRequest) {
-		request.SetGetMessages(new(programmaticv1.GetMessages))
-	})
-	<-targetTerminalStarted
+		stream.closeSend()
+		require.NoError(t, <-result)
 
-	// Act by admitting cancellation before terminal Send can return.
-	stream.requests <- testRequest("cancel", func(request *programmaticv1.ControllerRequest) {
-		payload := new(operationv1.CancelOperation)
-		payload.SetTargetOperationId("target")
-		request.SetCancel(payload)
+		// Assert target delivery precedes cancellation completion with the delivered target state.
+		assert.Equal(t, []string{"target completed", "cancel accepted", "cancel running", "cancel completed"}, order)
+		assert.Equal(t, operationv1.TerminalState_TERMINAL_STATE_COMPLETED, targetState)
 	})
-	<-cancellationProcessed
-	close(releaseTargetTerminal)
-	order := make([]string, 0, 4)
-	var targetState operationv1.TerminalState
-	for {
-		response := <-stream.responses
-		switch {
-		case response.GetOperationId() == "target" && response.GetEvent().HasCompleted():
-			order = append(order, "target completed")
-		case response.GetOperationId() == "cancel" && response.GetEvent().HasAccepted():
-			order = append(order, "cancel accepted")
-		case response.GetOperationId() == "cancel" && response.GetEvent().HasRunning():
-			order = append(order, "cancel running")
-		case response.GetOperationId() == "cancel" && response.GetEvent().HasCompleted():
-			order = append(order, "cancel completed")
-			targetState = response.GetEvent().GetCompleted().GetCancel().GetTargetState()
-		case response.GetOperationId() == "cancel" && response.GetEvent().HasRejected():
-			order = append(order, "cancel rejected")
-		}
-		if len(order) > 1 && (order[len(order)-1] == "cancel completed" || order[len(order)-1] == "cancel rejected") {
-			break
-		}
-	}
-	stream.closeSend()
-	require.NoError(t, <-result)
-
-	// Assert target delivery precedes cancellation completion with the delivered target state.
-	assert.Equal(t, []string{"target completed", "cancel accepted", "cancel running", "cancel completed"}, order)
-	assert.Equal(t, operationv1.TerminalState_TERMINAL_STATE_COMPLETED, targetState)
 }
 
 // TestTerminalDeliveryFailureDoesNotCompleteCancellation verifies failed Send publishes no delivered target state.
@@ -407,7 +406,6 @@ func TestAcceptedFailureRemovesPreparedRegistryTarget(t *testing.T) {
 	})
 	delivery := &streamDelivery{
 		context: t.Context(), writer: writer, registry: registry, fail: func(error) {},
-		mutex: sync.Mutex{}, failureSources: make(map[string]error),
 	}
 	owner := operation.NewOwner[OperationProgress, Response](t.Context(), delivery)
 	writerResult := make(chan error, 1)

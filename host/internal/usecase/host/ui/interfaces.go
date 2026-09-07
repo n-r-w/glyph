@@ -29,7 +29,7 @@ type Runtime interface {
 type Output interface {
 	Initialize(context.Context, Initialization) error
 	SetAvailability(Availability) error
-	ReportError(code, text string) error
+	ReportError(code string, cause error) error
 	BindProgress(reporter operation.Reporter[controllerui.Frame]) func()
 }
 
@@ -93,4 +93,6 @@ type Gate interface {
 type RuntimeActivation interface {
 	// Activate starts asynchronous runtime observation without waiting for authentication.
 	Activate(context.Context)
+	// StopReporting joins admitted reporter calls without stopping runtime monitoring.
+	StopReporting()
 }

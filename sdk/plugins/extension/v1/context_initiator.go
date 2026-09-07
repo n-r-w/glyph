@@ -130,8 +130,7 @@ func (i *contextInitiator) start(
 	}
 	i.mutex.Unlock()
 	if err = i.writer.Enqueue(
-		extensionpb.OpenResponse_builder{OperationId: new(id), Event: nil, Request: request}.Build(),
-	); err != nil {
+		extensionpb.OpenResponse_builder{OperationId: new(id), Event: nil, Request: request}.Build(), nil); err != nil {
 		i.fail(mapDeliveryError(err))
 		if request.GetCancel() == nil {
 			i.workers.Done()

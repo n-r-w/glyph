@@ -75,7 +75,8 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 		writerResult: writerResult, receiveResult: receiveResult,
 		startOwnerClose: startOwnerClose, ownerClosed: ownerClosed,
 	}
-	return connectionLoop.run()
+	result := connectionLoop.run()
+	return joinOutputSources(result, owner.SourceErrors(), writer.SourceErrors())
 }
 
 // serverConnectionLoop coordinates receive, writer, and operation-owner completion.
@@ -211,7 +212,9 @@ func finishServerFailure(
 	<-ownerClosed
 	writer.Close()
 	if writerResult != nil {
-		<-writerResult
+		if writerErr := <-writerResult; writerErr != nil && !errors.Is(err, writerErr) {
+			err = errors.Join(err, writerErr)
+		}
 	}
 	return err
 }
@@ -227,10 +230,10 @@ func finishServerEOF(
 	<-ownerClosed
 	writer.Close()
 	writerErr := <-writerResult
-	if writerErr != nil && !errors.Is(writerErr, context.Canceled) {
-		return writerErr
+	if errors.Is(writerErr, context.Canceled) {
+		return withoutClosureLeaves(writerErr)
 	}
-	return nil
+	return writerErr
 }
 
 // receiveServerRequests keeps transport receipt independent from operation work and writer completion.

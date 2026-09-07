@@ -41,7 +41,9 @@ func (prepared *hostPrepared) Run(
 	switch outcome.State() {
 	case operation.TerminalStateCompleted:
 		frame, _ := outcome.Result()
-		return operation.Completed(OperationResult{Frame: frame, Cancel: mo.None[operation.TerminalState]()})
+		return operation.CompletedWithSource(
+			OperationResult{Frame: frame, Cancel: mo.None[operation.TerminalState]()}, outcome.SourceError(),
+		)
 	case operation.TerminalStateCanceled:
 		return operation.Canceled[OperationResult]()
 	case operation.TerminalStateFailed:
@@ -91,7 +93,6 @@ func (c *Service) runOperations(ctx context.Context, session Session) error {
 	writer, delivery := c.connection.AttachOutput(connectionContext, cancelConnection)
 	owner := operation.NewOwner[Frame, OperationResult](connectionContext, delivery)
 	stopActivation := session.Activate(ctx)
-	defer stopActivation()
 	writerDone := make(chan error, 1)
 	go func() { writerDone <- writer.Run(connectionContext) }()
 	closing := new(atomic.Bool)
@@ -102,18 +103,18 @@ func (c *Service) runOperations(ctx context.Context, session Session) error {
 	}()
 
 	exit := awaitOperationLoopExit(ctx, connectionContext, closing, peerClose, writerDone, receiveDone)
+	// Drain asynchronous error producers while the output attachment can still retain their sources.
+	stopActivation()
 	var cleanupErr error
 	if exit.requestedClose {
 		cleanupErr = c.closeRequestedOperations(connectionContext, owner, delivery, writer, writerDone, receiveDone)
 	} else {
 		cleanupErr = c.closeFailedOperations(cancelConnection, owner, writer, writerDone, receiveDone, exit)
 	}
-	c.connection.ClearOutput()
 	exitErr := WithoutTransportClosureLeaves(exit.err)
-	if cleanupErr == nil && exitErr == nil {
-		return nil
-	}
-	return ClassifyTransportError(errors.Join(exitErr, cleanupErr))
+	result := JoinOutputSources(errors.Join(exitErr, cleanupErr), owner.SourceErrors(), writer.SourceErrors())
+	c.connection.ClearOutput()
+	return result
 }
 
 // operationLoopExit describes the first endpoint component that stopped.
@@ -266,9 +267,15 @@ func (c *Service) receiveOperations(
 ) error {
 	peerCloseReceived := false
 	for {
+		// Failure cleanup half-closes client requests before joining this receive and its transport result.
 		response, err := c.connection.Recv()
 		if err != nil {
 			return err
+		}
+		select {
+		case <-ctx.Done():
+			return context.Cause(ctx)
+		default:
 		}
 		err = handleOperationResponse(
 			ctx, response, closing, &peerCloseReceived, owner, delivery, session, peerClose,

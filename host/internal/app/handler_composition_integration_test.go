@@ -80,7 +80,7 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	reporter := extensionmanager.NewMockFailureReporter(gomock.NewController(t))
 	reporter.EXPECT().ReportRuntimeFailure(gomock.Any(), gomock.Any()).AnyTimes().Return(nil)
 	extensions := extensionmanager.New(catalog.New(), factory, reporter)
-	t.Cleanup(extensions.Close)
+	t.Cleanup(func() { require.NoError(t, extensions.Close()) })
 	controller := gomock.NewController(t)
 	active := sessiontree.NewMockActiveSession(controller)
 	models := sessiontree.NewMockModelRequester(controller)

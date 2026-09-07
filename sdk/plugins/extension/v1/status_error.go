@@ -1,8 +1,10 @@
 package extensionv1
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"io"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -48,6 +50,41 @@ func mapDeliveryError(err error) error {
 		)
 	}
 	return newCausedStatusError(codes.Unavailable, fmt.Sprintf("extension transport failed: %v", err), err)
+}
+
+// withoutClosureLeaves removes transport shutdown leaves before report sources are added.
+func withoutClosureLeaves(err error) error {
+	if err == nil ||
+		!errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) && !errors.Is(err, io.EOF) {
+		return err
+	}
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		var remaining []error
+		for _, cause := range joined.Unwrap() {
+			remaining = append(remaining, withoutClosureLeaves(cause))
+		}
+		return errors.Join(remaining...)
+	}
+	if cause := errors.Unwrap(err); cause != nil {
+		if remaining := withoutClosureLeaves(cause); remaining != nil {
+			return fmt.Errorf("%s: %w", err.Error(), remaining)
+		}
+	}
+	return nil
+}
+
+// joinOutputSources adds source-only snapshots after delivery classification and cleanup filtering.
+func joinOutputSources(delivery error, sources ...error) error {
+	source := errors.Join(sources...)
+	if source == nil {
+		return delivery
+	}
+	code := status.Code(mapDeliveryError(delivery))
+	if code == codes.OK {
+		code = codes.Unavailable
+	}
+	combined := errors.Join(delivery, source)
+	return newCausedStatusError(code, combined.Error(), combined)
 }
 
 // newProtocolStatusError classifies a local protocol, decode, or mapping cause.

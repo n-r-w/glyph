@@ -48,7 +48,7 @@
 - Dependencies: PHS-05.2, PHS-04.1
 - Ticket: [Ticket](phases/07.1-architecture-audit-and-correction/ticket.md)
 - Execution point: Audit the implemented product, including partial PHS-07 work, before PHS-07 resumes. This phase does not depend on PHS-07 completion.
-- Completion gate: [BLK-01 through BLK-05](phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md#blockers) have U5/U7 closure evidence. Integrated review found FND-10 and FND-11. Their [bounded U6 correction](phases/07.1-architecture-audit-and-correction/solution.md#u6-follow-up-complete-source-and-delivery-causes) awaits independent acceptance. PHS-07.1 remains blocked and PHS-07 remains paused.
+- Completion gate: [BLK-01 through BLK-05](phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md#blockers) have U5/U7 closure evidence. Review of `b03095a` found FND-12 through FND-14. The O72-1 [U6 retention implementation and local checks](phases/07.1-architecture-audit-and-correction/solution.md#u6-retention-correction) are ready for independent whole-product review. Explicit final acceptance remains pending. PHS-07.1 remains blocked and PHS-07 remains paused.
 
 ### PHS-07. Extension context and lifecycle
 - Dependencies: PHS-05.2, PHS-04.1, PHS-07.1

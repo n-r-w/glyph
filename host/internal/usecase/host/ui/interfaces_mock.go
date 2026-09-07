@@ -165,17 +165,17 @@ func (mr *MockOutputMockRecorder) Initialize(arg0, arg1 any) *gomock.Call {
 }
 
 // ReportError mocks base method.
-func (m *MockOutput) ReportError(code, text string) error {
+func (m *MockOutput) ReportError(code string, cause error) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReportError", code, text)
+	ret := m.ctrl.Call(m, "ReportError", code, cause)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // ReportError indicates an expected call of ReportError.
-func (mr *MockOutputMockRecorder) ReportError(code, text any) *gomock.Call {
+func (mr *MockOutputMockRecorder) ReportError(code, cause any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportError", reflect.TypeOf((*MockOutput)(nil).ReportError), code, text)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReportError", reflect.TypeOf((*MockOutput)(nil).ReportError), code, cause)
 }
 
 // SetAvailability mocks base method.
@@ -694,4 +694,16 @@ func (m *MockRuntimeActivation) Activate(arg0 context.Context) {
 func (mr *MockRuntimeActivationMockRecorder) Activate(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Activate", reflect.TypeOf((*MockRuntimeActivation)(nil).Activate), arg0)
+}
+
+// StopReporting mocks base method.
+func (m *MockRuntimeActivation) StopReporting() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "StopReporting")
+}
+
+// StopReporting indicates an expected call of StopReporting.
+func (mr *MockRuntimeActivationMockRecorder) StopReporting() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StopReporting", reflect.TypeOf((*MockRuntimeActivation)(nil).StopReporting))
 }

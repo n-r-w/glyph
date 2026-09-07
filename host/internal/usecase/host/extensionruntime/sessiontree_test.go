@@ -73,5 +73,5 @@ func TestServiceInvokesSessionTreeHandler(t *testing.T) {
 	assert.True(t, available)
 	assert.Equal(t, response, actual)
 	runtime.EXPECT().Close()
-	service.Close()
+	require.NoError(t, service.Close())
 }

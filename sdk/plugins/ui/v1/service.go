@@ -24,6 +24,7 @@ const (
 )
 
 //go:generate go tool mockgen -source=service.go -destination=interfaces_mock_test.go -package=uiv1
+//go:generate go tool mockgen -build_constraint=integration -destination=stream_integration_mock_test.go -package=uiv1 github.com/n-r-w/glyph/pkg/plugins/ui/v1 UIService_OpenServer
 
 // Service supplies UI-owned initialization and application behavior.
 type Service interface {
@@ -80,10 +81,10 @@ func (p *initializePrepared) Run(
 		return operation.Canceled[*uiv1.UICompleted]()
 	}
 	if remainingErr != nil {
-		if failure, ok := errors.AsType[*FailureError](remainingErr); ok {
-			return operation.Failed[*uiv1.UICompleted](failure.Code(), remainingErr)
+		if failure, ok := errors.AsType[*FailureError](err); ok {
+			return operation.Failed[*uiv1.UICompleted](failure.Code(), err)
 		}
-		return operation.Failed[*uiv1.UICompleted]("INTERNAL", remainingErr)
+		return operation.Failed[*uiv1.UICompleted]("INTERNAL", err)
 	}
 	if initialized == nil {
 		return operation.Failed[*uiv1.UICompleted](
@@ -222,7 +223,7 @@ func (d *uiDelivery) takeKind(id string) string {
 
 // enqueue queues one UI message and closes the connection on failure.
 func (d *uiDelivery) enqueue(response *uiv1.OpenResponse) error {
-	err := d.writer.Enqueue(response)
+	err := d.writer.Enqueue(response, nil)
 	if err != nil {
 		d.fail(err)
 	}
@@ -233,7 +234,7 @@ func (d *uiDelivery) enqueue(response *uiv1.OpenResponse) error {
 func (d *uiDelivery) enqueueAcknowledged(
 	response *uiv1.OpenResponse,
 ) (*operation.Acknowledgement, error) {
-	acknowledgement, err := d.writer.EnqueueAcknowledged(response)
+	acknowledgement, err := d.writer.EnqueueAcknowledged(response, nil)
 	if err != nil {
 		d.fail(err)
 	}
@@ -286,7 +287,13 @@ func (s *server) Open(stream grpc.BidiStreamingServer[uiv1.OpenRequest, uiv1.Ope
 	closing := new(atomic.Bool)
 	peerClose := make(chan struct{}, 1)
 	receiveDone := make(chan error, 1)
-	go func() { receiveDone <- s.receive(ctx, stream, owner, delivery, host, closing, peerClose) }()
+	receiveJoined := make(chan struct{})
+	go func() {
+		defer close(receiveJoined)
+		if err := s.receive(ctx, stream, owner, delivery, host, closing, peerClose); err != nil {
+			receiveDone <- err
+		}
+	}()
 	runDone := make(chan error, 1)
 	go func() {
 		select {
@@ -306,15 +313,18 @@ func (s *server) Open(stream grpc.BidiStreamingServer[uiv1.OpenRequest, uiv1.Ope
 		exit.writerFinished = exit.writerFinished || writerFinished
 	}
 	cleanupErr := finishServerOpen(
-		cancel, cancelService, owner, tracker, host, writer, runDone, writerDone,
+		cancel, cancelService, owner, tracker, host, writer, runDone, writerDone, receiveJoined,
 		exit.runFinished, exit.writerFinished, exit.err,
 	)
 	cleanupErr = errors.Join(cleanupErr, s.service.Close())
 	exitErr := withoutClosureLeaves(exit.err)
-	if cleanupErr == nil && exitErr == nil {
-		return nil
+	var deliveryErr error
+	if cleanupErr != nil || exitErr != nil {
+		deliveryErr = fmt.Errorf("run UI operation stream: %w", errors.Join(exitErr, cleanupErr))
 	}
-	return streamStatus(fmt.Errorf("run UI operation stream: %w", errors.Join(exitErr, cleanupErr)))
+	// A late actual Send failure supplements, but cannot reclassify, the selected transport cause.
+	deliveryErr = errors.Join(streamStatus(deliveryErr), writer.PendingSendError())
+	return joinOutputSources(deliveryErr, owner.SourceErrors(), writer.SourceErrors(), pendingReceiveError(receiveDone))
 }
 
 // sendUIResponse lets connection cancellation release the writer from a blocked transport send.
@@ -323,20 +333,12 @@ func sendUIResponse(
 	response *uiv1.OpenResponse,
 	send func(*uiv1.OpenResponse) error,
 ) error {
-	if err := context.Cause(ctx); err != nil {
-		return err
-	}
-	sent := make(chan error, 1)
-	go func() { sent <- send(response) }()
-	select {
-	case err := <-sent:
-		if err != nil {
+	return operation.SendWithContext(ctx, func() error {
+		if err := send(response); err != nil {
 			return fmt.Errorf("send UI response: %w", err)
 		}
 		return nil
-	case <-ctx.Done():
-		return context.Cause(ctx)
-	}
+	})
 }
 
 // serverLoopExit describes the first SDK endpoint component that stopped.
@@ -400,7 +402,7 @@ func awaitServerLoopExit(
 func enqueueSDKClose(writer *operation.Writer[*uiv1.OpenResponse], action string) error {
 	response := new(uiv1.OpenResponse)
 	response.SetClose(new(operationv1.CloseConnection))
-	if err := writer.Enqueue(response); err != nil {
+	if err := writer.Enqueue(response, nil); err != nil {
 		return fmt.Errorf("%s: %w", action, err)
 	}
 	return nil
@@ -436,6 +438,7 @@ func finishServerOpen(
 	writer *operation.Writer[*uiv1.OpenResponse],
 	runDone <-chan error,
 	writerDone <-chan error,
+	receiveJoined <-chan struct{},
 	runFinished bool,
 	writerFinished bool,
 	cause error,
@@ -453,6 +456,8 @@ func finishServerOpen(
 		}
 	}
 	owner.Close()
+	// Application request processing can finish rejection output after preparation releases its claim.
+	<-receiveJoined
 	tracker.Close()
 	host.closeEvents()
 	writer.Close()
@@ -507,8 +512,22 @@ func (s *server) receive(
 	closing *atomic.Bool,
 	peerClose chan<- struct{},
 ) error {
+	received := make(chan uiReceive)
+	go readUIRequests(ctx, stream, received)
 	for {
-		request, err := stream.Recv()
+		var next uiReceive
+		select {
+		case <-ctx.Done():
+			return nil
+		case next = <-received:
+		}
+		// The connection owns cancellation; this loop must not publish a second shutdown result.
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		request, err := next.request, next.err
 		if err != nil {
 			return err
 		}
@@ -525,17 +544,39 @@ func (s *server) receive(
 		if request.GetConnectionEvent() != nil && request.GetOperationId() != "" {
 			return protocolFault(errors.New("receive Host connection event: operation identifier must be empty"))
 		}
-		if request.GetRequest() != nil && request.GetOperationId() == "" {
-			if handleErr := s.handleRequest(ctx, request, owner, delivery, host); handleErr != nil {
-				return protocolFault(handleErr)
-			}
-			continue
-		}
-		if closing.Load() && request.GetRequest() != nil {
+		// Empty identifiers still use normal request validation while the connection closes.
+		if closing.Load() && request.GetRequest() != nil && request.GetOperationId() != "" {
 			return protocolFault(errors.New("receive Host operation: connection is closing"))
 		}
 		if handleErr := s.handleRequest(ctx, request, owner, delivery, host); handleErr != nil {
 			return protocolFault(handleErr)
+		}
+	}
+}
+
+// uiReceive separates a transport read from SDK application processing.
+type uiReceive struct {
+	// request is the received Host envelope.
+	request *uiv1.OpenRequest
+	// err is the raw transport read result.
+	err error
+}
+
+// readUIRequests performs no application work after server processing has stopped.
+func readUIRequests(
+	ctx context.Context,
+	stream grpc.BidiStreamingServer[uiv1.OpenRequest, uiv1.OpenResponse],
+	received chan<- uiReceive,
+) {
+	for {
+		request, err := stream.Recv()
+		select {
+		case received <- uiReceive{request: request, err: err}:
+		case <-ctx.Done():
+			return
+		}
+		if err != nil {
+			return
 		}
 	}
 }
@@ -632,7 +673,7 @@ func (s *server) handleHostOperation(
 func (s *server) reject(id, code string, cause error, delivery *uiDelivery) error {
 	event := new(uiv1.UIEvent)
 	event.SetRejected(operationv1.Rejected_builder{Code: new(code), Message: new(cause.Error())}.Build())
-	return delivery.writer.Enqueue(uiEventResponse(id, event))
+	return delivery.writer.Enqueue(uiEventResponse(id, event), cause)
 }
 
 // mapHostEvent maps one generated lifecycle event into the shared tracker.

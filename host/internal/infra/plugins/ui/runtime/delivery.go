@@ -23,7 +23,7 @@ func (d *Service) ReportRuntimeFailure(_ context.Context, failure extension.Runt
 	if err != nil {
 		return fmt.Errorf("format extension runtime failure: %w", err)
 	}
-	if sendErr := d.ReportError(controllerui.FailureCodeExtension, message); sendErr != nil {
+	if sendErr := d.ReportError(controllerui.FailureCodeExtension, errors.New(message)); sendErr != nil {
 		return fmt.Errorf("send extension runtime failure: %w", sendErr)
 	}
 	return nil

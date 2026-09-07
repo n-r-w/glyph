@@ -29,6 +29,20 @@ func (e *transportError) Unwrap() error { return e.cause }
 // GRPCStatus exposes the classified status without replacing the source cause.
 func (e *transportError) GRPCStatus() *status.Status { return status.New(e.code, e.cause.Error()) }
 
+// JoinOutputSources adds undelivered diagnostics after selecting the transport category.
+func JoinOutputSources(delivery error, sources ...error) error {
+	classified := ClassifyTransportError(delivery)
+	source := errors.Join(sources...)
+	if source == nil {
+		return classified
+	}
+	code := status.Code(classified)
+	if code == codes.OK {
+		code = codes.Unavailable
+	}
+	return &transportError{code: code, cause: errors.Join(classified, source)}
+}
+
 // ClassifyTransportError preserves incoming status and classifies queue overflow.
 func ClassifyTransportError(err error) error {
 	if err == nil {

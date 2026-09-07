@@ -62,6 +62,7 @@ func TestActivationCleanupCancelsAndJoinsAuthenticationCheck(t *testing.T) {
 	authenticator := NewMockAuthenticator(controller)
 	activation := NewMockRuntimeActivation(controller)
 	activated := activation.EXPECT().Activate(gomock.Any())
+	activation.EXPECT().StopReporting().After(activated)
 	started := make(chan struct{})
 	stopped := make(chan struct{})
 	authenticator.EXPECT().

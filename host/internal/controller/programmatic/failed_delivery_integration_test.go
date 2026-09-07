@@ -6,7 +6,6 @@ import (
 	"context"
 	"errors"
 	"strings"
-	"sync"
 	"testing"
 	"testing/synctest"
 
@@ -95,11 +94,79 @@ func TestFailedTerminalSendPreservesCompletionCauses(t *testing.T) {
 	})
 }
 
+// TestCanceledTerminalWaitExcludesDeliveredSource verifies final send confirmation overrides a canceled wait.
+func TestCanceledTerminalWaitExcludesDeliveredSource(t *testing.T) {
+	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange failed accepted work and a terminal Send that completes after connection cancellation.
+		controller := gomock.NewController(t)
+		source := errors.New("delivered terminal source")
+		connectionErr := errors.New("connection cancellation while Send is active")
+		ctx, cancel := context.WithCancelCause(t.Context())
+		defer cancel(context.Canceled)
+		prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
+		prepared.EXPECT().
+			Run(gomock.Any(), gomock.Any()).
+			Return(operation.Failed[Response](FailureCodeInternal, source))
+		prepared.EXPECT().Release()
+		host := NewMockHostSession(controller)
+		host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
+		output := NewMockConnectionOutput(controller)
+		output.EXPECT().BindWriter(gomock.Any()).Return(func() {})
+		stream := NewMockOpenStream(controller)
+		stream.EXPECT().Context().Return(ctx)
+		request := new(programmaticv1.OpenRequest)
+		request.SetOperationId("delivered-failure")
+		payload := new(programmaticv1.ControllerRequest)
+		payload.SetGetModels(new(programmaticv1.GetModels))
+		request.SetRequest(payload)
+		receiveStop := make(chan struct{})
+		gomock.InOrder(
+			stream.EXPECT().Recv().Return(request, nil),
+			stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
+				<-receiveStop
+				return nil, context.Canceled
+			}),
+		)
+		sendStarted := make(chan struct{})
+		sendRelease := make(chan struct{})
+		stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
+			if response.GetEvent().HasFailed() {
+				assert.Equal(t, source.Error(), response.GetEvent().GetFailed().GetMessage())
+				close(sendStarted)
+				<-sendRelease
+			}
+			return nil
+		}).Times(3)
+		service := New(t.Context(), host, output)
+		result := make(chan error, 1)
+
+		// Act by canceling the waiter, then completing the actual transport send successfully.
+		go func() { result <- service.open(stream) }()
+		<-sendStarted
+		cancel(connectionErr)
+		synctest.Wait()
+		close(sendRelease)
+		err := <-result
+		completion := <-service.Completions()
+		close(receiveStop)
+		synctest.Wait()
+
+		// Assert completed delivery removes only its source from local connection failure.
+		require.ErrorIs(t, err, connectionErr)
+		require.ErrorIs(t, completion.Err, connectionErr)
+		require.NotErrorIs(t, err, source)
+		require.NotErrorIs(t, completion.Err, source)
+		assert.Equal(t, codes.Unavailable, status.Code(err))
+	})
+}
+
 // TestPendingFailedTerminalPreservesCompletionCauses verifies completion when an earlier send blocks delivery.
 func TestPendingFailedTerminalPreservesCompletionCauses(t *testing.T) {
 	t.Parallel()
 	for _, mode := range []string{
 		"earlier send failure", "stream cancellation", "terminal enqueue overflow", "receive failure",
+		"work fails after delivery stops",
 	} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
@@ -123,10 +190,13 @@ func TestPendingFailedTerminalPreservesCompletionCauses(t *testing.T) {
 				)
 				prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 				prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-					func(context.Context, operation.Reporter[OperationProgress]) operation.Outcome[Response] {
+					func(ctx context.Context, _ operation.Reporter[OperationProgress]) operation.Outcome[Response] {
 						<-running
+						if mode == "work fails after delivery stops" {
+							<-ctx.Done()
+						}
 						if mode == "terminal enqueue overflow" {
-							for writer.Enqueue(new(programmaticv1.OpenResponse)) == nil {
+							for writer.Enqueue(new(programmaticv1.OpenResponse), nil) == nil {
 							}
 						}
 						return operation.Failed[Response](FailureCodeInternal, source)
@@ -161,7 +231,7 @@ func TestPendingFailedTerminalPreservesCompletionCauses(t *testing.T) {
 						assert.True(t, response.GetEvent().HasRunning())
 						close(running)
 						<-release
-						if mode == "earlier send failure" {
+						if mode == "earlier send failure" || mode == "work fails after delivery stops" {
 							return deliveryErr
 						}
 						return nil
@@ -226,7 +296,7 @@ func TestFailedTerminalQueueAndAcknowledgementPreserveCauses(t *testing.T) {
 			switch name {
 			case "queue full":
 				for {
-					deliveryErr = writer.Enqueue(new(programmaticv1.OpenResponse))
+					deliveryErr = writer.Enqueue(new(programmaticv1.OpenResponse), nil)
 					if deliveryErr != nil {
 						break
 					}
@@ -242,25 +312,24 @@ func TestFailedTerminalQueueAndAcknowledgementPreserveCauses(t *testing.T) {
 			var reported error
 			delivery := &streamDelivery{
 				context: ctx, writer: writer, registry: newTargetRegistry(),
-				fail:  func(err error) { reported = err },
-				mutex: sync.Mutex{}, failureSources: make(map[string]error),
+				fail: func(err error) { reported = err },
 			}
 
 			// Act by reporting the operation failure through Terminal.
 			ack, err := delivery.Terminal("failed-operation", operation.Failed[Response](FailureCodeInternal, source))
 
-			// Assert both returned and connection-fatal errors retain source and delivery causes.
-			assert.Nil(t, ack)
+			// Assert enqueue failures have no acknowledgement, while canceled waits preserve send confirmation.
+			if name == "acknowledgement canceled" {
+				assert.NotNil(t, ack)
+			} else {
+				assert.Nil(t, ack)
+			}
 			expectedCode := codes.Unavailable
 			if name == "queue full" {
 				expectedCode = codes.ResourceExhausted
 			}
 			assert.Equal(t, expectedCode, status.Code(mapDeliveryError(reported)))
-			// A later acknowledgement can receive the already mapped connection cause.
-			firstReport := reported
-			require.EqualError(t, delivery.failed(firstReport), firstReport.Error())
 			for _, result := range []error{err, reported} {
-				require.ErrorIs(t, result, source)
 				require.ErrorIs(t, result, deliveryErr)
 			}
 			writer.Close()

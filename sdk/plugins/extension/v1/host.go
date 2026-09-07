@@ -67,8 +67,10 @@ type Connection struct {
 	mutex sync.Mutex
 	// kinds maps initiated identifiers to expected completed payloads.
 	kinds map[string]requestKind
-	// err records the first stream failure.
+	// err records the first stream failure used for cancellation and live operations.
 	err error
+	// completionErr contains independent cleanup failures and undelivered sources after joining.
+	completionErr error
 	// writerDone reports completion of the writer goroutine.
 	writerDone chan error
 	// receiveDone reports completion of the receive goroutine.
@@ -113,12 +115,13 @@ func (c *Client) Open(ctx context.Context) (*Connection, error) {
 		writer:    nil,
 		tracker:   operation.NewTracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted](),
 		hostOwner: nil, hostService: nil,
-		mutex:       sync.Mutex{},
-		kinds:       make(map[string]requestKind),
-		err:         nil,
-		writerDone:  make(chan error, 1),
-		receiveDone: make(chan error, 1),
-		closeOnce:   sync.Once{},
+		mutex:         sync.Mutex{},
+		kinds:         make(map[string]requestKind),
+		err:           nil,
+		completionErr: nil,
+		writerDone:    make(chan error, 1),
+		receiveDone:   make(chan error, 1),
+		closeOnce:     sync.Once{},
 	}
 	connection.writer = operation.NewWriter(func(request *extensionpb.OpenRequest) error {
 		if sendErr := stream.Send(request); sendErr != nil {
@@ -173,7 +176,7 @@ func (c *Connection) Start(
 
 		OperationId: new(id), Request: request, Close: nil,
 	}.Build()
-	if err = c.writer.Enqueue(message); err != nil {
+	if err = c.writer.Enqueue(message, nil); err != nil {
 		mapped := mapDeliveryError(err)
 		c.fail(mapped)
 		return nil, fmt.Errorf("queue extension operation %q: %w", id, mapped)
@@ -204,14 +207,14 @@ func (c *Connection) Close() error {
 			Event: nil,
 
 			OperationId: new(""), Request: nil, Close: new(operationpb.CloseConnection),
-		}.Build()); err != nil {
+		}.Build(), nil); err != nil {
 			mapped := mapDeliveryError(err)
 			c.fail(mapped)
 		}
 		c.hostOwner.Close()
 		c.join()
 	})
-	return c.connectionError()
+	return c.completionError()
 }
 
 // Fail marks a Host-detected peer protocol violation and joins failed connection work.
@@ -222,25 +225,46 @@ func (c *Connection) Fail(cause error) error {
 	mapped := newProtocolStatusError(codes.FailedPrecondition, cause.Error(), cause)
 	c.fail(mapped)
 	c.closeOnce.Do(c.join)
-	return c.connectionError()
+	return c.completionError()
 }
 
 // join stops the writer and waits for send, receive, and tracker cleanup.
 func (c *Connection) join() {
 	c.writer.Close()
-	writerErr := <-c.writerDone
-	if writerErr != nil && !errors.Is(writerErr, context.Canceled) {
-		c.recordError(writerErr)
-	}
+	// Keep independent cleanup errors separately from the first shutdown cause.
+	writerErr := withoutClosureLeaves(<-c.writerDone)
+	c.recordError(writerErr)
+	var closeErr error
 	if err := c.stream.CloseSend(); err != nil {
-		c.recordError(mapStreamError(err))
+		closeErr = mapStreamError(err)
+		c.recordError(closeErr)
 	}
-	receiveErr := <-c.receiveDone
-	if receiveErr != nil {
-		c.recordError(receiveErr)
-	}
+	receiveErr := withoutClosureLeaves(<-c.receiveDone)
+	c.recordError(receiveErr)
+	// receive closes and joins accepted Host work before publishing its completion.
+	c.hostOwner.Wait()
 	c.tracker.Close()
 	c.cancel(context.Canceled)
+	result := c.connectionError()
+	for _, cleanupErr := range []error{writerErr, closeErr, receiveErr} {
+		if cleanupErr != nil && !errors.Is(result, cleanupErr) {
+			result = errors.Join(result, cleanupErr)
+		}
+	}
+	result = joinOutputSources(result, c.hostOwner.SourceErrors(), c.writer.SourceErrors())
+	c.mutex.Lock()
+	c.completionErr = result
+	c.mutex.Unlock()
+}
+
+// completionError returns joined completion without changing the first cancellation cause.
+func (c *Connection) completionError() error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if c.completionErr != nil {
+		return c.completionErr
+	}
+	return c.err
 }
 
 // Wait delivers ordered progress and returns the completed payload or terminal error.

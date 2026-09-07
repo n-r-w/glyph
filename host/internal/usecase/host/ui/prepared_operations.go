@@ -77,7 +77,14 @@ func (prepared *preparedUIOperation) Run(
 	if remainingErr != nil {
 		return operation.Failed[controllerui.Frame](prepared.failureCode(remainingErr), remainingErr)
 	}
-	return operation.Completed(result)
+	// Completed navigation can still carry declared handler and observer diagnostics.
+	var sources []error
+	if navigation, present := result.TreeNavigation.Get(); present {
+		for _, issue := range navigation.Issues {
+			sources = append(sources, errors.New(issue.Message))
+		}
+	}
+	return operation.CompletedWithSource(result, errors.Join(sources...))
 }
 
 // withoutCancellationLeaves removes only pure cancellation leaves from joined errors.
@@ -138,6 +145,7 @@ func (s *Session) Activate(ctx context.Context) func() {
 	return func() {
 		cancelAuthentication(context.Canceled)
 		authenticationWork.Wait()
+		s.runtime.StopReporting()
 	}
 }
 
@@ -157,7 +165,7 @@ func (s *Session) checkOperationAuthentication(ctx context.Context) {
 		}
 		// Output.ReportError routes writer failures to the connection failure owner.
 		// This worker has no result channel.
-		_ = s.output.ReportError(code, remainingErr.Error())
+		_ = s.output.ReportError(code, remainingErr)
 	}
 	s.setOperationAvailability(availability)
 	// Output.SetAvailability routes writer failures to the connection failure owner.

@@ -77,7 +77,7 @@ func (delivery *extensionDelivery) Accepted(id string) (*operation.Acknowledgeme
 func (delivery *extensionDelivery) Running(id string) error {
 	event := new(extensionpb.ExtensionEvent)
 	event.SetRunning(new(operationv1.Running))
-	return delivery.enqueue(extensionEventResponse(id, event))
+	return delivery.enqueue(extensionEventResponse(id, event), nil)
 }
 
 // Progress queues one tool progress event.
@@ -89,7 +89,7 @@ func (delivery *extensionDelivery) Progress(id string, progress *extensionpb.Too
 	payload.SetTool(progress)
 	event := new(extensionpb.ExtensionEvent)
 	event.SetProgress(payload)
-	return delivery.enqueue(extensionEventResponse(id, event))
+	return delivery.enqueue(extensionEventResponse(id, event), nil)
 }
 
 // Terminal queues and acknowledges one terminal event.
@@ -190,8 +190,8 @@ func (delivery *extensionDelivery) terminalError(err error) (*operation.Acknowle
 }
 
 // enqueue queues one response and reports delivery failure.
-func (delivery *extensionDelivery) enqueue(response *extensionpb.OpenResponse) error {
-	err := delivery.writer.Enqueue(response)
+func (delivery *extensionDelivery) enqueue(response *extensionpb.OpenResponse, source error) error {
+	err := delivery.writer.Enqueue(response, source)
 	if err != nil {
 		mapped := mapDeliveryError(err)
 		delivery.fail(mapped)
@@ -204,7 +204,7 @@ func (delivery *extensionDelivery) enqueue(response *extensionpb.OpenResponse) e
 func (delivery *extensionDelivery) enqueueAcknowledged(
 	response *extensionpb.OpenResponse,
 ) (*operation.Acknowledgement, error) {
-	acknowledgement, err := delivery.writer.EnqueueAcknowledged(response)
+	acknowledgement, err := delivery.writer.EnqueueAcknowledged(response, nil)
 	if err != nil {
 		mapped := mapDeliveryError(err)
 		delivery.fail(mapped)
@@ -272,10 +272,10 @@ func (s *server) handleRequest(
 		delivery.takeInvocation(id)
 		if rejection, ok := errors.AsType[*RejectionError](err); ok {
 			if codeErr := validateRejectionCode(kind, rejection.Code()); codeErr != nil {
-				cause := errors.Join(codeErr, rejection)
+				cause := errors.Join(codeErr, err)
 				return newProtocolStatusError(codes.Internal, cause.Error(), cause)
 			}
-			return s.reject(delivery, id, rejection.Code(), rejection)
+			return s.reject(delivery, id, rejection.Code(), err)
 		}
 		return newProtocolStatusError(codes.Internal, err.Error(), err)
 	}
@@ -365,7 +365,7 @@ func (s *server) reject(
 ) error {
 	event := new(extensionpb.ExtensionEvent)
 	event.SetRejected(operationv1.Rejected_builder{Code: new(code), Message: new(cause.Error())}.Build())
-	return delivery.enqueue(extensionEventResponse(id, event))
+	return delivery.enqueue(extensionEventResponse(id, event), cause)
 }
 
 // beginRegistration admits only the first startup request.

@@ -54,7 +54,7 @@ func (c *Service) closeUnsuccessfulInitialization() error {
 	go func() { writerDone <- writer.Run(c.stream.Context()) }()
 	closeRequest := new(uiv1.OpenRequest)
 	closeRequest.SetClose(new(operationv1.CloseConnection))
-	acknowledgement, err := writer.EnqueueAcknowledged(closeRequest)
+	acknowledgement, err := writer.EnqueueAcknowledged(closeRequest, nil)
 	if err == nil {
 		err = acknowledgement.Wait(c.stream.Context())
 	}
@@ -92,7 +92,7 @@ func (c *Service) initialize(ctx context.Context, request *uiv1.OpenRequest) (re
 	defer func() {
 		returnErr = finishInitialization(returnErr, tracker, writer, writerDone)
 	}()
-	if err = writer.Enqueue(request); err != nil {
+	if err = writer.Enqueue(request, c.startupSources()); err != nil {
 		return fmt.Errorf("send UI initialization: %w", err)
 	}
 
@@ -155,9 +155,9 @@ func finishInitialization(
 	tracker.Close()
 	writer.Close()
 	if writerErr := controllerui.WithoutTransportClosureLeaves(<-writerDone); writerErr != nil {
-		return errors.Join(result, fmt.Errorf("run UI initialization writer: %w", writerErr))
+		result = errors.Join(result, fmt.Errorf("run UI initialization writer: %w", writerErr))
 	}
-	return result
+	return controllerui.JoinOutputSources(result, writer.SourceErrors())
 }
 
 // processInitializationResponse validates and tracks one startup stream response.
@@ -175,7 +175,7 @@ func processInitializationResponse(
 	}
 	if received.response.GetRequest() != nil {
 		err := controllerui.RejectStartupRequest(&operationDelivery{
-			ctx: ctx, writer: writer, fail: nil, mutex: sync.Mutex{}, kinds: nil, failureSources: nil,
+			ctx: ctx, writer: writer, fail: nil, mutex: sync.Mutex{}, kinds: nil,
 		}, received.response)
 		return operation.Event[struct{}, *uiv1.UICompleted]{}, false, err
 	}
@@ -256,7 +256,7 @@ func (c *Service) startInitializationCancellation(
 	if enqueueErr := writer.Enqueue(uiv1.OpenRequest_builder{
 		OperationId: new(initializationCancellationOperationID), Request: request,
 		Event: nil, ConnectionEvent: nil, Close: nil,
-	}.Build()); enqueueErr != nil {
+	}.Build(), nil); enqueueErr != nil {
 		return nil, fmt.Errorf("send UI initialization cancellation: %w", enqueueErr)
 	}
 	return events, nil

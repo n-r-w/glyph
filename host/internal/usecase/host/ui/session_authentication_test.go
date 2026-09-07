@@ -49,7 +49,7 @@ func TestAuthenticationCheckClassifiesFailure(t *testing.T) {
 			authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(source)
 			authenticator.EXPECT().IsSignInRequired(source).Return(test.signInRequired)
 			gomock.InOrder(
-				channel.EXPECT().ReportError(test.code, source.Error()).Return(nil),
+				channel.EXPECT().ReportError(test.code, source).Return(nil),
 				channel.EXPECT().SetAvailability(AvailabilityAuthenticationFailed).Return(nil),
 			)
 			service := NewSession(

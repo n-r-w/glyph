@@ -94,11 +94,9 @@ func (s *Service) open(stream OpenStream) error {
 	defer unbind()
 	var owner *operation.Owner[OperationProgress, Response]
 	delivery := &streamDelivery{
-		context:        connectionContext,
-		writer:         writer,
-		registry:       registry,
-		mutex:          sync.Mutex{},
-		failureSources: make(map[string]error),
+		context:  connectionContext,
+		writer:   writer,
+		registry: registry,
 		fail: func(err error) {
 			cancelConnection(mapDeliveryError(err))
 			if owner != nil {
@@ -109,20 +107,27 @@ func (s *Service) open(stream OpenStream) error {
 	owner = operation.NewOwner(connectionContext, delivery)
 
 	writerResult := make(chan error, 1)
+	// Every completion branch joins writerResult before reading the retained writer completion.
+	var writerCompletion error
 	go func() {
-		writerResult <- writer.Run(connectionContext)
+		writerCompletion = writer.Run(connectionContext)
+		writerResult <- writerCompletion
 	}()
 	closing := &localClosingState{started: atomic.Bool{}}
 	receiveResult := make(chan error, 1)
+	receiveJoined := make(chan struct{})
 	go func() {
-		receiveResult <- s.receive(connectionContext, stream, owner, delivery, registry, closing)
+		defer close(receiveJoined)
+		if err := s.receive(connectionContext, stream, owner, delivery, registry, closing); err != nil {
+			receiveResult <- err
+		}
 	}()
 
 	var completion SessionCompletion
 	var rpcErr error
 	select {
 	case receiveErr := <-receiveResult:
-		if errors.Is(receiveErr, io.EOF) {
+		if isReceiveEOF(receiveErr) {
 			completion = SessionCompletion{Cause: SessionCompletionCleanClientClosure, Err: nil}
 			owner.Close()
 			registry.close()
@@ -155,6 +160,7 @@ func (s *Service) open(stream OpenStream) error {
 		if writeErr == nil {
 			writeErr = errors.New("programmatic writer stopped before stream closure")
 		}
+		cancelConnection(writeErr)
 		owner.Fail(writeErr)
 		owner.Wait()
 		registry.close()
@@ -187,11 +193,23 @@ func (s *Service) open(stream OpenStream) error {
 			connectionContext, s.applicationContext.Err(), cancelConnection, writer, receiveResult, writerResult,
 		)
 	}
-	// Every branch above joins owned work before reading its undelivered terminal causes.
-	// Writer or receive failure can win the select before Terminal reports acknowledgement failure.
-	_, completion.Err = delivery.joinFailureSources(completion.Err)
-	if joined, combined := delivery.joinFailureSources(rpcErr); joined {
-		rpcErr = newCausedStatusError(status.Code(rpcErr), combined.Error(), combined)
+	// Stop request processing and join its final rejection enqueue without waiting on raw server Recv.
+	cancelConnection(context.Canceled)
+	<-receiveJoined
+	owner.Wait()
+	// Source snapshots cannot select the primary delivery category.
+	sources := errors.Join(
+		owner.SourceErrors(), writer.SourceErrors(), pendingReceiveError(receiveResult),
+		independentWriterError(completion.Err, writerCompletion),
+	)
+	if sources != nil {
+		completion.Err = errors.Join(completion.Err, sources)
+		code := status.Code(rpcErr)
+		if code == codes.OK {
+			code = codes.Unavailable
+		}
+		combined := errors.Join(rpcErr, sources)
+		rpcErr = newCausedStatusError(code, combined.Error(), combined)
 	}
 	s.completions <- completion
 	return rpcErr
@@ -208,7 +226,7 @@ func waitForControllerHalfClose(
 ) (SessionCompletion, error) {
 	select {
 	case receiveErr := <-receiveResult:
-		if !errors.Is(receiveErr, io.EOF) {
+		if !isReceiveEOF(receiveErr) {
 			cancelConnection(receiveErr)
 			<-writerResult
 			if isReceiveTransportFailure(receiveErr) {
@@ -269,8 +287,22 @@ func (s *Service) receive(
 	registry *targetRegistry,
 	closing *localClosingState,
 ) error {
+	received := make(chan programmaticReceive)
+	go receiveProgrammaticRequests(ctx, stream, received)
 	for {
-		request, err := stream.Recv()
+		var next programmaticReceive
+		select {
+		case <-ctx.Done():
+			return nil
+		case next = <-received:
+		}
+		// The connection owns cancellation; this loop must not publish a second shutdown result.
+		select {
+		case <-ctx.Done():
+			return nil
+		default:
+		}
+		request, err := next.request, next.err
 		if err != nil {
 			return err
 		}
@@ -328,7 +360,30 @@ func (s *Service) receive(
 			}
 			continue
 		}
-		return status.Errorf(codes.Internal, "prepare Programmatic operation: %v", err)
+		return newCausedStatusError(codes.Internal, fmt.Sprintf("prepare Programmatic operation: %v", err), err)
+	}
+}
+
+// programmaticReceive separates raw transport reads from joined application processing.
+type programmaticReceive struct {
+	// request is the next controller envelope.
+	request *programmaticv1.OpenRequest
+	// err is the transport read result.
+	err error
+}
+
+// receiveProgrammaticRequests cannot start application work after processing has stopped.
+func receiveProgrammaticRequests(ctx context.Context, stream OpenStream, received chan<- programmaticReceive) {
+	for {
+		request, err := stream.Recv()
+		select {
+		case received <- programmaticReceive{request: request, err: err}:
+		case <-ctx.Done():
+			return
+		}
+		if err != nil {
+			return
+		}
 	}
 }
 
@@ -431,6 +486,49 @@ func mapTransportError(err error) error {
 		fmt.Sprintf("programmatic transport failed: %v", err),
 		err,
 	)
+}
+
+// independentWriterError retains delivery failures not already owned by the selected completion.
+func independentWriterError(primary, writerErr error) error {
+	if writerErr == nil || errors.Is(primary, writerErr) || onlyCancellation(writerErr) {
+		return nil
+	}
+	return writerErr
+}
+
+// onlyCancellation identifies shutdown-only errors without discarding mixed independent causes.
+func onlyCancellation(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, cause := range joined.Unwrap() {
+			if !onlyCancellation(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if cause := errors.Unwrap(err); cause != nil {
+		return onlyCancellation(cause)
+	}
+	return errors.Is(err, context.Canceled)
+}
+
+// isReceiveEOF distinguishes raw request EOF from a classified failure whose source includes EOF.
+func isReceiveEOF(err error) bool {
+	_, classified := status.FromError(err)
+	return !classified && errors.Is(err, io.EOF)
+}
+
+// pendingReceiveError collects a final application failure after its producer joins.
+func pendingReceiveError(received <-chan error) error {
+	select {
+	case err := <-received:
+		if isReceiveEOF(err) {
+			return nil
+		}
+		return err
+	default:
+		return nil
+	}
 }
 
 // isReceiveTransportFailure identifies stream termination caused by the receive transport.

@@ -32,7 +32,7 @@ func (c *Service) sendFrame(frame controllerui.Frame) error {
 	if writer == nil {
 		return errors.New("send UI frame: operation writer is not running")
 	}
-	err = writer.Enqueue(mapped)
+	err = writer.Enqueue(mapped, nil)
 	if err != nil && !errors.Is(err, operation.ErrClosed) {
 		c.reportDeliveryFailure(err)
 	}

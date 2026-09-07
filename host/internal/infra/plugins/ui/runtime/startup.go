@@ -85,6 +85,18 @@ func (s *Service) flushSelectionWarnings() error {
 	return result
 }
 
+// startupSources identifies declared startup failures without interpreting rendered content.
+func (s *Service) startupSources() error {
+	sources := make([]error, 0, len(s.startupReport.Issues)+len(s.selectionIssues))
+	for _, issue := range s.startupReport.Issues {
+		sources = append(sources, issue.Err)
+	}
+	for _, issue := range s.selectionIssues {
+		sources = append(sources, issue.Err)
+	}
+	return errors.Join(sources...)
+}
+
 // buildInitialization combines authoritative Host state with output-owned startup diagnostics.
 func (s *Service) buildInitialization(state hostui.Initialization) Initialization {
 	// Only the authoritative final report supplies extension issues.

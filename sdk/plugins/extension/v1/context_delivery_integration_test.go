@@ -27,7 +27,7 @@ func TestHostRunningQueueFailureStopsConnection(t *testing.T) {
 	// Arrange: fill the shared ordered writer without starting its transport drain.
 	connection, delivery, _ := isolatedHostDelivery(t)
 	for {
-		err := connection.writer.Enqueue(new(extensionpb.OpenRequest))
+		err := connection.writer.Enqueue(new(extensionpb.OpenRequest), nil)
 		if err != nil {
 			require.ErrorIs(t, err, operation.ErrQueueFull)
 			break
@@ -119,11 +119,20 @@ func isolatedHostDelivery(t *testing.T) (*Connection, *hostDelivery, <-chan *ext
 	ctx, cancel := context.WithCancelCause(t.Context())
 	frames := make(chan *extensionpb.OpenRequest, 256)
 	connection := &Connection{
-		ctx: ctx, cancel: cancel, stream: nil,
-		writer:    operation.NewWriter(func(frame *extensionpb.OpenRequest) error { frames <- frame; return nil }),
-		tracker:   operation.NewTracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted](),
-		hostOwner: nil, hostService: nil, mutex: sync.Mutex{}, kinds: make(map[string]requestKind), err: nil,
-		writerDone: nil, receiveDone: nil, closeOnce: sync.Once{},
+		ctx:           ctx,
+		cancel:        cancel,
+		stream:        nil,
+		writer:        operation.NewWriter(func(frame *extensionpb.OpenRequest) error { frames <- frame; return nil }),
+		tracker:       operation.NewTracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted](),
+		hostOwner:     nil,
+		hostService:   nil,
+		mutex:         sync.Mutex{},
+		kinds:         make(map[string]requestKind),
+		err:           nil,
+		completionErr: nil,
+		writerDone:    nil,
+		receiveDone:   nil,
+		closeOnce:     sync.Once{},
 	}
 	delivery := &hostDelivery{connection: connection}
 	connection.hostOwner = operation.NewOwner[struct{}, *extensionpb.HostCompleted](ctx, delivery)
