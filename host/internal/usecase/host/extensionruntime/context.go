@@ -6,17 +6,11 @@ import (
 	"sync"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
 const (
 	// staleRuntimeContextCode identifies references to replaced or unavailable process instances.
 	staleRuntimeContextCode = "STALE_CONTEXT"
-)
-
-var (
-	_ extensioncontext.RuntimeState         = (*Service)(nil)
-	_ extensioncontroller.RuntimeOperations = (*Service)(nil)
 )
 
 // runtimeContextError classifies runtime admission failure without losing its cause.

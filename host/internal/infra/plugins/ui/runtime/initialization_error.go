@@ -14,6 +14,8 @@ type initializationError struct {
 	cause error
 }
 
+var _ controllerui.InitializationFailure = (*initializationError)(nil)
+
 // Error returns complete public error text.
 func (e *initializationError) Error() string { return e.cause.Error() }
 
@@ -27,5 +29,3 @@ func (e *initializationError) Unwrap() error { return e.cause }
 func newInitializationError(code, message string) error {
 	return &initializationError{code: code, cause: errors.New(message)}
 }
-
-var _ controllerui.InitializationFailure = (*initializationError)(nil)

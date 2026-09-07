@@ -26,11 +26,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
-var (
-	_ events.ClientDelivery      = (*Renderer)(nil)
-	_ runcontrol.SettledDelivery = (*Renderer)(nil)
-)
-
 // Renderer writes headless model, tool, startup, and terminal output.
 type Renderer struct {
 	// stdout receives normal headless output.
@@ -40,6 +35,12 @@ type Renderer struct {
 	// modelLineOpen reports whether a streamed model line needs a trailing newline.
 	modelLineOpen bool
 }
+
+var (
+	_ events.ClientDelivery            = (*Renderer)(nil)
+	_ runcontrol.SettledDelivery       = (*Renderer)(nil)
+	_ extensionruntime.FailureReporter = (*Renderer)(nil)
+)
 
 const (
 	// extensionIssueFormat keeps headless observer diagnostics stable and identifiable.
@@ -289,5 +290,3 @@ func writeText(writer io.Writer, content string) error {
 	}
 	return nil
 }
-
-var _ extensionruntime.FailureReporter = (*Renderer)(nil)

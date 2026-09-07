@@ -29,7 +29,11 @@ type operationDelivery struct {
 	failureSources map[string]error
 }
 
-var _ operation.Delivery[controllerui.Frame, controllerui.OperationResult] = (*operationDelivery)(nil)
+var (
+	_ controllerui.OperationOutput                                         = (*operationDelivery)(nil)
+	_ controllerui.StartupOutput                                           = (*operationDelivery)(nil)
+	_ operation.Delivery[controllerui.Frame, controllerui.OperationResult] = (*operationDelivery)(nil)
+)
 
 // Accepted queues and acknowledges one accepted event.
 func (delivery *operationDelivery) Accepted(id string) (*operation.Acknowledgement, error) {
@@ -90,7 +94,8 @@ func (delivery *operationDelivery) Terminal(
 		request = hostEventRequest(id, event)
 	case operation.TerminalStateFailed:
 		delivery.setFailureSource(id, outcome.Err())
-		slog.ErrorContext(delivery.ctx, "Host UI operation failed",
+		slog.ErrorContext(
+			delivery.ctx, "Host UI operation failed",
 			slog.String("operation_id", id), slog.String("operation_kind", delivery.TakeKind(id)),
 			slog.String("peer_kind", "ui"), slog.String("category", outcome.Code()),
 			slog.Any("error", outcome.Err()),
@@ -213,13 +218,6 @@ func (c *Service) Recv() (*uiv1.OpenResponse, error) { return c.stream.Recv() }
 
 // CloseSend half-closes Host output after ordered delivery has stopped.
 func (c *Service) CloseSend() error { return c.stream.CloseSend() }
-
-var (
-	_ controllerui.Connection      = (*Service)(nil)
-	_ controllerui.OperationOutput = (*operationDelivery)(nil)
-)
-
-var _ controllerui.StartupOutput = (*operationDelivery)(nil)
 
 // CloseConnection queues the Host close request on the operation writer.
 func (delivery *operationDelivery) CloseConnection() (*operation.Acknowledgement, error) {

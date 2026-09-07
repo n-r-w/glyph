@@ -4,8 +4,6 @@ import (
 	"context"
 	"log/slog"
 
-	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
-
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 )
 
@@ -15,5 +13,3 @@ func (*Service) ReportRuntimeFailure(ctx context.Context, failure extension.Runt
 	slog.ErrorContext(ctx, message, "plugin_id", failure.PluginID, "error", runtimeErr)
 	return nil
 }
-
-var _ extensionruntime.FailureReporter = (*Service)(nil)

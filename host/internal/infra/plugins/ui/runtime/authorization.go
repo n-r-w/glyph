@@ -14,8 +14,6 @@ type Browser interface {
 	Open(ctx context.Context, authorizationURL string) error
 }
 
-var _ codex.Interaction = (*Service)(nil)
-
 // BindBrowser connects authorization output before authentication starts.
 func (s *Service) BindBrowser(browser Browser) { s.browser = browser }
 

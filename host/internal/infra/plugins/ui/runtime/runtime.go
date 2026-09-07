@@ -9,6 +9,10 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/codex"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -57,9 +61,15 @@ type Service struct {
 }
 
 var (
-	_ hostui.Runtime            = (*Service)(nil)
-	_ hostui.Output             = (*Service)(nil)
-	_ controllerui.StreamSource = (*Service)(nil)
+	_ hostui.Runtime                   = (*Service)(nil)
+	_ hostui.Output                    = (*Service)(nil)
+	_ controllerui.StreamSource        = (*Service)(nil)
+	_ codex.Interaction                = (*Service)(nil)
+	_ events.ClientDelivery            = (*Service)(nil)
+	_ runcontrol.SettledDelivery       = (*Service)(nil)
+	_ extensionruntime.FailureReporter = (*Service)(nil)
+	_ startup.Reporter                 = (*Service)(nil)
+	_ controllerui.Connection          = (*Service)(nil)
 )
 
 // New creates the selected-process owner before candidate selection.

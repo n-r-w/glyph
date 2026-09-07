@@ -39,8 +39,6 @@ const (
 	startupSummarySeparator = "; "
 )
 
-var _ startup.Reporter = (*Service)(nil)
-
 // BindSelection retains startup-only selection output until initialization or close delivers it.
 func (s *Service) BindSelection(selection hostui.Selection, stderr io.Writer) {
 	s.selectedUIID = selection.ID

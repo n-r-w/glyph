@@ -58,6 +58,7 @@ var (
 	_ sessiontree.ActiveSession     = (*Service)(nil)
 	_ agentrun.HistoryStore         = (*Service)(nil)
 	_ extensioncontext.SessionState = (*Service)(nil)
+	_ extensioncontext.SessionState = (*Service)(nil)
 )
 
 // New creates an active-session service without performing storage I/O.

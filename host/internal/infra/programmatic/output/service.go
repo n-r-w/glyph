@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
+	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
 	"github.com/samber/mo"
@@ -17,11 +18,6 @@ import (
 	host "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/internal/operation"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
-)
-
-var (
-	_ events.ClientDelivery      = (*Service)(nil)
-	_ runcontrol.SettledDelivery = (*Service)(nil)
 )
 
 // activeOutput correlates one prepared run with its operation-owned reporter.
@@ -47,8 +43,11 @@ type Service struct {
 }
 
 var (
-	_ host.RunOutput              = (*Service)(nil)
-	_ controller.ConnectionOutput = (*Service)(nil)
+	_ host.RunOutput                   = (*Service)(nil)
+	_ controller.ConnectionOutput      = (*Service)(nil)
+	_ events.ClientDelivery            = (*Service)(nil)
+	_ runcontrol.SettledDelivery       = (*Service)(nil)
+	_ extensionruntime.FailureReporter = (*Service)(nil)
 )
 
 // New creates an output owner before the connection is opened.

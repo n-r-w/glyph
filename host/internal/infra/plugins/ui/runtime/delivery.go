@@ -5,11 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
-
-	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
-
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
 	"github.com/samber/lo"
@@ -20,11 +15,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-)
-
-var (
-	_ events.ClientDelivery      = (*Service)(nil)
-	_ runcontrol.SettledDelivery = (*Service)(nil)
 )
 
 // ReportRuntimeFailure sends one classified post-start extension failure.
@@ -326,5 +316,3 @@ func progressChannel(channel tool.ProgressChannel) controllerui.ProgressChannel 
 		return 0
 	}
 }
-
-var _ extensionruntime.FailureReporter = (*Service)(nil)

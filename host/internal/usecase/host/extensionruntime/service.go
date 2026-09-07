@@ -10,8 +10,10 @@ import (
 	"slices"
 	"sync"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -40,11 +42,13 @@ type Service struct {
 }
 
 var (
-	_ startup.RuntimeLoader    = (*Service)(nil)
-	_ hostui.RuntimeActivation = (*Service)(nil)
-	_ toolservice.Runtime      = (*Service)(nil)
-	_ sessiontree.Runtime      = (*Service)(nil)
-	_ lifecycle.Runtime        = (*Service)(nil)
+	_ startup.RuntimeLoader                 = (*Service)(nil)
+	_ hostui.RuntimeActivation              = (*Service)(nil)
+	_ toolservice.Runtime                   = (*Service)(nil)
+	_ sessiontree.Runtime                   = (*Service)(nil)
+	_ lifecycle.Runtime                     = (*Service)(nil)
+	_ extensioncontext.RuntimeState         = (*Service)(nil)
+	_ extensioncontroller.RuntimeOperations = (*Service)(nil)
 )
 
 // runtimeState contains one extension process and its availability state.

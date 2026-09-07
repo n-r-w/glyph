@@ -14,6 +14,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 )
 
@@ -49,7 +50,10 @@ type Service struct {
 	state State
 }
 
-var _ runcontrol.Executor = (*Service)(nil)
+var (
+	_ runcontrol.Executor         = (*Service)(nil)
+	_ hostprogrammatic.StateQuery = (*Service)(nil)
+)
 
 // New creates an Agent Core run service.
 func New(

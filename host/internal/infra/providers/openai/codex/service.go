@@ -71,6 +71,7 @@ var (
 	_ run.ModelProvider                = (*Driver)(nil)
 	_ providers.CredentialChecker      = (*Driver)(nil)
 	_ providers.ProviderAuthentication = (*Driver)(nil)
+	_ run.ModelProvider                = (*Driver)(nil)
 )
 
 // New creates the production ChatGPT Codex provider.

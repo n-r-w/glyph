@@ -22,8 +22,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
-var _ run.ModelProvider = (*Driver)(nil)
-
 const (
 	requestFailedMessage   = "OpenAI Codex request failed."
 	requestCanceledMessage = "OpenAI Codex request was canceled."
