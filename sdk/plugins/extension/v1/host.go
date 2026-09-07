@@ -322,7 +322,7 @@ func (c *Connection) receive() error {
 			return nil
 		}
 		if err != nil {
-			mapped := mapPeerStreamError(err)
+			mapped := mapStreamError(err)
 			c.fail(mapped)
 			return mapped
 		}
@@ -382,10 +382,10 @@ func peerErrorPayloadContext(cause error, event *extensionpb.ExtensionEvent, inc
 				"%w: peer rejection category %q: peer rejection text: %s",
 				cause,
 				rejected.GetCode(),
-				boundExternalError(rejected.GetMessage()),
+				rejected.GetMessage(),
 			)
 		}
-		return fmt.Errorf("%w: peer rejection text: %s", cause, boundExternalError(rejected.GetMessage()))
+		return fmt.Errorf("%w: peer rejection text: %s", cause, rejected.GetMessage())
 	case extensionpb.ExtensionEvent_Failed_case:
 		failed := event.GetFailed()
 		if includeCategory {
@@ -393,10 +393,10 @@ func peerErrorPayloadContext(cause error, event *extensionpb.ExtensionEvent, inc
 				"%w: peer failure category %q: peer failure text: %s",
 				cause,
 				failed.GetCode(),
-				boundExternalError(failed.GetMessage()),
+				failed.GetMessage(),
 			)
 		}
-		return fmt.Errorf("%w: peer failure text: %s", cause, boundExternalError(failed.GetMessage()))
+		return fmt.Errorf("%w: peer failure text: %s", cause, failed.GetMessage())
 	case extensionpb.ExtensionEvent_Event_not_set_case,
 		extensionpb.ExtensionEvent_Accepted_case,
 		extensionpb.ExtensionEvent_Running_case,
@@ -506,9 +506,6 @@ func mapTerminalExtensionEvent(
 		if !completedMatches(kind, mapped.Result) {
 			return mapped, false, errors.New("extension completion does not match request kind")
 		}
-		if handlerError := mapped.Result.GetHandle().GetError(); handlerError != nil {
-			handlerError.SetMessage(boundExternalError(handlerError.GetMessage()))
-		}
 		if kind == requestCancel {
 			if err := validateCancelCompleted(mapped.Result.GetCancel()); err != nil {
 				return mapped, false, err
@@ -519,14 +516,14 @@ func mapTerminalExtensionEvent(
 	case extensionpb.ExtensionEvent_Failed_case:
 		mapped.Kind = operation.EventFailed
 		mapped.Code = event.GetFailed().GetCode()
-		mapped.Message = boundExternalError(event.GetFailed().GetMessage())
+		mapped.Message = event.GetFailed().GetMessage()
 		if err := validateFailureCode(mapped.Code); err != nil {
 			return mapped, false, err
 		}
 	case extensionpb.ExtensionEvent_Rejected_case:
 		mapped.Kind = operation.EventRejected
 		mapped.Code = event.GetRejected().GetCode()
-		mapped.Message = boundExternalError(event.GetRejected().GetMessage())
+		mapped.Message = event.GetRejected().GetMessage()
 		if err := validateRejectionCode(kind, mapped.Code); err != nil {
 			return mapped, false, err
 		}

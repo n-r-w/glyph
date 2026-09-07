@@ -8,11 +8,11 @@ The [ticket](ticket.md) defines PHS-07.1. The [audit](audit.md) records nine bas
 
 ### Status and scope
 
-Corrections 1 through 5 are implemented and verified. The revised TUI design replaces the stopped correction-5 attempt. After the documentation update, the user authorized only revised U5, its checks, and its separate local commit. Execution stops at U5; corrections 6 through 8 are not included in this continuation. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
+Corrections 1 through 6 are implemented and verified. The revised TUI design replaces the stopped correction-5 attempt. The user then corrected assertion placement in `b07707e` and authorized sequential U6, U7, U8, and independent integrated verification. Overall user acceptance remains required. Production evidence is commit `86be985c47cb3719cd98c7e611af6173c5692cfc`. Source extraction at `811af3ed8abdbd99e3c905588309fee8f0a809f2` found no production, test, protobuf, or build-configuration changes since that baseline. The governing architecture includes the contract-import clarification in `9461f0436fbd3700455e782441ad175f670bb9f6`. Commit `9b1f725` aligns the product PRD with complete external error-text preservation.
 
 Core implements Host consumer contracts with implementation-package assertions. It remains logically independent of concrete Host implementations, Host state, and Host policy. No assertion exception or forwarding Core adapter is required.
 
-All structural corrections preserve the public behavior defined by the implemented phases. Error-text corrections, the source-backed run-persistence distinction, and cancellation settlement recovery are [approved behavior decisions](#approved-behavior-decisions). Cancellation settlement recovery is implemented under U2. Error-text and persistence-category corrections remain open. Implementation remains subject to the verification and acceptance gates below. PHS-07 stays paused until the ticket's acceptance criteria pass. PHS-06 retry/compaction/model execution and PHS-12 provider migration are not brought into this plan.
+All structural corrections preserve the public behavior defined by the implemented phases. Error-text corrections, the source-backed run-persistence distinction, and cancellation settlement recovery are [approved behavior decisions](#approved-behavior-decisions). Cancellation settlement recovery is implemented under U2. Complete error-text corrections are implemented under U6. Persistence-category corrections remain open for U7. Implementation remains subject to the verification and acceptance gates below. PHS-07 stays paused until the ticket's acceptance criteria pass. PHS-06 retry/compaction/model execution and PHS-12 provider migration are not brought into this plan.
 
 ### Responsibility changes
 
@@ -448,9 +448,36 @@ Actual `go list` dependency closures exclude each implementation from its consum
 
 The final dry run produced no proposals. Local compile and lint failures were resolved with complete contract/test migration, typed payload groups, consumer/implementation separation, explicit struct fields, indexed iteration, and formatting/comment corrections. No dependency change or cache clearing was used. The implementation check measured 83.5% combined coverage, above the 80.0% threshold. Main-agent verification repeated the complete project sequence, both uncached affected race suites, TUI unit-tag lint, and two generation runs. Every command passed; the repeated coverage result was 83.6%. All 843 non-document source paths remained unchanged during those checks, and all 71 generated-file hashes remained identical. Independent source inspection confirmed the input/application/output boundaries, serialized transitions, snapshot invalidation, tree policy/geometry split, initialization cleanup, and bash timer ownership. `BenchmarkEditorSnapshot` measured 486.0, 486.7, and 464.9 ns/op for 100, 10,000, and 100,000 transcript lines on the verification machine, with 504 B/op and four allocations in every case. Editor-only publication does not clone the full transcript per key.
 
+#### U6: Complete error text
+
+Correction 6 is implemented and independently verified above `b07707e`. Corrections 7 and 8 remain open.
+
+The Extension SDK no longer truncates `Failed`, `Rejected`, ordinary `HandlerError`, malformed-event context, or gRPC status text. `Connection.receive` uses the existing transport error mapping directly. The removed `external_error.go` limit no longer replaces a received gRPC status or discards its cause. Diagnostics above 65,536 bytes retain their Unicode suffix, category, and original status cause.
+
+Codex HTTP 401 mapping now parses the same safe provider detail used for other HTTP failures. The terminal model response includes the sign-in message and provider detail. The returned error wraps both `ErrSignInRequired` and the original OpenAI SDK error.
+
+Request-handler action validation now returns the exact `validateRequest` or `Tree.NavigationPreparation` cause to `runRequestHandlers`. An invalid action retains the preceding handler state and adds one `navigationIssueInvalidHandlerAction`; the loop then invokes later handlers. Generic malformed action shapes retain `invalidHandlerActionMessage`.
+
+`Service.SetLabel` wraps `session.ErrEntryNotFound` together with the `Tree.SetLabel` cause before any repository call. Programmatic Control maps the wrapped category to `RejectionNotFound` and retains the complete cause. UI maps the same category to `FailureCodeSession` and retains the complete cause. The active tree remains unchanged on an absent target.
+
+The updated behavior tests produced executable uncached RED before production changes:
+
+- `go test -count=1 ./sdk/plugins/extension/v1 -run 'TestMapExtensionEventPreservesCompleteExternalErrorText|TestPeerStreamErrorsPreserveCompleteStatusText|TestExternalErrorIngressPreservesEveryOutcome'` exited 1 on lost suffixes and the replaced gRPC cause.
+- `go test -tags=integration -count=1 ./host/internal/infra/providers/openai/codex -run '^TestDriverStreamHTTPFailuresDoNotRetry$'` exited 1 because HTTP 401 omitted `expired token` from both the response and returned error.
+- `go test -count=1 ./host/internal/usecase/host/sessiontree -run '^TestNavigatePreservesStateForInvalidHandlerAction$'` exited 1 because the issue contained `extension handler returned an invalid action` instead of `custom focus is not allowed for this summary mode`.
+- `go test -count=1 ./host/internal/usecase/host/sessions -run '^TestSetLabelPublishesOnlyAfterPersistence$'` exited 1 because the returned error omitted `label target does not exist`.
+
+The same four commands exited 0 after the production changes. The real child-process SDK path and both Host client paths also passed uncached:
+
+- `go test -tags=integration -count=1 ./sdk/plugins/extension/v1 -run '^TestConnectAndServe$'` retained oversized `Rejected`, `Failed`, and ordinary `HandlerError` text through the public process boundary.
+- `go test -count=1 ./host/internal/usecase/host/programmatic -run '^TestReplacementFailuresReturnClassifiedStateFreeRejections$'`.
+- `go test -count=1 ./host/internal/usecase/host/ui -run '^TestUISessionMutationOwnsGate$'`.
+
+All implementation checks exited 0: `task fmt`; `task fix_dry_run`, with no proposals; `task lint`, with zero issues and `ifaceguard: no errors found`; `task test`; `task itest`; `task test-coverage`, with 83.5% against the 80.0% threshold; `task build`; and `git diff --check`. No contract or mock changed, so generation was not required. The clean baseline and one final check attempt had the same intermittent `task test-coverage` failure in `TestHostClosurePreservesWriterFailure` because an expected `MockOpenStream.Recv()` call was missed. `task test` passed before both failures. The implementation coverage rerun passed at 83.5%. Main-agent source review traced the original causes through the changed boundaries and retained classifiers. Main-agent verification repeated the full project sequence and affected uncached race suites; all passed, with 83.6% combined coverage and no fix proposals. No new interface, assertion, public schema, dependency, or generated contract was introduced. The Programmatic test starts with an already-canceled application context and does not wait for its receive goroutine before mock cleanup. U8 must make that phase-introduced fixture deterministic; a successful repeat is not its resolution.
+
 ### Execution control
 
-The user selected `final_only`. The complete plan retains corrections 1 through 8 in the stated order, with no concurrent source changes in the shared checkout. The current authorization ends after revised U5 and its separate commit; it does not authorize advancing to U6. Each correction is one implementation unit, U1 through U8, and has one separate local commit after its checks pass. Do not push. Rework of a committed unit produces a corrective commit. Overall user review follows integrated verification.
+The user selected `final_only` and authorized sequential execution of U6, U7, and U8 after revised U5. The complete plan retains corrections 1 through 8 in the stated order, with no concurrent source changes in the shared checkout. Each correction is one implementation unit, U1 through U8, and has one separate local commit after its checks pass. Do not push. Rework of a committed unit produces a corrective commit. Overall user review follows integrated verification.
 
 The [execution order](#execution-order) defines each unit's inputs, affected components, expected result, dependencies, risks, tests, and exit criteria. U1 establishes client contracts used by U2 and U3; U4 uses U1 through U3. U5 is independent of the Host structural changes but runs sequentially to avoid checkout interference. U6 corrects error paths at the owners established by the structural units. U7 uses run control, client mappings, and TUI ownership from U1, U2, and U5. U8 closes the combined result. Sequential execution is not an additional architectural dependency.
 
@@ -479,7 +506,7 @@ Each instance owns one atomic unit. Continuation of an instance is limited to co
 
 ## Approved behavior decisions
 
-The user approved QST-01 through QST-03 under ticket NFQ-01. QST-01 and QST-02 remain unimplemented and require the specified failing regressions. QST-03 has executable RED/GREEN evidence under U2. The user also approved the original correction plan and execution policy. The revised TUI target was documented first, then implemented under the user's U5-only authorization.
+The user approved QST-01 through QST-03 under ticket NFQ-01. QST-01 has executable RED/GREEN evidence under U6. QST-02 remains open for U7. QST-03 has executable RED/GREEN evidence under U2. The user also approved the original correction plan and execution policy. The revised TUI target was documented first, then implemented under the user's U5-only authorization.
 
 ### QST-01: Complete error-text corrections
 
@@ -495,7 +522,7 @@ Approved scope is defined under [Core invocation, events and state queries](#cor
 
 ## Open questions
 
-No unresolved behavior or ownership question remains for revised U5. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-04. BLK-05 remains assigned to U7. Execution stops after the U5 local commit; later units and whole-product acceptance remain pending.
+No unresolved behavior or ownership question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-04. BLK-05 remains assigned to U7. U8 includes the recorded phase-introduced Programmatic test race. Later-unit verification and whole-product acceptance remain pending.
 
 ## References
 

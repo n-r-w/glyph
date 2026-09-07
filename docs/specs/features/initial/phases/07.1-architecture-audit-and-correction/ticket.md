@@ -103,7 +103,7 @@ None.
 
 ## Open questions
 
-No unresolved ownership or behavior question remains for revised U5. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-04 with implementation evidence. BLK-05 remains open for correction 7. Main-agent source inspection and repeated U5 checks passed. The current execution ends with the U5 local commit; whole-product acceptance remains pending.
+No unresolved ownership or behavior question remains for revised U5. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-04 with implementation evidence. BLK-05 remains open for correction 7. Main-agent source inspection and repeated U5 checks passed. The user authorized the remaining correction units; whole-product acceptance remains pending.
 
 ## References
 

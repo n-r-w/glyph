@@ -1,6 +1,6 @@
 # TUI ownership gap
 
-Revised correction 5 closes BLK-01 through BLK-04. BLK-05 remains open for correction 7. Main-agent source verification and repeated project checks passed. The current execution ends with the separate U5 local commit. [U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records the implementation, test migration, local regression correction, and verification results.
+Revised correction 5 closes BLK-01 through BLK-04. BLK-05 remains open for correction 7. Main-agent source verification and repeated project checks passed. U5 has a separate verified local commit; the user authorized the remaining correction units. [U5 evidence](solution.md#u5-bundled-tool-and-tui-ownership) records the implementation, test migration, local regression correction, and verification results.
 
 The stopped attempt above commit `5f9fb7863b67d4e1767d8d62e9243999d3e65265` established this gap. That attempt kept domain `State.Apply` beside direct controller mutations. The revised implementation replaces those owners rather than accepting the stopped attempt. [Ticket FRQ-11 through FRQ-14 and NFQ-05](ticket.md#requirements) remain the acceptance requirements.
 

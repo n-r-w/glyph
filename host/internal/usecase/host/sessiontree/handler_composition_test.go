@@ -109,11 +109,11 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	}, result.Issues)
 }
 
-// TestNavigatePreservesStateForInvalidHandlerAction verifies invalid action shape cannot change current state.
+// TestNavigatePreservesStateForInvalidHandlerAction verifies an exact validation cause and later-handler continuation.
 func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one handler that combines preserve with a forbidden replacement payload.
+	// Arrange one invalid replacement followed by one valid replacement.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
@@ -126,40 +126,53 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	state := handlerState("session", selection, NavigationRequest{
 		TargetEntryID: "user", SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
 	}, preparation)
-	handler := Handler{ExtensionID: "extension", HandlerID: "invalid"}
+	invalid := Handler{ExtensionID: "extension", HandlerID: "invalid"}
+	valid := Handler{ExtensionID: "extension", HandlerID: "valid"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
 	models.EXPECT().ActiveSelection().Return(selection)
-	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{handler})
-	expectRequestHandler(handlers, handler, RequestHandlerInvocation{
+	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{invalid, valid})
+	expectRequestHandler(handlers, invalid, RequestHandlerInvocation{
 		Original: state, Current: state, CurrentResult: mo.None[HandlerBranchSummaryResult](),
 	}, RequestHandlerAction{
-		Cancel: false, RequestAction: RequestActionPreserve,
+		Cancel: false, RequestAction: RequestActionReplace,
 		Request: mo.Some(HandlerNavigationRequest{
 			Navigation: NavigationRequest{
 				TargetEntryID: "extension", SummaryMode: SummaryModeNoSummary,
-				CustomFocus: mo.None[string](),
+				CustomFocus: mo.Some("forbidden focus"),
 			},
 			SummaryModel: selection,
 		}),
 		ResultAction: ResultActionPreserve, Result: mo.None[HandlerBranchSummaryResult](),
 	}, nil)
+	validRequest := HandlerNavigationRequest{
+		Navigation: NavigationRequest{
+			TargetEntryID: "extension", SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
+		},
+		SummaryModel: selection,
+	}
+	expectRequestHandler(handlers, valid, RequestHandlerInvocation{
+		Original: state, Current: state, CurrentResult: mo.None[HandlerBranchSummaryResult](),
+	}, RequestHandlerAction{
+		Cancel: false, RequestAction: RequestActionReplace, Request: mo.Some(validRequest),
+		ResultAction: ResultActionPreserve, Result: mo.None[HandlerBranchSummaryResult](),
+	}, nil)
 	committed := tree.Clone()
-	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
+	require.NoError(t, committed.SetActiveLeaf(mo.Some("extension")))
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
-		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),
+		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("extension"),
 		BranchSummary: mo.None[BranchSummaryDraft](),
 	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry]()}, nil)
 
-	// Act with the invalid action.
+	// Act with the invalid action and its later valid handler.
 	result, err := navigateTreeForTest(t, service, t.Context(), state.Request.Navigation)
 
-	// Assert original state commits and one safe invalid-action issue is returned.
+	// Assert the invalid action keeps preceding state, reports its exact cause, and does not stop the later handler.
 	require.NoError(t, err)
-	assert.Equal(t, mo.Some("root"), result.ActiveLeafID)
+	assert.Equal(t, mo.Some("extension"), result.ActiveLeafID)
 	assert.Equal(t, []navigationIssue{{
 		Code: navigationIssueInvalidHandlerAction, ExtensionID: "extension",
-		HandlerID: "invalid", Message: "extension handler returned an invalid action",
+		HandlerID: "invalid", Message: "custom focus is not allowed for this summary mode",
 	}}, result.Issues)
 }
 

@@ -274,6 +274,7 @@ func TestSetLabelPublishesOnlyAfterPersistence(t *testing.T) {
 	require.Equal(t, map[string]string{"target": "branch"}, tree.Labels())
 	require.ErrorIs(t, clearErr, session.ErrPersistenceUnavailable)
 	require.ErrorIs(t, missingErr, session.ErrEntryNotFound)
+	require.ErrorContains(t, missingErr, "label target does not exist")
 	require.Equal(t, map[string]string{"target": "branch"}, service.active.Tree.Labels())
 }
 

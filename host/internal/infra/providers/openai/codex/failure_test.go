@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/responses"
 
 	"github.com/samber/mo"
@@ -261,19 +262,30 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 	t.Parallel()
 
 	testCases := map[string]struct {
-		status       int
-		body         string
+		// status is the provider HTTP failure status.
+		status int
+		// body contains the provider's diagnostic response.
+		body string
+		// expectedText identifies the user-facing failure classification.
 		expectedText string
+		// expectedSourceText must survive in the response and returned error.
+		expectedSourceText string
+		// signInRequired specifies whether authentication recovery is required.
+		signInRequired bool
 	}{
 		"unauthorized": {
-			status:       http.StatusUnauthorized,
-			body:         `{"detail":"expired token"}`,
-			expectedText: signInRequiredMessage,
+			status:             http.StatusUnauthorized,
+			body:               `{"detail":"expired token"}`,
+			expectedText:       signInRequiredMessage,
+			expectedSourceText: "expired token",
+			signInRequired:     true,
 		},
 		"server error": {
-			status:       http.StatusInternalServerError,
-			body:         `{"error":{"message":"backend unavailable"}}`,
-			expectedText: "backend unavailable",
+			status:             http.StatusInternalServerError,
+			body:               `{"error":{"message":"backend unavailable"}}`,
+			expectedText:       "backend unavailable",
+			expectedSourceText: "backend unavailable",
+			signInRequired:     false,
 		},
 	}
 	for name, testCase := range testCases {
@@ -332,6 +344,12 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			require.Error(t, err)
 			assert.Equal(t, model.OutcomeFailed, response.Outcome.OrEmpty())
 			assert.Contains(t, response.ErrorMessage.OrEmpty(), testCase.expectedText)
+			assert.Contains(t, response.ErrorMessage.OrEmpty(), testCase.expectedSourceText)
+			require.ErrorContains(t, err, testCase.expectedSourceText)
+			var apiError *openai.Error
+			require.ErrorAs(t, err, &apiError)
+			assert.Equal(t, testCase.status, apiError.StatusCode)
+			assert.Equal(t, testCase.signInRequired, errors.Is(err, ErrSignInRequired))
 			assert.Equal(t, int32(1), requests.Load())
 		})
 	}

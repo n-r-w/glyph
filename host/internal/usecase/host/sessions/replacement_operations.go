@@ -58,7 +58,7 @@ func (s *Service) SetLabel(ctx context.Context, targetID, label string) (session
 
 	candidate := s.active.Tree.Clone()
 	if err := candidate.SetLabel(targetID, label); err != nil {
-		return session.Tree{}, session.ErrEntryNotFound
+		return session.Tree{}, fmt.Errorf("%w: set session entry label: %w", session.ErrEntryNotFound, err)
 	}
 	if s.writeUnavailable {
 		return session.Tree{}, session.ErrPersistenceUnavailable

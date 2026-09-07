@@ -4,6 +4,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -22,14 +23,24 @@ import (
 func TestUISessionMutationOwnsGate(t *testing.T) {
 	t.Parallel()
 
+	// labelCause distinguishes the original validation error from its public category.
+	labelCause := errors.New("label target does not exist")
 	for _, test := range []struct {
-		name        string
-		acquired    bool
+		// name identifies the mutation outcome.
+		name string
+		// acquired records whether the operation obtains its admission reservation.
+		acquired bool
+		// mutationErr is the source failure returned by session state.
 		mutationErr error
-		expected    operation.TerminalState
+		// expected is the terminal lifecycle state after execution.
+		expected operation.TerminalState
 	}{
 		{name: "success", acquired: true, mutationErr: nil, expected: operation.TerminalStateCompleted},
-		{name: "error", acquired: true, mutationErr: errors.New("label failed"), expected: operation.TerminalStateFailed},
+		{
+			name: "error", acquired: true,
+			mutationErr: fmt.Errorf("%w: set session entry label: %w", session.ErrEntryNotFound, labelCause),
+			expected:    operation.TerminalStateFailed,
+		},
 		{name: "busy", acquired: false, mutationErr: nil, expected: operation.TerminalState(0)},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -60,8 +71,14 @@ func TestUISessionMutationOwnsGate(t *testing.T) {
 			outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 			prepared.Release()
 
-			// Assert terminal state and reservation release match the operation result.
+			// Assert terminal state, complete source cause, classification, and reservation release.
 			assert.Equal(t, test.expected, outcome.State())
+			if test.mutationErr != nil {
+				assert.Equal(t, string(controllerui.FailureCodeSession), outcome.Code())
+				require.ErrorIs(t, outcome.Err(), session.ErrEntryNotFound)
+				require.ErrorIs(t, outcome.Err(), labelCause)
+				require.ErrorContains(t, outcome.Err(), labelCause.Error())
+			}
 			assert.True(t, released)
 		})
 	}

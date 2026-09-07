@@ -3,6 +3,8 @@
 package programmatic
 
 import (
+	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -95,35 +97,80 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 	}
 }
 
-// TestForkFailureReturnsClassifiedStateFreeRejection verifies invalid targets publish no replacement data.
-func TestForkFailureReturnsClassifiedStateFreeRejection(t *testing.T) {
+// TestReplacementFailuresReturnClassifiedStateFreeRejections verifies replacement errors retain categories and causes.
+func TestReplacementFailuresReturnClassifiedStateFreeRejections(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a fork target rejected by the Host domain.
-	controllerMock := gomock.NewController(t)
-	control := NewMockActiveSessions(controllerMock)
-	gate := NewMockGate(controllerMock)
-	control.EXPECT().ForkActive(gomock.Any(), "model").Return(session.Info{}, nil, "", session.ErrInvalidForkTarget)
-	service := New(
-		NewMockCoordinator(controllerMock),
-		NewMockModelCatalog(controllerMock),
-		testStateQuery(t, false),
-		control, nil,
-		gate, testRunOutput(t),
-	)
+	// labelCause distinguishes the original validation error from its public category.
+	labelCause := errors.New("label target does not exist")
+	for _, test := range []struct {
+		// name identifies the rejected mutation.
+		name string
+		// command carries the mutation through the Programmatic input contract.
+		command controller.Command
+		// expect configures the consumed active-session operation.
+		expect func(*MockActiveSessions)
+		// expectedCode is the public rejection classification.
+		expectedCode controller.RejectionCode
+		// expectedErr is the source cause that must survive mapping.
+		expectedErr error
+	}{
+		{
+			name: "fork target", command: replacementCommand(
+				"fork", controller.CommandForkSession, mo.Some("model"), mo.None[string](),
+			),
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().ForkActive(gomock.Any(), "model").Return(
+					session.Info{}, nil, "", session.ErrInvalidForkTarget,
+				)
+			},
+			expectedCode: controller.RejectionInvalidArgument,
+			expectedErr:  session.ErrInvalidForkTarget,
+		},
+		{
+			name: "label target", command: replacementCommand(
+				"label", controller.CommandSetEntryLabel, mo.Some("missing"), mo.Some("branch"),
+			),
+			expect: func(control *MockActiveSessions) {
+				control.EXPECT().SetLabel(gomock.Any(), "missing", "branch").Return(
+					session.Tree{}, fmt.Errorf("%w: set session entry label: %w", session.ErrEntryNotFound, labelCause),
+				)
+			},
+			expectedCode: controller.RejectionNotFound,
+			expectedErr:  labelCause,
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
 
-	// Act by forking a non-user entry.
-	response, operation, err := service.handle(
-		t.Context(),
-		replacementCommand("fork", controller.CommandForkSession, mo.Some("model"), mo.None[string]()),
-	)
+			// Arrange a replacement request rejected by the Host domain.
+			controllerMock := gomock.NewController(t)
+			control := NewMockActiveSessions(controllerMock)
+			gate := NewMockGate(controllerMock)
+			test.expect(control)
+			service := New(
+				NewMockCoordinator(controllerMock),
+				NewMockModelCatalog(controllerMock),
+				testStateQuery(t, false),
+				control, nil,
+				gate, testRunOutput(t),
+			)
 
-	// Assert the existing invalid-argument mapping contains no speculative replacement or input.
-	require.NoError(t, err)
-	require.Nil(t, operation)
-	require.Equal(t, controller.ResponseRejected, response.Kind)
-	require.Equal(t, controller.RejectionInvalidArgument, response.Rejection.MustGet().Code)
-	require.True(t, response.Replacement.IsNone())
+			// Act through Programmatic Control.
+			response, operation, err := service.handle(t.Context(), test.command)
+
+			// Assert classification and complete source cause without speculative committed state.
+			require.NoError(t, err)
+			require.Nil(t, operation)
+			require.Equal(t, controller.ResponseRejected, response.Kind)
+			rejection := response.Rejection.MustGet()
+			require.Equal(t, test.expectedCode, rejection.Code)
+			require.ErrorIs(t, rejection.Cause, test.expectedErr)
+			require.ErrorContains(t, rejection.Cause, test.expectedErr.Error())
+			require.True(t, response.Replacement.IsNone())
+			require.True(t, response.SessionTree.IsNone())
+		})
+	}
 }
 
 // replacementCommand creates one fully initialized fork, clone, or label command.

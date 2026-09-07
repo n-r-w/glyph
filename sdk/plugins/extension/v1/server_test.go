@@ -12,7 +12,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
-	"unicode/utf8"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -624,71 +623,48 @@ func TestMapExtensionEventRejectsInvalidCodesAndCancelStates(t *testing.T) {
 	}
 }
 
-// TestMapExtensionEventBoundsExternalErrorText verifies byte-bounded ingress preserves valid UTF-8 and short causes.
-func TestMapExtensionEventBoundsExternalErrorText(t *testing.T) {
+// TestMapExtensionEventPreservesCompleteExternalErrorText verifies Failed ingress retains complete Unicode text and category.
+func TestMapExtensionEventPreservesCompleteExternalErrorText(t *testing.T) {
 	t.Parallel()
 
-	// Arrange: include exact byte boundaries and a multibyte sequence across the retained prefix.
-	for _, text := range []string{
-		strings.Repeat("a", 65535),
-		strings.Repeat("a", 65536),
-		strings.Repeat("a", 65537),
-		strings.Repeat("界", 22000),
-	} {
-		t.Run(fmt.Sprintf("bytes_%d", len(text)), func(t *testing.T) {
-			t.Parallel()
-			event := failedEvent(failureCodeInternal, text)
+	// Arrange an oversized diagnostic with a recognizable final suffix.
+	text := strings.Repeat("界", 22000) + " final failure cause"
+	event := failedEvent(failureCodeInternal, text)
 
-			// Act: map a received failure through the Extension Contract ingress.
-			mapped, terminal, err := mapExtensionEvent("execute", requestExecute, event)
+	// Act by mapping a received failure through the Extension Contract ingress.
+	mapped, terminal, err := mapExtensionEvent("execute", requestExecute, event)
 
-			// Assert: only oversized external text changes, with a complete truncation marker.
-			require.NoError(t, err)
-			require.True(t, terminal)
-			if len(text) <= 65536 {
-				assert.Equal(t, text, mapped.Message)
-				return
-			}
-			assert.LessOrEqual(t, len(mapped.Message), 65536)
-			assert.True(t, utf8.ValidString(mapped.Message))
-			assert.True(t, strings.HasSuffix(mapped.Message, "\n[external error text truncated]"))
-			prefix := strings.TrimSuffix(mapped.Message, "\n[external error text truncated]")
-			assert.True(t, strings.HasPrefix(text, prefix))
-			assert.Equal(t, failureCodeInternal, mapped.Code)
-		})
-	}
+	// Assert the complete text and failure category survive ingress.
+	require.NoError(t, err)
+	require.True(t, terminal)
+	assert.Equal(t, text, mapped.Message)
+	assert.Equal(t, failureCodeInternal, mapped.Code)
+	assert.True(t, strings.HasSuffix(mapped.Message, " final failure cause"))
 }
 
-// TestPeerStreamErrorsBoundExternalStatusText verifies received gRPC failures retain code and bounded UTF-8 text.
-func TestPeerStreamErrorsBoundExternalStatusText(t *testing.T) {
+// TestPeerStreamErrorsPreserveCompleteStatusText verifies received gRPC failures retain code, text, and cause.
+func TestPeerStreamErrorsPreserveCompleteStatusText(t *testing.T) {
 	t.Parallel()
 
-	// Arrange: include unchanged status messages and oversized external UTF-8 status text.
-	for _, text := range []string{strings.Repeat("a", 65535), strings.Repeat("a", 65536), strings.Repeat("界", 22000)} {
-		original := status.Error(codes.FailedPrecondition, text)
+	// Arrange an oversized external status with a recognizable final suffix.
+	text := strings.Repeat("界", 22000) + " final transport cause"
+	original := status.Error(codes.FailedPrecondition, text)
 
-		// Act: map the received peer status before adding local operation context.
-		mapped := mapPeerStreamError(original)
-		message := status.Convert(mapped).Message()
+	// Act by mapping the received peer status before adding local operation context.
+	mapped := mapStreamError(original)
 
-		// Assert: the gRPC code is unchanged and only oversized external text is truncated.
-		assert.Equal(t, codes.FailedPrecondition, status.Code(mapped))
-		if len(text) <= 65536 {
-			assert.ErrorIs(t, mapped, original)
-			continue
-		}
-		assert.LessOrEqual(t, len(message), 65536)
-		assert.True(t, utf8.ValidString(message))
-		assert.True(t, strings.HasSuffix(message, "\n[external error text truncated]"))
-	}
+	// Assert the gRPC code, complete text, and original cause survive ingress.
+	assert.Equal(t, codes.FailedPrecondition, status.Code(mapped))
+	assert.Equal(t, text, status.Convert(mapped).Message())
+	assert.ErrorIs(t, mapped, original)
 }
 
-// TestExternalErrorIngressBoundsEveryOutcome verifies rejection, handler, and protocol causes share the ingress limit.
-func TestExternalErrorIngressBoundsEveryOutcome(t *testing.T) {
+// TestExternalErrorIngressPreservesEveryOutcome verifies rejection, handler, and protocol causes retain complete text.
+func TestExternalErrorIngressPreservesEveryOutcome(t *testing.T) {
 	t.Parallel()
 
-	// Arrange: supply oversized peer text through each non-failure ingress path.
-	text := strings.Repeat("界", 22000)
+	// Arrange oversized peer text with a recognizable final suffix for each non-failure ingress path.
+	text := strings.Repeat("界", 22000) + " final peer cause"
 	completed := new(extensionpb.ExtensionCompleted)
 	completed.SetHandle(extensionpb.HandleResponse_builder{
 		Error: extensionpb.HandlerError_builder{Message: new(text)}.Build(),
@@ -703,7 +679,7 @@ func TestExternalErrorIngressBoundsEveryOutcome(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Act: receive the event and retain peer text on local validation failure.
+			// Act by receiving the event and retaining peer text on local validation failure.
 			mapped, _, err := mapExtensionEvent("handle", requestHandle, event)
 			message := mapped.Message
 			if name == "handler" {
@@ -718,10 +694,9 @@ func TestExternalErrorIngressBoundsEveryOutcome(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			// Assert: preserve the UTF-8 prefix and exact marker within the byte bound.
-			assert.LessOrEqual(t, len(message), 65536)
-			assert.True(t, utf8.ValidString(message))
-			assert.True(t, strings.HasSuffix(message, "\n[external error text truncated]"))
+			// Assert the complete Unicode diagnostic survives with its recognizable suffix.
+			assert.Equal(t, text, message)
+			assert.True(t, strings.HasSuffix(message, " final peer cause"))
 		})
 	}
 }

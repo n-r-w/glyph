@@ -122,6 +122,19 @@ func TestConnectAndServe(t *testing.T) {
 	// Assert: preserve the typed observer acknowledgement.
 	require.NotNil(t, handleCompleted.GetHandle().GetSessionTree())
 
+	// Act: invoke the observer again when it returns an ordinary handler error.
+	handlerErrorOperation, err := connection.Start(t.Context(), "handler-error", handleRequest)
+	require.NoError(t, err)
+	handlerErrorCompleted, err := handlerErrorOperation.Wait(t.Context(), nil)
+	require.NoError(t, err)
+
+	// Assert: preserve complete ordinary handler error text through the public process boundary.
+	assert.Equal(
+		t,
+		sdkOversizedError(" final handler cause"),
+		handlerErrorCompleted.GetHandle().GetError().GetMessage(),
+	)
+
 	// Act: request an unknown tool through the public operation API.
 	rejectedRequest := new(extensionpb.HostRequest)
 	rejectedRequest.SetExecute(extensionpb.ExecuteRequest_builder{
@@ -137,7 +150,7 @@ func TestConnectAndServe(t *testing.T) {
 	var rejection *RejectionError
 	require.ErrorAs(t, rejectedErr, &rejection)
 	assert.Equal(t, rejectionCodeInvalidArgument, rejection.Code())
-	require.EqualError(t, rejectedErr, assert.AnError.Error())
+	require.EqualError(t, rejectedErr, sdkOversizedError(" final rejection cause"))
 
 	// Act: execute accepted work that fails through the public operation API.
 	failedRequest := new(extensionpb.HostRequest)
@@ -154,7 +167,7 @@ func TestConnectAndServe(t *testing.T) {
 	var failure *FailureError
 	require.ErrorAs(t, failedErr, &failure)
 	assert.Equal(t, failureCodeInternal, failure.Code())
-	require.EqualError(t, failedErr, "complete operation failure text")
+	require.EqualError(t, failedErr, sdkOversizedError(" final failure cause"))
 
 	// Act: execute another tool operation and collect ordered progress.
 	executeRequest := new(extensionpb.HostRequest)
@@ -219,19 +232,36 @@ func newContractService(t *testing.T) Service {
 			return handler, nil
 		},
 	).AnyTimes()
-	handler.EXPECT().Run(gomock.Any()).Return(extensionpb.HandleResponse_builder{
-		Lifecycle:                nil,
-		SessionBeforeTreeRequest: nil,
-		SessionBeforeTreeResult:  nil,
-		SessionTree:              extensionpb.SessionTreeAction_builder{}.Build(),
-		Error:                    nil,
-	}.Build(), nil).AnyTimes()
+	// handlerCalls selects an acknowledgement followed by an ordinary handler failure.
+	var handlerCalls atomic.Int64
+	handler.EXPECT().Run(gomock.Any()).DoAndReturn(
+		func(context.Context) (*extensionpb.HandleResponse, error) {
+			if handlerCalls.Add(1) == 1 {
+				return extensionpb.HandleResponse_builder{
+					Lifecycle:                nil,
+					SessionBeforeTreeRequest: nil,
+					SessionBeforeTreeResult:  nil,
+					SessionTree:              extensionpb.SessionTreeAction_builder{}.Build(),
+					Error:                    nil,
+				}.Build(), nil
+			}
+			return extensionpb.HandleResponse_builder{
+				Lifecycle:                nil,
+				SessionBeforeTreeRequest: nil,
+				SessionBeforeTreeResult:  nil,
+				SessionTree:              nil,
+				Error: extensionpb.HandlerError_builder{
+					Message: new(sdkOversizedError(" final handler cause")),
+				}.Build(),
+			}.Build(), nil
+		},
+	).AnyTimes()
 	handler.EXPECT().Release().AnyTimes()
 
 	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request *extensionpb.ExecuteRequest) (ExecuteOperation, error) {
 			if request.GetToolName() != "contract" {
-				return nil, Reject("INVALID_ARGUMENT", assert.AnError)
+				return nil, Reject("INVALID_ARGUMENT", errors.New(sdkOversizedError(" final rejection cause")))
 			}
 			return execution, nil
 		},
@@ -240,7 +270,7 @@ func newContractService(t *testing.T) Service {
 	execution.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, reporter *ProgressReporter) (*extensionpb.ToolResult, error) {
 			if executionCalls.Add(1) == 1 {
-				return nil, Fail(failureCodeInternal, errors.New("complete operation failure text"))
+				return nil, Fail(failureCodeInternal, errors.New(sdkOversizedError(" final failure cause")))
 			}
 			if err := reporter.Report(ctx, extensionpb.ToolProgress_builder{
 				Channel: new(extensionpb.ProgressChannel_PROGRESS_CHANNEL_STATUS), Content: new("started"),
@@ -252,6 +282,11 @@ func newContractService(t *testing.T) Service {
 	).AnyTimes()
 	execution.EXPECT().Release().AnyTimes()
 	return service
+}
+
+// sdkOversizedError creates a complete Unicode diagnostic longer than 65,536 bytes.
+func sdkOversizedError(suffix string) string {
+	return strings.Repeat("界", 22000) + suffix
 }
 
 // testInvocationIdentity supplies complete identity for public SDK process invocation tests.

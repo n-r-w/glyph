@@ -2,6 +2,7 @@ package sessiontree
 
 import (
 	"context"
+	"errors"
 
 	"github.com/samber/mo"
 
@@ -40,12 +41,12 @@ func (s *Service) runRequestHandlers(
 			)
 			continue
 		}
-		candidate, result, canceled, valid := applyRequestHandlerAction(tree, current, currentResult, action)
-		if !valid {
+		candidate, result, canceled, validationErr := applyRequestHandlerAction(tree, current, currentResult, action)
+		if validationErr != nil {
 			issues = append(issues, operationIssue(
 				navigationIssueInvalidHandlerAction,
 				handler,
-				invalidHandlerActionMessage,
+				validationErr.Error(),
 			))
 			continue
 		}
@@ -63,18 +64,24 @@ func applyRequestHandlerAction(
 	current HandlerNavigationState,
 	currentResult mo.Option[HandlerBranchSummaryResult],
 	action RequestHandlerAction,
-) (HandlerNavigationState, mo.Option[HandlerBranchSummaryResult], bool, bool) {
+) (HandlerNavigationState, mo.Option[HandlerBranchSummaryResult], bool, error) {
 	if action.Cancel {
 		valid := action.RequestAction == 0 && action.Request.IsNone() && action.ResultAction == 0 &&
 			action.Result.IsNone()
-		return current, currentResult, valid, valid
+		if !valid {
+			return current, currentResult, false, errors.New(invalidHandlerActionMessage)
+		}
+		return current, currentResult, true, nil
 	}
-	candidate, requestValid := applyNavigationRequestAction(tree, current, action)
+	candidate, err := applyNavigationRequestAction(tree, current, action)
+	if err != nil {
+		return current, currentResult, false, err
+	}
 	result, resultValid := applyOptionalResultAction(currentResult, action)
-	if !requestValid || !resultValid {
-		return current, currentResult, false, false
+	if !resultValid {
+		return current, currentResult, false, errors.New(invalidHandlerActionMessage)
 	}
-	return candidate, result, false, true
+	return candidate, result, false, nil
 }
 
 // applyNavigationRequestAction validates and applies only the request part of one action.
@@ -82,25 +89,31 @@ func applyNavigationRequestAction(
 	tree session.Tree,
 	current HandlerNavigationState,
 	action RequestHandlerAction,
-) (HandlerNavigationState, bool) {
+) (HandlerNavigationState, error) {
 	candidate := cloneHandlerState(current)
 	switch action.RequestAction {
 	case RequestActionPreserve:
-		return candidate, action.Request.IsNone()
+		if action.Request.IsSome() {
+			return current, errors.New(invalidHandlerActionMessage)
+		}
+		return candidate, nil
 	case RequestActionReplace:
 		replacement, present := action.Request.Get()
-		if !present || validateRequest(replacement.Navigation) != nil {
-			return current, false
+		if !present {
+			return current, errors.New(invalidHandlerActionMessage)
+		}
+		if err := validateRequest(replacement.Navigation); err != nil {
+			return current, err
 		}
 		preparation, err := tree.NavigationPreparation(replacement.Navigation.TargetEntryID)
 		if err != nil {
-			return current, false
+			return current, err
 		}
 		candidate.Request = replacement
 		candidate.Preparation = projectPreparation(preparation)
-		return candidate, true
+		return candidate, nil
 	default:
-		return current, false
+		return current, errors.New(invalidHandlerActionMessage)
 	}
 }
 

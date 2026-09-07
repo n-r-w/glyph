@@ -414,15 +414,15 @@ func (s *Driver) streamError(
 		return terminalModelResponse(requestCanceledMessage, model.OutcomeAborted), ctx.Err()
 	}
 	if apiError, ok := errors.AsType[*openai.Error](streamErr); ok {
-		if apiError.StatusCode == http.StatusUnauthorized {
-			return terminalModelResponse(signInRequiredMessage, model.OutcomeFailed), ErrSignInRequired
-		}
 		detail := providerErrorDetail([]byte(apiError.RawJSON()))
 		if detail == "" {
 			detail = providerErrorDetail(transport.ErrorBody())
 		}
 		if detail == "" {
 			detail = boundedDetail(strings.TrimSpace(apiError.Message))
+		}
+		if apiError.StatusCode == http.StatusUnauthorized {
+			return unauthorizedFailure(streamErr, detail)
 		}
 		message := providerFailureMessage(detail)
 		return terminalModelResponse(
@@ -435,6 +435,17 @@ func (s *Driver) streamError(
 	}
 	failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
 	return terminalModelResponse(failure.Error(), model.OutcomeFailed), failure
+}
+
+// unauthorizedFailure retains sign-in classification, safe provider detail, and the original SDK cause.
+func unauthorizedFailure(streamErr error, detail string) (model.Response, error) {
+	message := signInRequiredMessage
+	failure := fmt.Errorf("%w: OpenAI Codex request failed: %w", ErrSignInRequired, streamErr)
+	if detail != "" {
+		message += " " + detail
+		failure = fmt.Errorf("%w: OpenAI Codex request failed: %s: %w", ErrSignInRequired, detail, streamErr)
+	}
+	return terminalModelResponse(message, model.OutcomeFailed), failure
 }
 
 // combineHandlerError adds a handler cause only when the stream error does not already contain it.
