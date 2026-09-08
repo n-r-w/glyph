@@ -19,7 +19,7 @@ Outcome: Request changes.
 - FND-03 and FND-04 require ownership of interface-specific types and storage metadata at their consumers and storage implementation.
 - FND-05 through FND-09 cover lost error information, text-dependent TUI state, misplaced execution policy, incomplete contracts, and a forwarding owner with no behavior.
 
-The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. FND-01 through FND-09 describe the audit baseline. Subsequent findings identify their reviewed implementation commits. Passing compilation or tests alone does not close them. [U8 accounting](u8-evidence.md) records the resulting dispositions for all nine findings and 72 baseline packages. Main-agent U8 inspection passed. Independent integrated review of `9a275b2b2bc5964e5ecd1f0cefc4f7444c971c2a` found FND-10 and FND-11. Their U6 correction is committed as `b03095a839ba1a02d9c5c97217545436aeb3197e`. Review of that commit found FND-12 through FND-14. The O72-1 [U6 retention implementation and local checks](solution.md#u6-retention-correction) are ready for independent review; FND-12 through FND-14 are not independently closed. The phase remains blocked and explicit final acceptance remains pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified. The user authorized the remaining units after committing the assertion-placement correction.
+The user approved the original [correction plan](solution.md), then authorized revised U5 after its documentation update. Its [implementation evidence](solution.md#implementation-evidence) records completed correction units. FND-01 through FND-09 describe the audit baseline. Subsequent findings identify their reviewed implementation commits. Passing compilation or tests alone does not close them. [U8 accounting](u8-evidence.md) records the resulting dispositions for all nine findings and 72 baseline packages. Main-agent U8 inspection passed. Independent integrated review of `9a275b2b2bc5964e5ecd1f0cefc4f7444c971c2a` found FND-10 and FND-11. Their U6 correction is committed as `b03095a839ba1a02d9c5c97217545436aeb3197e`. Review of that commit found FND-12 through FND-14. The O72-1 [U6 retention implementation and local checks](solution.md#u6-retention-correction) are committed as `ded154978ff2a3e17ba0cd3d7cf231af2b6f05d1`. Independent review of that commit found FND-15 through FND-17. The user approved the [D1/D2 corrections](solution.md#qst-05-runtime-completion-meaning-and-tui-submission-causality) after alignment. The phase remains blocked and explicit final acceptance remains pending. The [TUI ownership gap](tui-ownership-gap.md) supplements the baseline: the initial FND-03/FND-09 disposition did not establish application-state, event-contract, SDK-output, and rendering owners. Revised U5 is implemented and independently verified. The user authorized the remaining units after committing the assertion-placement correction.
 
 ## Issues overview
 
@@ -218,7 +218,33 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 - Recommendation: Normalize the event through the adapter's failed-response path and preserve its complete non-secret message without new retries or categories.
 - Verification: Source inspection and the selected SDK event definition establish the path. A new compatible-adapter regression has not been executed. The [U6 revision](solution.md#complete-error-retention-revision) requires empty/partial-stream RED/GREEN and Core/client preservation checks.
 
+#### FND-15: Runtime cleanup discards SDK completion errors
+
+- Location: [runtime adapter](../../../../../../host/internal/infra/plugins/extension/runtime/runtime.go), `Runtime.Close` and `isBenignCancellationError`; [runtime contract](../../../../../../host/internal/usecase/host/extensionruntime/interfaces.go), `ExtensionRuntime.Close`; [Host runtime owner](../../../../../../host/internal/usecase/host/extensionruntime/service.go), `runtimeState.closeTransport` and `Service.Close`.
+- Issue: At `ded1549`, SDK `Connection.Close` collects undelivered sources and independent cleanup failures, but the production adapter logs the result and returns void. The Host owner returns reporting errors without the discarded SDK completion result. A broad cancellation match can also suppress a mixed cause tree.
+- Impact: Application completion can omit an undelivered rejection or work diagnostic and an independent cleanup failure. Logging does not preserve the error across this runtime contract.
+- Scenario and realism: Medium. A stale-context request is rejected, the extension disconnects before rejection delivery, and final cleanup drops the SDK-retained source. Both stale contexts and disconnection are supported conditions. An independent `CloseSend` failure reaches the same missing boundary.
+- Recommendation: Apply [D1](solution.md#runtime-completion-propagation-correction). Preserve undelivered sources and independent cleanup errors without treating every connection-stop cause or successfully reported runtime failure as fatal.
+- Verification: Independent and main source checks establish the void boundary and actual callers. The SDK retention regression passes but does not cover the downstream runtime/application result. Executable RED through that boundary remains required before correction.
+
+#### FND-16: TUI dependent output can precede the submitted user line
+
+- Location: [presentation command state](../../../../../../plugins/ui/tui/internal/usecase/presentation/commands.go), `Service.Notify` and `Service.Complete`; [dispatch result transition](../../../../../../plugins/ui/tui/internal/usecase/presentation/update.go), `interaction.applyEmissionResult`.
+- Issue: At `ded1549`, Host notifications update the transcript before a delayed local dispatch result adds the submitted user line. A terminal notification does not prevent that later insertion. Event-loop serialization does not order the two independent producers.
+- Impact: A failure or model response can appear above the user request that caused it. Stored session history is not changed by this presentation defect.
+- Scenario and realism: Medium. A fast local persistence failure reaches the notification pump before the command goroutine supplies its dispatch result. The existing terminal-before-acknowledgement test already permits this schedule but uses an empty payload.
+- Recommendation: Apply [D2](solution.md#tui-submission-causality-correction). Record the user line before dependent output, then consume the late dispatch result without duplicate insertion or draft loss. Preserve asynchronous I/O and one state-mutation loop.
+- Verification: The [U5 causality evidence](solution.md#u5-causality-verification) records six content-bearing assertion RED/GREEN cases and main-agent checks. Submission order, exactly-once insertion and late-result draft preservation are implemented. Fresh whole-product review remains pending.
+
 ### Minor
+
+#### FND-17: Architecture persistence-cleanup status is stale
+
+- Location: [architecture CMP-16](../../architecture.md#components), final sentence.
+- Issue: At `ded1549`, the component description keeps persistence-cause cleanup open although BLK-05 and the category-based reducer are implemented.
+- Impact and realism: High for documentation use. The authority gives an engineer an incorrect implementation status.
+- Recommendation: Record BLK-01 through BLK-05 closure while keeping unresolved phase findings and final acceptance separate.
+- Verification: CMP-16 now records BLK-01 through BLK-05 as implemented and keeps unresolved phase findings separate. It matches the [ownership record](tui-ownership-gap.md) and presentation `projection.applyError`. This documentation correction needs no behavioral test.
 
 #### FND-08: Consumer contracts and implementation assertions are incomplete
 

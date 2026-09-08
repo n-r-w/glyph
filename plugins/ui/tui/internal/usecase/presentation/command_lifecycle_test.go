@@ -49,33 +49,96 @@ func TestForegroundCancelTargetSurvivesConcurrentCommands(t *testing.T) {
 	}
 }
 
-// TestTerminalBeforeAcknowledgementReleasesForeground preserves correlation without retaining foreground ownership.
+// TestTerminalBeforeAcknowledgementReleasesForeground preserves causal transcript order and newer drafts.
 func TestTerminalBeforeAcknowledgementReleasesForeground(t *testing.T) {
 	t.Parallel()
-	// Arrange a dispatch whose terminal notification can overtake its event-loop acknowledgement.
-	service := newTestModel(t, AvailabilityIdle, nil)
-	command := emptyCommand(CommandSubmit)
-	command.Text = mo.Some("hello")
-	work := service.prepareCommand(command)
-	result := work.Execute()
-	require.NoError(t, result.Err)
+	for _, scenario := range []string{"settled", "failure", "model"} {
+		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+			for _, lateResult := range []string{"success", "failure"} {
+				t.Run(lateResult, func(t *testing.T) {
+					t.Parallel()
+					// Arrange a submitted draft whose Host output overtakes its local dispatch result.
+					service := newTestModel(t, AvailabilityIdle, nil)
+					service.Key(tuiinput.Key{Code: 0, Text: "hello", Mod: 0})
+					work := service.Key(testKey(tuiinput.KeyEnter))
+					result := work.Execute()
+					require.NoError(t, result.Err)
+					notification := plugininput.Notification{
+						FailureCode: "", Kind: plugininput.NotificationCompleted, OperationID: result.ID,
+						Payload: mo.Some(plugininput.NewPayload(plugininput.PayloadSettled)), Failure: nil,
+					}
+					if scenario == "failure" {
+						notification.Kind = plugininput.NotificationFailed
+						notification.Failure = errors.New("Host rejected submission")
+						notification.Payload = mo.None[plugininput.Payload]()
+					}
 
-	// Act by consuming terminal data before the command result returns to the event loop.
-	require.NoError(t, service.Notify(plugininput.Notification{
-		FailureCode: "",
-		Kind:        plugininput.NotificationCompleted,
-		OperationID: result.ID,
-		Payload:     mo.Some(plugininput.NewPayload(plugininput.PayloadSettled)),
-		Failure:     nil,
-	}))
+					// Act by consuming content-bearing progress or terminal data before acknowledgement.
+					if scenario == "model" {
+						require.NoError(t, service.Notify(plugininput.Notification{
+							FailureCode: "",
+							Kind:        plugininput.NotificationProgress,
+							OperationID: result.ID,
+							Failure:     nil,
+							Payload: mo.Some(plugininput.AgentPayload(plugininput.AgentUpdate{
+								Kind:             plugininput.AgentModelEnd,
+								Position:         mo.None[int](),
+								ModelContentKind: mo.None[plugininput.ModelContentKind](),
+								ModelResponseContent: []plugininput.ModelResponseContent{{
+									Kind: plugininput.ModelContentText, Text: mo.Some("model reply"),
+								}},
+								ToolCallID: mo.None[string](),
+								ToolName:   mo.None[string](),
+								Status:     mo.None[string](),
+								Stream:     mo.None[plugininput.OutputStream](),
+								Text:       mo.None[string](),
+								Contents:   mo.None[[]plugininput.Content](),
+								ErrorText:  mo.None[string](),
+								ExitCode:   mo.None[int](),
+								Failure:    mo.None[bool](),
+								ToolCall:   mo.None[plugininput.ToolCallState](),
+							})),
+						}))
+						require.Equal(t, mo.Some("hello"), service.model.state.Transcript[0].Text)
+						require.Equal(t, mo.Some("model reply"), service.model.state.Transcript[1].Text)
+						require.Equal(t, result.ID, service.foreground)
+					}
+					require.NoError(t, service.Notify(notification))
 
-	// Assert terminal input releases foreground immediately but retains the outstanding acknowledgement.
-	require.Empty(t, service.foreground)
-	require.Contains(t, service.pending, result.ID)
-	service.Complete(result)
-	require.NotContains(t, service.pending, result.ID)
-	require.Equal(t, mo.Some("hello"), service.model.state.Transcript[0].Text)
-	require.Equal(t, mo.Some(true), service.model.state.Settled)
+					// Assert the submitted line precedes output while terminal input releases foreground.
+					require.NotEmpty(t, service.model.state.Transcript)
+					require.Equal(t, mo.Some("hello"), service.model.state.Transcript[0].Text)
+					if scenario == "failure" {
+						require.Equal(t, mo.Some(notification.Failure.Error()), service.model.state.Transcript[1].Text)
+					}
+					require.Empty(t, service.foreground)
+					require.Contains(t, service.pending, result.ID)
+					before := service.model.state.Clone()
+					service.Key(tuiinput.Key{Code: 0, Text: "new draft", Mod: 0})
+					require.Equal(t, "new draft", string(service.model.input))
+					if lateResult == "failure" {
+						result.Err = errors.New("late dispatch diagnostic")
+					}
+					service.Complete(result)
+					require.NotContains(t, service.pending, result.ID)
+					require.Equal(t, "new draft", string(service.model.input))
+					require.Equal(t, len("new draft"), service.model.cursor)
+					if result.Err == nil {
+						require.Equal(t, before.Transcript, service.model.state.Transcript)
+					} else {
+						require.Len(t, service.model.state.Transcript, len(before.Transcript)+1)
+						require.Equal(t, before.Transcript, service.model.state.Transcript[:len(before.Transcript)])
+						require.Contains(
+							t,
+							service.model.state.Transcript[len(before.Transcript)].Text.OrEmpty(),
+							result.Err.Error(),
+						)
+					}
+				})
+			}
+		})
+	}
 }
 
 // TestFailedDispatchReleasesPendingState preserves the draft without waiting for a terminal event that cannot arrive.

@@ -28,6 +28,8 @@ type pendingCommand struct {
 	dispatchPending bool
 	// terminal records that the Host terminal notification was already consumed.
 	terminal bool
+	// submissionApplied prevents a late dispatch result from submitting twice or clearing a newer draft.
+	submissionApplied bool
 }
 
 // preparedDispatch executes only transport work and never accesses mutable application state.
@@ -78,7 +80,9 @@ func (service *Service) prepareCommand(command Command) tuiinput.Work {
 			failure = errors.New("cancel TUI foreground operation: no operation is active")
 		}
 	}
-	service.pending[identifier] = pendingCommand{command: command, dispatchPending: true, terminal: false}
+	service.pending[identifier] = pendingCommand{
+		command: command, dispatchPending: true, terminal: false, submissionApplied: false,
+	}
 	if service.foreground == "" && (command.Kind == CommandSubmit || command.Kind == CommandNavigateSessionTree) {
 		service.foreground = identifier
 	}
@@ -97,6 +101,19 @@ func (service *Service) Complete(result tuiinput.Result) bool {
 	if !present {
 		return false
 	}
+	// A late submission result changes bookkeeping, not the application's shutdown decision.
+	quit := false
+	if pending.submissionApplied {
+		// Host output already established submission. Retain a late local error without changing the editor.
+		if result.Err != nil {
+			service.model.applyProjection(textEvent(eventError, commandSendFailurePrefix+result.Err.Error()))
+		}
+	} else {
+		service.model, quit = service.model.applyEmissionResult(
+			emissionResultMsg{command: pending.command, err: result.Err},
+		)
+		pending.submissionApplied = pending.command.Kind == CommandSubmit && result.Err == nil
+	}
 	pending.dispatchPending = false
 	if result.Err != nil || pending.terminal || pending.command.Kind == CommandQuit {
 		delete(service.pending, result.ID)
@@ -106,8 +123,6 @@ func (service *Service) Complete(result tuiinput.Result) bool {
 	if result.Err != nil && service.foreground == result.ID {
 		service.foreground = ""
 	}
-	model, quit := service.model.applyEmissionResult(emissionResultMsg{command: pending.command, err: result.Err})
-	service.model = model
 	service.publish()
 	return quit
 }
@@ -133,6 +148,8 @@ func (service *Service) Notify(input plugininput.Notification) error {
 		case plugininput.NotificationConnection:
 		}
 	}
+	service.applySubmission(&pending)
+	service.pending[input.OperationID] = pending
 	if input.Kind != plugininput.NotificationProgress {
 		pending.terminal = true
 		if pending.dispatchPending {
@@ -155,6 +172,16 @@ func (service *Service) Notify(input plugininput.Notification) error {
 	}
 	service.publish()
 	return nil
+}
+
+// applySubmission records the initiating line before correlated Host output reaches the projection.
+func (service *Service) applySubmission(pending *pendingCommand) {
+	if pending.command.Kind != CommandSubmit || pending.submissionApplied {
+		return
+	}
+	// Host output proves submission before the independently scheduled dispatch result.
+	service.model, _ = service.model.applyEmissionResult(emissionResultMsg{command: pending.command, err: nil})
+	pending.submissionApplied = true
 }
 
 // operationErrorEvent chooses the failed interaction's display destination from its initiating command.

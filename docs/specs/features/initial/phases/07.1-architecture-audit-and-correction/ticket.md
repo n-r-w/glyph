@@ -103,7 +103,7 @@ None.
 
 ## Open questions
 
-No unresolved ownership or behavior question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-05 with implementation and independent verification evidence. [U8 implementation evidence](u8-evidence.md) includes completed main-agent inspection and repeated checks. Review of `b03095a` found [FND-12 through FND-14](audit.md#fnd-12-failed-work-is-discarded-before-terminal-delivery). The O72-1 [U6 retention implementation and local checks](solution.md#u6-retention-correction) are ready for independent review. The phase remains blocked; independent whole-product review and explicit final acceptance remain mandatory.
+No unresolved ownership or behavior question remains for the completed units. The [TUI ownership record](tui-ownership-gap.md) closes BLK-01 through BLK-05 with implementation and independent verification evidence. [U8 implementation evidence](u8-evidence.md) includes completed main-agent inspection and repeated checks. Review of `b03095a` found [FND-12 through FND-14](audit.md#fnd-12-failed-work-is-discarded-before-terminal-delivery). The O72-1 [retention correction](solution.md#u6-retention-correction) is committed as `ded1549`. Independent review found FND-15 through FND-17. The user approved [D1 and D2](solution.md#qst-05-runtime-completion-meaning-and-tui-submission-causality). [D2 implementation and main-agent verification](solution.md#u5-causality-verification) are complete; D1 remains pending. The phase remains blocked; fresh independent whole-product review and explicit final acceptance remain mandatory.
 
 ## References
 
