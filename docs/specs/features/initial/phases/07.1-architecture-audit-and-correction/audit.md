@@ -225,7 +225,7 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 - Impact: Application completion can omit an undelivered rejection or work diagnostic and an independent cleanup failure. Logging does not preserve the error across this runtime contract.
 - Scenario and realism: Medium. A stale-context request is rejected, the extension disconnects before rejection delivery, and final cleanup drops the SDK-retained source. Both stale contexts and disconnection are supported conditions. An independent `CloseSend` failure reaches the same missing boundary.
 - Recommendation: Apply [D1](solution.md#runtime-completion-propagation-correction). Preserve undelivered sources and independent cleanup errors without treating every connection-stop cause or successfully reported runtime failure as fatal.
-- Verification: Independent and main source checks establish the void boundary and actual callers. The SDK retention regression passes but does not cover the downstream runtime/application result. Executable RED through that boundary remains required before correction.
+- Verification: [D1 implementation evidence](solution.md#u6-runtime-completion-evidence) records actual runtime/application assertion RED and GREEN, source and cleanup identity checks, early collection and nonfatal delivered reporting. Main-agent source inspection and repeated required, uncached and actual-app checks passed. Independent integrated review and final acceptance remain pending.
 
 #### FND-16: TUI dependent output can precede the submitted user line
 

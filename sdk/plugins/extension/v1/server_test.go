@@ -911,6 +911,8 @@ func TestConnectionCloseJoinsTransportCleanup(t *testing.T) {
 	}()
 	waitErr := requireServerResult(t, waitResult, "tracked operation did not observe Host transport loss")
 	assert.Equal(t, codes.Unavailable, status.Code(waitErr))
+	// Tracker settlement precedes connection cancellation; wait for transport-loss cancellation before Close.
+	requireSignal(t, connection.ctx.Done(), "Host transport loss did not cancel the connection")
 	closeResult := make(chan error, 1)
 	go func() { closeResult <- connection.Close() }()
 	requireSignal(t, cleanupStarted, "Host transport cleanup did not start")
@@ -925,6 +927,35 @@ func TestConnectionCloseJoinsTransportCleanup(t *testing.T) {
 	closeErr := requireServerResult(t, closeResult, "Host shutdown did not finish after transport cleanup")
 	assert.Equal(t, codes.Unavailable, status.Code(closeErr))
 	assert.ErrorContains(t, closeErr, "controlled Host transport loss")
+}
+
+// TestIdleProtocolFailureRetainsNonfatalDiagnostic keeps an idle receive failure outside cleanup failures.
+func TestIdleProtocolFailureRetainsNonfatalDiagnostic(t *testing.T) {
+	t.Parallel()
+	// Arrange an invalid incoming terminal event while no Host operation is active.
+	controller := gomock.NewController(t)
+	service := NewMockExtensionServiceClient(controller)
+	stream := NewMockExtensionService_OpenClient[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
+	service.EXPECT().Open(gomock.Any()).Return(stream, nil)
+	message := "idle protocol failure preserves its complete source Ω"
+	event := new(extensionpb.ExtensionEvent)
+	event.SetFailed(operationpb.Failed_builder{Code: new("INTERNAL"), Message: new(message)}.Build())
+	stream.EXPECT().Recv().Return(extensionpb.OpenResponse_builder{
+		OperationId: new("unknown-operation"), Event: event, Request: nil,
+	}.Build(), nil)
+	stream.EXPECT().CloseSend().Return(nil)
+	client := &Client{process: nil, service: service, done: nil, version: ProtocolVersion, closeOnce: sync.Once{}}
+	connection, err := client.Open(t.Context())
+	require.NoError(t, err)
+
+	// Act after the receive loop stops the idle connection.
+	<-connection.ctx.Done()
+	full := connection.Close()
+
+	// Assert full diagnostics remain observable without becoming application cleanup failures.
+	require.ErrorContains(t, full, message)
+	require.Equal(t, codes.FailedPrecondition, status.Code(full))
+	require.NoError(t, connection.CompletionFailures())
 }
 
 // TestConnectionFailPreservesValidationCause verifies Host payload rejection fails and joins the connection.

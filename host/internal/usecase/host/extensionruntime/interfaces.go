@@ -85,8 +85,8 @@ type ExtensionRuntime interface {
 	) (tool.Result, error)
 	// Done closes when the extension process exits.
 	Done() <-chan struct{}
-	// Close stops the extension process and releases its resources.
-	Close()
+	// Close joins resources and returns retained undelivered sources and independent cleanup failures.
+	Close() error
 }
 
 // RuntimeFactory starts one candidate.

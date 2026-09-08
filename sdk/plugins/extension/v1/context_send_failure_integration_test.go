@@ -38,8 +38,8 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 			releaseReceive := sync.OnceFunc(func() { close(receiveGate) })
 			running := make(chan struct{})
 			released := make(chan struct{})
-			workCause := errors.New("complete Host work failure after cancellation")
-			closeCause := errors.New("independent Host CloseSend failure")
+			workCause := errors.Join(errors.New("complete Host work failure after cancellation"), context.Canceled)
+			closeCause := errors.Join(errors.New("independent Host CloseSend failure"), context.Canceled)
 			service.EXPECT().Open(gomock.Any()).Return(stream, nil)
 			gomock.InOrder(
 				stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenResponse, error) {
@@ -113,7 +113,7 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 					}.Build())
 					return response, nil
 				}
-				return nil, workCause
+				return nil, Fail(failureCodeInternal, workCause)
 			})
 			read.EXPECT().Release().Do(func() { close(released) })
 			client := &Client{
@@ -161,6 +161,16 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 			}
 			require.ErrorIs(t, closeErr, closeCause)
 			assert.Equal(t, codes.Unavailable, status.Code(closeErr))
+			completion := connection.CompletionFailures()
+			require.ErrorContains(t, completion, workCause.Error())
+			require.ErrorIs(t, completion, closeCause)
+			if !completed {
+				require.ErrorIs(t, completion, workCause)
+			}
+			require.NotContains(t, completion.Error(), "complete controlled outbound send failure")
+			require.NotContains(t, completion.Error(), "receive stopped after outbound failure")
+			require.Equal(t, codes.Unavailable, status.Code(completion))
+			require.Equal(t, completion, connection.CompletionFailures())
 		})
 	}
 }

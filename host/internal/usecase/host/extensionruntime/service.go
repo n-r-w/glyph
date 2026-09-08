@@ -42,7 +42,7 @@ type Service struct {
 	reportingStopped bool
 	// reporting joins callbacks admitted before reporting stopped.
 	reporting sync.WaitGroup
-	// reportErrors retains unreported failures and errors returned by admitted reporters.
+	// reportErrors retains unreported conditions, reporting errors and runtime completion failures.
 	reportErrors []error
 }
 
@@ -165,7 +165,7 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 		}
 		registration, registerErr := runtime.Register(ctx)
 		if registerErr != nil {
-			runtime.Close()
+			s.retainCompletion(runtime.Close())
 			issues = append(
 				issues,
 				startup.Issue{PluginIDs: []string{candidate.ID}, Path: candidate.Path, Err: registerErr},
@@ -212,7 +212,7 @@ func (s *Service) replaceInstance(extensionID string) string {
 		}
 		s.mutex.Unlock()
 		previous.commit.Unlock()
-		previous.closeTransport()
+		s.closeTransport(previous)
 		previous.join()
 	}
 	return rand.Text()
@@ -230,7 +230,7 @@ func (s *Service) RejectPending(pluginIDs []string) {
 	}
 	s.mutex.Unlock()
 	for _, state := range states {
-		state.closeTransport()
+		s.closeTransport(state)
 		state.join()
 	}
 }
@@ -378,7 +378,7 @@ func (s *Service) Close() error {
 		s.disableLocked(state)
 		s.mutex.Unlock()
 		state.commit.Unlock()
-		state.closeTransport()
+		s.closeTransport(state)
 		state.join()
 	}
 	s.mutex.RLock()
@@ -399,8 +399,20 @@ func (state *runtimeState) isInvalidated() bool {
 	}
 }
 
-// closeTransport joins the process connection once without waiting on its calling operation reservation.
-func (state *runtimeState) closeTransport() { state.closeOnce.Do(state.runtime.Close) }
+// closeTransport registers completion once, including for states removed before final Host cleanup.
+func (s *Service) closeTransport(state *runtimeState) {
+	state.closeOnce.Do(func() { s.retainCompletion(state.runtime.Close()) })
+}
+
+// retainCompletion preserves independent runtime cleanup errors until application collection.
+func (s *Service) retainCompletion(err error) {
+	if err == nil {
+		return
+	}
+	s.mutex.Lock()
+	s.reportErrors = append(s.reportErrors, err)
+	s.mutex.Unlock()
+}
 
 // join waits for operation accounting and the instance's optional process-exit monitor.
 func (state *runtimeState) join() {
@@ -432,7 +444,7 @@ func (s *Service) monitor(ctx context.Context, pluginID string, state *runtimeSt
 			extension.RuntimeFailure{PluginID: pluginID, Condition: extension.RuntimeUnavailableProcessExited},
 		)
 	}
-	state.closeTransport()
+	s.closeTransport(state)
 	state.work.Wait()
 }
 
@@ -449,7 +461,7 @@ func (s *Service) finishAndReport(ctx context.Context, owner operationOwner, exe
 		owner.state.commit.Unlock()
 	}
 	if closeRuntime {
-		owner.state.closeTransport()
+		s.closeTransport(owner.state)
 	}
 	if reportFailure {
 		s.report(ctx, failure)

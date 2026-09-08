@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/internal/operation"
 	operationpb "github.com/n-r-w/glyph/pkg/operation/v1"
@@ -71,12 +72,21 @@ type Connection struct {
 	err error
 	// completionErr contains independent cleanup failures and undelivered sources after joining.
 	completionErr error
+	// completionFailures retains undelivered sources and independent cleanup, not connection-stop observations.
+	completionFailures error
 	// writerDone reports completion of the writer goroutine.
 	writerDone chan error
 	// receiveDone reports completion of the receive goroutine.
 	receiveDone chan error
 	// closeOnce limits normal closure to one caller.
 	closeOnce sync.Once
+}
+
+// CompletionFailures returns retained diagnostics after Close, without connection-stop observations.
+func (c *Connection) CompletionFailures() error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	return c.completionFailures
 }
 
 // Operation owns one initiated operation event queue.
@@ -115,13 +125,14 @@ func (c *Client) Open(ctx context.Context) (*Connection, error) {
 		writer:    nil,
 		tracker:   operation.NewTracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted](),
 		hostOwner: nil, hostService: nil,
-		mutex:         sync.Mutex{},
-		kinds:         make(map[string]requestKind),
-		err:           nil,
-		completionErr: nil,
-		writerDone:    make(chan error, 1),
-		receiveDone:   make(chan error, 1),
-		closeOnce:     sync.Once{},
+		mutex:              sync.Mutex{},
+		kinds:              make(map[string]requestKind),
+		err:                nil,
+		completionErr:      nil,
+		completionFailures: nil,
+		writerDone:         make(chan error, 1),
+		receiveDone:        make(chan error, 1),
+		closeOnce:          sync.Once{},
 	}
 	connection.writer = operation.NewWriter(func(request *extensionpb.OpenRequest) error {
 		if sendErr := stream.Send(request); sendErr != nil {
@@ -233,14 +244,11 @@ func (c *Connection) join() {
 	c.writer.Close()
 	// Keep independent cleanup errors separately from the first shutdown cause.
 	writerErr := withoutClosureLeaves(<-c.writerDone)
-	c.recordError(writerErr)
 	var closeErr error
 	if err := c.stream.CloseSend(); err != nil {
 		closeErr = mapStreamError(err)
-		c.recordError(closeErr)
 	}
 	receiveErr := withoutClosureLeaves(<-c.receiveDone)
-	c.recordError(receiveErr)
 	// receive closes and joins accepted Host work before publishing its completion.
 	c.hostOwner.Wait()
 	c.tracker.Close()
@@ -251,9 +259,24 @@ func (c *Connection) join() {
 			result = errors.Join(result, cleanupErr)
 		}
 	}
-	result = joinOutputSources(result, c.hostOwner.SourceErrors(), c.writer.SourceErrors())
+	sources := errors.Join(c.hostOwner.SourceErrors(), c.writer.SourceErrors())
+	// Writer and receive results describe connection stopping. CloseSend is a separate resource operation.
+	var cleanupFailure error
+	if closeErr != nil && !isTransportClosureOnly(closeErr) {
+		cleanupFailure = closeErr
+	}
+	failures := errors.Join(cleanupFailure, sources)
+	if failures != nil {
+		code := status.Code(mapDeliveryError(result))
+		if code == codes.OK {
+			code = codes.Unavailable
+		}
+		failures = newCausedStatusError(code, failures.Error(), failures)
+	}
+	result = joinOutputSources(result, sources)
 	c.mutex.Lock()
 	c.completionErr = result
+	c.completionFailures = failures
 	c.mutex.Unlock()
 }
 

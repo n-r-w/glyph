@@ -57,7 +57,7 @@ func (r *Runtime) Handle(
 			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
 		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
-			r.Close()
+			_ = r.Close()
 		}
 		return extensionruntime.HandlerAction{}, errors.Join(
 			r.handlerOperationError(ctx, handlerID, err),
@@ -82,7 +82,7 @@ func (r *Runtime) handlerOperationError(ctx context.Context, handlerID string, e
 	if isExtensionTerminalError(err) {
 		return fmt.Errorf("handle extension handler %q: %w", handlerID, err)
 	}
-	r.Close()
+	_ = r.Close()
 	return fmt.Errorf(
 		"%w: handle extension handler %q: %w",
 		extensionruntime.ErrExtensionUnavailable,

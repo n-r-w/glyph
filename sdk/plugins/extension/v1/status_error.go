@@ -73,6 +73,25 @@ func withoutClosureLeaves(err error) error {
 	return nil
 }
 
+// isTransportClosureOnly identifies expected transport shutdown without inspecting declared source snapshots.
+// Mixed trees remain independent failures and retain their original values.
+func isTransportClosureOnly(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, cause := range joined.Unwrap() {
+			if !isTransportClosureOnly(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if cause := errors.Unwrap(err); cause != nil {
+		return isTransportClosureOnly(cause)
+	}
+	code := status.Code(err)
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) ||
+		code == codes.Canceled || code == codes.DeadlineExceeded
+}
+
 // joinOutputSources adds source-only snapshots after delivery classification and cleanup filtering.
 func joinOutputSources(delivery error, sources ...error) error {
 	source := errors.Join(sources...)

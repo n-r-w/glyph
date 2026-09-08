@@ -121,7 +121,7 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, registration.Tools, 1)
 
-	runtime.Close()
+	require.NoError(t, runtime.Close())
 	select {
 	case <-runtime.Done():
 	case <-time.After(processOperationTimeout):
@@ -204,11 +204,24 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 // isAdversarialMode reports whether one helper mode bypasses the SDK to violate the public protocol.
 func isAdversarialMode(mode string) bool {
 	switch mode {
-	case "missing-result", "duplicate-result", "event-after-result", "empty-event",
-		"empty-result", "mismatched-handler", "unsupported-rejection", "unsupported-failure",
-		"failure-before-accepted", "unknown-operation-rejection", "unknown-operation-failure",
-		"cancel-transport-error", "cancel-handle-transport-error",
-		"cancel-unknown-transport-error", "cancel-handle-unknown-transport-error":
+	case "host-rejection-registration",
+		"host-rejection-delivered",
+		"host-rejection-completion",
+		"missing-result",
+		"duplicate-result",
+		"event-after-result",
+		"empty-event",
+		"empty-result",
+		"mismatched-handler",
+		"unsupported-rejection",
+		"unsupported-failure",
+		"failure-before-accepted",
+		"unknown-operation-rejection",
+		"unknown-operation-failure",
+		"cancel-transport-error",
+		"cancel-handle-transport-error",
+		"cancel-unknown-transport-error",
+		"cancel-handle-unknown-transport-error":
 		return true
 	default:
 		return false
@@ -230,7 +243,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	// Act: start the real process and retrieve its complete startup catalog.
 	runtime, err := Start(t.Context(), command)
 	require.NoError(t, err)
-	t.Cleanup(runtime.Close)
+	t.Cleanup(func() { require.NoError(t, runtime.Close()) })
 	registration, err := runtime.Register(t.Context())
 	require.NoError(t, err)
 
@@ -338,7 +351,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	assertRuntimeRunning(t, runtime)
 
 	// Act: stop the extension process through the Host runtime adapter.
-	runtime.Close()
+	require.NoError(t, runtime.Close())
 
 	// Assert: shutdown waits until the process has exited.
 	requireRuntimeStopped(t, runtime)
@@ -763,7 +776,7 @@ func TestRuntimeCloseWaitsForActiveRelease(t *testing.T) {
 
 	// Act: request closure while Execute remains active.
 	go func() {
-		runtime.Close()
+		assert.NoError(t, runtime.Close())
 		close(closeDone)
 	}()
 	require.Eventually(t, func() bool { return pathExists(releasePath) }, processOperationTimeout, 10*time.Millisecond)
@@ -1347,7 +1360,7 @@ func startReleaseGatedHelperRuntime(
 	)
 	runtime, err := Start(t.Context(), command)
 	require.NoError(t, err)
-	t.Cleanup(runtime.Close)
+	t.Cleanup(func() { require.NoError(t, runtime.Close()) })
 	return runtime
 }
 

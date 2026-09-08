@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"
@@ -71,8 +73,42 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 		return err
 	}
 	registerID := register.GetOperationId()
-	if err = sendAdversarialLifecycle(stream, registerID, registerCompletedEvent(s.mode)); err != nil {
-		return err
+	if s.mode != "host-rejection-registration" {
+		if err = sendAdversarialLifecycle(stream, registerID, registerCompletedEvent(s.mode)); err != nil {
+			return err
+		}
+	}
+	if s.mode == "host-rejection-delivered" {
+		request := new(extensionpb.ExtensionRequest)
+		request.SetGetModels(new(extensionpb.GetModelsRequest))
+		if err = stream.Send(extensionpb.OpenResponse_builder{
+			OperationId: new("delivered-rejection"), Request: request, Event: nil,
+		}.Build()); err != nil {
+			return err
+		}
+		response, receiveErr := stream.Recv()
+		if receiveErr != nil {
+			return receiveErr
+		}
+		if response.GetEvent().GetRejected() == nil {
+			return errors.New("expected Host rejection")
+		}
+		os.Exit(23)
+	}
+	if s.mode == "host-rejection-completion" || s.mode == "host-rejection-registration" {
+		// Fill the existing outbound flow-control window without consuming Host rejection output.
+		padding := strings.Repeat("x", 1<<20)
+		for index := range 128 {
+			request := new(extensionpb.ExtensionRequest)
+			request.SetGetModels(new(extensionpb.GetModelsRequest))
+			if sendErr := stream.Send(extensionpb.OpenResponse_builder{
+				OperationId: new(strconv.Itoa(index) + padding), Request: request, Event: nil,
+			}.Build()); sendErr != nil {
+				os.Exit(23)
+			}
+		}
+		<-stream.Context().Done()
+		os.Exit(23)
 	}
 	execute, err := stream.Recv()
 	if err != nil {

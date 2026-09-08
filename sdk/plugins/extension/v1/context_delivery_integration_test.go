@@ -129,10 +129,10 @@ func isolatedHostDelivery(t *testing.T) (*Connection, *hostDelivery, <-chan *ext
 		mutex:         sync.Mutex{},
 		kinds:         make(map[string]requestKind),
 		err:           nil,
-		completionErr: nil,
-		writerDone:    nil,
-		receiveDone:   nil,
-		closeOnce:     sync.Once{},
+		completionErr: nil, completionFailures: nil,
+		writerDone:  nil,
+		receiveDone: nil,
+		closeOnce:   sync.Once{},
 	}
 	delivery := &hostDelivery{connection: connection}
 	connection.hostOwner = operation.NewOwner[struct{}, *extensionpb.HostCompleted](ctx, delivery)

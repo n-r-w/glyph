@@ -37,7 +37,7 @@ func (r *Runtime) ObserveLifecycle(
 			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
 		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
-			r.Close()
+			_ = r.Close()
 		}
 		return errors.Join(r.handlerOperationError(ctx, handlerID, err), cancellationErr)
 	}
