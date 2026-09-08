@@ -81,37 +81,48 @@ func (s *Service) Run(
 	}
 	stdout := &streamWriter{sink: sink, stream: bashusecase.StreamStdout, pending: nil}
 	stderr := &streamWriter{sink: sink, stream: bashusecase.StreamStderr, pending: nil}
-	process.Stdout = stdout
-	process.Stderr = stderr
-	startErr := process.Start()
-	if startErr != nil {
-		return bashusecase.ProcessResult{}, fmt.Errorf("start bash: %w", startErr)
+	output, err := newProcessOutput(stdout, stderr)
+	if err != nil {
+		return bashusecase.ProcessResult{}, err
+	}
+	// File endpoints keep Cmd.Wait independent of the adapter's output workers.
+	process.Stdout = output.stdout.writer
+	process.Stderr = output.stderr.writer
+	if startErr := process.Start(); startErr != nil {
+		return bashusecase.ProcessResult{}, errors.Join(fmt.Errorf("start bash: %w", startErr), output.close())
+	}
+	writeCloseErr := output.closeWriters()
+	if writeCloseErr != nil {
+		cancel(writeCloseErr)
 	}
 
-	processDone := make(chan struct{})
+	shellDone := make(chan struct{})
+	outputDone := make(chan struct{})
 	killResult := make(chan error, 1)
-	go watchCancellation(runContext, process.Process, processDone, killResult)
+	go watchCancellation(runContext, process.Process, shellDone, outputDone, killResult)
+	stdoutResult := make(chan error, 1)
+	stderrResult := make(chan error, 1)
+	go output.stdout.copy(cancel, stdoutResult)
+	go output.stderr.copy(cancel, stderrResult)
 	waitErr := process.Wait()
-	close(processDone)
-	killErr := <-killResult
+	close(shellDone)
+	copyErr := errors.Join(<-stdoutResult, <-stderrResult)
+	// A final UTF-8 callback can request cancellation, so keep monitoring through both flushes.
 	progressErr := errors.Join(stdout.flush(), stderr.flush())
+	close(outputDone)
+	killErr := <-killResult
 	cause := errors.Join(context.Cause(runContext), progressErr)
 	result, outputErr := sink.result(process.ProcessState.ExitCode(), cause)
-	if cause != nil {
-		if errors.Is(cause, context.Canceled) {
-			discardErr := sink.discard()
-			return bashusecase.ProcessResult{}, errors.Join(cause, killErr, outputErr, discardErr)
-		}
-		return result, errors.Join(cause, killErr, outputErr)
+	if _, ok := errors.AsType[*exec.ExitError](waitErr); ok {
+		waitErr = nil
+	} else if waitErr != nil {
+		waitErr = fmt.Errorf("wait for bash: %w", waitErr)
 	}
-	if outputErr != nil {
-		return result, outputErr
+	completionErr := errors.Join(cause, writeCloseErr, copyErr, killErr, waitErr, outputErr)
+	if errors.Is(cause, context.Canceled) {
+		return bashusecase.ProcessResult{}, errors.Join(completionErr, sink.discard())
 	}
-	var exitErr *exec.ExitError
-	if waitErr != nil && !errors.As(waitErr, &exitErr) {
-		return bashusecase.ProcessResult{}, fmt.Errorf("wait for bash: %w", waitErr)
-	}
-	return result, nil
+	return result, completionErr
 }
 
 // Write captures and forwards one process-output fragment.
@@ -196,23 +207,36 @@ func (s *outputSink) discard() error {
 	return s.output.discard()
 }
 
-// watchCancellation kills the process group immediately when execution is canceled.
-func watchCancellation(ctx context.Context, process *os.Process, processDone <-chan struct{}, result chan<- error) {
+// watchCancellation remains active until output joins, even when the shell exits first.
+func watchCancellation(
+	ctx context.Context,
+	process *os.Process,
+	shellDone, outputDone <-chan struct{},
+	result chan<- error,
+) {
 	select {
 	case <-ctx.Done():
-		result <- killProcessGroup(process)
-	case <-processDone:
-		result <- nil
+	case <-outputDone:
+		if ctx.Err() == nil {
+			result <- nil
+			return
+		}
 	}
+	immediateErr := killProcessGroup(process)
+	// The shell cannot fork another child after its sole Cmd.Wait has returned.
+	<-shellDone
+	result <- errors.Join(immediateErr, killProcessGroup(process))
 }
 
-// killProcessGroup falls back to the direct child only when group termination fails.
+// killProcessGroup retains group errors even when the direct-child fallback succeeds.
 func killProcessGroup(process *os.Process) error {
-	if err := syscall.Kill(-process.Pid, syscall.SIGKILL); err == nil {
+	groupErr := syscall.Kill(-process.Pid, syscall.SIGKILL)
+	if groupErr == nil || errors.Is(groupErr, syscall.ESRCH) {
 		return nil
 	}
+	groupErr = fmt.Errorf("kill bash process group: %w", groupErr)
 	if err := process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
-		return fmt.Errorf("kill bash process: %w", err)
+		return errors.Join(groupErr, fmt.Errorf("kill bash process: %w", err))
 	}
-	return nil
+	return groupErr
 }
