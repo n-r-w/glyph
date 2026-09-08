@@ -236,6 +236,46 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 - Recommendation: Apply [D2](solution.md#tui-submission-causality-correction). Record the user line before dependent output, then consume the late dispatch result without duplicate insertion or draft loss. Preserve asynchronous I/O and one state-mutation loop.
 - Verification: The [U5 causality evidence](solution.md#u5-causality-verification) records six content-bearing assertion RED/GREEN cases and main-agent checks. Submission order, exactly-once insertion and late-result draft preservation are implemented. Fresh whole-product review remains pending.
 
+#### FND-18: Navigation drops accumulated diagnostics on later failure
+
+- Location: [handler composition](../../../../../../host/internal/usecase/host/sessiontree/handlers.go), `runRequestHandlers` and `runResultHandlers`; [navigation](../../../../../../host/internal/usecase/host/sessiontree/service.go), `navigate`; both methods in `client_navigation.go`.
+- Issue: At `cb3a8f6`, later summary, validation, persistence or cancellation failures discard earlier ordinary-handler and invalid-action issues. Cancellation branches also discard the accumulated slice.
+- Impact and realism: High. Supported navigation failures reach both clients without preceding extension diagnostics, before an operation owner can retain them.
+- Resolution: [Producer preservation](solution.md#u6-producer-preservation) retains original handler causes with their issues and joins them on failure. Successful completion, explicit handler cancellation and committed publication behavior are unchanged.
+- Verification: Twelve assertion RED/GREEN cases cover both clients and summary, final validation, pre-commit, request cancellation, result cancellation and final cancellation failures. Local checks do not imply integrated acceptance.
+
+#### FND-19: Runtime cancellation replaces received errors
+
+- Location: [extension runtime](../../../../../../host/internal/infra/plugins/extension/runtime/runtime.go), `Execute`, `executionFailure` and `executionError`; [handler mapping](../../../../../../host/internal/infra/plugins/extension/runtime/handler.go), `handlerOperationError`, also consumed by lifecycle operations.
+- Issue: At `cb3a8f6`, caller cancellation replaces received SDK and progress errors. A diagnostic-bearing gRPC Canceled status is reduced to `context.Canceled`.
+- Impact and realism: Medium. Cancellation and received terminal/progress results are independent producers. D1 cannot recover a received peer source that this mapper drops.
+- Resolution: Retain received and independent progress causes alongside cancellation. Preserve the original transport status and text without changing cancellation admission or process lifetime.
+- Verification: Assertion RED/GREEN covers received-before-cancel ordering, real runtime callback cancellation and full gRPC cancellation diagnostics. Pure cancellation and ordinary handler continuation remain in the test set.
+
+#### FND-20: SDK cancellation classification discards mixed sources
+
+- Location: [Extension SDK](../../../../../../sdk/plugins/extension/v1/service.go), `operationOutcome`; its six prepared-work callers in `service.go` and `host_owner.go`.
+- Issue: At `cb3a8f6`, an ordinary joined error containing cancellation becomes source-free Canceled even when it contains an independent failure.
+- Impact and realism: Medium. Public operation implementations can return ordinary mixed errors, including bundled tool failures. Owner retention never receives their sources.
+- Resolution: Only pure cancellation trees produce source-free Canceled. Ordinary mixed failures use the established INTERNAL category with the original source. Explicit failure categories and Completed handler diagnostics keep their established paths.
+- Verification: Assertion RED/GREEN covers the classifier and actual SDK prepared work plus Owner collection. Pure cancellation remains source-free.
+
+#### FND-21: Bash cancellation can replace a callback failure
+
+- Location: [bash process output](../../../../../../plugins/extension/tools/internal/infra/process/bash/service.go), `streamWriter.Write`, `flush` and `outputSink.result`.
+- Issue: At `cb3a8f6`, a callback error is passed only to `cancel(err)`. If parent cancellation wins first, that call cannot replace the context cause, and process completion omits the callback error. This corrects the earlier review's blanket claim that bash always preserves mixed causes before SDK classification.
+- Impact and realism: Medium. A real stdout callback can cancel its caller before returning an independent output-consumer failure.
+- Approval and resolution: O74-1 authorizes retaining callback failures in the existing output owner. `outputSink` records them under its lock before cancellation and joins them after process I/O and flush complete. `outputStore` retains its output-file error responsibility. No process termination policy changes.
+- Verification: Main repeated the real-process assertion RED. The corrected real bash usecase/process test passes with both cancellation and original callback identity. See [producer evidence](solution.md#u6-producer-preservation).
+
+#### FND-22: Bash group cancellation can leave a child running
+
+- Location: [bash process lifetime](../../../../../../plugins/extension/tools/internal/infra/process/bash/service.go), `Service.Run`, `watchCancellation` and `killProcessGroup`.
+- Issue: One successful group SIGKILL does not establish that every child stopped. A replay of `printf started; sleep 30` left an orphaned `sleep` in the owned group with stdout and stderr pipes open. `Cmd.Wait` waited for output-copy completion until that child exited.
+- Impact and realism: High. Cancellation of an ordinary shell command can leave work running and hold operation completion. The bounded probe returned after 30.01 seconds and failed a prompt-completion assertion. It did not reach the test deadline. The exact fork/signal ordering is not established.
+- Disposition: Unresolved. O75-1 authorizes a separate correction after the verified FND-18 through FND-21 commit. Its process-lifetime design requires approval before implementation. The retained callback error reaches the caller after the delayed completion, so this is distinct from FND-21.
+- Verification: Process and descriptor observations showed the surviving child after the successful signal. A separate probe returned after an additional test-only group signal. Diagnostic instrumentation was removed and production restored. No termination correction or whole-product acceptance is claimed.
+
 ### Minor
 
 #### FND-17: Architecture persistence-cleanup status is stale

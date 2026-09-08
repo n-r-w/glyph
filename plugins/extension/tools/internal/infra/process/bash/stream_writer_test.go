@@ -25,7 +25,7 @@ func TestStreamWriterJoinsSplitUTF8(t *testing.T) {
 			fragments = append(fragments, content)
 			return nil
 		},
-		cancel: cancel,
+		cancel: cancel, progressErr: nil,
 	}
 	writer := &streamWriter{sink: sink, stream: bashusecase.StreamStdout, pending: nil}
 
@@ -49,7 +49,7 @@ func TestStreamWriterKeepsDeliveredTextOrder(t *testing.T) {
 			fragments = append(fragments, content)
 			return nil
 		},
-		cancel: cancel,
+		cancel: cancel, progressErr: nil,
 	}
 	stdout := &streamWriter{sink: sink, stream: bashusecase.StreamStdout, pending: nil}
 	stderr := &streamWriter{sink: sink, stream: bashusecase.StreamStderr, pending: nil}
@@ -79,7 +79,7 @@ func TestStreamWriterReplacesInvalidUTF8(t *testing.T) {
 			fragments = append(fragments, content)
 			return nil
 		},
-		cancel: cancel,
+		cancel: cancel, progressErr: nil,
 	}
 	writer := &streamWriter{sink: sink, stream: bashusecase.StreamStdout, pending: nil}
 

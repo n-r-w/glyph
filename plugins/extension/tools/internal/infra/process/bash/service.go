@@ -30,6 +30,8 @@ type outputSink struct {
 	handleProgress bashusecase.ProgressHandler
 	// cancel stops execution after output handling failure.
 	cancel context.CancelCauseFunc
+	// progressErr retains callback failures independently of whichever cancellation cause wins first.
+	progressErr error
 }
 
 // streamWriter assigns one command writer to one output channel.
@@ -68,6 +70,7 @@ func (s *Service) Run(
 		output:         newOutputStore(),
 		handleProgress: handleProgress,
 		cancel:         cancel,
+		progressErr:    nil,
 	}
 	process := exec.CommandContext( //nolint:gosec // The bash tool explicitly executes the model-provided command.
 		context.WithoutCancel(runContext), bashPath, "-c", command,
@@ -123,7 +126,7 @@ func (w *streamWriter) Write(content []byte) (int, error) {
 	if progress != "" {
 		w.sink.output.appendText(progress)
 		if err := w.sink.handleProgress(w.stream, progress); err != nil {
-			w.sink.cancel(err)
+			w.sink.failProgress(err)
 			return 0, err
 		}
 	}
@@ -164,10 +167,16 @@ func (w *streamWriter) flush() error {
 	w.pending = w.pending[:0]
 	w.sink.output.appendText("?")
 	if err := w.sink.handleProgress(w.stream, "?"); err != nil {
-		w.sink.cancel(err)
+		w.sink.failProgress(err)
 		return err
 	}
 	return nil
+}
+
+// failProgress records a callback failure under the sink lock before requesting process cancellation.
+func (s *outputSink) failProgress(err error) {
+	s.progressErr = errors.Join(s.progressErr, err)
+	s.cancel(err)
 }
 
 // result closes complete output and builds the bounded terminal text.
@@ -175,6 +184,8 @@ func (s *outputSink) result(exitCode int, cause error) (bashusecase.ProcessResul
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	output, truncation, err := s.output.finish(exitCode, cause)
+	// Context cancellation cannot replace callback failures retained by the output owner.
+	err = errors.Join(err, s.progressErr)
 	return bashusecase.ProcessResult{Output: output, ExitCode: exitCode, Truncation: truncation}, err
 }
 

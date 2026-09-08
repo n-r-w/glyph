@@ -16,6 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
 // TestNavigateComposesRequestHandlersAndPostCommitObservers verifies target preparation, issue order,
@@ -97,16 +98,16 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, result.Canceled)
 	assert.Equal(t, mo.Some("extension"), result.ActiveLeafID)
-	assert.Equal(t, []navigationIssue{
+	assert.Equal(t, []ui.NavigationIssue{
 		{
-			Code: navigationIssueHandlerError, ExtensionID: "second-extension",
-			HandlerID: "ordinary-error", Message: "load summary rules: open rules.json: permission denied",
+			Kind: ui.NavigationHandlerError, ExtensionID: "second-extension",
+			HandlerID: "ordinary-error", Text: "load summary rules: open rules.json: permission denied",
 		},
 		{
-			Code: navigationIssueObserverError, ExtensionID: "observer-extension",
-			HandlerID: "after-commit", Message: "save navigation receipt: write receipt.json: disk full",
+			Kind: ui.NavigationObserverError, ExtensionID: "observer-extension",
+			HandlerID: "after-commit", Text: "save navigation receipt: write receipt.json: disk full",
 		},
-	}, result.Issues)
+	}, result.uiCompletion().Issues)
 }
 
 // TestNavigatePreservesStateForInvalidHandlerAction verifies an exact validation cause and later-handler continuation.
@@ -170,10 +171,10 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	// Assert the invalid action keeps preceding state, reports its exact cause, and does not stop the later handler.
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some("extension"), result.ActiveLeafID)
-	assert.Equal(t, []navigationIssue{{
-		Code: navigationIssueInvalidHandlerAction, ExtensionID: "extension",
-		HandlerID: "invalid", Message: "custom focus is not allowed for this summary mode",
-	}}, result.Issues)
+	assert.Equal(t, []ui.NavigationIssue{{
+		Kind: ui.NavigationInvalidHandlerAction, ExtensionID: "extension",
+		HandlerID: "invalid", Text: "custom focus is not allowed for this summary mode",
+	}}, result.uiCompletion().Issues)
 }
 
 // TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit verifies cancellation stops all later work.
@@ -213,10 +214,10 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	// Assert cancellation is a state-free result with only preceding issues.
 	require.NoError(t, err)
 	assert.True(t, result.Canceled)
-	assert.Equal(t, []navigationIssue{{
-		Code: navigationIssueHandlerError, ExtensionID: "extension",
-		HandlerID: "failed", Message: "ordinary failure",
-	}}, result.Issues)
+	assert.Equal(t, []ui.NavigationIssue{{
+		Kind: ui.NavigationHandlerError, ExtensionID: "extension",
+		HandlerID: "failed", Text: "ordinary failure",
+	}}, result.uiCompletion().Issues)
 }
 
 // TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers verifies fallback and result replacement happen once.
@@ -290,10 +291,10 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	// Assert failure preserves the generated result for the later handler and reports its complete cause.
 	require.NoError(t, err)
 	assert.False(t, result.Canceled)
-	assert.Equal(t, []navigationIssue{{
-		Code: navigationIssueHandlerError, ExtensionID: "third", HandlerID: "failed-result",
-		Message: "refine summary: load glossary: invalid JSON",
-	}}, result.Issues)
+	assert.Equal(t, []ui.NavigationIssue{{
+		Kind: ui.NavigationHandlerError, ExtensionID: "third", HandlerID: "failed-result",
+		Text: "refine summary: load glossary: invalid JSON",
+	}}, result.uiCompletion().Issues)
 }
 
 // TestNavigateResultHandlerCancellationStopsBeforeValidation verifies result-chain cancellation writes nothing.

@@ -119,16 +119,7 @@ func (r *Runtime) Execute(
 		if connectionFailed || isConnectionFailure(cancellationErr) {
 			_ = r.Close()
 		}
-		var primaryErr error
-		switch {
-		case ctx.Err() != nil:
-			primaryErr = fmt.Errorf("execute extension tool %q: %w", toolName, ctx.Err())
-		case progressDeliveryErr != nil:
-			primaryErr = fmt.Errorf("deliver extension progress: %w", progressDeliveryErr)
-		default:
-			primaryErr = r.executionError(ctx, toolName, err)
-		}
-		return tool.Result{}, errors.Join(primaryErr, cancellationErr)
+		return tool.Result{}, errors.Join(r.executionFailure(ctx, toolName, err, progressDeliveryErr), cancellationErr)
 	}
 	result := completed.GetTool()
 	if result == nil {
@@ -139,6 +130,18 @@ func (r *Runtime) Execute(
 		return tool.Result{}, r.protocolViolation(err)
 	}
 	return tool.Result{Contents: contents, IsError: result.GetIsError()}, nil
+}
+
+// executionFailure selects the operation result after SDK work and progress delivery settle.
+func (r *Runtime) executionFailure(ctx context.Context, toolName string, received, progress error) error {
+	switch {
+	case ctx.Err() != nil:
+		return fmt.Errorf("execute extension tool %q: %w", toolName, errors.Join(ctx.Err(), received, progress))
+	case progress != nil:
+		return fmt.Errorf("deliver extension progress: %w", errors.Join(progress, received))
+	default:
+		return r.executionError(ctx, toolName, received)
+	}
 }
 
 // Done closes when the extension process terminates.
@@ -206,10 +209,10 @@ func (r *Runtime) executionError(ctx context.Context, toolName string, err error
 		return fmt.Errorf("execute extension tool %q: %w", toolName, err)
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		return fmt.Errorf("execute extension tool %q: %w", toolName, ctxErr)
+		return fmt.Errorf("execute extension tool %q: %w", toolName, errors.Join(ctxErr, err))
 	}
 	if status.Code(err) == codes.Canceled {
-		return fmt.Errorf("execute extension tool %q: %w", toolName, context.Canceled)
+		return fmt.Errorf("execute extension tool %q: %w", toolName, errors.Join(context.Canceled, err))
 	}
 	if status.Code(err) == codes.FailedPrecondition {
 		return toolExecutionProtocolViolation(r, toolName, err)

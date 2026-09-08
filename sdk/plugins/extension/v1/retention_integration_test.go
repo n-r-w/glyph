@@ -18,11 +18,8 @@ import (
 // TestServerRetainsWorkSourceBeforeTerminal exercises both Failed work and ordinary completed HandlerError.
 func TestServerRetainsWorkSourceBeforeTerminal(t *testing.T) {
 	t.Parallel()
-	for _, completed := range []bool{false, true} {
-		name := "failed work"
-		if completed {
-			name = "completed HandlerError"
-		}
+	for _, name := range []string{"failed work", "ordinary mixed failure", "completed HandlerError"} {
+		completed := name == "completed HandlerError"
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			synctest.Test(t, func(t *testing.T) {
@@ -45,9 +42,11 @@ func TestServerRetainsWorkSourceBeforeTerminal(t *testing.T) {
 							response.SetError(extensionpb.HandlerError_builder{Message: new(source.Error())}.Build())
 							return response, nil
 						}
-						return nil, fmt.Errorf("outer accepted-work source: %w", errors.Join(
-							Fail(failureCodeInternal, source), cleanupErr,
-						))
+						failure := Fail(failureCodeInternal, source)
+						if name == "ordinary mixed failure" {
+							failure = errors.Join(context.Canceled, source)
+						}
+						return nil, fmt.Errorf("outer accepted-work source: %w", errors.Join(failure, cleanupErr))
 					})
 				handler.EXPECT().Release()
 				server := newServer(service)

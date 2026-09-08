@@ -1034,6 +1034,28 @@ func TestRuntimeRejectsUnsupportedPeerCategories(t *testing.T) {
 	}
 }
 
+// TestRuntimeCancellationRetainsProgressFailure overlaps cancellation with a received progress callback error.
+func TestRuntimeCancellationRetainsProgressFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange a real SDK/process runtime and an independent progress failure.
+	runtime := startHelperRuntime(t, "progress")
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	cause := errors.New("progress failed during caller cancellation Ω")
+	// Act by canceling inside the callback before returning the received failure to the runtime.
+	_, err = runtime.Execute(ctx, "read", []byte(`{"path":"notes.txt"}`), func(tool.Progress) error {
+		cancel()
+		return cause
+	}, runtimeTestContext())
+	// Assert cancellation cannot replace the received callback failure or stop a usable process.
+	require.ErrorIs(t, err, cause)
+	require.ErrorIs(t, err, context.Canceled)
+	require.NotErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
+	assertRuntimeRunning(t, runtime)
+}
+
 // TestRuntimeProgressDeliveryFailurePreservesProcess keeps a healthy extension available.
 func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 	t.Parallel()

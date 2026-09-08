@@ -77,7 +77,7 @@ func (r *Runtime) Handle(
 // handlerOperationError preserves operation errors and classifies stream failures as unavailability.
 func (r *Runtime) handlerOperationError(ctx context.Context, handlerID string, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		return fmt.Errorf("handle extension handler %q: %w", handlerID, ctxErr)
+		return fmt.Errorf("handle extension handler %q: %w", handlerID, errors.Join(ctxErr, err))
 	}
 	if isExtensionTerminalError(err) {
 		return fmt.Errorf("handle extension handler %q: %w", handlerID, err)

@@ -3,6 +3,7 @@ package sessiontree
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/samber/mo"
 
@@ -33,11 +34,14 @@ func (s *Service) runRequestHandlers(
 		})
 		if err != nil {
 			if contextErr := ctx.Err(); contextErr != nil {
-				return HandlerNavigationState{}, mo.None[HandlerBranchSummaryResult](), nil, false, contextErr
+				return HandlerNavigationState{}, mo.None[HandlerBranchSummaryResult](), issues, false, errors.Join(
+					contextErr,
+					err,
+				)
 			}
 			issues = append(
 				issues,
-				operationIssue(navigationIssueHandlerError, handler, err.Error()),
+				operationIssue(navigationIssueHandlerError, handler, err),
 			)
 			continue
 		}
@@ -46,7 +50,7 @@ func (s *Service) runRequestHandlers(
 			issues = append(issues, operationIssue(
 				navigationIssueInvalidHandlerAction,
 				handler,
-				validationErr.Error(),
+				validationErr,
 			))
 			continue
 		}
@@ -158,11 +162,11 @@ func (s *Service) runResultHandlers(
 		})
 		if err != nil {
 			if contextErr := ctx.Err(); contextErr != nil {
-				return mo.None[HandlerBranchSummaryResult](), nil, false, contextErr
+				return mo.None[HandlerBranchSummaryResult](), issues, false, errors.Join(contextErr, err)
 			}
 			issues = append(
 				issues,
-				operationIssue(navigationIssueHandlerError, handler, err.Error()),
+				operationIssue(navigationIssueHandlerError, handler, err),
 			)
 			continue
 		}
@@ -171,7 +175,7 @@ func (s *Service) runResultHandlers(
 			issues = append(issues, operationIssue(
 				navigationIssueInvalidHandlerAction,
 				handler,
-				invalidHandlerActionMessage,
+				errors.New(invalidHandlerActionMessage),
 			))
 			continue
 		}
@@ -226,7 +230,7 @@ func (s *Service) runObservers(
 		if err := s.invokeObserver(observerContext, handler, invocation); err != nil {
 			issues = append(
 				issues,
-				operationIssue(navigationIssueObserverError, handler, err.Error()),
+				operationIssue(navigationIssueObserverError, handler, err),
 			)
 		}
 	}
@@ -249,10 +253,11 @@ func committedSummary(tree session.Tree, expected bool) mo.Option[session.Entry]
 func operationIssue(
 	code navigationIssueCode,
 	handler Handler,
-	message string,
+	cause error,
 ) navigationIssue {
 	return navigationIssue{
-		Code: code, ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID, Message: message,
+		Code: code, ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID, Message: cause.Error(),
+		source: fmt.Errorf("extension %q handler %q: %w", handler.ExtensionID, handler.HandlerID, cause),
 	}
 }
 

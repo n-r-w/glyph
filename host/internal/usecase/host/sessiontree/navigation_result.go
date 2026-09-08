@@ -1,6 +1,8 @@
 package sessiontree
 
 import (
+	"errors"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -30,6 +32,19 @@ type navigationIssue struct {
 	HandlerID string
 	// Message preserves the received failure and all context already added to it.
 	Message string
+	// source retains the original Go cause until navigation either completes or returns an error.
+	source error
+}
+
+// joinNavigationIssues retains earlier handler sources only when navigation returns a later failure.
+func joinNavigationIssues(primary error, issues []navigationIssue) error {
+	if primary == nil {
+		return nil
+	}
+	for _, issue := range issues {
+		primary = errors.Join(primary, issue.source)
+	}
+	return primary
 }
 
 // navigationResult contains terminal navigation metadata or a canceled outcome.

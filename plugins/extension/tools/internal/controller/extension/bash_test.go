@@ -122,31 +122,43 @@ func TestServiceExecuteBashBoundsRetainedOutputAndRunnerError(t *testing.T) {
 // TestServiceExecuteBashRetainedOutputCancellationPreservesCancellation preserves operation cancellation behavior.
 func TestServiceExecuteBashRetainedOutputCancellationPreservesCancellation(t *testing.T) {
 	t.Parallel()
+	for _, mixed := range []bool{false, true} {
+		t.Run(fmt.Sprintf("mixed_%t", mixed), func(t *testing.T) {
+			t.Parallel()
+			// Arrange: a runner result with retained output and wrapped cancellation.
+			cause := errors.New("independent bash progress/output source Ω")
+			failure := context.Canceled
+			if mixed {
+				failure = errors.Join(failure, cause)
+			}
+			bashTool := NewMockBashTool(gomock.NewController(t))
+			bashTool.EXPECT().
+				Execute(gomock.Any(), BashCommand{Text: "cancel", Timeout: mo.None[float64]()}, gomock.Any()).
+				Return(
+					BashResult{
+						Text: "partial output", ExitCode: -1,
+						Truncation: textbudget.Truncation{
+							Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: "",
+						},
+					},
+					fmt.Errorf("run bash command: %w", failure),
+				)
+			client := newTestClientWithBash(t, bashTool)
 
-	// Arrange: a runner result with retained output and wrapped cancellation.
-	bashTool := NewMockBashTool(gomock.NewController(t))
-	bashTool.EXPECT().
-		Execute(gomock.Any(), BashCommand{Text: "cancel", Timeout: mo.None[float64]()}, gomock.Any()).
-		Return(
-			BashResult{
-				Text: "partial output", ExitCode: -1,
-				Truncation: textbudget.Truncation{
-					Truncated: false, TotalBytes: 0, TotalLines: 0, FullOutputPath: "",
-				},
-			},
-			fmt.Errorf("run bash command: %w", context.Canceled),
-		)
-	client := newTestClientWithBash(t, bashTool)
+			// Act: execute bash through the extension controller.
+			_, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
+				Context: nil,
 
-	// Act: execute bash through the extension controller.
-	_, err := runExecution(t, client, extensionv1.ExecuteRequest_builder{
-		Context: nil,
+				ToolName: new(bashToolName), ArgumentsJson: []byte(`{"command":"cancel"}`),
+			}.Build())
 
-		ToolName: new(bashToolName), ArgumentsJson: []byte(`{"command":"cancel"}`),
-	}.Build())
-
-	// Assert: cancellation remains identifiable instead of becoming completed tool data.
-	require.ErrorIs(t, err, context.Canceled)
+			// Assert: cancellation and independent causes remain errors instead of becoming completed tool data.
+			require.ErrorIs(t, err, context.Canceled)
+			if mixed {
+				require.ErrorIs(t, err, cause)
+			}
+		})
+	}
 }
 
 // TestServiceExecuteBashReturnsBoundedText forwards the prepared terminal result without JSON expansion.

@@ -454,6 +454,26 @@ func TestOperationOutcomePreservesClassifiedCancellation(t *testing.T) {
 	assert.ErrorContains(t, outcome.Err(), "cleanup failed")
 }
 
+// TestOperationOutcomeRetainsOrdinaryMixedCancellation retains independent sources without the optional Fail wrapper.
+func TestOperationOutcomeRetainsOrdinaryMixedCancellation(t *testing.T) {
+	t.Parallel()
+	// Arrange an ordinary joined error, without the optional SDK Fail wrapper.
+	cause := errors.New("bash progress and output cleanup failed Ω")
+	mixed := fmt.Errorf("execute bash: %w", errors.Join(context.Canceled, cause))
+
+	// Act through the shared producer classifier.
+	outcome := operationOutcome[struct{}](mixed)
+	pure := operationOutcome[struct{}](fmt.Errorf("execute canceled: %w", context.Canceled))
+
+	// Assert independent causes enter Owner retention while pure cancellation stays source-free.
+	require.Equal(t, operation.TerminalStateFailed, outcome.State())
+	require.Equal(t, failureCodeInternal, outcome.Code())
+	require.ErrorIs(t, outcome.Err(), mixed)
+	require.ErrorIs(t, outcome.SourceError(), cause)
+	require.Equal(t, operation.TerminalStateCanceled, pure.State())
+	require.NoError(t, pure.SourceError())
+}
+
 // TestValidateRejectionCodeUsesRequestSpecificClosedSets verifies every Extension request category set.
 func TestValidateRejectionCodeUsesRequestSpecificClosedSets(t *testing.T) {
 	t.Parallel()

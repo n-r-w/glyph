@@ -68,7 +68,10 @@ func (s *Service) navigate(
 	ctx context.Context,
 	request NavigationRequest,
 	publisher func(session.Tree) error,
-) (navigationResult, error) {
+) (result navigationResult, failure error) {
+	// Keep handler sources until the navigation result or a later failure reaches its client.
+	var issues []navigationIssue
+	defer func() { failure = joinNavigationIssues(failure, issues) }()
 	if err := ctx.Err(); err != nil {
 		return navigationResult{}, err
 	}
@@ -139,6 +142,7 @@ func (s *Service) navigate(
 			ExtensionID: "",
 			HandlerID:   "",
 			Message:     err.Error(),
+			source:      err,
 		})
 	}
 
