@@ -135,6 +135,19 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 		Timeout:       standardTUIHostJoinTimeout,
 	})
 
+	// releaseRequest waits for admission release, not model text or an earlier idle frame.
+	// Every caller first observes this run's Running state while its provider response is blocked.
+	releaseRequest := func() {
+		checkpoint := observer.Checkpoint()
+		requestStandardTUIControl(t, controlSocketPath, 'r')
+		observer.WaitNext(t, "Request complete.")
+		// Idle can precede the model text in a coalesced frame, so inspect the whole checkpoint suffix.
+		// The renderer can retain the separator and update only the status word.
+		for !strings.Contains(observer.StringFrom(checkpoint), "Idle ") {
+			observer.WaitNext(t, "Idle ")
+		}
+	}
+
 	observer.WaitNext(t, "Status: Idle")
 	observer.WaitNext(t, "Request: |")
 	testsupporttui.Write(t, input, string([]byte{16}))
@@ -161,7 +174,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "read input.txt")
 	observer.WaitNext(t, "read input.txt|")
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitNext(t, "Request complete.")
+	observer.WaitNext(t, "Running |")
+	releaseRequest()
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Session ID: "+restartID)
@@ -180,9 +194,9 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	// Create a second active session so the stored restart target remains one complete tool turn.
 	testsupporttui.Write(t, input, "/new")
 	observer.WaitNext(t, "/new|")
-	newCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitForOutputAfter(t, newCheckpoint)
+	// Only Host replacement confirmation clears the observed /new draft.
+	observer.WaitNext(t, "Request: |")
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Name: <absent>")
@@ -200,7 +214,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "active history")
 	observer.WaitNext(t, "y|")
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitNext(t, "Request complete.")
+	observer.WaitNext(t, "Running |")
+	releaseRequest()
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Session ID: "+activeID)
@@ -215,7 +230,7 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "blocked request")
 	observer.WaitNext(t, "blocked request|")
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitNext(t, "Running")
+	observer.WaitNext(t, "Running |")
 	// Re-render exact active identity after the checkpoint, then attempt the busy resume.
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
@@ -239,21 +254,20 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	redrawOutput := observer.StringFrom(redrawCheckpoint)
 	require.NoError(t, validateBusyPreservation(redrawOutput, activeID), "%q", redrawOutput)
 	testsupporttui.Write(t, input, "\x1b[27u")
-	requestStandardTUIControl(t, controlSocketPath, 'r')
-	observer.WaitNext(t, "Request complete.")
+	releaseRequest()
 
 	// Persist and observe an unavailable-cost session before Host reconstruction.
 	testsupporttui.Write(t, input, "/new")
 	observer.WaitNext(t, "/new|")
-	newUnavailableCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitForOutputAfter(t, newUnavailableCheckpoint)
+	observer.WaitNext(t, "Request: |")
 	testsupporttui.Write(t, input, "/name unavailable cost session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Updated:")
 	testsupporttui.Write(t, input, "unavailable history")
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitNext(t, "Request complete.")
+	observer.WaitNext(t, "Running |")
+	releaseRequest()
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Name: unavailable cost session")
@@ -267,9 +281,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	// Persist and observe a separate empty session with no provider-model breakdown.
 	testsupporttui.Write(t, input, "/new")
 	observer.WaitNext(t, "/new|")
-	newEmptyCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitForOutputAfter(t, newEmptyCheckpoint)
+	observer.WaitNext(t, "Request: |")
 	testsupporttui.Write(t, input, "/name empty cost session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Updated:")
@@ -340,12 +353,13 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 
 	// Resume the persisted empty session and prove it still has no breakdown.
 	testsupporttui.Write(t, input, "/resume")
+	// Observe the draft before dispatch; opening the selector need not repaint the editor.
+	observer.WaitNext(t, "/resume|")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Sessions:")
 	testsupporttui.Write(t, input, "\x1b[B")
-	emptyResumeCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitForOutputAfter(t, emptyResumeCheckpoint)
+	observer.WaitNext(t, "Request: |")
 	emptyAfterCheckpoint := observer.Checkpoint()
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
@@ -403,7 +417,8 @@ func TestStandardTUIHostSmoke(t *testing.T) {
 	testsupporttui.Write(t, input, "continue")
 	observer.WaitNext(t, "continue|")
 	testsupporttui.Write(t, input, "\x1b[13u")
-	observer.WaitNext(t, "Request complete.")
+	observer.WaitNext(t, "Running |")
+	releaseRequest()
 	testsupporttui.Write(t, input, "/session")
 	testsupporttui.Write(t, input, "\x1b[13u")
 	observer.WaitNext(t, "Session ID: "+restartID)
@@ -566,6 +581,7 @@ func TestStandardTUIHostSmokeInner(t *testing.T) {
 	require.NoError(t, <-controlDone)
 }
 
+// serveStandardTUIControl handles provider-release and terminal-redraw requests from the smoke fixture.
 func serveStandardTUIControl(
 	ctx context.Context,
 	listener net.Listener,
@@ -573,7 +589,8 @@ func serveStandardTUIControl(
 	providerRelease chan struct{},
 ) error {
 	defer func() { _ = listener.Close() }()
-	for range 2 {
+	// Five run releases and one busy-session redraw share the existing fixture control socket.
+	for range 6 {
 		connection, err := listener.Accept()
 		if err != nil {
 			return err
@@ -587,7 +604,11 @@ func serveStandardTUIControl(
 				resize.Stdin = terminalFile
 				_, err = resize.CombinedOutput()
 			case 'r':
-				close(providerRelease)
+				select {
+				case providerRelease <- struct{}{}:
+				case <-ctx.Done():
+					err = ctx.Err()
+				}
 			default:
 				err = errors.New("unknown standard TUI control command")
 			}
@@ -606,7 +627,7 @@ func serveStandardTUIControl(
 	return nil
 }
 
-// newStandardTUITransport returns deterministic usage responses and blocks the fourth request.
+// newStandardTUITransport holds each run's first response until its Running screen is observed.
 func newStandardTUITransport(
 	t *testing.T,
 	requestCount *atomic.Int32,
@@ -618,8 +639,13 @@ func newStandardTUITransport(
 	blockingRequestCount := new(atomic.Int32)
 	transport.EXPECT().RoundTrip(gomock.Any()).AnyTimes().DoAndReturn(
 		func(request *http.Request) (*http.Response, error) {
-			if blockingRequestCount.Add(1) == 4 {
-				<-release
+			// The second request continues the first tool turn and needs no separate admission barrier.
+			if blockingRequestCount.Add(1) != 2 {
+				select {
+				case <-release:
+				case <-request.Context().Done():
+					return nil, request.Context().Err()
+				}
 			}
 			body, err := io.ReadAll(request.Body)
 			if err != nil {

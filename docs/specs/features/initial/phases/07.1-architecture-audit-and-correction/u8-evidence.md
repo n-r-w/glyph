@@ -1,6 +1,6 @@
 # U8 implementation evidence
 
-U8 implementation and main-agent verification are complete. Independent integrated review subsequently found [FND-10 and FND-11](audit.md#fnd-10-codex-streaming-failures-truncate-source-text). Their [U6 correction](solution.md#u6-follow-up-complete-source-and-delivery-causes) is committed as `b03095a`. Review of that commit found FND-12 through FND-14. The O72-1 [retention correction](solution.md#u6-retention-correction) is committed as `ded1549`. Its independent review found FND-15 through FND-17. The user approved the [D1/D2 corrections](solution.md#qst-05-runtime-completion-meaning-and-tui-submission-causality). [D2 implementation and main-agent checks](solution.md#u5-causality-verification) are complete. [D1 implementation and main-agent checks](solution.md#u6-runtime-completion-evidence) are complete. Review of `cb3a8f6` found FND-18 through FND-20. O74-1 includes FND-21. The [producer correction](solution.md#u6-producer-preservation) has implementation and main-agent verification evidence. The separate [FND-22 process correction](solution.md#process-cancellation-evidence) has implementation and main-agent verification evidence. The [FND-23 dispatch-confirmation correction](solution.md#host-command-dispatch-confirmation-correction) has implementation and main-agent verification evidence under O78-1. The separate U8 smoke-fixture correction and fresh independent review remain pending. PHS-07.1 is blocked and explicit user acceptance remains pending. PHS-07 remains paused. This record supplements the [solution](solution.md#8-remove-residue-and-verify-the-whole-product), not the historical [audit baseline](audit.md#package-and-contract-coverage).
+Original U8 implementation and main-agent verification are complete. Independent integrated review subsequently found [FND-10 and FND-11](audit.md#fnd-10-codex-streaming-failures-truncate-source-text). Their [U6 correction](solution.md#u6-follow-up-complete-source-and-delivery-causes) is committed as `b03095a`. Review of that commit found FND-12 through FND-14. The O72-1 [retention correction](solution.md#u6-retention-correction) is committed as `ded1549`. Its independent review found FND-15 through FND-17. The user approved the [D1/D2 corrections](solution.md#qst-05-runtime-completion-meaning-and-tui-submission-causality). [D2 implementation and main-agent checks](solution.md#u5-causality-verification) are complete. [D1 implementation and main-agent checks](solution.md#u6-runtime-completion-evidence) are complete. Review of `cb3a8f6` found FND-18 through FND-20. O74-1 includes FND-21. The [producer correction](solution.md#u6-producer-preservation) has implementation and main-agent verification evidence. The separate [FND-22 process correction](solution.md#process-cancellation-evidence) has implementation and main-agent verification evidence. The [FND-23 dispatch-confirmation correction](solution.md#host-command-dispatch-confirmation-correction) has implementation and main-agent verification evidence under O78-1. The [U8 smoke-fixture correction](#smoke-fixture-correction) has implementation and main-agent verification evidence. Fresh independent review remains pending. PHS-07.1 is blocked and explicit user acceptance remains pending. PHS-07 remains paused. This record supplements the [solution](solution.md#8-remove-residue-and-verify-the-whole-product), not the historical [audit baseline](audit.md#package-and-contract-coverage).
 
 ## Scoped changes
 
@@ -20,7 +20,7 @@ Each row states the implementation disposition. It does not claim independent wh
 | FND-02 | [Run control](../../../../../../host/internal/usecase/host/runcontrol/coordinator.go) owns reservations, Core invocation, and owner-reported settlement. [Dispatcher](../../../../../../host/internal/usecase/host/events/service.go) delivers to clients before observers and joins both causes. [UI input](../../../../../../host/internal/controller/ui/operations.go) owns command operations. [Programmatic output](../../../../../../host/internal/infra/programmatic/output/service.go) owns active-output correlation and its attached writer. Sessions owns entry publication. The removed forwarding packages are accounted for below. |
 | FND-03 | [UI consumer ports](../../../../../../host/internal/usecase/host/ui/interfaces.go), [Programmatic consumer ports](../../../../../../host/internal/usecase/host/programmatic/interfaces.go), and their navigation contracts own client-specific inputs/results. [Runtime ports](../../../../../../host/internal/usecase/host/extensionruntime/interfaces.go) consume process representations, not borrowed capability aggregates. [TUI input contracts](../../../../../../plugins/ui/tui/internal/controller/plugin/interfaces.go) and [outgoing ports](../../../../../../plugins/ui/tui/internal/usecase/presentation/interfaces.go) have separate consumers. |
 | FND-04 | [Repository `formatVersion`](../../../../../../host/internal/infra/persistence/sessions/service.go) and replay own version 2. Domain headers and session construction have no storage version selector. |
-| FND-05 | [U6 source traces and regressions](solution.md#u6-complete-error-text) cover SDK diagnostics, Codex HTTP 401, navigation validation, and unknown labels. U8 changes no error behavior. The [follow-up correction](solution.md#u6-follow-up-complete-source-and-delivery-causes) addresses FND-10/FND-11. FND-12 through FND-14 have [retention implementation and local check evidence](solution.md#u6-retention-correction) at `ded1549`. Review of `cb3a8f6` closes FND-15 at its D1 scope but finds new producer losses. [FND-18 through FND-21](solution.md#u6-producer-preservation) have main-agent corrective evidence and still require integrated verification. [FND-22 process verification](solution.md#process-cancellation-evidence) is complete locally; main review remains pending. |
+| FND-05 | [U6 source traces and regressions](solution.md#u6-complete-error-text) cover SDK diagnostics, Codex HTTP 401, navigation validation, and unknown labels. U8 changes no error behavior. The [follow-up correction](solution.md#u6-follow-up-complete-source-and-delivery-causes) addresses FND-10/FND-11. FND-12 through FND-14 have [retention implementation and local check evidence](solution.md#u6-retention-correction) at `ded1549`. Review of `cb3a8f6` closes FND-15 at its D1 scope but finds new producer losses. [FND-18 through FND-21](solution.md#u6-producer-preservation) have main-agent corrective evidence and still require integrated verification. [FND-22 process verification](solution.md#process-cancellation-evidence) includes main-agent review and the separate `40ba3a6` commit. Fresh integrated review remains pending. |
 | FND-06 | [U7 source traces and regressions](solution.md#u7-run-persistence-cause-and-tui-cleanup) cover the shared history-persistence identity, both public run failures, and semantic TUI cleanup. No text-prefix policy remains. |
 | FND-07 | [Extension acceptance](../../../../../../host/internal/usecase/host/extensionruntime/discovery.go) and [UI acceptance](../../../../../../host/internal/usecase/host/ui/discovery.go) interpret filesystem observations. [Bash execution context](../../../../../../plugins/extension/tools/internal/usecase/tools/bash/timeout.go) owns timer creation, cause, and cleanup. |
 | FND-08 | [UI ports](../../../../../../host/internal/usecase/host/ui/interfaces.go) omit unused direct `Run` and output `Close`. Named selection, preparation, and navigation failures remain at consumers. [Provider errors](../../../../../../host/internal/usecase/host/providers/catalog.go) assert those contracts beneath `SelectionError`. SDK, writer, and rune-reader assertions remain at their implementations. U8 completes declaration placement and removes duplicate assertions. |
@@ -29,6 +29,8 @@ Each row states the implementation disposition. It does not claim independent wh
 [BLK-01 through BLK-05](tui-ownership-gap.md#blockers) retain their completed U5/U7 source traces. Resume rejection, navigation progress before terminal input, confirmation before replacement, command-send failure, and foreground cancellation remain with the application owner. U8 changes no TUI transition.
 
 ## Package coverage accounting
+
+This section preserves the original U8 measurements. [Current accounting](#current-source-and-assertion-accounting) includes the later committed corrections and smoke-fixture handoff.
 
 The comparison uses production baseline `86be985c47cb3719cd98c7e611af6173c5692cfc` and the U8 working tree above `405338e0b00f7c8764d5310377e8a17369fdaf9e`. It excludes test files, generated mocks, experiments, fixtures, and test support from handwritten production counts.
 
@@ -139,17 +141,21 @@ Generated mocks are regenerated from consumer interfaces, not counted as product
 
 ## Assertion and lint accounting
 
+This section preserves original U8 evidence. The [current measurement](#current-source-and-assertion-accounting) retains the resolved 165-finding supplemental baseline, not the historical 166-finding total below.
+
 An AST inspection found 154 handwritten production interface assertion declarations. Each declaration is directly after its implementing struct, with assertions for that struct grouped together. The resulting `go list -json ./...` graph contains 105 distinct project-local implementation/consumer package pairs from those declarations. No consumer transitively imports its implementation. `ifaceguard` also passes without a suppression. These checks support declaration/dependency closure; the finding source traces above address actual responsibilities.
 
 Full unit-tag lint used `go tool golangci-lint run --config .golangci.yml` at both the original audit source and the U8 baseline. The original source reports 205 findings. The U8 baseline reports 175. Per-file diagnostics and source-line comparison identify nine phase-introduced findings corrected by U8: two authentication duplication findings, six UI line-length findings, and one SDK line-length finding.
 
 The remaining 166 diagnostics have original-baseline counterparts. Nine need explicit source mapping rather than exact line matching: eight UI output literals changed the qualifier from domain UI to controller UI, and one session header literal lost its storage version field. Their missing-field diagnostics already exist in the original source. The recorded 28-findings U4 subset and 15-findings U7 subset are not whole-phase baselines.
 
-Full supplemental unit-tag lint still exits 1 on those 166 baseline findings: 69 incomplete literals, 30 long lines, five spelling findings, 33 assertion-style findings, one redundant conversion, and 28 unit-tag-unused fixture declarations. They are not marked fixed or silently suppressed. Required `task lint` uses integration tags and exits 0. No unrelated baseline cleanup, dependency change, or cache clearing is included.
+At original U8 completion, full supplemental unit-tag lint exited 1 on those 166 baseline findings: 69 incomplete literals, 30 long lines, five spelling findings, 33 assertion-style findings, one redundant conversion, and 28 unit-tag-unused fixture declarations. They are not marked fixed or silently suppressed. Required `task lint` uses integration tags and exits 0. No unrelated baseline cleanup, dependency change, or cache clearing is included.
 
 ## Verification
 
-All required checks pass on U8: `task fmt`, `task fix_dry_run`, `task lint`, `task test`, `task itest`, `task test-coverage`, `task build`, and `git diff --check`. The fix dry run has no proposals. Combined coverage is 83.6%, above the 80.0% threshold.
+This section preserves original U8 checks. [Smoke-fixture verification](#smoke-fixture-correction) records the later handoff above `a6ba8f5`.
+
+All required checks passed on original U8: `task fmt`, `task fix_dry_run`, `task lint`, `task test`, `task itest`, `task test-coverage`, `task build`, and `git diff --check`. The fix dry run has no proposals. Combined coverage is 83.6%, above the 80.0% threshold.
 
 Additional uncached checks pass:
 
@@ -163,6 +169,74 @@ Main-agent inspection confirmed every U8 production change is declaration placem
 
 Independent main-agent accounting reproduced 72 baseline and 72 current production packages, 273 baseline and 324 current handwritten files, and unchanged contents for all 16 public protobuf sources. The declaration check reproduced 154 adjacent assertions and 105 acyclic project-local implementation/consumer pairs. The supplemental unit-tag check reproduced the 166 original-baseline findings described above; it is not reported as passing.
 
+## Smoke-fixture correction
+
+The test-only correction is implemented above `a6ba8f520903574333c4fcc0cbf122acae00c0f7`. Production source is byte-identical to that commit. [FND-23](solution.md#host-command-dispatch-confirmation-correction) applies acknowledgement effects before correlated output, so confirmed replacement also releases input. Late results cannot clear a newer draft or reset newer dispatch state.
+
+[The real Host/TUI smoke fixture](../../../../../../host/internal/app/standard_tui_app_test.go) retains the same executables, two Host lifetimes, provider results, tool turn, busy-resume rejection, persistence failure/recovery, restored history, costs, and `Updated:` assertion. Only test synchronization changes:
+
+- Each run's first deterministic provider response waits for the existing release control. The first tool turn's second provider response continues normally. The test observes Running before capturing its output checkpoint, then releases the response and requires the later Idle status. `RunPrepared` releases admission before `prepareSubmit.Release` publishes Idle. Earlier idle screens cannot satisfy this barrier. Model text remains an assertion, not the admission barrier.
+- The fourth request stays blocked until the existing busy-resume and redraw assertions finish. The same control socket now carries five run releases and the existing redraw request.
+- Three `/new` transitions and the empty-session resume wait for their retained command draft to become the empty request editor. That state follows Host replacement confirmation. Nonempty resumes retain their existing restored-transcript confirmation assertions. No arbitrary-output wait remains in this smoke test.
+
+The terminal writes incremental updates. It can update only the status word and retain `Status:` and the separator. Idle detection therefore uses the distinct status text within the checkpoint suffix, including when Idle and final model text share a render. The resume draft is observed before dispatch because opening its selector need not redraw that editor.
+
+The original producer-verification failure remains historical evidence: `/new` was rejected as operation-active and the test timed out waiting for `Updated:`. An unchanged-source smoke run above `a6ba8f5` passed once; that pass is not the correction. Two initial fixture attempts waited for status fragments that incremental rendering did not repeat. An intermediate 50-run batch had 48 passes and two waits for a resume draft that had already rendered before `Sessions:`. Those failures are not production RED. The final observation order corrects them without sleeps, retries, weakened assertions, new test APIs, or production changes.
+
+Final local checks all exit 0: `task fmt`, `task fix_dry_run` with no proposals, `task lint`, `task test`, `task itest`, `task test-coverage`, `task build`, and `git diff --check`. Three complete coverage runs pass the 80.0% threshold. The first records 84.5%.
+
+Uncached root suites pass with `go test -race -count=1 -json ./...` and `go test -race -tags=integration -p 1 -parallel 1 -count=1 -json ./...`. The exact smoke selector `^TestStandardTUIHostSmoke$` passes 50 race repetitions and 20 additional race/coverage repetitions, each with `-tags=integration -p 1 -parallel 1`. Every repetition runs the real PTY scenario and both inner Host lifetimes. No skipped outer smoke test is counted as a pass.
+
+Two final `task generate` runs preserve all 908 tracked-path hashes before, between, and after generation. This manifest includes source, tests, configuration, and documentation; it is not a claim that 908 files are generated. No generated source differs from HEAD.
+
+### Main-agent verification
+
+Main inspected the complete eight-path diff and the actual observer, admission, acknowledgement, replacement, and provider-control paths. The five run releases follow observable Running states. The checkpoint suffix must contain the later Idle status before dependent input. Each replacement barrier follows the observed nonempty draft, so an earlier empty editor cannot satisfy it. The existing busy rejection and persistence recovery assertions remain intact.
+
+Main repeated all required tasks through `task build`; coverage is 84.5% against 80.0%. The fix dry run has no proposals. Both uncached root race suites pass with 1,375 unit and 922 integration matching RUN/PASS records. Ten additional race smoke runs and ten race/coverage smoke runs pass without test skips. Main parsed the coder's final 70 smoke repetitions and root JSON streams independently. Earlier fixture timeouts remain excluded from successful evidence.
+
+Main reproduced the source, assertion, dependency, public-schema, and supplemental-lint counts below. All 328 handwritten production files match `a6ba8f5`. The test logic matches the coder's final behavioral evidence; the only subsequent code-file change adds the control helper's purpose comment. Two main generation runs preserve all 908 tracked-path hashes. Fresh integrated verification and overall acceptance remain separate gates.
+
+## Current source and assertion accounting
+
+The smoke handoff above `a6ba8f5` recomputes the inventory against `86be985c47cb3719cd98c7e611af6173c5692cfc` without copying a checkout. Git object hashes and current file bytes establish these counts:
+
+| Scope | Current result |
+| --- | --- |
+| Root packages | 75, including three test-support packages |
+| Production packages | 72, accounting for all 72 baseline packages |
+| Retained baseline packages | 41 changed and 26 byte-identical production file sets |
+| Removed and added owners | Five removed and five added, as listed in the original tables |
+| Handwritten production files | 328, compared with 273 at the audit baseline and 324 at original U8 |
+| Public protobuf | 16 byte-identical source files and four retained generated production packages |
+| Root production assertions | 154, all directly below their implementing structs |
+| Local assertion dependency pairs | 105, each with no reverse consumer dependency |
+| External-plugin fixture assertions | Four extension plus two UI assertions; six fixture assertions and 160 combined |
+| Supplemental unit-tag lint | Exit 1 with exactly 165 normalized baseline diagnostics |
+
+The two packages that moved out of the original identical group are `host/internal/infra/providers/openai/compatible` and `internal/operation`. The four added handwritten files since original U8 are runtime `diagnostic.go`, runtime-management `reporting.go`, operation `send.go`, and bash `pipe.go`. Their responsibilities are source preservation, report admission/drain, final send acknowledgement, and process-owned pipe lifetime respectively. No new package, public schema, or dependency is introduced by this fixture correction. All production dependency closures exclude test support, fixtures, and experiments.
+
+The 165 supplemental diagnostics match the `a6ba8f5` baseline after line-position normalization: 69 incomplete literals, 30 long lines, five spelling findings, 32 assertion-style findings, one redundant conversion, and 28 unit-tag-unused declarations. The historical change from 166 to 165 was already resolved under `b03095a`; it is not reopened or called a new U8 fix. Required integration-tag lint passes.
+
+The original FND-01 through FND-09 ownership rows remain applicable. Later registered findings have the following implemented dispositions. Their linked evidence records preceding RED/GREEN and main-agent checks, not new U8 production changes.
+
+| Finding | Resulting disposition and source evidence |
+| --- | --- |
+| FND-10 | Codex SSE assembly and HTTP capture preserve complete source diagnostics. [U6 follow-up](solution.md#u6-follow-up-complete-source-and-delivery-causes). |
+| FND-11 | Actual error-output and completion owners preserve undelivered operation/startup causes. [U6 follow-up](solution.md#u6-follow-up-complete-source-and-delivery-causes). |
+| FND-12 | Generic operation ownership retains failed-work sources before terminal delivery and through cleanup. [Retention correction](solution.md#u6-retention-correction). |
+| FND-13 | Writer acknowledgements and connection collectors retain rejected, failed, and declared error-output sources across enqueue/send failure. [Retention correction](solution.md#u6-retention-correction). |
+| FND-14 | Compatible Responses consumes top-level error events without replacing their diagnostic. [Retention correction](solution.md#u6-retention-correction). |
+| FND-15 | Runtime transport and Host ownership expose actual completion and retain independent SDK cleanup causes. [D1 evidence](solution.md#u6-runtime-completion-evidence). |
+| FND-16 | Presentation applies the initiating user line once before dependent Host output. [D2 evidence](solution.md#u5-causality-verification). |
+| FND-17 | Architecture status identifies application-owned semantic persistence cleanup and retains the independent acceptance gate. [Audit disposition](audit.md#fnd-17-architecture-persistence-cleanup-status-is-stale). |
+| FND-18 | Navigation joins earlier handler/validation diagnostics into later failures for both clients. [Producer preservation](solution.md#u6-producer-preservation). |
+| FND-19 | Runtime cancellation retains received terminal, callback, and full transport status causes. [Producer preservation](solution.md#u6-producer-preservation). |
+| FND-20 | SDK classification preserves independent sources in mixed cancellation trees. [Producer preservation](solution.md#u6-producer-preservation). |
+| FND-21 | Bash output ownership retains callback failures independently of which cancellation cause wins. [Producer preservation](solution.md#u6-producer-preservation). |
+| FND-22 | The process owner separates shell exit from output cleanup and retains cancellation monitoring through final flush. [Process correction](solution.md#process-cancellation-evidence). |
+| FND-23 | Presentation applies every Host command's acknowledgement effects once before correlated output and preserves newer input against late results. [Confirmation correction](solution.md#host-command-dispatch-confirmation-correction). |
+
 ## Remaining gates
 
-The verified scope forms one separate local U8 commit. Fresh independent integrated checks, whole-product architecture review, and explicit user acceptance remain pending. No unresolved implementation question is identified. PHS-07 remains paused until those gates pass.
+Main-agent inspection of the smoke barriers, raw evidence, and affected hashes is complete. Fresh independent integrated checks, whole-product architecture review, and explicit user acceptance remain pending. No unresolved implementation question is identified. PHS-07 remains paused until those gates pass.

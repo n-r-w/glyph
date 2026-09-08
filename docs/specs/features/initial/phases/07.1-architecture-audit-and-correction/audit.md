@@ -196,7 +196,7 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 - Impact: RPC and `SessionCompletion` omit the distinct provider/work failure. A disconnected peer is not expected to receive a response; the defect is in retained local completion.
 - Scenario and realism: High. A provider failure followed by a stopped or full progress writer reaches this path during an accepted run.
 - Recommendation: Give the operation owner responsibility for failed work sources until final terminal-send confirmation. Keep release, cancellation and identifier lifetime unchanged. Collect retained sources after work and output cleanup.
-- Verification: Source inspection establishes the branch. A new executable RED has not been run. The [approved U6 revision](solution.md#complete-error-retention-revision) requires actual local-completion regression evidence before correction.
+- Verification: Source inspection established the baseline branch before regression work. The later [U6 retention evidence](solution.md#u6-retention-correction) records executable RED/GREEN and local completion checks. [Current U8 accounting](u8-evidence.md#current-source-and-assertion-accounting) retains this implemented disposition; fresh integrated acceptance remains pending.
 
 #### FND-13: Error output loses sources outside selected terminal paths
 
@@ -206,7 +206,7 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 - Impact: Local completion can omit the admission, authentication, initialization or extension-operation failure that required output. Successful sending is not defective. A source still present only in a skipped message or inaccessible map does not satisfy the completion contract.
 - Scenarios and realism: High for occupied admission or error output queued behind another failed write; medium for initialization or extension failure combined with output failure. All use implemented operations and streams.
 - Recommendation: Separate failed-work retention from error-message retention and collect both at the connection owner. Cover immediate enqueue failure and messages never passed to `Send`. Stop and join error-producing work before final collection. Preserve successful rejection and ordinary-handler continuation.
-- Verification: The [approved U6 revision](solution.md#complete-error-retention-revision) defines the complete output inventory, including declared `HandlerError` completed payloads and startup/error diagnostics. Source traces establish the registered gaps; executable RED/GREEN for the revision remains pending. Existing passing Programmatic Failed-terminal checks cover neither pre-Terminal cancellation nor the other output directions.
+- Verification: The [approved U6 revision](solution.md#complete-error-retention-revision) defines the complete output inventory, including declared `HandlerError` completed payloads and startup/error diagnostics. Source traces established the registered gaps. The subsequent [retention evidence](solution.md#u6-retention-correction) records executable RED/GREEN and completed main-agent checks. Existing passing Programmatic Failed-terminal checks cover neither pre-Terminal cancellation nor the other output directions.
 
 #### FND-14: Compatible Responses discards a provider error event
 
@@ -216,7 +216,7 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 - Impact: Failed model responses and operation errors contain the replacement rather than the original provider message.
 - Scenario and realism: Medium. A Responses endpoint sends HTTP 200 with a typed error SSE event followed by EOF. No malformed envelope or new provider capability is required.
 - Recommendation: Normalize the event through the adapter's failed-response path and preserve its complete non-secret message without new retries or categories.
-- Verification: Source inspection and the selected SDK event definition establish the path. A new compatible-adapter regression has not been executed. The [U6 revision](solution.md#complete-error-retention-revision) requires empty/partial-stream RED/GREEN and Core/client preservation checks.
+- Verification: Source inspection and the selected SDK event definition establish the path. The subsequent [U6 retention evidence](solution.md#u6-retention-correction) records empty/partial-stream RED/GREEN and Core/client preservation checks. The implementation is retained; fresh integrated acceptance remains pending.
 
 #### FND-15: Runtime cleanup discards SDK completion errors
 
@@ -279,10 +279,10 @@ The [U4 evidence](solution.md#u4-runtime-boundaries-discovery-and-startup) recor
 #### FND-23: Non-submit confirmation can precede input release
 
 - Location: [presentation command lifecycle](../../../../../../plugins/ui/tui/internal/usecase/presentation/commands.go), `pendingCommand`, `Service.Notify` and `Service.Complete`; [interaction](../../../../../../plugins/ui/tui/internal/usecase/presentation/update.go), `applyEmissionResult` and `updateKey`.
-- Issue: The early-notification guard applies local dispatch effects only for `CommandSubmit`. Other commands can receive and render correlated Host confirmation while `interaction.emitting` still blocks editor input. Their delayed local dispatch result owns the hidden reset and can produce an identical display snapshot.
+- Issue at `40ba3a6`: The early-notification guard applies local dispatch effects only for `CommandSubmit`. Other commands can receive and render correlated Host confirmation while `interaction.emitting` still blocks editor input. Their delayed local dispatch result owns the hidden reset and can produce an identical display snapshot.
 - Impact and realism: High for input preservation. Session replacement can be visibly confirmed while the next typed command is discarded. SDK dispatch, Host notification and local result scheduling are independent, so this ordering is reachable. This source trace does not claim that it caused the earlier smoke failure.
 - Approval and correction: O78-1 authorizes applying local dispatch acknowledgement effects once for every Host command, on local send success or the first correlated Host notification. Operation success remains separate. Late dispatch results retain diagnostics without clearing a newer draft or resetting a newer command's dispatch state. Local Quit behavior stays unchanged.
-- Verification: The [correction evidence](solution.md#host-command-dispatch-confirmation-correction) records assertion RED before production changes, GREEN, repeated input/state schedules and broad uncached race checks. Implementation and main-agent verification are complete. The separate corrective commit precedes U6/U7 re-entry and U8 fixture work. The later U8 fixture remains unchanged and still requires its separately approved causal-barrier correction. Independent integrated review and final acceptance remain pending.
+- Verification: The [correction evidence](solution.md#host-command-dispatch-confirmation-correction) records assertion RED before production changes, GREEN, repeated input/state schedules and broad uncached race checks. Implementation and main-agent verification are complete. The separate corrective commit precedes U6/U7 re-entry and U8 fixture work. The later [U8 fixture correction](u8-evidence.md#smoke-fixture-correction) has implementation and main-agent verification evidence. Independent integrated review and final acceptance remain pending.
 
 ### Minor
 
