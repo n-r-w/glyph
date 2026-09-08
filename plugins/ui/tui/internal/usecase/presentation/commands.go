@@ -28,8 +28,8 @@ type pendingCommand struct {
 	dispatchPending bool
 	// terminal records that the Host terminal notification was already consumed.
 	terminal bool
-	// submissionApplied prevents a late dispatch result from submitting twice or clearing a newer draft.
-	submissionApplied bool
+	// acknowledgementApplied records local acknowledgement effects, not Host operation success.
+	acknowledgementApplied bool
 }
 
 // preparedDispatch executes only transport work and never accesses mutable application state.
@@ -81,7 +81,7 @@ func (service *Service) prepareCommand(command Command) tuiinput.Work {
 		}
 	}
 	service.pending[identifier] = pendingCommand{
-		command: command, dispatchPending: true, terminal: false, submissionApplied: false,
+		command: command, dispatchPending: true, terminal: false, acknowledgementApplied: false,
 	}
 	if service.foreground == "" && (command.Kind == CommandSubmit || command.Kind == CommandNavigateSessionTree) {
 		service.foreground = identifier
@@ -101,10 +101,12 @@ func (service *Service) Complete(result tuiinput.Result) bool {
 	if !present {
 		return false
 	}
-	// A late submission result changes bookkeeping, not the application's shutdown decision.
+	// A late result cannot release a newer dispatch or change the local Quit decision.
 	quit := false
-	if pending.submissionApplied {
-		// Host output already established submission. Retain a late local error without changing the editor.
+	// A local error cannot undo delivery already established by correlated Host output.
+	undelivered := result.Err != nil && !pending.acknowledgementApplied
+	if pending.acknowledgementApplied {
+		// Retain the full late diagnostic without repeating acknowledgement effects.
 		if result.Err != nil {
 			service.model.applyProjection(textEvent(eventError, commandSendFailurePrefix+result.Err.Error()))
 		}
@@ -112,15 +114,15 @@ func (service *Service) Complete(result tuiinput.Result) bool {
 		service.model, quit = service.model.applyEmissionResult(
 			emissionResultMsg{command: pending.command, err: result.Err},
 		)
-		pending.submissionApplied = pending.command.Kind == CommandSubmit && result.Err == nil
+		pending.acknowledgementApplied = result.Err == nil
 	}
 	pending.dispatchPending = false
-	if result.Err != nil || pending.terminal || pending.command.Kind == CommandQuit {
+	if undelivered || pending.terminal || pending.command.Kind == CommandQuit {
 		delete(service.pending, result.ID)
 	} else {
 		service.pending[result.ID] = pending
 	}
-	if result.Err != nil && service.foreground == result.ID {
+	if undelivered && service.foreground == result.ID {
 		service.foreground = ""
 	}
 	service.publish()
@@ -148,7 +150,7 @@ func (service *Service) Notify(input plugininput.Notification) error {
 		case plugininput.NotificationConnection:
 		}
 	}
-	service.applySubmission(&pending)
+	service.applyAcknowledgement(&pending)
 	service.pending[input.OperationID] = pending
 	if input.Kind != plugininput.NotificationProgress {
 		pending.terminal = true
@@ -174,14 +176,14 @@ func (service *Service) Notify(input plugininput.Notification) error {
 	return nil
 }
 
-// applySubmission records the initiating line before correlated Host output reaches the projection.
-func (service *Service) applySubmission(pending *pendingCommand) {
-	if pending.command.Kind != CommandSubmit || pending.submissionApplied {
+// applyAcknowledgement applies delivery effects once before dependent Host output, but never decides local Quit.
+func (service *Service) applyAcknowledgement(pending *pendingCommand) {
+	if pending.command.Kind == CommandQuit || pending.acknowledgementApplied {
 		return
 	}
-	// Host output proves submission before the independently scheduled dispatch result.
+	// Even a failed Host operation proves delivery. Its outcome is applied separately by Notify.
 	service.model, _ = service.model.applyEmissionResult(emissionResultMsg{command: pending.command, err: nil})
-	pending.submissionApplied = true
+	pending.acknowledgementApplied = true
 }
 
 // operationErrorEvent chooses the failed interaction's display destination from its initiating command.

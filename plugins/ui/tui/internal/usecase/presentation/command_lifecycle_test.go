@@ -177,28 +177,58 @@ func TestQuitAcknowledgementNeedsNoOperationTerminal(t *testing.T) {
 	require.Empty(t, service.pending)
 }
 
-// TestCompletionWithoutPayloadReleasesOperation preserves terminal cleanup without inventing a display update.
+// TestCompletionWithoutPayloadReleasesOperation releases input once without inventing a display update.
 func TestCompletionWithoutPayloadReleasesOperation(t *testing.T) {
 	t.Parallel()
-	// Arrange accepted authentication work, which has no completed display payload.
-	service := newTestModel(t, AvailabilityIdle, nil)
-	work := service.prepareCommand(emptyCommand(CommandRetryAuthentication))
-	result := work.Execute()
-	service.Complete(result)
-	require.Contains(t, service.pending, result.ID)
-	before := service.model.state.Clone()
+	for _, firstInput := range []string{"dispatch", "notification"} {
+		t.Run(firstInput, func(t *testing.T) {
+			t.Parallel()
+			// Arrange authentication retry and an independent connection availability update.
+			service := newTestModel(t, AvailabilityAuthenticationFailed, nil)
+			work := service.Key(tuiinput.Key{Code: 'r', Text: "", Mod: tuiinput.ModCtrl})
+			require.NotNil(t, work)
+			result := work.Execute()
+			require.NoError(t, result.Err)
+			require.NoError(t, service.Notify(plugininput.Notification{
+				FailureCode: "", Kind: plugininput.NotificationConnection, OperationID: "", Failure: nil,
+				Payload: mo.Some(plugininput.AvailabilityPayload(plugininput.AvailabilityIdle)),
+			}))
+			service.Key(tuiinput.Key{Code: 0, Text: "not confirmed", Mod: 0})
+			require.Empty(t, service.model.input)
+			before := service.model.state.Clone()
+			terminal := plugininput.Notification{
+				FailureCode: "", Kind: plugininput.NotificationCompleted, OperationID: result.ID,
+				Payload: mo.None[plugininput.Payload](), Failure: nil,
+			}
 
-	// Act by consuming a terminal notification with explicitly absent payload data.
-	err := service.Notify(plugininput.Notification{
-		FailureCode: "",
-		Kind:        plugininput.NotificationCompleted, OperationID: result.ID,
-		Payload: mo.None[plugininput.Payload](), Failure: nil,
-	})
+			// Act by applying either delivery proof first and starting a newer command.
+			if firstInput == "dispatch" {
+				require.False(t, service.Complete(result))
+			} else {
+				require.NoError(t, service.Notify(terminal))
+			}
+			service.Key(tuiinput.Key{Code: 0, Text: "/session", Mod: 0})
+			require.Equal(t, "/session", string(service.model.input))
+			newer := service.Key(testKey(tuiinput.KeyEnter))
+			require.NotNil(t, newer)
+			if firstInput == "dispatch" {
+				require.NoError(t, service.Notify(terminal))
+			} else {
+				require.False(t, service.Complete(result))
+			}
 
-	// Assert terminal state is released while projection state stays intact.
-	require.NoError(t, err)
-	require.Empty(t, service.pending)
-	require.Equal(t, before, service.model.state)
+			// Assert terminal cleanup preserves display data and the newer dispatch's input block.
+			require.NotContains(t, service.pending, result.ID)
+			require.Equal(t, before, service.model.state)
+			service.Key(tuiinput.Key{Code: 0, Text: " still blocked", Mod: 0})
+			require.Equal(t, "/session", string(service.model.input))
+			newerResult := newer.Execute()
+			require.NoError(t, newerResult.Err)
+			require.False(t, service.Complete(newerResult))
+			require.NoError(t, service.Notify(sessionConfirmation(newerResult.ID, plugininput.SessionInformation)))
+			require.Empty(t, service.pending)
+		})
+	}
 }
 
 // TestPreparedWorkDoesNotMutateApplicationState keeps background I/O outside serialized transitions.
