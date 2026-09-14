@@ -89,7 +89,9 @@ func (s *Service) open(stream OpenStream) error {
 	connectionContext, cancelConnection := context.WithCancelCause(stream.Context())
 	defer cancelConnection(context.Canceled)
 	registry := newTargetRegistry()
-	writer := operation.NewWriter(stream.Send)
+	writer := operation.NewWriter(func(response *programmaticv1.OpenResponse) error {
+		return operation.SendWithContext(connectionContext, func() error { return stream.Send(response) })
+	})
 	unbind := s.output.BindWriter(writer)
 	defer unbind()
 	var owner *operation.Owner[OperationProgress, Response]

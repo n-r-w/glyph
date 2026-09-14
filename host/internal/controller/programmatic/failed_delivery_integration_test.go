@@ -94,8 +94,8 @@ func TestFailedTerminalSendPreservesCompletionCauses(t *testing.T) {
 	})
 }
 
-// TestCanceledTerminalWaitExcludesDeliveredSource verifies final send confirmation overrides a canceled wait.
-func TestCanceledTerminalWaitExcludesDeliveredSource(t *testing.T) {
+// TestCanceledTerminalWaitRetainsUnconfirmedSource verifies late success cannot revise completed cleanup.
+func TestCanceledTerminalWaitRetainsUnconfirmedSource(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		// Arrange failed accepted work and a terminal Send that completes after connection cancellation.
@@ -130,33 +130,41 @@ func TestCanceledTerminalWaitExcludesDeliveredSource(t *testing.T) {
 		)
 		sendStarted := make(chan struct{})
 		sendRelease := make(chan struct{})
+		sendReturned := make(chan struct{})
 		stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
 			if response.GetEvent().HasFailed() {
 				assert.Equal(t, source.Error(), response.GetEvent().GetFailed().GetMessage())
 				close(sendStarted)
 				<-sendRelease
+				close(sendReturned)
 			}
 			return nil
 		}).Times(3)
 		service := New(t.Context(), host, output)
 		result := make(chan error, 1)
 
-		// Act by canceling the waiter, then completing the actual transport send successfully.
+		// Act by canceling the waiter while the actual transport send remains pending.
 		go func() { result <- service.open(stream) }()
 		<-sendStarted
 		cancel(connectionErr)
 		synctest.Wait()
-		close(sendRelease)
 		err := <-result
 		completion := <-service.Completions()
+		select {
+		case <-sendReturned:
+			require.Fail(t, "raw send returned before handler cleanup")
+		default:
+		}
+		close(sendRelease)
+		<-sendReturned
 		close(receiveStop)
 		synctest.Wait()
 
-		// Assert completed delivery removes only its source from local connection failure.
-		require.ErrorIs(t, err, connectionErr)
-		require.ErrorIs(t, completion.Err, connectionErr)
-		require.NotErrorIs(t, err, source)
-		require.NotErrorIs(t, completion.Err, source)
+		// Assert unconfirmed delivery retains its source at the completed reporting boundary.
+		for _, result := range []error{err, completion.Err} {
+			require.ErrorIs(t, result, connectionErr)
+			require.ErrorIs(t, result, source)
+		}
 		assert.Equal(t, codes.Unavailable, status.Code(err))
 	})
 }

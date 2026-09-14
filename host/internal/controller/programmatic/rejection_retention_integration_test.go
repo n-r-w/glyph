@@ -100,8 +100,8 @@ func TestRejectedOutputRetainsSourcesAtCompletion(t *testing.T) {
 	}
 }
 
-// TestPreparationFailureRetainsIndependentWriterCleanup checks the read-first completion path.
-func TestPreparationFailureRetainsIndependentWriterCleanup(t *testing.T) {
+// TestPreparationFailureDoesNotClaimLateWriterFailure checks the read-first completion boundary.
+func TestPreparationFailureDoesNotClaimLateWriterFailure(t *testing.T) {
 	t.Parallel()
 	synctest.Test(t, func(t *testing.T) {
 		// Arrange an accepted Send that fails only after a second preparation stops the connection.
@@ -109,6 +109,7 @@ func TestPreparationFailureRetainsIndependentWriterCleanup(t *testing.T) {
 		host := NewMockHostSession(controller)
 		prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
 		sending, released := make(chan struct{}), make(chan struct{})
+		returnSend, sendReturned := make(chan struct{}), make(chan struct{})
 		prepared.EXPECT().Release().Do(func() { close(released) })
 		readErr := errors.New("independent fatal preparation source")
 		writeErr := errors.New("independent accepted-frame Send failure")
@@ -143,24 +144,33 @@ func TestPreparationFailureRetainsIndependentWriterCleanup(t *testing.T) {
 		stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(*programmaticv1.OpenResponse) error {
 			close(sending)
 			<-released
+			<-returnSend
+			close(sendReturned)
 			return writeErr
 		})
 		output := NewMockConnectionOutput(controller)
 		output.EXPECT().BindWriter(gomock.Any()).Return(func() {})
 		service := New(t.Context(), host, output)
 
-		// Act through read-first connection cleanup and its pending writer result.
+		// Act through read-first cleanup while the actual writer failure remains pending.
 		err := service.open(stream)
 		completion := <-service.Completions()
+		select {
+		case <-sendReturned:
+			require.Fail(t, "raw send returned before handler cleanup")
+		default:
+		}
+		close(returnSend)
+		<-sendReturned
 		close(stopReceive)
 		synctest.Wait()
 
-		// Assert independent Send failure cannot replace the selected preparation category.
+		// Assert a late raw Send failure cannot extend the selected preparation category.
 		require.Equal(t, codes.Internal, status.Code(err))
 		require.Equal(t, SessionCompletionProtocolFailure, completion.Cause)
 		for _, result := range []error{err, completion.Err} {
 			require.ErrorIs(t, result, readErr)
-			require.ErrorIs(t, result, writeErr)
+			require.NotErrorIs(t, result, writeErr)
 		}
 	})
 }

@@ -20,8 +20,8 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// TestReceiveFailureJoinsBlockedWriter verifies every receive failure stops and joins transport delivery.
-func TestReceiveFailureJoinsBlockedWriter(t *testing.T) {
+// TestReceiveFailureReturnsBeforeBlockedRawSend verifies receive cleanup does not join raw transport work.
+func TestReceiveFailureReturnsBeforeBlockedRawSend(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -87,14 +87,16 @@ func TestReceiveFailureJoinsBlockedWriter(t *testing.T) {
 				returnedBeforeWriter = true
 			case <-time.After(100 * time.Millisecond):
 			}
-			close(releaseSend)
 			if !returnedBeforeWriter {
+				close(releaseSend)
 				rpcErr = <-result
+				require.Fail(t, "handler did not return before the blocked raw send")
 			}
 			completion := <-service.Completions()
+			close(releaseSend)
 
-			// Assert Open joins Writer.Run and classifies the receive failure by source.
-			assert.False(t, returnedBeforeWriter)
+			// Assert Open joins writer bookkeeping but leaves the raw Send for handler return.
+			assert.True(t, returnedBeforeWriter)
 			assert.Equal(t, test.expectedCode, status.Code(rpcErr))
 			assert.Equal(t, test.expectedCause, completion.Cause)
 		})
