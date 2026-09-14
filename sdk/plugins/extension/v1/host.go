@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -30,7 +31,15 @@ const (
 	requestExecute
 	// requestCancel identifies targeted cancellation.
 	requestCancel
+
+	// connectionCloseGracePeriod bounds the normal close protocol before actual RPC cancellation.
+	connectionCloseGracePeriod = time.Second
+	// connectionCloseGraceTimeoutText is the stable diagnostic for an expired normal close protocol.
+	connectionCloseGraceTimeoutText = "graceful extension connection close timed out after 1s"
 )
+
+// errConnectionCloseGraceTimeout identifies actual RPC cancellation after the graceful close period.
+var errConnectionCloseGraceTimeout = errors.New(connectionCloseGraceTimeoutText)
 
 // String returns the stable operation kind used in diagnostics.
 func (kind requestKind) String() string {
@@ -213,6 +222,13 @@ func (c *Connection) Cancel(
 // Close requests orderly extension shutdown and joins stream work.
 func (c *Connection) Close() error {
 	c.closeOnce.Do(func() {
+		timeoutResult := make(chan bool, 1)
+		graceTimer := time.AfterFunc(connectionCloseGracePeriod, func() {
+			// Cancel the actual RPC only after the normal close protocol had its full grace period.
+			c.cancel(errConnectionCloseGraceTimeout)
+			timeoutResult <- errors.Is(context.Cause(c.ctx), errConnectionCloseGraceTimeout)
+		})
+
 		// Notify the peer before canceling owned work so its cancellation waiters observe orderly closure.
 		if err := c.writer.Enqueue(extensionpb.OpenRequest_builder{
 			Event: nil,
@@ -224,6 +240,10 @@ func (c *Connection) Close() error {
 		}
 		c.hostOwner.Close()
 		c.join()
+
+		if !graceTimer.Stop() && <-timeoutResult {
+			c.retainCloseTimeout()
+		}
 	})
 	return c.completionError()
 }
@@ -288,6 +308,16 @@ func (c *Connection) completionError() error {
 		return c.completionErr
 	}
 	return c.err
+}
+
+// retainCloseTimeout adds the graceful timeout to all completed cleanup reporting boundaries.
+func (c *Connection) retainCloseTimeout() {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	completionCause := errors.Join(c.completionErr, errConnectionCloseGraceTimeout)
+	c.completionErr = newCausedStatusError(codes.DeadlineExceeded, completionCause.Error(), completionCause)
+	failureCause := errors.Join(c.completionFailures, errConnectionCloseGraceTimeout)
+	c.completionFailures = newCausedStatusError(codes.DeadlineExceeded, failureCause.Error(), failureCause)
 }
 
 // Wait delivers ordered progress and returns the completed payload or terminal error.
