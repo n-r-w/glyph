@@ -11,6 +11,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/errtree"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -342,11 +343,10 @@ func (s *Service) finalizeProviderError(
 		outcome = model.OutcomeAborted
 	}
 	errorMessage, hasErrorMessage := response.ErrorMessage.Get()
-	if !hasErrorMessage || errorMessage == "" {
+	if outcome == model.OutcomeAborted {
+		errorMessage = visibleErrorMessage(providerErr)
+	} else if !hasErrorMessage || errorMessage == "" {
 		errorMessage = providerErr.Error()
-		if outcome == model.OutcomeAborted {
-			errorMessage = visibleErrorMessage(providerErr)
-		}
 	}
 	response.Outcome = mo.Some(outcome)
 	response.ErrorMessage = mo.Some(errorMessage)
@@ -387,7 +387,8 @@ func (s *Service) finalizeProviderError(
 	}, false, combinedErr
 }
 
-// visibleErrorMessage uses canonical text only when every error leaf is cancellation.
+// visibleErrorMessage returns abortedModelMessage for pure cancellation trees.
+// It preserves err.Error() for all other errors.
 func visibleErrorMessage(err error) string {
 	if isPureCancellation(err) {
 		return abortedModelMessage
@@ -397,18 +398,9 @@ func visibleErrorMessage(err error) string {
 
 // isPureCancellation reports whether every leaf is a cancellation marker recognized by Agent Core.
 func isPureCancellation(err error) bool {
-	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		for _, cause := range joined.Unwrap() {
-			if !isPureCancellation(cause) {
-				return false
-			}
-		}
-		return true
-	}
-	if cause := errors.Unwrap(err); cause != nil {
-		return isPureCancellation(cause)
-	}
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	return errtree.AllLeavesMatch(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+	})
 }
 
 // finalizeRetainedStreamedContent closes only well-formed streamed content kept after provider failure.

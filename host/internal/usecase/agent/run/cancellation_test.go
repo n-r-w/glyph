@@ -25,7 +25,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
-// TestServiceRunMixedProviderCancellationPreservesIndependentDetail verifies mixed cancellation presentation.
+// TestServiceRunMixedProviderCancellationPreservesIndependentDetail verifies provider cancellation presentation.
 func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testing.T) {
 	t.Parallel()
 
@@ -39,19 +39,22 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange a provider cancellation with an optional independent sibling and no response text.
+			// Arrange a terminal provider diagnostic and an optional independent provider cause.
 			provider := NewMockModelProvider(gomock.NewController(t))
 			tools := NewMockToolRuntime(gomock.NewController(t))
 			events := NewMockEventSink(gomock.NewController(t))
-			independentErr := errors.New("unique mixed cancellation sibling")
+			providerDiagnostic := "unique provider terminal diagnostic"
+			providerCause := errors.New(providerDiagnostic)
 			var providerErr error = context.Canceled
 			if test.mixed {
-				providerErr = errors.Join(context.Canceled, independentErr)
+				providerErr = errors.Join(context.Canceled, providerCause)
 			}
 			tools.EXPECT().Tools().Return(nil)
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
-					return emitStream(handle, emptyModelResponse(model.OutcomeAborted), providerErr)
+					response := emptyModelResponse(model.OutcomeAborted)
+					response.ErrorMessage = mo.Some(providerDiagnostic)
+					return emitStream(handle, response, providerErr)
 				},
 			)
 			var messageEnd model.Response
@@ -79,7 +82,8 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 				runcontrol.Request{RunID: "mixed-provider-cancel", UserText: "cancel"},
 			)
 
-			// Assert outcome and error classifications stay stable while terminal text filters cancellation leaves.
+			// Assert the original error tree and outcome remain while public text follows cancellation purity.
+			require.ErrorIs(t, err, providerErr)
 			require.ErrorIs(t, err, context.Canceled)
 			assert.Equal(t, agent.RunOutcomeAborted, result.Outcome)
 			if !test.mixed {
@@ -87,12 +91,12 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 				assert.Equal(t, abortedModelMessage, agentEnd.ErrorMessage.OrEmpty())
 				return
 			}
-			require.ErrorIs(t, err, independentErr)
+			require.ErrorIs(t, err, providerCause)
 			for _, text := range []string{
 				messageEnd.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty(),
 			} {
-				assert.Equal(t, 1, strings.Count(text, independentErr.Error()), text)
-				assert.NotContains(t, text, abortedModelMessage)
+				assert.Equal(t, 1, strings.Count(text, context.Canceled.Error()), text)
+				assert.Equal(t, 1, strings.Count(text, providerDiagnostic), text)
 			}
 		})
 	}

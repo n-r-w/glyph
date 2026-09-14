@@ -16,6 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/errtree"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -598,18 +599,9 @@ func isOperationCancellation(ctx context.Context, err error) bool {
 
 // isPureCancellation reports whether every leaf is context.Canceled under Programmatic Control policy.
 func isPureCancellation(err error) bool {
-	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		for _, cause := range joined.Unwrap() {
-			if !isPureCancellation(cause) {
-				return false
-			}
-		}
-		return true
-	}
-	if cause := errors.Unwrap(err); cause != nil {
-		return isPureCancellation(cause)
-	}
-	return errors.Is(err, context.Canceled)
+	return errtree.AllLeavesMatch(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled)
+	})
 }
 
 // emptyResponse creates a response with only operation identity and kind set.

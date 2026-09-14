@@ -14,6 +14,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/errtree"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -88,18 +89,9 @@ func (prepared *preparedUIOperation) Run(
 
 // isPureCancellation reports whether every leaf is a cancellation marker recognized by Host UI.
 func isPureCancellation(err error) bool {
-	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		for _, cause := range joined.Unwrap() {
-			if !isPureCancellation(cause) {
-				return false
-			}
-		}
-		return true
-	}
-	if cause := errors.Unwrap(err); cause != nil {
-		return isPureCancellation(cause)
-	}
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	return errtree.AllLeavesMatch(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+	})
 }
 
 // Release frees operation admission exactly once.

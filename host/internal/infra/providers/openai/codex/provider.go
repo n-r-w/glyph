@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/errtree"
 	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
 
 	openai "github.com/openai/openai-go/v3"
@@ -460,18 +461,9 @@ func (s *Driver) providerStreamFailure(
 
 // isPureCancellation reports whether every leaf is a cancellation marker recognized by the driver.
 func isPureCancellation(err error) bool {
-	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		for _, cause := range joined.Unwrap() {
-			if !isPureCancellation(cause) {
-				return false
-			}
-		}
-		return true
-	}
-	if cause := errors.Unwrap(err); cause != nil {
-		return isPureCancellation(cause)
-	}
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
+	return errtree.AllLeavesMatch(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+	})
 }
 
 // unauthorizedFailure retains sign-in classification, safe provider detail, and the original SDK cause.
