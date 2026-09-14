@@ -74,12 +74,13 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
 			models := NewMockModelRequester(controller)
+			modelSelection := NewMockModelSelection(controller)
 			handlers := NewMockRuntime(controller)
-			service := New(active, models, handlers)
+			service := New(active, modelSelection, models, handlers)
 			tree := navigationTree(t, createdAt)
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
-			models.EXPECT().ActiveSelection().Return(model.Selection{})
+			modelSelection.EXPECT().ActiveSelection().Return(model.Selection{})
 			committed := tree
 			require.NoError(t, committed.SetActiveLeaf(test.expectedLeaf))
 			active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
@@ -111,14 +112,15 @@ func TestNavigateReturnsCommittedMetadataAfterPublicationFailure(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	runtime := NewMockRuntime(controller)
-	service := New(active, models, runtime)
+	service := New(active, modelSelection, models, runtime)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(model.Selection{})
+	modelSelection.EXPECT().ActiveSelection().Return(model.Selection{})
 	deliveryErr := errors.New("enqueue navigation progress: queue closed")
 	active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).Return(
 		NavigationCommit{
@@ -150,8 +152,9 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 
 	// Act by selecting an unknown entry.
@@ -172,8 +175,9 @@ func TestNavigateHonorsCanceledContextBeforeReadingTree(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 

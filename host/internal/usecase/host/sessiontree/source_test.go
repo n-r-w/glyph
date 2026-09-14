@@ -31,8 +31,9 @@ func TestReadySummaryUsesActualSource(t *testing.T) {
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
 			models := NewMockModelRequester(controller)
+			modelSelection := NewMockModelSelection(controller)
 			handlers := NewMockRuntime(controller)
-			service := New(active, models, handlers)
+			service := New(active, modelSelection, models, handlers)
 			tree := navigationTree(t, time.Unix(1, 0).UTC())
 			source := session.BranchSummarySource{
 				ExtensionID: mo.Some("producer"),
@@ -41,7 +42,7 @@ func TestReadySummaryUsesActualSource(t *testing.T) {
 			handler := Handler{ExtensionID: "forwarder", HandlerID: "supply"}
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
-			models.EXPECT().ActiveSelection().Return(selection)
+			modelSelection.EXPECT().ActiveSelection().Return(selection)
 			registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{handler})
 			expectRequestHandler(handlers, handler, gomock.Any(), RequestHandlerAction{
 				Cancel: false, RequestAction: RequestActionPreserve, Request: mo.None[HandlerNavigationRequest](),

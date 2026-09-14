@@ -28,8 +28,9 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	originalPreparation, err := tree.NavigationPreparation("user")
 	require.NoError(t, err)
@@ -61,7 +62,7 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	observer := Handler{ExtensionID: "observer-extension", HandlerID: "after-commit"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{first, second})
 	expectRequestHandler(handlers, first, RequestHandlerInvocation{
 		Original: original, Current: original, CurrentResult: mo.None[HandlerBranchSummaryResult](),
@@ -118,8 +119,9 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	preparation, err := tree.NavigationPreparation("user")
 	require.NoError(t, err)
@@ -131,7 +133,7 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	valid := Handler{ExtensionID: "extension", HandlerID: "valid"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{invalid, valid})
 	expectRequestHandler(handlers, invalid, RequestHandlerInvocation{
 		Original: state, Current: state, CurrentResult: mo.None[HandlerBranchSummaryResult](),
@@ -185,8 +187,9 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	preparation, err := tree.NavigationPreparation("user")
 	require.NoError(t, err)
@@ -198,7 +201,7 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	canceling := Handler{ExtensionID: "extension", HandlerID: "cancel"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{failed, canceling})
 	expectRequestHandler(handlers, failed, gomock.Any(), RequestHandlerAction{}, errors.New("ordinary failure"))
 	expectRequestHandler(handlers, canceling, RequestHandlerInvocation{
@@ -228,8 +231,9 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	preparation, err := tree.NavigationPreparation("user")
 	require.NoError(t, err)
@@ -253,7 +257,7 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	final := HandlerBranchSummaryResult{Summary: "refined", Source: source}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{setHandler, clearHandler})
 	expectRequestHandler(handlers, setHandler, gomock.Any(), RequestHandlerAction{
 		Cancel: false, RequestAction: RequestActionPreserve, Request: mo.None[HandlerNavigationRequest](),
@@ -305,15 +309,16 @@ func TestNavigateResultHandlerCancellationStopsBeforeValidation(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	requestHandler := Handler{ExtensionID: "first", HandlerID: "supply"}
 	resultHandler := Handler{ExtensionID: "second", HandlerID: "cancel"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{requestHandler})
 	expectRequestHandler(handlers, requestHandler, gomock.Any(), RequestHandlerAction{
 		Cancel: false, RequestAction: RequestActionPreserve,
@@ -347,15 +352,16 @@ func TestNavigateObserversIgnorePostCommitCancellation(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	observer := Handler{ExtensionID: "extension", HandlerID: "observer"}
 	ctx, cancel := context.WithCancel(t.Context())
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -399,14 +405,15 @@ func TestNavigateRejectsInconsistentHandlerResultWithoutCommit(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	handler := Handler{ExtensionID: "extension", HandlerID: "inconsistent"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{handler})
 	expectRequestHandler(handlers, handler, gomock.Any(), RequestHandlerAction{
 		Cancel: false, RequestAction: RequestActionPreserve,
@@ -434,8 +441,9 @@ func TestNavigateEmptyAbandonedPathSkipsModelExecution(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	entry := session.Entry{
 		ID:            "extension",
 		ParentID:      mo.None[string](),
@@ -455,7 +463,7 @@ func TestNavigateEmptyAbandonedPathSkipsModelExecution(t *testing.T) {
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 		ExpectedActiveLeafID: mo.Some("extension"), DestinationID: mo.Some("extension"),
 		BranchSummary: mo.None[BranchSummaryDraft](),

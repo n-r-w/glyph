@@ -66,12 +66,16 @@ type SessionIdentity struct {
 	Incarnation uint64
 }
 
-// Catalog supplies provider-neutral descriptors, active selection, and explicit configured requests.
+// Catalog supplies provider-neutral descriptors and active selection.
 type Catalog interface {
 	// Models returns defensive descriptors in configured order.
 	Models() []model.Descriptor
 	// ActiveSelection returns the complete active selection.
 	ActiveSelection() model.Selection
+}
+
+// ModelRequester executes explicit configured model requests.
+type ModelRequester interface {
 	// Request executes one explicit configured selection without changing active selection.
 	Request(
 		ctx context.Context,

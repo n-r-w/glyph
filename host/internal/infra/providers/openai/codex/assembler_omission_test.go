@@ -15,7 +15,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestDriverStreamRecoversFunctionCallFromTerminalOutput verifies terminal output closes an active call.
@@ -35,9 +35,9 @@ func TestDriverStreamRecoversFunctionCallFromTerminalOutput(t *testing.T) {
 	}, nil)
 
 	require.NoError(t, err)
-	require.Equal(t, []run.StreamEventKind{
-		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
-		run.StreamEventToolCallEnd, run.StreamEventDone,
+	require.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallDelta,
+		modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, map[string]any{"path": "file.txt"}, events[2].ToolCall.OrEmpty().Arguments)
 }
@@ -55,8 +55,8 @@ func TestDriverStreamRecoversMissingFunctionLifecycleFromTerminalOutput(t *testi
 	}, nil)
 
 	require.NoError(t, err)
-	require.Equal(t, []run.StreamEventKind{
-		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
+	require.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, "call-1", events[0].Preview.OrEmpty().CallID)
 	assert.Equal(t, map[string]any{"path": "file.txt"}, events[1].ToolCall.OrEmpty().Arguments)
@@ -80,9 +80,9 @@ func TestDriverStreamAcceptsFunctionDoneWithoutIdentity(t *testing.T) {
 	}, nil)
 
 	require.NoError(t, err)
-	require.Equal(t, []run.StreamEventKind{
-		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
-		run.StreamEventToolCallEnd, run.StreamEventDone,
+	require.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallDelta,
+		modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, map[string]any{"path": "file.txt"}, events[2].ToolCall.OrEmpty().Arguments)
 }
@@ -106,8 +106,8 @@ func TestDriverStreamAcceptsSemanticallyEquivalentFinalizedFunctionArguments(t *
 	}, nil)
 
 	require.NoError(t, err)
-	require.Equal(t, []run.StreamEventKind{
-		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
+	require.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, model.OutcomeToolUse, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 }
@@ -135,7 +135,7 @@ func TestDriverStreamRejectsConflictingFinalizedFunctionArguments(t *testing.T) 
 	require.NotEmpty(t, events)
 	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.OrEmpty().ErrorMessage.OrEmpty())
-	assert.NotContains(t, streamEventKinds(events), run.StreamEventDone)
+	assert.NotContains(t, streamEventKinds(events), modelexecution.StreamEventDone)
 }
 
 // TestDriverStreamRejectsConflictingFinalizedCustomInput verifies terminal output cannot replace finalized input.
@@ -159,7 +159,7 @@ func TestDriverStreamRejectsConflictingFinalizedCustomInput(t *testing.T) {
 	require.NotEmpty(t, events)
 	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 	assert.Equal(t, requestFailedMessage, events[len(events)-1].Response.OrEmpty().ErrorMessage.OrEmpty())
-	assert.NotContains(t, streamEventKinds(events), run.StreamEventDone)
+	assert.NotContains(t, streamEventKinds(events), modelexecution.StreamEventDone)
 }
 
 // TestDriverStreamRejectsConflictingFunctionDeltaIdentity verifies output index cannot mask a provider conflict.
@@ -176,7 +176,7 @@ func TestDriverStreamRejectsConflictingFunctionDeltaIdentity(t *testing.T) {
 	require.Error(t, err)
 	require.NotEmpty(t, events)
 	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
-	assert.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
+	assert.NotContains(t, streamEventKinds(events), modelexecution.StreamEventToolCallEnd)
 }
 
 // TestDriverStreamRejectsInvalidTerminalFunctionArguments verifies recovered calls keep strict JSON decoding.
@@ -191,7 +191,7 @@ func TestDriverStreamRejectsInvalidTerminalFunctionArguments(t *testing.T) {
 	}, nil)
 
 	require.Error(t, err)
-	assert.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
+	assert.NotContains(t, streamEventKinds(events), modelexecution.StreamEventToolCallEnd)
 }
 
 // TestDriverStreamRecoversCustomCallWithoutAddedEvent verifies authoritative custom input is preserved exactly.
@@ -209,8 +209,8 @@ func TestDriverStreamRecoversCustomCallWithoutAddedEvent(t *testing.T) {
 	}, []tool.Descriptor{descriptor})
 
 	require.NoError(t, err)
-	require.Equal(t, []run.StreamEventKind{
-		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
+	require.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, map[string]any{"payload": "abc"}, events[1].ToolCall.OrEmpty().Arguments)
 }
@@ -232,9 +232,9 @@ func TestDriverStreamRecoversCustomCallFromTerminalOutput(t *testing.T) {
 	}, []tool.Descriptor{descriptor})
 
 	require.NoError(t, err)
-	require.Equal(t, []run.StreamEventKind{
-		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
-		run.StreamEventToolCallEnd, run.StreamEventDone,
+	require.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallDelta,
+		modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, mo.Some("ab"), events[1].Preview.OrEmpty().Fields[0].Prefix)
 	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.OrEmpty().Arguments)
@@ -244,7 +244,7 @@ func streamOmittedToolEvents(
 	t *testing.T,
 	fixtures []string,
 	tools []tool.Descriptor,
-) ([]run.StreamEvent, error) {
+) ([]modelexecution.StreamEvent, error) {
 	t.Helper()
 	accountID := "account-omitted-tool-events"
 	accessToken := testJWT(t, map[string]any{
@@ -260,11 +260,11 @@ func streamOmittedToolEvents(
 	}))
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	events := make([]modelexecution.StreamEvent, 0)
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		Instructions: "test", Model: testModelDescriptor("gpt-test"),
 		ReasoningChoice: model.ReasoningChoiceHigh, History: nil, Tools: tools,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})

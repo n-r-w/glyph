@@ -15,7 +15,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // responsesErrorEventType identifies an explicit terminal Responses failure.
@@ -49,7 +49,7 @@ type responsesToolState struct {
 // responsesAccumulator assigns compact semantic positions independent of sparse provider indexes.
 type responsesAccumulator struct {
 	// handle receives provider-neutral stream events.
-	handle run.StreamHandler
+	handle modelexecution.StreamHandler
 	// positions maps provider item keys to compact content positions.
 	positions map[string]int
 	// active contains open content lifecycles by compact position.
@@ -62,7 +62,7 @@ type responsesAccumulator struct {
 	terminal *model.Response
 }
 
-func newResponsesAccumulator(handle run.StreamHandler) *responsesAccumulator {
+func newResponsesAccumulator(handle modelexecution.StreamHandler) *responsesAccumulator {
 	return &responsesAccumulator{
 		handle:    handle,
 		positions: make(map[string]int),
@@ -75,9 +75,9 @@ func newResponsesAccumulator(handle run.StreamHandler) *responsesAccumulator {
 
 func (s *Driver) streamResponses(
 	ctx context.Context,
-	request run.ModelRequest,
+	request modelexecution.ProviderRequest,
 	key string,
-	handle run.StreamHandler,
+	handle modelexecution.StreamHandler,
 ) (model.Response, error) {
 	configured := s.models[request.Model.Model]
 	target := model.ProviderContextSource{
@@ -180,8 +180,8 @@ func (state *responsesAccumulator) consume(
 				started:   true,
 			}
 			state.tools[call.CallID] = toolState
-			return state.handle(run.StreamEvent{
-				Kind:     run.StreamEventToolCallStart,
+			return state.handle(modelexecution.StreamEvent{
+				Kind:     modelexecution.StreamEventToolCallStart,
 				Position: mo.Some(position),
 				Content:  mo.None[model.Content](),
 				Delta:    mo.None[string](),
@@ -203,8 +203,8 @@ func (state *responsesAccumulator) consume(
 			return errors.New("responses returned arguments before a tool call")
 		}
 		toolState.arguments.WriteString(delta.Delta)
-		return state.handle(run.StreamEvent{
-			Kind:     run.StreamEventToolCallDelta,
+		return state.handle(modelexecution.StreamEvent{
+			Kind:     modelexecution.StreamEventToolCallDelta,
 			Position: mo.Some(toolState.position),
 			Content:  mo.None[model.Content](),
 			Delta:    mo.None[string](),
@@ -255,13 +255,13 @@ func (state *responsesAccumulator) contentDelta(key string, kind model.ContentKi
 		position = state.allocate(key)
 		state.active[position] = kind
 		if err := state.handle(textStreamEvent(
-			run.StreamEventContentStart, position, kind, "", mo.None[string](),
+			modelexecution.StreamEventContentStart, position, kind, "", mo.None[string](),
 		)); err != nil {
 			return err
 		}
 	}
 	return state.handle(textStreamEvent(
-		run.StreamEventTextDelta, position, kind, delta, mo.Some(delta),
+		modelexecution.StreamEventTextDelta, position, kind, delta, mo.Some(delta),
 	))
 }
 
@@ -325,7 +325,7 @@ func (state *responsesAccumulator) finishContent() error {
 			continue
 		}
 		if err := state.handle(textStreamEvent(
-			run.StreamEventContentEnd, position, kind, "", mo.None[string](),
+			modelexecution.StreamEventContentEnd, position, kind, "", mo.None[string](),
 		)); err != nil {
 			return err
 		}

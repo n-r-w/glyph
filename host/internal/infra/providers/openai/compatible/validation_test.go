@@ -15,7 +15,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestNewPreservesBaseURLParseCause verifies URL syntax failures retain parser detail.
@@ -90,15 +90,20 @@ func (s *serviceSuite) TestConstructionAndRequestValidation() {
 		APIKey: NewMockAPIKeyResolver(gomock.NewController(t)), ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
-	for _, request := range []run.ModelRequest{richRequest("other", "demo"), richRequest("local", "unknown")} {
-		var events []run.StreamEvent
-		err = service.Stream(t.Context(), request, func(event run.StreamEvent) error {
+	// requests contains each invalid exact provider and model selection.
+	requests := []modelexecution.ProviderRequest{
+		richRequest("other", "demo"),
+		richRequest("local", "unknown"),
+	}
+	for _, request := range requests {
+		var events []modelexecution.StreamEvent
+		err = service.Stream(t.Context(), request, func(event modelexecution.StreamEvent) error {
 			events = append(events, event)
 			return nil
 		})
 		require.Error(t, err)
 		require.Len(t, events, 1)
-		assert.Equal(t, run.StreamEventError, events[0].Kind)
+		assert.Equal(t, modelexecution.StreamEventError, events[0].Kind)
 	}
 }
 
@@ -136,7 +141,7 @@ func (s *serviceSuite) TestOffReasoningUsesEachAPIWireShape() {
 			request.Model.ReasoningCapabilities.Supported = true
 			request.ReasoningChoice = model.ReasoningChoiceOff
 			events := streamEvents(t, service, request)
-			assert.Equal(t, run.StreamEventDone, events[len(events)-1].Kind)
+			assert.Equal(t, modelexecution.StreamEventDone, events[len(events)-1].Kind)
 			if api == APIChatCompletions {
 				assert.Equal(t, "none", body["reasoning_effort"])
 			} else {

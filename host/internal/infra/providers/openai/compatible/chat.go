@@ -13,7 +13,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // chatToolState joins fragmented tool-call identity and arguments by choice index.
@@ -79,10 +79,10 @@ func newChatAccumulator(format reasoningFormat, target model.ProviderContextSour
 // streamChatCompletions maps one Chat Completions stream into provider-neutral events.
 func (s *Driver) streamChatCompletions(
 	ctx context.Context,
-	request run.ModelRequest,
+	request modelexecution.ProviderRequest,
 	configuredModel modelConfig,
 	key string,
-	handle run.StreamHandler,
+	handle modelexecution.StreamHandler,
 ) (model.Response, error) {
 	target := model.ProviderContextSource{
 		ProviderID:       s.providerID,
@@ -124,7 +124,7 @@ func (s *Driver) streamChatCompletions(
 	return state.response(), nil
 }
 
-func (state *chatAccumulator) consume(chunk openai.ChatCompletionChunk, handle run.StreamHandler) error {
+func (state *chatAccumulator) consume(chunk openai.ChatCompletionChunk, handle modelexecution.StreamHandler) error {
 	if chunk.ID != "" {
 		state.responseID = chunk.ID
 	}
@@ -152,7 +152,7 @@ func (state *chatAccumulator) consume(chunk openai.ChatCompletionChunk, handle r
 // consumeChoice accumulates one streamed choice and emits its visible deltas.
 func (state *chatAccumulator) consumeChoice(
 	choice *openai.ChatCompletionChunkChoice,
-	handle run.StreamHandler,
+	handle modelexecution.StreamHandler,
 ) error {
 	reasoning, err := chatReasoningDelta(state.reasoningFormat, choice.Delta)
 	if err != nil {
@@ -197,7 +197,11 @@ func (state *chatAccumulator) consumeChoice(
 	return nil
 }
 
-func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string, handle run.StreamHandler) error {
+func (state *chatAccumulator) contentDelta(
+	kind model.ContentKind,
+	delta string,
+	handle modelexecution.StreamHandler,
+) error {
 	position, positionErr := state.contentPosition(kind)
 	if positionErr != nil {
 		return positionErr
@@ -211,7 +215,7 @@ func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string,
 			ProviderContext: mo.None[model.ProviderContext](),
 			ToolCall:        mo.None[model.ToolCall](),
 		})
-		startEvent := textStreamEvent(run.StreamEventContentStart, *position, kind, "", mo.None[string]())
+		startEvent := textStreamEvent(modelexecution.StreamEventContentStart, *position, kind, "", mo.None[string]())
 		if handleErr := handle(startEvent); handleErr != nil {
 			return handleErr
 		}
@@ -221,7 +225,7 @@ func (state *chatAccumulator) contentDelta(kind model.ContentKind, delta string,
 		return fmt.Errorf("model content %d has no accumulated text", *position)
 	}
 	state.content[*position].Text = mo.Some(text + delta)
-	return handle(textStreamEvent(run.StreamEventTextDelta, *position, kind, delta, mo.Some(delta)))
+	return handle(textStreamEvent(modelexecution.StreamEventTextDelta, *position, kind, delta, mo.Some(delta)))
 }
 
 func (state *chatAccumulator) contentPosition(kind model.ContentKind) (*int, error) {
@@ -240,7 +244,7 @@ func (state *chatAccumulator) contentPosition(kind model.ContentKind) (*int, err
 
 func (state *chatAccumulator) toolDelta(
 	delta *openai.ChatCompletionChunkChoiceDeltaToolCall,
-	handle run.StreamHandler,
+	handle modelexecution.StreamHandler,
 ) error {
 	toolState, ok := state.tools[delta.Index]
 	if !ok {
@@ -277,12 +281,12 @@ func (state *chatAccumulator) toolDelta(
 		Provisional: true,
 		Fields:      nil,
 	}
-	kind := run.StreamEventToolCallDelta
+	kind := modelexecution.StreamEventToolCallDelta
 	if !toolState.started {
-		kind = run.StreamEventToolCallStart
+		kind = modelexecution.StreamEventToolCallStart
 		toolState.started = true
 	}
-	return handle(run.StreamEvent{
+	return handle(modelexecution.StreamEvent{
 		Kind:     kind,
 		Position: mo.Some(toolState.position),
 		Content:  mo.None[model.Content](),
@@ -293,7 +297,7 @@ func (state *chatAccumulator) toolDelta(
 	})
 }
 
-func (state *chatAccumulator) finish(handle run.StreamHandler) error {
+func (state *chatAccumulator) finish(handle modelexecution.StreamHandler) error {
 	if err := state.finishContent(handle); err != nil {
 		return err
 	}
@@ -352,7 +356,7 @@ func (state *chatAccumulator) attachReasoningDetails() error {
 }
 
 // finishContent closes streamed text before any terminal event reaches Agent Core.
-func (state *chatAccumulator) finishContent(handle run.StreamHandler) error {
+func (state *chatAccumulator) finishContent(handle modelexecution.StreamHandler) error {
 	for position := range state.content {
 		kind := state.content[position].Kind
 		if (kind != model.ContentText && kind != model.ContentRefusal && kind != model.ContentReasoning) ||
@@ -361,7 +365,7 @@ func (state *chatAccumulator) finishContent(handle run.StreamHandler) error {
 		}
 		state.content[position].Final = true
 		if err := handle(textStreamEvent(
-			run.StreamEventContentEnd, position, kind, "", mo.None[string](),
+			modelexecution.StreamEventContentEnd, position, kind, "", mo.None[string](),
 		)); err != nil {
 			return err
 		}

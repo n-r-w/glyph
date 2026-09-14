@@ -27,6 +27,7 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
@@ -82,12 +83,14 @@ func runProgrammaticWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
-	contexts.BindCatalog(providerCatalog)
+	// modelExecution owns every logical model request in the programmatic assembly.
+	modelExecution := modelexecution.New(providerCatalog)
+	contexts.BindModels(providerCatalog, modelExecution)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
-	sessionServices.tree.BindModelRequester(providerCatalog)
+	sessionServices.tree.BindModels(providerCatalog, modelExecution)
 	dispatcher := events.NewDispatcher(delivery, lifecycleObservers)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
+		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active,
 	)
 	coordinator := runcontrol.NewCoordinator(agentCore, dispatcher, sessionServices.gate)
 	session := hostprogrammatic.New(

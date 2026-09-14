@@ -24,14 +24,15 @@ func TestNavigateProjectsExtensionEntriesWithoutPayload(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	handler := Handler{ExtensionID: "extension", HandlerID: "inspect"}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{handler})
 	handlers.EXPECT().HandleHandler(
 		gomock.Any(), handler.ExtensionID, handler.HandlerID, gomock.Any(),

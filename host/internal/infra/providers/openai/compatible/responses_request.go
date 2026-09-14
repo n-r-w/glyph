@@ -13,12 +13,12 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // responsesParams builds one Responses API request from provider-neutral input.
 func responsesParams(
-	request run.ModelRequest,
+	request modelexecution.ProviderRequest,
 	target model.ProviderContextSource,
 ) (responses.ResponseNewParams, error) {
 	input, err := responsesInput(request.History, target)

@@ -18,7 +18,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 type serviceSuite struct{ suite.Suite }
@@ -38,7 +38,7 @@ func TestDriverSuite(t *testing.T) {
 // runResponsesRequest captures one compatible Responses request through the driver boundary.
 func runResponsesRequest(
 	t *testing.T,
-	request run.ModelRequest,
+	request modelexecution.ProviderRequest,
 	compatibilityKey string,
 ) map[string]any {
 	t.Helper()
@@ -60,26 +60,26 @@ func runResponsesRequest(
 	})
 	require.NoError(t, err)
 	events := streamEvents(t, service, request)
-	require.Equal(t, run.StreamEventDone, events[len(events)-1].Kind)
+	require.Equal(t, modelexecution.StreamEventDone, events[len(events)-1].Kind)
 	return body
 }
 
 // replaceHistoryModelContent replaces model content and restores the updated Option value.
-func replaceHistoryModelContent(request *run.ModelRequest, content []model.Content) {
+func replaceHistoryModelContent(request *modelexecution.ProviderRequest, content []model.Content) {
 	response := request.History[1].Model.OrEmpty()
 	response.Content = content
 	request.History[1].Model = mo.Some(response)
 }
 
 // appendHistoryModelContent appends model content and restores the updated Option value.
-func appendHistoryModelContent(request *run.ModelRequest, content ...model.Content) {
+func appendHistoryModelContent(request *modelexecution.ProviderRequest, content ...model.Content) {
 	response := request.History[1].Model.OrEmpty()
 	response.Content = append(response.Content, content...)
 	request.History[1].Model = mo.Some(response)
 }
 
-func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
-	return run.ModelRequest{
+func richRequest(provider model.ProviderID, modelID model.ID) modelexecution.ProviderRequest {
+	return modelexecution.ProviderRequest{
 		Instructions: "be useful",
 		Model: model.Descriptor{
 			Provider:              provider,
@@ -161,14 +161,14 @@ func richRequest(provider model.ProviderID, modelID model.ID) run.ModelRequest {
 	}
 }
 
-func streamEvents(t *testing.T, service *Driver, request run.ModelRequest) []run.StreamEvent {
+func streamEvents(t *testing.T, service *Driver, request modelexecution.ProviderRequest) []modelexecution.StreamEvent {
 	t.Helper()
-	var events []run.StreamEvent
-	err := service.Stream(t.Context(), request, func(event run.StreamEvent) error {
+	var events []modelexecution.StreamEvent
+	err := service.Stream(t.Context(), request, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
-	if len(events) > 0 && events[len(events)-1].Kind == run.StreamEventError {
+	if len(events) > 0 && events[len(events)-1].Kind == modelexecution.StreamEventError {
 		assert.Error(t, err)
 	} else {
 		require.NoError(t, err)
@@ -176,8 +176,8 @@ func streamEvents(t *testing.T, service *Driver, request run.ModelRequest) []run
 	return events
 }
 
-func eventKinds(events []run.StreamEvent) []run.StreamEventKind {
-	return lo.Map(events, func(event run.StreamEvent, _ int) run.StreamEventKind {
+func eventKinds(events []modelexecution.StreamEvent) []modelexecution.StreamEventKind {
+	return lo.Map(events, func(event modelexecution.StreamEvent, _ int) modelexecution.StreamEventKind {
 		return event.Kind
 	})
 }

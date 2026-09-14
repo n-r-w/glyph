@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestResponsesErrorAndContentDeliveryFailureRetainBoth verifies terminal normalization cannot replace callback causes.
@@ -36,12 +36,12 @@ func TestResponsesErrorAndContentDeliveryFailureRetainBoth(t *testing.T) {
 		ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
-	var kinds []run.StreamEventKind
+	var kinds []modelexecution.StreamEventKind
 
 	// Act through the real stream decoder and failed output callback.
-	err = driver.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
+	err = driver.Stream(t.Context(), richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
 		kinds = append(kinds, event.Kind)
-		if event.Kind == run.StreamEventContentEnd {
+		if event.Kind == modelexecution.StreamEventContentEnd {
 			return callbackErr
 		}
 		return nil
@@ -50,7 +50,7 @@ func TestResponsesErrorAndContentDeliveryFailureRetainBoth(t *testing.T) {
 	// Assert the returned cause keeps both failures and delivery stops at the failed callback.
 	require.ErrorIs(t, err, callbackErr)
 	require.ErrorContains(t, err, source)
-	require.Equal(t, run.StreamEventContentEnd, kinds[len(kinds)-1])
+	require.Equal(t, modelexecution.StreamEventContentEnd, kinds[len(kinds)-1])
 }
 
 // TestResponsesErrorEventRetainsCompleteSource exercises supported top-level errors before clean EOF.
@@ -81,25 +81,29 @@ func TestResponsesErrorEventRetainsCompleteSource(t *testing.T) {
 				ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 			})
 			require.NoError(t, err)
-			var events []run.StreamEvent
+			var events []modelexecution.StreamEvent
 
 			// Act through the real SDK decoder, adapter and terminal callback.
-			err = driver.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
-				events = append(events, event)
-				return nil
-			})
+			err = driver.Stream(
+				t.Context(),
+				richRequest("local", "demo"),
+				func(event modelexecution.StreamEvent) error {
+					events = append(events, event)
+					return nil
+				},
+			)
 
 			// Assert the source survives both completion boundaries and partial content closes before failure.
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), source)
 			require.NotEmpty(t, events)
 			terminal := events[len(events)-1]
-			require.Equal(t, run.StreamEventError, terminal.Kind)
+			require.Equal(t, modelexecution.StreamEventError, terminal.Kind)
 			assert.Equal(t, model.OutcomeFailed, terminal.Response.OrEmpty().Outcome.OrEmpty())
 			assert.Contains(t, terminal.Response.OrEmpty().ErrorMessage.OrEmpty(), source)
 			if partial != "" {
 				require.GreaterOrEqual(t, len(events), 2)
-				assert.Equal(t, run.StreamEventContentEnd, events[len(events)-2].Kind)
+				assert.Equal(t, modelexecution.StreamEventContentEnd, events[len(events)-2].Kind)
 			}
 		})
 	}

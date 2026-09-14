@@ -15,12 +15,12 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // chatParams builds one format-specific Chat Completions request.
 func chatParams(
-	request run.ModelRequest,
+	request modelexecution.ProviderRequest,
 	format reasoningFormat,
 	target model.ProviderContextSource,
 ) (openai.ChatCompletionNewParams, error) {
@@ -81,7 +81,7 @@ func chatParams(
 
 // chatMessages maps provider-neutral history into Chat Completions messages.
 func chatMessages(
-	request run.ModelRequest,
+	request modelexecution.ProviderRequest,
 	format reasoningFormat,
 	target model.ProviderContextSource,
 ) ([]openai.ChatCompletionMessageParamUnion, error) {

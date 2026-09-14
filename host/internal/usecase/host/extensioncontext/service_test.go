@@ -86,6 +86,7 @@ func TestCataloguesRevalidateBlockedReads(t *testing.T) {
 			runtime := NewMockRuntimeState(controller)
 			session := NewMockSessionState(controller)
 			catalog := NewMockCatalog(controller)
+			requester := NewMockModelRequester(controller)
 			var mutex sync.Mutex
 			identity := SessionIdentity{ID: "A", WorkingDirectory: "/project", Incarnation: 1}
 			instance := "runtime"
@@ -100,7 +101,7 @@ func TestCataloguesRevalidateBlockedReads(t *testing.T) {
 				return identity
 			}).AnyTimes()
 			service := New(runtime, session)
-			service.BindCatalog(catalog)
+			service.BindModels(catalog, requester)
 			binding, err := service.IssueContext("extension")
 			require.NoError(t, err)
 			reference := extension.ContextRef{ID: binding.ID, RuntimeInstanceID: "runtime", SessionID: "A"}
@@ -414,12 +415,13 @@ func TestConfiguredRequestPassesExactInput(t *testing.T) {
 	runtime := NewMockRuntimeState(controller)
 	session := NewMockSessionState(controller)
 	catalog := NewMockCatalog(controller)
+	requester := NewMockModelRequester(controller)
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
 	session.EXPECT().ContextSession().Return(
 		SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
 	).AnyTimes()
 	service := New(runtime, session)
-	service.BindCatalog(catalog)
+	service.BindModels(catalog, requester)
 	issued, err := service.IssueContext("extension")
 	require.NoError(t, err)
 	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
@@ -438,7 +440,7 @@ func TestConfiguredRequestPassesExactInput(t *testing.T) {
 		ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
 		Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
-	catalog.EXPECT().Request(gomock.Any(), selection, "", history).Return(expected, nil)
+	requester.EXPECT().Request(gomock.Any(), selection, "", history).Return(expected, nil)
 
 	// Act through the session-bound context owner.
 	actual, err := service.Request(t.Context(), "extension", "runtime", reference, selection, "", history)
@@ -457,6 +459,7 @@ func TestConfiguredRequestRejectsStaleCompletion(t *testing.T) {
 	runtime := NewMockRuntimeState(controller)
 	session := NewMockSessionState(controller)
 	catalog := NewMockCatalog(controller)
+	requester := NewMockModelRequester(controller)
 	var mutex sync.Mutex
 	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
@@ -466,13 +469,13 @@ func TestConfiguredRequestRejectsStaleCompletion(t *testing.T) {
 		return identity
 	}).AnyTimes()
 	service := New(runtime, session)
-	service.BindCatalog(catalog)
+	service.BindModels(catalog, requester)
 	issued, err := service.IssueContext("extension")
 	require.NoError(t, err)
 	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
 	entered := make(chan struct{})
 	release := make(chan struct{})
-	catalog.EXPECT().Request(gomock.Any(), gomock.Any(), "instructions", gomock.Any()).DoAndReturn(
+	requester.EXPECT().Request(gomock.Any(), gomock.Any(), "instructions", gomock.Any()).DoAndReturn(
 		func(context.Context, model.Selection, string, []agent.HistoryEntry) (model.Response, error) {
 			close(entered)
 			<-release
@@ -533,12 +536,13 @@ func TestConfiguredRequestClassifiesProviderFailures(t *testing.T) {
 			runtime := NewMockRuntimeState(controller)
 			session := NewMockSessionState(controller)
 			catalog := NewMockCatalog(controller)
+			requester := NewMockModelRequester(controller)
 			runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
 			session.EXPECT().ContextSession().Return(
 				SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
 			).AnyTimes()
 			service := New(runtime, session)
-			service.BindCatalog(catalog)
+			service.BindModels(catalog, requester)
 			issued, err := service.IssueContext("extension")
 			require.NoError(t, err)
 			reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
@@ -549,7 +553,7 @@ func TestConfiguredRequestClassifiesProviderFailures(t *testing.T) {
 				classified.EXPECT().Error().Return(requestErr.Error()).AnyTimes()
 				requestErr = classified
 			}
-			catalog.EXPECT().Request(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+			requester.EXPECT().Request(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(model.Response{}, requestErr)
 
 			// Act through context-owned failure classification.

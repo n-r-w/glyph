@@ -77,8 +77,10 @@ type Service struct {
 	session SessionState
 	// mutex protects catalog binding, sequence allocation, and issued contexts.
 	mutex sync.Mutex
-	// catalog is bound after provider construction.
+	// catalog is bound after provider construction and supplies configured model queries.
 	catalog Catalog
+	// modelRequester is bound after provider construction and executes configured requests.
+	modelRequester ModelRequester
 	// bindings retains only the latest binding for each extension.
 	bindings map[string]binding
 }
@@ -93,16 +95,17 @@ var (
 // New constructs context ownership over the runtime and session state owners.
 func New(runtime RuntimeState, sessionState SessionState) *Service {
 	return &Service{
-		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, catalog: nil,
+		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, catalog: nil, modelRequester: nil,
 		bindings: make(map[string]binding),
 	}
 }
 
-// BindCatalog installs the configured catalog after provider construction.
-func (s *Service) BindCatalog(catalog Catalog) {
+// BindModels installs configured model queries and requests after provider construction.
+func (s *Service) BindModels(catalog Catalog, modelRequester ModelRequester) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.catalog = catalog
+	s.modelRequester = modelRequester
 }
 
 // IssueContext returns the binding for one accepted runtime and active-session incarnation.
@@ -213,11 +216,10 @@ func (s *Service) Request(
 	instructions string,
 	history []agent.HistoryEntry,
 ) (model.Response, error) {
-	catalog, err := s.readCatalog(ctx, extensionID, runtimeID, reference)
-	if err != nil {
+	if _, err := s.readCatalog(ctx, extensionID, runtimeID, reference); err != nil {
 		return model.Response{}, err
 	}
-	response, err := catalog.Request(ctx, selection, instructions, history)
+	response, err := s.modelRequester.Request(ctx, selection, instructions, history)
 	if err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return model.Response{}, fmt.Errorf("request configured model: %w", err)

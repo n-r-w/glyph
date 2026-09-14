@@ -13,7 +13,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 func (s *serviceSuite) TestResponsesOmitsUnusableProviderContext() {
@@ -121,7 +121,7 @@ func (s *serviceSuite) TestResponsesUsesOverrideAndFiltersProviderContext() {
 	)
 	events := streamEvents(t, service, request)
 	terminal := events[len(events)-1]
-	assert.Equal(t, run.StreamEventDone, terminal.Kind)
+	assert.Equal(t, modelexecution.StreamEventDone, terminal.Kind)
 	assert.Equal(t, model.OutcomeStop, terminal.Response.OrEmpty().Outcome.OrEmpty())
 	input := body["input"].([]any)
 	encoded, err := json.Marshal(input)
@@ -283,9 +283,9 @@ func (s *serviceSuite) TestResponsesStreamsRefusalAndFragmentedToolCall() {
 	events := streamEvents(t, service, richRequest("local", "demo"))
 
 	// Assert lifecycle content and normalized usage both leave the adapter intact.
-	assert.Contains(t, eventKinds(events), run.StreamEventToolCallStart)
-	assert.Contains(t, eventKinds(events), run.StreamEventToolCallDelta)
-	assert.Contains(t, eventKinds(events), run.StreamEventToolCallEnd)
+	assert.Contains(t, eventKinds(events), modelexecution.StreamEventToolCallStart)
+	assert.Contains(t, eventKinds(events), modelexecution.StreamEventToolCallDelta)
+	assert.Contains(t, eventKinds(events), modelexecution.StreamEventToolCallEnd)
 	terminal := events[len(events)-1]
 	assert.Equal(t, model.OutcomeToolUse, terminal.Response.OrEmpty().Outcome.OrEmpty())
 	assert.Equal(

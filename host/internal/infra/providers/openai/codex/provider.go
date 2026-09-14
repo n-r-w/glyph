@@ -19,7 +19,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 const (
@@ -37,9 +37,13 @@ const (
 )
 
 // Stream emits one provider response as provider-neutral semantic events.
-func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
+func (s *Driver) Stream(
+	ctx context.Context,
+	request modelexecution.ProviderRequest,
+	handle modelexecution.StreamHandler,
+) error {
 	var handlerErr error
-	response, streamErr := s.executeRequest(ctx, request, func(event run.StreamEvent) error {
+	response, streamErr := s.executeRequest(ctx, request, func(event modelexecution.StreamEvent) error {
 		if err := handle(event); err != nil {
 			handlerErr = err
 			return err
@@ -76,9 +80,9 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 			}
 		}
 	}
-	terminalKind := run.StreamEventDone
+	terminalKind := modelexecution.StreamEventDone
 	if streamErr != nil {
-		terminalKind = run.StreamEventError
+		terminalKind = modelexecution.StreamEventError
 	}
 	terminalEvent := semanticStreamEvent(terminalKind, 0, 0, "")
 	terminalEvent.Response = mo.Some(response)
@@ -91,8 +95,8 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 // executeRequest decodes one Codex stream and returns its terminal response.
 func (s *Driver) executeRequest(
 	ctx context.Context,
-	request run.ModelRequest,
-	handle run.StreamHandler,
+	request modelexecution.ProviderRequest,
+	handle modelexecution.StreamHandler,
 ) (model.Response, error) {
 	credentials, err := s.resolveCredentials(ctx)
 	if err != nil {
@@ -152,8 +156,8 @@ func (s *Driver) executeRequest(
 	return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), errors.New(requestFailedCause)
 }
 
-// requestParams maps one provider-neutral Agent Core request to an ordered Codex Responses request.
-func (s *Driver) requestParams(request run.ModelRequest) (responses.ResponseNewParams, error) {
+// requestParams maps one raw provider request to an ordered Codex Responses request.
+func (s *Driver) requestParams(request modelexecution.ProviderRequest) (responses.ResponseNewParams, error) {
 	if request.Model.Provider != ProviderID || request.Model.Model == "" || request.Instructions == "" {
 		return responses.ResponseNewParams{}, errors.New(
 			"OpenAI Codex selected provider, model, and request instructions are required",

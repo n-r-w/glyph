@@ -1,4 +1,4 @@
-// Package codex implements ChatGPT Codex authentication and the Agent Core model-provider contract.
+// Package codex implements ChatGPT Codex authentication and raw provider attempts.
 package codex
 
 import (
@@ -13,7 +13,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 )
 
@@ -68,7 +68,7 @@ type Driver struct {
 }
 
 var (
-	_ run.ModelProvider                = (*Driver)(nil)
+	_ modelexecution.ProviderAttempt   = (*Driver)(nil)
 	_ providers.CredentialChecker      = (*Driver)(nil)
 	_ providers.ProviderAuthentication = (*Driver)(nil)
 )

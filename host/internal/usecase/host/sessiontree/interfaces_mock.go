@@ -231,6 +231,44 @@ func (mr *MockSelectionFailureMockRecorder) SelectionCode() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectionCode", reflect.TypeOf((*MockSelectionFailure)(nil).SelectionCode))
 }
 
+// MockModelSelection is a mock of ModelSelection interface.
+type MockModelSelection struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelSelectionMockRecorder
+	isgomock struct{}
+}
+
+// MockModelSelectionMockRecorder is the mock recorder for MockModelSelection.
+type MockModelSelectionMockRecorder struct {
+	mock *MockModelSelection
+}
+
+// NewMockModelSelection creates a new mock instance.
+func NewMockModelSelection(ctrl *gomock.Controller) *MockModelSelection {
+	mock := &MockModelSelection{ctrl: ctrl}
+	mock.recorder = &MockModelSelectionMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelSelection) EXPECT() *MockModelSelectionMockRecorder {
+	return m.recorder
+}
+
+// ActiveSelection mocks base method.
+func (m *MockModelSelection) ActiveSelection() model.Selection {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActiveSelection")
+	ret0, _ := ret[0].(model.Selection)
+	return ret0
+}
+
+// ActiveSelection indicates an expected call of ActiveSelection.
+func (mr *MockModelSelectionMockRecorder) ActiveSelection() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveSelection", reflect.TypeOf((*MockModelSelection)(nil).ActiveSelection))
+}
+
 // MockModelRequester is a mock of ModelRequester interface.
 type MockModelRequester struct {
 	ctrl     *gomock.Controller
@@ -253,20 +291,6 @@ func NewMockModelRequester(ctrl *gomock.Controller) *MockModelRequester {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockModelRequester) EXPECT() *MockModelRequesterMockRecorder {
 	return m.recorder
-}
-
-// ActiveSelection mocks base method.
-func (m *MockModelRequester) ActiveSelection() model.Selection {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActiveSelection")
-	ret0, _ := ret[0].(model.Selection)
-	return ret0
-}
-
-// ActiveSelection indicates an expected call of ActiveSelection.
-func (mr *MockModelRequesterMockRecorder) ActiveSelection() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveSelection", reflect.TypeOf((*MockModelRequester)(nil).ActiveSelection))
 }
 
 // Request mocks base method.

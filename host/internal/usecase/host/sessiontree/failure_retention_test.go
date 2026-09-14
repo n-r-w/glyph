@@ -33,8 +33,9 @@ func TestNavigationFailureRetainsEarlierHandlerIssues(t *testing.T) {
 				controller := gomock.NewController(t)
 				active := NewMockActiveSession(controller)
 				models := NewMockModelRequester(controller)
+				modelSelection := NewMockModelSelection(controller)
 				handlers := NewMockRuntime(controller)
-				service := New(active, models, handlers)
+				service := New(active, modelSelection, models, handlers)
 				ctx, cancel := context.WithCancel(t.Context())
 				defer cancel()
 				cause := errors.New("earlier ordinary handler diagnostic Ω")
@@ -46,7 +47,7 @@ func TestNavigationFailureRetainsEarlierHandlerIssues(t *testing.T) {
 				}
 				active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 				active.EXPECT().SessionID().Return("session")
-				models.EXPECT().ActiveSelection().Return(selection)
+				modelSelection.EXPECT().ActiveSelection().Return(selection)
 				failed := Handler{ExtensionID: "extension", HandlerID: "failed"}
 				invalid := Handler{ExtensionID: "extension", HandlerID: "invalid"}
 				last := Handler{ExtensionID: "extension", HandlerID: "last"}

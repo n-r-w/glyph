@@ -15,7 +15,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 func TestCompatibleToolSerializationPreservesUnconstrainedAndPreferredFallback(t *testing.T) {
@@ -188,7 +188,7 @@ func TestCompatibleConstraintsFailBeforeHTTPDispatch(t *testing.T) {
 				require.NoError(t, err)
 				request := richRequest("local", "demo")
 				request.Tools[0].ConstrainedSampling = mo.Some(constraint)
-				err = service.Stream(t.Context(), request, func(run.StreamEvent) error { return nil })
+				err = service.Stream(t.Context(), request, func(modelexecution.StreamEvent) error { return nil })
 				require.Error(t, err)
 				assert.Zero(t, dispatches.Load())
 			})

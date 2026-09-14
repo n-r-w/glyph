@@ -12,7 +12,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 type outputKey struct {
@@ -77,7 +77,7 @@ type finalizedFunctionOutput struct {
 // semanticAssembler converts Codex output indexes into provider-neutral content positions.
 type semanticAssembler struct {
 	// handle receives provider-neutral stream events.
-	handle run.StreamHandler
+	handle modelexecution.StreamHandler
 	// completedOutputByPosition contains authoritative terminal output by provider index.
 	completedOutputByPosition map[int64]responses.ResponseOutputItemUnion
 	// slots contains content lifecycle state by provider index.
@@ -95,7 +95,7 @@ type semanticAssembler struct {
 }
 
 func newSemanticAssembler(
-	handle run.StreamHandler,
+	handle modelexecution.StreamHandler,
 	grammarProperties map[string]string,
 ) *semanticAssembler {
 	return &semanticAssembler{
@@ -377,7 +377,7 @@ func (a *semanticAssembler) delta(
 	if err != nil {
 		return err
 	}
-	return a.handle(semanticStreamEvent(run.StreamEventTextDelta, slot.position, kind, delta))
+	return a.handle(semanticStreamEvent(modelexecution.StreamEventTextDelta, slot.position, kind, delta))
 }
 
 func (a *semanticAssembler) start(
@@ -405,7 +405,9 @@ func (a *semanticAssembler) start(
 	}
 	slot := outputSlot{kind: kind, position: position, active: true}
 	a.slots[key] = slot
-	if handleErr := a.handle(semanticStreamEvent(run.StreamEventContentStart, position, kind, "")); handleErr != nil {
+	if handleErr := a.handle(
+		semanticStreamEvent(modelexecution.StreamEventContentStart, position, kind, ""),
+	); handleErr != nil {
 		return outputSlot{}, handleErr
 	}
 	return slot, nil
@@ -416,7 +418,9 @@ func (a *semanticAssembler) end(key outputKey) error {
 	if !ok || !slot.active {
 		return nil
 	}
-	if err := a.handle(semanticStreamEvent(run.StreamEventContentEnd, slot.position, slot.kind, "")); err != nil {
+	if err := a.handle(
+		semanticStreamEvent(modelexecution.StreamEventContentEnd, slot.position, slot.kind, ""),
+	); err != nil {
 		return err
 	}
 	slot.active = false
@@ -425,12 +429,12 @@ func (a *semanticAssembler) end(key outputKey) error {
 }
 
 func semanticStreamEvent(
-	kind run.StreamEventKind,
+	kind modelexecution.StreamEventKind,
 	position int,
 	contentKind model.ContentKind,
 	delta string,
-) run.StreamEvent {
-	event := run.StreamEvent{
+) modelexecution.StreamEvent {
+	event := modelexecution.StreamEvent{
 		Kind:     kind,
 		Position: mo.None[int](),
 		Content:  mo.None[model.Content](),
@@ -439,11 +443,11 @@ func semanticStreamEvent(
 		ToolCall: mo.None[model.ToolCall](),
 		Response: mo.None[model.Response](),
 	}
-	if kind != run.StreamEventDone && kind != run.StreamEventError {
+	if kind != modelexecution.StreamEventDone && kind != modelexecution.StreamEventError {
 		event.Position = mo.Some(position)
 	}
-	if kind == run.StreamEventContentStart || kind == run.StreamEventTextDelta ||
-		kind == run.StreamEventContentEnd {
+	if kind == modelexecution.StreamEventContentStart || kind == modelexecution.StreamEventTextDelta ||
+		kind == modelexecution.StreamEventContentEnd {
 		text := mo.None[string]()
 		if contentKind == model.ContentText || contentKind == model.ContentRefusal ||
 			contentKind == model.ContentReasoning {
@@ -457,7 +461,7 @@ func semanticStreamEvent(
 			ToolCall:        mo.None[model.ToolCall](),
 		})
 	}
-	if kind == run.StreamEventTextDelta {
+	if kind == modelexecution.StreamEventTextDelta {
 		event.Delta = mo.Some(delta)
 	}
 	return event
@@ -501,7 +505,7 @@ func (a *semanticAssembler) startFunction(
 	preview := model.ToolCallPreview{
 		CallID: callID, Name: name, Position: position, Provisional: true, Fields: nil,
 	}
-	event := semanticStreamEvent(run.StreamEventToolCallStart, position, 0, "")
+	event := semanticStreamEvent(modelexecution.StreamEventToolCallStart, position, 0, "")
 	event.Preview = mo.Some(preview)
 	if handleErr := a.handle(event); handleErr != nil {
 		return handleErr
@@ -524,7 +528,7 @@ func (a *semanticAssembler) deltaFunction(outputIndex int64, itemID, delta strin
 	if err != nil {
 		return err
 	}
-	event := semanticStreamEvent(run.StreamEventToolCallDelta, slot.position, 0, "")
+	event := semanticStreamEvent(modelexecution.StreamEventToolCallDelta, slot.position, 0, "")
 	event.Preview = mo.Some(model.ToolCallPreview{
 		CallID: slot.callID, Name: slot.name, Position: slot.position,
 		Provisional: true, Fields: fields,
@@ -559,7 +563,7 @@ func (a *semanticAssembler) startCustom(
 		custom: true, inputProperty: property, customInput: input,
 	}
 	delete(a.pendingFunctionCalls, outputIndex)
-	event := semanticStreamEvent(run.StreamEventToolCallStart, position, 0, "")
+	event := semanticStreamEvent(modelexecution.StreamEventToolCallStart, position, 0, "")
 	event.Preview = mo.Some(model.ToolCallPreview{
 		CallID: callID, Name: name, Position: position, Provisional: true, Fields: nil,
 	})
@@ -619,7 +623,7 @@ func (a *semanticAssembler) validatePendingFunction(outputIndex int64, itemID st
 
 // publishCustomPreview exposes only the exact received custom input prefix.
 func (a *semanticAssembler) publishCustomPreview(slot *functionOutputSlot) error {
-	event := semanticStreamEvent(run.StreamEventToolCallDelta, slot.position, 0, "")
+	event := semanticStreamEvent(modelexecution.StreamEventToolCallDelta, slot.position, 0, "")
 	event.Preview = mo.Some(model.ToolCallPreview{
 		CallID: slot.callID, Name: slot.name, Position: slot.position, Provisional: true,
 		Fields: []model.ToolCallPreviewField{{
@@ -639,7 +643,7 @@ func (a *semanticAssembler) endCustom(outputIndex int64, itemID, input string) e
 	if !slot.custom || identitiesConflict(slot.itemID, itemID) {
 		return fmt.Errorf("codex custom output %d is not active", outputIndex)
 	}
-	event := semanticStreamEvent(run.StreamEventToolCallEnd, slot.position, 0, "")
+	event := semanticStreamEvent(modelexecution.StreamEventToolCallEnd, slot.position, 0, "")
 	event.ToolCall = mo.Some(model.ToolCall{
 		ID: slot.callID, Name: slot.name, Arguments: map[string]any{slot.inputProperty: input},
 	})
@@ -678,7 +682,7 @@ func (a *semanticAssembler) endFunction(
 		return err
 	}
 	slot.preview.close()
-	event := semanticStreamEvent(run.StreamEventToolCallEnd, slot.position, 0, "")
+	event := semanticStreamEvent(modelexecution.StreamEventToolCallEnd, slot.position, 0, "")
 	event.ToolCall = mo.Some(model.ToolCall{ID: slot.callID, Name: slot.name, Arguments: decoded})
 	if handleErr := a.handle(event); handleErr != nil {
 		return handleErr

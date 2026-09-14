@@ -21,7 +21,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestDriverStreamRefreshesAtThresholdAndPersistsRotation verifies fresh request authorization.
@@ -97,7 +97,7 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 	events, err := collectStreamEvents(
 		service,
 		t.Context(),
-		run.ModelRequest{
+		modelexecution.ProviderRequest{
 			ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions:    "instructions",
 			Model:           testModelDescriptor("gpt-test"),
@@ -111,7 +111,7 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 			},
 			Tools: nil,
 		},
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 	response := terminalResponse(events)
 
@@ -158,7 +158,7 @@ func TestDriverStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 	_, err := collectStreamEvents(
 		service,
 		t.Context(),
-		run.ModelRequest{
+		modelexecution.ProviderRequest{
 			ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions:    "instructions",
 			Model:           testModelDescriptor("gpt-test"),
@@ -172,7 +172,7 @@ func TestDriverStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 			},
 			Tools: nil,
 		},
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 
 	require.NoError(t, err)
@@ -189,7 +189,7 @@ func TestDriverStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 
 	events, err := collectStreamEvents(service,
 		t.Context(),
-		run.ModelRequest{
+		modelexecution.ProviderRequest{
 			ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions:    "instructions",
 			Model:           testModelDescriptor("gpt-test"),
@@ -201,7 +201,7 @@ func TestDriverStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 			}},
 			Tools: nil,
 		},
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 	response := terminalResponse(events)
 
@@ -258,7 +258,7 @@ func TestDriverStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 	service := newDriver(
 		testConfig(), credentials, interaction, testProviderOptions(server),
 	)
-	request := run.ModelRequest{
+	request := modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("model"),
@@ -277,13 +277,13 @@ func TestDriverStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 		service,
 		t.Context(),
 		request,
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 	_, secondErr := collectStreamEvents(
 		service,
 		t.Context(),
 		request,
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 
 	require.NoError(t, firstErr)

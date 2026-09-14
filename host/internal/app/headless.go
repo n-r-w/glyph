@@ -21,6 +21,7 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
@@ -70,12 +71,14 @@ func runHeadlessWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
-	contexts.BindCatalog(providerCatalog)
+	// modelExecution owns every logical model request in the headless assembly.
+	modelExecution := modelexecution.New(providerCatalog)
+	contexts.BindModels(providerCatalog, modelExecution)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
-	sessionServices.tree.BindModelRequester(providerCatalog)
+	sessionServices.tree.BindModels(providerCatalog, modelExecution)
 	dispatcher := events.NewDispatcher(renderer, lifecycleObservers)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), providerCatalog, tools, dispatcher, sessionServices.active,
+		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active,
 	)
 	coordinator := runcontrol.NewCoordinator(agentCore, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)

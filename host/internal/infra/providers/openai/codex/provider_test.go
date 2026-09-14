@@ -17,7 +17,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // testConfig creates one provider-owned configuration fixture.
@@ -102,8 +102,8 @@ func writeSSE(writer http.ResponseWriter, events ...string) {
 }
 
 // streamEventKinds returns semantic event identities in delivery order.
-func streamEventKinds(events []run.StreamEvent) []run.StreamEventKind {
-	return lo.Map(events, func(event run.StreamEvent, _ int) run.StreamEventKind {
+func streamEventKinds(events []modelexecution.StreamEvent) []modelexecution.StreamEventKind {
+	return lo.Map(events, func(event modelexecution.StreamEvent, _ int) modelexecution.StreamEventKind {
 		return event.Kind
 	})
 }
@@ -112,11 +112,11 @@ func streamEventKinds(events []run.StreamEvent) []run.StreamEventKind {
 func collectStreamEvents(
 	service *Driver,
 	ctx context.Context,
-	request run.ModelRequest,
-	handleEvent func(run.StreamEvent) error,
-) ([]run.StreamEvent, error) {
-	events := make([]run.StreamEvent, 0)
-	err := service.Stream(ctx, request, func(event run.StreamEvent) error {
+	request modelexecution.ProviderRequest,
+	handleEvent func(modelexecution.StreamEvent) error,
+) ([]modelexecution.StreamEvent, error) {
+	events := make([]modelexecution.StreamEvent, 0)
+	err := service.Stream(ctx, request, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		if handleEvent != nil {
 			return handleEvent(event)
@@ -126,7 +126,7 @@ func collectStreamEvents(
 	return events, err
 }
 
-func terminalResponse(events []run.StreamEvent) model.Response {
+func terminalResponse(events []modelexecution.StreamEvent) model.Response {
 	if len(events) == 0 {
 		return model.Response{}
 	}

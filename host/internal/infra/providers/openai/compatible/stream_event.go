@@ -4,18 +4,18 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // textStreamEvent creates one text-like content lifecycle event.
 func textStreamEvent(
-	eventKind run.StreamEventKind,
+	eventKind modelexecution.StreamEventKind,
 	position int,
 	contentKind model.ContentKind,
 	text string,
 	delta mo.Option[string],
-) run.StreamEvent {
-	return run.StreamEvent{
+) modelexecution.StreamEvent {
+	return modelexecution.StreamEvent{
 		Kind:     eventKind,
 		Position: mo.Some(position),
 		Content: mo.Some(model.Content{
@@ -33,8 +33,8 @@ func textStreamEvent(
 }
 
 // terminalStreamEvent creates one terminal event carrying the authoritative response.
-func terminalStreamEvent(kind run.StreamEventKind, response model.Response) run.StreamEvent {
-	return run.StreamEvent{
+func terminalStreamEvent(kind modelexecution.StreamEventKind, response model.Response) modelexecution.StreamEvent {
+	return modelexecution.StreamEvent{
 		Kind:     kind,
 		Position: mo.None[int](),
 		Content:  mo.None[model.Content](),
@@ -46,9 +46,9 @@ func terminalStreamEvent(kind run.StreamEventKind, response model.Response) run.
 }
 
 // toolCallEndStreamEvent creates one finalized tool-call event.
-func toolCallEndStreamEvent(position int, call model.ToolCall) run.StreamEvent {
-	return run.StreamEvent{
-		Kind:     run.StreamEventToolCallEnd,
+func toolCallEndStreamEvent(position int, call model.ToolCall) modelexecution.StreamEvent {
+	return modelexecution.StreamEvent{
+		Kind:     modelexecution.StreamEventToolCallEnd,
 		Position: mo.Some(position),
 		Content:  mo.None[model.Content](),
 		Delta:    mo.None[string](),

@@ -83,8 +83,9 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, extensions.Close()) })
 	controller := gomock.NewController(t)
 	active := sessiontree.NewMockActiveSession(controller)
+	modelSelection := sessiontree.NewMockModelSelection(controller)
 	models := sessiontree.NewMockModelRequester(controller)
-	service := sessiontree.New(active, models, extensions)
+	service := sessiontree.New(active, modelSelection, models, extensions)
 	tools := toolservice.New(extensions)
 	contextSession := extensioncontext.NewMockSessionState(controller)
 	contextSession.EXPECT().
@@ -93,6 +94,7 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 		AnyTimes()
 	contexts := extensioncontext.New(extensions, contextSession)
 	contextCatalog := extensioncontext.NewMockCatalog(controller)
+	contextRequester := extensioncontext.NewMockModelRequester(controller)
 	contextCatalog.EXPECT().Models().Return([]model.Descriptor{
 		{
 			Provider:      "provider",
@@ -113,7 +115,7 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 		ActiveSelection().
 		Return(model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}).
 		AnyTimes()
-	contexts.BindCatalog(contextCatalog)
+	contexts.BindModels(contextCatalog, contextRequester)
 	service.BindContextIssuer(contexts)
 	tools.BindContextIssuer(contexts)
 	factory.BindHostServiceFactory(func(extensionID, runtimeID string) extensionsdk.HostService {
@@ -132,7 +134,7 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	committed := tree.Clone()
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	require.NoError(t, committed.Add(grpcSummaryEntry()))

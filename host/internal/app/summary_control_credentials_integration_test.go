@@ -19,9 +19,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -49,7 +49,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 			t.Cleanup(func() { require.NoError(t, extensions.Close()) })
 			controller := gomock.NewController(t)
 			active := sessiontree.NewMockActiveSession(controller)
-			provider := agentrun.NewMockModelProvider(controller)
+			provider := modelexecution.NewMockProviderAttempt(controller)
 			credentials := providers.NewMockCredentialChecker(controller)
 			var checks atomic.Int64
 			credentials.EXPECT().CheckCredentials(gomock.Any()).DoAndReturn(func(context.Context) error {
@@ -78,7 +78,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				}, Provider: provider, CredentialChecker: credentials, Authentication: nil,
 			}}, selection)
 			require.NoError(t, err)
-			service := sessiontree.New(active, models, extensions)
+			service := sessiontree.New(active, models, modelexecution.New(models), extensions)
 			contexts := sessiontree.NewMockContextIssuer(controller)
 			contexts.EXPECT().IssueContext("control").DoAndReturn(func(extensionID string) (extension.Context, error) {
 				instance, _ := extensions.ContextRuntime(extensionID)

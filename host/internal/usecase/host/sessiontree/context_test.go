@@ -30,7 +30,7 @@ func TestObserverReceivesSessionBoundContext(t *testing.T) {
 		WorkingDirectory:  "/project",
 	}
 	contexts.EXPECT().IssueContext("extension").Return(binding, nil)
-	service := New(nil, nil, runtime)
+	service := New(nil, nil, nil, runtime)
 	service.BindContextIssuer(contexts)
 	runtime.EXPECT().
 		HandleHandler(gomock.Any(), "extension", "observer", gomock.Any()).

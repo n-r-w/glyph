@@ -73,8 +73,9 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
 			models := NewMockModelRequester(controller)
+			modelSelection := NewMockModelSelection(controller)
 			handlers := NewMockRuntime(controller)
-			service := New(active, models, handlers)
+			service := New(active, modelSelection, models, handlers)
 			selection := model.Selection{
 				Provider:        "provider",
 				Model:           "model",
@@ -82,7 +83,7 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 			}
 			active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 			active.EXPECT().SessionID().Return("session")
-			models.EXPECT().ActiveSelection().Return(selection)
+			modelSelection.EXPECT().ActiveSelection().Return(selection)
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(

@@ -18,7 +18,9 @@ import (
 type Service struct {
 	// active supplies the immutable preparation snapshot and owns the commit.
 	active ActiveSession
-	// modelRequester supplies selection state and executes model requests.
+	// modelSelection supplies active configured model state.
+	modelSelection ModelSelection
+	// modelRequester executes configured branch-summary requests.
 	modelRequester ModelRequester
 	// runtime supplies availability and low-level handler invocation.
 	runtime Runtime
@@ -45,18 +47,19 @@ type registeredHandler struct {
 }
 
 // New creates an internal session-tree navigation service.
-func New(active ActiveSession, modelRequester ModelRequester, runtime Runtime) *Service {
+func New(active ActiveSession, modelSelection ModelSelection, modelRequester ModelRequester, runtime Runtime) *Service {
 	return &Service{
-		active: active, modelRequester: modelRequester, runtime: runtime, contexts: nil,
+		active: active, modelSelection: modelSelection, modelRequester: modelRequester, runtime: runtime, contexts: nil,
 		mutex: sync.RWMutex{}, handlers: nil,
 	}
 }
 
-// BindModelRequester connects the actual provider catalog before navigation can start.
-func (s *Service) BindModelRequester(requester ModelRequester) {
-	if s.modelRequester != nil || requester == nil {
-		panic("model catalog binding must be completed exactly once")
+// BindModels connects configured model selection and request owners before navigation can start.
+func (s *Service) BindModels(selection ModelSelection, requester ModelRequester) {
+	if s.modelSelection != nil || s.modelRequester != nil || selection == nil || requester == nil {
+		panic("model bindings must be completed exactly once")
 	}
+	s.modelSelection = selection
 	s.modelRequester = requester
 }
 
@@ -85,7 +88,7 @@ func (s *Service) navigate(
 	if err != nil {
 		return navigationResult{}, err
 	}
-	selection := s.modelRequester.ActiveSelection()
+	selection := s.modelSelection.ActiveSelection()
 	original := HandlerNavigationState{
 		SessionID:             s.active.SessionID(),
 		PrecedingActiveLeafID: expectedActiveLeafID,

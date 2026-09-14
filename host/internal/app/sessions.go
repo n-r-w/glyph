@@ -49,6 +49,6 @@ func newSessionComposition(
 		return sessionComposition{}, initializeErr
 	}
 	gate := operationgate.New()
-	tree := sessiontree.New(active, nil, handlerRuntime)
+	tree := sessiontree.New(active, nil, nil, handlerRuntime)
 	return sessionComposition{active: active, gate: gate, tree: tree}, nil
 }

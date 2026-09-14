@@ -18,7 +18,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestDriverStreamUsesFinalizedOutputItemsWhenCompletedOutputIsEmpty preserves terminal streamed output.
@@ -65,21 +65,21 @@ func TestDriverStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
-	events := make([]run.StreamEvent, 0)
-	err := service.Stream(t.Context(), run.ModelRequest{
+	events := make([]modelexecution.StreamEvent, 0)
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "test",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
 		Tools:           nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
 	require.NoError(t, err)
-	require.Equal(t, []run.StreamEventKind{
-		run.StreamEventToolCallStart, run.StreamEventToolCallDelta,
-		run.StreamEventToolCallDelta, run.StreamEventToolCallEnd, run.StreamEventDone,
+	require.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallDelta,
+		modelexecution.StreamEventToolCallDelta, modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	require.Equal(t, "read", events[0].Preview.OrEmpty().Name)
 	require.True(t, events[0].Preview.OrEmpty().Provisional)
@@ -126,25 +126,25 @@ func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
-	events := make([]run.StreamEvent, 0)
+	events := make([]modelexecution.StreamEvent, 0)
 	err := service.Stream(
 		t.Context(),
-		run.ModelRequest{
+		modelexecution.ProviderRequest{
 			History:         nil,
 			Tools:           nil,
 			ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions:    "test",
 			Model:           testModelDescriptor("gpt-test"),
 		},
-		func(event run.StreamEvent) error {
+		func(event modelexecution.StreamEvent) error {
 			events = append(events, event)
 			return nil
 		},
 	)
 
 	require.NoError(t, err)
-	require.Equal(t, []run.StreamEventKind{
-		run.StreamEventToolCallStart, run.StreamEventToolCallEnd, run.StreamEventDone,
+	require.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, "call-1", events[0].Preview.OrEmpty().CallID)
 	assert.Equal(t, "read", events[0].Preview.OrEmpty().Name)
@@ -192,16 +192,16 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
-	events := make([]run.StreamEvent, 0)
+	events := make([]modelexecution.StreamEvent, 0)
 
 	// Act by consuming the malformed provider stream.
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "test",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
 		Tools:           nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -212,7 +212,7 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 	terminal := events[len(events)-1].Response.OrEmpty()
 	require.Equal(t, model.OutcomeFailed, terminal.Outcome.OrEmpty())
 	assert.Contains(t, terminal.ErrorMessage.OrEmpty(), "unexpected EOF")
-	require.NotContains(t, streamEventKinds(events), run.StreamEventToolCallEnd)
+	require.NotContains(t, streamEventKinds(events), modelexecution.StreamEventToolCallEnd)
 }
 
 func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
@@ -258,12 +258,12 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 	)
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	updates := make([]run.StreamEvent, 0, 2)
+	updates := make([]modelexecution.StreamEvent, 0, 2)
 
 	events, err := collectStreamEvents(
 		service,
 		t.Context(),
-		run.ModelRequest{
+		modelexecution.ProviderRequest{
 			ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions:    "instructions",
 			Model:           testModelDescriptor("gpt-test"),
@@ -277,8 +277,8 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 			},
 			Tools: nil,
 		},
-		func(update run.StreamEvent) error {
-			if update.Kind == run.StreamEventTextDelta {
+		func(update modelexecution.StreamEvent) error {
+			if update.Kind == modelexecution.StreamEventTextDelta {
 				updates = append(updates, update)
 			}
 			return nil
@@ -287,7 +287,7 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 	response := terminalResponse(events)
 
 	require.NoError(t, err)
-	assert.Equal(t, []run.StreamEvent{
+	assert.Equal(t, []modelexecution.StreamEvent{
 		textDeltaStreamEvent(model.ContentText, "final "),
 		textDeltaStreamEvent(model.ContentText, "answer"),
 	}, updates)

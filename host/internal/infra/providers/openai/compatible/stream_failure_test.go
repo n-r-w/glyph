@@ -21,7 +21,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	hostproviders "github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 )
 
@@ -39,7 +39,7 @@ func (s *serviceSuite) TestChatCompletionsRequiresFinishReason() {
 	})
 	require.NoError(t, err)
 	events := streamEvents(t, service, richRequest("local", "demo"))
-	assert.Equal(t, run.StreamEventError, events[len(events)-1].Kind)
+	assert.Equal(t, modelexecution.StreamEventError, events[len(events)-1].Kind)
 	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 }
 
@@ -63,17 +63,21 @@ func (s *serviceSuite) TestHandlerFailureStopsWithoutTerminalEvent() {
 	})
 	require.NoError(t, err)
 	handlerErr := errors.New("sink stopped")
-	var events []run.StreamEvent
-	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
+	var events []modelexecution.StreamEvent
+	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
-		if event.Kind == run.StreamEventTextDelta {
+		if event.Kind == modelexecution.StreamEventTextDelta {
 			return handlerErr
 		}
 		return nil
 	})
 	require.ErrorIs(t, err, handlerErr)
 	for _, event := range events {
-		assert.NotContains(t, []run.StreamEventKind{run.StreamEventDone, run.StreamEventError}, event.Kind)
+		assert.NotContains(
+			t,
+			[]modelexecution.StreamEventKind{modelexecution.StreamEventDone, modelexecution.StreamEventError},
+			event.Kind,
+		)
 	}
 }
 
@@ -100,9 +104,9 @@ func (s *serviceSuite) TestFinalErrorHandlerFailurePreservesProviderCause() {
 	callbacks := 0
 
 	// Act by rejecting the one final provider error event.
-	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
+	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
 		callbacks++
-		assert.Equal(t, run.StreamEventError, event.Kind)
+		assert.Equal(t, modelexecution.StreamEventError, event.Kind)
 		return handlerErr
 	})
 
@@ -150,16 +154,20 @@ func (s *serviceSuite) TestPartialStreamFailureJoinsContentEndDelivery() {
 			})
 			require.NoError(t, err)
 			handlerErr := errors.New("unique ContentEnd delivery failure")
-			events := make([]run.StreamEventKind, 0)
+			events := make([]modelexecution.StreamEventKind, 0)
 
 			// Act by streaming until partial-content finalization reaches the failed handler.
-			err = service.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
-				events = append(events, event.Kind)
-				if event.Kind == run.StreamEventContentEnd {
-					return handlerErr
-				}
-				return nil
-			})
+			err = service.Stream(
+				t.Context(),
+				richRequest("local", "demo"),
+				func(event modelexecution.StreamEvent) error {
+					events = append(events, event.Kind)
+					if event.Kind == modelexecution.StreamEventContentEnd {
+						return handlerErr
+					}
+					return nil
+				},
+			)
 
 			// Assert both exact causes occur once and no terminal callback follows handler failure.
 			require.Error(t, err)
@@ -168,9 +176,9 @@ func (s *serviceSuite) TestPartialStreamFailureJoinsContentEndDelivery() {
 			assert.Equal(t, 1, strings.Count(err.Error(), handlerErr.Error()))
 			assert.Equal(t, 1, strings.Count(err.Error(), io.ErrUnexpectedEOF.Error()))
 			require.NotEmpty(t, events)
-			assert.Equal(t, run.StreamEventContentEnd, events[len(events)-1])
-			assert.NotContains(t, events, run.StreamEventDone)
-			assert.NotContains(t, events, run.StreamEventError)
+			assert.Equal(t, modelexecution.StreamEventContentEnd, events[len(events)-1])
+			assert.NotContains(t, events, modelexecution.StreamEventDone)
+			assert.NotContains(t, events, modelexecution.StreamEventError)
 		})
 	}
 }
@@ -198,10 +206,10 @@ func (s *serviceSuite) TestResolverFailurePreservesCause() {
 		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
-	var events []run.StreamEvent
+	var events []modelexecution.StreamEvent
 
 	// Act by starting one provider request.
-	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
+	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -211,7 +219,7 @@ func (s *serviceSuite) TestResolverFailurePreservesCause() {
 	assert.Zero(t, calls.Load())
 	require.Len(t, events, 1)
 	terminal := events[0]
-	assert.Equal(t, run.StreamEventError, terminal.Kind)
+	assert.Equal(t, modelexecution.StreamEventError, terminal.Kind)
 	assert.Contains(
 		t,
 		terminal.Response.OrEmpty().ErrorMessage.OrEmpty(),
@@ -247,10 +255,10 @@ func (s *serviceSuite) TestResponsesFailedEventPreservesProviderMessage() {
 		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
-	var events []run.StreamEvent
+	var events []modelexecution.StreamEvent
 
 	// Act by consuming the failed event.
-	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
+	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -265,7 +273,7 @@ func (s *serviceSuite) TestResponsesFailedEventPreservesProviderMessage() {
 	}
 	require.Len(t, events, 1)
 	terminal := events[0]
-	assert.Equal(t, run.StreamEventError, terminal.Kind)
+	assert.Equal(t, modelexecution.StreamEventError, terminal.Kind)
 	assert.Equal(t, model.OutcomeFailed, terminal.Response.OrEmpty().Outcome.OrEmpty())
 	for _, detail := range []string{
 		"OpenAI-compatible request failed",
@@ -331,19 +339,23 @@ func (s *serviceSuite) TestMalformedToolArgumentsPreserveParserCause() {
 				ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
 			})
 			require.NoError(t, err)
-			var events []run.StreamEvent
+			var events []modelexecution.StreamEvent
 
 			// Act by streaming the malformed provider payload.
-			err = service.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
-				events = append(events, event)
-				return nil
-			})
+			err = service.Stream(
+				t.Context(),
+				richRequest("local", "demo"),
+				func(event modelexecution.StreamEvent) error {
+					events = append(events, event)
+					return nil
+				},
+			)
 
 			// Assert parser detail and adapter context reach both error boundaries.
 			require.ErrorContains(t, err, test.want)
 			require.NotEmpty(t, events)
 			terminal := events[len(events)-1]
-			assert.Equal(t, run.StreamEventError, terminal.Kind)
+			assert.Equal(t, modelexecution.StreamEventError, terminal.Kind)
 			assert.Contains(t, terminal.Response.OrEmpty().ErrorMessage.OrEmpty(), test.want)
 		})
 	}
@@ -373,10 +385,10 @@ func (s *serviceSuite) TestMalformedProviderContextPreservesParserCause() {
 			Payload: []byte(`{"id":}`),
 		}), ToolCall: mo.None[model.ToolCall](),
 	})
-	var events []run.StreamEvent
+	var events []modelexecution.StreamEvent
 
 	// Act by streaming a request that must decode the provider context.
-	err = service.Stream(t.Context(), request, func(event run.StreamEvent) error {
+	err = service.Stream(t.Context(), request, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -385,7 +397,7 @@ func (s *serviceSuite) TestMalformedProviderContextPreservesParserCause() {
 	require.ErrorContains(t, err, "decode OpenAI-compatible provider context: jsontext: invalid character")
 	assert.Zero(t, calls.Load())
 	require.Len(t, events, 1)
-	assert.Equal(t, run.StreamEventError, events[0].Kind)
+	assert.Equal(t, modelexecution.StreamEventError, events[0].Kind)
 	assert.Contains(
 		t,
 		events[0].Response.OrEmpty().ErrorMessage.OrEmpty(),
@@ -437,7 +449,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 		Provider: driver, CredentialChecker: nil, Authentication: nil,
 	}}, selection)
 	require.NoError(t, err)
-	snapshot := catalog.Snapshot()
+	snapshot := catalog.ActiveBinding()
 	request := richRequest(snapshot.Model.Provider, snapshot.Model.Model)
 	request.Model = snapshot.Model
 	request.ReasoningChoice = snapshot.ReasoningChoice
@@ -450,10 +462,10 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 			Payload: []byte(`{"id":"reasoning","encrypted_content":"rejected-cipher","summary":[]}`),
 		}), ToolCall: mo.None[model.ToolCall](),
 	})
-	var events []run.StreamEvent
+	var events []modelexecution.StreamEvent
 
 	// Act by streaming the request with rejected opaque context.
-	err = snapshot.Provider.Stream(t.Context(), request, func(event run.StreamEvent) error {
+	err = snapshot.Provider.Stream(t.Context(), request, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -462,7 +474,7 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	require.Error(t, err)
 	assert.Equal(t, int64(1), calls.Load())
 	require.NotEmpty(t, events)
-	assert.Equal(t, run.StreamEventError, events[len(events)-1].Kind)
+	assert.Equal(t, modelexecution.StreamEventError, events[len(events)-1].Kind)
 	assert.Equal(t, selection, catalog.ActiveSelection())
 }
 
@@ -492,8 +504,8 @@ func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {
 	require.NoError(t, err)
 	events := streamEvents(t, service, richRequest("local", "demo"))
 	kinds := eventKinds(events)
-	assert.Contains(t, kinds, run.StreamEventContentEnd)
-	assert.Equal(t, run.StreamEventError, kinds[len(kinds)-1])
+	assert.Contains(t, kinds, modelexecution.StreamEventContentEnd)
+	assert.Equal(t, modelexecution.StreamEventError, kinds[len(kinds)-1])
 }
 
 // TestCancellationAndHTTPFailureMapTerminalErrors verifies cancellation remains canonical and HTTP detail remains
@@ -525,8 +537,8 @@ func (s *serviceSuite) TestCancellationAndHTTPFailureMapTerminalErrors() {
 	// Act by canceling before dispatch.
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	var canceled []run.StreamEvent
-	err = service.Stream(ctx, richRequest("local", "demo"), func(event run.StreamEvent) error {
+	var canceled []modelexecution.StreamEvent
+	err = service.Stream(ctx, richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
 		canceled = append(canceled, event)
 		return nil
 	})
@@ -536,8 +548,8 @@ func (s *serviceSuite) TestCancellationAndHTTPFailureMapTerminalErrors() {
 	assert.Zero(t, calls.Load())
 
 	// Act by dispatching a request that receives the HTTP failure.
-	var failed []run.StreamEvent
-	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event run.StreamEvent) error {
+	var failed []modelexecution.StreamEvent
+	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
 		failed = append(failed, event)
 		return nil
 	})

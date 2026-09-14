@@ -15,14 +15,14 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestCatalogReturnsOrderedDefensiveModelsAndSelection verifies immutable catalog queries.
 func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 	t.Parallel()
 
-	providerA := agentrun.NewMockModelProvider(gomock.NewController(t))
+	providerA := modelexecution.NewMockProviderAttempt(gomock.NewController(t))
 	entries := []Entry{
 		{
 			Descriptor:        descriptor("z-provider", "z-first", model.ReasoningChoiceOff),
@@ -62,7 +62,7 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 		models[0].Model, models[1].Model, models[2].Model,
 	})
 	assert.Equal(t, selection, catalog.ActiveSelection())
-	snapshot := catalog.Snapshot()
+	snapshot := catalog.ActiveBinding()
 	require.Equal(t, models[0], snapshot.Model)
 	assert.Equal(t, model.ReasoningChoiceHigh, snapshot.ReasoningChoice)
 	assert.Equal(t, providerA, snapshot.Provider)
@@ -75,13 +75,13 @@ func TestCatalogReturnsOrderedDefensiveModelsAndSelection(t *testing.T) {
 	fresh := catalog.Models()
 	assert.Equal(t, model.ID("a-first"), fresh[0].Model)
 	assert.Equal(t, []model.InputModality{model.InputModalityText, model.InputModalityImage}, fresh[0].Input)
-	assert.Equal(t, model.InputModalityText, catalog.Snapshot().Model.Input[0])
+	assert.Equal(t, model.InputModalityText, catalog.ActiveBinding().Model.Input[0])
 	assert.Equal(
 		t,
 		[]model.ReasoningChoice{model.ReasoningChoiceLow, model.ReasoningChoiceHigh},
 		fresh[0].ReasoningCapabilities.Choices,
 	)
-	assert.Equal(t, model.ReasoningChoiceLow, catalog.Snapshot().Model.ReasoningCapabilities.Choices[0])
+	assert.Equal(t, model.ReasoningChoiceLow, catalog.ActiveBinding().Model.ReasoningCapabilities.Choices[0])
 }
 
 // TestCatalogSelectModelAppliesReasoningFallback verifies model changes preserve or lower reasoning deterministically.
@@ -162,7 +162,7 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			provider := agentrun.NewMockModelProvider(gomock.NewController(t))
+			provider := modelexecution.NewMockProviderAttempt(gomock.NewController(t))
 			catalog, err := New([]Entry{
 				{
 					Descriptor:        descriptor("provider", "active", test.active),
@@ -205,7 +205,7 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 		Model:           "active",
 		ReasoningChoice: model.ReasoningChoiceLow,
 	}
-	provider := agentrun.NewMockModelProvider(gomock.NewController(t))
+	provider := modelexecution.NewMockProviderAttempt(gomock.NewController(t))
 	catalog, err := New([]Entry{
 		{
 			Descriptor: descriptor(
@@ -273,7 +273,7 @@ func TestCatalogRejectsInvalidExecutionCapabilities(t *testing.T) {
 			// Arrange one descriptor with the named invalid capability.
 			configured := descriptor("provider", "model", model.ReasoningChoiceOff)
 			mutate(&configured)
-			provider := agentrun.NewMockModelProvider(gomock.NewController(t))
+			provider := modelexecution.NewMockProviderAttempt(gomock.NewController(t))
 
 			// Act by constructing the source-independent catalog.
 			_, err := New([]Entry{{
@@ -318,7 +318,7 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 	t.Parallel()
 
 	controller := gomock.NewController(t)
-	provider := agentrun.NewMockModelProvider(controller)
+	provider := modelexecution.NewMockProviderAttempt(controller)
 	validator := NewMockCredentialChecker(controller)
 	started := make(chan struct{})
 	release := make(chan struct{})
@@ -370,13 +370,13 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 		t.Fatal("credential validation did not start")
 	}
 
-	snapshots := make(chan agentrun.RequestSnapshot, 1)
-	go func() { snapshots <- catalog.Snapshot() }()
+	snapshots := make(chan modelexecution.CatalogBinding, 1)
+	go func() { snapshots <- catalog.ActiveBinding() }()
 	select {
 	case snapshot := <-snapshots:
 		assert.Equal(t, model.ID("active"), snapshot.Model.Model)
 	case <-time.After(time.Second):
-		t.Fatal("Snapshot blocked during credential resolution")
+		t.Fatal("ActiveBinding blocked during credential resolution")
 	}
 	selected, err := catalog.SelectReasoningChoice(model.ReasoningChoiceLow)
 	require.NoError(t, err)
@@ -398,7 +398,7 @@ func TestCatalogCredentialFailureIsSafeAndPreservesSelection(t *testing.T) {
 	t.Parallel()
 
 	controller := gomock.NewController(t)
-	provider := agentrun.NewMockModelProvider(controller)
+	provider := modelexecution.NewMockProviderAttempt(controller)
 	validator := NewMockCredentialChecker(controller)
 	safeCause := errors.New(`resolve environment API key "PROVIDER_API_KEY": unavailable`)
 	validator.EXPECT().CheckCredentials(gomock.Any()).Return(safeCause)
@@ -440,7 +440,7 @@ func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
 	t.Parallel()
 
 	controller := gomock.NewController(t)
-	provider := agentrun.NewMockModelProvider(controller)
+	provider := modelexecution.NewMockProviderAttempt(controller)
 	authentication := NewMockProviderAuthentication(controller)
 	catalog, err := New([]Entry{
 		{
@@ -482,7 +482,7 @@ func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
 	t.Parallel()
 
 	// Arrange two configured providers with the same model ID and different prices.
-	provider := agentrun.NewMockModelProvider(gomock.NewController(t))
+	provider := modelexecution.NewMockProviderAttempt(gomock.NewController(t))
 	priceA := model.Pricing{
 		Input: 1, Output: 2, CacheRead: 0.1, CacheWrite: 0.5,
 		Tiers: []model.PricingTier{{

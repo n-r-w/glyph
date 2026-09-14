@@ -47,8 +47,9 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 			controller := gomock.NewController(t)
 			active := NewMockActiveSession(controller)
 			models := NewMockModelRequester(controller)
+			modelSelection := NewMockModelSelection(controller)
 			handlers := NewMockRuntime(controller)
-			service := New(active, models, handlers)
+			service := New(active, modelSelection, models, handlers)
 			tree := navigationTree(t, time.Unix(1, 0).UTC())
 			selection := model.Selection{
 				Provider:        "provider",
@@ -57,7 +58,7 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 			}
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
-			models.EXPECT().ActiveSelection().Return(selection)
+			modelSelection.EXPECT().ActiveSelection().Return(selection)
 			models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
 				func(
 					_ context.Context,
@@ -126,13 +127,14 @@ func TestNavigateExtensionMessageCreatesSummaryAtParent(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).Return(
 		summaryResponse("message summary", mo.None[model.Usage]()), nil,
 	)
@@ -188,8 +190,9 @@ func TestNavigateSerializationFailureDoesNotRequestModelOrCommit(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	createdAt := time.Unix(1, 0).UTC()
 	entries := []session.Entry{
 		navigationUserEntry("root", mo.None[string](), "root input", createdAt),
@@ -204,7 +207,7 @@ func TestNavigateSerializationFailureDoesNotRequestModelOrCommit(t *testing.T) {
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 
 	// Act by navigating with built-in summarization.
 	_, err = navigateTreeForTest(t, service, t.Context(), NavigationRequest{
@@ -225,12 +228,13 @@ func TestNavigateRejectsInvalidSummaryResponseWithoutCommit(t *testing.T) {
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
+	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
-	service := New(active, models, handlers)
+	service := New(active, modelSelection, models, handlers)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 	active.EXPECT().SessionID().Return("session")
-	models.EXPECT().ActiveSelection().Return(selection)
+	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).Return(
 		summaryResponse("   ", mo.None[model.Usage]()), nil,
 	)

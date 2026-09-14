@@ -11,8 +11,8 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -80,8 +80,8 @@ func (e *SelectionError) Unwrap() error {
 type Entry struct {
 	// Descriptor contains configured model capabilities.
 	Descriptor model.Descriptor
-	// Provider executes requests for the configured model.
-	Provider agentrun.ModelProvider
+	// Provider executes one raw attempt for the configured model.
+	Provider modelexecution.ProviderAttempt
 	// CredentialChecker checks credentials before selection or a model request.
 	CredentialChecker CredentialChecker
 	// Authentication handles provider sign-in and sign-out.
@@ -102,13 +102,13 @@ type Catalog struct {
 }
 
 var (
-	_ extensioncontext.Catalog      = (*Catalog)(nil)
-	_ hostprogrammatic.ModelCatalog = (*Catalog)(nil)
-	_ hostsessions.PricingCatalog   = (*Catalog)(nil)
-	_ sessiontree.ModelRequester    = (*Catalog)(nil)
-	_ agentrun.ModelRuntime         = (*Catalog)(nil)
-	_ hostui.Authenticator          = (*Catalog)(nil)
-	_ hostui.ModelCatalog           = (*Catalog)(nil)
+	_ modelexecution.CatalogResolver = (*Catalog)(nil)
+	_ extensioncontext.Catalog       = (*Catalog)(nil)
+	_ sessiontree.ModelSelection     = (*Catalog)(nil)
+	_ hostprogrammatic.ModelCatalog  = (*Catalog)(nil)
+	_ hostsessions.PricingCatalog    = (*Catalog)(nil)
+	_ hostui.Authenticator           = (*Catalog)(nil)
+	_ hostui.ModelCatalog            = (*Catalog)(nil)
 )
 
 // New creates a catalog from configured entries and a valid default selection.
@@ -176,13 +176,13 @@ func (c *Catalog) ActiveSelection() model.Selection {
 	return c.activeSelection
 }
 
-// Snapshot returns a defensive snapshot for a request with the active selection.
-func (c *Catalog) Snapshot() agentrun.RequestSnapshot {
+// ActiveBinding returns an atomic defensive snapshot of the active raw provider binding.
+func (c *Catalog) ActiveBinding() modelexecution.CatalogBinding {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 
 	entry := c.entries[c.activeEntryIndex]
-	return agentrun.RequestSnapshot{
+	return modelexecution.CatalogBinding{
 		Model:           entry.Descriptor.Clone(),
 		ReasoningChoice: c.activeSelection.ReasoningChoice,
 		Provider:        entry.Provider,

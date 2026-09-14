@@ -18,7 +18,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 const constrainedToolSchema = `{"type":"object","properties":{"payload":{"type":"string",` +
@@ -414,10 +414,10 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 			Model: mo.None[model.Response](),
 		},
 	}
-	events := make([]run.StreamEvent, 0)
+	events := make([]modelexecution.StreamEvent, 0)
 
 	// Act by streaming the grammar tool request and collecting lifecycle events.
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "test", Model: model.Descriptor{
 			Provider:      ProviderID,
@@ -433,7 +433,7 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 			Pricing:               mo.None[model.Pricing](),
 		},
 		History: history, Tools: []tool.Descriptor{descriptor},
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -441,17 +441,17 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 	// Assert request mapping, replay, preview deltas, and final arguments are exact.
 	require.NoError(t, err)
 	require.Len(t, events, 4)
-	assert.Equal(t, run.StreamEventToolCallStart, events[0].Kind)
+	assert.Equal(t, modelexecution.StreamEventToolCallStart, events[0].Kind)
 	assert.Equal(t, "sample", events[0].Preview.OrEmpty().Name)
-	assert.Equal(t, run.StreamEventToolCallDelta, events[1].Kind)
+	assert.Equal(t, modelexecution.StreamEventToolCallDelta, events[1].Kind)
 	require.Len(t, events[1].Preview.OrEmpty().Fields, 1)
 	assert.Equal(t, model.ToolCallPreviewField{
 		Name: "payload", Kind: model.ToolCallPreviewFieldPrefix,
 		Value: mo.None[any](), Prefix: mo.Some("ab"),
 	}, events[1].Preview.OrEmpty().Fields[0])
-	assert.Equal(t, run.StreamEventToolCallEnd, events[2].Kind)
+	assert.Equal(t, modelexecution.StreamEventToolCallEnd, events[2].Kind)
 	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.OrEmpty().Arguments)
-	assert.Equal(t, run.StreamEventDone, events[3].Kind)
+	assert.Equal(t, modelexecution.StreamEventDone, events[3].Kind)
 	require.Len(t, events[3].Response.OrEmpty().Content, 1)
 	assert.Equal(
 		t,
@@ -478,10 +478,10 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	events := make([]run.StreamEvent, 0)
+	events := make([]modelexecution.StreamEvent, 0)
 
 	// Act by requesting a constraint that requires unadvertised support.
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "test",
 		Model: model.Descriptor{
@@ -498,7 +498,7 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 			constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{}),
 		},
 		History: nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -507,7 +507,7 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 	require.Error(t, err)
 	assert.Zero(t, requests)
 	require.Len(t, events, 1)
-	assert.Equal(t, run.StreamEventError, events[0].Kind)
+	assert.Equal(t, modelexecution.StreamEventError, events[0].Kind)
 }
 
 // TestDriverStreamSendsNonStrictPreferredTool verifies unsupported strict preference degrades to a function tool.
@@ -544,7 +544,7 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 	// Act by streaming the preferred constraint through the provider endpoint.
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "test",
 		Model: model.Descriptor{
@@ -561,7 +561,7 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 			constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
 		},
 		History: nil,
-	}, func(run.StreamEvent) error { return nil })
+	}, func(modelexecution.StreamEvent) error { return nil })
 
 	// Assert the request is sent once with non-strict schema handling.
 	require.NoError(t, err)
@@ -671,7 +671,7 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 			service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
 			// Act by streaming a request with the malformed descriptor.
-			err := service.Stream(t.Context(), run.ModelRequest{
+			err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 				Instructions: "test",
 				Model: model.Descriptor{
 					Provider: ProviderID, Model: "gpt-test", Input: nil, ContextWindow: 0, MaxTokens: 0,
@@ -683,7 +683,7 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 				ReasoningChoice: model.ReasoningChoiceOn,
 				History:         nil,
 				Tools:           []tool.Descriptor{descriptor},
-			}, func(run.StreamEvent) error { return nil })
+			}, func(modelexecution.StreamEvent) error { return nil })
 
 			// Assert validation fails before any provider request.
 			require.Error(t, err)
@@ -723,10 +723,10 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 		Pricing:               mo.None[model.Pricing](),
 	}
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	events := make([]run.StreamEvent, 0)
+	events := make([]modelexecution.StreamEvent, 0)
 
 	// Act by requesting the unsupported grammar variant.
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "test",
 		Model:           selectedModel,
@@ -734,7 +734,7 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 			constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()}),
 		},
 		History: nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -743,7 +743,7 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 	require.ErrorContains(t, err, "no supported grammar variant")
 	assert.Zero(t, requests)
 	require.Len(t, events, 1)
-	assert.Equal(t, run.StreamEventError, events[0].Kind)
+	assert.Equal(t, modelexecution.StreamEventError, events[0].Kind)
 }
 
 // TestDriverStreamRejectsRequiredConstraintBeforeDispatch verifies capability failure has no HTTP side effect.
@@ -764,10 +764,10 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { requests++ }))
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	events := make([]run.StreamEvent, 0)
+	events := make([]modelexecution.StreamEvent, 0)
 
 	// Act by requesting the unsupported required constraint.
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "test",
 		Model: model.Descriptor{
@@ -784,7 +784,7 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 			constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{}),
 		},
 		History: nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
@@ -793,7 +793,7 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 	require.Error(t, err)
 	assert.Zero(t, requests)
 	require.Len(t, events, 1)
-	assert.Equal(t, run.StreamEventError, events[0].Kind)
+	assert.Equal(t, modelexecution.StreamEventError, events[0].Kind)
 	assert.Equal(t, model.OutcomeFailed, events[0].Response.OrEmpty().Outcome.OrEmpty())
 	assert.NotEmpty(t, events[0].Response.OrEmpty().ErrorMessage.OrEmpty())
 }

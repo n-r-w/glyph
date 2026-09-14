@@ -20,7 +20,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestDriverStreamStreamsReasoningInOutputOrder verifies Codex-owned mixed-content assembly.
@@ -64,9 +64,9 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 	)
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	events := make([]run.StreamEvent, 0, 7)
+	events := make([]modelexecution.StreamEvent, 0, 7)
 
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
@@ -79,16 +79,20 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 			},
 		},
 		Tools: nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
 
 	require.NoError(t, err)
-	assert.Equal(t, []run.StreamEventKind{
-		run.StreamEventContentStart, run.StreamEventTextDelta, run.StreamEventContentEnd,
-		run.StreamEventContentStart, run.StreamEventTextDelta, run.StreamEventContentEnd,
-		run.StreamEventDone,
+	assert.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventContentStart,
+		modelexecution.StreamEventTextDelta,
+		modelexecution.StreamEventContentEnd,
+		modelexecution.StreamEventContentStart,
+		modelexecution.StreamEventTextDelta,
+		modelexecution.StreamEventContentEnd,
+		modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, model.ContentReasoning, events[0].Content.OrEmpty().Kind)
 	assert.Equal(t, 0, events[0].Position.OrEmpty())
@@ -143,7 +147,7 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 	)
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	request := run.ModelRequest{
+	request := modelexecution.ProviderRequest{
 		Tools:           nil,
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
@@ -162,7 +166,7 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 		service,
 		t.Context(),
 		request,
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 	require.NoError(t, err)
 	firstResponse := terminalResponse(firstEvents)
@@ -184,7 +188,7 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 		service,
 		t.Context(),
 		request,
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 	require.NoError(t, err)
 	assert.Equal(t, model.OutcomeStop, terminalResponse(secondEvents).Outcome.OrEmpty())
@@ -234,9 +238,9 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 	)
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
-	events := make([]run.StreamEvent, 0, 5)
+	events := make([]modelexecution.StreamEvent, 0, 5)
 
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
@@ -249,19 +253,19 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 			},
 		},
 		Tools: nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
 	})
 
 	require.NoError(t, err)
 	require.Len(t, events, 5)
-	assert.Equal(t, []run.StreamEventKind{
-		run.StreamEventContentStart,
-		run.StreamEventTextDelta,
-		run.StreamEventTextDelta,
-		run.StreamEventContentEnd,
-		run.StreamEventDone,
+	assert.Equal(t, []modelexecution.StreamEventKind{
+		modelexecution.StreamEventContentStart,
+		modelexecution.StreamEventTextDelta,
+		modelexecution.StreamEventTextDelta,
+		modelexecution.StreamEventContentEnd,
+		modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(
 		t,
@@ -343,14 +347,14 @@ func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 	events, err := collectStreamEvents(
 		service,
 		t.Context(),
-		run.ModelRequest{
+		modelexecution.ProviderRequest{
 			ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions:    "instructions",
 			History:         history,
 			Tools:           nil,
 			Model:           testModelDescriptor("gpt-test"),
 		},
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 	response := terminalResponse(events)
 
@@ -398,7 +402,7 @@ func TestDriverStreamMapsOffReasoning(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 
-	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	events, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-request"),
 		ReasoningChoice: model.ReasoningChoiceOff,
@@ -411,7 +415,7 @@ func TestDriverStreamMapsOffReasoning(t *testing.T) {
 			},
 		},
 		Tools: nil,
-	}, func(run.StreamEvent) error { return nil })
+	}, func(modelexecution.StreamEvent) error { return nil })
 	response := terminalResponse(events)
 
 	require.NoError(t, err)

@@ -14,7 +14,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestChatCompletionsMapsRequestAndStream verifies Chat Completions normalizes usage before terminal delivery.
@@ -64,7 +64,7 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	// Assert input excludes cached tokens and total uses normalized buckets.
 	require.NotEmpty(t, events)
 	terminal := events[len(events)-1]
-	assert.Equal(t, run.StreamEventDone, terminal.Kind)
+	assert.Equal(t, modelexecution.StreamEventDone, terminal.Kind)
 	assert.Equal(t, model.OutcomeToolUse, terminal.Response.OrEmpty().Outcome.OrEmpty())
 	assert.Equal(
 		t,
@@ -87,8 +87,8 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	assert.Equal(t, "assistant", messages[2].(map[string]any)["role"])
 	assert.Equal(t, "tool", messages[3].(map[string]any)["role"])
 	assert.Len(t, body["tools"], 1)
-	assert.Contains(t, eventKinds(events), run.StreamEventTextDelta)
-	assert.Contains(t, eventKinds(events), run.StreamEventToolCallDelta)
+	assert.Contains(t, eventKinds(events), modelexecution.StreamEventTextDelta)
+	assert.Contains(t, eventKinds(events), modelexecution.StreamEventToolCallDelta)
 	require.GreaterOrEqual(t, len(terminal.Response.OrEmpty().Content), 2)
 	assert.Equal(
 		t,
@@ -182,7 +182,7 @@ func (s *serviceSuite) TestOpenRouterRequestsIncludeAttributionHeaders() {
 
 			// Assert the provider completed after receiving the expected headers.
 			require.NotEmpty(t, events)
-			assert.Equal(t, run.StreamEventDone, events[len(events)-1].Kind)
+			assert.Equal(t, modelexecution.StreamEventDone, events[len(events)-1].Kind)
 		})
 	}
 }
@@ -248,7 +248,7 @@ func (s *serviceSuite) TestChatReasoningMapsChoices() {
 			events := streamEvents(t, driver, request)
 
 			// Assert the format owns its request fields and does not leak the other format's fields.
-			s.Equal(run.StreamEventDone, events[len(events)-1].Kind)
+			s.Equal(modelexecution.StreamEventDone, events[len(events)-1].Kind)
 			if testCase.expectedReasoningEffort == "" {
 				s.NotContains(body, "reasoning_effort")
 			} else {
@@ -331,8 +331,8 @@ func (s *serviceSuite) TestOpenRouterReasoningDetailsRoundTrip() {
 	secondEvents := streamEvents(t, driver, secondRequest)
 
 	// Assert visible reasoning is provider-neutral and replay restores the merged opaque detail array exactly.
-	require.Equal(t, run.StreamEventDone, firstEvents[len(firstEvents)-1].Kind)
-	require.Equal(t, run.StreamEventDone, secondEvents[len(secondEvents)-1].Kind)
+	require.Equal(t, modelexecution.StreamEventDone, firstEvents[len(firstEvents)-1].Kind)
+	require.Equal(t, modelexecution.StreamEventDone, secondEvents[len(secondEvents)-1].Kind)
 	require.Len(t, bodies, 2)
 	require.NotEmpty(t, firstResponse.Content)
 	var reasoningContent model.Content
@@ -481,7 +481,7 @@ func (s *serviceSuite) TestChatHistoryUsesNativeReasoningOrTextFallback() {
 
 			events := streamEvents(t, driver, request)
 
-			s.Equal(run.StreamEventDone, events[len(events)-1].Kind)
+			s.Equal(modelexecution.StreamEventDone, events[len(events)-1].Kind)
 			messages := body["messages"].([]any)
 			s.Len(messages, 4)
 			assistant := messages[2].(map[string]any)
@@ -552,20 +552,20 @@ func (s *serviceSuite) TestChatReasoningSupportsFixedOn() {
 	events := streamEvents(t, driver, request)
 
 	s.Require().GreaterOrEqual(len(events), 7)
-	s.Equal(run.StreamEventContentStart, events[0].Kind)
+	s.Equal(modelexecution.StreamEventContentStart, events[0].Kind)
 	s.Equal(model.ContentReasoning, events[0].Content.OrEmpty().Kind)
-	s.Equal(run.StreamEventTextDelta, events[1].Kind)
+	s.Equal(modelexecution.StreamEventTextDelta, events[1].Kind)
 	s.Equal("think ", events[1].Delta.OrEmpty())
-	s.Equal(run.StreamEventContentStart, events[2].Kind)
+	s.Equal(modelexecution.StreamEventContentStart, events[2].Kind)
 	s.Equal(model.ContentText, events[2].Content.OrEmpty().Kind)
-	s.Equal(run.StreamEventTextDelta, events[3].Kind)
+	s.Equal(modelexecution.StreamEventTextDelta, events[3].Kind)
 	s.Equal("answer", events[3].Delta.OrEmpty())
-	s.Equal(run.StreamEventContentEnd, events[4].Kind)
+	s.Equal(modelexecution.StreamEventContentEnd, events[4].Kind)
 	s.Equal(model.ContentReasoning, events[4].Content.OrEmpty().Kind)
-	s.Equal(run.StreamEventContentEnd, events[5].Kind)
+	s.Equal(modelexecution.StreamEventContentEnd, events[5].Kind)
 	s.Equal(model.ContentText, events[5].Content.OrEmpty().Kind)
 	terminal := events[len(events)-1]
-	s.Equal(run.StreamEventDone, terminal.Kind)
+	s.Equal(modelexecution.StreamEventDone, terminal.Kind)
 	s.Equal([]model.Content{
 		{
 			Kind:            model.ContentReasoning,

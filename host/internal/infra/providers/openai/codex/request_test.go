@@ -19,16 +19,16 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // textDeltaStreamEvent creates one streamed text delta fixture.
-func textDeltaStreamEvent(kind model.ContentKind, text string) run.StreamEvent {
-	return run.StreamEvent{
+func textDeltaStreamEvent(kind model.ContentKind, text string) modelexecution.StreamEvent {
+	return modelexecution.StreamEvent{
 		Preview:  mo.None[model.ToolCallPreview](),
 		ToolCall: mo.None[model.ToolCall](),
 		Response: mo.None[model.Response](),
-		Kind:     run.StreamEventTextDelta,
+		Kind:     modelexecution.StreamEventTextDelta,
 		Position: mo.Some(1),
 		Content: mo.Some(model.Content{
 			Final:           false,
@@ -120,7 +120,7 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	t.Cleanup(server.Close)
 	options := testProviderOptions(server)
 	service := newDriver(testConfig(), credentials, interaction, options)
-	updates := make([]run.StreamEvent, 0)
+	updates := make([]modelexecution.StreamEvent, 0)
 	history := []agent.HistoryEntry{
 		{
 			Model:      mo.None[model.Response](),
@@ -203,7 +203,7 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 		},
 	}
 
-	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	events, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
 		Instructions:    "request instructions",
 		Model:           testModelDescriptor("gpt-request"),
 		ReasoningChoice: model.ReasoningChoiceMedium,
@@ -220,8 +220,8 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 				),
 			},
 		},
-	}, func(update run.StreamEvent) error {
-		if update.Kind == run.StreamEventTextDelta {
+	}, func(update modelexecution.StreamEvent) error {
+		if update.Kind == modelexecution.StreamEventTextDelta {
 			updates = append(updates, update)
 		}
 		return nil
@@ -231,7 +231,7 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(
 		t,
-		[]run.StreamEvent{
+		[]modelexecution.StreamEvent{
 			textDeltaStreamEvent(model.ContentText, "ans"),
 			textDeltaStreamEvent(model.ContentText, "wer"),
 		},
@@ -328,7 +328,7 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 	events, err := collectStreamEvents(
 		service,
 		t.Context(),
-		run.ModelRequest{
+		modelexecution.ProviderRequest{
 			ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions:    "instructions",
 			Model: model.Descriptor{
@@ -363,7 +363,7 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 			},
 			Tools: nil,
 		},
-		func(run.StreamEvent) error { return nil },
+		func(modelexecution.StreamEvent) error { return nil },
 	)
 	response := terminalResponse(events)
 

@@ -273,10 +273,14 @@ type SelectionFailure interface {
 	SelectionCode() string
 }
 
-// ModelRequester supplies active selection and validates models only when executing requests.
-type ModelRequester interface {
+// ModelSelection supplies the active model selection for navigation preparation.
+type ModelSelection interface {
 	// ActiveSelection returns the active provider, model, and reasoning choice.
 	ActiveSelection() model.Selection
+}
+
+// ModelRequester executes configured model requests for branch summarization.
+type ModelRequester interface {
 	// Request executes one model request without changing the active selection.
 	Request(
 		ctx context.Context,

@@ -15,7 +15,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 const (
@@ -77,7 +77,7 @@ type Driver struct {
 	headers map[string]string
 }
 
-var _ run.ModelProvider = (*Driver)(nil)
+var _ modelexecution.ProviderAttempt = (*Driver)(nil)
 
 // New validates configuration and creates one provider instance.
 func New(config Config) (*Driver, error) {
@@ -178,7 +178,11 @@ func (api API) Validate() error {
 // Stream emits one provider response as provider-neutral events.
 //
 //nolint:nestif // Error classification must preserve handler, cancellation, and provider outcomes.
-func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle run.StreamHandler) error {
+func (s *Driver) Stream(
+	ctx context.Context,
+	request modelexecution.ProviderRequest,
+	handle modelexecution.StreamHandler,
+) error {
 	configuredModel, err := s.modelConfigForRequest(request)
 	if err != nil {
 		return s.emitFailure(handle, request, model.OutcomeFailed, err.Error(), err)
@@ -220,21 +224,21 @@ func (s *Driver) Stream(ctx context.Context, request run.ModelRequest, handle ru
 		}
 		response.Provider = mo.Some(s.providerID)
 		response.Model = mo.Some(request.Model.Model)
-		if handleErr := handle(terminalStreamEvent(run.StreamEventError, response)); handleErr != nil {
+		if handleErr := handle(terminalStreamEvent(modelexecution.StreamEventError, response)); handleErr != nil {
 			return combineFinalHandlerError(err, handleErr)
 		}
 		return err
 	}
 	response.Provider = mo.Some(s.providerID)
 	response.Model = mo.Some(request.Model.Model)
-	if handleErr := handle(terminalStreamEvent(run.StreamEventDone, response)); handleErr != nil {
+	if handleErr := handle(terminalStreamEvent(modelexecution.StreamEventDone, response)); handleErr != nil {
 		return handleErr
 	}
 	return nil
 }
 
 // modelConfigForRequest returns provider wire settings for the selected model.
-func (s *Driver) modelConfigForRequest(request run.ModelRequest) (modelConfig, error) {
+func (s *Driver) modelConfigForRequest(request modelexecution.ProviderRequest) (modelConfig, error) {
 	if request.Model.Provider != s.providerID {
 		return modelConfig{}, errors.New("configured provider does not match request")
 	}
@@ -246,8 +250,8 @@ func (s *Driver) modelConfigForRequest(request run.ModelRequest) (modelConfig, e
 }
 
 func (s *Driver) emitFailure(
-	handle run.StreamHandler,
-	request run.ModelRequest,
+	handle modelexecution.StreamHandler,
+	request modelexecution.ProviderRequest,
 	outcome model.Outcome,
 	message string,
 	err error,
@@ -255,7 +259,7 @@ func (s *Driver) emitFailure(
 	response := failureResponse(outcome, message)
 	response.Provider = mo.Some(s.providerID)
 	response.Model = mo.Some(request.Model.Model)
-	if handleErr := handle(terminalStreamEvent(run.StreamEventError, response)); handleErr != nil {
+	if handleErr := handle(terminalStreamEvent(modelexecution.StreamEventError, response)); handleErr != nil {
 		return handleErr
 	}
 	return err
@@ -296,8 +300,8 @@ func combineFinalHandlerError(providerErr, handleErr error) error {
 }
 
 // tagHandlerErrors distinguishes delivery failures from provider adapter failures.
-func tagHandlerErrors(handle run.StreamHandler) run.StreamHandler {
-	return func(event run.StreamEvent) error {
+func tagHandlerErrors(handle modelexecution.StreamHandler) modelexecution.StreamHandler {
+	return func(event modelexecution.StreamEvent) error {
 		handleErr := handle(event)
 		if handleErr != nil {
 			return handlerError(handleErr)

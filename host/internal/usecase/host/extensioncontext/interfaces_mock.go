@@ -208,8 +208,32 @@ func (mr *MockCatalogMockRecorder) Models() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Models", reflect.TypeOf((*MockCatalog)(nil).Models))
 }
 
+// MockModelRequester is a mock of ModelRequester interface.
+type MockModelRequester struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelRequesterMockRecorder
+	isgomock struct{}
+}
+
+// MockModelRequesterMockRecorder is the mock recorder for MockModelRequester.
+type MockModelRequesterMockRecorder struct {
+	mock *MockModelRequester
+}
+
+// NewMockModelRequester creates a new mock instance.
+func NewMockModelRequester(ctrl *gomock.Controller) *MockModelRequester {
+	mock := &MockModelRequester{ctrl: ctrl}
+	mock.recorder = &MockModelRequesterMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelRequester) EXPECT() *MockModelRequesterMockRecorder {
+	return m.recorder
+}
+
 // Request mocks base method.
-func (m *MockCatalog) Request(ctx context.Context, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
+func (m *MockModelRequester) Request(ctx context.Context, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Request", ctx, selection, instructions, history)
 	ret0, _ := ret[0].(model.Response)
@@ -218,9 +242,9 @@ func (m *MockCatalog) Request(ctx context.Context, selection model.Selection, in
 }
 
 // Request indicates an expected call of Request.
-func (mr *MockCatalogMockRecorder) Request(ctx, selection, instructions, history any) *gomock.Call {
+func (mr *MockModelRequesterMockRecorder) Request(ctx, selection, instructions, history any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockCatalog)(nil).Request), ctx, selection, instructions, history)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelRequester)(nil).Request), ctx, selection, instructions, history)
 }
 
 // MockRequestFailure is a mock of RequestFailure interface.

@@ -28,7 +28,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures verifies final callback failure retains provider cause
@@ -59,15 +59,15 @@ func TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures(t *testing.T) {
 	callbacks := 0
 
 	// Act by rejecting the one final provider error event.
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
 		Tools:           nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		callbacks++
-		assert.Equal(t, run.StreamEventError, event.Kind)
+		assert.Equal(t, modelexecution.StreamEventError, event.Kind)
 		return handlerErr
 	})
 
@@ -105,18 +105,18 @@ func TestDriverStreamJoinsSDKAndContentEndFailures(t *testing.T) {
 	t.Cleanup(server.Close)
 	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
 	handlerErr := errors.New("unique Codex ContentEnd delivery failure")
-	events := make([]run.StreamEventKind, 0)
+	events := make([]modelexecution.StreamEventKind, 0)
 
 	// Act by streaming until assembler finalization reaches the failed handler.
-	err := service.Stream(t.Context(), run.ModelRequest{
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
 		Tools:           nil,
-	}, func(event run.StreamEvent) error {
+	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event.Kind)
-		if event.Kind == run.StreamEventContentEnd {
+		if event.Kind == modelexecution.StreamEventContentEnd {
 			return handlerErr
 		}
 		return nil
@@ -129,9 +129,9 @@ func TestDriverStreamJoinsSDKAndContentEndFailures(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(err.Error(), handlerErr.Error()))
 	assert.Equal(t, 1, strings.Count(err.Error(), io.ErrUnexpectedEOF.Error()))
 	require.NotEmpty(t, events)
-	assert.Equal(t, run.StreamEventContentEnd, events[len(events)-1])
-	assert.NotContains(t, events, run.StreamEventDone)
-	assert.NotContains(t, events, run.StreamEventError)
+	assert.Equal(t, modelexecution.StreamEventContentEnd, events[len(events)-1])
+	assert.NotContains(t, events, modelexecution.StreamEventDone)
+	assert.NotContains(t, events, modelexecution.StreamEventError)
 }
 
 // TestDriverStreamPreservesTransportFailure verifies a transport cause reaches the returned error and terminal
@@ -163,7 +163,7 @@ func TestDriverStreamPreservesTransportFailure(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, options)
 
 	// Act by starting one model stream.
-	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	events, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
@@ -242,7 +242,7 @@ func TestDriverStreamPreservesMalformedReasoningCause(t *testing.T) {
 	}}
 
 	// Act before any HTTP dispatch can occur.
-	events, err := collectStreamEvents(service, t.Context(), run.ModelRequest{
+	events, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
@@ -339,7 +339,7 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			events, err := collectStreamEvents(
 				service,
 				t.Context(),
-				run.ModelRequest{
+				modelexecution.ProviderRequest{
 					ReasoningChoice: model.ReasoningChoiceOn,
 					Instructions:    "instructions",
 					Model:           testModelDescriptor("gpt-test"),
@@ -353,7 +353,7 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 					},
 					Tools: nil,
 				},
-				func(run.StreamEvent) error { return nil },
+				func(modelexecution.StreamEvent) error { return nil },
 			)
 			response := terminalResponse(events)
 
@@ -439,7 +439,7 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 			events, err := collectStreamEvents(
 				service,
 				t.Context(),
-				run.ModelRequest{
+				modelexecution.ProviderRequest{
 					ReasoningChoice: model.ReasoningChoiceOn,
 					Instructions:    "instructions",
 					Model:           testModelDescriptor("gpt-test"),
@@ -453,7 +453,7 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 					},
 					Tools: nil,
 				},
-				func(run.StreamEvent) error { return nil },
+				func(modelexecution.StreamEvent) error { return nil },
 			)
 			response := terminalResponse(events)
 
@@ -507,7 +507,7 @@ func TestDriverStreamCancellationMapsAborted(t *testing.T) {
 		events, err := collectStreamEvents(
 			service,
 			ctx,
-			run.ModelRequest{
+			modelexecution.ProviderRequest{
 				ReasoningChoice: model.ReasoningChoiceOn,
 				Instructions:    "instructions",
 				Model:           testModelDescriptor("gpt-test"),
@@ -521,7 +521,7 @@ func TestDriverStreamCancellationMapsAborted(t *testing.T) {
 				},
 				Tools: nil,
 			},
-			func(run.StreamEvent) error { return nil },
+			func(modelexecution.StreamEvent) error { return nil },
 		)
 		response := terminalResponse(events)
 		result <- struct {
