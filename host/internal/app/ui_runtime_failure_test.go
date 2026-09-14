@@ -86,6 +86,7 @@ func TestRunWithPathsProjectDirectoryFailureStopsBeforeUIInitialization(t *testi
 func TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement(t *testing.T) {
 	// Arrange a selected UI process that exits immediately after opening its stream.
 	paths := testPaths(t, codexSettings(""))
+	writeProgrammaticCredentials(t, paths)
 	uiDirectory := t.TempDir()
 	writeUIExecutable(t, uiDirectory, "Crash_UI")
 	tracePath := filepath.Join(t.TempDir(), "ui-trace")
