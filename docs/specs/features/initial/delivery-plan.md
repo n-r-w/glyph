@@ -47,7 +47,8 @@
 ### PHS-07.1. Architecture audit and correction
 - Dependencies: PHS-05.2, PHS-04.1
 - Ticket: [Ticket](phases/07.1-architecture-audit-and-correction/ticket.md)
-- Execution point: Audit the implemented product, including partial PHS-07 work, before PHS-07 resumes. This phase does not depend on PHS-07 completion.
+- Technical Solution: [Architecture correction plan](phases/07.1-architecture-audit-and-correction/solution.md); [remaining corrections](phases/07.1-architecture-audit-and-correction/remaining-corrections-solution.md)
+- Execution point: Audit the implemented product, including partial PHS-07 work, before PHS-07 resumes. This phase does not depend on PHS-07 completion. Model-execution phase ownership follows [APC-11.1](architecture.md#contracts).
 - Completion gate: [BLK-01 through BLK-05](phases/07.1-architecture-audit-and-correction/tui-ownership-gap.md#blockers) have U5/U7 closure evidence. Review of `b03095a` found FND-12 through FND-14. The O72-1 [retention correction](phases/07.1-architecture-audit-and-correction/solution.md#u6-retention-correction) is committed as `ded1549`. Its independent review found FND-15 through FND-17. The [approved TUI causality correction](phases/07.1-architecture-audit-and-correction/solution.md#u5-causality-verification) has implementation and main-agent verification evidence. [D1 runtime completion](phases/07.1-architecture-audit-and-correction/solution.md#u6-runtime-completion-evidence) has implementation and main-agent verification evidence. The [FND-18 through FND-21 producer correction](phases/07.1-architecture-audit-and-correction/solution.md#u6-producer-preservation), including O74-1 bash scope, has implementation and main-agent verification evidence. The separate [FND-22 process correction](phases/07.1-architecture-audit-and-correction/solution.md#process-cancellation-evidence) has implementation and main-agent verification evidence. The [FND-23 dispatch-confirmation correction](phases/07.1-architecture-audit-and-correction/solution.md#host-command-dispatch-confirmation-correction) has implementation and main-agent verification evidence. The [U8 smoke-fixture correction](phases/07.1-architecture-audit-and-correction/u8-evidence.md#smoke-fixture-correction) has implementation and main-agent verification evidence. Fresh independent review and explicit final acceptance remain pending. PHS-07.1 remains blocked and PHS-07 remains paused.
 
 ### PHS-07. Extension context and lifecycle
@@ -58,6 +59,7 @@
 ### PHS-06. Context compaction and retry control
 - Dependencies: PHS-07, PHS-04.1
 - Ticket: [Ticket](phases/06-context-compaction-retry-control/ticket.md)
+- Model-execution scope: Follow [APC-11.1](architecture.md#contracts).
 
 ### PHS-08. Prompt, context, input, and provider middleware
 - Dependencies: PHS-06, PHS-04.1

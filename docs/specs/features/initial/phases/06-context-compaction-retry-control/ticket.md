@@ -76,9 +76,9 @@ Out of scope:
 - FRQ-04.4: An invalid handler action or ordinary handler error shall be reported, shall preserve the decision received by that handler, and shall not stop later handlers or deactivate the extension.
 - FRQ-04.5: Host shall validate the final decision before scheduling a delay or repeating the request. When handlers preserve the initial decision, Host shall apply the configured built-in policy.
 - FRQ-04.6: Agent Core shall consume one logical model execution result and shall depend on no retry policy, extension handler, plugin transport, or delay scheduler.
-- FRQ-04.7: Agent Core shall declare its minimal logical model-execution interface in `host/internal/usecase/agent/run`. A Host model-execution adapter shall implement retry coordination and provider dispatch through that interface.
-- FRQ-04.7.1: The Host model-execution use case shall declare its smallest provider-execution interface at the consumption site. The interface shall carry provider-neutral requests, streamed semantic output, typed usage, safe diagnostics, retry classification, and opaque provider reasoning context.
-- FRQ-04.7.2: The implemented in-process OpenAI provider adapters shall implement the provider-execution interface until PHS-12 replaces them with extension-runtime adapters. The Host model-execution and retry-coordination packages shall import no OpenAI Codex, OpenAI-compatible, provider SDK, or provider credential package.
+- FRQ-04.7: Agent Core shall continue to use its minimal logical model-execution interface in `host/internal/usecase/agent/run`. PHS-06 shall add retry coordination inside the Host model-execution owner established by [APC-11.1](../../architecture.md#contracts) and shall preserve provider dispatch through that interface.
+- FRQ-04.7.1: Host model execution shall continue to use its smallest provider-execution interface at the consumption site. The interface shall carry provider-neutral requests, streamed semantic output, typed usage, safe diagnostics, retry classification, and opaque provider reasoning context.
+- FRQ-04.7.2: The implemented in-process OpenAI provider adapters shall continue to implement the provider-execution interface until PHS-12 replaces them with extension-runtime adapters. The Host model-execution package, including its retry coordination, shall import no OpenAI Codex, OpenAI-compatible, provider SDK, or provider credential package.
 - FRQ-04.8: After retry coordination ends, Host shall return one provider-neutral logical model-execution result to Agent Core. A failed result shall contain a closed Glyph category and complete error text that preserves the terminal provider, retry-handler, validation, delay, and delivery causes that contributed to that result.
 - FRQ-04.9: Retryability, retry decision, and terminal Glyph category shall remain separate values. A retry decision shall not replace or remove the source error.
 - FRQ-05: General abort shall cancel an in-progress provider request or pending retry delay and transition the agent to idle.
@@ -95,7 +95,7 @@ Out of scope:
 
 - DLV-01: Host compaction use case and persisted summary entries.
 - DLV-01.1: Public compaction request, result, success, and failure contracts with a reference extension that composes with another compaction extension.
-- DLV-02: Manual compaction, retry-policy configuration, retry extension contracts, retry client operations, and the Host logical model-execution adapter.
+- DLV-02: Manual compaction, retry-policy configuration, retry extension contracts, retry client operations, and retry behavior inside the established Host logical model-execution owner.
 
 ### Acceptance Criteria
 

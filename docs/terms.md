@@ -51,21 +51,23 @@
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
 - `session statistics`: Session message and tool counts, normalized token usage, persisted estimated cost, and provider-model cost breakdown.
 - `estimated cost`: The persisted USD estimate calculated from normalized token usage and configured provider-model pricing.
-- `session tree`: A session structure whose entries form parent-child branches and have one active leaf.
-- `active leaf`: The session-tree entry from which subsequent entries continue.
-- `navigation destination`: The session-tree position selected before an optional `BranchSummaryEntry` becomes the active leaf.
+- `session tree`: A session structure whose entries form parent-child branches and have one active position.
+- `active position`: The session-tree position from which subsequent entries continue. It is an existing entry or the implicit root.
+- `implicit root`: The session-tree position before every root entry.
+- `active leaf`: The entry-valued active position.
+- `navigation destination`: The existing entry or implicit root selected by navigation before an optional `BranchSummaryEntry` becomes the active leaf.
 - `model-visible extension message`: An extension-created session message associated with one session-tree branch and included in model context.
 - `client visibility`: The `visible` or `hidden` state delivered with a model-visible extension message to tell a Glyph client whether the message belongs in its ordinary conversation presentation.
 - `model-hidden extension entry`: An extension-created session entry associated with one session-tree branch and excluded from model context.
 - `headless agent`: A Glyph agent instance controlled programmatically without a UI.
 - `Glyph client`: A component connected to a Glyph host that sends commands and receives events. A Glyph client is either a UI plugin or a programmatic controller.
 - `public error`: An error exposed through the UI Plugin Contract, Programmatic Control, `glyph run`, the Extension Contract, or another public Glyph contract.
-- `complete error text`: The bounded external error detail plus every Glyph context message and cause needed to diagnose the failure without internal logs.
-- `original cause`: The earliest error inside Glyph that caused the current error result after secret removal and external-input size limits.
+- `complete error text`: All non-secret text from every cause plus every Glyph context message, retained without truncation; transport limits do not redefine completeness.
+- `original cause`: The error at the start of one causal branch; every independent branch retains its original cause, with only secret values removed.
 - `error category`: A stable machine-readable value that describes the failure meaning for Glyph without identifying a transport, provider, or extension implementation.
 - `parent operation`: An operation that invokes another operation or consumes its result.
 - `nested operation`: An operation whose result is consumed by a parent operation and does not determine the parent result without an explicit parent semantic rule.
-- `external error data`: Error detail received from a system outside Glyph and subject to one documented size limit when it enters Glyph.
+- `external error data`: Detail received from outside Glyph and retained in full except secret redaction; transport message-size and queue limits remain separate constraints.
 - `secret redaction`: Removal of secret values from error data while preserving the remaining text, category, and cause information.
 - `client command`: A command sent by a Glyph client to request Host behavior.
 - `client session`: One active connection between a Glyph client and a Glyph host.
