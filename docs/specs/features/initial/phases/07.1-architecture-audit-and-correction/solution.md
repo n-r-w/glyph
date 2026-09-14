@@ -22,16 +22,16 @@ Existing source links identify the work to move. New paths below contain behavio
 
 | Responsibility | Target owner | Source and scope |
 | --- | --- | --- |
-| Run IDs, prepared reservations, Core invocation and settlement ordering | New `host/internal/usecase/host/runcontrol` | Move [events.Coordinator](../../../../../../host/internal/usecase/host/events/coordinator.go), not the dispatcher. |
+| Run IDs, prepared reservations, Core invocation and settlement ordering | New `host/internal/usecase/host/runcontrol` | Move `host/internal/usecase/host/events/coordinator.go`, not the dispatcher. |
 | Client-first event delivery and subsequent observers | [host/events](../../../../../../host/internal/usecase/host/events) | Keep dispatch; replace stored service callbacks with its own delivery interface. |
 | One-shot input | [controller/cli/headless](../../../../../../host/internal/controller/cli/headless) | Keep parsing, `AgentRunner`, and terminal-outcome checking. |
-| Headless presentation | New `host/internal/infra/headless` | Move [Renderer](../../../../../../host/internal/controller/cli/headless/renderer.go), its line state, errors, startup output, and diagnostics. |
+| Headless presentation | New `host/internal/infra/headless` | Move `host/internal/controller/cli/headless/renderer.go`, its line state, errors, startup output, and diagnostics. |
 | UI command input | [controller/ui](../../../../../../host/internal/controller/ui) | Move command validation, mapping, dispatch, preparation-error classification, and command-facing operation ownership from [UI runtime](../../../../../../host/internal/infra/plugins/ui/runtime). |
 | UI readiness, admission, selection and activation policy | [host/ui](../../../../../../host/internal/usecase/host/ui) | Keep application policy; remove command receipt and output construction. |
 | UI process/stream lifetime and output | [infra/plugins/ui/runtime](../../../../../../host/internal/infra/plugins/ui/runtime) | Own one selected process, its stream, ordered output, initialization/warnings, agent projection and authorization presentation. |
 | Programmatic input and operation admission transport | [controller/programmatic](../../../../../../host/internal/controller/programmatic) | Retain input contracts, validation, cancellation registry and generic operation ownership. |
 | Programmatic application work | [host/programmatic](../../../../../../host/internal/usecase/host/programmatic) | Retain admission, execution/cancellation/join of prepared work, session/model operations and public command projections. |
-| Programmatic output | New `host/internal/infra/programmatic/output` | Move active run/output correlation and event projection from [Delivery](../../../../../../host/internal/usecase/host/programmatic/delivery.go), and unsolicited output from the input controller. |
+| Programmatic output | New `host/internal/infra/programmatic/output` | Move active run/output correlation and event projection from `host/internal/usecase/host/programmatic/delivery.go`, and unsolicited output from the input controller. |
 | Session state, queries and durable publication | [host/sessions](../../../../../../host/internal/usecase/host/sessions) | Implement real client session/history ports directly. Own committed-entry publication and general history projection. |
 | Navigation policy | [host/sessiontree](../../../../../../host/internal/usecase/host/sessiontree) | Implement client navigation ports directly; retain handlers, summarization and final validation. |
 | Mutation reservation | [host/operationgate](../../../../../../host/internal/usecase/host/operationgate) | Implement the minimal gate interfaces of actual admission consumers. |
@@ -64,7 +64,7 @@ This removes the coordinator's imports of UI, Programmatic and headless consumer
 #### UI
 
 - The UI controller owns command/preparation contracts, command-specific progress/results, and a named preparation-failure interface. Host UI implements these contracts. The runtime supplies stream I/O through controller-owned transport contracts; it no longer calls a Host `Prepare` callback through an outgoing Host channel.
-- Split the [domain UI frame union](../../../../../../host/internal/domain/ui/model.go) by its actual consumers. Operation commands/results belong to the controller. Host initialization, availability, selection and output method types belong beside the Host ports that consume them. Private wire projections stay with output. Do not relocate the whole union to another shared package.
+- Split the domain UI frame union in `host/internal/domain/ui/model.go` by its actual consumers. Operation commands/results belong to the controller. Host initialization, availability, selection and output method types belong beside the Host ports that consume them. Private wire projections stay with output. Do not relocate the whole union to another shared package.
 - Retain one infrastructure owner for the selected UI process and stream. Host selection consumes candidate-start/close operations; the UI controller consumes stream acquisition. The same concrete owner implements both contracts. Selection returns identity/issues, not a runtime service handle passed through Host.
 - Preserve [Selector](../../../../../../host/internal/usecase/host/ui/selection.go) behavior. Explicit/configured selection starts its matching candidate once. Automatic selection probes candidates sequentially, closes successful probes, rejects zero or multiple compatible candidates, then restarts the sole compatible candidate. Controller stream acquisition adds no restart or fallback.
 - App opens the selected stream at the baseline startup point. After session/provider dependencies are assembled, the controller starts Host initialization and operation processing. Host UI has no transport receiver or receiver factory.
@@ -81,7 +81,7 @@ This removes the coordinator's imports of UI, Programmatic and headless consumer
 
 ### Session operations and commit ordering
 
-[Session control](../../../../../../host/internal/usecase/host/sessioncontrol/service.go) forwards to state/navigation owners while its callers hold the reservation. Remove that extra owner. UI and Programmatic consume their own minimal gate, active-session and navigation interfaces, implemented directly by the gate, sessions and session-tree services.
+`host/internal/usecase/host/sessioncontrol/service.go` forwards to state/navigation owners while its callers hold the reservation. Remove that extra owner. UI and Programmatic consume their own minimal gate, active-session and navigation interfaces, implemented directly by the gate, sessions and session-tree services.
 
 - Client prepared operations acquire admission reservations before Accepted. Failed acceptance releases them without starting Run. After execution, release admission reservations and finish operation-owned work during prepared cleanup, before terminal enqueue. The operation-ID reservation remains until terminal acknowledgement. Do not move acquisition inside persistence and create an admission/execution gap.
 - Delete the interface-free navigation contract package. Client consumers own their navigation intent and completion/progress aggregates. The tree owner maps those into private handler state and owns its outgoing commit command/result beside the active-session interface.
@@ -93,7 +93,7 @@ This removes the coordinator's imports of UI, Programmatic and headless consumer
 
 Remove domain `Replacement`, `Summary`, and `InformationSnapshot` response aggregates. Replacement can return domain session information and cloned entries from one committed state, plus fork's next-input text. Information can return domain metadata and statistics from one lock acquisition. Client list interfaces own their list-item results; sessions projects them directly from validated loaded sessions. This is a state-to-query projection, not a copied shared response passed through a wrapper.
 
-Move general [entry-to-history projection](../../../../../../host/internal/usecase/host/sessiontree/history.go) to sessions, its only production consumer. Keep summary-request serialization in sessiontree. Keep `session.Info`, entries, trees and accounting values as shared domain concepts. The repository alone encodes and checks version 2; serialized files and replay behavior do not change.
+Move the general entry-to-history projection from `host/internal/usecase/host/sessiontree/history.go` to sessions, its only production consumer. Keep summary-request serialization in sessiontree. Keep `session.Info`, entries, trees and accounting values as shared domain concepts. The repository alone encodes and checks version 2; serialized files and replay behavior do not change.
 
 ### Extension runtime, discovery and startup output
 
@@ -222,7 +222,7 @@ The corrections below are dependency slices, not feature releases. No compatibil
 
 **Exit criteria.** Prepared cancellation releases once. Every finished Core run settles, including zero-history cancellation and first-append persistence failure. A failed begin does not settle another run. Core settlement, client settled delivery and observers finish before gate release. A later run is admitted on the open client connection. The actual import graph remains acyclic.
 
-**Risks.** Reusing the history/error inference would preserve the stuck-run defect. Retain [Core persistence tests](../../../../../../host/internal/usecase/agent/run/persistence_test.go), [coordinator tests](../../../../../../host/internal/usecase/host/events/coordinator_test.go), UI prepared-operation tests and Programmatic state tests, and execute the new public observer-cancellation regression.
+**Risks.** Reusing the history/error inference would preserve the stuck-run defect. Retain [Core persistence tests](../../../../../../host/internal/usecase/agent/run/persistence_test.go), [coordinator tests](../../../../../../host/internal/usecase/host/runcontrol/coordinator_test.go), UI prepared-operation tests and Programmatic state tests, and execute the new public observer-cancellation regression.
 
 #### 3. Session queries, navigation and publication
 
