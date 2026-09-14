@@ -186,6 +186,13 @@ func (c *Service) AttachOutput(
 // Recv receives the next UI input for controller processing.
 func (c *Service) Recv() (*uiv1.OpenResponse, error) { return c.stream.Recv() }
 
+// Cancel stops the actual RPC stream without terminating the UI process.
+func (c *Service) Cancel() {
+	if c.cancel != nil {
+		c.cancel()
+	}
+}
+
 // CloseSend half-closes Host output after ordered delivery has stopped.
 func (c *Service) CloseSend() error { return c.stream.CloseSend() }
 

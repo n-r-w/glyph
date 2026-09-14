@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"sync"
+	"time"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -18,7 +19,12 @@ import (
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
-const initializationCancellationOperationID = "host-initialize-cancel"
+const (
+	// initializationCancellationOperationID identifies Host-requested initialization cancellation.
+	initializationCancellationOperationID = "host-initialize-cancel"
+	// unsuccessfulInitializationGracePeriod bounds the existing graceful startup-close handshake.
+	unsuccessfulInitializationGracePeriod = time.Second
+)
 
 // initializationReceive carries one asynchronous stream receive result.
 type initializationReceive struct {
@@ -47,33 +53,87 @@ func (c *Service) Initialize(ctx context.Context, initialization hostui.Initiali
 	return controllerui.ClassifyTransportError(errors.Join(initializationErr, closeErr))
 }
 
-// closeUnsuccessfulInitialization closes the request stream and waits for SDK cleanup EOF.
+// closeUnsuccessfulInitialization gives the existing close handshake one bounded grace period.
 func (c *Service) closeUnsuccessfulInitialization() error {
+	graceContext, cancelGrace := context.WithTimeout(
+		context.WithoutCancel(c.stream.Context()),
+		unsuccessfulInitializationGracePeriod,
+	)
+	defer cancelGrace()
 	writer := operation.NewWriter(c.stream.Send)
 	writerDone := make(chan error, 1)
 	go func() { writerDone <- writer.Run(c.stream.Context()) }()
 	closeRequest := new(uiv1.OpenRequest)
 	closeRequest.SetClose(new(operationv1.CloseConnection))
-	acknowledgement, err := writer.EnqueueAcknowledged(closeRequest, nil)
-	if err == nil {
-		err = acknowledgement.Wait(c.stream.Context())
+	acknowledgement, result := writer.EnqueueAcknowledged(closeRequest, nil)
+	timedOut := false
+	cancelAfterTimeout := func() {
+		if timedOut {
+			return
+		}
+		timedOut = true
+		result = errors.Join(result, fmt.Errorf(
+			"UI unsuccessful initialization cleanup timed out after %s: %w",
+			unsuccessfulInitializationGracePeriod,
+			context.DeadlineExceeded,
+		))
+		c.Cancel()
+	}
+	if result == nil {
+		if waitErr := acknowledgement.Wait(graceContext); waitErr != nil {
+			if errors.Is(waitErr, context.DeadlineExceeded) {
+				cancelAfterTimeout()
+			} else {
+				result = errors.Join(result, waitErr)
+			}
+		}
 	}
 	writer.Close()
-	if writerErr := controllerui.WithoutTransportClosureLeaves(<-writerDone); writerErr != nil {
-		err = errors.Join(err, writerErr)
+	var writerErr error
+	if timedOut {
+		writerErr = <-writerDone
+	} else {
+		select {
+		case writerErr = <-writerDone:
+		case <-graceContext.Done():
+			cancelAfterTimeout()
+			writerErr = <-writerDone
+		}
+	}
+	if remainingErr := controllerui.WithoutTransportClosureLeaves(writerErr); remainingErr != nil {
+		result = errors.Join(result, remainingErr)
 	}
 	if closeSendErr := c.stream.CloseSend(); closeSendErr != nil {
-		err = errors.Join(err, fmt.Errorf("close UI initialization request stream: %w", closeSendErr))
+		result = errors.Join(result, fmt.Errorf("close UI initialization request stream: %w", closeSendErr))
 	}
+	receiveDone := make(chan error, 1)
+	go func() { receiveDone <- c.receiveUnsuccessfulInitializationClose() }()
+	var receiveErr error
+	if timedOut {
+		receiveErr = <-receiveDone
+	} else {
+		select {
+		case receiveErr = <-receiveDone:
+		case <-graceContext.Done():
+			cancelAfterTimeout()
+			receiveErr = <-receiveDone
+		}
+	}
+	return errors.Join(result, receiveErr)
+}
+
+// receiveUnsuccessfulInitializationClose drains responses until the peer completes cleanup.
+func (c *Service) receiveUnsuccessfulInitializationClose() error {
 	for {
 		_, receiveErr := c.stream.Recv()
-		if receiveErr != nil {
-			remainingErr := controllerui.WithoutTransportClosureLeaves(receiveErr)
-			if remainingErr == nil {
-				return err
-			}
-			return errors.Join(err, fmt.Errorf("receive UI initialization close: %w", remainingErr))
+		if receiveErr == nil {
+			continue
 		}
+		remainingErr := controllerui.WithoutTransportClosureLeaves(receiveErr)
+		if remainingErr == nil {
+			return nil
+		}
+		return fmt.Errorf("receive UI initialization close: %w", remainingErr)
 	}
 }
 

@@ -190,13 +190,7 @@ func (c *Service) closeRequestedOperations(
 		}
 	}
 	transportFailed := result != nil
-	closeSendCalled, writerErr := c.finishRequestedWriter(writer, writerDone, false, transportFailed)
-	result = errors.Join(result, writerErr)
-	if !closeSendCalled {
-		if err = c.connection.CloseSend(); err != nil {
-			result = errors.Join(result, fmt.Errorf("close UI request stream: %w", err))
-		}
-	}
+	result = errors.Join(result, c.finishRequestedWriter(writer, writerDone, false, transportFailed))
 	if err = WithoutTransportClosureLeaves(<-receiveDone); err != nil {
 		result = errors.Join(result, err)
 	}
@@ -209,20 +203,21 @@ func (c *Service) finishRequestedWriter(
 	writerDone <-chan error,
 	writerFinished bool,
 	transportFailed bool,
-) (bool, error) {
+) error {
 	writer.Close()
-	var result error
 	if transportFailed {
-		if err := c.connection.CloseSend(); err != nil {
-			result = errors.Join(result, fmt.Errorf("close UI request stream: %w", err))
-		}
+		c.connection.Cancel()
 	}
+	var result error
 	if !writerFinished {
 		if err := WithoutTransportClosureLeaves(<-writerDone); err != nil {
 			result = errors.Join(result, err)
 		}
 	}
-	return transportFailed, result
+	if err := c.connection.CloseSend(); err != nil {
+		result = errors.Join(result, fmt.Errorf("close UI request stream: %w", err))
+	}
+	return result
 }
 
 // closeFailedOperations cancels work and joins both transport loops.
@@ -237,16 +232,17 @@ func (c *Service) closeFailedOperations(
 	if exit.err != nil {
 		cancelConnection(exit.err)
 	}
-	owner.Close()
 	writer.Close()
+	c.connection.Cancel()
+	owner.Close()
 	var result error
-	if err := c.connection.CloseSend(); err != nil {
-		result = errors.Join(result, fmt.Errorf("close UI request stream: %w", err))
-	}
 	if !exit.writerFinished {
 		if writerErr := WithoutTransportClosureLeaves(<-writerDone); writerErr != nil {
 			result = errors.Join(result, writerErr)
 		}
+	}
+	if err := c.connection.CloseSend(); err != nil {
+		result = errors.Join(result, fmt.Errorf("close UI request stream: %w", err))
 	}
 	if !exit.receiveFinished {
 		if receiveErr := WithoutTransportClosureLeaves(<-receiveDone); receiveErr != nil {

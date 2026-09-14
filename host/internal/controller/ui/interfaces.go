@@ -39,6 +39,8 @@ type StreamSource interface {
 // Connection supplies stream I/O and one attached ordered output owner.
 type Connection interface {
 	Recv() (*uiv1.OpenResponse, error)
+	// Cancel stops the actual RPC stream before transport-dependent cleanup joins.
+	Cancel()
 	CloseSend() error
 	AttachOutput(context.Context, func(error)) (*operation.Writer[*uiv1.OpenRequest], OperationOutput)
 	ClearOutput()

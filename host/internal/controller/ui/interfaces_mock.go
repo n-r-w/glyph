@@ -267,6 +267,18 @@ func (mr *MockConnectionMockRecorder) AttachOutput(arg0, arg1 any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachOutput", reflect.TypeOf((*MockConnection)(nil).AttachOutput), arg0, arg1)
 }
 
+// Cancel mocks base method.
+func (m *MockConnection) Cancel() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Cancel")
+}
+
+// Cancel indicates an expected call of Cancel.
+func (mr *MockConnectionMockRecorder) Cancel() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Cancel", reflect.TypeOf((*MockConnection)(nil).Cancel))
+}
+
 // ClearOutput mocks base method.
 func (m *MockConnection) ClearOutput() {
 	m.ctrl.T.Helper()

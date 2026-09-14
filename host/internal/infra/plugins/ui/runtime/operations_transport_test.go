@@ -10,7 +10,6 @@ import (
 	"sync/atomic"
 	"testing"
 	"testing/synctest"
-	"time"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 
@@ -268,30 +267,32 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 		return nil, context.Cause(streamContext)
 	})
 	var sends atomic.Int32
+	var sendActive atomic.Bool
+	var closeOverlappedSend atomic.Bool
 	closeCalled := make(chan struct{})
-	sendRelease := make(chan struct{})
-	var releaseOnce sync.Once
 	stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(*uiv1.OpenRequest) error {
 		if sends.Add(1) <= 2 {
 			return nil
 		}
-		<-sendRelease
-		return context.Canceled
+		sendActive.Store(true)
+		defer sendActive.Store(false)
+		<-streamContext.Done()
+		return context.Cause(streamContext)
 	})
 	stream.EXPECT().CloseSend().DoAndReturn(func() error {
+		if sendActive.Load() {
+			closeOverlappedSend.Store(true)
+		}
 		close(closeCalled)
-		releaseOnce.Do(func() { close(sendRelease) })
-		cancelStream()
 		return nil
 	})
-	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
 		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
 		browser:  nil,
 		client:   nil,
 		openOnce: sync.Once{},
 		openErr:  nil,
-		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
+		stream:   stream, cancel: cancelStream, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
 		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
 		failConnection: nil,
 	}
@@ -308,19 +309,10 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 	}()
 	<-overflow
 
-	// Assert transport closure starts before the blocked writer is joined.
-	closedBeforeJoin := assert.Eventually(t, func() bool {
-		select {
-		case <-closeCalled:
-			return true
-		default:
-			return false
-		}
-	}, time.Second, time.Millisecond, "queue overflow did not close transport before waiting for writer")
-	if !closedBeforeJoin {
-		releaseOnce.Do(func() { close(sendRelease) })
-	}
-	err := <-result
+	// Assert actual RPC cancellation releases the writer before CloseSend runs.
+	err := awaitHostUIResult(t, result, "queue overflow cleanup")
+	awaitHostUISignal(t, closeCalled, "queue overflow CloseSend")
+	assert.False(t, closeOverlappedSend.Load())
 	require.Error(t, err)
 	assert.Equal(t, codes.ResourceExhausted, status.Code(err))
 	require.ErrorIs(t, err, operation.ErrQueueFull)

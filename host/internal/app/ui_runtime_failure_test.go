@@ -108,7 +108,7 @@ func TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement(t *testing.T) {
 	// Assert the crash terminates UI mode and no replacement UI is started.
 	require.Error(t, err)
 	require.ErrorContains(t, err, "execute UI session")
-	require.ErrorContains(t, err, "error reading from server: EOF")
+	require.ErrorContains(t, err, "error reading from server")
 	trace, readErr := os.ReadFile(tracePath)
 	require.NoError(t, readErr)
 	processID, parseErr := strconv.Atoi(strings.Split(strings.TrimSpace(string(trace)), "\n")[0])
