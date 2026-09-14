@@ -6,12 +6,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 
 	"github.com/samber/mo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -213,6 +215,45 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 	require.Equal(t, operation.TerminalStateFailed, outcome.State())
 	require.Equal(t, controller.FailureCodePersistenceUnavailable, outcome.Code())
 	require.ErrorIs(t, outcome.Err(), domainCause)
+}
+
+// TestRunPreparedReturnsOriginalMixedCancellation verifies Programmatic Control classifies without rebuilding the
+// runtime error tree.
+func TestRunPreparedReturnsOriginalMixedCancellation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange the exact wrapper and joined causes produced by extension runtime execution.
+	receivedCause := errors.New("unique programmatic received source")
+	typedReceived := &os.PathError{Op: "receive", Path: "extension", Err: receivedCause}
+	progressCause := errors.New("unique programmatic progress source")
+	mixedErr := fmt.Errorf(
+		"execute extension tool %q: %w",
+		"extension-tool",
+		errors.Join(context.Canceled, typedReceived, progressCause),
+	)
+	coordinator := NewMockCoordinator(gomock.NewController(t))
+	coordinator.EXPECT().RunPrepared(gomock.Any(), "run", "request").Return(agent.RunOutcomeAborted, mixedErr)
+	prepared := &runPrepared{
+		coordinator: coordinator, output: testRunOutput(t), operationID: "operation", runID: "run",
+		userText: "request", started: false, release: sync.Once{},
+	}
+	defer prepared.Release()
+
+	// Act through the accepted operation boundary.
+	outcome := prepared.Run(t.Context(), operation.Reporter[controller.OperationProgress]{})
+
+	// Assert stable public category and complete text while the internal boundary keeps the original object.
+	require.Equal(t, operation.TerminalStateFailed, outcome.State())
+	require.Equal(t, controller.FailureCodeInternal, outcome.Code())
+	require.Same(t, mixedErr, outcome.Err())
+	require.Equal(t, mixedErr.Error(), outcome.Err().Error())
+	require.ErrorIs(t, outcome.Err(), context.Canceled)
+	require.ErrorIs(t, outcome.Err(), receivedCause)
+	require.ErrorIs(t, outcome.Err(), progressCause)
+	var received *os.PathError
+	require.ErrorAs(t, outcome.Err(), &received)
+	assert.Same(t, typedReceived, received)
+	assert.Equal(t, 1, strings.Count(outcome.Err().Error(), "execute extension tool"))
 }
 
 // TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure verifies preserved errors win cancellation.

@@ -18,8 +18,10 @@ import (
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	codextest "github.com/n-r-w/glyph/host/internal/infra/providers/openai/codex"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	hostproviders "github.com/n-r-w/glyph/host/internal/usecase/host/providers"
@@ -506,6 +508,62 @@ func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {
 	kinds := eventKinds(events)
 	assert.Contains(t, kinds, modelexecution.StreamEventContentEnd)
 	assert.Equal(t, modelexecution.StreamEventError, kinds[len(kinds)-1])
+}
+
+// TestMixedCancellationPreservesAcquiredProviderFailure verifies cancellation does not replace an independently
+// acquired typed transport failure.
+func (s *serviceSuite) TestMixedCancellationPreservesAcquiredProviderFailure() {
+	t := s.T()
+
+	// Arrange one request whose transport cancels the context and returns an independent typed failure.
+	service, err := New(Config{
+		ProviderID: "local",
+		BaseURL:    "https://mixed-cancel.invalid",
+		API:        APIResponses,
+		Models: map[model.ID]API{
+			"demo": "",
+		},
+		APIKey:                     expectAPIKey(t, "key", nil, 1),
+		ReasoningFormats:           nil,
+		ReasoningCompatibilityKeys: nil,
+	})
+	require.NoError(t, err)
+	providerDetail := "unique acquired compatible provider source"
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	body := codextest.NewMockIOReadCloser(gomock.NewController(t))
+	body.EXPECT().Read(gomock.Any()).DoAndReturn(func(buffer []byte) (int, error) {
+		return copy(buffer, []byte(`{"error":{"message":"`+providerDetail+`"}}`)), io.EOF
+	})
+	body.EXPECT().Close().DoAndReturn(func() error {
+		cancel()
+		return nil
+	}).AnyTimes()
+	recorder := httptest.NewRecorder()
+	recorder.WriteHeader(http.StatusBadGateway)
+	providerResponse := recorder.Result()
+	providerResponse.Body = body
+	transport := codextest.NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).Return(providerResponse, nil)
+	service.httpClient = &http.Client{Transport: transport, CheckRedirect: nil, Jar: nil, Timeout: 0}
+	callbacks := 0
+	var terminal model.Response
+
+	// Act through the normal driver terminal callback.
+	err = service.Stream(ctx, richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
+		callbacks++
+		terminal = event.Response.OrEmpty()
+		return nil
+	})
+
+	// Assert aborted presentation and both internal causes survive one attempt and one callback.
+	require.ErrorIs(t, err, context.Canceled)
+	var acquired *openai.Error
+	require.ErrorAs(t, err, &acquired)
+	require.Contains(t, acquired.Error(), providerDetail)
+	require.Equal(t, model.OutcomeAborted, terminal.Outcome.OrEmpty())
+	require.Contains(t, terminal.ErrorMessage.OrEmpty(), providerDetail)
+	require.Equal(t, 1, callbacks)
 }
 
 // TestCancellationAndHTTPFailureMapTerminalErrors verifies cancellation remains canonical and HTTP detail remains

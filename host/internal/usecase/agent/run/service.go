@@ -387,43 +387,28 @@ func (s *Service) finalizeProviderError(
 	}, false, combinedErr
 }
 
-// visibleErrorMessage removes cancellation leaves and keeps independent terminal failures.
+// visibleErrorMessage uses canonical text only when every error leaf is cancellation.
 func visibleErrorMessage(err error) string {
-	var removeCancellation func(error) error
-	removeCancellation = func(current error) error {
-		if current == nil {
-			return nil
-		}
-		if joined, ok := current.(interface{ Unwrap() []error }); ok {
-			filtered := make([]error, 0, len(joined.Unwrap()))
-			for _, child := range joined.Unwrap() {
-				if childErr := removeCancellation(child); childErr != nil {
-					filtered = append(filtered, childErr)
-				}
-			}
-			return errors.Join(filtered...)
-		}
-		if wrapped, ok := current.(interface{ Unwrap() error }); ok {
-			filtered := removeCancellation(wrapped.Unwrap())
-			if filtered == nil {
-				return nil
-			}
-			if errors.Is(current, context.Canceled) || errors.Is(current, context.DeadlineExceeded) {
-				return filtered
-			}
-			return current
-		}
-		if errors.Is(current, context.Canceled) || errors.Is(current, context.DeadlineExceeded) {
-			return nil
-		}
-		return current
-	}
-
-	filtered := removeCancellation(err)
-	if filtered == nil {
+	if isPureCancellation(err) {
 		return abortedModelMessage
 	}
-	return filtered.Error()
+	return err.Error()
+}
+
+// isPureCancellation reports whether every leaf is a cancellation marker recognized by Agent Core.
+func isPureCancellation(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, cause := range joined.Unwrap() {
+			if !isPureCancellation(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if cause := errors.Unwrap(err); cause != nil {
+		return isPureCancellation(cause)
+	}
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // finalizeRetainedStreamedContent closes only well-formed streamed content kept after provider failure.
@@ -600,7 +585,7 @@ func (s *Service) executeCalls(
 				response,
 				results,
 				agent.RunOutcomeAborted,
-				abortedModelMessage,
+				visibleErrorMessage(executeErr),
 				executeErr,
 			)
 		}

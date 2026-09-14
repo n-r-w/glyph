@@ -583,46 +583,33 @@ func (s *Service) preflight(
 	return active, nil, nil
 }
 
-// filterRunError removes expected cancellation while preserving independent run failures.
+// filterRunError removes a pure expected cancellation while preserving the original mixed run failure.
 func filterRunError(outcome agent.RunOutcome, runErr error) error {
-	if outcome != agent.RunOutcomeAborted {
-		return runErr
+	if outcome == agent.RunOutcomeAborted && isPureCancellation(runErr) {
+		return nil
 	}
-	return removeCancellation(runErr)
+	return runErr
 }
 
 // isOperationCancellation reports when owner cancellation is the only reason accepted work stopped.
 func isOperationCancellation(ctx context.Context, err error) bool {
-	return errors.Is(ctx.Err(), context.Canceled) && removeCancellation(err) == nil
+	return errors.Is(ctx.Err(), context.Canceled) && (err == nil || isPureCancellation(err))
 }
 
-// removeCancellation recursively removes cancellation leaves from joined errors.
-func removeCancellation(err error) error {
-	if err == nil {
-		return nil
-	}
+// isPureCancellation reports whether every leaf is context.Canceled under Programmatic Control policy.
+func isPureCancellation(err error) bool {
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		filtered := lo.FilterMap(joined.Unwrap(), func(child error, _ int) (error, bool) {
-			childErr := removeCancellation(child)
-			return childErr, childErr != nil
-		})
-		return errors.Join(filtered...)
-	}
-	if wrapped, ok := err.(interface{ Unwrap() error }); ok {
-		child := wrapped.Unwrap()
-		filtered := removeCancellation(child)
-		if filtered == nil {
-			return nil
+		for _, cause := range joined.Unwrap() {
+			if !isPureCancellation(cause) {
+				return false
+			}
 		}
-		if errors.Is(err, context.Canceled) {
-			return filtered
-		}
-		return err
+		return true
 	}
-	if errors.Is(err, context.Canceled) {
-		return nil
+	if cause := errors.Unwrap(err); cause != nil {
+		return isPureCancellation(cause)
 	}
-	return err
+	return errors.Is(err, context.Canceled)
 }
 
 // emptyResponse creates a response with only operation identity and kind set.

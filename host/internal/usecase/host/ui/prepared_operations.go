@@ -70,12 +70,11 @@ func (prepared *preparedUIOperation) Run(
 	reporter operation.Reporter[controllerui.Frame],
 ) operation.Outcome[controllerui.Frame] {
 	result, err := prepared.run(ctx, reporter)
-	remainingErr := withoutCancellationLeaves(err)
-	if err != nil && remainingErr == nil {
+	if err != nil && isPureCancellation(err) {
 		return operation.Canceled[controllerui.Frame]()
 	}
-	if remainingErr != nil {
-		return operation.Failed[controllerui.Frame](prepared.failureCode(remainingErr), remainingErr)
+	if err != nil {
+		return operation.Failed[controllerui.Frame](prepared.failureCode(err), err)
 	}
 	// Completed navigation can still carry declared handler and observer diagnostics.
 	var sources []error
@@ -87,35 +86,20 @@ func (prepared *preparedUIOperation) Run(
 	return operation.CompletedWithSource(result, errors.Join(sources...))
 }
 
-// withoutCancellationLeaves removes only pure cancellation leaves from joined errors.
-func withoutCancellationLeaves(err error) error {
-	if !errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
-		return err
-	}
+// isPureCancellation reports whether every leaf is a cancellation marker recognized by Host UI.
+func isPureCancellation(err error) bool {
 	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		remaining := make([]error, 0, len(joined.Unwrap()))
 		for _, cause := range joined.Unwrap() {
-			if filtered := withoutCancellationLeaves(cause); filtered != nil {
-				remaining = append(remaining, filtered)
+			if !isPureCancellation(cause) {
+				return false
 			}
 		}
-		return errors.Join(remaining...)
+		return true
 	}
-	cause := errors.Unwrap(err)
-	if cause != nil {
-		if !errors.Is(cause, context.Canceled) && !errors.Is(cause, context.DeadlineExceeded) {
-			return err
-		}
-		filtered := withoutCancellationLeaves(cause)
-		if filtered == nil {
-			return nil
-		}
-		return fmt.Errorf("%s: %w", err.Error(), filtered)
+	if cause := errors.Unwrap(err); cause != nil {
+		return isPureCancellation(cause)
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return nil
-	}
-	return err
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // Release frees operation admission exactly once.
@@ -152,20 +136,19 @@ func (s *Session) Activate(ctx context.Context) func() {
 // checkOperationAuthentication resolves startup readiness outside request receipt.
 func (s *Session) checkOperationAuthentication(ctx context.Context) {
 	err := s.authenticator.CheckAuthentication(ctx)
-	remainingErr := withoutCancellationLeaves(err)
-	if err != nil && remainingErr == nil {
+	if err != nil && isPureCancellation(err) {
 		return
 	}
 	availability := AvailabilityIdle
-	if remainingErr != nil {
+	if err != nil {
 		availability = AvailabilityAuthenticationFailed
 		code := controllerui.FailureCodeInternal
-		if s.authenticator.IsSignInRequired(remainingErr) {
+		if s.authenticator.IsSignInRequired(err) {
 			code = controllerui.FailureCodeAuthentication
 		}
 		// Output.ReportError routes writer failures to the connection failure owner.
 		// This worker has no result channel.
-		_ = s.output.ReportError(code, remainingErr)
+		_ = s.output.ReportError(code, err)
 	}
 	s.setOperationAvailability(availability)
 	// Output.SetAvailability routes writer failures to the connection failure owner.

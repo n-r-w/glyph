@@ -5,6 +5,8 @@ package run
 import (
 	"context"
 	"errors"
+	"fmt"
+	"os"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -264,6 +266,71 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 		assert.Equal(t, "Model request was canceled.", history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
 		assert.Empty(t, service.State().PartialResponse.OrEmpty().Content)
 	})
+}
+
+// TestServiceRunToolMixedCancellationUsesOriginalTerminalText verifies the tool-execution terminal path keeps the
+// complete runtime wrapper and every internal cause.
+func TestServiceRunToolMixedCancellationUsesOriginalTerminalText(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a tool response and the exact wrapped mixed-error shape produced by extension runtime execution.
+	provider := NewMockModelProvider(gomock.NewController(t))
+	tools := NewMockToolRuntime(gomock.NewController(t))
+	events := NewMockEventSink(gomock.NewController(t))
+	call := model.ToolCall{ID: "call", Name: "extension-tool", Arguments: map[string]any{}}
+	response := model.Response{
+		Content:       []model.Content{testCallItem(call)},
+		Outcome:       mo.Some(model.OutcomeToolUse),
+		ErrorMessage:  mo.None[string](),
+		Provider:      mo.None[model.ProviderID](),
+		Model:         mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](),
+		ResponseID:    mo.None[string](),
+		Usage:         mo.None[model.Usage](),
+		Diagnostics:   nil,
+	}
+	receivedCause := errors.New("unique received execution source")
+	typedReceived := &os.PathError{Op: "receive", Path: "extension", Err: receivedCause}
+	progressCause := errors.New("unique progress execution source")
+	executeErr := fmt.Errorf(
+		"execute extension tool %q: %w",
+		call.Name,
+		errors.Join(context.Canceled, typedReceived, progressCause),
+	)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
+	tools.EXPECT().Tools().Return(nil)
+	tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).Return(agent.ToolResult{
+		CallID: call.ID, ToolName: call.Name, Contents: nil, IsError: true,
+	}, executeErr)
+	var agentEnd agent.RunSummary
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, event agent.Event) error {
+			if event.Type == agent.EventAgentEnd {
+				agentEnd = event.Agent.OrEmpty()
+			}
+			return nil
+		},
+	).AnyTimes()
+	service := newTestService(
+		t, testInstructions, testModelDescriptor, model.ReasoningChoiceHigh, provider, tools, events,
+	)
+
+	// Act through normal tool execution and turn finalization.
+	result, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "mixed-tool-cancel", UserText: "run tool"},
+	)
+
+	// Assert the aborted outcome, original text, and all internal identities survive.
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorIs(t, err, receivedCause)
+	require.ErrorIs(t, err, progressCause)
+	var received *os.PathError
+	require.ErrorAs(t, err, &received)
+	assert.Same(t, typedReceived, received)
+	assert.Equal(t, agent.RunOutcomeAborted, result.Outcome)
+	assert.Equal(t, executeErr.Error(), agentEnd.ErrorMessage.OrEmpty())
+	assert.Equal(t, 1, strings.Count(agentEnd.ErrorMessage.OrEmpty(), "execute extension tool"))
 }
 
 // TestServiceRunCancellationPersistsOnlyActiveToolResult and synthesizes skipped results in projection.

@@ -204,22 +204,23 @@ func (s *Driver) Stream(
 			return err
 		}
 		outcome := model.OutcomeFailed
-		var message string
+		providerErr := fmt.Errorf("OpenAI-compatible request failed: %w", err)
+		message := providerErr.Error()
 		if ctx.Err() != nil {
 			outcome = model.OutcomeAborted
-			message = requestCanceledMessage
-			err = ctx.Err()
-			if err == nil {
-				err = errors.New("request canceled")
+			if isPureCancellation(err) {
+				message = requestCanceledMessage
+				err = ctx.Err()
+			} else {
+				err = errors.Join(ctx.Err(), providerErr)
 			}
 		} else {
-			err = fmt.Errorf("OpenAI-compatible request failed: %w", err)
-			message = err.Error()
-			response.ErrorMessage = mo.Some(message)
+			err = providerErr
 		}
 		if responseOutcome, present := response.Outcome.Get(); !present || responseOutcome == 0 {
 			response = failureResponse(outcome, message)
-		} else if response.ErrorMessage.OrEmpty() == "" {
+		} else {
+			response.Outcome = mo.Some(outcome)
 			response.ErrorMessage = mo.Some(message)
 		}
 		response.Provider = mo.Some(s.providerID)
@@ -277,6 +278,22 @@ func failureResponse(outcome model.Outcome, message string) model.Response {
 		Usage:         mo.None[model.Usage](),
 		Diagnostics:   nil,
 	}
+}
+
+// isPureCancellation reports whether every leaf is a cancellation marker recognized by the driver.
+func isPureCancellation(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, cause := range joined.Unwrap() {
+			if !isPureCancellation(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if cause := errors.Unwrap(err); cause != nil {
+		return isPureCancellation(cause)
+	}
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 type streamHandlerError struct {

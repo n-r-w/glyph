@@ -192,41 +192,44 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 		if incomplete.IncompleteDetails.Reason == "max_output_tokens" {
 			return a.complete(incomplete, model.OutcomeLength)
 		}
-		if err := a.finish(); err != nil {
-			return model.Response{}, true, err
-		}
 		message := providerFailureMessage(incomplete.Error.Message)
+		sourceErr := errors.New(message)
+		if err := a.finish(); err != nil {
+			return terminalModelResponse(message, model.OutcomeFailed), true, errors.Join(sourceErr, err)
+		}
 		terminalResponse, recovered, mergeErr := a.mergeTerminalOutput(incomplete)
 		if mergeErr != nil {
-			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, mergeErr
+			return terminalModelResponse(message, model.OutcomeFailed), true, errors.Join(sourceErr, mergeErr)
 		}
-		response, err := failedResponseFromSDK(terminalResponse, message, a.grammarInputProperties)
+		response, err := failedResponseFromSDK(terminalResponse, message, sourceErr, a.grammarInputProperties)
 		if recovered {
 			response = a.addRecoveryDiagnostic(response)
 		}
 		return response, true, err
 	case "response.failed":
-		if err := a.finish(); err != nil {
-			return model.Response{}, true, err
-		}
 		failed := event.AsResponseFailed().Response
 		message := providerFailureMessage(failed.Error.Message)
+		sourceErr := errors.New(message)
+		if err := a.finish(); err != nil {
+			return terminalModelResponse(message, model.OutcomeFailed), true, errors.Join(sourceErr, err)
+		}
 		terminalResponse, recovered, mergeErr := a.mergeTerminalOutput(failed)
 		if mergeErr != nil {
-			return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), true, mergeErr
+			return terminalModelResponse(message, model.OutcomeFailed), true, errors.Join(sourceErr, mergeErr)
 		}
-		response, err := failedResponseFromSDK(terminalResponse, message, a.grammarInputProperties)
+		response, err := failedResponseFromSDK(terminalResponse, message, sourceErr, a.grammarInputProperties)
 		if recovered {
 			response = a.addRecoveryDiagnostic(response)
 		}
 		return response, true, err
 	case "error":
-		if err := a.finish(); err != nil {
-			return model.Response{}, true, err
-		}
 		providerEvent := event.AsError()
 		message := providerFailureMessage(providerEvent.Message)
-		return terminalModelResponse(message, model.OutcomeFailed), true, errors.New(message)
+		sourceErr := errors.New(message)
+		if err := a.finish(); err != nil {
+			return terminalModelResponse(message, model.OutcomeFailed), true, errors.Join(sourceErr, err)
+		}
+		return terminalModelResponse(message, model.OutcomeFailed), true, sourceErr
 	}
 	return model.Response{}, false, nil
 }

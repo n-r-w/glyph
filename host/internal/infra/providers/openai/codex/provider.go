@@ -400,15 +400,16 @@ func modelReasoningContent(reasoning responses.ResponseReasoningItem) (model.Con
 func failedResponseFromSDK(
 	response responses.Response,
 	message string,
+	sourceErr error,
 	grammarInputProperties map[string]string,
 ) (model.Response, error) {
 	converted, err := modelResponse(response, model.OutcomeFailed, grammarInputProperties)
 	if err != nil {
-		return terminalModelResponse(message, model.OutcomeFailed), errors.Join(errors.New(message), err)
+		return terminalModelResponse(message, model.OutcomeFailed), errors.Join(sourceErr, err)
 	}
 	converted.Outcome = mo.Some(model.OutcomeFailed)
 	converted.ErrorMessage = mo.Some(message)
-	return converted, errors.New(message)
+	return converted, sourceErr
 }
 
 // streamError maps cancellation, 401, and complete provider details without replay.
@@ -417,9 +418,22 @@ func (s *Driver) streamError(
 	streamErr error,
 	transport *errorCaptureTransport,
 ) (model.Response, error) {
-	if ctx.Err() != nil {
+	response, failure := s.providerStreamFailure(streamErr, transport)
+	if ctx.Err() == nil {
+		return response, failure
+	}
+	if isPureCancellation(streamErr) {
 		return terminalModelResponse(requestCanceledMessage, model.OutcomeAborted), ctx.Err()
 	}
+	response.Outcome = mo.Some(model.OutcomeAborted)
+	return response, errors.Join(ctx.Err(), failure)
+}
+
+// providerStreamFailure maps an acquired stream error before cancellation policy is applied.
+func (s *Driver) providerStreamFailure(
+	streamErr error,
+	transport *errorCaptureTransport,
+) (model.Response, error) {
 	if apiError, ok := errors.AsType[*openai.Error](streamErr); ok {
 		detail := providerErrorDetail([]byte(apiError.RawJSON()))
 		if detail == "" {
@@ -442,6 +456,22 @@ func (s *Driver) streamError(
 	}
 	failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
 	return terminalModelResponse(failure.Error(), model.OutcomeFailed), failure
+}
+
+// isPureCancellation reports whether every leaf is a cancellation marker recognized by the driver.
+func isPureCancellation(err error) bool {
+	if joined, ok := err.(interface{ Unwrap() []error }); ok {
+		for _, cause := range joined.Unwrap() {
+			if !isPureCancellation(cause) {
+				return false
+			}
+		}
+		return true
+	}
+	if cause := errors.Unwrap(err); cause != nil {
+		return isPureCancellation(cause)
+	}
+	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }
 
 // unauthorizedFailure retains sign-in classification, safe provider detail, and the original SDK cause.

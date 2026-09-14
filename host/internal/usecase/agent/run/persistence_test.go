@@ -250,7 +250,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	// Assert the external effect remains complete and the persistence cause reaches the terminal result.
 	require.ErrorIs(t, err, agent.ErrPersistenceUnavailable)
 	require.ErrorIs(t, err, persistErr)
-	assert.Equal(t, agent.ErrPersistenceUnavailable.Error()+"\n"+persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
+	assert.Equal(t, err.Error(), agentEnd.ErrorMessage.OrEmpty())
 	require.True(t, toolCompleted)
 	assert.NotContains(t, observed, agent.EventToolExecutionEnd)
 	assert.NotContains(t, observed, agent.EventToolResult)

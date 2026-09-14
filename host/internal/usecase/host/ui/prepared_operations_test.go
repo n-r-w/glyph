@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -170,10 +172,16 @@ func TestPreparedCancellationRemovesOnlyCancellationLeaves(t *testing.T) {
 			t.Parallel()
 
 			// Arrange one prepared operation with a controlled source result.
-			independent := errors.New("settlement failed")
+			receivedCause := errors.New("unique UI received source")
+			typedReceived := &os.PathError{Op: "receive", Path: "extension", Err: receivedCause}
+			progressCause := errors.New("unique UI progress source")
 			runErr := error(context.Canceled)
 			if test.mixed {
-				runErr = errors.Join(context.Canceled, independent)
+				runErr = fmt.Errorf(
+					"execute extension tool %q: %w",
+					"extension-tool",
+					errors.Join(context.Canceled, typedReceived, progressCause),
+				)
 			}
 			prepared := &preparedUIOperation{
 				run: func(context.Context, operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
@@ -186,11 +194,18 @@ func TestPreparedCancellationRemovesOnlyCancellationLeaves(t *testing.T) {
 			// Act through operation outcome classification.
 			outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 
-			// Assert pure cancellation stays canceled and independent failure stays reachable.
+			// Assert pure cancellation stays canceled and mixed failure keeps the original object and full tree.
 			assert.Equal(t, test.expectedState, outcome.State())
 			if test.mixed {
-				assert.ErrorIs(t, outcome.Err(), independent)
-				assert.NotErrorIs(t, outcome.Err(), context.Canceled)
+				require.Same(t, runErr, outcome.Err())
+				require.Equal(t, runErr.Error(), outcome.Err().Error())
+				require.ErrorIs(t, outcome.Err(), context.Canceled)
+				require.ErrorIs(t, outcome.Err(), receivedCause)
+				require.ErrorIs(t, outcome.Err(), progressCause)
+				var received *os.PathError
+				require.ErrorAs(t, outcome.Err(), &received)
+				assert.Same(t, typedReceived, received)
+				assert.Equal(t, 1, strings.Count(outcome.Err().Error(), "execute extension tool"))
 			}
 		})
 	}

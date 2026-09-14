@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -178,6 +179,158 @@ func TestDriverStreamPreservesTransportFailure(t *testing.T) {
 	assert.Contains(t, err.Error(), transportErr.Error())
 	assert.Contains(t, response.ErrorMessage.OrEmpty(), transportErr.Error())
 	assert.NotErrorIs(t, err, ErrSignInRequired)
+}
+
+// TestDriverStreamFailureEventsPreserveSourceWhenContentEndFails verifies each provider failure source survives
+// failed active-content finalization without a later terminal callback.
+func TestDriverStreamFailureEventsPreserveSourceWhenContentEndFails(t *testing.T) {
+	t.Parallel()
+
+	providerDetail := "unique Codex failure event source"
+	testCases := map[string]string{
+		"failed": fmt.Sprintf(`{"type":"response.failed","response":{"id":"resp","status":"failed",`+
+			`"error":{"code":"server_error","message":%q},"output":[]}}`, providerDetail),
+		"incomplete": fmt.Sprintf(`{"type":"response.incomplete","response":{"id":"resp",`+
+			`"status":"incomplete","incomplete_details":{"reason":"content_filter"},`+
+			`"error":{"code":"server_error","message":%q},"output":[]}}`, providerDetail),
+		"error": fmt.Sprintf(`{"type":"error","code":"server_error","message":%q}`, providerDetail),
+	}
+	for name, terminalEvent := range testCases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange active streamed content followed by one provider failure event.
+			accountID := "failure-event-account"
+			accessToken := testJWT(t, map[string]any{
+				"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+			})
+			credentials := NewMockCredentials(gomock.NewController(t))
+			credentials.EXPECT().Load().Return(
+				testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+			)
+			interaction := NewMockInteraction(gomock.NewController(t))
+			var attempts atomic.Int64
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				attempts.Add(1)
+				writeSSE(
+					writer,
+					`{"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"partial"}`,
+					terminalEvent,
+				)
+			}))
+			t.Cleanup(server.Close)
+			service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+			handlerErr := errors.New("unique Codex failure-event ContentEnd callback source")
+			callbacks := make([]modelexecution.StreamEventKind, 0)
+
+			// Act until content finalization rejects its callback.
+			err := service.Stream(t.Context(), modelexecution.ProviderRequest{
+				ReasoningChoice: model.ReasoningChoiceOn,
+				Instructions:    "instructions",
+				Model:           testModelDescriptor("gpt-test"),
+				History:         nil,
+				Tools:           nil,
+			}, func(event modelexecution.StreamEvent) error {
+				callbacks = append(callbacks, event.Kind)
+				if event.Kind == modelexecution.StreamEventContentEnd {
+					return handlerErr
+				}
+				return nil
+			})
+
+			// Assert both independent sources survive one attempt and callback use stops at ContentEnd.
+			require.ErrorIs(t, err, handlerErr)
+			assert.Equal(t, 1, strings.Count(err.Error(), providerDetail), err.Error())
+			assert.Equal(t, 1, strings.Count(err.Error(), handlerErr.Error()), err.Error())
+			assert.Equal(t, int64(1), attempts.Load())
+			require.NotEmpty(t, callbacks)
+			assert.Equal(t, modelexecution.StreamEventContentEnd, callbacks[len(callbacks)-1])
+			assert.NotContains(t, callbacks, modelexecution.StreamEventError)
+			assert.NotContains(t, callbacks, modelexecution.StreamEventDone)
+		})
+	}
+}
+
+// TestDriverStreamFailureEventPreservesSourceAcrossTerminalMergeFailure verifies a provider source survives a later
+// terminal output merge failure.
+func TestDriverStreamFailureEventPreservesSourceAcrossTerminalMergeFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange completed output only at position one so terminal merge cannot fill position zero.
+	accountID := "failure-merge-account"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	providerDetail := "unique Codex merge provider source"
+	var attempts atomic.Int64
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		writeSSE(
+			writer,
+			`{"type":"response.output_item.done","output_index":1,`+
+				`"item":{"id":"fc-1","type":"function_call","call_id":"call-1",`+
+				`"name":"read","arguments":"{}","status":"completed"}}`,
+			fmt.Sprintf(`{"type":"response.failed","response":{"id":"resp","status":"failed",`+
+				`"error":{"code":"server_error","message":%q},"output":[]}}`, providerDetail),
+		)
+	}))
+	t.Cleanup(server.Close)
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+	callbacks := 0
+	var terminal model.Response
+
+	// Act through finalization and terminal merge.
+	err := service.Stream(t.Context(), modelexecution.ProviderRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "instructions",
+		Model:           testModelDescriptor("gpt-test"),
+		History:         nil,
+		Tools:           nil,
+	}, func(event modelexecution.StreamEvent) error {
+		callbacks++
+		if event.Kind == modelexecution.StreamEventError {
+			terminal = event.Response.OrEmpty()
+		}
+		return nil
+	})
+
+	// Assert the provider and merge sources both reach the returned error and terminal projection.
+	require.Error(t, err)
+	assert.Equal(t, 1, strings.Count(err.Error(), providerDetail), err.Error())
+	assert.Equal(t, 1, strings.Count(err.Error(), "noncontiguous completed output"), err.Error())
+	assert.Contains(t, terminal.ErrorMessage.OrEmpty(), providerDetail)
+	assert.Equal(t, int64(1), attempts.Load())
+	assert.Equal(t, 3, callbacks)
+}
+
+// TestDriverStreamMixedCancellationPreservesAcquiredProviderFailure verifies cancellation does not replace an
+// independently acquired typed transport failure at the driver's stream-error boundary.
+func TestDriverStreamMixedCancellationPreservesAcquiredProviderFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an acquired typed transport failure before cancellation becomes visible to the driver.
+	providerCause := errors.New("unique acquired Codex transport source")
+	typedProviderErr := &url.Error{Op: "POST", URL: "https://mixed-cancel.invalid", Err: providerCause}
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	service := &Driver{}
+
+	// Act once through the stream error mapper used after the provider attempt ends.
+	response, err := service.streamError(ctx, typedProviderErr, newErrorCaptureTransport(http.DefaultTransport))
+
+	// Assert aborted presentation and both internal causes survive the mapping.
+	require.ErrorIs(t, err, context.Canceled)
+	require.ErrorIs(t, err, providerCause)
+	var acquired *url.Error
+	require.ErrorAs(t, err, &acquired)
+	assert.Same(t, typedProviderErr, acquired)
+	assert.Equal(t, model.OutcomeAborted, response.Outcome.OrEmpty())
+	assert.Contains(t, response.ErrorMessage.OrEmpty(), providerCause.Error())
 }
 
 // TestModelResponsePreservesToolArgumentDecodeCause verifies SDK conversion exposes malformed tool JSON.
