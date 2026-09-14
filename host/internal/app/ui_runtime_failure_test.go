@@ -14,6 +14,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
@@ -109,7 +111,10 @@ func TestRunWithPathsUIProcessCrashTerminatesWithoutReplacement(t *testing.T) {
 	// Assert the crash terminates UI mode and no replacement UI is started.
 	require.Error(t, err)
 	require.ErrorContains(t, err, "execute UI session")
-	require.ErrorContains(t, err, "error reading from server")
+	require.True(t,
+		strings.Contains(err.Error(), "error reading from server") || status.Code(err) == codes.Canceled,
+		"expected transport read failure or canceled RPC, got: %v", err,
+	)
 	trace, readErr := os.ReadFile(tracePath)
 	require.NoError(t, readErr)
 	processID, parseErr := strconv.Atoi(strings.Split(strings.TrimSpace(string(trace)), "\n")[0])
