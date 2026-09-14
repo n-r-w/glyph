@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/internal/operation"
+	"github.com/n-r-w/glyph/internal/testsupport/gatedconn"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
@@ -73,22 +74,6 @@ type blockedUIInitialize struct{}
 type uiSmallBufferListener struct {
 	// Listener accepts the real TCP connections used by gRPC.
 	net.Listener
-}
-
-// uiGatedReadConn stops client transport reads at an explicit test barrier.
-type uiGatedReadConn struct {
-	// Conn is the real client TCP connection.
-	net.Conn
-	// gated selects whether new reads wait for release.
-	gated atomic.Bool
-	// blocked signals that a client transport read reached the gate.
-	blocked chan struct{}
-	// release allows gated reads to continue during normal or failed cleanup.
-	release chan struct{}
-	// blockedOnce closes the blocked signal once.
-	blockedOnce sync.Once
-	// releaseOnce closes the release signal once.
-	releaseOnce sync.Once
 }
 
 // uiTransportObserver records target Send and all raw Recv lifecycles.
@@ -222,32 +207,8 @@ func (listener *uiSmallBufferListener) Accept() (net.Conn, error) {
 	return connection, nil
 }
 
-// Read waits at the configured client transport barrier before reading more TCP bytes.
-func (connection *uiGatedReadConn) Read(buffer []byte) (int, error) {
-	if connection.gated.Load() {
-		connection.blockedOnce.Do(func() { close(connection.blocked) })
-		<-connection.release
-	}
-	return connection.Conn.Read(buffer)
-}
-
-// blockReads makes the next client transport Read wait at the gate.
-func (connection *uiGatedReadConn) blockReads() {
-	connection.gated.Store(true)
-}
-
-// releaseReads unblocks transport reads exactly once for failure-safe cleanup.
-func (connection *uiGatedReadConn) releaseReads() {
-	connection.releaseOnce.Do(func() { close(connection.release) })
-}
-
-// Close releases a gated read before closing the real client connection.
-func (connection *uiGatedReadConn) Close() error {
-	connection.releaseReads()
-	return connection.Conn.Close()
-}
-
-// TestBlockedTransportFailureReturnsUIServerHandler controls the existing context-aware send path.
+// TestBlockedTransportFailureReturnsUIServerHandler verifies handler cleanup returns retained application and writer
+// sources without joining blocked raw Send and Recv results.
 func TestBlockedTransportFailureReturnsUIServerHandler(t *testing.T) {
 	t.Parallel()
 
@@ -280,7 +241,7 @@ func TestBlockedTransportFailureReturnsUIServerHandler(t *testing.T) {
 	receiveResult := make(chan error, 1)
 	handlerResult := make(chan error, 1)
 	var observedStream *uiTransportObserver
-	var clientTransport *uiGatedReadConn
+	var clientTransport *gatedconn.Conn
 	listener, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	grpcListener := &uiSmallBufferListener{Listener: listener}
@@ -319,14 +280,14 @@ func TestBlockedTransportFailureReturnsUIServerHandler(t *testing.T) {
 		releaseFillWriter()
 		releaseClose()
 		if clientTransport != nil {
-			clientTransport.releaseReads()
+			clientTransport.ReleaseReads()
 		}
 		grpcServer.Stop()
 		if serveErr := <-serveResult; serveErr != nil {
 			assert.ErrorIs(t, serveErr, grpc.ErrServerStopped)
 		}
 	})
-	transportReady := make(chan *uiGatedReadConn, 1)
+	transportReady := make(chan *gatedconn.Conn, 1)
 	connection, err := grpc.NewClient(
 		"passthrough:///"+listener.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -335,10 +296,7 @@ func TestBlockedTransportFailureReturnsUIServerHandler(t *testing.T) {
 			if dialErr != nil {
 				return nil, dialErr
 			}
-			gatedConnection := &uiGatedReadConn{
-				Conn: rawConnection, gated: atomic.Bool{}, blocked: make(chan struct{}),
-				release: make(chan struct{}), blockedOnce: sync.Once{}, releaseOnce: sync.Once{},
-			}
+			gatedConnection := gatedconn.New(rawConnection)
 			transportReady <- gatedConnection
 			return gatedConnection, nil
 		}),
@@ -355,10 +313,10 @@ func TestBlockedTransportFailureReturnsUIServerHandler(t *testing.T) {
 		_, err = stream.Recv()
 		require.NoError(t, err)
 	}
-	clientTransport.blockReads()
+	clientTransport.BlockReads()
 	releaseSendProbe()
 	awaitBlockedUISignal(t, probeQueued, "reader-gate probe enqueue")
-	awaitBlockedUISignal(t, clientTransport.blocked, "client transport read gate")
+	awaitBlockedUISignal(t, clientTransport.Blocked(), "client transport read gate")
 	releaseBlockedOutput()
 	awaitBlockedUISignal(t, runStarted, "UI Service.Run start")
 	firstSendErr := awaitBlockedUISignal(t, firstSendResult, "first bounded raw Send")
@@ -408,7 +366,7 @@ func TestBlockedTransportFailureReturnsUIServerHandler(t *testing.T) {
 	assert.Equal(t, codes.Canceled, status.Code(sendErr))
 	assert.Equal(t, codes.Canceled, status.Code(recvErr))
 	assert.NotContains(t, handlerErr.Error(), sendErr.Error())
-	clientTransport.releaseReads()
+	clientTransport.ReleaseReads()
 	var clientErr error
 	for range blockedUIRequestCount + 2 {
 		if _, clientErr = stream.Recv(); clientErr != nil {

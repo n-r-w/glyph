@@ -21,6 +21,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/internal/operation"
+	"github.com/n-r-w/glyph/internal/testsupport/gatedconn"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -104,22 +105,6 @@ type extensionTransportObserver struct {
 type extensionSmallBufferListener struct {
 	// Listener accepts the real TCP connections used by gRPC.
 	net.Listener
-}
-
-// extensionGatedReadConn stops client transport reads at an explicit test barrier.
-type extensionGatedReadConn struct {
-	// Conn is the real client TCP connection.
-	net.Conn
-	// gated selects whether new reads wait for release.
-	gated atomic.Bool
-	// blocked signals that a client transport read reached the gate.
-	blocked chan struct{}
-	// release allows gated reads to continue during normal or failed cleanup.
-	release chan struct{}
-	// blockedOnce closes the blocked signal once.
-	blockedOnce sync.Once
-	// releaseOnce closes the release signal once.
-	releaseOnce sync.Once
 }
 
 // PrepareRegister admits the one registration operation used by the test Host.
@@ -258,31 +243,6 @@ func (listener *extensionSmallBufferListener) Accept() (net.Conn, error) {
 	return connection, nil
 }
 
-// Read waits at the configured client transport barrier before reading more TCP bytes.
-func (connection *extensionGatedReadConn) Read(buffer []byte) (int, error) {
-	if connection.gated.Load() {
-		connection.blockedOnce.Do(func() { close(connection.blocked) })
-		<-connection.release
-	}
-	return connection.Conn.Read(buffer)
-}
-
-// blockReads makes the next client transport Read wait at the gate.
-func (connection *extensionGatedReadConn) blockReads() {
-	connection.gated.Store(true)
-}
-
-// releaseReads unblocks transport reads exactly once for failure-safe cleanup.
-func (connection *extensionGatedReadConn) releaseReads() {
-	connection.releaseOnce.Do(func() { close(connection.release) })
-}
-
-// Close releases a gated read before closing the real client connection.
-func (connection *extensionGatedReadConn) Close() error {
-	connection.releaseReads()
-	return connection.Conn.Close()
-}
-
 // TestBlockedTransportFailureReturnsExtensionHandler verifies fatal cleanup without Host assistance.
 func TestBlockedTransportFailureReturnsExtensionHandler(t *testing.T) {
 	t.Parallel()
@@ -318,7 +278,7 @@ func TestBlockedTransportFailureReturnsExtensionHandler(t *testing.T) {
 	receiveResult := make(chan error, 1)
 	handlerResult := make(chan error, 1)
 	var observedStream *extensionTransportObserver
-	var clientTransport *extensionGatedReadConn
+	var clientTransport *gatedconn.Conn
 	listener, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
 	grpcListener := &extensionSmallBufferListener{Listener: listener}
@@ -352,14 +312,14 @@ func TestBlockedTransportFailureReturnsExtensionHandler(t *testing.T) {
 		releaseFillQueue()
 		releaseExecute()
 		if clientTransport != nil {
-			clientTransport.releaseReads()
+			clientTransport.ReleaseReads()
 		}
 		grpcServer.Stop()
 		if serveErr := <-serveResult; serveErr != nil {
 			assert.ErrorIs(t, serveErr, grpc.ErrServerStopped)
 		}
 	})
-	transportReady := make(chan *extensionGatedReadConn, 1)
+	transportReady := make(chan *gatedconn.Conn, 1)
 	connection, err := grpc.NewClient(
 		"passthrough:///"+listener.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -368,10 +328,7 @@ func TestBlockedTransportFailureReturnsExtensionHandler(t *testing.T) {
 			if dialErr != nil {
 				return nil, dialErr
 			}
-			gatedConnection := &extensionGatedReadConn{
-				Conn: rawConnection, gated: atomic.Bool{}, blocked: make(chan struct{}),
-				release: make(chan struct{}), blockedOnce: sync.Once{}, releaseOnce: sync.Once{},
-			}
+			gatedConnection := gatedconn.New(rawConnection)
 			transportReady <- gatedConnection
 			return gatedConnection, nil
 		}),
@@ -393,10 +350,10 @@ func TestBlockedTransportFailureReturnsExtensionHandler(t *testing.T) {
 	}
 
 	// Gate client reads with one probe, then queue bounded output and an acquired writer source.
-	clientTransport.blockReads()
+	clientTransport.BlockReads()
 	releaseSendProbe()
 	awaitBlockedExtensionSignal(t, probeQueued, "reader-gate probe enqueue")
-	awaitBlockedExtensionSignal(t, clientTransport.blocked, "client transport read gate")
+	awaitBlockedExtensionSignal(t, clientTransport.Blocked(), "client transport read gate")
 	releaseBlockedOutput()
 	awaitBlockedExtensionSignal(t, blockedOutputQueued, "bounded output enqueue")
 	firstSendErr := awaitBlockedExtensionSignal(t, firstSendResult, "first bounded raw Send")
@@ -436,7 +393,7 @@ func TestBlockedTransportFailureReturnsExtensionHandler(t *testing.T) {
 	assert.Equal(t, codes.Canceled, status.Code(sendErr))
 	assert.Equal(t, codes.Canceled, status.Code(recvErr))
 	assert.NotContains(t, handlerErr.Error(), sendErr.Error())
-	clientTransport.releaseReads()
+	clientTransport.ReleaseReads()
 	var clientErr error
 	for clientErr == nil {
 		_, clientErr = stream.Recv()

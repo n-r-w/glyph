@@ -349,10 +349,9 @@ func TestConnectionCloseCompletesGracefullyWithResponsiveHost(t *testing.T) {
 	go func() { closeResult <- connection.Close() }()
 	closeErr := awaitBlockedClientSignal(t, closeResult, "responsive Host close did not complete")
 
-	// Assert CloseConnection was delivered and no timeout cause was reported.
+	// Assert CloseConnection was delivered and close completed without an error.
 	awaitBlockedClientSignal(t, host.closeReceived, "responsive Host did not receive CloseConnection")
 	require.NoError(t, closeErr)
-	assert.NotContains(t, errorText(closeErr), "graceful extension connection close timed out")
 }
 
 // awaitBlockedClientSignal waits only as a watchdog for a required synchronized test event.
@@ -366,12 +365,4 @@ func awaitBlockedClientSignal[T any](t *testing.T, signal <-chan T, message stri
 		var zero T
 		return zero
 	}
-}
-
-// errorText returns an empty string for nil errors and complete text otherwise.
-func errorText(err error) string {
-	if err == nil {
-		return ""
-	}
-	return err.Error()
 }
