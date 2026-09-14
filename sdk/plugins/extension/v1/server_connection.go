@@ -28,17 +28,23 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 	defer cancel(context.Canceled)
 	var failConnection func(error)
 	writer := operation.NewWriter(func(response *extensionpb.OpenResponse) error {
-		if err := stream.Send(response); err != nil {
-			mapped := mapTransportError(err)
-			if failConnection != nil {
-				failConnection(mapped)
+		err := operation.SendWithContext(ctx, func() error {
+			if sendErr := stream.Send(response); sendErr != nil {
+				return mapTransportError(sendErr)
 			}
-			return mapped
+			return nil
+		})
+		if err == nil {
+			if registration := response.GetEvent().GetCompleted().GetRegister(); registration != nil {
+				s.completeRegistration(registration)
+			}
+			return nil
 		}
-		if registration := response.GetEvent().GetCompleted().GetRegister(); registration != nil {
-			s.completeRegistration(registration)
+		mapped := mapTransportError(err)
+		if failConnection != nil {
+			failConnection(mapped)
 		}
-		return nil
+		return mapped
 	})
 	var owner *operation.Owner[*extensionpb.ToolProgress, extensionResult]
 	fail := func(err error) {
@@ -108,6 +114,16 @@ func (loop *serverConnectionLoop) run() error {
 	closing := false
 	for {
 		select {
+		case <-loop.ctx.Done():
+			return finishServerFailure(
+				context.Cause(loop.ctx),
+				loop.owner,
+				loop.cancel,
+				loop.startOwnerClose,
+				loop.ownerClosed,
+				loop.writer,
+				loop.writerResult,
+			)
 		case writerErr := <-loop.writerResult:
 			if writerErr == nil {
 				writerErr = errors.New("extension writer stopped before connection closure")
