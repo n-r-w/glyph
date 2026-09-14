@@ -158,19 +158,30 @@ func TestCloneActivePersistsTheCompleteActiveBranch(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {
-		name         string
-		tree         func(*testing.T) session.Tree
-		expectedIDs  []string
-		expectedLeaf mo.Option[string]
+		name           string
+		tree           func(*testing.T) session.Tree
+		expectedIDs    []string
+		expectedLeaf   mo.Option[string]
+		expectedLabels map[string]string
 	}{
-		{name: "active branch", tree: func(t *testing.T) session.Tree {
-			return replacementTree(t, replacementEntries(), "target", map[string]string{"summary": "kept", "target": "kept"})
-		}, expectedIDs: []string{"root", "extension", "summary", "target"}, expectedLeaf: mo.Some("target")},
+		{
+			name: "active branch", tree: func(t *testing.T) session.Tree {
+				return replacementTree(t, replacementEntries(), "target", map[string]string{"summary": "kept", "target": "kept"})
+			}, expectedIDs: []string{"root", "extension", "summary", "target"}, expectedLeaf: mo.Some("target"),
+			expectedLabels: map[string]string{"summary": "kept", "target": "kept"},
+		},
+		{name: "implicit root", tree: func(t *testing.T) session.Tree {
+			tree, err := session.NewTree(
+				replacementEntries(), mo.None[string](), map[string]string{"summary": "stored", "target": "stored"},
+			)
+			require.NoError(t, err)
+			return tree
+		}, expectedIDs: []string{}, expectedLeaf: mo.None[string](), expectedLabels: map[string]string{}},
 		{name: "empty", tree: func(t *testing.T) session.Tree {
 			tree, err := session.NewTree(nil, mo.None[string](), nil)
 			require.NoError(t, err)
 			return tree
-		}, expectedIDs: []string{}, expectedLeaf: mo.None[string]()},
+		}, expectedIDs: []string{}, expectedLeaf: mo.None[string](), expectedLabels: map[string]string{}},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -193,6 +204,7 @@ func TestCloneActivePersistsTheCompleteActiveBranch(t *testing.T) {
 						}),
 					)
 					require.Equal(t, test.expectedLeaf, command.Tree.ActiveLeafID())
+					require.Equal(t, test.expectedLabels, command.Tree.Labels())
 					return CreateSnapshotResult{StoragePath: "/sessions/clone.jsonl"}, nil
 				},
 			)

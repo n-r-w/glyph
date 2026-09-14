@@ -13,6 +13,78 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
+// TestTreeImplicitRootConstructionAndClonePreserveStoredState verifies an absent active position keeps the full tree.
+func TestTreeImplicitRootConstructionAndClonePreserveStoredState(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a stored branch and label whose active position is the implicit root.
+	createdAt := time.Unix(1, 0).UTC()
+	entries := []Entry{
+		treeUserEntry("root", mo.None[string](), "root input", createdAt),
+		treeModelEntry("model", mo.Some("root"), createdAt.Add(time.Second)),
+	}
+	labels := map[string]string{"root": "kept"}
+
+	// Act by constructing and cloning the complete stored tree.
+	tree, err := NewTree(entries, mo.None[string](), labels)
+	require.NoError(t, err)
+	clone := tree.Clone()
+
+	// Assert both trees retain stored state while exposing an empty active branch.
+	for _, candidate := range []Tree{tree, clone} {
+		require.Equal(t, entries, candidate.Entries())
+		require.Equal(t, labels, candidate.Labels())
+		require.True(t, candidate.ActiveLeafID().IsNone())
+		require.Empty(t, candidate.ActiveBranch())
+	}
+}
+
+// TestTreeImplicitRootNavigationPreparesExactInput verifies root user and extension content target the implicit root.
+func TestTreeImplicitRootNavigationPreparesExactInput(t *testing.T) {
+	t.Parallel()
+
+	createdAt := time.Unix(1, 0).UTC()
+	for _, test := range []struct {
+		name          string
+		entry         Entry
+		expectedInput string
+	}{
+		{
+			name:          "user",
+			entry:         treeUserEntry("root-user", mo.None[string](), "exact root user input", createdAt),
+			expectedInput: "exact root user input",
+		},
+		{
+			name: "model-visible extension message",
+			entry: Entry{
+				ID: "root-extension", ParentID: mo.None[string](), CreatedAt: createdAt,
+				Information: mo.None[Information](), User: mo.None[UserMessage](), Model: mo.None[ModelResponse](),
+				EstimatedCost: mo.None[EstimatedCost](), ToolResult: mo.None[ToolResult](),
+				Extension: mo.None[ExtensionEnvelope](), ExtensionMessage: mo.Some(ExtensionMessage{
+					ExtensionID: "example", EntryType: "note", Text: "exact\nroot extension input",
+					Visibility: ClientVisibilityVisible,
+				}), BranchSummary: mo.None[BranchSummaryEntry](),
+			},
+			expectedInput: "exact\nroot extension input",
+		},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one root entry as the current active leaf.
+			tree, err := NewTree([]Entry{test.entry}, mo.Some(test.entry.ID), nil)
+			require.NoError(t, err)
+
+			// Act by selecting the root content.
+			preparation, err := tree.NavigationPreparation(test.entry.ID)
+
+			// Assert navigation selects the implicit root and preserves exact input text.
+			require.NoError(t, err)
+			require.True(t, preparation.DestinationID.IsNone())
+			require.Equal(t, mo.Some(test.expectedInput), preparation.NextInput)
+		})
+	}
+}
+
 // TestTreeActiveBranchAndNavigationPreparation verifies branch projection and user-target navigation semantics.
 func TestTreeActiveBranchAndNavigationPreparation(t *testing.T) {
 	t.Parallel()
@@ -29,7 +101,7 @@ func TestTreeActiveBranchAndNavigationPreparation(t *testing.T) {
 		mo.Some("active-label-placeholder"),
 		map[string]string{"model-a": "checkpoint"},
 	)
-	require.Error(t, err)
+	require.EqualError(t, err, "active leaf does not exist")
 
 	// Arrange the valid active leaf after proving invalid active-leaf validation.
 	tree, err := NewTree(

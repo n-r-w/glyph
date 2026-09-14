@@ -14,13 +14,13 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
-// Tree owns parent-linked entries, the active leaf, and entry labels.
+// Tree owns parent-linked entries, the active position, and entry labels.
 type Tree struct {
 	// entries preserves persistence order across all branches.
 	entries []Entry
 	// index resolves entry identity without exposing mutable aggregate state.
 	index map[string]int
-	// activeLeafID identifies the entry used as parent for the next append.
+	// activeLeafID identifies the entry used as parent for the next append, or the implicit root when absent.
 	activeLeafID mo.Option[string]
 	// labels stores the latest nonempty label for each target entry.
 	labels map[string]string
@@ -55,8 +55,6 @@ func NewTree(entries []Entry, activeLeafID mo.Option[string], labels map[string]
 			return Tree{}, errors.New("active leaf does not exist")
 		}
 		tree.activeLeafID = mo.Some(id)
-	} else if len(entries) != 0 {
-		return Tree{}, errors.New("nonempty tree requires an active leaf")
 	}
 	for id, label := range labels {
 		if _, exists := tree.index[id]; !exists {

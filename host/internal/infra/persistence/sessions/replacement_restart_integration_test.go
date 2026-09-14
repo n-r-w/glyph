@@ -12,12 +12,112 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/persistence/sessionfilesystem"
 	sessionstore "github.com/n-r-w/glyph/host/internal/infra/persistence/sessions"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
+
+// TestImplicitRootNavigationSurvivesRestartAndStartsANewRoot verifies the complete production repository lifecycle.
+func TestImplicitRootNavigationSurvivesRestartAndStartsANewRoot(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a durable labeled branch and resume it through the Host service.
+	root := t.TempDir()
+	project := t.TempDir()
+	repository := sessionstore.New(root, project, sessionfilesystem.New())
+	require.NoError(t, repository.Initialize(t.Context()))
+	sourceTree := restartSourceTree(t)
+	_, err := repository.CreateSnapshot(t.Context(), hostsessions.CreateSnapshotCommand{
+		Header: session.Header{
+			ID:               "source",
+			CreatedAt:        time.Unix(1, 0).UTC(),
+			WorkingDirectory: project,
+		},
+		Tree:                 sourceTree,
+		Information:          mo.Some(session.Information{Name: "source"}),
+		InformationUpdatedAt: mo.Some(time.Unix(2, 0).UTC()),
+	})
+	require.NoError(t, err)
+	controller := gomock.NewController(t)
+	service := hostsessions.New(
+		repository,
+		hostsessions.NewMockIDGenerator(controller),
+		hostsessions.NewMockClock(controller),
+		hostsessions.NewMockPricingCatalog(controller),
+		project,
+	)
+	_, _, err = service.ResumeActive(t.Context(), "source")
+	require.NoError(t, err)
+	preparation, err := service.Tree().NavigationPreparation("root")
+	require.NoError(t, err)
+	require.True(t, preparation.DestinationID.IsNone())
+	require.Equal(t, mo.Some("root"), preparation.NextInput)
+
+	// Act by committing no-summary navigation to the implicit root.
+	commit, err := service.CommitNavigation(t.Context(), sessiontree.CommitCommand{
+		ExpectedActiveLeafID: mo.Some("target"),
+		DestinationID:        preparation.DestinationID,
+		BranchSummary:        mo.None[sessiontree.BranchSummaryDraft](),
+	}, func(published session.Tree) error {
+		require.True(t, published.ActiveLeafID().IsNone())
+		return nil
+	})
+
+	// Assert the commit keeps stored entries and labels while clearing active provider state.
+	require.NoError(t, err)
+	require.True(t, commit.Tree.ActiveLeafID().IsNone())
+	require.Empty(t, service.ActiveEntries())
+	require.Empty(t, service.Snapshot())
+	require.Equal(t, sourceTree.Entries(), service.Tree().Entries())
+	require.Equal(t, sourceTree.Labels(), service.Tree().Labels())
+
+	// Act by restarting the repository and resuming the persisted implicit-root session.
+	restartedRepository := sessionstore.New(root, project, sessionfilesystem.New())
+	require.NoError(t, restartedRepository.Initialize(t.Context()))
+	restartedController := gomock.NewController(t)
+	restartedIDs := hostsessions.NewMockIDGenerator(restartedController)
+	restartedClock := hostsessions.NewMockClock(restartedController)
+	restarted := hostsessions.New(
+		restartedRepository,
+		restartedIDs,
+		restartedClock,
+		hostsessions.NewMockPricingCatalog(restartedController),
+		project,
+	)
+	_, activeEntries, err := restarted.ResumeActive(t.Context(), "source")
+	require.NoError(t, err)
+
+	// Assert restart preserves the implicit root, full stored tree, labels, and empty projections.
+	require.Empty(t, activeEntries)
+	require.Empty(t, restarted.ActiveEntries())
+	require.Empty(t, restarted.Snapshot())
+	require.True(t, restarted.Tree().ActiveLeafID().IsNone())
+	require.Equal(t, sourceTree.Entries(), restarted.Tree().Entries())
+	require.Equal(t, sourceTree.Labels(), restarted.Tree().Labels())
+
+	// Act by appending the next user input from the implicit root.
+	restartedIDs.EXPECT().NewID().Return("later-root", nil)
+	restartedClock.EXPECT().Now().Return(time.Unix(100, 0).UTC())
+	err = restarted.Append(t.Context(), agent.HistoryEntry{
+		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("later root input")),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+	})
+
+	// Assert the new root becomes active while every prior branch and label remains stored.
+	require.NoError(t, err)
+	persisted := restarted.Tree()
+	require.Equal(t, mo.Some("later-root"), persisted.ActiveLeafID())
+	require.Len(t, persisted.Entries(), len(sourceTree.Entries())+1)
+	laterRoot := persisted.Entries()[len(persisted.Entries())-1]
+	require.True(t, laterRoot.ParentID.IsNone())
+	require.Equal(t, model.TextMessage("later root input"), laterRoot.User.MustGet())
+	require.Equal(t, sourceTree.Entries(), persisted.Entries()[:len(sourceTree.Entries())])
+	require.Equal(t, sourceTree.Labels(), persisted.Labels())
+}
 
 // TestReplacementAndLabelReplayRestoresExactCommittedState verifies fork, clone, and label durability across repository
 // restart.
