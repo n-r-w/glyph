@@ -199,10 +199,10 @@ func (s *Service) open(stream OpenStream) error {
 	cancelConnection(context.Canceled)
 	<-receiveJoined
 	owner.Wait()
-	// Source snapshots cannot select the primary delivery category.
+	// Source snapshots and an acquired raw Send failure cannot select the primary delivery category.
 	sources := errors.Join(
 		owner.SourceErrors(), writer.SourceErrors(), pendingReceiveError(receiveResult),
-		independentWriterError(completion.Err, writerCompletion),
+		independentWriterError(completion.Err, writerCompletion), writer.PendingSendError(),
 	)
 	if sources != nil {
 		completion.Err = errors.Join(completion.Err, sources)

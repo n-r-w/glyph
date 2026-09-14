@@ -73,6 +73,131 @@ func TestServerRejectedSourceSurvivesEOFDrain(t *testing.T) {
 	})
 }
 
+// TestCanceledServerSendUsesActualConfirmationAtCollection verifies all nonblocking confirmation outcomes.
+func TestCanceledServerSendUsesActualConfirmationAtCollection(t *testing.T) {
+	t.Parallel()
+	for _, completion := range []string{"blocked", "success", "failure"} {
+		t.Run(completion, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange failed handler work and a terminal Send held beyond connection cancellation.
+				controller := gomock.NewController(t)
+				service := NewMockService(controller)
+				source := errors.New("handler terminal source")
+				connectionErr := errors.New("connection cancellation while Send is active")
+				actualErr := errors.New("actual Send failed after cancellation")
+				cleanupStarted, releaseCleanup := make(chan struct{}), make(chan struct{})
+				blocker := NewMockHandleOperation(controller)
+				blocker.EXPECT().
+					Run(gomock.Any()).
+					DoAndReturn(func(ctx context.Context) (*extensionpb.HandleResponse, error) {
+						<-ctx.Done()
+						return nil, context.Canceled
+					}).
+					MaxTimes(1)
+				blocker.EXPECT().Release().Do(func() {
+					close(cleanupStarted)
+					<-releaseCleanup
+				})
+				prepared := NewMockHandleOperation(controller)
+				prepared.EXPECT().Run(gomock.Any()).Return(nil, source)
+				prepared.EXPECT().Release()
+				gomock.InOrder(
+					service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).Return(blocker, nil),
+					service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).Return(prepared, nil),
+				)
+				ctx, cancel := context.WithCancelCause(t.Context())
+				defer cancel(context.Canceled)
+				stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](
+					controller,
+				)
+				stream.EXPECT().Context().Return(ctx)
+				server := newServer(service)
+				server.completeRegistration(extensionpb.RegisterResponse_builder{
+					Tools: nil,
+					Handlers: []*extensionpb.HandlerDescriptor{extensionpb.HandlerDescriptor_builder{
+						Id: new("handler"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
+					}.Build()},
+				}.Build())
+				newHandleRequest := func(id string) *extensionpb.OpenRequest {
+					payload := new(extensionpb.HostRequest)
+					payload.SetHandle(extensionpb.HandleRequest_builder{
+						Context: testInvocationIdentity(), HandlerId: new("handler"),
+						SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, Lifecycle: nil,
+						SessionTree: extensionpb.SessionTreeInvocation_builder{
+							SessionId: new("session"), TargetEntryId: new("target"), PrecedingActiveLeafId: nil,
+							NavigationDestinationId: nil, CommittedActiveLeafId: nil, CreatedSummary: nil,
+						}.Build(),
+					}.Build())
+					request := new(extensionpb.OpenRequest)
+					request.SetOperationId(id)
+					request.SetRequest(payload)
+					return request
+				}
+				receiveStop := make(chan struct{})
+				gomock.InOrder(
+					stream.EXPECT().Recv().Return(newHandleRequest("cleanup-blocker"), nil),
+					stream.EXPECT().Recv().Return(newHandleRequest("failed-handler"), nil),
+					stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
+						<-receiveStop
+						return nil, context.Canceled
+					}),
+				)
+				sendStarted, releaseSend := make(chan struct{}), make(chan struct{})
+				sendReturned := make(chan struct{})
+				stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *extensionpb.OpenResponse) error {
+					if response.GetEvent().GetFailed() != nil {
+						close(sendStarted)
+						<-releaseSend
+						close(sendReturned)
+						if completion == "failure" {
+							return actualErr
+						}
+					}
+					return nil
+				}).AnyTimes()
+				result := make(chan error, 1)
+
+				// Act after cancellation has released the writer and cleanup is held before collection.
+				go func() { result <- server.Open(stream) }()
+				<-sendStarted
+				cancel(connectionErr)
+				<-cleanupStarted
+				if completion != "blocked" {
+					close(releaseSend)
+					<-sendReturned
+					synctest.Wait()
+				}
+				close(releaseCleanup)
+				err := <-result
+				if completion == "blocked" {
+					select {
+					case <-sendReturned:
+						require.Fail(t, "raw send returned before handler cleanup")
+					default:
+					}
+					close(releaseSend)
+					<-sendReturned
+				}
+				close(receiveStop)
+				synctest.Wait()
+
+				// Assert collection uses only the actual confirmation available at its boundary.
+				require.ErrorIs(t, err, connectionErr)
+				assert.Equal(t, codes.Unavailable, status.Code(err))
+				if completion == "success" {
+					require.NotErrorIs(t, err, source)
+				} else {
+					require.ErrorIs(t, err, source)
+				}
+				if completion == "failure" {
+					require.ErrorIs(t, err, actualErr)
+				}
+			})
+		})
+	}
+}
+
 // TestHostRejectedSourceSurvivesConnectionClose checks Host preparation causes through connection cleanup.
 func TestHostRejectedSourceSurvivesConnectionClose(t *testing.T) {
 	t.Parallel()

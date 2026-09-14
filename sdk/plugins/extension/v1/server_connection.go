@@ -82,7 +82,8 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 		startOwnerClose: startOwnerClose, ownerClosed: ownerClosed,
 	}
 	result := connectionLoop.run()
-	return joinOutputSources(result, owner.SourceErrors(), writer.SourceErrors())
+	// An acquired raw Send failure supplements, but cannot reclassify, the selected connection result.
+	return joinOutputSources(result, owner.SourceErrors(), writer.SourceErrors(), writer.PendingSendError())
 }
 
 // serverConnectionLoop coordinates receive, writer, and operation-owner completion.

@@ -94,79 +94,123 @@ func TestFailedTerminalSendPreservesCompletionCauses(t *testing.T) {
 	})
 }
 
-// TestCanceledTerminalWaitRetainsUnconfirmedSource verifies late success cannot revise completed cleanup.
-func TestCanceledTerminalWaitRetainsUnconfirmedSource(t *testing.T) {
+// TestCanceledTerminalSendUsesActualConfirmationAtCollection verifies all nonblocking confirmation outcomes.
+func TestCanceledTerminalSendUsesActualConfirmationAtCollection(t *testing.T) {
 	t.Parallel()
-	synctest.Test(t, func(t *testing.T) {
-		// Arrange failed accepted work and a terminal Send that completes after connection cancellation.
-		controller := gomock.NewController(t)
-		source := errors.New("delivered terminal source")
-		connectionErr := errors.New("connection cancellation while Send is active")
-		ctx, cancel := context.WithCancelCause(t.Context())
-		defer cancel(context.Canceled)
-		prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
-		prepared.EXPECT().
-			Run(gomock.Any(), gomock.Any()).
-			Return(operation.Failed[Response](FailureCodeInternal, source))
-		prepared.EXPECT().Release()
-		host := NewMockHostSession(controller)
-		host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
-		output := NewMockConnectionOutput(controller)
-		output.EXPECT().BindWriter(gomock.Any()).Return(func() {})
-		stream := NewMockOpenStream(controller)
-		stream.EXPECT().Context().Return(ctx)
-		request := new(programmaticv1.OpenRequest)
-		request.SetOperationId("delivered-failure")
-		payload := new(programmaticv1.ControllerRequest)
-		payload.SetGetModels(new(programmaticv1.GetModels))
-		request.SetRequest(payload)
-		receiveStop := make(chan struct{})
-		gomock.InOrder(
-			stream.EXPECT().Recv().Return(request, nil),
-			stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
-				<-receiveStop
-				return nil, context.Canceled
-			}),
-		)
-		sendStarted := make(chan struct{})
-		sendRelease := make(chan struct{})
-		sendReturned := make(chan struct{})
-		stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
-			if response.GetEvent().HasFailed() {
-				assert.Equal(t, source.Error(), response.GetEvent().GetFailed().GetMessage())
-				close(sendStarted)
-				<-sendRelease
-				close(sendReturned)
-			}
-			return nil
-		}).Times(3)
-		service := New(t.Context(), host, output)
-		result := make(chan error, 1)
+	for _, completion := range []string{"blocked", "success", "failure"} {
+		t.Run(completion, func(t *testing.T) {
+			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange failed accepted work and a terminal Send held beyond connection cancellation.
+				controller := gomock.NewController(t)
+				source := errors.New("delivered terminal source")
+				connectionErr := errors.New("connection cancellation while Send is active")
+				actualErr := errors.New("actual Send failed after cancellation")
+				ctx, cancel := context.WithCancelCause(t.Context())
+				defer cancel(context.Canceled)
+				cleanupStarted, releaseCleanup := make(chan struct{}), make(chan struct{})
+				blocker := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
+				blocker.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+					func(ctx context.Context, reporter operation.Reporter[OperationProgress]) operation.Outcome[Response] {
+						_ = reporter
+						<-ctx.Done()
+						return operation.Canceled[Response]()
+					},
+				).
+					MaxTimes(1)
+				blocker.EXPECT().Release().Do(func() {
+					close(cleanupStarted)
+					<-releaseCleanup
+				})
+				prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
+				prepared.EXPECT().
+					Run(gomock.Any(), gomock.Any()).
+					Return(operation.Failed[Response](FailureCodeInternal, source))
+				prepared.EXPECT().Release()
+				host := NewMockHostSession(controller)
+				gomock.InOrder(
+					host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(blocker, nil),
+					host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil),
+				)
+				output := NewMockConnectionOutput(controller)
+				output.EXPECT().BindWriter(gomock.Any()).Return(func() {})
+				stream := NewMockOpenStream(controller)
+				stream.EXPECT().Context().Return(ctx)
+				payload := new(programmaticv1.ControllerRequest)
+				payload.SetGetModels(new(programmaticv1.GetModels))
+				blockerRequest := new(programmaticv1.OpenRequest)
+				blockerRequest.SetOperationId("cleanup-blocker")
+				blockerRequest.SetRequest(payload)
+				request := new(programmaticv1.OpenRequest)
+				request.SetOperationId("delivered-failure")
+				request.SetRequest(payload)
+				receiveStop := make(chan struct{})
+				gomock.InOrder(
+					stream.EXPECT().Recv().Return(blockerRequest, nil),
+					stream.EXPECT().Recv().Return(request, nil),
+					stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
+						<-receiveStop
+						return nil, context.Canceled
+					}),
+				)
+				sendStarted, sendRelease := make(chan struct{}), make(chan struct{})
+				sendReturned := make(chan struct{})
+				stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
+					if response.GetEvent().HasFailed() {
+						assert.Equal(t, source.Error(), response.GetEvent().GetFailed().GetMessage())
+						close(sendStarted)
+						<-sendRelease
+						close(sendReturned)
+						if completion == "failure" {
+							return actualErr
+						}
+					}
+					return nil
+				}).AnyTimes()
+				service := New(t.Context(), host, output)
+				result := make(chan error, 1)
 
-		// Act by canceling the waiter while the actual transport send remains pending.
-		go func() { result <- service.open(stream) }()
-		<-sendStarted
-		cancel(connectionErr)
-		synctest.Wait()
-		err := <-result
-		completion := <-service.Completions()
-		select {
-		case <-sendReturned:
-			require.Fail(t, "raw send returned before handler cleanup")
-		default:
-		}
-		close(sendRelease)
-		<-sendReturned
-		close(receiveStop)
-		synctest.Wait()
+				// Act after cancellation has released the writer and cleanup is held before collection.
+				go func() { result <- service.open(stream) }()
+				<-sendStarted
+				cancel(connectionErr)
+				<-cleanupStarted
+				if completion != "blocked" {
+					close(sendRelease)
+					<-sendReturned
+					synctest.Wait()
+				}
+				close(releaseCleanup)
+				err := <-result
+				completionResult := <-service.Completions()
+				if completion == "blocked" {
+					select {
+					case <-sendReturned:
+						require.Fail(t, "raw send returned before handler cleanup")
+					default:
+					}
+					close(sendRelease)
+					<-sendReturned
+				}
+				close(receiveStop)
+				synctest.Wait()
 
-		// Assert unconfirmed delivery retains its source at the completed reporting boundary.
-		for _, result := range []error{err, completion.Err} {
-			require.ErrorIs(t, result, connectionErr)
-			require.ErrorIs(t, result, source)
-		}
-		assert.Equal(t, codes.Unavailable, status.Code(err))
-	})
+				// Assert collection uses only the actual confirmation available at its boundary.
+				for _, collected := range []error{err, completionResult.Err} {
+					require.ErrorIs(t, collected, connectionErr)
+					if completion == "success" {
+						require.NotErrorIs(t, collected, source)
+					} else {
+						require.ErrorIs(t, collected, source)
+					}
+					if completion == "failure" {
+						require.ErrorIs(t, collected, actualErr)
+					}
+				}
+				assert.Equal(t, codes.Unavailable, status.Code(err))
+			})
+		})
+	}
 }
 
 // TestPendingFailedTerminalPreservesCompletionCauses verifies completion when an earlier send blocks delivery.
