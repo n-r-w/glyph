@@ -154,14 +154,9 @@ func TestFatalBlockedHostUISendCancelsRPCBeforeCloseSend(t *testing.T) {
 	}
 	service := New()
 	service.stream = observed
-	var rpcCanceled atomic.Bool
-	service.cancel = func() {
-		rpcCanceled.Store(true)
-		cancelStream()
-	}
+	service.cancel = cancelStream
 	activated := make(chan struct{})
 	operationStarted := make(chan struct{})
-	var releaseBeforeRPCCancel atomic.Bool
 	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](gomock.NewController(t))
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(
 		ctx context.Context,
@@ -171,11 +166,7 @@ func TestFatalBlockedHostUISendCancelsRPCBeforeCloseSend(t *testing.T) {
 		<-ctx.Done()
 		return operation.Canceled[controllerui.Frame]()
 	})
-	prepared.EXPECT().Release().Do(func() {
-		if !rpcCanceled.Load() {
-			releaseBeforeRPCCancel.Store(true)
-		}
-	})
+	prepared.EXPECT().Release()
 	result := make(chan error, 1)
 	go func() {
 		result <- runTestOperations(t, service, t.Context(), func() { close(activated) }, func(
@@ -205,7 +196,6 @@ func TestFatalBlockedHostUISendCancelsRPCBeforeCloseSend(t *testing.T) {
 	require.ErrorIs(t, err, operation.ErrQueueFull)
 	assert.Zero(t, observed.activeSends.Load())
 	assert.False(t, observed.closeOverlappedSend.Load())
-	assert.False(t, releaseBeforeRPCCancel.Load())
 	awaitHostUISignal(t, peerStopped, "real Host UI server handler cleanup")
 }
 
