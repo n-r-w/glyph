@@ -6,8 +6,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -172,15 +170,13 @@ func TestPreparedCancellationRemovesOnlyCancellationLeaves(t *testing.T) {
 			t.Parallel()
 
 			// Arrange one prepared operation with a controlled source result.
-			receivedCause := errors.New("unique UI received source")
-			typedReceived := &os.PathError{Op: "receive", Path: "extension", Err: receivedCause}
-			progressCause := errors.New("unique UI progress source")
 			runErr := error(context.Canceled)
 			if test.mixed {
+				independentCause := errors.New("unique UI execution source")
 				runErr = fmt.Errorf(
 					"execute extension tool %q: %w",
 					"extension-tool",
-					errors.Join(context.Canceled, typedReceived, progressCause),
+					errors.Join(context.Canceled, independentCause),
 				)
 			}
 			prepared := &preparedUIOperation{
@@ -194,18 +190,10 @@ func TestPreparedCancellationRemovesOnlyCancellationLeaves(t *testing.T) {
 			// Act through operation outcome classification.
 			outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 
-			// Assert pure cancellation stays canceled and mixed failure keeps the original object and full tree.
+			// Assert pure cancellation stays canceled and mixed failure keeps the original object.
 			assert.Equal(t, test.expectedState, outcome.State())
 			if test.mixed {
 				require.Same(t, runErr, outcome.Err())
-				require.Equal(t, runErr.Error(), outcome.Err().Error())
-				require.ErrorIs(t, outcome.Err(), context.Canceled)
-				require.ErrorIs(t, outcome.Err(), receivedCause)
-				require.ErrorIs(t, outcome.Err(), progressCause)
-				var received *os.PathError
-				require.ErrorAs(t, outcome.Err(), &received)
-				assert.Same(t, typedReceived, received)
-				assert.Equal(t, 1, strings.Count(outcome.Err().Error(), "execute extension tool"))
 			}
 		})
 	}

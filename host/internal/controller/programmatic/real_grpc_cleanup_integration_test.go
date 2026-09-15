@@ -7,7 +7,6 @@ import (
 	"errors"
 	"net"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -23,6 +22,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/n-r-w/glyph/internal/operation"
+	"github.com/n-r-w/glyph/internal/testsupport/gatedconn"
 	"github.com/n-r-w/glyph/internal/testsupport/operationmock"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
@@ -50,34 +50,6 @@ type grpcCleanupSendObservation struct {
 	returned chan error
 	// returnOrder records raw send completion relative to handler completion.
 	returnOrder atomic.Int64
-}
-
-// grpcCleanupClientConn can stop client network reads after the RPC is ready.
-type grpcCleanupClientConn struct {
-	// Conn is the real local TCP client connection.
-	net.Conn
-	// readsBlocked enables the read gate.
-	readsBlocked atomic.Bool
-	// blocked closes when the client transport reaches the read gate.
-	blocked chan struct{}
-	// release opens the read gate during test cleanup.
-	release chan struct{}
-	// blockedOnce publishes the first gated read only once.
-	blockedOnce sync.Once
-}
-
-// Read blocks client transport reads after the test enables the gate.
-func (c *grpcCleanupClientConn) Read(buffer []byte) (int, error) {
-	if c.readsBlocked.Load() {
-		c.blockedOnce.Do(func() { close(c.blocked) })
-		<-c.release
-	}
-	return c.Conn.Read(buffer)
-}
-
-// blockReads prevents the client transport from consuming further responses.
-func (c *grpcCleanupClientConn) blockReads() {
-	c.readsBlocked.Store(true)
 }
 
 // grpcCleanupListener limits the real TCP send buffer for deterministic backpressure.
@@ -289,10 +261,7 @@ func TestFatalCleanupReturnsBeforeUnreadRawTransport(t *testing.T) {
 		_ = gatedListener.Close()
 		<-serveResult
 	})
-	clientConnection := &grpcCleanupClientConn{
-		Conn: nil, readsBlocked: atomic.Bool{}, blocked: make(chan struct{}), release: make(chan struct{}),
-		blockedOnce: sync.Once{},
-	}
+	clientConnection := gatedconn.New(nil)
 	connection, err := grpc.NewClient(
 		"passthrough:///"+listener.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
@@ -310,7 +279,7 @@ func TestFatalCleanupReturnsBeforeUnreadRawTransport(t *testing.T) {
 	)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		close(clientConnection.release)
+		clientConnection.ReleaseReads()
 		_ = connection.Close()
 	})
 	clientContext, cancelClient := context.WithCancel(t.Context())
@@ -323,9 +292,9 @@ func TestFatalCleanupReturnsBeforeUnreadRawTransport(t *testing.T) {
 	require.NoError(t, stream.Send(grpcCleanupRequest()))
 	grpcCleanupAwaitSignal(t, operationStarted, "operation admission")
 	grpcCleanupAwaitSignal(t, tracker.secondReceiveStarted, "nested raw receive")
-	clientConnection.blockReads()
+	clientConnection.BlockReads()
 	require.NoError(t, writer.Enqueue(new(programmaticv1.OpenResponse), nil))
-	grpcCleanupAwaitSignal(t, clientConnection.blocked, "client transport read gate")
+	grpcCleanupAwaitSignal(t, clientConnection.Blocked(), "client transport read gate")
 
 	// Act after the unread peer and small TCP buffer exhaust real transport flow control.
 	largeResponse := new(programmaticv1.OpenResponse)
