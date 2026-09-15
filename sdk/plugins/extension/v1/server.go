@@ -28,7 +28,7 @@ type server struct {
 	mutex sync.RWMutex
 	// registering reports that startup registration was accepted.
 	registering bool
-	// ready reports that registration completion reached the Host.
+	// ready reports that registration state is locally published for operation validation.
 	ready bool
 	// handlers maps registered handler identifiers to their payload kinds.
 	handlers map[string]extensionpb.HandlerKind
@@ -386,7 +386,7 @@ func (s *server) resetRegistration() {
 	s.registering = false
 }
 
-// completeRegistration records handler kinds after registration reaches the Host.
+// completeRegistration publishes handler kinds locally before the registration response enters transport delivery.
 func (s *server) completeRegistration(response *extensionpb.RegisterResponse) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()

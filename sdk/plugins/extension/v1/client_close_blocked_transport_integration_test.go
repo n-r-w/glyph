@@ -17,6 +17,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 
+	"github.com/n-r-w/glyph/internal/testsupport/gatedconn"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -68,27 +69,7 @@ type gatedHostListener struct {
 	// Listener accepts the real TCP connection used by gRPC.
 	net.Listener
 	// accepted reports the wrapped connection to the test.
-	accepted chan *gatedHostConn
-}
-
-// gatedHostConn can stop Host transport reads without closing or canceling the peer.
-type gatedHostConn struct {
-	// Conn is the real Host TCP connection.
-	net.Conn
-	// gated selects whether new transport reads wait for release.
-	gated atomic.Bool
-	// readBlocked signals that a Host transport read reached the gate.
-	readBlocked chan struct{}
-	// release allows blocked transport reads to continue during cleanup.
-	release chan struct{}
-	// closed allows a blocked Read to observe connection closure.
-	closed chan struct{}
-	// readBlockedOnce limits the blocked-read signal to one close.
-	readBlockedOnce sync.Once
-	// releaseOnce limits gate release to one caller.
-	releaseOnce sync.Once
-	// closeOnce limits the closed signal to one caller.
-	closeOnce sync.Once
+	accepted chan *gatedconn.Conn
 }
 
 // Open keeps the Host connected and either receives the graceful close or deliberately stops receiving.
@@ -135,44 +116,9 @@ func (l *gatedHostListener) Accept() (net.Conn, error) {
 	if err != nil {
 		return nil, err
 	}
-	wrapped := &gatedHostConn{
-		Conn:            connection,
-		gated:           atomic.Bool{},
-		readBlocked:     make(chan struct{}),
-		release:         make(chan struct{}),
-		closed:          make(chan struct{}),
-		readBlockedOnce: sync.Once{},
-		releaseOnce:     sync.Once{},
-		closeOnce:       sync.Once{},
-	}
+	wrapped := gatedconn.New(connection)
 	l.accepted <- wrapped
 	return wrapped, nil
-}
-
-// Read blocks Host transport reads after the test closes the gate.
-func (c *gatedHostConn) Read(buffer []byte) (int, error) {
-	if !c.gated.Load() {
-		return c.Conn.Read(buffer)
-	}
-	c.readBlockedOnce.Do(func() { close(c.readBlocked) })
-	select {
-	case <-c.release:
-		return c.Conn.Read(buffer)
-	case <-c.closed:
-		return 0, net.ErrClosed
-	}
-}
-
-// blockReads stops new Host transport reads.
-func (c *gatedHostConn) blockReads() { c.gated.Store(true) }
-
-// releaseReads allows Host transport reads to continue during cleanup.
-func (c *gatedHostConn) releaseReads() { c.releaseOnce.Do(func() { close(c.release) }) }
-
-// Close releases a blocked Read and closes the real TCP connection.
-func (c *gatedHostConn) Close() error {
-	c.closeOnce.Do(func() { close(c.closed) })
-	return c.Conn.Close()
 }
 
 // TestConnectionCloseCancelsBlockedRawSendAfterGrace verifies bounded graceful close over real gRPC.
@@ -182,7 +128,7 @@ func TestConnectionCloseCancelsBlockedRawSendAfterGrace(t *testing.T) {
 	// Arrange a connected Host that stops application and transport reads after Open starts.
 	listener, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	gatedListener := &gatedHostListener{Listener: listener, accepted: make(chan *gatedHostConn, 1)}
+	gatedListener := &gatedHostListener{Listener: listener, accepted: make(chan *gatedconn.Conn, 1)}
 	host := &clientCloseHost{
 		UnimplementedExtensionServiceServer: extensionpb.UnimplementedExtensionServiceServer{},
 		receive:                             false,
@@ -259,8 +205,8 @@ func TestConnectionCloseCancelsBlockedRawSendAfterGrace(t *testing.T) {
 	require.NoError(t, err)
 	accepted := awaitBlockedClientSignal(t, gatedListener.accepted, "Host TCP connection was not accepted")
 	awaitBlockedClientSignal(t, host.connected, "Host Open handler did not connect")
-	accepted.blockReads()
-	t.Cleanup(accepted.releaseReads)
+	accepted.BlockReads()
+	t.Cleanup(accepted.ReleaseReads)
 	targetID := strings.Repeat("x", blockedClientPayloadSize)
 	for index := range blockedClientRequestCount {
 		operationID := strings.Repeat("queued-send-", index+1)
@@ -271,7 +217,7 @@ func TestConnectionCloseCancelsBlockedRawSendAfterGrace(t *testing.T) {
 		require.NoError(t, err)
 	}
 	awaitBlockedClientSignal(t, targetStarted, "raw client Send did not start")
-	awaitBlockedClientSignal(t, accepted.readBlocked, "Host transport read did not reach its closed gate")
+	awaitBlockedClientSignal(t, accepted.Blocked(), "Host transport read did not reach its closed gate")
 	require.True(t, observer.targetPending.Load(), "raw client Send returned before the blocked state was observed")
 	select {
 	case sendErr := <-targetResult:

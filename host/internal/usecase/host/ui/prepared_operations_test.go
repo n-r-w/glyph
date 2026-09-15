@@ -154,8 +154,8 @@ func TestPrepareReservesSessionMutationBeforeRun(t *testing.T) {
 	assert.True(t, released)
 }
 
-// TestPreparedCancellationRemovesOnlyCancellationLeaves verifies mixed failure preservation.
-func TestPreparedCancellationRemovesOnlyCancellationLeaves(t *testing.T) {
+// TestPreparedCancellationClassifiesPureAndMixedErrors verifies original mixed failure preservation.
+func TestPreparedCancellationClassifiesPureAndMixedErrors(t *testing.T) {
 	t.Parallel()
 
 	for _, test := range []struct {

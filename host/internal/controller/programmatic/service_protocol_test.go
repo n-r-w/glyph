@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/samber/mo"
@@ -46,59 +47,70 @@ func TestReceiveFailureReturnsBeforeBlockedRawSend(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
+			synctest.Test(t, func(t *testing.T) {
+				// Arrange an Accepted send that remains blocked when Recv fails.
+				controller := gomock.NewController(t)
+				host := NewMockHostSession(controller)
+				prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
+				prepared.EXPECT().Release()
+				host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
+				stream := NewMockOpenStream(controller)
+				stream.EXPECT().Context().Return(t.Context()).AnyTimes()
+				request := testRequest("blocked-writer", func(request *programmaticv1.ControllerRequest) {
+					request.SetGetMessages(new(programmaticv1.GetMessages))
+				})
+				sendStarted := make(chan struct{})
+				releaseSend := make(chan struct{})
+				sendReleased := false
+				releaseBlockedSend := func() {
+					if !sendReleased {
+						close(releaseSend)
+						sendReleased = true
+					}
+				}
+				defer releaseBlockedSend()
+				receiveReturned := make(chan struct{})
+				gomock.InOrder(
+					stream.EXPECT().Recv().Return(request, nil),
+					stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
+						<-sendStarted
+						close(receiveReturned)
+						return nil, test.receiveErr
+					}),
+				)
+				stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(*programmaticv1.OpenResponse) error {
+					close(sendStarted)
+					<-releaseSend
+					return nil
+				})
+				service := New(t.Context(), host, testConnectionOutput(t))
+				result := make(chan error, 1)
+				go func() { result <- service.open(stream) }()
+				<-receiveReturned
 
-			// Arrange an Accepted send that remains blocked when Recv fails.
-			controller := gomock.NewController(t)
-			host := NewMockHostSession(controller)
-			prepared := operationmock.NewMockOperationPrepared[OperationProgress, Response](controller)
-			prepared.EXPECT().Release()
-			host.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(prepared, nil)
-			stream := NewMockOpenStream(controller)
-			stream.EXPECT().Context().Return(t.Context()).AnyTimes()
-			request := testRequest("blocked-writer", func(request *programmaticv1.ControllerRequest) {
-				request.SetGetMessages(new(programmaticv1.GetMessages))
+				// Act after all runnable work reaches a durable blocking point.
+				synctest.Wait()
+				var rpcErr error
+				returnedBeforeWriter := false
+				select {
+				case rpcErr = <-result:
+					returnedBeforeWriter = true
+				default:
+				}
+				if !returnedBeforeWriter {
+					releaseBlockedSend()
+					synctest.Wait()
+					rpcErr = <-result
+					require.Fail(t, "handler did not return before the blocked raw send")
+				}
+				completion := <-service.Completions()
+				releaseBlockedSend()
+
+				// Assert Open joins writer bookkeeping but leaves the raw Send for handler return.
+				assert.True(t, returnedBeforeWriter)
+				assert.Equal(t, test.expectedCode, status.Code(rpcErr))
+				assert.Equal(t, test.expectedCause, completion.Cause)
 			})
-			sendStarted := make(chan struct{})
-			releaseSend := make(chan struct{})
-			receiveReturned := make(chan struct{})
-			gomock.InOrder(
-				stream.EXPECT().Recv().Return(request, nil),
-				stream.EXPECT().Recv().DoAndReturn(func() (*programmaticv1.OpenRequest, error) {
-					<-sendStarted
-					close(receiveReturned)
-					return nil, test.receiveErr
-				}),
-			)
-			stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(*programmaticv1.OpenResponse) error {
-				close(sendStarted)
-				<-releaseSend
-				return nil
-			})
-			service := New(t.Context(), host, testConnectionOutput(t))
-			result := make(chan error, 1)
-			go func() { result <- service.open(stream) }()
-			<-receiveReturned
-
-			// Act by observing whether Open returns before the blocked writer stops.
-			var rpcErr error
-			returnedBeforeWriter := false
-			select {
-			case rpcErr = <-result:
-				returnedBeforeWriter = true
-			case <-time.After(100 * time.Millisecond):
-			}
-			if !returnedBeforeWriter {
-				close(releaseSend)
-				rpcErr = <-result
-				require.Fail(t, "handler did not return before the blocked raw send")
-			}
-			completion := <-service.Completions()
-			close(releaseSend)
-
-			// Assert Open joins writer bookkeeping but leaves the raw Send for handler return.
-			assert.True(t, returnedBeforeWriter)
-			assert.Equal(t, test.expectedCode, status.Code(rpcErr))
-			assert.Equal(t, test.expectedCause, completion.Cause)
 		})
 	}
 }

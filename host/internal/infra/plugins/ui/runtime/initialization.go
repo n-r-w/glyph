@@ -109,12 +109,7 @@ func (c *Service) closeUnsuccessfulInitialization(graceContext context.Context) 
 		}
 	}
 	writer.Close()
-	var writerErr error
-	select {
-	case writerErr = <-writerDone:
-	case <-graceContext.Done():
-		writerErr = <-writerDone
-	}
+	writerErr := <-writerDone
 	if remainingErr := controllerui.WithoutTransportClosureLeaves(writerErr); remainingErr != nil {
 		result = errors.Join(result, remainingErr)
 	}
@@ -123,13 +118,7 @@ func (c *Service) closeUnsuccessfulInitialization(graceContext context.Context) 
 	}
 	receiveDone := make(chan error, 1)
 	go func() { receiveDone <- c.receiveUnsuccessfulInitializationClose() }()
-	var receiveErr error
-	select {
-	case receiveErr = <-receiveDone:
-	case <-graceContext.Done():
-		receiveErr = <-receiveDone
-	}
-	return errors.Join(result, receiveErr)
+	return errors.Join(result, <-receiveDone)
 }
 
 // receiveUnsuccessfulInitializationClose drains responses until the peer completes cleanup.

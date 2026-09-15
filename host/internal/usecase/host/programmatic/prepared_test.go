@@ -215,72 +215,61 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 	require.ErrorIs(t, outcome.Err(), domainCause)
 }
 
-// TestRunPreparedReturnsOriginalMixedCancellation verifies Programmatic Control classifies without rebuilding the
-// runtime error tree.
-func TestRunPreparedReturnsOriginalMixedCancellation(t *testing.T) {
-	t.Parallel()
-
-	// Arrange a wrapped cancellation with one independent execution failure.
-	independentCause := errors.New("unique programmatic execution source")
-	mixedErr := fmt.Errorf(
-		"execute extension tool %q: %w",
-		"extension-tool",
-		errors.Join(context.Canceled, independentCause),
-	)
-	coordinator := NewMockCoordinator(gomock.NewController(t))
-	coordinator.EXPECT().RunPrepared(gomock.Any(), "run", "request").Return(agent.RunOutcomeAborted, mixedErr)
-	prepared := &runPrepared{
-		coordinator: coordinator, output: testRunOutput(t), operationID: "operation", runID: "run",
-		userText: "request", started: false, release: sync.Once{},
-	}
-	defer prepared.Release()
-
-	// Act through the accepted operation boundary.
-	outcome := prepared.Run(t.Context(), operation.Reporter[controller.OperationProgress]{})
-
-	// Assert the stable public category and original mixed error object.
-	require.Equal(t, operation.TerminalStateFailed, outcome.State())
-	require.Equal(t, controller.FailureCodeInternal, outcome.Code())
-	require.Same(t, mixedErr, outcome.Err())
-}
-
-// TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure verifies preserved errors win cancellation.
+// TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure verifies preserved errors win cancellation
+// without rebuilding the runtime error tree.
 func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *testing.T) {
 	t.Parallel()
 
 	independentErr := errors.New(strings.Repeat("界", 4001) + " complete run failure suffix...")
+	originalMixedCause := errors.New("unique programmatic execution source")
+	originalMixedErr := fmt.Errorf(
+		"execute extension tool %q: %w",
+		"extension-tool",
+		errors.Join(context.Canceled, originalMixedCause),
+	)
 	tests := []struct {
 		name          string
 		activeErr     error
+		cancelCaller  bool
 		expectedState operation.TerminalState
 		expectedCode  string
 		expectedCause error
+		expectedExact bool
 	}{
 		{
-			name: "independent failure", activeErr: independentErr,
+			name: "independent failure", activeErr: independentErr, cancelCaller: true,
 			expectedState: operation.TerminalStateFailed,
-			expectedCode:  controller.FailureCodeInternal, expectedCause: independentErr,
+			expectedCode:  controller.FailureCodeInternal, expectedCause: independentErr, expectedExact: false,
 		},
 		{
-			name: "persistence failure", activeErr: agent.ErrPersistenceUnavailable,
+			name: "persistence failure", activeErr: agent.ErrPersistenceUnavailable, cancelCaller: true,
 			expectedState: operation.TerminalStateFailed,
-			expectedCode:  controller.FailureCodePersistenceUnavailable, expectedCause: agent.ErrPersistenceUnavailable,
+			expectedCode:  controller.FailureCodePersistenceUnavailable,
+			expectedCause: agent.ErrPersistenceUnavailable, expectedExact: false,
 		},
 		{
 			name: "joined persistence failure", activeErr: errors.Join(independentErr, agent.ErrPersistenceUnavailable),
-			expectedState: operation.TerminalStateFailed,
-			expectedCode:  controller.FailureCodePersistenceUnavailable, expectedCause: independentErr,
+			cancelCaller: true, expectedState: operation.TerminalStateFailed,
+			expectedCode:  controller.FailureCodePersistenceUnavailable,
+			expectedCause: independentErr, expectedExact: false,
 		},
 		{
-			name: "pure cancellation", activeErr: nil,
-			expectedState: operation.TerminalStateCanceled, expectedCode: "", expectedCause: nil,
+			name: "pure cancellation", activeErr: nil, cancelCaller: true,
+			expectedState: operation.TerminalStateCanceled,
+			expectedCode:  "", expectedCause: nil, expectedExact: false,
+		},
+		{
+			name: "original wrapped mixed failure", activeErr: originalMixedErr, cancelCaller: false,
+			expectedState: operation.TerminalStateFailed,
+			expectedCode:  controller.FailureCodeInternal,
+			expectedCause: originalMixedCause, expectedExact: true,
 		},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange a settled prepared run and a canceled owner context.
+			// Arrange a settled prepared run and the configured owner context state.
 			coordinator := NewMockCoordinator(gomock.NewController(t))
 			coordinator.EXPECT().
 				RunPrepared(gomock.Any(), "run", "request").
@@ -290,15 +279,22 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 				userText: "request", started: false, release: sync.Once{},
 			}
 			defer prepared.Release()
-			ctx, cancel := context.WithCancel(t.Context())
-			cancel()
+			ctx := t.Context()
+			if test.cancelCaller {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithCancel(ctx)
+				cancel()
+			}
 
-			// Act after cancellation and settlement have both completed.
+			// Act after settlement and the configured caller state have both completed.
 			outcome := prepared.Run(ctx, operation.Reporter[controller.OperationProgress]{})
 
 			// Assert only an independent failure overrides pure cancellation.
 			require.Equal(t, test.expectedState, outcome.State())
 			require.Equal(t, test.expectedCode, outcome.Code())
+			if test.expectedExact {
+				require.Same(t, test.activeErr, outcome.Err())
+			}
 			if test.expectedCause != nil {
 				require.ErrorIs(t, outcome.Err(), test.expectedCause)
 				require.Equal(t, test.activeErr.Error(), outcome.Err().Error())
