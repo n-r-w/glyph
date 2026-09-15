@@ -75,7 +75,7 @@ The stopped attempt above commit `5f9fb7863b67d4e1767d8d62e9243999d3e65265` esta
 
 ### BLK-05: Persistence-cause cleanup still targets the old presentation boundary
 
-- Status: Closed by independently verified U7. Whole-product acceptance remains a separate gate.
+- Status: Closed by independently verified U7. Whole-product acceptance is recorded in the [phase solution](solution.md#status-and-scope).
 - [Plugin operation input](../../../../../../plugins/ui/tui/internal/controller/plugin/controller.go) and [connection-error mapping](../../../../../../plugins/ui/tui/internal/controller/plugin/request_mapping.go) retain the source category separately from complete text. The private [application reducer](../../../../../../plugins/ui/tui/internal/usecase/presentation/state.go) clears provisional model, tool-call, and tool-execution state only for `PERSISTENCE_UNAVAILABLE`.
 - [U7 evidence](solution.md#u7-run-persistence-cause-and-tui-cleanup) traces the history source through both client contracts and records executable RED/GREEN. [SDK integration](../../../../../../plugins/ui/tui/internal/infra/host/persistence_integration_test.go) covers operation and connection inputs with changed persistence wording, unrelated and unknown categories with the old prefix, and complete diagnostics above 65,536 bytes. Public category scope and connection-event kinds are unchanged.
 - Resolution source of truth: [ticket FRQ-14](ticket.md#functional-requirements); [source-backed persistence classification](solution.md#source-backed-persistence-classification).
