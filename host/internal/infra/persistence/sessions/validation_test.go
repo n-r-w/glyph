@@ -519,6 +519,7 @@ func TestListPreservesInterruptedTailAndLoadRecoversIt(t *testing.T) {
 	complete := fmt.Sprintf(validHeader, cwd) + validEntry
 	interrupted := complete + `{"type":"entry","entry":{"type":"user","id":"entry-2"}`
 	require.NoError(t, os.WriteFile(path, []byte(interrupted), 0o640))
+	require.NoError(t, os.Chmod(path, 0o640))
 
 	// Act by listing first and then explicitly loading the same session.
 	listed, listErr := repository.List(t.Context())
@@ -579,6 +580,7 @@ func TestMalformedCompletedRecordNeverChangesFileMetadata(t *testing.T) {
 	path := filepath.Join(projectDirectory, "stored.jsonl")
 	content := fmt.Sprintf(validHeader, cwd) + "not-json\n"
 	require.NoError(t, os.WriteFile(path, []byte(content), 0o640))
+	require.NoError(t, os.Chmod(path, 0o640))
 
 	// Act by listing and then explicitly loading the malformed completed session.
 	listed, listErr := repository.List(t.Context())

@@ -124,6 +124,7 @@ func TestLoadRejectsMissingRequiredNestedCoreFields(t *testing.T) {
 			content := []byte(fmt.Sprintf(validHeader, cwd) + string(encoded) + "\n")
 			path := filepath.Join(projectDirectory, "stored.jsonl")
 			require.NoError(t, os.WriteFile(path, content, 0o640))
+			require.NoError(t, os.Chmod(path, 0o640))
 
 			// Act by explicitly loading the newline-terminated record with one omitted required key.
 			_, loadErr := repository.Load(t.Context(), session.ID("stored"))
@@ -168,6 +169,7 @@ func TestLoadRejectsNullOptionalCoreObjects(t *testing.T) {
 			content = append(content, '\n')
 			path := filepath.Join(projectDirectory, "stored.jsonl")
 			require.NoError(t, os.WriteFile(path, content, 0o640))
+			require.NoError(t, os.Chmod(path, 0o640))
 
 			// Act by loading the newline-terminated record with an explicit null optional object.
 			_, loadErr := repository.Load(t.Context(), session.ID("stored"))
