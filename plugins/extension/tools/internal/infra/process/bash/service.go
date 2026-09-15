@@ -12,6 +12,7 @@ import (
 	"syscall"
 	"unicode/utf8"
 
+	"github.com/n-r-w/glyph/internal/processgroup"
 	bashusecase "github.com/n-r-w/glyph/plugins/extension/tools/internal/usecase/tools/bash"
 )
 
@@ -75,10 +76,7 @@ func (s *Service) Run(
 	process := exec.CommandContext( //nolint:gosec // The bash tool explicitly executes the model-provided command.
 		context.WithoutCancel(runContext), bashPath, "-c", command,
 	)
-	process.SysProcAttr = &syscall.SysProcAttr{
-		Chroot: "", Credential: nil, Ptrace: false, Setsid: false, Setpgid: true,
-		Setctty: false, Noctty: false, Ctty: 0, Foreground: false, Pgid: 0,
-	}
+	process.SysProcAttr = processgroup.New()
 	stdout := &streamWriter{sink: sink, stream: bashusecase.StreamStdout, pending: nil}
 	stderr := &streamWriter{sink: sink, stream: bashusecase.StreamStderr, pending: nil}
 	output, err := newProcessOutput(stdout, stderr)

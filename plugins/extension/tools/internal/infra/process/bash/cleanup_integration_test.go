@@ -8,11 +8,12 @@ import (
 	"os"
 	"os/exec"
 	"strings"
-	"syscall"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/n-r-w/glyph/internal/processgroup"
 )
 
 // TestCleanupGroupAcceptsZombie does not treat an already terminated group as failed test cleanup.
@@ -56,10 +57,7 @@ func TestCleanupGroupStopsLiveMember(t *testing.T) {
 func startCleanupCommand(t *testing.T, text string) *exec.Cmd {
 	t.Helper()
 	command := exec.CommandContext(context.WithoutCancel(t.Context()), "bash", "-c", text)
-	command.SysProcAttr = &syscall.SysProcAttr{
-		Chroot: "", Credential: nil, Ptrace: false, Setsid: false, Setpgid: true,
-		Setctty: false, Noctty: false, Ctty: 0, Foreground: false, Pgid: 0,
-	}
+	command.SysProcAttr = processgroup.New()
 	require.NoError(t, command.Start())
 	t.Cleanup(func() {
 		killErr := command.Process.Kill()

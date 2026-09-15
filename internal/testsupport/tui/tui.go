@@ -18,6 +18,8 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/n-r-w/glyph/internal/processgroup"
 )
 
 // SetTerminalSize applies the dimensions used by terminal rendering assertions.
@@ -213,18 +215,7 @@ type ProcessGroupCleanup struct {
 
 // ConfigureProcessGroup isolates command so cleanup signals cannot reach the test process.
 func ConfigureProcessGroup(command *exec.Cmd) {
-	command.SysProcAttr = &syscall.SysProcAttr{
-		Chroot:     "",
-		Credential: nil,
-		Ptrace:     false,
-		Setsid:     false,
-		Setpgid:    true,
-		Setctty:    false,
-		Noctty:     false,
-		Ctty:       0,
-		Foreground: false,
-		Pgid:       0,
-	}
+	command.SysProcAttr = processgroup.New()
 }
 
 // RegisterProcessGroupCleanup terminates and joins all resources after normal or failed tests.
