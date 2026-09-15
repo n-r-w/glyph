@@ -54,18 +54,38 @@ type startupCleanupPeer struct {
 	stopped chan<- struct{}
 }
 
-// observedHostUIClientStream records Send and CloseSend overlap around a real gRPC stream.
+// observedHostUIClientStream records raw transport call ownership around a real gRPC stream.
 type observedHostUIClientStream struct {
 	uiv1.UIService_OpenClient
 	// sendStarted reports entry into the first real Send call.
 	sendStarted chan struct{}
 	// sendStartedOnce closes sendStarted once.
 	sendStartedOnce sync.Once
+	// sendReturned reports return from the first real Send call.
+	sendReturned chan struct{}
+	// sendReturnedOnce closes sendReturned once.
+	sendReturnedOnce sync.Once
+	// receiveStarted reports entry into the first real Recv call.
+	receiveStarted chan struct{}
+	// receiveStartedOnce closes receiveStarted once.
+	receiveStartedOnce sync.Once
+	// receiveReturned reports return from the first real Recv call.
+	receiveReturned chan struct{}
+	// receiveReturnedOnce closes receiveReturned once.
+	receiveReturnedOnce sync.Once
 	// activeSends counts real Send calls that have not returned.
 	activeSends atomic.Int64
+	// activeReceives counts real Recv calls that have not returned.
+	activeReceives atomic.Int64
+	// concurrentReceives reports whether raw Recv calls overlapped.
+	concurrentReceives atomic.Bool
 	// closeOverlappedSend reports whether CloseSend ran during Send.
 	closeOverlappedSend atomic.Bool
-	// cancel releases the invalid overlap so the test can report an assertion failure.
+	// sendErr adds an independent Send error after real transport return.
+	sendErr error
+	// receiveErr adds an independent Recv error after real transport return.
+	receiveErr error
+	// cancel releases an invalid overlap so the test can report an assertion failure.
 	cancel context.CancelFunc
 }
 
@@ -115,9 +135,33 @@ func (peer *startupCleanupPeer) Open(stream grpc.BidiStreamingServer[uiv1.OpenRe
 // Send observes one real gRPC send without replacing transport behavior.
 func (stream *observedHostUIClientStream) Send(request *uiv1.OpenRequest) error {
 	stream.activeSends.Add(1)
-	stream.sendStartedOnce.Do(func() { close(stream.sendStarted) })
-	defer stream.activeSends.Add(-1)
-	return stream.UIService_OpenClient.Send(request)
+	closeObservedHostUISignal(stream.sendStarted, &stream.sendStartedOnce)
+	defer func() {
+		stream.activeSends.Add(-1)
+		closeObservedHostUISignal(stream.sendReturned, &stream.sendReturnedOnce)
+	}()
+	err := stream.UIService_OpenClient.Send(request)
+	if err == nil {
+		return nil
+	}
+	return errors.Join(err, stream.sendErr)
+}
+
+// Recv observes one real gRPC receive without replacing transport behavior.
+func (stream *observedHostUIClientStream) Recv() (*uiv1.OpenResponse, error) {
+	if stream.activeReceives.Add(1) != 1 {
+		stream.concurrentReceives.Store(true)
+	}
+	closeObservedHostUISignal(stream.receiveStarted, &stream.receiveStartedOnce)
+	defer func() {
+		stream.activeReceives.Add(-1)
+		closeObservedHostUISignal(stream.receiveReturned, &stream.receiveReturnedOnce)
+	}()
+	response, err := stream.UIService_OpenClient.Recv()
+	if err == nil {
+		return response, nil
+	}
+	return response, errors.Join(err, stream.receiveErr)
 }
 
 // CloseSend records invalid overlap before delegating to the real gRPC stream.
@@ -128,6 +172,13 @@ func (stream *observedHostUIClientStream) CloseSend() error {
 		return errors.New("CloseSend overlapped active Send")
 	}
 	return stream.UIService_OpenClient.CloseSend()
+}
+
+// closeObservedHostUISignal closes an optional transport-observation channel once.
+func closeObservedHostUISignal(signal chan struct{}, once *sync.Once) {
+	if signal != nil {
+		once.Do(func() { close(signal) })
+	}
 }
 
 // TestFatalBlockedHostUISendCancelsRPCBeforeCloseSend verifies transport-aware fatal cleanup.
@@ -148,8 +199,18 @@ func TestFatalBlockedHostUISendCancelsRPCBeforeCloseSend(t *testing.T) {
 		UIService_OpenClient: stream,
 		sendStarted:          make(chan struct{}),
 		sendStartedOnce:      sync.Once{},
+		sendReturned:         nil,
+		sendReturnedOnce:     sync.Once{},
+		receiveStarted:       nil,
+		receiveStartedOnce:   sync.Once{},
+		receiveReturned:      nil,
+		receiveReturnedOnce:  sync.Once{},
 		activeSends:          atomic.Int64{},
+		activeReceives:       atomic.Int64{},
+		concurrentReceives:   atomic.Bool{},
 		closeOverlappedSend:  atomic.Bool{},
+		sendErr:              nil,
+		receiveErr:           nil,
 		cancel:               cancelStream,
 	}
 	service := New()
@@ -260,15 +321,18 @@ func openHostUITestStream(
 	t.Helper()
 	listener, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
-	server := grpc.NewServer(grpc.InitialWindowSize(1024), grpc.InitialConnWindowSize(1024))
+	server := grpc.NewServer(
+		grpc.StaticStreamWindowSize(64*1024),
+		grpc.StaticConnWindowSize(64*1024),
+	)
 	uiv1.RegisterUIServiceServer(server, peer)
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- server.Serve(listener) }()
 	connection, err := grpc.NewClient(
 		"passthrough:///"+listener.Addr().String(),
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		grpc.WithInitialWindowSize(1024),
-		grpc.WithInitialConnWindowSize(1024),
+		grpc.WithStaticStreamWindowSize(64*1024),
+		grpc.WithStaticConnWindowSize(64*1024),
 	)
 	require.NoError(t, err)
 	streamContext, cancelStream := context.WithCancel(t.Context())

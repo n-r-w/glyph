@@ -81,7 +81,7 @@ func TestChannelRejectsOrdinaryRequestBeforeReadiness(t *testing.T) {
 	}.Build()
 
 	// Act through direct initialization receipt.
-	err := transport.initialize(t.Context(), initialization)
+	err := transport.initialize(t.Context(), initialization, func() {})
 
 	// Assert startup continues after rejecting the early ordinary request.
 	require.NoError(t, err)
@@ -214,7 +214,7 @@ func TestStartupCancellationRejectionCategories(t *testing.T) {
 			}.Build()
 
 			// Act by initializing while the UI sends the early cancellation request.
-			err := transport.initialize(t.Context(), initialization)
+			err := transport.initialize(t.Context(), initialization, func() {})
 
 			// Assert the rejection is terminal and initialization still reaches ready state.
 			require.NoError(t, err)
@@ -270,7 +270,7 @@ func TestInitializationRejectsMismatchedCompletedPayload(t *testing.T) {
 	}.Build()
 
 	// Act through initialization lifecycle receipt.
-	err := transport.initialize(t.Context(), initialization)
+	err := transport.initialize(t.Context(), initialization, func() {})
 
 	// Assert FailedPrecondition and no readiness transition.
 	require.Error(t, err)
@@ -338,7 +338,7 @@ func TestInitializationCancellationUsesSeparateOperation(t *testing.T) {
 	}.Build()
 
 	// Act through canceled initialization.
-	err := transport.initialize(ctx, initialization)
+	err := transport.initialize(ctx, initialization, func() {})
 
 	// Assert separate cancellation completion and no readiness activation.
 	require.ErrorIs(t, err, context.Canceled)
@@ -444,7 +444,7 @@ func TestInitializationFailurePreservesCategoryTextAndCause(t *testing.T) {
 	}.Build()
 
 	// Act through initialization lifecycle receipt.
-	err := transport.initialize(t.Context(), initialization)
+	err := transport.initialize(t.Context(), initialization, func() {})
 
 	// Assert category, complete text, Unwrap, errors.Is, and errors.As.
 	var classified *initializationError

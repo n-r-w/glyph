@@ -22,8 +22,10 @@ import (
 const (
 	// initializationCancellationOperationID identifies Host-requested initialization cancellation.
 	initializationCancellationOperationID = "host-initialize-cancel"
-	// unsuccessfulInitializationGracePeriod bounds the existing graceful startup-close handshake.
+	// unsuccessfulInitializationGracePeriod bounds initialization cancellation and startup-close cleanup together.
 	unsuccessfulInitializationGracePeriod = time.Second
+	// unsuccessfulInitializationTimeoutFormat preserves the public startup cleanup timeout diagnostic.
+	unsuccessfulInitializationTimeoutFormat = "UI unsuccessful initialization cleanup timed out after %s: %w"
 )
 
 // initializationReceive carries one asynchronous stream receive result.
@@ -44,61 +46,74 @@ func (c *Service) Initialize(ctx context.Context, initialization hostui.Initiali
 		return errors.New("initialize UI: initialization request is required")
 	}
 	request.SetOperationId(initializationOperationID)
-	initializationErr := c.initialize(ctx, request)
+
+	// graceContext coordinates every unsuccessful initialization wait without inheriting RPC cancellation.
+	graceContext, cancelGrace := context.WithCancelCause(context.WithoutCancel(c.stream.Context()))
+	// timeoutResult lets the caller join a timer callback that has already started.
+	timeoutResult := make(chan bool, 1)
+	// graceTimer remains nil until the first unsuccessful initialization signal.
+	var graceTimer *time.Timer
+	// startGrace starts the one shared grace at most once on the initialization owner goroutine.
+	startGrace := func() {
+		if graceTimer != nil {
+			return
+		}
+		graceTimer = time.AfterFunc(unsuccessfulInitializationGracePeriod, func() {
+			// Only grace expiry cancels the actual RPC and releases blocked raw transport calls.
+			c.Cancel()
+			cancelGrace(context.DeadlineExceeded)
+			timeoutResult <- errors.Is(context.Cause(graceContext), context.DeadlineExceeded)
+		})
+	}
+	// finishGrace stops a pending callback or joins an active callback before return.
+	finishGrace := func() bool {
+		if graceTimer == nil || graceTimer.Stop() {
+			cancelGrace(context.Canceled)
+			return false
+		}
+		timedOut := <-timeoutResult
+		cancelGrace(context.Canceled)
+		return timedOut
+	}
+
+	initializationErr := errors.Join(c.initialize(ctx, request, startGrace), context.Cause(ctx))
 	if initializationErr == nil {
+		finishGrace()
 		c.selectionIssues = nil
 		return nil
 	}
-	closeErr := c.closeUnsuccessfulInitialization()
+	startGrace()
+	closeErr := c.closeUnsuccessfulInitialization(graceContext)
+	if finishGrace() {
+		closeErr = errors.Join(closeErr, fmt.Errorf(
+			unsuccessfulInitializationTimeoutFormat,
+			unsuccessfulInitializationGracePeriod,
+			context.DeadlineExceeded,
+		))
+	}
 	return controllerui.ClassifyTransportError(errors.Join(initializationErr, closeErr))
 }
 
-// closeUnsuccessfulInitialization gives the existing close handshake one bounded grace period.
-func (c *Service) closeUnsuccessfulInitialization() error {
-	graceContext, cancelGrace := context.WithTimeout(
-		context.WithoutCancel(c.stream.Context()),
-		unsuccessfulInitializationGracePeriod,
-	)
-	defer cancelGrace()
+// closeUnsuccessfulInitialization reuses the remaining initialization grace for the close handshake.
+func (c *Service) closeUnsuccessfulInitialization(graceContext context.Context) error {
 	writer := operation.NewWriter(c.stream.Send)
 	writerDone := make(chan error, 1)
 	go func() { writerDone <- writer.Run(c.stream.Context()) }()
 	closeRequest := new(uiv1.OpenRequest)
 	closeRequest.SetClose(new(operationv1.CloseConnection))
 	acknowledgement, result := writer.EnqueueAcknowledged(closeRequest, nil)
-	timedOut := false
-	cancelAfterTimeout := func() {
-		if timedOut {
-			return
-		}
-		timedOut = true
-		result = errors.Join(result, fmt.Errorf(
-			"UI unsuccessful initialization cleanup timed out after %s: %w",
-			unsuccessfulInitializationGracePeriod,
-			context.DeadlineExceeded,
-		))
-		c.Cancel()
-	}
 	if result == nil {
-		if waitErr := acknowledgement.Wait(graceContext); waitErr != nil {
-			if errors.Is(waitErr, context.DeadlineExceeded) {
-				cancelAfterTimeout()
-			} else {
-				result = errors.Join(result, waitErr)
-			}
+		if waitErr := acknowledgement.Wait(graceContext); waitErr != nil &&
+			!errors.Is(context.Cause(graceContext), context.DeadlineExceeded) {
+			result = errors.Join(result, waitErr)
 		}
 	}
 	writer.Close()
 	var writerErr error
-	if timedOut {
+	select {
+	case writerErr = <-writerDone:
+	case <-graceContext.Done():
 		writerErr = <-writerDone
-	} else {
-		select {
-		case writerErr = <-writerDone:
-		case <-graceContext.Done():
-			cancelAfterTimeout()
-			writerErr = <-writerDone
-		}
 	}
 	if remainingErr := controllerui.WithoutTransportClosureLeaves(writerErr); remainingErr != nil {
 		result = errors.Join(result, remainingErr)
@@ -109,15 +124,10 @@ func (c *Service) closeUnsuccessfulInitialization() error {
 	receiveDone := make(chan error, 1)
 	go func() { receiveDone <- c.receiveUnsuccessfulInitializationClose() }()
 	var receiveErr error
-	if timedOut {
+	select {
+	case receiveErr = <-receiveDone:
+	case <-graceContext.Done():
 		receiveErr = <-receiveDone
-	} else {
-		select {
-		case receiveErr = <-receiveDone:
-		case <-graceContext.Done():
-			cancelAfterTimeout()
-			receiveErr = <-receiveDone
-		}
 	}
 	return errors.Join(result, receiveErr)
 }
@@ -138,7 +148,11 @@ func (c *Service) receiveUnsuccessfulInitializationClose() error {
 }
 
 // initialize tracks initialization and optional cancellation on one stream.
-func (c *Service) initialize(ctx context.Context, request *uiv1.OpenRequest) (returnErr error) {
+func (c *Service) initialize(
+	ctx context.Context,
+	request *uiv1.OpenRequest,
+	startGrace func(),
+) (returnErr error) {
 	writerContext, cancelWriter := context.WithCancelCause(c.stream.Context())
 	defer cancelWriter(context.Canceled)
 	writer := operation.NewWriter(c.stream.Send)
@@ -149,15 +163,15 @@ func (c *Service) initialize(ctx context.Context, request *uiv1.OpenRequest) (re
 	}
 	writerDone := make(chan error, 1)
 	go func() { writerDone <- writer.Run(writerContext) }()
+	var receiveDone chan initializationReceive
 	defer func() {
-		returnErr = finishInitialization(returnErr, tracker, writer, writerDone)
+		returnErr = finishInitialization(returnErr, tracker, writer, writerDone, receiveDone)
 	}()
 	if err = writer.Enqueue(request, c.startupSources()); err != nil {
 		return fmt.Errorf("send UI initialization: %w", err)
 	}
 
 	var cancellationEvents <-chan operation.Event[struct{}, *uiv1.UICompleted]
-	var receiveDone chan initializationReceive
 	ctxDone := ctx.Done()
 	initializationTerminal := false
 	cancellationTerminal := false
@@ -173,6 +187,7 @@ func (c *Service) initialize(ctx context.Context, request *uiv1.OpenRequest) (re
 		case <-ctxDone:
 			ctxDone = nil
 			returnErr = context.Cause(ctx)
+			startGrace()
 			cancellationEvents, err = c.startInitializationCancellation(writer, tracker)
 			if err != nil {
 				return err
@@ -211,11 +226,18 @@ func finishInitialization(
 	tracker *operation.Tracker[struct{}, *uiv1.UICompleted],
 	writer *operation.Writer[*uiv1.OpenRequest],
 	writerDone <-chan error,
+	receiveDone <-chan initializationReceive,
 ) error {
 	tracker.Close()
 	writer.Close()
 	if writerErr := controllerui.WithoutTransportClosureLeaves(<-writerDone); writerErr != nil {
 		result = errors.Join(result, fmt.Errorf("run UI initialization writer: %w", writerErr))
+	}
+	if receiveDone != nil {
+		received := <-receiveDone
+		if receiveErr := controllerui.WithoutTransportClosureLeaves(received.err); receiveErr != nil {
+			result = errors.Join(result, fmt.Errorf("receive UI initialization lifecycle: %w", receiveErr))
+		}
 	}
 	return controllerui.JoinOutputSources(result, writer.SourceErrors())
 }
