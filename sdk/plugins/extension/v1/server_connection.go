@@ -28,6 +28,10 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 	defer cancel(context.Canceled)
 	var failConnection func(error)
 	writer := operation.NewWriter(func(response *extensionpb.OpenResponse) error {
+		// Publish registration before its success can become visible through the transport.
+		if registration := response.GetEvent().GetCompleted().GetRegister(); registration != nil {
+			s.completeRegistration(registration)
+		}
 		err := operation.SendWithContext(ctx, func() error {
 			if sendErr := stream.Send(response); sendErr != nil {
 				return mapTransportError(sendErr)
@@ -35,9 +39,6 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 			return nil
 		})
 		if err == nil {
-			if registration := response.GetEvent().GetCompleted().GetRegister(); registration != nil {
-				s.completeRegistration(registration)
-			}
 			return nil
 		}
 		mapped := mapTransportError(err)

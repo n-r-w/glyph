@@ -41,6 +41,11 @@ The [architecture model contracts](../../architecture.md#programming-interfaces)
 
 The [PRD Error Semantics](../../prd.md#error-semantics) own complete public error behavior.
 
+### Extension registration publication
+
+- The Extension SDK server commits registration handlers and readiness before the successful registration response enters raw transport `Send`. Therefore, client observation of registration success implies that the server accepts valid registered operations.
+- [`TestServerPublishesRegistrationBeforeSuccessfulSendReturns`](../../../../../../sdk/plugins/extension/v1/server_test.go) covers immediate Execute after the registration response becomes observable while its raw `Send` remains blocked. A registration response send failure follows [connection cleanup](#connection-cleanup).
+
 ### Connection cleanup
 
 - Programmatic Control and the Extension SDK server wrap raw server sends with `operation.SendWithContext`. On fatal failure, each handler stops admission, cancels work, joins context-aware application work and `operation.Writer.Run`, collects acquired sources, and returns. Neither server uses a production cleanup timeout or waits for nested raw transport goroutines; handler return lets gRPC cancel those raw calls.

@@ -11,6 +11,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"github.com/stretchr/testify/assert"
@@ -68,82 +69,74 @@ const (
 	serverTestTimeout = 5 * time.Second
 )
 
-// TestServerKeepsRegistrationUnreadyUntilCompletedDelivery verifies pipelined work is rejected before startup delivery.
-func TestServerKeepsRegistrationUnreadyUntilCompletedDelivery(t *testing.T) {
+// TestServerPublishesRegistrationBeforeSuccessfulSendReturns verifies observed registration success permits immediate work.
+func TestServerPublishesRegistrationBeforeSuccessfulSendReturns(t *testing.T) {
 	t.Parallel()
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange: expose Register Completed while its raw Send remains blocked.
+		controller := gomock.NewController(t)
+		service := NewMockService(controller)
+		register := NewMockRegisterOperation(controller)
+		execute := NewMockExecuteOperation(controller)
+		stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
+		requests := make(chan *extensionpb.OpenRequest)
+		registrationObserved := make(chan *extensionpb.OpenResponse)
+		allowRegistrationSendReturn := make(chan struct{})
+		executeTerminal := make(chan *extensionpb.OpenResponse)
+		serverDone := make(chan error, 1)
+		registration := extensionpb.RegisterResponse_builder{Tools: nil, Handlers: nil}.Build()
+		service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(register, nil)
+		register.EXPECT().Run(gomock.Any()).Return(registration, nil)
+		register.EXPECT().Release()
+		service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(execute, nil)
+		execute.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
+			extensionpb.ToolResult_builder{IsError: new(false), Contents: validTextContents("completed")}.Build(), nil,
+		)
+		execute.EXPECT().Release()
+		stream.EXPECT().Context().AnyTimes().Return(t.Context())
+		stream.EXPECT().Recv().AnyTimes().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
+			request, open := <-requests
+			if !open {
+				return nil, io.EOF
+			}
+			return request, nil
+		})
+		stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(response *extensionpb.OpenResponse) error {
+			switch {
+			case response.GetOperationId() == "register" && response.GetEvent().GetCompleted() != nil:
+				registrationObserved <- response
+				<-allowRegistrationSendReturn
+			case response.GetOperationId() == "execute" &&
+				(response.GetEvent().GetCompleted() != nil || response.GetEvent().GetRejected() != nil):
+				executeTerminal <- response
+			}
+			return nil
+		})
+		go func() { serverDone <- newServer(service).Open(stream) }()
+		requests <- openRegisterRequest("register")
+		observed := <-registrationObserved
+		require.NotNil(t, observed.GetEvent().GetCompleted().GetRegister())
 
-	// Arrange: block Register Completed transport while the stream receives Execute.
-	controller := gomock.NewController(t)
-	service := NewMockService(controller)
-	register := NewMockRegisterOperation(controller)
-	execute := NewMockExecuteOperation(controller)
-	stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
-	completedSendStarted := make(chan struct{})
-	allowCompletedSend := make(chan struct{})
-	executeRejected := make(chan struct{})
-	registerCompleted := make(chan struct{})
-	laterCompleted := make(chan struct{})
-	var closeCompleted sync.Once
-	registration := extensionpb.RegisterResponse_builder{Tools: nil, Handlers: nil}.Build()
-	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(register, nil)
-	register.EXPECT().Run(gomock.Any()).Return(registration, nil)
-	register.EXPECT().Release()
-	var executePreparations atomic.Int64
-	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
-		func(context.Context, *extensionpb.ExecuteRequest) (ExecuteOperation, error) {
-			executePreparations.Add(1)
-			return execute, nil
-		},
-	)
-	execute.EXPECT().Run(gomock.Any(), gomock.Any()).AnyTimes().Return(
-		extensionpb.ToolResult_builder{IsError: new(false), Contents: validTextContents("unexpected")}.Build(), nil,
-	)
-	execute.EXPECT().Release().AnyTimes()
-	stream.EXPECT().Context().AnyTimes().Return(t.Context())
-	gomock.InOrder(
-		stream.EXPECT().Recv().Return(openRegisterRequest("register"), nil),
-		stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
-			<-completedSendStarted
-			return openExecuteRequest("execute"), nil
-		}),
-		stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
-			time.Sleep(50 * time.Millisecond)
-			closeCompleted.Do(func() { close(allowCompletedSend) })
-			<-registerCompleted
-			<-executeRejected
-			return openExecuteRequest("later"), nil
-		}),
-		stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
-			<-laterCompleted
-			return nil, io.EOF
-		}),
-	)
-	responses := make([]*extensionpb.OpenResponse, 0, 4)
-	stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(response *extensionpb.OpenResponse) error {
-		responses = append(responses, response)
-		switch {
-		case response.GetOperationId() == "register" && response.GetEvent().GetCompleted() != nil:
-			close(completedSendStarted)
-			<-allowCompletedSend
-			close(registerCompleted)
-		case response.GetOperationId() == "execute" && response.GetEvent().GetRejected() != nil:
-			close(executeRejected)
-		case response.GetOperationId() == "later" && response.GetEvent().GetCompleted() != nil:
-			close(laterCompleted)
-		}
-		return nil
+		// Act: submit valid Execute immediately, before Register Completed Send returns.
+		requests <- openExecuteRequest("execute")
+		synctest.Wait()
+		close(allowRegistrationSendReturn)
+		terminal := <-executeTerminal
+		close(requests)
+		synctest.Wait()
+
+		// Assert: the observed registration is ready and Execute completes without NOT_READY rejection.
+		rejected := terminal.GetEvent().GetRejected()
+		require.Nilf(
+			t,
+			rejected,
+			"Execute rejected after observed registration success: %s: %s",
+			rejected.GetCode(),
+			rejected.GetMessage(),
+		)
+		require.NotNil(t, terminal.GetEvent().GetCompleted().GetTool())
+		require.NoError(t, <-serverDone)
 	})
-
-	// Act: run the SDK server through request EOF.
-	err := newServer(service).Open(stream)
-
-	// Assert: Execute is rejected as NOT_READY before registration Completed is delivered.
-	require.NoError(t, err)
-	assertExactRejectionWithoutLifecycle(
-		t, responses, "execute", rejectionCodeNotReady, "extension registration is not complete",
-	)
-	assert.Equal(t, int64(1), executePreparations.Load())
-	assertCompletedResponse(t, responses, "later")
 }
 
 // TestServerProcessesCancellationWhileTargetRunIsBlocked verifies receipt, joining, and all target-state mappings.
