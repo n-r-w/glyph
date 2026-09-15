@@ -210,6 +210,7 @@ func (c *Service) initialize(
 			initializationTerminal = true
 			returnErr = c.applyInitializationTerminal(trackedEvent, cancellationEvents == nil)
 		case writerErr := <-writerDone:
+			startGrace()
 			writerDone <- writerErr
 			if writerErr == nil {
 				return errors.New("UI initialization writer stopped before terminal event")
