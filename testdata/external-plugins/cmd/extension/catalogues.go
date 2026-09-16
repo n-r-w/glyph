@@ -71,6 +71,24 @@ func catalogueTextResult(encoded []byte) *extensionv1.ToolResult {
 	}, IsError: new(false)}.Build()
 }
 
+// selectWithRetainedContext reports selection rejection through the extension's first binding.
+func (o *executeOperation) selectWithRetainedContext(ctx context.Context) (*extensionv1.ToolResult, error) {
+	if o.savedContext == nil {
+		return nil, errors.New("no preceding invocation context was retained")
+	}
+	current, err := extensionsdk.ContextFrom(ctx)
+	if err != nil {
+		return nil, err
+	}
+	started, selectionErr := o.savedContext.StartReasoningSelection(ctx, extensionv1.SelectReasoningRequest_builder{
+		Context: nil, ReasoningChoice: new(selectionFinalReasoning),
+	}.Build())
+	if selectionErr == nil {
+		_, selectionErr = started.Wait(ctx)
+	}
+	return retainedContextResult(o.savedContext, current, selectionErr)
+}
+
 // readRetainedCatalogues reports the actual public outcome of using the extension's first binding again.
 func (o *executeOperation) readRetainedCatalogues(ctx context.Context) (*extensionv1.ToolResult, error) {
 	if o.savedContext == nil {
@@ -84,14 +102,22 @@ func (o *executeOperation) readRetainedCatalogues(ctx context.Context) (*extensi
 	if readErr == nil {
 		_, readErr = started.Wait(ctx)
 	}
+	return retainedContextResult(o.savedContext, current, readErr)
+}
+
+// retainedContextResult maps one public stale-context outcome into fixture tool text.
+func retainedContextResult(
+	previous, current *extensionsdk.ExtensionContext,
+	operationErr error,
+) (*extensionv1.ToolResult, error) {
 	code, text := "", ""
-	if readErr != nil {
-		text = readErr.Error()
+	if operationErr != nil {
+		text = operationErr.Error()
 		code = internalFailureCode
-		if rejected, found := errors.AsType[*extensionsdk.RejectionError](readErr); found {
+		if rejected, found := errors.AsType[*extensionsdk.RejectionError](operationErr); found {
 			code = rejected.Code()
 		}
-		if failed, found := errors.AsType[*extensionsdk.FailureError](readErr); found {
+		if failed, found := errors.AsType[*extensionsdk.FailureError](operationErr); found {
 			code = failed.Code()
 		}
 	}
@@ -105,7 +131,7 @@ func (o *executeOperation) readRetainedCatalogues(ctx context.Context) (*extensi
 		// ErrorText records the complete SDK failure text.
 		ErrorText string `json:"error_text"`
 	}{
-		PreviousContextID: o.savedContext.Identity().GetContextId(),
+		PreviousContextID: previous.Identity().GetContextId(),
 		CurrentContextID:  current.Identity().GetContextId(),
 		ErrorCode:         code,
 		ErrorText:         text,

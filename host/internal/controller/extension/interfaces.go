@@ -107,6 +107,79 @@ type Provider struct {
 	ModelIDs []model.ID
 }
 
+// SelectionCommandKind identifies one extension-initiated selection request shape.
+type SelectionCommandKind uint8
+
+const (
+	// SelectionCommandModel identifies a provider and model request.
+	SelectionCommandModel SelectionCommandKind = iota + 1
+	// SelectionCommandReasoning identifies a reasoning-choice request.
+	SelectionCommandReasoning
+)
+
+// SelectionCommand carries one validated selection request and its issued binding.
+type SelectionCommand struct {
+	// Kind identifies the request shape.
+	Kind SelectionCommandKind
+	// ExtensionID identifies the extension that owns the request.
+	ExtensionID string
+	// RuntimeID identifies the exact connected runtime incarnation.
+	RuntimeID string
+	// Context identifies the issued runtime-to-session binding.
+	Context extensiondomain.ContextRef
+	// Provider identifies the requested provider for a model request.
+	Provider model.ProviderID
+	// Model identifies the requested model for a model request.
+	Model model.ID
+	// ReasoningChoice identifies the requested reasoning choice for a reasoning request.
+	ReasoningChoice model.ReasoningChoice
+}
+
+// SelectionIssue contains one ordered nonterminal diagnostic.
+type SelectionIssue struct {
+	// ExtensionID identifies the extension that produced the issue.
+	ExtensionID string
+	// HandlerID identifies the handler that produced the issue.
+	HandlerID string
+	// Code identifies the stable issue category.
+	Code string
+	// Message contains complete diagnostic text.
+	Message string
+}
+
+// SelectionResult contains the committed selection and ordered diagnostics.
+type SelectionResult struct {
+	// Selection is the committed full selection when Committed is true.
+	Selection model.Selection
+	// Committed reports whether authoritative selection state changed or was confirmed.
+	Committed bool
+	// Issues contains ordered nonterminal diagnostics.
+	Issues []SelectionIssue
+	// Source preserves complete diagnostic or terminal failure causes.
+	Source error
+}
+
+// PreparedSelection owns one accepted extension selection operation.
+type PreparedSelection interface {
+	// Run executes handler composition, validation, protected commit, and publication.
+	Run(context.Context) SelectionResult
+	// Release releases shared selection admission exactly once.
+	Release()
+}
+
+// ModelSelection prepares extension selections through the shared selection owner.
+type ModelSelection interface {
+	// PrepareExtensionSelection validates the starting target and reserves shared admission.
+	PrepareExtensionSelection(SelectionCommand) (PreparedSelection, error)
+}
+
+// SelectionFailure exposes the stable selection failure category.
+type SelectionFailure interface {
+	error
+	// ModelSelectionCode returns the category without replacing complete error text.
+	ModelSelectionCode() string
+}
+
 // ContextFailure exposes the closed context-operation failure category.
 type ContextFailure interface {
 	error

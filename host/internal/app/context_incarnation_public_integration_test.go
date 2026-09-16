@@ -79,13 +79,30 @@ func TestPublicRetainedContextNeverReactivates(t *testing.T) {
 		assert.Equal(t, "STALE_CONTEXT", stale.ErrorCode)
 		assert.Contains(t, stale.ErrorText, `extension "external"`)
 		assert.Contains(t, stale.ErrorText, "reference does not match")
-		fresh := catalogueReportIdentity(t, read("catalogs"))
+		var staleSelection struct {
+			// PreviousContextID identifies the retained first A binding.
+			PreviousContextID string `json:"previous_context_id"`
+			// CurrentContextID identifies this invocation's fresh binding.
+			CurrentContextID string `json:"current_context_id"`
+			// ErrorCode records the public SDK rejection or failure category.
+			ErrorCode string `json:"error_code"`
+			// ErrorText preserves the complete public SDK error text.
+			ErrorText string `json:"error_text"`
+		}
+		require.NoError(t, json.Unmarshal([]byte(read("stale-selection")), &staleSelection))
+		assert.Equal(t, initial.GetContextId(), staleSelection.PreviousContextID)
+		assert.Equal(t, stale.CurrentContextID, staleSelection.CurrentContextID)
+		assert.Equal(t, "STALE_CONTEXT", staleSelection.ErrorCode)
+		assert.Contains(t, staleSelection.ErrorText, "reference does not match")
+		freshEncoded := read("catalogs")
+		fresh := catalogueReportIdentity(t, freshEncoded)
+		assert.Equal(t, "off", catalogueReportSelection(t, freshEncoded).GetReasoningChoice())
 		assert.Equal(t, stale.CurrentContextID, fresh.GetContextId())
 		if index > 0 {
 			assert.Equal(t, initial.GetSessionId(), fresh.GetSessionId())
 		}
 	}
-	assert.Equal(t, int32(14), count.Load())
+	assert.Equal(t, int32(20), count.Load())
 }
 
 // catalogueReportIdentity decodes the binding returned by the public-only extension.
@@ -99,4 +116,17 @@ func catalogueReportIdentity(t *testing.T, encoded string) *extensionpb.Extensio
 	identity := new(extensionpb.ExtensionContext)
 	require.NoError(t, protojson.Unmarshal(report.Identity, identity))
 	return identity
+}
+
+// catalogueReportSelection decodes the active selection returned through the public catalog.
+func catalogueReportSelection(t *testing.T, encoded string) *extensionpb.ModelSelection {
+	t.Helper()
+	var report struct {
+		// Models contains the typed model catalog in protobuf JSON form.
+		Models jsontext.Value `json:"models"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(encoded), &report))
+	models := new(extensionpb.GetModelsResult)
+	require.NoError(t, protojson.Unmarshal(report.Models, models))
+	return models.GetActiveSelection()
 }

@@ -70,7 +70,7 @@ func runProgrammaticWithPaths(
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}
 	defer closeExtensions()
-	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
+	contexts := bindExtensionContexts(extensions, tools, sessionServices)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
 	providerCatalog, err := newProviderCatalog(configured, paths, nil)
 	if err != nil {
@@ -83,6 +83,8 @@ func runProgrammaticWithPaths(
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
 	selectionOwner := modelselection.New(providerCatalog, delivery)
 	selectionOwner.BindHandlers(extensions, contexts, delivery)
+	selectionOwner.BindProtection(contexts)
+	bindExtensionHostFactory(extensionFactory, extensions, contexts, selectionOwner)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	if _, err = startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,

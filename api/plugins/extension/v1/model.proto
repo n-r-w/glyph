@@ -16,6 +16,56 @@ message ModelSelection {
   string reasoning_choice = 3;
 }
 
+// SelectModelRequest requests an active provider and model through an issued context.
+message SelectModelRequest {
+  // The issued runtime-to-session binding.
+  ExtensionContextRef context = 1;
+  // The requested provider identifier.
+  string provider_id = 2;
+  // The requested model identifier.
+  string model_id = 3;
+}
+
+// SelectReasoningRequest requests an active reasoning choice through an issued context.
+message SelectReasoningRequest {
+  // The issued runtime-to-session binding.
+  ExtensionContextRef context = 1;
+  // The requested reasoning choice.
+  string reasoning_choice = 2;
+}
+
+// SelectionResult contains the committed full selection and ordered diagnostics.
+message SelectionResult {
+  // The committed active selection.
+  ModelSelection selection = 1;
+  // The ordered nonterminal diagnostics.
+  repeated SelectionIssue issues = 2;
+}
+
+// SelectionIssue reports one nonterminal selection diagnostic.
+message SelectionIssue {
+  // The closed diagnostic category.
+  SelectionIssueCode code = 1;
+  // The extension that produced the diagnostic, when applicable.
+  string extension_id = 2;
+  // The handler that produced the diagnostic, when applicable.
+  string handler_id = 3;
+  // The complete diagnostic text.
+  string message = 4;
+}
+
+// SelectionIssueCode identifies a nonterminal selection diagnostic.
+enum SelectionIssueCode {
+  // No diagnostic category was supplied.
+  SELECTION_ISSUE_CODE_UNSPECIFIED = 0;
+  // A selection handler returned an ordinary error.
+  SELECTION_ISSUE_CODE_HANDLER_ERROR = 1;
+  // A selection handler returned an invalid action.
+  SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION = 2;
+  // The committed selection could not be delivered to the client.
+  SELECTION_ISSUE_CODE_DELIVERY_FAILED = 3;
+}
+
 // SelectionHandlerInvocation carries immutable original and composed current targets.
 message SelectionHandlerInvocation {
   // The complete immutable starting target.

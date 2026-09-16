@@ -96,7 +96,7 @@ func runUIWithPaths(
 	if err != nil {
 		return fmt.Errorf("initialize Host sessions: %w", err)
 	}
-	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
+	contexts := bindExtensionContexts(extensions, tools, sessionServices)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
 	lifecycleObservers.BindIssueDelivery(transport)
 	providerCatalog, err := newProviderCatalog(configured, paths, transport)
@@ -110,6 +110,8 @@ func runUIWithPaths(
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
 	selectionOwner := modelselection.New(providerCatalog, transport)
 	selectionOwner.BindHandlers(extensions, contexts, transport)
+	selectionOwner.BindProtection(contexts)
+	bindExtensionHostFactory(extensionFactory, extensions, contexts, selectionOwner)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	_, err = startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,

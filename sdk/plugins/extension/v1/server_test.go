@@ -64,6 +64,51 @@ func TestConfiguredModelFailureCategoriesRemainClosed(t *testing.T) {
 	assert.Contains(t, err.Error(), "complete configured request failure")
 }
 
+// TestSelectionCompletionValidationRejectsMalformedPayload verifies required selection and closed issue kinds.
+func TestSelectionCompletionValidationRejectsMalformedPayload(t *testing.T) {
+	t.Parallel()
+
+	for _, testCase := range []struct {
+		// name identifies the malformed payload.
+		name string
+		// result is the malformed public completion.
+		result *extensionpb.SelectionResult
+	}{
+		{
+			name:   "missing selection",
+			result: extensionpb.SelectionResult_builder{Selection: nil, Issues: nil}.Build(),
+		},
+		{
+			name: "unspecified issue",
+			result: extensionpb.SelectionResult_builder{
+				Selection: extensionpb.ModelSelection_builder{
+					ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
+				}.Build(),
+				Issues: []*extensionpb.SelectionIssue{extensionpb.SelectionIssue_builder{
+					Code:        new(extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_UNSPECIFIED),
+					ExtensionId: new(""), HandlerId: new(""), Message: new("invalid issue"),
+				}.Build()},
+			}.Build(),
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one completed event with the malformed typed result.
+			completed := new(extensionpb.HostCompleted)
+			completed.SetSelection(testCase.result)
+			event := new(extensionpb.HostEvent)
+			event.SetCompleted(completed)
+
+			// Act through request-specific lifecycle validation.
+			_, _, err := mapHostEvent("selection", hostRequestModelSelection, event)
+
+			// Assert malformed public completion is rejected before SDK Wait returns it.
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "selection")
+		})
+	}
+}
+
 const (
 	// serverTestTimeout bounds controlled stream and operation coordination.
 	serverTestTimeout = 5 * time.Second

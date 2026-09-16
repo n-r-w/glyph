@@ -145,7 +145,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		})
 	models.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetProviders: nil, ConfiguredModel: nil,
-		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil,
+		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
 
 		GetModels: extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: extensionpb.ModelSelection_builder{
 			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
@@ -160,7 +160,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		})
 	providers.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetModels: nil, ConfiguredModel: nil,
-		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil,
+		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
 
 		GetProviders: extensionpb.GetProvidersResult_builder{Providers: []*extensionpb.ProviderDescriptor{
 			extensionpb.ProviderDescriptor_builder{ProviderId: new("provider"), ModelIds: []string{"model"}}.Build(),
@@ -176,7 +176,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		})
 	configured.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetModels: nil, GetProviders: nil, AppendExtension: nil, GetSessionState: nil,
-		AppendExtensionMessage: nil, ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
+		AppendExtensionMessage: nil, Selection: nil, ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
 			Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
 			ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
 			Content: []*extensionpb.ConfiguredModelContent{func() *extensionpb.ConfiguredModelContent {
@@ -201,6 +201,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		ConfiguredModel: nil,
 		AppendExtension: nil,
 		GetSessionState: nil,
+		Selection:       nil,
 		AppendExtensionMessage: extensionpb.AppendExtensionMessageResult_builder{
 			Entry: extensionpb.SessionStateEntry_builder{
 				Id: new("message"), ParentId: new("entry"), CreatedTime: nil,
@@ -227,7 +228,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		}.Build()
 		return extensionpb.HostCompleted_builder{
 			Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
-			AppendExtensionMessage: nil, GetSessionState: extensionpb.GetSessionStateResult_builder{
+			AppendExtensionMessage: nil, Selection: nil, GetSessionState: extensionpb.GetSessionStateResult_builder{
 				SessionId: new("session"), ActiveLeafId: new("entry"), Entries: []*extensionpb.SessionStateEntry{entry},
 			}.Build(),
 		}.Build(), nil

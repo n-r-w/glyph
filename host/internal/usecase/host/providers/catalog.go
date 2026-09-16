@@ -10,6 +10,7 @@ import (
 
 	"github.com/samber/mo"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -53,11 +54,12 @@ type SelectionError struct {
 }
 
 var (
-	_ extensioncontext.RequestFailure   = (*SelectionError)(nil)
-	_ modelselection.CatalogFailure     = (*SelectionError)(nil)
-	_ sessiontree.SelectionFailure      = (*SelectionError)(nil)
-	_ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
-	_ hostui.SelectionFailure           = (*SelectionError)(nil)
+	_ extensioncontroller.SelectionFailure = (*SelectionError)(nil)
+	_ extensioncontext.RequestFailure      = (*SelectionError)(nil)
+	_ modelselection.CatalogFailure        = (*SelectionError)(nil)
+	_ sessiontree.SelectionFailure         = (*SelectionError)(nil)
+	_ hostprogrammatic.SelectionFailure    = (*SelectionError)(nil)
+	_ hostui.SelectionFailure              = (*SelectionError)(nil)
 )
 
 // Error implements error and includes only the validator's secret-free cause.

@@ -20,6 +20,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// SelectionIssueCode identifies a nonterminal selection diagnostic.
+type SelectionIssueCode int32
+
+const (
+	// No diagnostic category was supplied.
+	SelectionIssueCode_SELECTION_ISSUE_CODE_UNSPECIFIED SelectionIssueCode = 0
+	// A selection handler returned an ordinary error.
+	SelectionIssueCode_SELECTION_ISSUE_CODE_HANDLER_ERROR SelectionIssueCode = 1
+	// A selection handler returned an invalid action.
+	SelectionIssueCode_SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION SelectionIssueCode = 2
+	// The committed selection could not be delivered to the client.
+	SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED SelectionIssueCode = 3
+)
+
+// Enum value maps for SelectionIssueCode.
+var (
+	SelectionIssueCode_name = map[int32]string{
+		0: "SELECTION_ISSUE_CODE_UNSPECIFIED",
+		1: "SELECTION_ISSUE_CODE_HANDLER_ERROR",
+		2: "SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION",
+		3: "SELECTION_ISSUE_CODE_DELIVERY_FAILED",
+	}
+	SelectionIssueCode_value = map[string]int32{
+		"SELECTION_ISSUE_CODE_UNSPECIFIED":            0,
+		"SELECTION_ISSUE_CODE_HANDLER_ERROR":          1,
+		"SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION": 2,
+		"SELECTION_ISSUE_CODE_DELIVERY_FAILED":        3,
+	}
+)
+
+func (x SelectionIssueCode) Enum() *SelectionIssueCode {
+	p := new(SelectionIssueCode)
+	*p = x
+	return p
+}
+
+func (x SelectionIssueCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (SelectionIssueCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_extension_v1_model_proto_enumTypes[0].Descriptor()
+}
+
+func (SelectionIssueCode) Type() protoreflect.EnumType {
+	return &file_api_plugins_extension_v1_model_proto_enumTypes[0]
+}
+
+func (x SelectionIssueCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // ConfiguredModelRole identifies a supported text history author.
 type ConfiguredModelRole int32
 
@@ -57,11 +109,11 @@ func (x ConfiguredModelRole) String() string {
 }
 
 func (ConfiguredModelRole) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_model_proto_enumTypes[0].Descriptor()
+	return file_api_plugins_extension_v1_model_proto_enumTypes[1].Descriptor()
 }
 
 func (ConfiguredModelRole) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_model_proto_enumTypes[0]
+	return &file_api_plugins_extension_v1_model_proto_enumTypes[1]
 }
 
 func (x ConfiguredModelRole) Number() protoreflect.EnumNumber {
@@ -117,11 +169,11 @@ func (x ConfiguredModelOutcome) String() string {
 }
 
 func (ConfiguredModelOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_model_proto_enumTypes[1].Descriptor()
+	return file_api_plugins_extension_v1_model_proto_enumTypes[2].Descriptor()
 }
 
 func (ConfiguredModelOutcome) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_model_proto_enumTypes[1]
+	return &file_api_plugins_extension_v1_model_proto_enumTypes[2]
 }
 
 func (x ConfiguredModelOutcome) Number() protoreflect.EnumNumber {
@@ -165,11 +217,11 @@ func (x InputModality) String() string {
 }
 
 func (InputModality) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_model_proto_enumTypes[2].Descriptor()
+	return file_api_plugins_extension_v1_model_proto_enumTypes[3].Descriptor()
 }
 
 func (InputModality) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_model_proto_enumTypes[2]
+	return &file_api_plugins_extension_v1_model_proto_enumTypes[3]
 }
 
 func (x InputModality) Number() protoreflect.EnumNumber {
@@ -324,6 +376,520 @@ func (b0 ModelSelection_builder) Build() *ModelSelection {
 	return m0
 }
 
+// SelectModelRequest requests an active provider and model through an issued context.
+type SelectModelRequest struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Context     *ExtensionContextRef   `protobuf:"bytes,1,opt,name=context"`
+	xxx_hidden_ProviderId  *string                `protobuf:"bytes,2,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId     *string                `protobuf:"bytes,3,opt,name=model_id,json=modelId"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *SelectModelRequest) Reset() {
+	*x = SelectModelRequest{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SelectModelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SelectModelRequest) ProtoMessage() {}
+
+func (x *SelectModelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SelectModelRequest) GetContext() *ExtensionContextRef {
+	if x != nil {
+		return x.xxx_hidden_Context
+	}
+	return nil
+}
+
+func (x *SelectModelRequest) GetProviderId() string {
+	if x != nil {
+		if x.xxx_hidden_ProviderId != nil {
+			return *x.xxx_hidden_ProviderId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SelectModelRequest) GetModelId() string {
+	if x != nil {
+		if x.xxx_hidden_ModelId != nil {
+			return *x.xxx_hidden_ModelId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SelectModelRequest) SetContext(v *ExtensionContextRef) {
+	x.xxx_hidden_Context = v
+}
+
+func (x *SelectModelRequest) SetProviderId(v string) {
+	x.xxx_hidden_ProviderId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *SelectModelRequest) SetModelId(v string) {
+	x.xxx_hidden_ModelId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *SelectModelRequest) HasContext() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Context != nil
+}
+
+func (x *SelectModelRequest) HasProviderId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *SelectModelRequest) HasModelId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *SelectModelRequest) ClearContext() {
+	x.xxx_hidden_Context = nil
+}
+
+func (x *SelectModelRequest) ClearProviderId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ProviderId = nil
+}
+
+func (x *SelectModelRequest) ClearModelId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_ModelId = nil
+}
+
+type SelectModelRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The issued runtime-to-session binding.
+	Context *ExtensionContextRef
+	// The requested provider identifier.
+	ProviderId *string
+	// The requested model identifier.
+	ModelId *string
+}
+
+func (b0 SelectModelRequest_builder) Build() *SelectModelRequest {
+	m0 := &SelectModelRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Context = b.Context
+	if b.ProviderId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_ProviderId = b.ProviderId
+	}
+	if b.ModelId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_ModelId = b.ModelId
+	}
+	return m0
+}
+
+// SelectReasoningRequest requests an active reasoning choice through an issued context.
+type SelectReasoningRequest struct {
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Context         *ExtensionContextRef   `protobuf:"bytes,1,opt,name=context"`
+	xxx_hidden_ReasoningChoice *string                `protobuf:"bytes,2,opt,name=reasoning_choice,json=reasoningChoice"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
+}
+
+func (x *SelectReasoningRequest) Reset() {
+	*x = SelectReasoningRequest{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SelectReasoningRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SelectReasoningRequest) ProtoMessage() {}
+
+func (x *SelectReasoningRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SelectReasoningRequest) GetContext() *ExtensionContextRef {
+	if x != nil {
+		return x.xxx_hidden_Context
+	}
+	return nil
+}
+
+func (x *SelectReasoningRequest) GetReasoningChoice() string {
+	if x != nil {
+		if x.xxx_hidden_ReasoningChoice != nil {
+			return *x.xxx_hidden_ReasoningChoice
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SelectReasoningRequest) SetContext(v *ExtensionContextRef) {
+	x.xxx_hidden_Context = v
+}
+
+func (x *SelectReasoningRequest) SetReasoningChoice(v string) {
+	x.xxx_hidden_ReasoningChoice = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *SelectReasoningRequest) HasContext() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Context != nil
+}
+
+func (x *SelectReasoningRequest) HasReasoningChoice() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *SelectReasoningRequest) ClearContext() {
+	x.xxx_hidden_Context = nil
+}
+
+func (x *SelectReasoningRequest) ClearReasoningChoice() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ReasoningChoice = nil
+}
+
+type SelectReasoningRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The issued runtime-to-session binding.
+	Context *ExtensionContextRef
+	// The requested reasoning choice.
+	ReasoningChoice *string
+}
+
+func (b0 SelectReasoningRequest_builder) Build() *SelectReasoningRequest {
+	m0 := &SelectReasoningRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Context = b.Context
+	if b.ReasoningChoice != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_ReasoningChoice = b.ReasoningChoice
+	}
+	return m0
+}
+
+// SelectionResult contains the committed full selection and ordered diagnostics.
+type SelectionResult struct {
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Selection *ModelSelection        `protobuf:"bytes,1,opt,name=selection"`
+	xxx_hidden_Issues    *[]*SelectionIssue     `protobuf:"bytes,2,rep,name=issues"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *SelectionResult) Reset() {
+	*x = SelectionResult{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SelectionResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SelectionResult) ProtoMessage() {}
+
+func (x *SelectionResult) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SelectionResult) GetSelection() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Selection
+	}
+	return nil
+}
+
+func (x *SelectionResult) GetIssues() []*SelectionIssue {
+	if x != nil {
+		if x.xxx_hidden_Issues != nil {
+			return *x.xxx_hidden_Issues
+		}
+	}
+	return nil
+}
+
+func (x *SelectionResult) SetSelection(v *ModelSelection) {
+	x.xxx_hidden_Selection = v
+}
+
+func (x *SelectionResult) SetIssues(v []*SelectionIssue) {
+	x.xxx_hidden_Issues = &v
+}
+
+func (x *SelectionResult) HasSelection() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Selection != nil
+}
+
+func (x *SelectionResult) ClearSelection() {
+	x.xxx_hidden_Selection = nil
+}
+
+type SelectionResult_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The committed active selection.
+	Selection *ModelSelection
+	// The ordered nonterminal diagnostics.
+	Issues []*SelectionIssue
+}
+
+func (b0 SelectionResult_builder) Build() *SelectionResult {
+	m0 := &SelectionResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Selection = b.Selection
+	x.xxx_hidden_Issues = &b.Issues
+	return m0
+}
+
+// SelectionIssue reports one nonterminal selection diagnostic.
+type SelectionIssue struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Code        SelectionIssueCode     `protobuf:"varint,1,opt,name=code,enum=glyph.plugins.extension.v1.SelectionIssueCode"`
+	xxx_hidden_ExtensionId *string                `protobuf:"bytes,2,opt,name=extension_id,json=extensionId"`
+	xxx_hidden_HandlerId   *string                `protobuf:"bytes,3,opt,name=handler_id,json=handlerId"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,4,opt,name=message"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *SelectionIssue) Reset() {
+	*x = SelectionIssue{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SelectionIssue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SelectionIssue) ProtoMessage() {}
+
+func (x *SelectionIssue) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SelectionIssue) GetCode() SelectionIssueCode {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Code
+		}
+	}
+	return SelectionIssueCode_SELECTION_ISSUE_CODE_UNSPECIFIED
+}
+
+func (x *SelectionIssue) GetExtensionId() string {
+	if x != nil {
+		if x.xxx_hidden_ExtensionId != nil {
+			return *x.xxx_hidden_ExtensionId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SelectionIssue) GetHandlerId() string {
+	if x != nil {
+		if x.xxx_hidden_HandlerId != nil {
+			return *x.xxx_hidden_HandlerId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SelectionIssue) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SelectionIssue) SetCode(v SelectionIssueCode) {
+	x.xxx_hidden_Code = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+}
+
+func (x *SelectionIssue) SetExtensionId(v string) {
+	x.xxx_hidden_ExtensionId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *SelectionIssue) SetHandlerId(v string) {
+	x.xxx_hidden_HandlerId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *SelectionIssue) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *SelectionIssue) HasCode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *SelectionIssue) HasExtensionId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *SelectionIssue) HasHandlerId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *SelectionIssue) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *SelectionIssue) ClearCode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Code = SelectionIssueCode_SELECTION_ISSUE_CODE_UNSPECIFIED
+}
+
+func (x *SelectionIssue) ClearExtensionId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ExtensionId = nil
+}
+
+func (x *SelectionIssue) ClearHandlerId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_HandlerId = nil
+}
+
+func (x *SelectionIssue) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Message = nil
+}
+
+type SelectionIssue_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The closed diagnostic category.
+	Code *SelectionIssueCode
+	// The extension that produced the diagnostic, when applicable.
+	ExtensionId *string
+	// The handler that produced the diagnostic, when applicable.
+	HandlerId *string
+	// The complete diagnostic text.
+	Message *string
+}
+
+func (b0 SelectionIssue_builder) Build() *SelectionIssue {
+	m0 := &SelectionIssue{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Code != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		x.xxx_hidden_Code = *b.Code
+	}
+	if b.ExtensionId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_ExtensionId = b.ExtensionId
+	}
+	if b.HandlerId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_HandlerId = b.HandlerId
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_Message = b.Message
+	}
+	return m0
+}
+
 // SelectionHandlerInvocation carries immutable original and composed current targets.
 type SelectionHandlerInvocation struct {
 	state               protoimpl.MessageState `protogen:"opaque.v1"`
@@ -335,7 +901,7 @@ type SelectionHandlerInvocation struct {
 
 func (x *SelectionHandlerInvocation) Reset() {
 	*x = SelectionHandlerInvocation{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -347,7 +913,7 @@ func (x *SelectionHandlerInvocation) String() string {
 func (*SelectionHandlerInvocation) ProtoMessage() {}
 
 func (x *SelectionHandlerInvocation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -430,7 +996,7 @@ type SelectionHandlerAction struct {
 
 func (x *SelectionHandlerAction) Reset() {
 	*x = SelectionHandlerAction{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -442,7 +1008,7 @@ func (x *SelectionHandlerAction) String() string {
 func (*SelectionHandlerAction) ProtoMessage() {}
 
 func (x *SelectionHandlerAction) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -609,7 +1175,7 @@ func (b0 SelectionHandlerAction_builder) Build() *SelectionHandlerAction {
 type case_SelectionHandlerAction_Action protoreflect.FieldNumber
 
 func (x case_SelectionHandlerAction_Action) String() string {
-	md := file_api_plugins_extension_v1_model_proto_msgTypes[2].Descriptor()
+	md := file_api_plugins_extension_v1_model_proto_msgTypes[6].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -647,7 +1213,7 @@ type PreserveSelection struct {
 
 func (x *PreserveSelection) Reset() {
 	*x = PreserveSelection{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -659,7 +1225,7 @@ func (x *PreserveSelection) String() string {
 func (*PreserveSelection) ProtoMessage() {}
 
 func (x *PreserveSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -694,7 +1260,7 @@ type RejectSelection struct {
 
 func (x *RejectSelection) Reset() {
 	*x = RejectSelection{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -706,7 +1272,7 @@ func (x *RejectSelection) String() string {
 func (*RejectSelection) ProtoMessage() {}
 
 func (x *RejectSelection) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -777,7 +1343,7 @@ type ConfiguredModelRequest struct {
 
 func (x *ConfiguredModelRequest) Reset() {
 	*x = ConfiguredModelRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -789,7 +1355,7 @@ func (x *ConfiguredModelRequest) String() string {
 func (*ConfiguredModelRequest) ProtoMessage() {}
 
 func (x *ConfiguredModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -924,7 +1490,7 @@ type ConfiguredModelMessage struct {
 
 func (x *ConfiguredModelMessage) Reset() {
 	*x = ConfiguredModelMessage{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -936,7 +1502,7 @@ func (x *ConfiguredModelMessage) String() string {
 func (*ConfiguredModelMessage) ProtoMessage() {}
 
 func (x *ConfiguredModelMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1044,7 +1610,7 @@ type ConfiguredModelResult struct {
 
 func (x *ConfiguredModelResult) Reset() {
 	*x = ConfiguredModelResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1056,7 +1622,7 @@ func (x *ConfiguredModelResult) String() string {
 func (*ConfiguredModelResult) ProtoMessage() {}
 
 func (x *ConfiguredModelResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1343,7 +1909,7 @@ type ConfiguredModelContent struct {
 
 func (x *ConfiguredModelContent) Reset() {
 	*x = ConfiguredModelContent{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1355,7 +1921,7 @@ func (x *ConfiguredModelContent) String() string {
 func (*ConfiguredModelContent) ProtoMessage() {}
 
 func (x *ConfiguredModelContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1560,7 +2126,7 @@ func (b0 ConfiguredModelContent_builder) Build() *ConfiguredModelContent {
 type case_ConfiguredModelContent_Content protoreflect.FieldNumber
 
 func (x case_ConfiguredModelContent_Content) String() string {
-	md := file_api_plugins_extension_v1_model_proto_msgTypes[8].Descriptor()
+	md := file_api_plugins_extension_v1_model_proto_msgTypes[12].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1607,7 +2173,7 @@ type ConfiguredModelText struct {
 
 func (x *ConfiguredModelText) Reset() {
 	*x = ConfiguredModelText{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1619,7 +2185,7 @@ func (x *ConfiguredModelText) String() string {
 func (*ConfiguredModelText) ProtoMessage() {}
 
 func (x *ConfiguredModelText) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1689,7 +2255,7 @@ type ConfiguredModelToolCall struct {
 
 func (x *ConfiguredModelToolCall) Reset() {
 	*x = ConfiguredModelToolCall{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1701,7 +2267,7 @@ func (x *ConfiguredModelToolCall) String() string {
 func (*ConfiguredModelToolCall) ProtoMessage() {}
 
 func (x *ConfiguredModelToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1840,7 +2406,7 @@ type ConfiguredModelUsage struct {
 
 func (x *ConfiguredModelUsage) Reset() {
 	*x = ConfiguredModelUsage{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1852,7 +2418,7 @@ func (x *ConfiguredModelUsage) String() string {
 func (*ConfiguredModelUsage) ProtoMessage() {}
 
 func (x *ConfiguredModelUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2068,7 +2634,7 @@ type ConfiguredModelDiagnostic struct {
 
 func (x *ConfiguredModelDiagnostic) Reset() {
 	*x = ConfiguredModelDiagnostic{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2080,7 +2646,7 @@ func (x *ConfiguredModelDiagnostic) String() string {
 func (*ConfiguredModelDiagnostic) ProtoMessage() {}
 
 func (x *ConfiguredModelDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2179,7 +2745,7 @@ type GetModelsRequest struct {
 
 func (x *GetModelsRequest) Reset() {
 	*x = GetModelsRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2191,7 +2757,7 @@ func (x *GetModelsRequest) String() string {
 func (*GetModelsRequest) ProtoMessage() {}
 
 func (x *GetModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2250,7 +2816,7 @@ type GetModelsResult struct {
 
 func (x *GetModelsResult) Reset() {
 	*x = GetModelsResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2262,7 +2828,7 @@ func (x *GetModelsResult) String() string {
 func (*GetModelsResult) ProtoMessage() {}
 
 func (x *GetModelsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2336,7 +2902,7 @@ type GetProvidersRequest struct {
 
 func (x *GetProvidersRequest) Reset() {
 	*x = GetProvidersRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2348,7 +2914,7 @@ func (x *GetProvidersRequest) String() string {
 func (*GetProvidersRequest) ProtoMessage() {}
 
 func (x *GetProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2406,7 +2972,7 @@ type GetProvidersResult struct {
 
 func (x *GetProvidersResult) Reset() {
 	*x = GetProvidersResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2418,7 +2984,7 @@ func (x *GetProvidersResult) String() string {
 func (*GetProvidersResult) ProtoMessage() {}
 
 func (x *GetProvidersResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2470,7 +3036,7 @@ type ProviderDescriptor struct {
 
 func (x *ProviderDescriptor) Reset() {
 	*x = ProviderDescriptor{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2482,7 +3048,7 @@ func (x *ProviderDescriptor) String() string {
 func (*ProviderDescriptor) ProtoMessage() {}
 
 func (x *ProviderDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2571,7 +3137,7 @@ type ModelDescriptor struct {
 
 func (x *ModelDescriptor) Reset() {
 	*x = ModelDescriptor{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2583,7 +3149,7 @@ func (x *ModelDescriptor) String() string {
 func (*ModelDescriptor) ProtoMessage() {}
 
 func (x *ModelDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2835,7 +3401,7 @@ type ReasoningCapabilities struct {
 
 func (x *ReasoningCapabilities) Reset() {
 	*x = ReasoningCapabilities{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2847,7 +3413,7 @@ func (x *ReasoningCapabilities) String() string {
 func (*ReasoningCapabilities) ProtoMessage() {}
 
 func (x *ReasoningCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2961,7 +3527,7 @@ type ToolCapabilities struct {
 
 func (x *ToolCapabilities) Reset() {
 	*x = ToolCapabilities{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2973,7 +3539,7 @@ func (x *ToolCapabilities) String() string {
 func (*ToolCapabilities) ProtoMessage() {}
 
 func (x *ToolCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3102,7 +3668,7 @@ type ModelPricing struct {
 
 func (x *ModelPricing) Reset() {
 	*x = ModelPricing{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3114,7 +3680,7 @@ func (x *ModelPricing) String() string {
 func (*ModelPricing) ProtoMessage() {}
 
 func (x *ModelPricing) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3289,7 +3855,7 @@ type PricingTier struct {
 
 func (x *PricingTier) Reset() {
 	*x = PricingTier{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3301,7 +3867,7 @@ func (x *PricingTier) String() string {
 func (*PricingTier) ProtoMessage() {}
 
 func (x *PricingTier) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3483,7 +4049,24 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12)\n" +
-	"\x10reasoning_choice\x18\x03 \x01(\tR\x0freasoningChoice\"\xaa\x01\n" +
+	"\x10reasoning_choice\x18\x03 \x01(\tR\x0freasoningChoice\"\x9b\x01\n" +
+	"\x12SelectModelRequest\x12I\n" +
+	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\x12\x1f\n" +
+	"\vprovider_id\x18\x02 \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\bmodel_id\x18\x03 \x01(\tR\amodelId\"\x8e\x01\n" +
+	"\x16SelectReasoningRequest\x12I\n" +
+	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\x12)\n" +
+	"\x10reasoning_choice\x18\x02 \x01(\tR\x0freasoningChoice\"\x9f\x01\n" +
+	"\x0fSelectionResult\x12H\n" +
+	"\tselection\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tselection\x12B\n" +
+	"\x06issues\x18\x02 \x03(\v2*.glyph.plugins.extension.v1.SelectionIssueR\x06issues\"\xb0\x01\n" +
+	"\x0eSelectionIssue\x12B\n" +
+	"\x04code\x18\x01 \x01(\x0e2..glyph.plugins.extension.v1.SelectionIssueCodeR\x04code\x12!\n" +
+	"\fextension_id\x18\x02 \x01(\tR\vextensionId\x12\x1d\n" +
+	"\n" +
+	"handler_id\x18\x03 \x01(\tR\thandlerId\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"\xaa\x01\n" +
 	"\x1aSelectionHandlerInvocation\x12F\n" +
 	"\boriginal\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\boriginal\x12D\n" +
 	"\acurrent\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\acurrent\"\xfe\x01\n" +
@@ -3584,7 +4167,12 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\n" +
 	"cache_read\x18\x04 \x01(\x01R\tcacheRead\x12\x1f\n" +
 	"\vcache_write\x18\x05 \x01(\x01R\n" +
-	"cacheWrite*\x81\x01\n" +
+	"cacheWrite*\xbd\x01\n" +
+	"\x12SelectionIssueCode\x12$\n" +
+	" SELECTION_ISSUE_CODE_UNSPECIFIED\x10\x00\x12&\n" +
+	"\"SELECTION_ISSUE_CODE_HANDLER_ERROR\x10\x01\x12/\n" +
+	"+SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION\x10\x02\x12(\n" +
+	"$SELECTION_ISSUE_CODE_DELIVERY_FAILED\x10\x03*\x81\x01\n" +
 	"\x13ConfiguredModelRole\x12%\n" +
 	"!CONFIGURED_MODEL_ROLE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aCONFIGURED_MODEL_ROLE_USER\x10\x01\x12#\n" +
@@ -3601,70 +4189,80 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\x13INPUT_MODALITY_TEXT\x10\x01\x12\x18\n" +
 	"\x14INPUT_MODALITY_IMAGE\x10\x02B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_api_plugins_extension_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_api_plugins_extension_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
+var file_api_plugins_extension_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
 var file_api_plugins_extension_v1_model_proto_goTypes = []any{
-	(ConfiguredModelRole)(0),           // 0: glyph.plugins.extension.v1.ConfiguredModelRole
-	(ConfiguredModelOutcome)(0),        // 1: glyph.plugins.extension.v1.ConfiguredModelOutcome
-	(InputModality)(0),                 // 2: glyph.plugins.extension.v1.InputModality
-	(*ModelSelection)(nil),             // 3: glyph.plugins.extension.v1.ModelSelection
-	(*SelectionHandlerInvocation)(nil), // 4: glyph.plugins.extension.v1.SelectionHandlerInvocation
-	(*SelectionHandlerAction)(nil),     // 5: glyph.plugins.extension.v1.SelectionHandlerAction
-	(*PreserveSelection)(nil),          // 6: glyph.plugins.extension.v1.PreserveSelection
-	(*RejectSelection)(nil),            // 7: glyph.plugins.extension.v1.RejectSelection
-	(*ConfiguredModelRequest)(nil),     // 8: glyph.plugins.extension.v1.ConfiguredModelRequest
-	(*ConfiguredModelMessage)(nil),     // 9: glyph.plugins.extension.v1.ConfiguredModelMessage
-	(*ConfiguredModelResult)(nil),      // 10: glyph.plugins.extension.v1.ConfiguredModelResult
-	(*ConfiguredModelContent)(nil),     // 11: glyph.plugins.extension.v1.ConfiguredModelContent
-	(*ConfiguredModelText)(nil),        // 12: glyph.plugins.extension.v1.ConfiguredModelText
-	(*ConfiguredModelToolCall)(nil),    // 13: glyph.plugins.extension.v1.ConfiguredModelToolCall
-	(*ConfiguredModelUsage)(nil),       // 14: glyph.plugins.extension.v1.ConfiguredModelUsage
-	(*ConfiguredModelDiagnostic)(nil),  // 15: glyph.plugins.extension.v1.ConfiguredModelDiagnostic
-	(*GetModelsRequest)(nil),           // 16: glyph.plugins.extension.v1.GetModelsRequest
-	(*GetModelsResult)(nil),            // 17: glyph.plugins.extension.v1.GetModelsResult
-	(*GetProvidersRequest)(nil),        // 18: glyph.plugins.extension.v1.GetProvidersRequest
-	(*GetProvidersResult)(nil),         // 19: glyph.plugins.extension.v1.GetProvidersResult
-	(*ProviderDescriptor)(nil),         // 20: glyph.plugins.extension.v1.ProviderDescriptor
-	(*ModelDescriptor)(nil),            // 21: glyph.plugins.extension.v1.ModelDescriptor
-	(*ReasoningCapabilities)(nil),      // 22: glyph.plugins.extension.v1.ReasoningCapabilities
-	(*ToolCapabilities)(nil),           // 23: glyph.plugins.extension.v1.ToolCapabilities
-	(*ModelPricing)(nil),               // 24: glyph.plugins.extension.v1.ModelPricing
-	(*PricingTier)(nil),                // 25: glyph.plugins.extension.v1.PricingTier
-	(*ExtensionContextRef)(nil),        // 26: glyph.plugins.extension.v1.ExtensionContextRef
+	(SelectionIssueCode)(0),            // 0: glyph.plugins.extension.v1.SelectionIssueCode
+	(ConfiguredModelRole)(0),           // 1: glyph.plugins.extension.v1.ConfiguredModelRole
+	(ConfiguredModelOutcome)(0),        // 2: glyph.plugins.extension.v1.ConfiguredModelOutcome
+	(InputModality)(0),                 // 3: glyph.plugins.extension.v1.InputModality
+	(*ModelSelection)(nil),             // 4: glyph.plugins.extension.v1.ModelSelection
+	(*SelectModelRequest)(nil),         // 5: glyph.plugins.extension.v1.SelectModelRequest
+	(*SelectReasoningRequest)(nil),     // 6: glyph.plugins.extension.v1.SelectReasoningRequest
+	(*SelectionResult)(nil),            // 7: glyph.plugins.extension.v1.SelectionResult
+	(*SelectionIssue)(nil),             // 8: glyph.plugins.extension.v1.SelectionIssue
+	(*SelectionHandlerInvocation)(nil), // 9: glyph.plugins.extension.v1.SelectionHandlerInvocation
+	(*SelectionHandlerAction)(nil),     // 10: glyph.plugins.extension.v1.SelectionHandlerAction
+	(*PreserveSelection)(nil),          // 11: glyph.plugins.extension.v1.PreserveSelection
+	(*RejectSelection)(nil),            // 12: glyph.plugins.extension.v1.RejectSelection
+	(*ConfiguredModelRequest)(nil),     // 13: glyph.plugins.extension.v1.ConfiguredModelRequest
+	(*ConfiguredModelMessage)(nil),     // 14: glyph.plugins.extension.v1.ConfiguredModelMessage
+	(*ConfiguredModelResult)(nil),      // 15: glyph.plugins.extension.v1.ConfiguredModelResult
+	(*ConfiguredModelContent)(nil),     // 16: glyph.plugins.extension.v1.ConfiguredModelContent
+	(*ConfiguredModelText)(nil),        // 17: glyph.plugins.extension.v1.ConfiguredModelText
+	(*ConfiguredModelToolCall)(nil),    // 18: glyph.plugins.extension.v1.ConfiguredModelToolCall
+	(*ConfiguredModelUsage)(nil),       // 19: glyph.plugins.extension.v1.ConfiguredModelUsage
+	(*ConfiguredModelDiagnostic)(nil),  // 20: glyph.plugins.extension.v1.ConfiguredModelDiagnostic
+	(*GetModelsRequest)(nil),           // 21: glyph.plugins.extension.v1.GetModelsRequest
+	(*GetModelsResult)(nil),            // 22: glyph.plugins.extension.v1.GetModelsResult
+	(*GetProvidersRequest)(nil),        // 23: glyph.plugins.extension.v1.GetProvidersRequest
+	(*GetProvidersResult)(nil),         // 24: glyph.plugins.extension.v1.GetProvidersResult
+	(*ProviderDescriptor)(nil),         // 25: glyph.plugins.extension.v1.ProviderDescriptor
+	(*ModelDescriptor)(nil),            // 26: glyph.plugins.extension.v1.ModelDescriptor
+	(*ReasoningCapabilities)(nil),      // 27: glyph.plugins.extension.v1.ReasoningCapabilities
+	(*ToolCapabilities)(nil),           // 28: glyph.plugins.extension.v1.ToolCapabilities
+	(*ModelPricing)(nil),               // 29: glyph.plugins.extension.v1.ModelPricing
+	(*PricingTier)(nil),                // 30: glyph.plugins.extension.v1.PricingTier
+	(*ExtensionContextRef)(nil),        // 31: glyph.plugins.extension.v1.ExtensionContextRef
 }
 var file_api_plugins_extension_v1_model_proto_depIdxs = []int32{
-	3,  // 0: glyph.plugins.extension.v1.SelectionHandlerInvocation.original:type_name -> glyph.plugins.extension.v1.ModelSelection
-	3,  // 1: glyph.plugins.extension.v1.SelectionHandlerInvocation.current:type_name -> glyph.plugins.extension.v1.ModelSelection
-	6,  // 2: glyph.plugins.extension.v1.SelectionHandlerAction.preserve:type_name -> glyph.plugins.extension.v1.PreserveSelection
-	3,  // 3: glyph.plugins.extension.v1.SelectionHandlerAction.replace:type_name -> glyph.plugins.extension.v1.ModelSelection
-	7,  // 4: glyph.plugins.extension.v1.SelectionHandlerAction.reject:type_name -> glyph.plugins.extension.v1.RejectSelection
-	26, // 5: glyph.plugins.extension.v1.ConfiguredModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	3,  // 6: glyph.plugins.extension.v1.ConfiguredModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	9,  // 7: glyph.plugins.extension.v1.ConfiguredModelRequest.messages:type_name -> glyph.plugins.extension.v1.ConfiguredModelMessage
-	0,  // 8: glyph.plugins.extension.v1.ConfiguredModelMessage.role:type_name -> glyph.plugins.extension.v1.ConfiguredModelRole
-	11, // 9: glyph.plugins.extension.v1.ConfiguredModelResult.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
-	1,  // 10: glyph.plugins.extension.v1.ConfiguredModelResult.outcome:type_name -> glyph.plugins.extension.v1.ConfiguredModelOutcome
-	14, // 11: glyph.plugins.extension.v1.ConfiguredModelResult.usage:type_name -> glyph.plugins.extension.v1.ConfiguredModelUsage
-	15, // 12: glyph.plugins.extension.v1.ConfiguredModelResult.diagnostics:type_name -> glyph.plugins.extension.v1.ConfiguredModelDiagnostic
-	12, // 13: glyph.plugins.extension.v1.ConfiguredModelContent.text:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	12, // 14: glyph.plugins.extension.v1.ConfiguredModelContent.refusal:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	12, // 15: glyph.plugins.extension.v1.ConfiguredModelContent.reasoning:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	13, // 16: glyph.plugins.extension.v1.ConfiguredModelContent.tool_call:type_name -> glyph.plugins.extension.v1.ConfiguredModelToolCall
-	26, // 17: glyph.plugins.extension.v1.GetModelsRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	21, // 18: glyph.plugins.extension.v1.GetModelsResult.models:type_name -> glyph.plugins.extension.v1.ModelDescriptor
-	3,  // 19: glyph.plugins.extension.v1.GetModelsResult.active_selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	26, // 20: glyph.plugins.extension.v1.GetProvidersRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	20, // 21: glyph.plugins.extension.v1.GetProvidersResult.providers:type_name -> glyph.plugins.extension.v1.ProviderDescriptor
-	2,  // 22: glyph.plugins.extension.v1.ModelDescriptor.input_modalities:type_name -> glyph.plugins.extension.v1.InputModality
-	22, // 23: glyph.plugins.extension.v1.ModelDescriptor.reasoning:type_name -> glyph.plugins.extension.v1.ReasoningCapabilities
-	23, // 24: glyph.plugins.extension.v1.ModelDescriptor.tools:type_name -> glyph.plugins.extension.v1.ToolCapabilities
-	24, // 25: glyph.plugins.extension.v1.ModelDescriptor.pricing:type_name -> glyph.plugins.extension.v1.ModelPricing
-	25, // 26: glyph.plugins.extension.v1.ModelPricing.tiers:type_name -> glyph.plugins.extension.v1.PricingTier
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	31, // 0: glyph.plugins.extension.v1.SelectModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	31, // 1: glyph.plugins.extension.v1.SelectReasoningRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	4,  // 2: glyph.plugins.extension.v1.SelectionResult.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	8,  // 3: glyph.plugins.extension.v1.SelectionResult.issues:type_name -> glyph.plugins.extension.v1.SelectionIssue
+	0,  // 4: glyph.plugins.extension.v1.SelectionIssue.code:type_name -> glyph.plugins.extension.v1.SelectionIssueCode
+	4,  // 5: glyph.plugins.extension.v1.SelectionHandlerInvocation.original:type_name -> glyph.plugins.extension.v1.ModelSelection
+	4,  // 6: glyph.plugins.extension.v1.SelectionHandlerInvocation.current:type_name -> glyph.plugins.extension.v1.ModelSelection
+	11, // 7: glyph.plugins.extension.v1.SelectionHandlerAction.preserve:type_name -> glyph.plugins.extension.v1.PreserveSelection
+	4,  // 8: glyph.plugins.extension.v1.SelectionHandlerAction.replace:type_name -> glyph.plugins.extension.v1.ModelSelection
+	12, // 9: glyph.plugins.extension.v1.SelectionHandlerAction.reject:type_name -> glyph.plugins.extension.v1.RejectSelection
+	31, // 10: glyph.plugins.extension.v1.ConfiguredModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	4,  // 11: glyph.plugins.extension.v1.ConfiguredModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	14, // 12: glyph.plugins.extension.v1.ConfiguredModelRequest.messages:type_name -> glyph.plugins.extension.v1.ConfiguredModelMessage
+	1,  // 13: glyph.plugins.extension.v1.ConfiguredModelMessage.role:type_name -> glyph.plugins.extension.v1.ConfiguredModelRole
+	16, // 14: glyph.plugins.extension.v1.ConfiguredModelResult.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
+	2,  // 15: glyph.plugins.extension.v1.ConfiguredModelResult.outcome:type_name -> glyph.plugins.extension.v1.ConfiguredModelOutcome
+	19, // 16: glyph.plugins.extension.v1.ConfiguredModelResult.usage:type_name -> glyph.plugins.extension.v1.ConfiguredModelUsage
+	20, // 17: glyph.plugins.extension.v1.ConfiguredModelResult.diagnostics:type_name -> glyph.plugins.extension.v1.ConfiguredModelDiagnostic
+	17, // 18: glyph.plugins.extension.v1.ConfiguredModelContent.text:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	17, // 19: glyph.plugins.extension.v1.ConfiguredModelContent.refusal:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	17, // 20: glyph.plugins.extension.v1.ConfiguredModelContent.reasoning:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	18, // 21: glyph.plugins.extension.v1.ConfiguredModelContent.tool_call:type_name -> glyph.plugins.extension.v1.ConfiguredModelToolCall
+	31, // 22: glyph.plugins.extension.v1.GetModelsRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	26, // 23: glyph.plugins.extension.v1.GetModelsResult.models:type_name -> glyph.plugins.extension.v1.ModelDescriptor
+	4,  // 24: glyph.plugins.extension.v1.GetModelsResult.active_selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	31, // 25: glyph.plugins.extension.v1.GetProvidersRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	25, // 26: glyph.plugins.extension.v1.GetProvidersResult.providers:type_name -> glyph.plugins.extension.v1.ProviderDescriptor
+	3,  // 27: glyph.plugins.extension.v1.ModelDescriptor.input_modalities:type_name -> glyph.plugins.extension.v1.InputModality
+	27, // 28: glyph.plugins.extension.v1.ModelDescriptor.reasoning:type_name -> glyph.plugins.extension.v1.ReasoningCapabilities
+	28, // 29: glyph.plugins.extension.v1.ModelDescriptor.tools:type_name -> glyph.plugins.extension.v1.ToolCapabilities
+	29, // 30: glyph.plugins.extension.v1.ModelDescriptor.pricing:type_name -> glyph.plugins.extension.v1.ModelPricing
+	30, // 31: glyph.plugins.extension.v1.ModelPricing.tiers:type_name -> glyph.plugins.extension.v1.PricingTier
+	32, // [32:32] is the sub-list for method output_type
+	32, // [32:32] is the sub-list for method input_type
+	32, // [32:32] is the sub-list for extension type_name
+	32, // [32:32] is the sub-list for extension extendee
+	0,  // [0:32] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_model_proto_init() }
@@ -3673,12 +4271,12 @@ func file_api_plugins_extension_v1_model_proto_init() {
 		return
 	}
 	file_api_plugins_extension_v1_context_proto_init()
-	file_api_plugins_extension_v1_model_proto_msgTypes[2].OneofWrappers = []any{
+	file_api_plugins_extension_v1_model_proto_msgTypes[6].OneofWrappers = []any{
 		(*selectionHandlerAction_Preserve)(nil),
 		(*selectionHandlerAction_Replace)(nil),
 		(*selectionHandlerAction_Reject)(nil),
 	}
-	file_api_plugins_extension_v1_model_proto_msgTypes[8].OneofWrappers = []any{
+	file_api_plugins_extension_v1_model_proto_msgTypes[12].OneofWrappers = []any{
 		(*configuredModelContent_Text)(nil),
 		(*configuredModelContent_Refusal)(nil),
 		(*configuredModelContent_Reasoning)(nil),
@@ -3689,8 +4287,8 @@ func file_api_plugins_extension_v1_model_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_model_proto_rawDesc), len(file_api_plugins_extension_v1_model_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   23,
+			NumEnums:      4,
+			NumMessages:   27,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

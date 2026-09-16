@@ -146,6 +146,53 @@ func TestServiceRetainsCommittedSelectionWhenPublicationFails(t *testing.T) {
 	assert.ErrorIs(t, err, deliveryErr)
 }
 
+// TestServicePreservesCredentialCancellation verifies canceled credential I/O stays pure before commit.
+func TestServicePreservesCredentialCancellation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: cancel the operation during final credential validation and retain the catalog wrapper.
+	controller := gomock.NewController(t)
+	catalog := NewMockCatalog(controller)
+	publisher := NewMockPublisher(controller)
+	target := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+	ctx, cancel := context.WithCancel(t.Context())
+	credentialErr := credentialCancellationError{cause: context.Canceled}
+	catalog.EXPECT().ResolveModel(target.Provider, target.Model).Return(target, nil)
+	catalog.EXPECT().ValidateSelection(gomock.Any(), target).DoAndReturn(
+		func(context.Context, model.Selection) error {
+			cancel()
+			return credentialErr
+		},
+	)
+	service := New(catalog, publisher)
+	run, release, err := prepareModelForTest(service, target.Provider, target.Model)
+	require.NoError(t, err)
+	defer release()
+
+	// Act: execute through canceled credential validation.
+	_, committed, err := run(ctx)
+
+	// Assert: no commit occurs and both cancellation wrappers remain pure cancellation causes.
+	assert.False(t, committed)
+	assert.ErrorIs(t, err, context.Canceled)
+	assert.ErrorIs(t, err, credentialErr)
+}
+
+// credentialCancellationError preserves the typed catalog category around cancellation.
+type credentialCancellationError struct {
+	// cause is the credential I/O cancellation.
+	cause error
+}
+
+// Error returns complete credential cancellation text.
+func (e credentialCancellationError) Error() string { return e.cause.Error() }
+
+// Unwrap exposes the credential I/O cancellation.
+func (e credentialCancellationError) Unwrap() error { return e.cause }
+
+// CatalogSelectionCode returns the credential failure category.
+func (e credentialCancellationError) CatalogSelectionCode() string { return credentialUnavailableCode }
+
 // prepareModelForTest adapts the private prepared result for focused policy assertions.
 func prepareModelForTest(
 	service *Service,

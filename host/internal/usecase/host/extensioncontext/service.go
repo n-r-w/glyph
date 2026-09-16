@@ -49,7 +49,10 @@ type ContextError struct {
 	cause error
 }
 
-var _ extensioncontroller.ContextFailure = (*ContextError)(nil)
+var (
+	_ extensioncontroller.ContextFailure = (*ContextError)(nil)
+	_ modelselection.BindingFailure      = (*ContextError)(nil)
+)
 
 // Error returns the complete context failure text.
 func (f *ContextError) Error() string {
@@ -91,6 +94,7 @@ var (
 	_ sessiontree.ContextIssuer             = (*Service)(nil)
 	_ lifecycle.ContextIssuer               = (*Service)(nil)
 	_ modelselection.ContextIssuer          = (*Service)(nil)
+	_ modelselection.BindingProtection      = (*Service)(nil)
 	_ tools.ContextIssuer                   = (*Service)(nil)
 )
 

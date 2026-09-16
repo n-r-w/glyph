@@ -28,6 +28,8 @@ type Service struct {
 	contexts ContextOperations
 	// runtime owns active-operation accounting for the connected process.
 	runtime RuntimeOperations
+	// selection owns shared active-selection admission and execution.
+	selection ModelSelection
 	// extensionID comes from process discovery, never request payloads.
 	extensionID string
 	// runtimeID identifies the exact process incarnation connected to this controller.
@@ -38,7 +40,18 @@ var _ extensionsdk.HostService = (*Service)(nil)
 
 // New binds dispatch to the extension and runtime identity supplied by process composition.
 func New(contexts ContextOperations, runtime RuntimeOperations, extensionID, runtimeID string) *Service {
-	return &Service{contexts: contexts, runtime: runtime, extensionID: extensionID, runtimeID: runtimeID}
+	return &Service{
+		contexts:    contexts,
+		runtime:     runtime,
+		selection:   nil,
+		extensionID: extensionID,
+		runtimeID:   runtimeID,
+	}
+}
+
+// BindSelection binds shared selection before this controller becomes available to its stream.
+func (s *Service) BindSelection(selection ModelSelection) {
+	s.selection = selection
 }
 
 // Prepare validates the binding and reserves runtime accounting before acceptance.
@@ -71,10 +84,28 @@ func (s *Service) Prepare(
 	if err != nil {
 		return nil, extensionsdk.Reject(contextFailureCode(err), err)
 	}
+	preparedSelection := mo.None[PreparedSelection]()
+	selectionCommand, hasSelection := mappedRequest.selection.Get()
+	if hasSelection {
+		if s.selection == nil {
+			release()
+			return nil, extensionsdk.Reject(internalFailureCode, errors.New("model selection is not bound"))
+		}
+		selectionCommand.ExtensionID = s.extensionID
+		selectionCommand.RuntimeID = s.runtimeID
+		selectionCommand.Context = bound
+		prepared, prepareErr := s.selection.PrepareExtensionSelection(selectionCommand)
+		if prepareErr != nil {
+			release()
+			return nil, mapSelectionRejection(prepareErr)
+		}
+		preparedSelection = mo.Some(prepared)
+	}
 	return &contextOperation{
 		service: s, reference: bound, models: mappedRequest.models, sessionState: mappedRequest.sessionState,
 		configured: mappedRequest.configured, appendValue: mappedRequest.appendValue,
-		appendMessage: mappedRequest.appendMessage, release: release, id: operationID,
+		appendMessage: mappedRequest.appendMessage, selection: preparedSelection,
+		release: release, id: operationID,
 	}, nil
 }
 
@@ -92,6 +123,8 @@ type contextRequest struct {
 	appendValue mo.Option[appendRequest]
 	// appendMessage contains a model-visible append when selected.
 	appendMessage mo.Option[appendMessageRequest]
+	// selection contains one active-selection command when selected.
+	selection mo.Option[SelectionCommand]
 }
 
 // mapContextRequest validates the selected request payload before admission.
@@ -99,10 +132,18 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 	mapped := contextRequest{
 		reference: nil, models: false, sessionState: false,
 		configured: mo.None[configuredRequest](), appendValue: mo.None[appendRequest](),
-		appendMessage: mo.None[appendMessageRequest](),
+		appendMessage: mo.None[appendMessageRequest](), selection: mo.None[SelectionCommand](),
 	}
 	if request == nil {
 		return mapped, errors.New("extension context request is required")
+	}
+	selection, reference, selected, err := mapSelectionContextRequest(request)
+	if err != nil {
+		return contextRequest{}, err
+	}
+	if selected {
+		mapped.selection, mapped.reference = mo.Some(selection), reference
+		return mapped, nil
 	}
 	switch request.WhichRequest() {
 	case extensionpb.ExtensionRequest_GetModels_case:
@@ -110,30 +151,84 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 	case extensionpb.ExtensionRequest_GetProviders_case:
 		mapped.reference = request.GetGetProviders().GetContext()
 	case extensionpb.ExtensionRequest_ConfiguredModel_case:
-		configured, err := mapConfiguredRequest(request.GetConfiguredModel())
-		if err != nil {
-			return contextRequest{}, err
-		}
-		mapped.configured, mapped.reference = mo.Some(configured), request.GetConfiguredModel().GetContext()
+		return mapConfiguredContextRequest(mapped, request.GetConfiguredModel())
 	case extensionpb.ExtensionRequest_AppendExtension_case:
-		appendValue, err := mapAppendRequest(request.GetAppendExtension())
-		if err != nil {
-			return contextRequest{}, err
-		}
-		mapped.appendValue, mapped.reference = mo.Some(appendValue), request.GetAppendExtension().GetContext()
+		return mapAppendContextRequest(mapped, request.GetAppendExtension())
 	case extensionpb.ExtensionRequest_GetSessionState_case:
 		mapped.sessionState, mapped.reference = true, request.GetGetSessionState().GetContext()
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
-		message, err := mapAppendMessageRequest(request.GetAppendExtensionMessage())
-		if err != nil {
-			return contextRequest{}, err
-		}
-		mapped.appendMessage, mapped.reference = mo.Some(message), request.GetAppendExtensionMessage().GetContext()
+		return mapAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
 	case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
 		return contextRequest{}, errors.New("extension context operation request is required")
+	case extensionpb.ExtensionRequest_SelectModel_case, extensionpb.ExtensionRequest_SelectReasoning_case:
+		return contextRequest{}, errors.New("selection context request mapping did not complete")
 	default:
 		return contextRequest{}, errors.New("unsupported extension context request")
 	}
+	return mapped, nil
+}
+
+// mapSelectionContextRequest maps either active-selection request before the general context-operation union.
+func mapSelectionContextRequest(
+	request *extensionpb.ExtensionRequest,
+) (SelectionCommand, *extensionpb.ExtensionContextRef, bool, error) {
+	switch request.WhichRequest() {
+	case extensionpb.ExtensionRequest_SelectModel_case:
+		command, err := mapModelSelectionRequest(request.GetSelectModel())
+		return command, request.GetSelectModel().GetContext(), true, err
+	case extensionpb.ExtensionRequest_SelectReasoning_case:
+		command, err := mapReasoningSelectionRequest(request.GetSelectReasoning())
+		return command, request.GetSelectReasoning().GetContext(), true, err
+	case extensionpb.ExtensionRequest_Request_not_set_case,
+		extensionpb.ExtensionRequest_GetModels_case,
+		extensionpb.ExtensionRequest_GetProviders_case,
+		extensionpb.ExtensionRequest_Cancel_case,
+		extensionpb.ExtensionRequest_ConfiguredModel_case,
+		extensionpb.ExtensionRequest_AppendExtension_case,
+		extensionpb.ExtensionRequest_GetSessionState_case,
+		extensionpb.ExtensionRequest_AppendExtensionMessage_case:
+		return SelectionCommand{}, nil, false, nil
+	default:
+		return SelectionCommand{}, nil, false, nil
+	}
+}
+
+// mapConfiguredContextRequest maps one configured-model request into the general context selector.
+func mapConfiguredContextRequest(
+	mapped contextRequest,
+	request *extensionpb.ConfiguredModelRequest,
+) (contextRequest, error) {
+	configured, err := mapConfiguredRequest(request)
+	if err != nil {
+		return contextRequest{}, err
+	}
+	mapped.configured, mapped.reference = mo.Some(configured), request.GetContext()
+	return mapped, nil
+}
+
+// mapAppendContextRequest maps one hidden extension append into the general context selector.
+func mapAppendContextRequest(
+	mapped contextRequest,
+	request *extensionpb.AppendExtensionRequest,
+) (contextRequest, error) {
+	appendValue, err := mapAppendRequest(request)
+	if err != nil {
+		return contextRequest{}, err
+	}
+	mapped.appendValue, mapped.reference = mo.Some(appendValue), request.GetContext()
+	return mapped, nil
+}
+
+// mapAppendMessageContextRequest maps one visible extension message into the general context selector.
+func mapAppendMessageContextRequest(
+	mapped contextRequest,
+	request *extensionpb.AppendExtensionMessageRequest,
+) (contextRequest, error) {
+	message, err := mapAppendMessageRequest(request)
+	if err != nil {
+		return contextRequest{}, err
+	}
+	mapped.appendMessage, mapped.reference = mo.Some(message), request.GetContext()
 	return mapped, nil
 }
 
@@ -155,6 +250,8 @@ type contextOperation struct {
 	appendMessage mo.Option[appendMessageRequest]
 	// sessionState selects active-branch recovery.
 	sessionState bool
+	// selection owns an accepted shared selection operation when selected.
+	selection mo.Option[PreparedSelection]
 	// release returns the runtime operation reservation.
 	release func()
 }
@@ -181,7 +278,15 @@ func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted,
 	configured, hasConfigured := o.configured.Get()
 	appendValue, hasAppend := o.appendValue.Get()
 	appendMessage, hasAppendMessage := o.appendMessage.Get()
+	preparedSelection, hasSelection := o.selection.Get()
 	switch {
+	case hasSelection:
+		selectionResult := preparedSelection.Run(ctx)
+		mapped, err := mapSelectionResult(selectionResult)
+		if err != nil {
+			return nil, err
+		}
+		result.SetSelection(mapped)
 	case hasAppendMessage:
 		appended, err := o.service.contexts.AppendExtensionMessage(
 			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
@@ -268,7 +373,12 @@ func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted,
 }
 
 // Release returns the reservation to the runtime accounting owner.
-func (o *contextOperation) Release() { o.release() }
+func (o *contextOperation) Release() {
+	if selection, present := o.selection.Get(); present {
+		selection.Release()
+	}
+	o.release()
+}
 
 // contextFailureCode extracts the closed owner category without replacing the error text.
 func contextFailureCode(err error) string {

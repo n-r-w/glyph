@@ -5,6 +5,9 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/samber/mo"
+
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -28,11 +31,14 @@ type Service struct {
 	contexts ContextIssuer
 	// issues publishes ordinary handler diagnostics.
 	issues IssueDelivery
+	// protection validates and protects bound extension selection commits.
+	protection BindingProtection
 }
 
 var (
-	_ hostprogrammatic.ModelSelection = (*Service)(nil)
-	_ hostui.ModelSelection           = (*Service)(nil)
+	_ extensioncontroller.ModelSelection = (*Service)(nil)
+	_ hostprogrammatic.ModelSelection    = (*Service)(nil)
+	_ hostui.ModelSelection              = (*Service)(nil)
 )
 
 // preparedSelection owns one admitted private selection operation.
@@ -43,6 +49,8 @@ type preparedSelection struct {
 	kind HandlerKind
 	// target is the complete immutable starting target.
 	target model.Selection
+	// binding contains protection identity only for extension-initiated selection.
+	binding mo.Option[Binding]
 	// releaseOnce prevents duplicate admission release.
 	releaseOnce sync.Once
 }
@@ -65,7 +73,7 @@ type selectionResult struct {
 func New(catalog Catalog, publisher Publisher) *Service {
 	return &Service{
 		catalog: catalog, publisher: publisher, mutex: sync.Mutex{}, active: false,
-		handlers: nil, runtime: nil, contexts: nil, issues: nil,
+		handlers: nil, runtime: nil, contexts: nil, issues: nil, protection: nil,
 	}
 }
 
@@ -76,6 +84,13 @@ func (s *Service) BindHandlers(runtime Runtime, contexts ContextIssuer, issues I
 	s.runtime = runtime
 	s.contexts = contexts
 	s.issues = issues
+}
+
+// BindProtection binds extension context protection before extension selection becomes available.
+func (s *Service) BindProtection(protection BindingProtection) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.protection = protection
 }
 
 // prepareModel reserves selection and resolves the requested starting model.
@@ -110,11 +125,18 @@ func (s *Service) prepare(
 		s.release()
 		return nil, resolveErr
 	}
-	return &preparedSelection{owner: s, kind: kind, target: target, releaseOnce: sync.Once{}}, nil
+	return &preparedSelection{
+		owner: s, kind: kind, target: target, binding: mo.None[Binding](), releaseOnce: sync.Once{},
+	}, nil
 }
 
 // run executes composition, final validation, atomic commit, and publication in order.
-func (s *Service) run(ctx context.Context, kind HandlerKind, target model.Selection) selectionResult {
+func (s *Service) run(
+	ctx context.Context,
+	kind HandlerKind,
+	target model.Selection,
+	binding mo.Option[Binding],
+) selectionResult {
 	final, issues, compositionErr := s.compose(ctx, kind, target)
 	if compositionErr != nil {
 		return selectionResult{
@@ -142,30 +164,75 @@ func (s *Service) run(ctx context.Context, kind HandlerKind, target model.Select
 			selection: model.Selection{}, committed: false, issues: issues, deliveryErr: nil, err: ctxErr,
 		}
 	}
-	preceding, committed, commitErr := s.catalog.CommitSelection(ctx, final)
+	return s.commitSelection(ctx, final, binding, issues)
+}
+
+// commitSelection commits and enqueues under optional binding protection, then waits after guard release.
+func (s *Service) commitSelection(
+	ctx context.Context,
+	final model.Selection,
+	binding mo.Option[Binding],
+	issues []Issue,
+) selectionResult {
+	result := selectionResult{
+		selection: model.Selection{}, committed: false, issues: issues, deliveryErr: nil, err: nil,
+	}
+	var wait func(context.Context) error
+	commit := func() error {
+		preceding, committed, commitErr := s.catalog.CommitSelection(ctx, final)
+		if commitErr != nil {
+			return commitErr
+		}
+		result.selection = committed
+		result.committed = true
+		if preceding == committed {
+			return nil
+		}
+		var publicationErr error
+		wait, publicationErr = s.publisher.PublishSelection(committed)
+		result.deliveryErr = publicationErr
+		return nil
+	}
+	protected, commitErr := s.commitWithBindingProtection(ctx, binding, commit)
 	if commitErr != nil {
-		return selectionResult{
-			selection: model.Selection{}, committed: false, issues: issues, deliveryErr: nil, err: commitErr,
+		if result.committed {
+			result.deliveryErr = errors.Join(result.deliveryErr, commitErr)
+			return result
+		}
+		if protected {
+			result.err = classifyBindingProtection(commitErr)
+		} else {
+			result.err = commitErr
+		}
+		return result
+	}
+	if result.deliveryErr == nil && wait != nil {
+		result.deliveryErr = wait(ctx)
+	}
+	return result
+}
+
+// commitWithBindingProtection runs commit directly for clients or under extension binding protection.
+func (s *Service) commitWithBindingProtection(
+	ctx context.Context,
+	binding mo.Option[Binding],
+	commit func() error,
+) (bool, error) {
+	bound, hasBinding := binding.Get()
+	if !hasBinding {
+		return false, commit()
+	}
+	if s.protection == nil {
+		return true, &SelectionError{
+			Code: ErrorCodeInternal, cause: errors.New("extension selection binding protection is not bound"),
 		}
 	}
-	result := selectionResult{
-		selection: committed, committed: true, issues: issues, deliveryErr: nil, err: nil,
-	}
-	if preceding == committed {
-		return result
-	}
-	wait, publicationErr := s.publisher.PublishSelection(committed)
-	if publicationErr != nil {
-		result.deliveryErr = publicationErr
-		return result
-	}
-	result.deliveryErr = wait(ctx)
-	return result
+	return true, s.protection.ProtectSelectionCommit(ctx, bound, commit)
 }
 
 // Run executes one admitted private selection operation.
 func (p *preparedSelection) Run(ctx context.Context) selectionResult {
-	return p.owner.run(ctx, p.kind, p.target)
+	return p.owner.run(ctx, p.kind, p.target, p.binding)
 }
 
 // Release frees shared selection admission exactly once.

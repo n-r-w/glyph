@@ -286,6 +286,96 @@ func (mr *MockContextIssuerMockRecorder) IssueContext(extensionID any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueContext", reflect.TypeOf((*MockContextIssuer)(nil).IssueContext), extensionID)
 }
 
+// MockBindingFailure is a mock of BindingFailure interface.
+type MockBindingFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockBindingFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockBindingFailureMockRecorder is the mock recorder for MockBindingFailure.
+type MockBindingFailureMockRecorder struct {
+	mock *MockBindingFailure
+}
+
+// NewMockBindingFailure creates a new mock instance.
+func NewMockBindingFailure(ctrl *gomock.Controller) *MockBindingFailure {
+	mock := &MockBindingFailure{ctrl: ctrl}
+	mock.recorder = &MockBindingFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockBindingFailure) EXPECT() *MockBindingFailureMockRecorder {
+	return m.recorder
+}
+
+// ContextCode mocks base method.
+func (m *MockBindingFailure) ContextCode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ContextCode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ContextCode indicates an expected call of ContextCode.
+func (mr *MockBindingFailureMockRecorder) ContextCode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContextCode", reflect.TypeOf((*MockBindingFailure)(nil).ContextCode))
+}
+
+// Error mocks base method.
+func (m *MockBindingFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockBindingFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockBindingFailure)(nil).Error))
+}
+
+// MockBindingProtection is a mock of BindingProtection interface.
+type MockBindingProtection struct {
+	ctrl     *gomock.Controller
+	recorder *MockBindingProtectionMockRecorder
+	isgomock struct{}
+}
+
+// MockBindingProtectionMockRecorder is the mock recorder for MockBindingProtection.
+type MockBindingProtectionMockRecorder struct {
+	mock *MockBindingProtection
+}
+
+// NewMockBindingProtection creates a new mock instance.
+func NewMockBindingProtection(ctrl *gomock.Controller) *MockBindingProtection {
+	mock := &MockBindingProtection{ctrl: ctrl}
+	mock.recorder = &MockBindingProtectionMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockBindingProtection) EXPECT() *MockBindingProtectionMockRecorder {
+	return m.recorder
+}
+
+// ProtectSelectionCommit mocks base method.
+func (m *MockBindingProtection) ProtectSelectionCommit(arg0 context.Context, arg1 Binding, arg2 func() error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtectSelectionCommit", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ProtectSelectionCommit indicates an expected call of ProtectSelectionCommit.
+func (mr *MockBindingProtectionMockRecorder) ProtectSelectionCommit(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtectSelectionCommit", reflect.TypeOf((*MockBindingProtection)(nil).ProtectSelectionCommit), arg0, arg1, arg2)
+}
+
 // MockIssueDelivery is a mock of IssueDelivery interface.
 type MockIssueDelivery struct {
 	ctrl     *gomock.Controller

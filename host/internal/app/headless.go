@@ -55,7 +55,7 @@ func runHeadlessWithPaths(
 		returnErr = errors.Join(returnErr, extensions.Close())
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}()
-	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
+	contexts := bindExtensionContexts(extensions, tools, sessionServices)
 	sessionServices.active.BindEntryPublisher(renderer)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
 	lifecycleObservers.BindIssueDelivery(renderer)
@@ -70,6 +70,8 @@ func runHeadlessWithPaths(
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
 	selectionOwner := modelselection.New(providerCatalog, renderer)
 	selectionOwner.BindHandlers(extensions, contexts, renderer)
+	selectionOwner.BindProtection(contexts)
+	bindExtensionHostFactory(extensionFactory, extensions, contexts, selectionOwner)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,

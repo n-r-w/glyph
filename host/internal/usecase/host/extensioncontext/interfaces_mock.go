@@ -156,6 +156,20 @@ func (mr *MockSessionStateMockRecorder) ExtensionState(arg0, arg1, arg2 any) *go
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ExtensionState", reflect.TypeOf((*MockSessionState)(nil).ExtensionState), arg0, arg1, arg2)
 }
 
+// ProtectContextCommit mocks base method.
+func (m *MockSessionState) ProtectContextCommit(arg0 context.Context, arg1 SessionIdentity, arg2 ContextCommitGuard, arg3 func() error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProtectContextCommit", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ProtectContextCommit indicates an expected call of ProtectContextCommit.
+func (mr *MockSessionStateMockRecorder) ProtectContextCommit(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtectContextCommit", reflect.TypeOf((*MockSessionState)(nil).ProtectContextCommit), arg0, arg1, arg2, arg3)
+}
+
 // MockCatalog is a mock of Catalog interface.
 type MockCatalog struct {
 	ctrl     *gomock.Controller

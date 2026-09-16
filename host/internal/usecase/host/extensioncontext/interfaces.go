@@ -41,6 +41,8 @@ type SessionState interface {
 	) (session.Entry, error)
 	// ExtensionState returns one coherent filtered active-branch snapshot.
 	ExtensionState(context.Context, SessionIdentity, string) (SessionSnapshot, error)
+	// ProtectContextCommit validates and protects the expected session before runtime while commit runs.
+	ProtectContextCommit(context.Context, SessionIdentity, ContextCommitGuard, func() error) error
 }
 
 // ContextCommitGuard acquires runtime validity across one owning session commit.

@@ -54,6 +54,29 @@ type ContextIssuer interface {
 	IssueContext(extensionID string) (extension.Context, error)
 }
 
+// Binding identifies the issued extension runtime-to-session context that must remain current through commit.
+type Binding struct {
+	// ExtensionID identifies the extension that owns the issued context.
+	ExtensionID string
+	// RuntimeID identifies the exact runtime incarnation.
+	RuntimeID string
+	// Context identifies the issued context and durable session binding.
+	Context extension.ContextRef
+}
+
+// BindingFailure exposes the stable category returned by context protection.
+type BindingFailure interface {
+	error
+	// ContextCode returns the binding failure category.
+	ContextCode() string
+}
+
+// BindingProtection protects an extension binding only during final commit and publication enqueue.
+type BindingProtection interface {
+	// ProtectSelectionCommit validates and protects session before runtime while commit runs.
+	ProtectSelectionCommit(context.Context, Binding, func() error) error
+}
+
 // IssueDelivery publishes nonfatal handler diagnostics before selection can commit.
 type IssueDelivery interface {
 	// DeliverExtensionIssue attempts ordered delivery to the connected Glyph client.

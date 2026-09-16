@@ -56,6 +56,18 @@ type SessionStateOperation struct {
 	operation *contextOperation
 }
 
+// ModelSelectionOperation owns one asynchronous model selection.
+type ModelSelectionOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
+// ReasoningSelectionOperation owns one asynchronous reasoning selection.
+type ReasoningSelectionOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
 // ContextFrom returns the session-bound context supplied to a tool or handler invocation.
 func ContextFrom(ctx context.Context) (*ExtensionContext, error) {
 	binding, present := ctx.Value(invocationContextKey{}).(*ExtensionContext)
@@ -158,6 +170,62 @@ func (c *ExtensionContext) StartGetSessionState(ctx context.Context) (*SessionSt
 		return nil, err
 	}
 	return &SessionStateOperation{operation: started}, nil
+}
+
+// StartModelSelection starts one active model selection without waiting for Host acceptance.
+func (c *ExtensionContext) StartModelSelection(
+	ctx context.Context,
+	input *extensionpb.SelectModelRequest,
+) (*ModelSelectionOperation, error) {
+	if input == nil {
+		return nil, errors.New("model selection request is required")
+	}
+	requestValue := proto.CloneOf(input)
+	requestValue.SetContext(c.reference())
+	request := new(extensionpb.ExtensionRequest)
+	request.SetSelectModel(requestValue)
+	started, err := c.initiator.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &ModelSelectionOperation{operation: started}, nil
+}
+
+// StartReasoningSelection starts one active reasoning selection without waiting for Host acceptance.
+func (c *ExtensionContext) StartReasoningSelection(
+	ctx context.Context,
+	input *extensionpb.SelectReasoningRequest,
+) (*ReasoningSelectionOperation, error) {
+	if input == nil {
+		return nil, errors.New("reasoning selection request is required")
+	}
+	requestValue := proto.CloneOf(input)
+	requestValue.SetContext(c.reference())
+	request := new(extensionpb.ExtensionRequest)
+	request.SetSelectReasoning(requestValue)
+	started, err := c.initiator.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &ReasoningSelectionOperation{operation: started}, nil
+}
+
+// Wait waits for a model selection terminal result without changing remote cancellation ownership.
+func (o *ModelSelectionOperation) Wait(ctx context.Context) (*extensionpb.SelectionResult, error) {
+	result, err := o.operation.wait(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return result.GetSelection(), nil
+}
+
+// Wait waits for a reasoning selection terminal result without changing remote cancellation ownership.
+func (o *ReasoningSelectionOperation) Wait(ctx context.Context) (*extensionpb.SelectionResult, error) {
+	result, err := o.operation.wait(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return result.GetSelection(), nil
 }
 
 // Wait waits locally for the committed hidden entry without canceling remote work.

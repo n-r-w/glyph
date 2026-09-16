@@ -31,10 +31,14 @@ const (
 	cataloguesMode = "catalogs"
 	// staleCataloguesMode exercises a retained binding instead of the current invocation binding.
 	staleCataloguesMode = "stale-catalogs"
+	// staleSelectionMode selects reasoning through a retained binding.
+	staleSelectionMode = "stale-selection"
 	// configuredRequestMode executes one explicit configured-model request.
 	configuredRequestMode = "configured-request"
 	// sessionStateMode appends or recovers one durable hidden checkpoint.
 	sessionStateMode = "session-state"
+	// selectionMode selects active model and reasoning through the public context.
+	selectionMode = "selection"
 	// failureMode selects classified execution failure.
 	failureMode = "fail"
 	// cancellationMode selects execution blocked until targeted cancellation.
@@ -79,6 +83,8 @@ type service struct {
 	lifecycleEnabled bool
 	// selectionComposition enables ordered model and reasoning target transformation.
 	selectionComposition bool
+	// selectionNested enables nested context operations from a selection handler.
+	selectionNested bool
 }
 
 // registerOperation returns the fixture catalog.
@@ -101,6 +107,10 @@ type handleOperation struct {
 	expectedCheckpointID string
 	// lifecycle reports that this operation observes agent start.
 	lifecycle bool
+	// selectionNested enables nested context operations for the model handler.
+	selectionNested bool
+	// signals stores the process synchronization directory.
+	signals string
 }
 
 // executeOperation owns one mode-specific tool invocation.
@@ -135,6 +145,7 @@ func main() {
 		signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil,
 		savedMessageID: "", savedCheckpointID: "", lifecycleEnabled: os.Getenv(lifecycleEnvironment) == "1",
 		selectionComposition: os.Getenv(selectionCompositionEnvironment) == "1",
+		selectionNested:      os.Getenv(selectionNestedEnvironment) == "1",
 	})
 }
 
@@ -169,6 +180,7 @@ func (s *service) PrepareHandle(
 	return &handleOperation{
 		context: binding, request: request, expectedMessageID: expectedMessageID,
 		expectedCheckpointID: expectedCheckpointID, lifecycle: request.GetHandlerId() == agentStartObserverID,
+		selectionNested: s.selectionNested, signals: s.signals,
 	}, nil
 }
 
@@ -188,8 +200,10 @@ func (s *service) PrepareExecute(
 	case ordinaryMode,
 		cataloguesMode,
 		staleCataloguesMode,
+		staleSelectionMode,
 		configuredRequestMode,
 		sessionStateMode,
+		selectionMode,
 		failureMode,
 		cancellationMode,
 		shutdownMode:
@@ -249,7 +263,7 @@ func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleR
 		return response, nil
 	}
 	if operation.request.GetModelSelection() != nil || operation.request.GetReasoningSelection() != nil {
-		return operation.runSelectionHandler(), nil
+		return operation.runSelectionHandler(ctx)
 	}
 	if request := operation.request.GetSessionBeforeTreeRequest(); request != nil {
 		if operation.expectedCheckpointID != "" &&
@@ -324,10 +338,14 @@ func (operation *executeOperation) Run(
 		return readCatalogues(ctx)
 	case staleCataloguesMode:
 		return operation.readRetainedCatalogues(ctx)
+	case staleSelectionMode:
+		return operation.selectWithRetainedContext(ctx)
 	case configuredRequestMode:
 		return requestConfiguredModel(ctx)
 	case sessionStateMode:
 		return exerciseSessionState(ctx, operation.service)
+	case selectionMode:
+		return exerciseSelection(ctx)
 	case failureMode:
 		return nil, extensionsdk.Fail(internalFailureCode, errors.New("complete external Extension failure"))
 	default:

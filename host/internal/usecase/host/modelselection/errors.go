@@ -2,7 +2,9 @@ package modelselection
 
 import (
 	"errors"
+	"fmt"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
@@ -20,8 +22,12 @@ const (
 	ErrorCodeExtensionUnavailable = "extension_unavailable"
 	// ErrorCodeInternal identifies an internal pre-commit selection failure.
 	ErrorCodeInternal = "internal"
+	// ErrorCodeStaleContext identifies an invalidated extension runtime or session binding.
+	ErrorCodeStaleContext = "stale_context"
 	// credentialUnavailableCode is the catalog credential failure category.
 	credentialUnavailableCode = "credential_unavailable" //nolint:gosec // This is a public error code.
+	// bindingStaleContextCode is the context owner's stale-binding category.
+	bindingStaleContextCode = "STALE_CONTEXT"
 )
 
 // SelectionError classifies one selection preparation or execution failure.
@@ -33,8 +39,9 @@ type SelectionError struct {
 }
 
 var (
-	_ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
-	_ hostui.SelectionFailure           = (*SelectionError)(nil)
+	_ extensioncontroller.SelectionFailure = (*SelectionError)(nil)
+	_ hostprogrammatic.SelectionFailure    = (*SelectionError)(nil)
+	_ hostui.SelectionFailure              = (*SelectionError)(nil)
 )
 
 // Error returns complete selection failure text.
@@ -45,6 +52,19 @@ func (e *SelectionError) Unwrap() error { return e.cause }
 
 // ModelSelectionCode returns the stable selection failure category.
 func (e *SelectionError) ModelSelectionCode() string { return e.Code }
+
+// classifyBindingProtection maps context-owner failures to extension selection categories.
+func classifyBindingProtection(err error) error {
+	var failure BindingFailure
+	if errors.As(err, &failure) && failure.ContextCode() == bindingStaleContextCode {
+		return &SelectionError{
+			Code: ErrorCodeStaleContext, cause: fmt.Errorf("protect extension model selection commit: %w", err),
+		}
+	}
+	return &SelectionError{
+		Code: ErrorCodeInternal, cause: fmt.Errorf("protect extension model selection commit: %w", err),
+	}
+}
 
 // classifyFinalValidation maps catalog categories to closed execution failures.
 func classifyFinalValidation(err error) error {

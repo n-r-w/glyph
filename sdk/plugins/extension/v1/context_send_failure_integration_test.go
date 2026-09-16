@@ -22,9 +22,12 @@ import (
 // together.
 func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 	t.Parallel()
-	for _, name := range []string{"failed work", "completed model diagnostic", "completed append issue"} {
+	for _, name := range []string{
+		"failed work", "completed model diagnostic", "completed append issue", "completed selection issue",
+	} {
 		completed := name != "failed work"
 		appendMessage := name == "completed append issue"
+		selection := name == "completed selection issue"
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			// Arrange: admit one extension-initiated read before failing the shared writer on an outbound invocation.
@@ -45,7 +48,11 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 				stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenResponse, error) {
 					<-allowRequest
 					request := new(extensionpb.ExtensionRequest)
-					if appendMessage {
+					if selection {
+						request.SetSelectReasoning(extensionpb.SelectReasoningRequest_builder{
+							Context: nil, ReasoningChoice: new("high"),
+						}.Build())
+					} else if appendMessage {
 						request.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageRequest_builder{
 							Context: nil, EntryType: new("note"), Text: new("exact message"),
 							Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
@@ -88,6 +95,19 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 			read.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
 				close(running)
 				<-ctx.Done()
+				if selection {
+					response := new(extensionpb.HostCompleted)
+					response.SetSelection(extensionpb.SelectionResult_builder{
+						Selection: extensionpb.ModelSelection_builder{
+							ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("high"),
+						}.Build(),
+						Issues: []*extensionpb.SelectionIssue{extensionpb.SelectionIssue_builder{
+							Code:        new(extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED),
+							ExtensionId: new(""), HandlerId: new(""), Message: new(workCause.Error()),
+						}.Build()},
+					}.Build())
+					return response, nil
+				}
 				if appendMessage {
 					response := new(extensionpb.HostCompleted)
 					response.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageResult_builder{

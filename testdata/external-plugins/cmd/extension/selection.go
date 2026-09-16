@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
 	"errors"
+	"fmt"
+
+	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -9,6 +13,16 @@ import (
 const (
 	// selectionCompositionEnvironment enables ordered selection transformations in the external fixture.
 	selectionCompositionEnvironment = "GLYPH_EXTERNAL_SELECTION_COMPOSITION"
+	// selectionNestedEnvironment enables nested public operations from a selection handler.
+	selectionNestedEnvironment = "GLYPH_EXTERNAL_SELECTION_NESTED"
+	// nestedSelectionCompleteSignal marks successful nested operation checks.
+	nestedSelectionCompleteSignal = "nested-selection-complete"
+	// nestedSelectionBusyCode is the expected recursive selection rejection.
+	nestedSelectionBusyCode = "BUSY"
+	// nestedSelectionEntryType identifies the nested handler append.
+	nestedSelectionEntryType = "nested-selection"
+	// nestedSelectionEntryText is the exact nested handler message.
+	nestedSelectionEntryText = "nested selection handler append"
 	// modelSelectionFirstHandlerID identifies the first composing model handler.
 	modelSelectionFirstHandlerID = "compose-model-first"
 	// modelSelectionSecondHandlerID identifies the second composing model handler.
@@ -73,7 +87,7 @@ func isSelectionHandlerID(handlerID string) bool {
 }
 
 // runSelectionHandler validates original/current composition and returns the next complete target.
-func (operation *handleOperation) runSelectionHandler() *extensionv1.HandleResponse {
+func (operation *handleOperation) runSelectionHandler(ctx context.Context) (*extensionv1.HandleResponse, error) {
 	invocation := operation.request.GetModelSelection()
 	modelHandler := invocation != nil
 	if invocation == nil {
@@ -81,9 +95,15 @@ func (operation *handleOperation) runSelectionHandler() *extensionv1.HandleRespo
 	}
 	handlerID := operation.request.GetHandlerId()
 	if handlerID == modelSelectionHandlerID || handlerID == reasoningSelectionHandlerID {
+		if operation.selectionNested && handlerID == modelSelectionHandlerID {
+			if err := operation.runNestedSelectionOperations(ctx); err != nil {
+				return nil, err
+			}
+			signal(operation.signals, nestedSelectionCompleteSignal)
+		}
 		return selectionActionResponse(modelHandler, extensionv1.SelectionHandlerAction_builder{
 			Preserve: new(extensionv1.PreserveSelection), Replace: nil, Reject: nil,
-		}.Build())
+		}.Build()), nil
 	}
 	currentReasoning := selectionOriginalReasoning
 	replacementReasoning := selectionIntermediateReasoning
@@ -91,10 +111,8 @@ func (operation *handleOperation) runSelectionHandler() *extensionv1.HandleRespo
 		currentReasoning = selectionIntermediateReasoning
 		replacementReasoning = selectionFinalReasoning
 	}
-	if err := validateSelectionInvocation(invocation, currentReasoning); err != nil {
-		response := new(extensionv1.HandleResponse)
-		response.SetError(extensionv1.HandlerError_builder{Message: new(err.Error())}.Build())
-		return response
+	if response, invalid := selectionValidationResponse(invocation, currentReasoning); invalid {
+		return response, nil
 	}
 	action := extensionv1.SelectionHandlerAction_builder{
 		Preserve: nil,
@@ -104,7 +122,64 @@ func (operation *handleOperation) runSelectionHandler() *extensionv1.HandleRespo
 		}.Build(),
 		Reject: nil,
 	}.Build()
-	return selectionActionResponse(modelHandler, action)
+	return selectionActionResponse(modelHandler, action), nil
+}
+
+// selectionValidationResponse maps an invalid invocation to an ordinary handler-error result.
+func selectionValidationResponse(
+	invocation *extensionv1.SelectionHandlerInvocation,
+	currentReasoning string,
+) (*extensionv1.HandleResponse, bool) {
+	validationErr := validateSelectionInvocation(invocation, currentReasoning)
+	if validationErr == nil {
+		return nil, false
+	}
+	response := new(extensionv1.HandleResponse)
+	response.SetError(extensionv1.HandlerError_builder{Message: new(validationErr.Error())}.Build())
+	return response, true
+}
+
+// runNestedSelectionOperations verifies recursive BUSY and unrelated context-operation availability.
+func (operation *handleOperation) runNestedSelectionOperations(ctx context.Context) error {
+	nestedSelection, err := operation.context.StartReasoningSelection(ctx, extensionv1.SelectReasoningRequest_builder{
+		Context: nil, ReasoningChoice: new(selectionFinalReasoning),
+	}.Build())
+	if err != nil {
+		return err
+	}
+	_, err = nestedSelection.Wait(ctx)
+	rejection, rejected := errors.AsType[*extensionsdk.RejectionError](err)
+	if !rejected || rejection.Code() != nestedSelectionBusyCode {
+		return fmt.Errorf("nested selection must reject BUSY: %w", err)
+	}
+	models, err := operation.context.StartGetModels(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err = models.Wait(ctx); err != nil {
+		return err
+	}
+	if _, err = requestConfiguredModel(ctx); err != nil {
+		return err
+	}
+	appendOperation, err := operation.context.StartAppendExtensionMessage(
+		ctx,
+		extensionv1.AppendExtensionMessageRequest_builder{
+			Context: nil, EntryType: new(nestedSelectionEntryType), Text: new(nestedSelectionEntryText),
+			Visibility: new(extensionv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE),
+		}.Build(),
+	)
+	if err != nil {
+		return err
+	}
+	appended, err := appendOperation.Wait(ctx)
+	if err != nil {
+		return err
+	}
+	if len(appended.GetIssues()) != 0 {
+		return errors.New("nested selection handler append returned a delivery issue")
+	}
+	return nil
 }
 
 // validateSelectionInvocation verifies immutable original and the expected composed current target.

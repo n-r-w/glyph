@@ -26,6 +26,10 @@ const (
 	hostRequestSessionState
 	// hostRequestAppendExtensionMessage identifies model-visible session appends.
 	hostRequestAppendExtensionMessage
+	// hostRequestModelSelection identifies active model selection.
+	hostRequestModelSelection
+	// hostRequestReasoningSelection identifies active reasoning selection.
+	hostRequestReasoningSelection
 	// hostRequestCancel identifies targeted cancellation.
 	hostRequestCancel
 	// contextCodeStale identifies a permanently invalidated context binding.
@@ -40,6 +44,14 @@ const (
 	hostFailureCodeSessionUnavailable = "SESSION_UNAVAILABLE"
 	// hostFailureCodePersistenceUnavailable identifies a durable append failure.
 	hostFailureCodePersistenceUnavailable = "PERSISTENCE_UNAVAILABLE"
+	// hostFailureCodeExtensionRejected identifies explicit selection-handler rejection.
+	hostFailureCodeExtensionRejected = "EXTENSION_REJECTED"
+	// hostFailureCodeExtensionUnavailable identifies a selected handler runtime failure.
+	hostFailureCodeExtensionUnavailable = "EXTENSION_UNAVAILABLE"
+	// hostRejectionCodeNotFound identifies a missing requested starting model.
+	hostRejectionCodeNotFound = "NOT_FOUND"
+	// hostRejectionCodeReasoningUnsupported identifies an unsupported requested starting reasoning choice.
+	hostRejectionCodeReasoningUnsupported = "REASONING_UNSUPPORTED"
 )
 
 // classifyHostRequest identifies an implemented extension-initiated request.
@@ -60,6 +72,10 @@ func classifyHostRequest(request *extensionpb.ExtensionRequest) hostRequestKind 
 		return hostRequestSessionState
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
 		return hostRequestAppendExtensionMessage
+	case extensionpb.ExtensionRequest_SelectModel_case:
+		return hostRequestModelSelection
+	case extensionpb.ExtensionRequest_SelectReasoning_case:
+		return hostRequestReasoningSelection
 	case extensionpb.ExtensionRequest_Cancel_case:
 		return hostRequestCancel
 	case extensionpb.ExtensionRequest_Request_not_set_case:
@@ -87,6 +103,8 @@ func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostComplete
 		return result.GetGetSessionState() != nil
 	case hostRequestAppendExtensionMessage:
 		return result.GetAppendExtensionMessage() != nil
+	case hostRequestModelSelection, hostRequestReasoningSelection:
+		return result.GetSelection() != nil
 	case hostRequestCancel:
 		return result.GetCancel() != nil
 	case hostRequestInvalid:
@@ -113,6 +131,15 @@ func validateHostFailureCode(kind hostRequestKind, code string) error {
 	}
 	if kind == hostRequestSessionState && code == hostFailureCodeSessionUnavailable {
 		return nil
+	}
+	if kind == hostRequestModelSelection || kind == hostRequestReasoningSelection {
+		switch code {
+		case hostFailureCodeModelUnavailable,
+			hostFailureCodeCredentialUnavailable,
+			hostFailureCodeExtensionRejected,
+			hostFailureCodeExtensionUnavailable:
+			return nil
+		}
 	}
 	return fmt.Errorf("unsupported Host failure category %q for request kind %d", code, kind)
 }
@@ -142,9 +169,50 @@ func validateHostRejectionCode(kind hostRequestKind, code string) error {
 		contextCodeStale,
 		failureCodeInternal:
 		return nil
-	default:
-		return fmt.Errorf("unsupported Host catalog rejection category %q", code)
+	case hostRejectionCodeNotFound, hostRejectionCodeReasoningUnsupported:
+		if kind == hostRequestModelSelection || kind == hostRequestReasoningSelection {
+			return nil
+		}
 	}
+	return fmt.Errorf("unsupported Host catalog rejection category %q", code)
+}
+
+// validateHostCompleted enforces the result contract for one extension-initiated request kind.
+func validateHostCompleted(kind hostRequestKind, result *extensionpb.HostCompleted) error {
+	if !hostCompletedMatches(kind, result) {
+		return errors.New("received Host completion does not match request kind")
+	}
+	if kind == hostRequestCancel {
+		return validateCancelCompleted(result.GetCancel())
+	}
+	if kind == hostRequestModelSelection || kind == hostRequestReasoningSelection {
+		return validateSelectionResult(result.GetSelection())
+	}
+	return nil
+}
+
+// validateSelectionResult validates the required full selection and closed diagnostic kinds.
+func validateSelectionResult(result *extensionpb.SelectionResult) error {
+	selection := result.GetSelection()
+	if selection == nil || selection.GetProviderId() == "" || selection.GetModelId() == "" ||
+		selection.GetReasoningChoice() == "" {
+		return errors.New("host selection completion requires a complete selection")
+	}
+	for _, issue := range result.GetIssues() {
+		if issue == nil || issue.GetMessage() == "" {
+			return errors.New("host selection completion requires complete issue text")
+		}
+		switch issue.GetCode() {
+		case extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_HANDLER_ERROR,
+			extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION,
+			extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED:
+		case extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_UNSPECIFIED:
+			return errors.New("host selection completion has an unspecified issue kind")
+		default:
+			return fmt.Errorf("host selection completion has unsupported issue kind %d", issue.GetCode())
+		}
+	}
+	return nil
 }
 
 // hostPeerError keeps Host-owned category and cause text when lifecycle validation fails.
@@ -192,13 +260,8 @@ func mapHostEvent(
 		event.Kind = operation.EventRunning
 	case extensionpb.HostEvent_Completed_case:
 		event.Kind, event.Result = operation.EventCompleted, payload.GetCompleted()
-		if !hostCompletedMatches(kind, event.Result) {
-			return event, false, errors.New("received Host completion does not match request kind")
-		}
-		if kind == hostRequestCancel {
-			if err := validateCancelCompleted(event.Result.GetCancel()); err != nil {
-				return event, false, err
-			}
+		if err := validateHostCompleted(kind, event.Result); err != nil {
+			return event, false, err
 		}
 		return event, true, nil
 	case extensionpb.HostEvent_Canceled_case:

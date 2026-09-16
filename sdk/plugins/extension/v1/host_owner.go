@@ -190,6 +190,11 @@ func hostCompletedSource(result *extensionpb.HostCompleted) error {
 			sources = append(sources, errors.New(issue.GetMessage()))
 		}
 	}
+	for _, issue := range result.GetSelection().GetIssues() {
+		if issue != nil {
+			sources = append(sources, errors.New(issue.GetMessage()))
+		}
+	}
 	return errors.Join(sources...)
 }
 

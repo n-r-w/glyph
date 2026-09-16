@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 )
 
 const (
@@ -19,7 +20,10 @@ type runtimeContextError struct {
 	cause error
 }
 
-var _ extensioncontroller.ContextFailure = (*runtimeContextError)(nil)
+var (
+	_ extensioncontroller.ContextFailure = (*runtimeContextError)(nil)
+	_ modelselection.BindingFailure      = (*runtimeContextError)(nil)
+)
 
 // Error preserves the complete runtime reference failure.
 func (e *runtimeContextError) Error() string { return e.cause.Error() }

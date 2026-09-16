@@ -148,6 +148,147 @@ func (mr *MockContextOperationsMockRecorder) ValidateContext(extensionID, runtim
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateContext", reflect.TypeOf((*MockContextOperations)(nil).ValidateContext), extensionID, runtimeID, reference)
 }
 
+// MockPreparedSelection is a mock of PreparedSelection interface.
+type MockPreparedSelection struct {
+	ctrl     *gomock.Controller
+	recorder *MockPreparedSelectionMockRecorder
+	isgomock struct{}
+}
+
+// MockPreparedSelectionMockRecorder is the mock recorder for MockPreparedSelection.
+type MockPreparedSelectionMockRecorder struct {
+	mock *MockPreparedSelection
+}
+
+// NewMockPreparedSelection creates a new mock instance.
+func NewMockPreparedSelection(ctrl *gomock.Controller) *MockPreparedSelection {
+	mock := &MockPreparedSelection{ctrl: ctrl}
+	mock.recorder = &MockPreparedSelectionMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPreparedSelection) EXPECT() *MockPreparedSelectionMockRecorder {
+	return m.recorder
+}
+
+// Release mocks base method.
+func (m *MockPreparedSelection) Release() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Release")
+}
+
+// Release indicates an expected call of Release.
+func (mr *MockPreparedSelectionMockRecorder) Release() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockPreparedSelection)(nil).Release))
+}
+
+// Run mocks base method.
+func (m *MockPreparedSelection) Run(arg0 context.Context) SelectionResult {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Run", arg0)
+	ret0, _ := ret[0].(SelectionResult)
+	return ret0
+}
+
+// Run indicates an expected call of Run.
+func (mr *MockPreparedSelectionMockRecorder) Run(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockPreparedSelection)(nil).Run), arg0)
+}
+
+// MockModelSelection is a mock of ModelSelection interface.
+type MockModelSelection struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelSelectionMockRecorder
+	isgomock struct{}
+}
+
+// MockModelSelectionMockRecorder is the mock recorder for MockModelSelection.
+type MockModelSelectionMockRecorder struct {
+	mock *MockModelSelection
+}
+
+// NewMockModelSelection creates a new mock instance.
+func NewMockModelSelection(ctrl *gomock.Controller) *MockModelSelection {
+	mock := &MockModelSelection{ctrl: ctrl}
+	mock.recorder = &MockModelSelectionMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelSelection) EXPECT() *MockModelSelectionMockRecorder {
+	return m.recorder
+}
+
+// PrepareExtensionSelection mocks base method.
+func (m *MockModelSelection) PrepareExtensionSelection(arg0 SelectionCommand) (PreparedSelection, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareExtensionSelection", arg0)
+	ret0, _ := ret[0].(PreparedSelection)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrepareExtensionSelection indicates an expected call of PrepareExtensionSelection.
+func (mr *MockModelSelectionMockRecorder) PrepareExtensionSelection(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareExtensionSelection", reflect.TypeOf((*MockModelSelection)(nil).PrepareExtensionSelection), arg0)
+}
+
+// MockSelectionFailure is a mock of SelectionFailure interface.
+type MockSelectionFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockSelectionFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockSelectionFailureMockRecorder is the mock recorder for MockSelectionFailure.
+type MockSelectionFailureMockRecorder struct {
+	mock *MockSelectionFailure
+}
+
+// NewMockSelectionFailure creates a new mock instance.
+func NewMockSelectionFailure(ctrl *gomock.Controller) *MockSelectionFailure {
+	mock := &MockSelectionFailure{ctrl: ctrl}
+	mock.recorder = &MockSelectionFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSelectionFailure) EXPECT() *MockSelectionFailureMockRecorder {
+	return m.recorder
+}
+
+// Error mocks base method.
+func (m *MockSelectionFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockSelectionFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockSelectionFailure)(nil).Error))
+}
+
+// ModelSelectionCode mocks base method.
+func (m *MockSelectionFailure) ModelSelectionCode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelSelectionCode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ModelSelectionCode indicates an expected call of ModelSelectionCode.
+func (mr *MockSelectionFailureMockRecorder) ModelSelectionCode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelSelectionCode", reflect.TypeOf((*MockSelectionFailure)(nil).ModelSelectionCode))
+}
+
 // MockContextFailure is a mock of ContextFailure interface.
 type MockContextFailure struct {
 	ctrl     *gomock.Controller
