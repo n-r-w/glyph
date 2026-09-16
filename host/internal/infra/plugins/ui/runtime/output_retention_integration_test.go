@@ -115,7 +115,7 @@ func TestRuntimeReportDrainsBeforeUICompletion(t *testing.T) {
 		runtimes.Accept([]startup.AcceptedRegistration{{ID: "tools", Path: "/tools", Tools: nil, Handlers: nil}})
 		authenticator := hostui.NewMockAuthenticator(controller)
 		authenticator.EXPECT().CheckAuthentication(gomock.Any()).Return(nil)
-		actualSession := hostui.NewSession(transport, nil, authenticator, nil, nil, nil, nil, runtimes)
+		actualSession := hostui.NewSession(transport, nil, authenticator, nil, nil, nil, nil, runtimes, nil)
 		session := controllerui.NewMockSession(controller)
 		session.EXPECT().Initialize(t.Context()).Return(nil)
 		session.EXPECT().Activate(t.Context()).DoAndReturn(actualSession.Activate)
@@ -188,7 +188,7 @@ func TestLateAuthenticationFailureReachesControllerCompletion(t *testing.T) {
 		transport.stream = stream
 		transport.cancel = cancelStream
 		transport.ready = true
-		actualSession := hostui.NewSession(transport, nil, authenticator, nil, nil, nil, nil, runtime)
+		actualSession := hostui.NewSession(transport, nil, authenticator, nil, nil, nil, nil, runtime, nil)
 		session := controllerui.NewMockSession(controller)
 		session.EXPECT().Initialize(t.Context()).Return(nil)
 		session.EXPECT().Activate(t.Context()).DoAndReturn(actualSession.Activate)

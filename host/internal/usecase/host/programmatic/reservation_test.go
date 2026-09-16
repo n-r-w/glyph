@@ -59,8 +59,7 @@ func (s *ServiceSuite) TestSessionMutationOwnsGate() {
 				testStateQuery(s.T(), false),
 				control, nil,
 				gate,
-				testRunOutput(s.T()),
-			)
+				testRunOutput(s.T()), nil)
 
 			// Act through Programmatic preparation and operation execution.
 			prepared, err := service.Prepare(
@@ -92,7 +91,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
-	service := New(coordinator, nil, testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()))
+	service := New(coordinator, nil, testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), nil)
 	var prepareBarrier sync.WaitGroup
 	prepareBarrier.Add(2)
 	var runNumber atomic.Int64
@@ -189,8 +188,8 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 		nil,
 		testStateQuery(s.T(), true),
 		active, nil,
-		nil, delivery,
-	)
+		nil, delivery, nil)
+
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 
 	// Act by accepting a run and querying state and messages while it remains active.

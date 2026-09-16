@@ -27,6 +27,8 @@ const (
 	FailureCodeExtensionInvalidResult = "EXTENSION_INVALID_RESULT"
 	// FailureCodeExtensionUnavailable reports extension transport or protocol failure.
 	FailureCodeExtensionUnavailable = "EXTENSION_UNAVAILABLE"
+	// FailureCodeExtensionRejected reports an explicit extension selection rejection.
+	FailureCodeExtensionRejected = "EXTENSION_REJECTED"
 	// FailureCodeSessionUnavailable reports an unreadable requested session.
 	FailureCodeSessionUnavailable = "SESSION_UNAVAILABLE"
 	// FailureCodePersistenceUnavailable reports unavailable session persistence.

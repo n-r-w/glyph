@@ -9,11 +9,15 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/samber/mo"
+
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
@@ -52,6 +56,7 @@ var (
 	_ toolservice.Runtime                   = (*Service)(nil)
 	_ sessiontree.Runtime                   = (*Service)(nil)
 	_ lifecycle.Runtime                     = (*Service)(nil)
+	_ modelselection.Runtime                = (*Service)(nil)
 	_ extensioncontext.RuntimeState         = (*Service)(nil)
 	_ extensioncontroller.RuntimeOperations = (*Service)(nil)
 )
@@ -326,6 +331,50 @@ func (s *Service) HandleHandler(
 		return sessiontree.HandlerResponse{}, handleErr
 	}
 	return s.capabilityAction(response), nil
+}
+
+// HandleSelection invokes one selection handler through its selected runtime instance.
+func (s *Service) HandleSelection(
+	ctx context.Context,
+	extensionID string,
+	handlerID string,
+	request modelselection.HandlerInvocation,
+) (modelselection.HandlerAction, bool, error) {
+	owner, available := s.beginOperation(extensionID, request.Context.RuntimeInstanceID)
+	if !available {
+		err := fmt.Errorf("%w: extension handler %q is unavailable", ErrExtensionUnavailable, handlerID)
+		return modelselection.HandlerAction{}, true, err
+	}
+	kind := InvocationModelSelection
+	if request.Kind == modelselection.HandlerKindReasoning {
+		kind = InvocationReasoningSelection
+	}
+	payload := HandlerInvocation{
+		Context: request.Context, Kind: kind,
+		Original: Preparation{}, Current: Preparation{},
+		OriginalResult: mo.None[Summary](), CurrentResult: mo.None[Summary](), Commit: mo.None[TreeCommit](),
+		OriginalSelection: request.Original, CurrentSelection: request.Current,
+	}
+	response, handleErr := owner.state.runtime.Handle(ctx, handlerID, payload)
+	s.finishAndReport(ctx, owner, handleErr)
+	if handleErr != nil {
+		return modelselection.HandlerAction{}, errors.Is(handleErr, ErrExtensionUnavailable), handleErr
+	}
+	actionKind := modelselection.HandlerActionKind(0)
+	if response.SelectionAction >= int32(modelselection.HandlerActionPreserve) &&
+		response.SelectionAction <= int32(modelselection.HandlerActionReject) {
+		actionKind = modelselection.HandlerActionKind(response.SelectionAction)
+	}
+	action := modelselection.HandlerAction{
+		Kind: actionKind, Replacement: model.Selection{}, Rejection: "",
+	}
+	if replacement, present := response.SelectionReplacement.Get(); present {
+		action.Replacement = replacement
+	}
+	if rejection, present := response.SelectionRejection.Get(); present {
+		action.Rejection = rejection
+	}
+	return action, false, nil
 }
 
 // ObserveLifecycle invokes one observer while retaining runtime availability and operation accounting.

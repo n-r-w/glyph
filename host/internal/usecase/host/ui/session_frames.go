@@ -20,8 +20,9 @@ func sessionListFrame(listed []StoredSession) controllerui.Frame {
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),
 
-		ModelSelection: mo.None[model.Selection](),
-		SessionInfo:    mo.None[session.Info](),
+		ModelSelection:  mo.None[model.Selection](),
+		SelectionIssues: nil,
+		SessionInfo:     mo.None[session.Info](),
 		Sessions: lo.Map(
 			listed,
 			func(item StoredSession, _ int) controllerui.SessionListItem { return item.publicItem() },
@@ -64,6 +65,7 @@ func sessionInfoFrame(
 		AuthorizationURL: mo.None[string](),
 
 		ModelSelection:         mo.None[model.Selection](),
+		SelectionIssues:        nil,
 		SessionInfo:            mo.Some(info),
 		Sessions:               nil,
 		SessionEntries:         nil,

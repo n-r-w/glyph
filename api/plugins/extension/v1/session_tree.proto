@@ -22,6 +22,10 @@ message HandleRequest {
     SessionBeforeTreeResultInvocation session_before_tree_result = 3;
     SessionTreeInvocation session_tree = 4;
     LifecycleInvocation lifecycle = 6;
+    // A model-selection request with immutable original and current targets.
+    SelectionHandlerInvocation model_selection = 7;
+    // A reasoning-selection request with immutable original and current targets.
+    SelectionHandlerInvocation reasoning_selection = 8;
   }
 }
 
@@ -34,6 +38,10 @@ message HandleResponse {
     SessionTreeAction session_tree = 3;
     HandlerError error = 4;
     LifecycleAction lifecycle = 5;
+    // The model-selection decision.
+    SelectionHandlerAction model_selection = 6;
+    // The reasoning-selection decision.
+    SelectionHandlerAction reasoning_selection = 7;
   }
 }
 

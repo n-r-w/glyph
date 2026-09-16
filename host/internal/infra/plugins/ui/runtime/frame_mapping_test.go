@@ -44,6 +44,27 @@ func TestMapOperationFrames(t *testing.T) {
 	}
 }
 
+// TestMapSelectionCompletionIncludesDeliveryIssue verifies committed diagnostics cross the UI contract.
+func TestMapSelectionCompletionIncludesDeliveryIssue(t *testing.T) {
+	t.Parallel()
+	// Arrange one committed selection frame with a complete post-commit publication failure.
+	frame := testModelSelectionFrame()
+	frame.SelectionIssues = []controllerui.OperationIssue{{
+		Code:        controllerui.OperationIssueDeliveryFailed,
+		ExtensionID: "", HandlerID: "", Message: "complete delivery cause",
+	}}
+
+	// Act by mapping the terminal result.
+	mapped, err := mapFrame(frame)
+
+	// Assert exact code and text are present in the public completion.
+	require.NoError(t, err)
+	issues := mapped.GetEvent().GetCompleted().GetModelSelection().GetIssues()
+	require.Len(t, issues, 1)
+	assert.Equal(t, uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_DELIVERY_FAILED, issues[0].GetCode())
+	assert.Equal(t, "complete delivery cause", issues[0].GetMessage())
+}
+
 // TestRestoredSessionImageDataPresence verifies restored image presence and ownership after UI serialization.
 func TestRestoredSessionImageDataPresence(t *testing.T) {
 	t.Parallel()

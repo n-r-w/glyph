@@ -414,19 +414,45 @@ func (s *server) validateHandle(request *extensionpb.HandleRequest) error {
 	if !known {
 		return Reject(rejectionCodeInvalidArgument, fmt.Errorf("handler %q is not registered", request.GetHandlerId()))
 	}
-	valid := kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST &&
-		request.GetSessionBeforeTreeRequest() != nil ||
-		kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT &&
-			request.GetSessionBeforeTreeResult() != nil ||
-		kind == extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE && request.GetSessionTree() != nil ||
-		lifecycleKindMatches(kind, request.GetLifecycle())
-	if !valid {
+	if !handlerKindMatches(kind, request) {
 		return Reject(
 			rejectionCodeInvalidArgument,
 			fmt.Errorf("handler %q payload does not match its registered kind", request.GetHandlerId()),
 		)
 	}
 	return nil
+}
+
+// handlerKindMatches reports whether one declaration matches the selected typed payload.
+func handlerKindMatches(kind extensionpb.HandlerKind, request *extensionpb.HandleRequest) bool {
+	switch kind {
+	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST:
+		return request.GetSessionBeforeTreeRequest() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT:
+		return request.GetSessionBeforeTreeResult() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE:
+		return request.GetSessionTree() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION:
+		return request.GetModelSelection() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION:
+		return request.GetReasoningSelection() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_AGENT_START,
+		extensionpb.HandlerKind_HANDLER_KIND_AGENT_END,
+		extensionpb.HandlerKind_HANDLER_KIND_AGENT_SETTLED,
+		extensionpb.HandlerKind_HANDLER_KIND_TURN_START,
+		extensionpb.HandlerKind_HANDLER_KIND_TURN_END,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_START,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_UPDATE,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_END,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_START,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_UPDATE,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END:
+		return lifecycleKindMatches(kind, request.GetLifecycle())
+	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED:
+		return false
+	default:
+		return false
+	}
 }
 
 // lifecycleKindMatches reports whether one observer kind matches its typed lifecycle payload.
@@ -460,7 +486,9 @@ func lifecycleKindMatches(kind extensionpb.HandlerKind, invocation *extensionpb.
 	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED,
 		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST,
 		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT,
-		extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE:
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE,
+		extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION,
+		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION:
 		return false
 	default:
 		return false

@@ -8,6 +8,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -56,13 +57,15 @@ func (r *Runtime) Handle(
 		if ctx.Err() != nil {
 			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
-		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
+		connectionFailed := isConnectionFailure(err) || isConnectionFailure(cancellationErr)
+		if connectionFailed {
 			_ = r.Close()
 		}
-		return extensionruntime.HandlerAction{}, errors.Join(
-			r.handlerOperationError(ctx, handlerID, err),
-			cancellationErr,
-		)
+		resultErr := errors.Join(r.handlerOperationError(ctx, handlerID, err), cancellationErr)
+		if ctx.Err() != nil && connectionFailed {
+			resultErr = errors.Join(extensionruntime.ErrExtensionUnavailable, resultErr)
+		}
+		return extensionruntime.HandlerAction{}, resultErr
 	}
 	mappedResponse, err := mapHandleResponse(request, completed.GetHandle())
 	if err != nil {
@@ -132,6 +135,16 @@ func mapHandleRequest(
 			return nil, fmt.Errorf("handler %q request has no single payload", handlerID)
 		}
 		builder.SessionTree = mapSessionTreeInvocation(commit)
+	case extensionruntime.InvocationModelSelection, extensionruntime.InvocationReasoningSelection:
+		invocation := extensionpb.SelectionHandlerInvocation_builder{
+			Original: mapModelSelection(request.OriginalSelection),
+			Current:  mapModelSelection(request.CurrentSelection),
+		}.Build()
+		if request.Kind == extensionruntime.InvocationModelSelection {
+			builder.ModelSelection = invocation
+		} else {
+			builder.ReasoningSelection = invocation
+		}
 	default:
 		return nil, fmt.Errorf("handler %q has unsupported request kind %d", handlerID, request.Kind)
 	}
@@ -150,12 +163,15 @@ func mapHandleResponse(
 		return extensionruntime.HandlerAction{}, ordinaryHandlerError{message: handlerErr.GetMessage()}
 	}
 	result := extensionruntime.HandlerAction{
-		Kind:          request.Kind,
-		Cancel:        false,
-		RequestAction: 0,
-		Request:       mo.None[extensionruntime.Navigation](),
-		ResultAction:  0,
-		Result:        mo.None[extensionruntime.Summary](),
+		Kind:                 request.Kind,
+		Cancel:               false,
+		RequestAction:        0,
+		Request:              mo.None[extensionruntime.Navigation](),
+		ResultAction:         0,
+		Result:               mo.None[extensionruntime.Summary](),
+		SelectionAction:      0,
+		SelectionReplacement: mo.None[model.Selection](),
+		SelectionRejection:   mo.None[string](),
 	}
 	switch request.Kind {
 	case extensionruntime.InvocationRequest:
@@ -181,6 +197,22 @@ func mapHandleResponse(
 	case extensionruntime.InvocationObserver:
 		if response.GetSessionTree() == nil {
 			return extensionruntime.HandlerAction{}, errors.New("session-tree observer returned another action kind")
+		}
+	case extensionruntime.InvocationModelSelection, extensionruntime.InvocationReasoningSelection:
+		action := response.GetModelSelection()
+		if request.Kind == extensionruntime.InvocationReasoningSelection {
+			action = response.GetReasoningSelection()
+		}
+		if action == nil {
+			// Selection policy reports a malformed action without invalidating the runtime.
+			return result, nil
+		}
+		result.SelectionAction = int32(action.WhichAction())
+		if replacement := action.GetReplace(); replacement != nil {
+			result.SelectionReplacement = mo.Some(mapModelSelectionFromProto(replacement))
+		}
+		if rejection := action.GetReject(); rejection != nil {
+			result.SelectionRejection = mo.Some(rejection.GetMessage())
 		}
 	default:
 		return extensionruntime.HandlerAction{}, fmt.Errorf("unsupported request kind %d", request.Kind)

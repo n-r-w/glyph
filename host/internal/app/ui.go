@@ -27,6 +27,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
@@ -98,15 +99,6 @@ func runUIWithPaths(
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
 	lifecycleObservers.BindIssueDelivery(transport)
-	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers)
-	_, err = startupService.Start(ctx, startup.Request{
-		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
-	}, transport)
-	if err != nil {
-		return fmt.Errorf("start UI Host extensions: %w", err)
-	}
-
-	transport.BindBrowser(browser.New())
 	providerCatalog, err := newProviderCatalog(configured, paths, transport)
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
@@ -116,12 +108,22 @@ func runUIWithPaths(
 	contexts.BindModels(providerCatalog, modelExecution)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
+	selectionOwner := modelselection.New(providerCatalog, transport)
+	selectionOwner.BindHandlers(extensions, contexts, transport)
+	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
+	_, err = startupService.Start(ctx, startup.Request{
+		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
+	}, transport)
+	if err != nil {
+		return fmt.Errorf("start UI Host extensions: %w", err)
+	}
+
+	transport.BindBrowser(browser.New())
 	dispatcher := events.NewDispatcher(transport, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active,
 	)
 	coordinator := runcontrol.NewCoordinator(agentCore, dispatcher, sessionServices.gate)
-
 	session := hostui.NewSession(
 		transport,
 		coordinator,
@@ -129,6 +131,7 @@ func runUIWithPaths(
 		providerCatalog,
 		sessionServices.active, sessionServices.tree, sessionServices.gate,
 		extensions,
+		selectionOwner,
 	)
 	sessionServices.active.BindEntryPublisher(transport)
 	executionErr := controller.Execute(ctx, session)

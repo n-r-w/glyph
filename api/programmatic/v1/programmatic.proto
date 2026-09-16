@@ -75,6 +75,7 @@ message HostConnectionEvent {
   oneof event {
     SessionEntryAdded session_entry_added = 1;
     ExtensionIssue extension_issue = 2;
+    ModelSelectionChanged model_selection_changed = 3;
   }
 }
 // ExtensionIssue reports one nonterminal extension handler failure.

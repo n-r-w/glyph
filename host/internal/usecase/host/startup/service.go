@@ -34,6 +34,8 @@ type Service struct {
 	sessionTree SessionTreeRegistrar
 	// lifecycle owns lifecycle observer validation and publication.
 	lifecycle LifecycleRegistrar
+	// selection owns active-selection handler validation and publication when bound.
+	selection SelectionRegistrar
 }
 
 // New creates the Host extension startup service.
@@ -42,8 +44,12 @@ func New(
 	tools ToolRegistrar,
 	sessionTree SessionTreeRegistrar,
 	lifecycle LifecycleRegistrar,
+	selection SelectionRegistrar,
 ) *Service {
-	return &Service{runtimes: runtimes, tools: tools, sessionTree: sessionTree, lifecycle: lifecycle}
+	return &Service{
+		runtimes: runtimes, tools: tools, sessionTree: sessionTree, lifecycle: lifecycle,
+		selection: selection,
+	}
 }
 
 // Start loads extensions and reports the complete startup state to the selected output.
@@ -145,7 +151,16 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 			rejected[registration.ID] = struct{}{}
 			continue
 		}
-		registration.Handlers = mergeHandlers(raw.Handlers, sessionHandlers, lifecycleHandlers)
+		selectionHandlers, validationErr := s.validateSelectionHandlers(raw)
+		if validationErr != nil {
+			issues = append(
+				issues,
+				Issue{PluginIDs: []string{registration.ID}, Path: registration.Path, Err: validationErr},
+			)
+			rejected[registration.ID] = struct{}{}
+			continue
+		}
+		registration.Handlers = mergeHandlers(raw.Handlers, sessionHandlers, lifecycleHandlers, selectionHandlers)
 		handlerAccepted = append(handlerAccepted, registration)
 	}
 	accepted = handlerAccepted
@@ -171,6 +186,9 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	s.tools.Commit(accepted)
 	s.sessionTree.CommitSessionTreeHandlers(accepted)
 	s.lifecycle.CommitLifecycleHandlers(accepted)
+	if s.selection != nil {
+		s.selection.CommitSelectionHandlers(accepted)
+	}
 	s.runtimes.Accept(accepted)
 
 	slices.SortFunc(accepted, func(left, right AcceptedRegistration) int { return cmp.Compare(left.ID, right.ID) })
@@ -180,6 +198,18 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	return report, nil
 }
 
+// validateSelectionHandlers validates the optional selection partition through its capability owner.
+func (s *Service) validateSelectionHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
+	selectionRegistration := partitionHandlers(registration, isSelectionKind)
+	if len(selectionRegistration.Handlers) == 0 {
+		return nil, nil
+	}
+	if s.selection == nil {
+		return nil, errors.New("selection handler registration is not bound")
+	}
+	return s.selection.ValidateSelectionHandlers(selectionRegistration)
+}
+
 // validateHandlerIdentities preserves common validation precedence before capability partitioning.
 func validateHandlerIdentities(handlers []RawHandlerDescriptor) error {
 	ids := make(map[string]struct{}, len(handlers))
@@ -187,7 +217,7 @@ func validateHandlerIdentities(handlers []RawHandlerDescriptor) error {
 		if !handler.Present || strings.TrimSpace(handler.ID) == "" {
 			return errors.New("handler ID is empty")
 		}
-		if !isSessionTreeKind(handler.Kind) && !isLifecycleKind(handler.Kind) {
+		if !isSessionTreeKind(handler.Kind) && !isLifecycleKind(handler.Kind) && !isSelectionKind(handler.Kind) {
 			return fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
 		}
 		if _, exists := ids[handler.ID]; exists {
@@ -232,6 +262,11 @@ func isSessionTreeKind(kind RawHandlerKind) bool {
 // isLifecycleKind reports whether lifecycle policy owns one kind.
 func isLifecycleKind(kind RawHandlerKind) bool {
 	return kind >= RawHandlerKindAgentStart && kind <= RawHandlerKindToolExecutionEnd
+}
+
+// isSelectionKind reports whether active-selection policy owns one kind.
+func isSelectionKind(kind RawHandlerKind) bool {
+	return kind == RawHandlerKindModelSelection || kind == RawHandlerKindReasoningSelection
 }
 
 // findPending returns the raw registration retained for one locally accepted extension.

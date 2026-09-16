@@ -183,7 +183,7 @@ func TestCatalogSelectModelAppliesReasoningFallback(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			selected, err := catalog.SelectModel(t.Context(), "provider", "target")
+			selected, err := selectModelForTest(t.Context(), catalog, "provider", "target")
 
 			require.NoError(t, err)
 			assert.Equal(t, model.Selection{
@@ -218,13 +218,13 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 	}, active)
 	require.NoError(t, err)
 
-	_, err = catalog.SelectModel(t.Context(), "missing", "model")
+	_, err = selectModelForTest(t.Context(), catalog, "missing", "model")
 	var selectionErr *SelectionError
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeNotFound, selectionErr.Code)
 	assert.Equal(t, active, catalog.ActiveSelection())
 
-	selected, err := catalog.SelectReasoningChoice(model.ReasoningChoiceHigh)
+	selected, err := selectReasoningForTest(t.Context(), catalog, model.ReasoningChoiceHigh)
 	require.NoError(t, err)
 	active = model.Selection{
 		Provider:        "provider",
@@ -234,7 +234,7 @@ func TestCatalogInvalidSelectionsReturnTypedErrorsAndPreserveSelection(t *testin
 	assert.Equal(t, active, selected)
 	assert.Equal(t, active, catalog.ActiveSelection())
 
-	_, err = catalog.SelectReasoningChoice(model.ReasoningChoiceMax)
+	_, err = selectReasoningForTest(t.Context(), catalog, model.ReasoningChoiceMax)
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeReasoningUnsupported, selectionErr.Code)
 	assert.Equal(t, active, catalog.ActiveSelection())
@@ -360,7 +360,7 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 	result := make(chan model.Selection, 1)
 	selectionErrors := make(chan error, 1)
 	go func() {
-		selected, selectErr := catalog.SelectModel(t.Context(), "provider", "target")
+		selected, selectErr := selectModelForTest(t.Context(), catalog, "provider", "target")
 		result <- selected
 		selectionErrors <- selectErr
 	}()
@@ -378,7 +378,7 @@ func TestCatalogCredentialPreflightDoesNotBlockSnapshots(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("ActiveBinding blocked during credential resolution")
 	}
-	selected, err := catalog.SelectReasoningChoice(model.ReasoningChoiceLow)
+	selected, err := selectReasoningForTest(t.Context(), catalog, model.ReasoningChoiceLow)
 	require.NoError(t, err)
 	assert.Equal(t, model.ReasoningChoiceLow, selected.ReasoningChoice)
 
@@ -423,7 +423,7 @@ func TestCatalogCredentialFailureIsSafeAndPreservesSelection(t *testing.T) {
 	}, active)
 	require.NoError(t, err)
 
-	_, err = catalog.SelectModel(t.Context(), "provider", "target")
+	_, err = selectModelForTest(t.Context(), catalog, "provider", "target")
 
 	var selectionErr *SelectionError
 	require.ErrorAs(t, err, &selectionErr)
@@ -466,7 +466,7 @@ func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
 	require.NoError(t, catalog.SignIn(t.Context()))
 	assert.False(t, catalog.IsSignInRequired(errors.New("other")))
 
-	_, err = catalog.SelectModel(t.Context(), "openai-codex", "model")
+	_, err = selectModelForTest(t.Context(), catalog, "openai-codex", "model")
 	require.NoError(t, err)
 	signInRequired := errors.New("sign in required")
 	authentication.EXPECT().CheckCredentials(gomock.Any()).Return(signInRequired)
@@ -537,6 +537,42 @@ func TestCatalogPricingUsesExactProviderModelPair(t *testing.T) {
 	assert.True(t, unknownModel.IsAbsent())
 }
 
+// selectModelForTest executes the public resolve, validate, and commit boundaries used by the shared owner.
+func selectModelForTest(
+	ctx context.Context,
+	catalog *Catalog,
+	provider model.ProviderID,
+	modelID model.ID,
+) (model.Selection, error) {
+	target, err := catalog.ResolveModel(provider, modelID)
+	if err != nil {
+		return model.Selection{}, err
+	}
+	if err := catalog.ValidateSelection(ctx, target); err != nil {
+		return model.Selection{}, err
+	}
+	_, committed, err := catalog.CommitSelection(ctx, target)
+	return committed, err
+}
+
+// selectReasoningForTest executes reasoning resolution, validation, and commit.
+func selectReasoningForTest(
+	ctx context.Context,
+	catalog *Catalog,
+	choice model.ReasoningChoice,
+) (model.Selection, error) {
+	target, err := catalog.ResolveReasoning(choice)
+	if err != nil {
+		return model.Selection{}, err
+	}
+	if err := catalog.ValidateSelection(ctx, target); err != nil {
+		return model.Selection{}, err
+	}
+	_, committed, err := catalog.CommitSelection(ctx, target)
+	return committed, err
+}
+
+// descriptor creates one complete provider model descriptor for catalogue tests.
 func descriptor(provider model.ProviderID, modelID model.ID, choices ...model.ReasoningChoice) model.Descriptor {
 	return model.Descriptor{
 		Provider:      provider,

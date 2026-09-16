@@ -192,6 +192,7 @@ func cancelCompletedResponse(state operation.TerminalState) Response {
 		Messages:          nil,
 		Models:            mo.None[ModelsResult](),
 		Selection:         mo.None[model.Selection](),
+		SelectionIssues:   nil,
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
 		SessionEntries:    nil,

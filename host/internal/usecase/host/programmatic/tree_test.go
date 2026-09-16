@@ -52,8 +52,8 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 		testStateQuery(t, false),
 		control, nil,
 		gate,
-		testRunOutput(t),
-	)
+		testRunOutput(t), nil)
+
 	command := treeCommand("tree", controller.CommandGetSessionTree)
 
 	// Act by requesting the active-session tree.
@@ -104,8 +104,8 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 		testStateQuery(t, false),
 		control, navigator,
 		gate,
-		testRunOutput(t),
-	)
+		testRunOutput(t), nil)
+
 	command := treeCommand("navigate", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
 
@@ -155,8 +155,8 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 		testStateQuery(t, false),
 		control, navigator,
 		gate,
-		testRunOutput(t),
-	)
+		testRunOutput(t), nil)
+
 	command := treeCommand("canceled", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
 
@@ -272,8 +272,8 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 				catalog,
 				testStateQuery(t, false),
 				control, navigator,
-				gate, testRunOutput(t),
-			)
+				gate, testRunOutput(t), nil)
+
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
 			command.TargetEntryID = test.target
 			command.SummaryMode = test.summaryMode

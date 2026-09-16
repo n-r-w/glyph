@@ -3,8 +3,9 @@ package programmatic
 import (
 	"context"
 	"errors"
-	"slices"
 	"sync"
+
+	"github.com/samber/mo"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -23,8 +24,9 @@ func (s *Service) Prepare(
 	if rejection != nil {
 		return nil, mapPreparationRejection(*rejection)
 	}
-	if validationErr := s.validateSelection(command); validationErr != nil {
-		return nil, validationErr
+	selection, selectionPresent, selectionErr := s.prepareSelection(command)
+	if selectionErr != nil {
+		return nil, selectionErr
 	}
 	if command.Kind == controller.CommandUserRequest {
 		response, active, handleErr := s.handle(ctx, command)
@@ -37,6 +39,9 @@ func (s *Service) Prepare(
 		return active, nil
 	}
 	release := func() {}
+	if selectionPresent {
+		release = selection.Release
+	}
 	if isSessionMutation(command.Kind) {
 		reservation, acquired := s.gate.TryAcquire()
 		if !acquired {
@@ -47,7 +52,9 @@ func (s *Service) Prepare(
 		}
 		release = reservation
 	}
-	return &commandPrepared{service: s, command: command, release: sync.OnceFunc(release)}, nil
+	return &commandPrepared{
+		service: s, command: command, selection: selection, release: sync.OnceFunc(release),
+	}, nil
 }
 
 // commandPrepared defers all query, selection, and session work until Running.
@@ -56,6 +63,8 @@ type commandPrepared struct {
 	service *Service
 	// command contains validated operation input.
 	command controller.Command
+	// selection executes an admitted selection operation when present.
+	selection PreparedModelSelection
 	// release frees optional mutation admission once.
 	release func()
 }
@@ -67,6 +76,9 @@ func (p *commandPrepared) Run(
 	ctx context.Context,
 	reporter operation.Reporter[controller.OperationProgress],
 ) operation.Outcome[controller.Response] {
+	if p.selection != nil {
+		return p.runSelection(ctx)
+	}
 	var response controller.Response
 	var active *runPrepared
 	var err error
@@ -108,6 +120,28 @@ func (p *commandPrepared) Run(
 		}
 	}
 	return operation.CompletedWithSource(response, errors.Join(sources...))
+}
+
+// runSelection executes one admitted selection and preserves the commit boundary in its terminal outcome.
+func (p *commandPrepared) runSelection(ctx context.Context) operation.Outcome[controller.Response] {
+	result := p.selection.Run(ctx)
+	if result.Committed {
+		response := emptyResponse(p.command.OperationID, controller.ResponseModelSelection)
+		response.Selection = mo.Some(result.Selection)
+		response.SelectionIssues = projectModelSelectionIssues(result.Issues)
+		return operation.CompletedWithSource(response, result.Source)
+	}
+	if result.Source == nil {
+		return operation.Failed[controller.Response](
+			controller.FailureCodeInternal, errors.New("selection completed without a commit or failure"),
+		)
+	}
+	if isOperationCancellation(ctx, result.Source) {
+		return operation.Canceled[controller.Response]()
+	}
+	rejected := p.service.selectionRejected(p.command, result.Source)
+	rejection := rejected.Rejection.MustGet()
+	return operation.Failed[controller.Response](failureCodeForRejection(rejection.Code), rejection.Cause)
 }
 
 // Release frees the session-mutation reservation when present.
@@ -170,57 +204,60 @@ func isCanceledNavigation(response controller.Response) bool {
 	return present && result.Status == controller.TreeNavigationStatusCanceled
 }
 
-// validateSelection rejects unavailable in-memory model choices before operation creation.
-func (s *Service) validateSelection(command controller.Command) error {
+// prepareSelection validates request shape and delegates shared admission for selection commands.
+func (s *Service) prepareSelection(command controller.Command) (PreparedModelSelection, bool, error) {
 	if command.Kind == controller.CommandSelectModel {
 		provider, providerPresent := command.ProviderID.Get()
 		modelID, modelPresent := command.ModelID.Get()
-		if !providerPresent || !modelPresent {
-			return controller.Reject(
+		if !providerPresent || !modelPresent || provider == "" || modelID == "" {
+			return nil, false, controller.Reject(
 				controller.RejectionCodeInvalidArgument,
 				errors.New("programmatic model selection is incomplete"),
 			)
 		}
-		descriptors := s.modelCatalog.Models()
-		for index := range descriptors {
-			descriptor := &descriptors[index]
-			if descriptor.Provider == provider && descriptor.Model == modelID {
-				return nil
-			}
-		}
-		return controller.Reject(
-			controller.RejectionCodeNotFound,
-			errors.New("programmatic model selection was not found"),
-		)
+		prepared, err := s.modelSelection.PrepareProgrammaticSelection(ModelSelectionCommand{
+			Kind: ModelSelectionCommandModel, Provider: provider, Model: modelID, ReasoningChoice: "",
+		})
+		return prepared, true, mapSelectionPreparationError(err)
 	}
 	if command.Kind == controller.CommandSelectReasoningChoice {
 		choice, present := command.ReasoningChoice.Get()
 		if !present {
-			return controller.Reject(
+			return nil, false, controller.Reject(
 				controller.RejectionCodeInvalidArgument,
 				errors.New("programmatic reasoning choice is required"),
 			)
 		}
-		selection := s.modelCatalog.ActiveSelection()
-		descriptors := s.modelCatalog.Models()
-		for index := range descriptors {
-			descriptor := &descriptors[index]
-			if descriptor.Provider == selection.Provider && descriptor.Model == selection.Model {
-				if slices.Contains(descriptor.ReasoningCapabilities.Choices, choice) {
-					return nil
-				}
-				return controller.Reject(
-					controller.RejectionCodeReasoningUnsupported,
-					errors.New("programmatic reasoning choice is not supported"),
-				)
-			}
-		}
-		return controller.Reject(
-			controller.RejectionCodeNotFound,
-			errors.New("active Programmatic model selection was not found"),
-		)
+		prepared, err := s.modelSelection.PrepareProgrammaticSelection(ModelSelectionCommand{
+			Kind: ModelSelectionCommandReasoning, Provider: "", Model: "", ReasoningChoice: choice,
+		})
+		return prepared, true, mapSelectionPreparationError(err)
 	}
-	return nil
+	return nil, false, nil
+}
+
+// mapSelectionPreparationError projects shared admission and starting-target failures.
+func mapSelectionPreparationError(err error) error {
+	if err == nil {
+		return nil
+	}
+	failure, ok := errors.AsType[SelectionFailure](err)
+	if !ok {
+		return err
+	}
+	switch SelectionCode(failure.ModelSelectionCode()) {
+	case SelectionBusy:
+		return controller.Reject(controller.RejectionCodeBusy, err)
+	case SelectionNotFound:
+		return controller.Reject(controller.RejectionCodeNotFound, err)
+	case SelectionReasoningUnsupported:
+		return controller.Reject(controller.RejectionCodeReasoningUnsupported, err)
+	case SelectionCredentialUnavailable, SelectionModelUnavailable,
+		SelectionExtensionRejected, SelectionExtensionUnavailable:
+		return err
+	default:
+		return err
+	}
 }
 
 // isSessionMutation reports operation kinds that reserve the shared session gate.
@@ -263,7 +300,8 @@ func mapPreparationRejection(response controller.Response) error {
 		controller.RejectionInternal, controller.RejectionCredentialUnavailable,
 		controller.RejectionSessionUnavailable, controller.RejectionPersistenceUnavailable,
 		controller.RejectionModelUnavailable, controller.RejectionModelFailed,
-		controller.RejectionExtensionInvalidResult, controller.RejectionExtensionUnavailable:
+		controller.RejectionExtensionInvalidResult, controller.RejectionExtensionUnavailable,
+		controller.RejectionExtensionRejected:
 		return controller.Reject(controller.RejectionCodeInvalidArgument, cause)
 	default:
 		return controller.Reject(controller.RejectionCodeInvalidArgument, cause)
@@ -295,6 +333,8 @@ func failureCodeForRejection(code controller.RejectionCode) string {
 		return controller.FailureCodeExtensionInvalidResult
 	case controller.RejectionExtensionUnavailable:
 		return controller.FailureCodeExtensionUnavailable
+	case controller.RejectionExtensionRejected:
+		return controller.FailureCodeExtensionRejected
 	case controller.RejectionUnspecified, controller.RejectionInvalidArgument, controller.RejectionBusy,
 		controller.RejectionOperationIDInUse, controller.RejectionInternal, controller.RejectionNotFound,
 		controller.RejectionReasoningUnsupported:

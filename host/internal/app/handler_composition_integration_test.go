@@ -121,7 +121,7 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	factory.BindHostServiceFactory(func(extensionID, runtimeID string) extensionsdk.HostService {
 		return extensioncontroller.New(contexts, extensions, extensionID, runtimeID)
 	})
-	startupService := startup.New(extensions, tools, service, lifecycle.New(extensions, nil))
+	startupService := startup.New(extensions, tools, service, lifecycle.New(extensions, nil), nil)
 	report, err := startupService.Load(
 		t.Context(),
 		startup.Request{DataDirectory: "", ExtensionDirectory: extensionDirectory},
@@ -262,6 +262,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 	switch request.GetHandlerId() {
 	case "supply":
 		return extensionpb.HandleResponse_builder{
+			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle: nil,
 			SessionBeforeTreeRequest: extensionpb.SessionBeforeTreeRequestAction_builder{
 				Cancel:        new(false),
@@ -277,6 +278,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 		}.Build(), nil
 	case "refine":
 		return extensionpb.HandleResponse_builder{
+			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil,
 			SessionBeforeTreeResult: extensionpb.SessionBeforeTreeResultAction_builder{
@@ -303,6 +305,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			return nil, err
 		}
 		return extensionpb.HandleResponse_builder{
+			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,
 			SessionTree: extensionpb.SessionTreeAction_builder{}.Build(), Error: nil,

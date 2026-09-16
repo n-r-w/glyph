@@ -62,6 +62,17 @@ func mapModelSelection(selection model.Selection) *extensionpb.ModelSelection {
 	}.Build()
 }
 
+// mapModelSelectionFromProto maps one process target without applying capability validation.
+func mapModelSelectionFromProto(selection *extensionpb.ModelSelection) model.Selection {
+	if selection == nil {
+		return model.Selection{}
+	}
+	return model.Selection{
+		Provider: model.ProviderID(selection.GetProviderId()), Model: model.ID(selection.GetModelId()),
+		ReasoningChoice: model.ReasoningChoice(selection.GetReasoningChoice()),
+	}
+}
+
 // mapPreparation maps immutable Host-computed navigation context.
 func mapPreparation(state extensionruntime.Preparation) (*extensionpb.SessionTreePreparation, error) {
 	entries, err := mapSessionEntries(state.Entries)

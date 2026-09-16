@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"slices"
 	"sync"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -25,6 +24,14 @@ const (
 	selectionCodeReasoning = "reasoning_unsupported"
 	// selectionCodeProviderAuth identifies unavailable provider credentials.
 	selectionCodeProviderAuth = "credential_unavailable"
+	// selectionCodeBusy identifies occupied shared selection admission.
+	selectionCodeBusy = "busy"
+	// selectionCodeModelUnavailable identifies an invalid final target.
+	selectionCodeModelUnavailable = "model_unavailable"
+	// selectionCodeExtensionRejected identifies an explicit handler rejection.
+	selectionCodeExtensionRejected = "extension_rejected"
+	// selectionCodeExtensionUnavailable identifies selected runtime loss.
+	selectionCodeExtensionUnavailable = "extension_unavailable"
 )
 
 // PreparationError reports a request that did not create a Host UI operation.
@@ -71,10 +78,13 @@ func (prepared *preparedUIOperation) Run(
 	reporter operation.Reporter[controllerui.Frame],
 ) operation.Outcome[controllerui.Frame] {
 	result, err := prepared.run(ctx, reporter)
-	if err != nil && isPureCancellation(err) {
-		return operation.Canceled[controllerui.Frame]()
-	}
 	if err != nil {
+		if committed, ok := errors.AsType[*committedSelectionError](err); ok {
+			return operation.CompletedWithSource(result, committed.Unwrap())
+		}
+		if isPureCancellation(err) {
+			return operation.Canceled[controllerui.Frame]()
+		}
 		return operation.Failed[controllerui.Frame](prepared.failureCode(err), err)
 	}
 	// Completed navigation can still carry declared handler and observer diagnostics.
@@ -268,105 +278,84 @@ func (s *Session) prepareAuthentication() (operation.Prepared[controllerui.Frame
 	}, nil
 }
 
-// prepareSelection validates in-memory selection data before acceptance.
+// committedSelectionError marks diagnostics acquired after selection state committed.
+type committedSelectionError struct {
+	// cause preserves the complete post-commit diagnostic.
+	cause error
+}
+
+// Error returns complete post-commit diagnostic text.
+func (e *committedSelectionError) Error() string { return e.cause.Error() }
+
+// Unwrap returns the post-commit diagnostic cause.
+func (e *committedSelectionError) Unwrap() error { return e.cause }
+
+// prepareSelection validates readiness and delegates shared admission and execution.
 func (s *Session) prepareSelection(
 	command controllerui.Command,
 ) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
-	if err := s.reserveSelection(); err != nil {
-		return nil, err
+	if availability := s.operationAvailabilitySnapshot(); availability == AvailabilityCheckingAuthentication ||
+		availability == AvailabilityAuthenticating {
+		return nil, rejectOperation(controllerui.RejectionCodeNotReady, errors.New("model selection is not ready"))
 	}
-	if err := validateSelectionCommand(command, s.modelCatalog.Models(), s.modelCatalog.ActiveSelection()); err != nil {
-		s.releaseSelection()
-		return nil, err
+	selectionCommand := ModelSelectionCommand{
+		Kind: ModelSelectionCommandReasoning, Provider: "", Model: "", ReasoningChoice: "",
+	}
+	if command.Kind == controllerui.CommandSelectModel {
+		providerID, providerPresent := command.ProviderID.Get()
+		modelID, modelPresent := command.ModelID.Get()
+		if !providerPresent || providerID == "" || !modelPresent || modelID == "" {
+			return nil, rejectOperation(
+				controllerui.RejectionCodeInvalidArgument,
+				errors.New("provider and model are required"),
+			)
+		}
+		selectionCommand = ModelSelectionCommand{
+			Kind: ModelSelectionCommandModel, Provider: model.ProviderID(providerID), Model: model.ID(modelID),
+			ReasoningChoice: "",
+		}
+	} else {
+		choice, validationErr := command.SelectedReasoningChoice()
+		if validationErr != nil {
+			return nil, rejectOperation(controllerui.RejectionCodeInvalidArgument, validationErr)
+		}
+		selectionCommand.ReasoningChoice = choice
+	}
+	prepared, err := s.modelSelection.PrepareUISelection(selectionCommand)
+	if err != nil {
+		return nil, selectionPreparationError(err)
 	}
 	return &preparedUIOperation{
 		run: func(ctx context.Context, _ operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
-			var selection model.Selection
-			var err error
-			if command.Kind == controllerui.CommandSelectModel {
-				selection, err = s.modelCatalog.SelectModel(
-					ctx, model.ProviderID(command.ProviderID.MustGet()), model.ID(command.ModelID.MustGet()),
-				)
-			} else {
-				choice := command.ReasoningChoice.MustGet()
-				selection, err = s.modelCatalog.SelectReasoningChoice(choice)
+			result := prepared.Run(ctx)
+			frame := modelSelectionChangedFrame(result.Selection)
+			frame.SelectionIssues = projectModelSelectionIssues(result.Issues)
+			if result.Committed && result.Source != nil {
+				return frame, &committedSelectionError{cause: result.Source}
 			}
-			return modelSelectionChangedFrame(selection), err
+			return frame, result.Source
 		},
 		failureCode: selectionFailureCode,
-		release:     s.releaseSelection, releaseOnce: sync.Once{},
+		release:     prepared.Release, releaseOnce: sync.Once{},
 	}, nil
 }
 
-// reserveSelection serializes selection commits and checks readiness atomically.
-func (s *Session) reserveSelection() error {
-	s.operationMutex.Lock()
-	defer s.operationMutex.Unlock()
-	if s.operationAvailability == AvailabilityCheckingAuthentication ||
-		s.operationAvailability == AvailabilityAuthenticating {
-		return rejectOperation(controllerui.RejectionCodeNotReady, errors.New("model selection is not ready"))
+// selectionPreparationError projects shared admission and starting-target failures.
+func selectionPreparationError(err error) error {
+	failure, ok := errors.AsType[SelectionFailure](err)
+	if !ok {
+		return err
 	}
-	if s.selectionActive {
-		return rejectOperation(controllerui.RejectionCodeBusy, errors.New("another model selection is active"))
+	switch failure.ModelSelectionCode() {
+	case selectionCodeBusy:
+		return rejectOperation(controllerui.RejectionCodeBusy, err)
+	case selectionCodeNotFound:
+		return rejectOperation(controllerui.RejectionCodeNotFound, err)
+	case selectionCodeReasoning:
+		return rejectOperation(controllerui.RejectionCodeReasoningUnsupported, err)
+	default:
+		return err
 	}
-	s.selectionActive = true
-	return nil
-}
-
-// releaseSelection frees the in-memory selection reservation.
-func (s *Session) releaseSelection() {
-	s.operationMutex.Lock()
-	s.selectionActive = false
-	s.operationMutex.Unlock()
-}
-
-// validateSelectionCommand checks only the in-memory model catalog and request fields.
-func validateSelectionCommand(
-	command controllerui.Command,
-	models []model.Descriptor,
-	active model.Selection,
-) error {
-	if command.Kind == controllerui.CommandSelectReasoningChoice {
-		return validateReasoningSelection(command, models, active)
-	}
-	providerID, providerPresent := command.ProviderID.Get()
-	modelID, modelPresent := command.ModelID.Get()
-	if !providerPresent || providerID == "" || !modelPresent || modelID == "" {
-		return rejectOperation(controllerui.RejectionCodeInvalidArgument, errors.New("provider and model are required"))
-	}
-	for index := range models {
-		descriptor := &models[index]
-		if descriptor.Provider == model.ProviderID(providerID) && descriptor.Model == model.ID(modelID) {
-			return nil
-		}
-	}
-	return rejectOperation(controllerui.RejectionCodeNotFound, errors.New("configured model was not found"))
-}
-
-// validateReasoningSelection checks one choice against the active in-memory descriptor.
-func validateReasoningSelection(
-	command controllerui.Command,
-	models []model.Descriptor,
-	active model.Selection,
-) error {
-	choice, validationErr := command.SelectedReasoningChoice()
-	if validationErr != nil {
-		return rejectOperation(controllerui.RejectionCodeInvalidArgument, validationErr)
-	}
-	for index := range models {
-		descriptor := &models[index]
-		if descriptor.Provider != active.Provider || descriptor.Model != active.Model {
-			continue
-		}
-		if !slices.Contains(descriptor.ReasoningCapabilities.Choices, choice) {
-			return rejectOperation(
-				controllerui.RejectionCodeInvalidArgument,
-				errors.New("reasoning choice is not supported by the active model"),
-			)
-		}
-		return nil
-	}
-	return rejectOperation(controllerui.RejectionCodeNotFound, errors.New("active configured model was not found"))
 }
 
 // selectionFailureCode classifies accepted selection failures.
@@ -375,13 +364,15 @@ func selectionFailureCode(err error) string {
 	if !ok {
 		return controllerui.FailureCodeInternal
 	}
-	switch failure.SelectionCode() {
-	case selectionCodeNotFound:
-		return controllerui.FailureCodeNotFound
-	case selectionCodeReasoning:
-		return controllerui.FailureCodeReasoning
+	switch failure.ModelSelectionCode() {
+	case selectionCodeModelUnavailable:
+		return controllerui.FailureCodeModelUnavailable
 	case selectionCodeProviderAuth:
 		return controllerui.FailureCodeProviderAuth
+	case selectionCodeExtensionRejected:
+		return controllerui.FailureCodeExtensionRejected
+	case selectionCodeExtensionUnavailable:
+		return controllerui.FailureCodeExtension
 	default:
 		return controllerui.FailureCodeInternal
 	}

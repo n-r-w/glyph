@@ -124,7 +124,7 @@ func (testSuite *ProgrammaticAppSuite) TestServeFailureReturnsNonzero() {
 	session := hostprogrammatic.New(
 		coordinator, nil,
 		hostprogrammatic.NewMockStateQuery(gomock.NewController(t)),
-		nil, nil, nil, delivery,
+		nil, nil, nil, delivery, nil,
 	)
 	controller := controllerprogrammatic.New(t.Context(), session, delivery)
 	server := grpc.NewServer(grpc.WaitForHandlers(true))

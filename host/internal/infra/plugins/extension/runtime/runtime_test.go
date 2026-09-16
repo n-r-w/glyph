@@ -23,6 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
@@ -540,23 +541,7 @@ func TestRuntimeHandleCancellationWaitsForRelease(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", extensionruntime.HandlerInvocation{
-			Context: runtimeTestContext(),
-
-			Kind:           extensionruntime.InvocationObserver,
-			Original:       extensionruntime.Preparation{},
-			Current:        extensionruntime.Preparation{},
-			OriginalResult: mo.None[extensionruntime.Summary](),
-			CurrentResult:  mo.None[extensionruntime.Summary](),
-			Commit: mo.Some(extensionruntime.TreeCommit{
-				SessionID:               "session",
-				TargetEntryID:           "target",
-				PrecedingActiveLeafID:   mo.None[string](),
-				NavigationDestinationID: mo.None[string](),
-				CommittedActiveLeafID:   mo.None[string](),
-				CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
-			}),
-		})
+		_, handleErr := runtime.Handle(ctx, "observer", runtimeObserverInvocation())
 		outcome <- handleErr
 	}()
 	require.Eventually(t, func() bool { return pathExists(startedPath) }, processOperationTimeout, 10*time.Millisecond)
@@ -643,23 +628,7 @@ func TestRuntimeHandleCancellationPreservesTransportFailure(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", extensionruntime.HandlerInvocation{
-			Context: runtimeTestContext(),
-
-			Kind:           extensionruntime.InvocationObserver,
-			Original:       extensionruntime.Preparation{},
-			Current:        extensionruntime.Preparation{},
-			OriginalResult: mo.None[extensionruntime.Summary](),
-			CurrentResult:  mo.None[extensionruntime.Summary](),
-			Commit: mo.Some(extensionruntime.TreeCommit{
-				SessionID:               "session",
-				TargetEntryID:           "target",
-				PrecedingActiveLeafID:   mo.None[string](),
-				NavigationDestinationID: mo.None[string](),
-				CommittedActiveLeafID:   mo.None[string](),
-				CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
-			}),
-		})
+		_, handleErr := runtime.Handle(ctx, "observer", runtimeObserverInvocation())
 		outcome <- handleErr
 	}()
 	require.Eventually(t, func() bool { return pathExists(startedPath) }, processOperationTimeout, 10*time.Millisecond)
@@ -675,6 +644,7 @@ func TestRuntimeHandleCancellationPreservesTransportFailure(t *testing.T) {
 
 	// Assert: preserve both causes and finish failed-process cleanup before Handle returns.
 	require.ErrorIs(t, handleErr, context.Canceled)
+	require.ErrorIs(t, handleErr, extensionruntime.ErrExtensionUnavailable)
 	assert.Equal(t, codes.Unavailable, status.Code(handleErr))
 	require.ErrorContains(t, handleErr, "cancellation transport failed")
 	select {
@@ -702,23 +672,7 @@ func TestRuntimeHandleCancellationPreservesUnknownTransportFailure(t *testing.T)
 	ctx, cancel := context.WithCancel(t.Context())
 	outcome := make(chan error, 1)
 	go func() {
-		_, handleErr := runtime.Handle(ctx, "observer", extensionruntime.HandlerInvocation{
-			Context: runtimeTestContext(),
-
-			Kind:           extensionruntime.InvocationObserver,
-			Original:       extensionruntime.Preparation{},
-			Current:        extensionruntime.Preparation{},
-			OriginalResult: mo.None[extensionruntime.Summary](),
-			CurrentResult:  mo.None[extensionruntime.Summary](),
-			Commit: mo.Some(extensionruntime.TreeCommit{
-				SessionID:               "session",
-				TargetEntryID:           "target",
-				PrecedingActiveLeafID:   mo.None[string](),
-				NavigationDestinationID: mo.None[string](),
-				CommittedActiveLeafID:   mo.None[string](),
-				CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
-			}),
-		})
+		_, handleErr := runtime.Handle(ctx, "observer", runtimeObserverInvocation())
 		outcome <- handleErr
 	}()
 	require.Eventually(t, func() bool { return pathExists(startedPath) }, processOperationTimeout, 10*time.Millisecond)
@@ -870,6 +824,8 @@ func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
 					CommittedActiveLeafID:   mo.None[string](),
 					CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
 				}),
+				OriginalSelection: model.Selection{},
+				CurrentSelection:  model.Selection{},
 			}
 			_, err := runtime.Handle(t.Context(), "observer", request)
 			return err
@@ -907,7 +863,7 @@ func TestRuntimeKeepsHandlerErrorsAsCompletedData(t *testing.T) {
 	runtime := startHelperRuntime(t, "handler-error")
 	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
-	request := validSessionTreeHandlerRequest()
+	request := runtimeObserverInvocation()
 
 	// Act: invoke the handler twice through the local gRPC boundary.
 	_, firstErr := runtime.Handle(t.Context(), "observer", request)
@@ -1167,12 +1123,14 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 	request := extensionruntime.HandlerInvocation{
 		Context: runtimeTestContext(),
 
-		Kind:           extensionruntime.InvocationObserver,
-		Original:       extensionruntime.Preparation{},
-		Current:        extensionruntime.Preparation{},
-		OriginalResult: mo.None[extensionruntime.Summary](),
-		CurrentResult:  mo.None[extensionruntime.Summary](),
-		Commit:         mo.Some(invocation),
+		Kind:              extensionruntime.InvocationObserver,
+		Original:          extensionruntime.Preparation{},
+		Current:           extensionruntime.Preparation{},
+		OriginalResult:    mo.None[extensionruntime.Summary](),
+		CurrentResult:     mo.None[extensionruntime.Summary](),
+		Commit:            mo.Some(invocation),
+		OriginalSelection: model.Selection{},
+		CurrentSelection:  model.Selection{},
 	}
 
 	// Act: invoke the registered handler operation.
@@ -1183,12 +1141,15 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 	assert.Equal(
 		t,
 		extensionruntime.HandlerAction{
-			Kind:          extensionruntime.InvocationObserver,
-			Cancel:        false,
-			RequestAction: 0,
-			Request:       mo.None[extensionruntime.Navigation](),
-			ResultAction:  0,
-			Result:        mo.None[extensionruntime.Summary](),
+			Kind:                 extensionruntime.InvocationObserver,
+			Cancel:               false,
+			RequestAction:        0,
+			Request:              mo.None[extensionruntime.Navigation](),
+			ResultAction:         0,
+			Result:               mo.None[extensionruntime.Summary](),
+			SelectionAction:      0,
+			SelectionReplacement: mo.None[model.Selection](),
+			SelectionRejection:   mo.None[string](),
 		},
 		response,
 	)
@@ -1291,6 +1252,7 @@ func (operation *protocolHandleOperation) Run(
 	}
 	if operation.service.mode == "handler-error" {
 		return extensionpb.HandleResponse_builder{
+			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil,
 			Error: extensionpb.HandlerError_builder{Message: new("complete handler error text")}.Build(),
@@ -1298,6 +1260,7 @@ func (operation *protocolHandleOperation) Run(
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	return extensionpb.HandleResponse_builder{
+		ModelSelection: nil, ReasoningSelection: nil,
 		Lifecycle:   nil,
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 	}.Build(), nil
@@ -1452,6 +1415,21 @@ func requireRuntimeStopped(t *testing.T, runtime *Runtime) {
 	case <-runtime.Done():
 	default:
 		require.FailNow(t, "extension runtime did not stop")
+	}
+}
+
+// runtimeObserverInvocation returns one complete committed-navigation observer payload.
+func runtimeObserverInvocation() extensionruntime.HandlerInvocation {
+	return extensionruntime.HandlerInvocation{
+		Context: runtimeTestContext(), Kind: extensionruntime.InvocationObserver,
+		Original: extensionruntime.Preparation{}, Current: extensionruntime.Preparation{},
+		OriginalResult: mo.None[extensionruntime.Summary](), CurrentResult: mo.None[extensionruntime.Summary](),
+		Commit: mo.Some(extensionruntime.TreeCommit{
+			SessionID: "session", TargetEntryID: "target",
+			PrecedingActiveLeafID: mo.None[string](), NavigationDestinationID: mo.None[string](),
+			CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[extensionruntime.CommittedSummary](),
+		}),
+		OriginalSelection: model.Selection{}, CurrentSelection: model.Selection{},
 	}
 }
 

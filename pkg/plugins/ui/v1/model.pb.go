@@ -20,6 +20,62 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// OperationIssueCode identifies one safe nonterminal issue.
+type OperationIssueCode int32
+
+const (
+	// No issue code was provided.
+	OperationIssueCode_OPERATION_ISSUE_CODE_UNSPECIFIED OperationIssueCode = 0
+	// An extension handler returned an ordinary error.
+	OperationIssueCode_OPERATION_ISSUE_CODE_HANDLER_ERROR OperationIssueCode = 1
+	// An extension handler returned an invalid action.
+	OperationIssueCode_OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION OperationIssueCode = 2
+	// A post-commit observer returned an error.
+	OperationIssueCode_OPERATION_ISSUE_CODE_OBSERVER_ERROR OperationIssueCode = 3
+	// Client publication failed after commit.
+	OperationIssueCode_OPERATION_ISSUE_CODE_DELIVERY_FAILED OperationIssueCode = 4
+)
+
+// Enum value maps for OperationIssueCode.
+var (
+	OperationIssueCode_name = map[int32]string{
+		0: "OPERATION_ISSUE_CODE_UNSPECIFIED",
+		1: "OPERATION_ISSUE_CODE_HANDLER_ERROR",
+		2: "OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION",
+		3: "OPERATION_ISSUE_CODE_OBSERVER_ERROR",
+		4: "OPERATION_ISSUE_CODE_DELIVERY_FAILED",
+	}
+	OperationIssueCode_value = map[string]int32{
+		"OPERATION_ISSUE_CODE_UNSPECIFIED":            0,
+		"OPERATION_ISSUE_CODE_HANDLER_ERROR":          1,
+		"OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION": 2,
+		"OPERATION_ISSUE_CODE_OBSERVER_ERROR":         3,
+		"OPERATION_ISSUE_CODE_DELIVERY_FAILED":        4,
+	}
+)
+
+func (x OperationIssueCode) Enum() *OperationIssueCode {
+	p := new(OperationIssueCode)
+	*p = x
+	return p
+}
+
+func (x OperationIssueCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OperationIssueCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_ui_v1_model_proto_enumTypes[0].Descriptor()
+}
+
+func (OperationIssueCode) Type() protoreflect.EnumType {
+	return &file_api_plugins_ui_v1_model_proto_enumTypes[0]
+}
+
+func (x OperationIssueCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // ReasoningChoice identifies a configured model reasoning choice.
 type ReasoningChoice int32
 
@@ -81,11 +137,11 @@ func (x ReasoningChoice) String() string {
 }
 
 func (ReasoningChoice) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_ui_v1_model_proto_enumTypes[0].Descriptor()
+	return file_api_plugins_ui_v1_model_proto_enumTypes[1].Descriptor()
 }
 
 func (ReasoningChoice) Type() protoreflect.EnumType {
-	return &file_api_plugins_ui_v1_model_proto_enumTypes[0]
+	return &file_api_plugins_ui_v1_model_proto_enumTypes[1]
 }
 
 func (x ReasoningChoice) Number() protoreflect.EnumNumber {
@@ -552,6 +608,7 @@ func (b0 ModelSelection_builder) Build() *ModelSelection {
 type ModelSelectionChanged struct {
 	state                protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Selection *ModelSelection        `protobuf:"bytes,1,opt,name=selection"`
+	xxx_hidden_Issues    *[]*OperationIssue     `protobuf:"bytes,2,rep,name=issues"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -588,8 +645,21 @@ func (x *ModelSelectionChanged) GetSelection() *ModelSelection {
 	return nil
 }
 
+func (x *ModelSelectionChanged) GetIssues() []*OperationIssue {
+	if x != nil {
+		if x.xxx_hidden_Issues != nil {
+			return *x.xxx_hidden_Issues
+		}
+	}
+	return nil
+}
+
 func (x *ModelSelectionChanged) SetSelection(v *ModelSelection) {
 	x.xxx_hidden_Selection = v
+}
+
+func (x *ModelSelectionChanged) SetIssues(v []*OperationIssue) {
+	x.xxx_hidden_Issues = &v
 }
 
 func (x *ModelSelectionChanged) HasSelection() bool {
@@ -608,6 +678,8 @@ type ModelSelectionChanged_builder struct {
 
 	// The committed model selection.
 	Selection *ModelSelection
+	// Ordered nonterminal issues acquired after commit.
+	Issues []*OperationIssue
 }
 
 func (b0 ModelSelectionChanged_builder) Build() *ModelSelectionChanged {
@@ -615,6 +687,188 @@ func (b0 ModelSelectionChanged_builder) Build() *ModelSelectionChanged {
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Selection = b.Selection
+	x.xxx_hidden_Issues = &b.Issues
+	return m0
+}
+
+// OperationIssue reports a nonterminal issue with its complete cause.
+type OperationIssue struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Code        OperationIssueCode     `protobuf:"varint,1,opt,name=code,enum=glyph.plugins.ui.v1.OperationIssueCode"`
+	xxx_hidden_ExtensionId *string                `protobuf:"bytes,2,opt,name=extension_id,json=extensionId"`
+	xxx_hidden_HandlerId   *string                `protobuf:"bytes,3,opt,name=handler_id,json=handlerId"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,4,opt,name=message"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *OperationIssue) Reset() {
+	*x = OperationIssue{}
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OperationIssue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OperationIssue) ProtoMessage() {}
+
+func (x *OperationIssue) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *OperationIssue) GetCode() OperationIssueCode {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Code
+		}
+	}
+	return OperationIssueCode_OPERATION_ISSUE_CODE_UNSPECIFIED
+}
+
+func (x *OperationIssue) GetExtensionId() string {
+	if x != nil {
+		if x.xxx_hidden_ExtensionId != nil {
+			return *x.xxx_hidden_ExtensionId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *OperationIssue) GetHandlerId() string {
+	if x != nil {
+		if x.xxx_hidden_HandlerId != nil {
+			return *x.xxx_hidden_HandlerId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *OperationIssue) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *OperationIssue) SetCode(v OperationIssueCode) {
+	x.xxx_hidden_Code = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+}
+
+func (x *OperationIssue) SetExtensionId(v string) {
+	x.xxx_hidden_ExtensionId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *OperationIssue) SetHandlerId(v string) {
+	x.xxx_hidden_HandlerId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *OperationIssue) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *OperationIssue) HasCode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *OperationIssue) HasExtensionId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *OperationIssue) HasHandlerId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *OperationIssue) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *OperationIssue) ClearCode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Code = OperationIssueCode_OPERATION_ISSUE_CODE_UNSPECIFIED
+}
+
+func (x *OperationIssue) ClearExtensionId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ExtensionId = nil
+}
+
+func (x *OperationIssue) ClearHandlerId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_HandlerId = nil
+}
+
+func (x *OperationIssue) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Message = nil
+}
+
+type OperationIssue_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The stable issue code.
+	Code *OperationIssueCode
+	// The configured extension identifier when applicable.
+	ExtensionId *string
+	// The registered handler identifier when applicable.
+	HandlerId *string
+	// The complete issue text, including its original cause.
+	Message *string
+}
+
+func (b0 OperationIssue_builder) Build() *OperationIssue {
+	m0 := &OperationIssue{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Code != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		x.xxx_hidden_Code = *b.Code
+	}
+	if b.ExtensionId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_ExtensionId = b.ExtensionId
+	}
+	if b.HandlerId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_HandlerId = b.HandlerId
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_Message = b.Message
+	}
 	return m0
 }
 
@@ -630,7 +884,7 @@ type AuthorizationRequest struct {
 
 func (x *AuthorizationRequest) Reset() {
 	*x = AuthorizationRequest{}
-	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[5]
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -642,7 +896,7 @@ func (x *AuthorizationRequest) String() string {
 func (*AuthorizationRequest) ProtoMessage() {}
 
 func (x *AuthorizationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[5]
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -707,7 +961,7 @@ type RetryAuthenticationCommand struct {
 
 func (x *RetryAuthenticationCommand) Reset() {
 	*x = RetryAuthenticationCommand{}
-	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[6]
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -719,7 +973,7 @@ func (x *RetryAuthenticationCommand) String() string {
 func (*RetryAuthenticationCommand) ProtoMessage() {}
 
 func (x *RetryAuthenticationCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[6]
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -755,7 +1009,7 @@ type SelectModelCommand struct {
 
 func (x *SelectModelCommand) Reset() {
 	*x = SelectModelCommand{}
-	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[7]
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -767,7 +1021,7 @@ func (x *SelectModelCommand) String() string {
 func (*SelectModelCommand) ProtoMessage() {}
 
 func (x *SelectModelCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[7]
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -868,7 +1122,7 @@ type SelectReasoningChoiceCommand struct {
 
 func (x *SelectReasoningChoiceCommand) Reset() {
 	*x = SelectReasoningChoiceCommand{}
-	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[8]
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -880,7 +1134,7 @@ func (x *SelectReasoningChoiceCommand) String() string {
 func (*SelectReasoningChoiceCommand) ProtoMessage() {}
 
 func (x *SelectReasoningChoiceCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[8]
+	mi := &file_api_plugins_ui_v1_model_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -954,9 +1208,16 @@ const file_api_plugins_ui_v1_model_proto_rawDesc = "" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12O\n" +
-	"\x10reasoning_choice\x18\x03 \x01(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\x0freasoningChoice\"Z\n" +
+	"\x10reasoning_choice\x18\x03 \x01(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\x0freasoningChoice\"\x97\x01\n" +
 	"\x15ModelSelectionChanged\x12A\n" +
-	"\tselection\x18\x01 \x01(\v2#.glyph.plugins.ui.v1.ModelSelectionR\tselection\"(\n" +
+	"\tselection\x18\x01 \x01(\v2#.glyph.plugins.ui.v1.ModelSelectionR\tselection\x12;\n" +
+	"\x06issues\x18\x02 \x03(\v2#.glyph.plugins.ui.v1.OperationIssueR\x06issues\"\xa9\x01\n" +
+	"\x0eOperationIssue\x12;\n" +
+	"\x04code\x18\x01 \x01(\x0e2'.glyph.plugins.ui.v1.OperationIssueCodeR\x04code\x12!\n" +
+	"\fextension_id\x18\x02 \x01(\tR\vextensionId\x12\x1d\n" +
+	"\n" +
+	"handler_id\x18\x03 \x01(\tR\thandlerId\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"(\n" +
 	"\x14AuthorizationRequest\x12\x10\n" +
 	"\x03url\x18\x01 \x01(\tR\x03url\"\x1c\n" +
 	"\x1aRetryAuthenticationCommand\"P\n" +
@@ -965,7 +1226,13 @@ const file_api_plugins_ui_v1_model_proto_rawDesc = "" +
 	"providerId\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\"\\\n" +
 	"\x1cSelectReasoningChoiceCommand\x12<\n" +
-	"\x06choice\x18\x01 \x01(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\x06choice*\x8c\x02\n" +
+	"\x06choice\x18\x01 \x01(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\x06choice*\xe6\x01\n" +
+	"\x12OperationIssueCode\x12$\n" +
+	" OPERATION_ISSUE_CODE_UNSPECIFIED\x10\x00\x12&\n" +
+	"\"OPERATION_ISSUE_CODE_HANDLER_ERROR\x10\x01\x12/\n" +
+	"+OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION\x10\x02\x12'\n" +
+	"#OPERATION_ISSUE_CODE_OBSERVER_ERROR\x10\x03\x12(\n" +
+	"$OPERATION_ISSUE_CODE_DELIVERY_FAILED\x10\x04*\x8c\x02\n" +
 	"\x0fReasoningChoice\x12 \n" +
 	"\x1cREASONING_CHOICE_UNSPECIFIED\x10\x00\x12\x18\n" +
 	"\x14REASONING_CHOICE_OFF\x10\x01\x12\x17\n" +
@@ -977,32 +1244,36 @@ const file_api_plugins_ui_v1_model_proto_rawDesc = "" +
 	"\x16REASONING_CHOICE_XHIGH\x10\a\x12\x18\n" +
 	"\x14REASONING_CHOICE_MAX\x10\bB/Z-github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1b\beditionsp\xe8\a"
 
-var file_api_plugins_ui_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_plugins_ui_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_api_plugins_ui_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_api_plugins_ui_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_plugins_ui_v1_model_proto_goTypes = []any{
-	(ReasoningChoice)(0),                 // 0: glyph.plugins.ui.v1.ReasoningChoice
-	(*AuthenticationCompleted)(nil),      // 1: glyph.plugins.ui.v1.AuthenticationCompleted
-	(*ConfiguredModel)(nil),              // 2: glyph.plugins.ui.v1.ConfiguredModel
-	(*ReasoningCapabilities)(nil),        // 3: glyph.plugins.ui.v1.ReasoningCapabilities
-	(*ModelSelection)(nil),               // 4: glyph.plugins.ui.v1.ModelSelection
-	(*ModelSelectionChanged)(nil),        // 5: glyph.plugins.ui.v1.ModelSelectionChanged
-	(*AuthorizationRequest)(nil),         // 6: glyph.plugins.ui.v1.AuthorizationRequest
-	(*RetryAuthenticationCommand)(nil),   // 7: glyph.plugins.ui.v1.RetryAuthenticationCommand
-	(*SelectModelCommand)(nil),           // 8: glyph.plugins.ui.v1.SelectModelCommand
-	(*SelectReasoningChoiceCommand)(nil), // 9: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	(OperationIssueCode)(0),              // 0: glyph.plugins.ui.v1.OperationIssueCode
+	(ReasoningChoice)(0),                 // 1: glyph.plugins.ui.v1.ReasoningChoice
+	(*AuthenticationCompleted)(nil),      // 2: glyph.plugins.ui.v1.AuthenticationCompleted
+	(*ConfiguredModel)(nil),              // 3: glyph.plugins.ui.v1.ConfiguredModel
+	(*ReasoningCapabilities)(nil),        // 4: glyph.plugins.ui.v1.ReasoningCapabilities
+	(*ModelSelection)(nil),               // 5: glyph.plugins.ui.v1.ModelSelection
+	(*ModelSelectionChanged)(nil),        // 6: glyph.plugins.ui.v1.ModelSelectionChanged
+	(*OperationIssue)(nil),               // 7: glyph.plugins.ui.v1.OperationIssue
+	(*AuthorizationRequest)(nil),         // 8: glyph.plugins.ui.v1.AuthorizationRequest
+	(*RetryAuthenticationCommand)(nil),   // 9: glyph.plugins.ui.v1.RetryAuthenticationCommand
+	(*SelectModelCommand)(nil),           // 10: glyph.plugins.ui.v1.SelectModelCommand
+	(*SelectReasoningChoiceCommand)(nil), // 11: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
 }
 var file_api_plugins_ui_v1_model_proto_depIdxs = []int32{
-	3, // 0: glyph.plugins.ui.v1.ConfiguredModel.reasoning:type_name -> glyph.plugins.ui.v1.ReasoningCapabilities
-	0, // 1: glyph.plugins.ui.v1.ReasoningCapabilities.choices:type_name -> glyph.plugins.ui.v1.ReasoningChoice
-	0, // 2: glyph.plugins.ui.v1.ReasoningCapabilities.default_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
-	0, // 3: glyph.plugins.ui.v1.ModelSelection.reasoning_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
-	4, // 4: glyph.plugins.ui.v1.ModelSelectionChanged.selection:type_name -> glyph.plugins.ui.v1.ModelSelection
-	0, // 5: glyph.plugins.ui.v1.SelectReasoningChoiceCommand.choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	4, // 0: glyph.plugins.ui.v1.ConfiguredModel.reasoning:type_name -> glyph.plugins.ui.v1.ReasoningCapabilities
+	1, // 1: glyph.plugins.ui.v1.ReasoningCapabilities.choices:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	1, // 2: glyph.plugins.ui.v1.ReasoningCapabilities.default_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	1, // 3: glyph.plugins.ui.v1.ModelSelection.reasoning_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	5, // 4: glyph.plugins.ui.v1.ModelSelectionChanged.selection:type_name -> glyph.plugins.ui.v1.ModelSelection
+	7, // 5: glyph.plugins.ui.v1.ModelSelectionChanged.issues:type_name -> glyph.plugins.ui.v1.OperationIssue
+	0, // 6: glyph.plugins.ui.v1.OperationIssue.code:type_name -> glyph.plugins.ui.v1.OperationIssueCode
+	1, // 7: glyph.plugins.ui.v1.SelectReasoningChoiceCommand.choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_model_proto_init() }
@@ -1015,8 +1286,8 @@ func file_api_plugins_ui_v1_model_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_ui_v1_model_proto_rawDesc), len(file_api_plugins_ui_v1_model_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   9,
+			NumEnums:      2,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

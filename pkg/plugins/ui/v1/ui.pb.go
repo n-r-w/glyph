@@ -2302,6 +2302,15 @@ func (x *HostConnectionEvent) GetExtensionIssue() *ExtensionIssue {
 	return nil
 }
 
+func (x *HostConnectionEvent) GetModelSelectionChanged() *ModelSelectionChanged {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*hostConnectionEvent_ModelSelectionChanged); ok {
+			return x.ModelSelectionChanged
+		}
+	}
+	return nil
+}
+
 func (x *HostConnectionEvent) SetInformation(v *Information) {
 	if v == nil {
 		x.xxx_hidden_Event = nil
@@ -2340,6 +2349,14 @@ func (x *HostConnectionEvent) SetExtensionIssue(v *ExtensionIssue) {
 		return
 	}
 	x.xxx_hidden_Event = &hostConnectionEvent_ExtensionIssue{v}
+}
+
+func (x *HostConnectionEvent) SetModelSelectionChanged(v *ModelSelectionChanged) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &hostConnectionEvent_ModelSelectionChanged{v}
 }
 
 func (x *HostConnectionEvent) HasEvent() bool {
@@ -2389,6 +2406,14 @@ func (x *HostConnectionEvent) HasExtensionIssue() bool {
 	return ok
 }
 
+func (x *HostConnectionEvent) HasModelSelectionChanged() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*hostConnectionEvent_ModelSelectionChanged)
+	return ok
+}
+
 func (x *HostConnectionEvent) ClearEvent() {
 	x.xxx_hidden_Event = nil
 }
@@ -2423,12 +2448,19 @@ func (x *HostConnectionEvent) ClearExtensionIssue() {
 	}
 }
 
+func (x *HostConnectionEvent) ClearModelSelectionChanged() {
+	if _, ok := x.xxx_hidden_Event.(*hostConnectionEvent_ModelSelectionChanged); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
 const HostConnectionEvent_Event_not_set_case case_HostConnectionEvent_Event = 0
 const HostConnectionEvent_Information_case case_HostConnectionEvent_Event = 1
 const HostConnectionEvent_Error_case case_HostConnectionEvent_Event = 2
 const HostConnectionEvent_AvailabilityChanged_case case_HostConnectionEvent_Event = 3
 const HostConnectionEvent_SessionEntryAdded_case case_HostConnectionEvent_Event = 4
 const HostConnectionEvent_ExtensionIssue_case case_HostConnectionEvent_Event = 5
+const HostConnectionEvent_ModelSelectionChanged_case case_HostConnectionEvent_Event = 6
 
 func (x *HostConnectionEvent) WhichEvent() case_HostConnectionEvent_Event {
 	if x == nil {
@@ -2445,6 +2477,8 @@ func (x *HostConnectionEvent) WhichEvent() case_HostConnectionEvent_Event {
 		return HostConnectionEvent_SessionEntryAdded_case
 	case *hostConnectionEvent_ExtensionIssue:
 		return HostConnectionEvent_ExtensionIssue_case
+	case *hostConnectionEvent_ModelSelectionChanged:
+		return HostConnectionEvent_ModelSelectionChanged_case
 	default:
 		return HostConnectionEvent_Event_not_set_case
 	}
@@ -2456,11 +2490,12 @@ type HostConnectionEvent_builder struct {
 	// The connection event.
 
 	// Fields of oneof xxx_hidden_Event:
-	Information         *Information
-	Error               *Error
-	AvailabilityChanged *AvailabilityChanged
-	SessionEntryAdded   *SessionEntryAdded
-	ExtensionIssue      *ExtensionIssue
+	Information           *Information
+	Error                 *Error
+	AvailabilityChanged   *AvailabilityChanged
+	SessionEntryAdded     *SessionEntryAdded
+	ExtensionIssue        *ExtensionIssue
+	ModelSelectionChanged *ModelSelectionChanged
 	// -- end of xxx_hidden_Event
 }
 
@@ -2482,6 +2517,9 @@ func (b0 HostConnectionEvent_builder) Build() *HostConnectionEvent {
 	}
 	if b.ExtensionIssue != nil {
 		x.xxx_hidden_Event = &hostConnectionEvent_ExtensionIssue{b.ExtensionIssue}
+	}
+	if b.ModelSelectionChanged != nil {
+		x.xxx_hidden_Event = &hostConnectionEvent_ModelSelectionChanged{b.ModelSelectionChanged}
 	}
 	return m0
 }
@@ -2520,6 +2558,10 @@ type hostConnectionEvent_ExtensionIssue struct {
 	ExtensionIssue *ExtensionIssue `protobuf:"bytes,5,opt,name=extension_issue,json=extensionIssue,oneof"`
 }
 
+type hostConnectionEvent_ModelSelectionChanged struct {
+	ModelSelectionChanged *ModelSelectionChanged `protobuf:"bytes,6,opt,name=model_selection_changed,json=modelSelectionChanged,oneof"`
+}
+
 func (*hostConnectionEvent_Information) isHostConnectionEvent_Event() {}
 
 func (*hostConnectionEvent_Error) isHostConnectionEvent_Event() {}
@@ -2529,6 +2571,8 @@ func (*hostConnectionEvent_AvailabilityChanged) isHostConnectionEvent_Event() {}
 func (*hostConnectionEvent_SessionEntryAdded) isHostConnectionEvent_Event() {}
 
 func (*hostConnectionEvent_ExtensionIssue) isHostConnectionEvent_Event() {}
+
+func (*hostConnectionEvent_ModelSelectionChanged) isHostConnectionEvent_Event() {}
 
 // ExtensionIssue reports one nonterminal extension handler failure.
 type ExtensionIssue struct {
@@ -4617,13 +4661,14 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\bseverity\x18\x01 \x01(\x0e2$.glyph.plugins.ui.v1.ContentSeverityR\bseverity\x12\x12\n" +
 	"\x04text\x18\x02 \x01(\tR\x04text\"!\n" +
 	"\vInformation\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text\"\xa1\x03\n" +
+	"\x04text\x18\x01 \x01(\tR\x04text\"\x87\x04\n" +
 	"\x13HostConnectionEvent\x12D\n" +
 	"\vinformation\x18\x01 \x01(\v2 .glyph.plugins.ui.v1.InformationH\x00R\vinformation\x122\n" +
 	"\x05error\x18\x02 \x01(\v2\x1a.glyph.plugins.ui.v1.ErrorH\x00R\x05error\x12]\n" +
 	"\x14availability_changed\x18\x03 \x01(\v2(.glyph.plugins.ui.v1.AvailabilityChangedH\x00R\x13availabilityChanged\x12X\n" +
 	"\x13session_entry_added\x18\x04 \x01(\v2&.glyph.plugins.ui.v1.SessionEntryAddedH\x00R\x11sessionEntryAdded\x12N\n" +
-	"\x0fextension_issue\x18\x05 \x01(\v2#.glyph.plugins.ui.v1.ExtensionIssueH\x00R\x0eextensionIssueB\a\n" +
+	"\x0fextension_issue\x18\x05 \x01(\v2#.glyph.plugins.ui.v1.ExtensionIssueH\x00R\x0eextensionIssue\x12d\n" +
+	"\x17model_selection_changed\x18\x06 \x01(\v2*.glyph.plugins.ui.v1.ModelSelectionChangedH\x00R\x15modelSelectionChangedB\a\n" +
 	"\x05event\"z\n" +
 	"\x0eExtensionIssue\x12!\n" +
 	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
@@ -4789,40 +4834,41 @@ var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	13, // 37: glyph.plugins.ui.v1.HostConnectionEvent.availability_changed:type_name -> glyph.plugins.ui.v1.AvailabilityChanged
 	46, // 38: glyph.plugins.ui.v1.HostConnectionEvent.session_entry_added:type_name -> glyph.plugins.ui.v1.SessionEntryAdded
 	11, // 39: glyph.plugins.ui.v1.HostConnectionEvent.extension_issue:type_name -> glyph.plugins.ui.v1.ExtensionIssue
-	42, // 40: glyph.plugins.ui.v1.AvailabilityChanged.availability:type_name -> glyph.plugins.ui.v1.Availability
-	15, // 41: glyph.plugins.ui.v1.OpenResponse.request:type_name -> glyph.plugins.ui.v1.UIRequest
-	16, // 42: glyph.plugins.ui.v1.OpenResponse.event:type_name -> glyph.plugins.ui.v1.UIEvent
-	20, // 43: glyph.plugins.ui.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
-	19, // 44: glyph.plugins.ui.v1.UIRequest.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
-	21, // 45: glyph.plugins.ui.v1.UIRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
-	47, // 46: glyph.plugins.ui.v1.UIRequest.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
-	48, // 47: glyph.plugins.ui.v1.UIRequest.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
-	49, // 48: glyph.plugins.ui.v1.UIRequest.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
-	50, // 49: glyph.plugins.ui.v1.UIRequest.create_session:type_name -> glyph.plugins.ui.v1.CreateSessionCommand
-	51, // 50: glyph.plugins.ui.v1.UIRequest.list_sessions:type_name -> glyph.plugins.ui.v1.ListSessionsCommand
-	52, // 51: glyph.plugins.ui.v1.UIRequest.resume_session:type_name -> glyph.plugins.ui.v1.ResumeSessionCommand
-	53, // 52: glyph.plugins.ui.v1.UIRequest.set_session_name:type_name -> glyph.plugins.ui.v1.SetSessionNameCommand
-	54, // 53: glyph.plugins.ui.v1.UIRequest.get_session_info:type_name -> glyph.plugins.ui.v1.GetSessionInfoCommand
-	55, // 54: glyph.plugins.ui.v1.UIRequest.get_session_tree:type_name -> glyph.plugins.ui.v1.GetSessionTreeCommand
-	56, // 55: glyph.plugins.ui.v1.UIRequest.navigate_session_tree:type_name -> glyph.plugins.ui.v1.NavigateSessionTreeCommand
-	57, // 56: glyph.plugins.ui.v1.UIRequest.fork_session:type_name -> glyph.plugins.ui.v1.ForkSessionCommand
-	58, // 57: glyph.plugins.ui.v1.UIRequest.clone_session:type_name -> glyph.plugins.ui.v1.CloneSessionCommand
-	59, // 58: glyph.plugins.ui.v1.UIRequest.set_entry_label:type_name -> glyph.plugins.ui.v1.SetEntryLabelCommand
-	22, // 59: glyph.plugins.ui.v1.UIEvent.accepted:type_name -> glyph.operation.v1.Accepted
-	23, // 60: glyph.plugins.ui.v1.UIEvent.running:type_name -> glyph.operation.v1.Running
-	17, // 61: glyph.plugins.ui.v1.UIEvent.completed:type_name -> glyph.plugins.ui.v1.UICompleted
-	24, // 62: glyph.plugins.ui.v1.UIEvent.canceled:type_name -> glyph.operation.v1.Canceled
-	25, // 63: glyph.plugins.ui.v1.UIEvent.failed:type_name -> glyph.operation.v1.Failed
-	26, // 64: glyph.plugins.ui.v1.UIEvent.rejected:type_name -> glyph.operation.v1.Rejected
-	18, // 65: glyph.plugins.ui.v1.UICompleted.initialized:type_name -> glyph.plugins.ui.v1.Initialized
-	30, // 66: glyph.plugins.ui.v1.UICompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	1,  // 67: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
-	14, // 68: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
-	68, // [68:69] is the sub-list for method output_type
-	67, // [67:68] is the sub-list for method input_type
-	67, // [67:67] is the sub-list for extension type_name
-	67, // [67:67] is the sub-list for extension extendee
-	0,  // [0:67] is the sub-list for field type_name
+	32, // 40: glyph.plugins.ui.v1.HostConnectionEvent.model_selection_changed:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
+	42, // 41: glyph.plugins.ui.v1.AvailabilityChanged.availability:type_name -> glyph.plugins.ui.v1.Availability
+	15, // 42: glyph.plugins.ui.v1.OpenResponse.request:type_name -> glyph.plugins.ui.v1.UIRequest
+	16, // 43: glyph.plugins.ui.v1.OpenResponse.event:type_name -> glyph.plugins.ui.v1.UIEvent
+	20, // 44: glyph.plugins.ui.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
+	19, // 45: glyph.plugins.ui.v1.UIRequest.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
+	21, // 46: glyph.plugins.ui.v1.UIRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
+	47, // 47: glyph.plugins.ui.v1.UIRequest.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
+	48, // 48: glyph.plugins.ui.v1.UIRequest.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
+	49, // 49: glyph.plugins.ui.v1.UIRequest.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	50, // 50: glyph.plugins.ui.v1.UIRequest.create_session:type_name -> glyph.plugins.ui.v1.CreateSessionCommand
+	51, // 51: glyph.plugins.ui.v1.UIRequest.list_sessions:type_name -> glyph.plugins.ui.v1.ListSessionsCommand
+	52, // 52: glyph.plugins.ui.v1.UIRequest.resume_session:type_name -> glyph.plugins.ui.v1.ResumeSessionCommand
+	53, // 53: glyph.plugins.ui.v1.UIRequest.set_session_name:type_name -> glyph.plugins.ui.v1.SetSessionNameCommand
+	54, // 54: glyph.plugins.ui.v1.UIRequest.get_session_info:type_name -> glyph.plugins.ui.v1.GetSessionInfoCommand
+	55, // 55: glyph.plugins.ui.v1.UIRequest.get_session_tree:type_name -> glyph.plugins.ui.v1.GetSessionTreeCommand
+	56, // 56: glyph.plugins.ui.v1.UIRequest.navigate_session_tree:type_name -> glyph.plugins.ui.v1.NavigateSessionTreeCommand
+	57, // 57: glyph.plugins.ui.v1.UIRequest.fork_session:type_name -> glyph.plugins.ui.v1.ForkSessionCommand
+	58, // 58: glyph.plugins.ui.v1.UIRequest.clone_session:type_name -> glyph.plugins.ui.v1.CloneSessionCommand
+	59, // 59: glyph.plugins.ui.v1.UIRequest.set_entry_label:type_name -> glyph.plugins.ui.v1.SetEntryLabelCommand
+	22, // 60: glyph.plugins.ui.v1.UIEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	23, // 61: glyph.plugins.ui.v1.UIEvent.running:type_name -> glyph.operation.v1.Running
+	17, // 62: glyph.plugins.ui.v1.UIEvent.completed:type_name -> glyph.plugins.ui.v1.UICompleted
+	24, // 63: glyph.plugins.ui.v1.UIEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	25, // 64: glyph.plugins.ui.v1.UIEvent.failed:type_name -> glyph.operation.v1.Failed
+	26, // 65: glyph.plugins.ui.v1.UIEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	18, // 66: glyph.plugins.ui.v1.UICompleted.initialized:type_name -> glyph.plugins.ui.v1.Initialized
+	30, // 67: glyph.plugins.ui.v1.UICompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	1,  // 68: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
+	14, // 69: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
+	69, // [69:70] is the sub-list for method output_type
+	68, // [68:69] is the sub-list for method input_type
+	68, // [68:68] is the sub-list for extension type_name
+	68, // [68:68] is the sub-list for extension extendee
+	0,  // [0:68] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_ui_proto_init() }
@@ -4877,6 +4923,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*hostConnectionEvent_AvailabilityChanged)(nil),
 		(*hostConnectionEvent_SessionEntryAdded)(nil),
 		(*hostConnectionEvent_ExtensionIssue)(nil),
+		(*hostConnectionEvent_ModelSelectionChanged)(nil),
 	}
 	file_api_plugins_ui_v1_ui_proto_msgTypes[13].OneofWrappers = []any{
 		(*openResponse_Request)(nil),

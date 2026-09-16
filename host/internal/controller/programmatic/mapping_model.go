@@ -63,7 +63,8 @@ func mapInputModality(modality model.InputModality) (programmaticv1.InputModalit
 	}
 }
 
-func mapModelSelection(selection model.Selection) (*programmaticv1.ModelSelection, error) {
+// EncodeModelSelection maps one domain selection to its public contract.
+func EncodeModelSelection(selection model.Selection) (*programmaticv1.ModelSelection, error) {
 	choice, err := mapReasoningChoice(selection.ReasoningChoice)
 	if err != nil {
 		return nil, err

@@ -331,9 +331,12 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				Model:           "model",
 				ReasoningChoice: model.ReasoningChoiceMax,
 			}),
-			State:             mo.None[RunStateResult](),
-			Messages:          nil,
-			Models:            mo.None[ModelsResult](),
+			State:    mo.None[RunStateResult](),
+			Messages: nil,
+			Models:   mo.None[ModelsResult](),
+			SelectionIssues: []OperationIssue{{
+				Code: OperationIssueDeliveryFailed, ExtensionID: "", HandlerID: "", Message: "complete delivery cause",
+			}},
 			Rejection:         mo.None[Rejection](),
 			SessionInfo:       mo.None[session.Info](),
 			SessionEntries:    nil,
@@ -426,6 +429,14 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 				assert.Equal(t, "provider", selection.GetProviderId())
 				assert.Equal(t, "model", selection.GetModelId())
 				assert.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_MAX, selection.GetReasoningChoice())
+				issues := wire.GetModelSelection().GetIssues()
+				require.Len(t, issues, 1)
+				assert.Equal(
+					t,
+					programmaticv1.OperationIssueCode_OPERATION_ISSUE_CODE_DELIVERY_FAILED,
+					issues[0].GetCode(),
+				)
+				assert.Equal(t, "complete delivery cause", issues[0].GetMessage())
 			case ResponseUnspecified,
 				ResponseSessionInfo,
 				ResponseSessions,

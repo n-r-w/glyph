@@ -93,7 +93,7 @@ func (s *Service) bindRegistration(candidate Candidate, raw Registration) startu
 		value, present := descriptor.Get()
 		kind := startup.RawHandlerKindUnspecified
 		if value.Kind >= int32(startup.RawHandlerKindSessionBeforeTreeRequest) &&
-			value.Kind <= int32(startup.RawHandlerKindToolExecutionEnd) {
+			value.Kind <= int32(startup.RawHandlerKindReasoningSelection) {
 			kind = startup.RawHandlerKind(value.Kind)
 		}
 		handlers[index] = startup.RawHandlerDescriptor{Present: present, ID: value.ID, Kind: kind}

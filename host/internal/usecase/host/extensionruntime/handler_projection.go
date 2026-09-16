@@ -17,13 +17,15 @@ func (s *Service) projectHandler(request sessiontree.HandlerRequest) (HandlerInv
 		return HandlerInvocation{}, errors.New("handler request has no single payload")
 	}
 	result := HandlerInvocation{
-		Context:        request.Context,
-		Kind:           InvocationKind(kind),
-		Original:       Preparation{},
-		Current:        Preparation{},
-		OriginalResult: mo.None[Summary](),
-		CurrentResult:  mo.None[Summary](),
-		Commit:         mo.None[TreeCommit](),
+		Context:           request.Context,
+		Kind:              InvocationKind(kind),
+		Original:          Preparation{},
+		Current:           Preparation{},
+		OriginalResult:    mo.None[Summary](),
+		CurrentResult:     mo.None[Summary](),
+		Commit:            mo.None[TreeCommit](),
+		OriginalSelection: model.Selection{},
+		CurrentSelection:  model.Selection{},
 	}
 	if value, ok := request.Request.Get(); ok {
 		result.Original = projectPreparation(value.Original)
@@ -183,6 +185,8 @@ func (s *Service) capabilityAction(action HandlerAction) sessiontree.HandlerResp
 		)
 	case InvocationObserver:
 		result.Observer = mo.Some(sessiontree.ObserverAction{})
+	case InvocationModelSelection, InvocationReasoningSelection:
+		// Selection actions are projected directly by HandleSelection.
 	}
 	return result
 }

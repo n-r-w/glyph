@@ -13,6 +13,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostsessions "github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -53,6 +54,7 @@ type SelectionError struct {
 
 var (
 	_ extensioncontext.RequestFailure   = (*SelectionError)(nil)
+	_ modelselection.CatalogFailure     = (*SelectionError)(nil)
 	_ sessiontree.SelectionFailure      = (*SelectionError)(nil)
 	_ hostprogrammatic.SelectionFailure = (*SelectionError)(nil)
 	_ hostui.SelectionFailure           = (*SelectionError)(nil)
@@ -66,8 +68,18 @@ func (e *SelectionError) Error() string {
 	return fmt.Sprintf("provider catalog selection failed: %s", e.Code)
 }
 
-// SelectionCode returns the stable catalog failure code.
+// SelectionCode returns the stable catalog failure code for configured-model consumers.
 func (e *SelectionError) SelectionCode() string {
+	return string(e.Code)
+}
+
+// ModelSelectionCode returns the stable catalog failure code for active-selection clients.
+func (e *SelectionError) ModelSelectionCode() string {
+	return string(e.Code)
+}
+
+// CatalogSelectionCode returns the stable catalog failure code to the selection capability owner.
+func (e *SelectionError) CatalogSelectionCode() string {
 	return string(e.Code)
 }
 
@@ -103,6 +115,7 @@ type Catalog struct {
 
 var (
 	_ modelexecution.CatalogResolver = (*Catalog)(nil)
+	_ modelselection.Catalog         = (*Catalog)(nil)
 	_ extensioncontext.Catalog       = (*Catalog)(nil)
 	_ sessiontree.ModelSelection     = (*Catalog)(nil)
 	_ hostprogrammatic.ModelCatalog  = (*Catalog)(nil)
@@ -189,32 +202,82 @@ func (c *Catalog) ActiveBinding() modelexecution.CatalogBinding {
 	}
 }
 
-// SelectModel commits a configured model and resolves its reasoning fallback.
-func (c *Catalog) SelectModel(
-	ctx context.Context,
-	provider model.ProviderID,
-	modelID model.ID,
-) (model.Selection, error) {
+// ResolveModel resolves a complete target selection without credential I/O or mutation.
+func (c *Catalog) ResolveModel(provider model.ProviderID, modelID model.ID) (model.Selection, error) {
 	targetEntryIndex, found := c.entryIndex(provider, modelID)
 	if !found {
 		return model.Selection{}, &SelectionError{Code: ErrorCodeNotFound, cause: nil}
 	}
-	credentialChecker := c.entries[targetEntryIndex].CredentialChecker
-	if credentialChecker != nil {
-		if err := credentialChecker.CheckCredentials(ctx); err != nil {
-			return model.Selection{}, &SelectionError{Code: ErrorCodeCredentialUnavailable, cause: err}
-		}
-	}
-
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
+	c.mutex.RLock()
+	activeChoice := c.activeSelection.ReasoningChoice
+	c.mutex.RUnlock()
 	choice := fallbackReasoningChoice(
-		c.activeSelection.ReasoningChoice,
+		activeChoice,
 		c.entries[targetEntryIndex].Descriptor.ReasoningCapabilities,
 	)
-	c.activeSelection = model.Selection{Provider: provider, Model: modelID, ReasoningChoice: choice}
+	return model.Selection{Provider: provider, Model: modelID, ReasoningChoice: choice}, nil
+}
+
+// ResolveReasoning resolves a complete target selection without mutation.
+func (c *Catalog) ResolveReasoning(choice model.ReasoningChoice) (model.Selection, error) {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+	if !slices.Contains(c.entries[c.activeEntryIndex].Descriptor.ReasoningCapabilities.Choices, choice) {
+		return model.Selection{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
+	}
+	return model.Selection{
+		Provider: c.activeSelection.Provider, Model: c.activeSelection.Model, ReasoningChoice: choice,
+	}, nil
+}
+
+// ValidateSelection validates one complete target without changing active state.
+func (c *Catalog) ValidateSelection(ctx context.Context, selection model.Selection) error {
+	targetEntryIndex, found := c.entryIndex(selection.Provider, selection.Model)
+	if !found {
+		return &SelectionError{Code: ErrorCodeNotFound, cause: nil}
+	}
+	if !slices.Contains(
+		c.entries[targetEntryIndex].Descriptor.ReasoningCapabilities.Choices,
+		selection.ReasoningChoice,
+	) {
+		return &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
+	}
+	credentialChecker := c.entries[targetEntryIndex].CredentialChecker
+	if credentialChecker == nil {
+		return ctx.Err()
+	}
+	if err := credentialChecker.CheckCredentials(ctx); err != nil {
+		return &SelectionError{Code: ErrorCodeCredentialUnavailable, cause: err}
+	}
+	return nil
+}
+
+// CommitSelection atomically commits one complete validated selection.
+func (c *Catalog) CommitSelection(
+	ctx context.Context,
+	selection model.Selection,
+) (preceding, committed model.Selection, err error) {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if contextErr := ctx.Err(); contextErr != nil {
+		return model.Selection{}, model.Selection{}, contextErr
+	}
+	targetEntryIndex, found := c.entryIndex(selection.Provider, selection.Model)
+	if !found {
+		return model.Selection{}, model.Selection{}, &SelectionError{Code: ErrorCodeNotFound, cause: nil}
+	}
+	if !slices.Contains(
+		c.entries[targetEntryIndex].Descriptor.ReasoningCapabilities.Choices,
+		selection.ReasoningChoice,
+	) {
+		return model.Selection{}, model.Selection{}, &SelectionError{
+			Code: ErrorCodeReasoningUnsupported, cause: nil,
+		}
+	}
+	preceding = c.activeSelection
+	c.activeSelection = selection
 	c.activeEntryIndex = targetEntryIndex
-	return c.activeSelection, nil
+	return preceding, c.activeSelection, nil
 }
 
 // CheckAuthentication checks authentication for the active provider.
@@ -245,18 +308,6 @@ func (c *Catalog) activeAuthentication() ProviderAuthentication {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.entries[c.activeEntryIndex].Authentication
-}
-
-// SelectReasoningChoice commits a supported choice for the active model.
-func (c *Catalog) SelectReasoningChoice(choice model.ReasoningChoice) (model.Selection, error) {
-	c.mutex.Lock()
-	defer c.mutex.Unlock()
-
-	if !slices.Contains(c.entries[c.activeEntryIndex].Descriptor.ReasoningCapabilities.Choices, choice) {
-		return model.Selection{}, &SelectionError{Code: ErrorCodeReasoningUnsupported, cause: nil}
-	}
-	c.activeSelection.ReasoningChoice = choice
-	return c.activeSelection, nil
 }
 
 func (c *Catalog) entryIndex(provider model.ProviderID, modelID model.ID) (int, bool) {

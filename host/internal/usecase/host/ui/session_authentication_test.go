@@ -54,8 +54,7 @@ func TestAuthenticationCheckClassifiesFailure(t *testing.T) {
 			)
 			service := NewSession(
 				channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-				nil, nil,
-			)
+				nil, nil, nil)
 
 			// Act through startup authentication classification without starting sign-in.
 			service.checkOperationAuthentication(t.Context())
@@ -97,8 +96,8 @@ func TestAuthenticationRetryTransitionsToIdle(t *testing.T) {
 	authenticator.EXPECT().SignIn(gomock.Any()).Return(nil)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, nil,
-	)
+		nil, nil, nil)
+
 	service.setOperationAvailability(AvailabilityAuthenticationFailed)
 	command := newCommandForPreparedTest(controllerui.CommandRetryAuthentication)
 	command.OperationID = "operation"
@@ -128,8 +127,8 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	authenticator.EXPECT().SignIn(gomock.Any()).Return(source)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, nil,
-	)
+		nil, nil, nil)
+
 	service.setOperationAvailability(AvailabilityAuthenticationFailed)
 	command := newCommandForPreparedTest(controllerui.CommandRetryAuthentication)
 	command.OperationID = "operation"
@@ -151,6 +150,5 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 func authenticationService(controller *gomock.Controller) *Session {
 	return NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, nil, nil, nil,
-	)
+		NewMockModelCatalog(controller), nil, nil, nil, nil, nil)
 }

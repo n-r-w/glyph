@@ -246,3 +246,54 @@ func (mr *MockLifecycleRegistrarMockRecorder) ValidateLifecycleHandlers(registra
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateLifecycleHandlers", reflect.TypeOf((*MockLifecycleRegistrar)(nil).ValidateLifecycleHandlers), registration)
 }
+
+// MockSelectionRegistrar is a mock of SelectionRegistrar interface.
+type MockSelectionRegistrar struct {
+	ctrl     *gomock.Controller
+	recorder *MockSelectionRegistrarMockRecorder
+	isgomock struct{}
+}
+
+// MockSelectionRegistrarMockRecorder is the mock recorder for MockSelectionRegistrar.
+type MockSelectionRegistrarMockRecorder struct {
+	mock *MockSelectionRegistrar
+}
+
+// NewMockSelectionRegistrar creates a new mock instance.
+func NewMockSelectionRegistrar(ctrl *gomock.Controller) *MockSelectionRegistrar {
+	mock := &MockSelectionRegistrar{ctrl: ctrl}
+	mock.recorder = &MockSelectionRegistrarMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSelectionRegistrar) EXPECT() *MockSelectionRegistrarMockRecorder {
+	return m.recorder
+}
+
+// CommitSelectionHandlers mocks base method.
+func (m *MockSelectionRegistrar) CommitSelectionHandlers(registrations []AcceptedRegistration) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CommitSelectionHandlers", registrations)
+}
+
+// CommitSelectionHandlers indicates an expected call of CommitSelectionHandlers.
+func (mr *MockSelectionRegistrarMockRecorder) CommitSelectionHandlers(registrations any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitSelectionHandlers", reflect.TypeOf((*MockSelectionRegistrar)(nil).CommitSelectionHandlers), registrations)
+}
+
+// ValidateSelectionHandlers mocks base method.
+func (m *MockSelectionRegistrar) ValidateSelectionHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateSelectionHandlers", registration)
+	ret0, _ := ret[0].([]AcceptedHandler)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateSelectionHandlers indicates an expected call of ValidateSelectionHandlers.
+func (mr *MockSelectionRegistrarMockRecorder) ValidateSelectionHandlers(registration any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSelectionHandlers", reflect.TypeOf((*MockSelectionRegistrar)(nil).ValidateSelectionHandlers), registration)
+}

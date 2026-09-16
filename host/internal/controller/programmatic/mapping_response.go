@@ -61,7 +61,7 @@ func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
 			return nil, err
 		}
 	case ResponseModelSelection:
-		if err := mapModelSelectionCompleted(wire, response.Selection); err != nil {
+		if err := mapModelSelectionCompleted(wire, response.Selection, response.SelectionIssues); err != nil {
 			return nil, err
 		}
 	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
@@ -332,7 +332,7 @@ func mapModelsCompleted(
 	if !ok {
 		return errors.New("map models response: missing active selection")
 	}
-	selection, err := mapModelSelection(activeSelection)
+	selection, err := EncodeModelSelection(activeSelection)
 	if err != nil {
 		return err
 	}
@@ -347,17 +347,19 @@ func mapModelsCompleted(
 func mapModelSelectionCompleted(
 	wire *programmaticv1.HostCompleted,
 	selection mo.Option[model.Selection],
+	issues []OperationIssue,
 ) error {
 	selectionValue, ok := selection.Get()
 	if !ok {
 		return errors.New("map completed response: missing model selection")
 	}
-	mapped, err := mapModelSelection(selectionValue)
+	mapped, err := EncodeModelSelection(selectionValue)
 	if err != nil {
 		return err
 	}
 	result := new(programmaticv1.ModelSelectionResult)
 	result.SetSelection(mapped)
+	result.SetIssues(mapOperationIssues(issues))
 	wire.SetModelSelection(result)
 	return nil
 }

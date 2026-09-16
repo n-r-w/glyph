@@ -27,8 +27,10 @@ var ErrOperationIDRequired = errors.New("operation ID is required")
 type Service struct {
 	// coordinator prepares and executes Agent Core runs.
 	coordinator Coordinator
-	// modelCatalog owns configured models and the active selection.
+	// modelCatalog supplies configured models and the active selection snapshot.
 	modelCatalog ModelCatalog
+	// modelSelection owns shared selection admission and commit.
+	modelSelection ModelSelection
 	// stateQuery reports Core activity without exposing its state.
 	stateQuery StateQuery
 	// activeSessions owns active-session lifecycle operations.
@@ -52,9 +54,10 @@ func New(
 	navigator Navigator,
 	gate Gate,
 	output RunOutput,
+	modelSelection ModelSelection,
 ) *Service {
 	return &Service{
-		coordinator: coordinator, modelCatalog: modelCatalog, stateQuery: stateQuery,
+		coordinator: coordinator, modelCatalog: modelCatalog, modelSelection: modelSelection, stateQuery: stateQuery,
 		gate:           gate,
 		activeSessions: activeSessions, navigator: navigator, output: output,
 	}
@@ -119,7 +122,8 @@ func (s *Service) handleImmediate(
 		response, err := s.selectModel(ctx, command)
 		return response, true, err
 	case controller.CommandSelectReasoningChoice:
-		return s.selectReasoningChoice(command), true, nil
+		response, err := s.selectReasoningChoice(ctx, command)
+		return response, true, err
 	case controller.CommandUnspecified, controller.CommandCancel:
 		return s.rejection(
 			command,
@@ -227,7 +231,7 @@ func (s *Service) models(operationID string) controller.Response {
 	return response
 }
 
-// selectModel validates and commits a provider model selection.
+// selectModel executes model selection through the shared owner for direct internal callers.
 func (s *Service) selectModel(ctx context.Context, command controller.Command) (controller.Response, error) {
 	providerID, hasProvider := command.ProviderID.Get()
 	modelID, hasModel := command.ModelID.Get()
@@ -238,31 +242,48 @@ func (s *Service) selectModel(ctx context.Context, command controller.Command) (
 			errors.New("provider and model are required"),
 		), nil
 	}
-	selection, err := s.modelCatalog.SelectModel(ctx, providerID, modelID)
+	prepared, err := s.modelSelection.PrepareProgrammaticSelection(ModelSelectionCommand{
+		Kind: ModelSelectionCommandModel, Provider: providerID, Model: modelID, ReasoningChoice: "",
+	})
 	if err != nil {
-		if isOperationCancellation(ctx, err) {
-			return controller.Response{}, err
-		}
 		return s.selectionRejected(command, err), nil
 	}
+	defer prepared.Release()
+	result := prepared.Run(ctx)
+	if result.Source != nil && !result.Committed {
+		return s.selectionRejected(command, result.Source), nil
+	}
 	response := emptyResponse(command.OperationID, controller.ResponseModelSelection)
-	response.Selection = mo.Some(selection)
-	return response, nil
+	response.Selection = mo.Some(result.Selection)
+	response.SelectionIssues = projectModelSelectionIssues(result.Issues)
+	return response, result.Source
 }
 
-// selectReasoningChoice validates and commits a reasoning selection.
-func (s *Service) selectReasoningChoice(command controller.Command) controller.Response {
-	reasoningChoice, present := command.ReasoningChoice.Get()
+// selectReasoningChoice executes reasoning selection through the shared owner for direct internal callers.
+func (s *Service) selectReasoningChoice(ctx context.Context, command controller.Command) (controller.Response, error) {
+	choice, present := command.ReasoningChoice.Get()
 	if !present {
-		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("reasoning choice is required"))
+		return s.rejection(
+			command,
+			controller.RejectionInvalidArgument,
+			errors.New("reasoning choice is required"),
+		), nil
 	}
-	selection, err := s.modelCatalog.SelectReasoningChoice(reasoningChoice)
+	prepared, err := s.modelSelection.PrepareProgrammaticSelection(ModelSelectionCommand{
+		Kind: ModelSelectionCommandReasoning, Provider: "", Model: "", ReasoningChoice: choice,
+	})
 	if err != nil {
-		return s.selectionRejected(command, err)
+		return s.selectionRejected(command, err), nil
+	}
+	defer prepared.Release()
+	result := prepared.Run(ctx)
+	if result.Source != nil && !result.Committed {
+		return s.selectionRejected(command, result.Source), nil
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseModelSelection)
-	response.Selection = mo.Some(selection)
-	return response
+	response.Selection = mo.Some(result.Selection)
+	response.SelectionIssues = projectModelSelectionIssues(result.Issues)
+	return response, result.Source
 }
 
 // selectionRejected maps a model-selection failure to an operation rejection.
@@ -272,13 +293,21 @@ func (s *Service) selectionRejected(command controller.Command, err error) contr
 		return s.rejection(command, controller.RejectionInternal, fmt.Errorf("model selection failed: %w", err))
 	}
 	code := controller.RejectionInternal
-	switch SelectionCode(selectionFailure.SelectionCode()) {
+	switch SelectionCode(selectionFailure.ModelSelectionCode()) {
 	case SelectionNotFound:
 		code = controller.RejectionNotFound
 	case SelectionReasoningUnsupported:
 		code = controller.RejectionReasoningUnsupported
 	case SelectionCredentialUnavailable:
 		code = controller.RejectionCredentialUnavailable
+	case SelectionModelUnavailable:
+		code = controller.RejectionModelUnavailable
+	case SelectionExtensionRejected:
+		code = controller.RejectionExtensionRejected
+	case SelectionExtensionUnavailable:
+		code = controller.RejectionExtensionUnavailable
+	case SelectionBusy:
+		code = controller.RejectionBusy
 	default:
 	}
 	return s.rejection(command, code, err)
@@ -550,6 +579,7 @@ func sessionStatisticsResponse(operationID string, statistics session.Statistics
 		Messages:          nil,
 		Models:            mo.None[controller.ModelsResult](),
 		Selection:         mo.None[model.Selection](),
+		SelectionIssues:   nil,
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
 		SessionStatistics: mo.Some(statistics),
@@ -614,6 +644,7 @@ func emptyResponse(operationID string, kind controller.ResponseKind) controller.
 		Messages:          nil,
 		Models:            mo.None[controller.ModelsResult](),
 		Selection:         mo.None[model.Selection](),
+		SelectionIssues:   nil,
 		SessionInfo:       mo.None[session.Info](),
 		Sessions:          nil,
 		SessionStatistics: mo.None[session.Statistics](),

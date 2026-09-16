@@ -52,7 +52,7 @@ func TestSubmitClassifiesPersistenceCause(t *testing.T) {
 			output.EXPECT().BindProgress(gomock.Any()).Return(func() {})
 			output.EXPECT().SetAvailability(gomock.Any()).Return(nil).Times(2)
 			auth.EXPECT().IsSignInRequired(test.cause).Return(false)
-			service := NewSession(output, runner, auth, nil, nil, nil, nil, nil)
+			service := NewSession(output, runner, auth, nil, nil, nil, nil, nil, nil)
 			service.setOperationAvailability(AvailabilityIdle)
 			command := newCommandForPreparedTest(controllerui.CommandSubmit)
 			command.Text = mo.Some("hello")

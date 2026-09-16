@@ -231,7 +231,7 @@ func validateHostCompletedFields(completed *uiv1.HostCompleted) error {
 		if changed == nil {
 			return errors.New("Host model selection result is required")
 		}
-		return validateModelSelection(changed.GetSelection())
+		return validateModelSelectionChanged(changed)
 	case uiv1.HostCompleted_SessionChanged_case, uiv1.HostCompleted_SessionList_case,
 		uiv1.HostCompleted_SessionInformation_case, uiv1.HostCompleted_SessionTree_case,
 		uiv1.HostCompleted_SessionTreeNavigation_case, uiv1.HostCompleted_SessionForked_case,
@@ -320,6 +320,23 @@ func validateHostTreeCompletedFields(completed *uiv1.HostCompleted) error {
 	default:
 		return errors.New("Host tree completed payload kind is unknown")
 	}
+}
+
+// validateModelSelectionChanged validates committed state and ordered diagnostics.
+func validateModelSelectionChanged(changed *uiv1.ModelSelectionChanged) error {
+	if changed == nil {
+		return errors.New("Host model selection result is required")
+	}
+	if err := validateModelSelection(changed.GetSelection()); err != nil {
+		return err
+	}
+	for index, issue := range changed.GetIssues() {
+		if issue == nil || !issue.HasCode() ||
+			issue.GetCode() == uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_UNSPECIFIED || !issue.HasMessage() {
+			return fmt.Errorf("Host model selection issue %d fields are required", index)
+		}
+	}
+	return nil
 }
 
 // validateModelSelection validates one committed model selection.

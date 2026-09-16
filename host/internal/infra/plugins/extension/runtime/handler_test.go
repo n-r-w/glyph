@@ -92,6 +92,59 @@ func TestMapHandleRequestPreservesTypedNavigationContext(t *testing.T) {
 	assert.Equal(t, "ready", payload.GetCurrentResult().GetSummary())
 }
 
+// TestMapSelectionHandlerRoundTripPreservesTargetsAndReplacement verifies selection payload mapping in both directions.
+func TestMapSelectionHandlerRoundTripPreservesTargetsAndReplacement(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one model-selection invocation with distinct original and current targets.
+	original := model.Selection{Provider: "original", Model: "one", ReasoningChoice: model.ReasoningChoiceLow}
+	current := model.Selection{Provider: "current", Model: "two", ReasoningChoice: model.ReasoningChoiceMedium}
+	replacement := model.Selection{Provider: "final", Model: "three", ReasoningChoice: model.ReasoningChoiceHigh}
+	invocation := handlerInvocation(extensionruntime.InvocationModelSelection)
+	invocation.OriginalSelection = original
+	invocation.CurrentSelection = current
+
+	// Act by encoding the invocation and decoding a complete replacement action.
+	mapped, err := mapHandleRequest("selection", invocation)
+	require.NoError(t, err)
+	response := extensionpb.HandleResponse_builder{ModelSelection: extensionpb.SelectionHandlerAction_builder{
+		Replace: extensionpb.ModelSelection_builder{
+			ProviderId: new(string(replacement.Provider)), ModelId: new(string(replacement.Model)),
+			ReasoningChoice: new(string(replacement.ReasoningChoice)),
+		}.Build(),
+	}.Build()}.Build()
+	action, err := mapHandleResponse(invocation, response)
+
+	// Assert every complete target field and the selected action survive the transport mapping.
+	require.NoError(t, err)
+	assert.Equal(t, "original", mapped.GetModelSelection().GetOriginal().GetProviderId())
+	assert.Equal(t, "two", mapped.GetModelSelection().GetCurrent().GetModelId())
+	assert.Equal(t, int32(extensionpb.SelectionHandlerAction_Replace_case), action.SelectionAction)
+	assert.Equal(t, replacement, action.SelectionReplacement.MustGet())
+	assert.True(t, action.SelectionRejection.IsNone())
+}
+
+// TestMapSelectionResponseDefersInvalidActionToCapability verifies malformed decisions stay nonfatal.
+func TestMapSelectionResponseDefersInvalidActionToCapability(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a model-selection invocation and an action for another handler kind.
+	invocation := handlerInvocation(extensionruntime.InvocationModelSelection)
+	response := extensionpb.HandleResponse_builder{
+		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
+	}.Build()
+
+	// Act by decoding the mismatched selection action.
+	action, err := mapHandleResponse(invocation, response)
+
+	// Assert transport preserves runtime availability and capability receives an invalid zero action.
+	require.NoError(t, err)
+	assert.Equal(t, extensionruntime.InvocationModelSelection, action.Kind)
+	assert.Zero(t, action.SelectionAction)
+	assert.True(t, action.SelectionReplacement.IsNone())
+	assert.True(t, action.SelectionRejection.IsNone())
+}
+
 // TestMapHandleResponseReturnsOrdinaryHandlerError verifies a typed handler failure does not become a protocol failure.
 func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 	t.Parallel()
@@ -131,12 +184,14 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 // handlerInvocation constructs an empty typed process payload for transport variant tests.
 func handlerInvocation(kind extensionruntime.InvocationKind) extensionruntime.HandlerInvocation {
 	return extensionruntime.HandlerInvocation{
-		Context:        extension.Context{},
-		Kind:           kind,
-		Original:       extensionruntime.Preparation{},
-		Current:        extensionruntime.Preparation{},
-		OriginalResult: mo.None[extensionruntime.Summary](),
-		CurrentResult:  mo.None[extensionruntime.Summary](),
-		Commit:         mo.None[extensionruntime.TreeCommit](),
+		Context:           extension.Context{},
+		Kind:              kind,
+		Original:          extensionruntime.Preparation{},
+		Current:           extensionruntime.Preparation{},
+		OriginalResult:    mo.None[extensionruntime.Summary](),
+		CurrentResult:     mo.None[extensionruntime.Summary](),
+		Commit:            mo.None[extensionruntime.TreeCommit](),
+		OriginalSelection: model.Selection{},
+		CurrentSelection:  model.Selection{},
 	}
 }

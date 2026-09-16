@@ -125,8 +125,12 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 			return proposed
 		}
 	case CommandSelectModel, CommandSelectReasoningChoice:
-		if proposed == FailureCodeCredentialUnavailable {
+		switch proposed {
+		case FailureCodeModelUnavailable, FailureCodeCredentialUnavailable,
+			FailureCodeExtensionRejected, FailureCodeExtensionUnavailable, FailureCodeInternal:
 			return proposed
+		default:
+			return FailureCodeInternal
 		}
 	case CommandCreateSession, CommandListSessions, CommandResumeSession, CommandSetSessionName,
 		CommandForkSession, CommandCloneSession, CommandSetEntryLabel:

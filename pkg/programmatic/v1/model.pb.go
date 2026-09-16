@@ -20,6 +20,62 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// OperationIssueCode identifies one safe nonterminal issue.
+type OperationIssueCode int32
+
+const (
+	// No issue code was provided.
+	OperationIssueCode_OPERATION_ISSUE_CODE_UNSPECIFIED OperationIssueCode = 0
+	// An extension handler returned an ordinary error.
+	OperationIssueCode_OPERATION_ISSUE_CODE_HANDLER_ERROR OperationIssueCode = 1
+	// An extension handler returned an invalid action.
+	OperationIssueCode_OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION OperationIssueCode = 2
+	// A post-commit observer returned an error.
+	OperationIssueCode_OPERATION_ISSUE_CODE_OBSERVER_ERROR OperationIssueCode = 3
+	// Client publication failed after commit.
+	OperationIssueCode_OPERATION_ISSUE_CODE_DELIVERY_FAILED OperationIssueCode = 4
+)
+
+// Enum value maps for OperationIssueCode.
+var (
+	OperationIssueCode_name = map[int32]string{
+		0: "OPERATION_ISSUE_CODE_UNSPECIFIED",
+		1: "OPERATION_ISSUE_CODE_HANDLER_ERROR",
+		2: "OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION",
+		3: "OPERATION_ISSUE_CODE_OBSERVER_ERROR",
+		4: "OPERATION_ISSUE_CODE_DELIVERY_FAILED",
+	}
+	OperationIssueCode_value = map[string]int32{
+		"OPERATION_ISSUE_CODE_UNSPECIFIED":            0,
+		"OPERATION_ISSUE_CODE_HANDLER_ERROR":          1,
+		"OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION": 2,
+		"OPERATION_ISSUE_CODE_OBSERVER_ERROR":         3,
+		"OPERATION_ISSUE_CODE_DELIVERY_FAILED":        4,
+	}
+)
+
+func (x OperationIssueCode) Enum() *OperationIssueCode {
+	p := new(OperationIssueCode)
+	*p = x
+	return p
+}
+
+func (x OperationIssueCode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (OperationIssueCode) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_programmatic_v1_model_proto_enumTypes[0].Descriptor()
+}
+
+func (OperationIssueCode) Type() protoreflect.EnumType {
+	return &file_api_programmatic_v1_model_proto_enumTypes[0]
+}
+
+func (x OperationIssueCode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // InputModality identifies one model input content kind.
 type InputModality int32
 
@@ -57,11 +113,11 @@ func (x InputModality) String() string {
 }
 
 func (InputModality) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_model_proto_enumTypes[0].Descriptor()
+	return file_api_programmatic_v1_model_proto_enumTypes[1].Descriptor()
 }
 
 func (InputModality) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_model_proto_enumTypes[0]
+	return &file_api_programmatic_v1_model_proto_enumTypes[1]
 }
 
 func (x InputModality) Number() protoreflect.EnumNumber {
@@ -129,11 +185,11 @@ func (x ReasoningChoice) String() string {
 }
 
 func (ReasoningChoice) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_model_proto_enumTypes[1].Descriptor()
+	return file_api_programmatic_v1_model_proto_enumTypes[2].Descriptor()
 }
 
 func (ReasoningChoice) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_model_proto_enumTypes[1]
+	return &file_api_programmatic_v1_model_proto_enumTypes[2]
 }
 
 func (x ReasoningChoice) Number() protoreflect.EnumNumber {
@@ -957,6 +1013,7 @@ func (b0 ModelSelection_builder) Build() *ModelSelection {
 type ModelSelectionResult struct {
 	state                protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Selection *ModelSelection        `protobuf:"bytes,1,opt,name=selection"`
+	xxx_hidden_Issues    *[]*OperationIssue     `protobuf:"bytes,2,rep,name=issues"`
 	unknownFields        protoimpl.UnknownFields
 	sizeCache            protoimpl.SizeCache
 }
@@ -993,8 +1050,21 @@ func (x *ModelSelectionResult) GetSelection() *ModelSelection {
 	return nil
 }
 
+func (x *ModelSelectionResult) GetIssues() []*OperationIssue {
+	if x != nil {
+		if x.xxx_hidden_Issues != nil {
+			return *x.xxx_hidden_Issues
+		}
+	}
+	return nil
+}
+
 func (x *ModelSelectionResult) SetSelection(v *ModelSelection) {
 	x.xxx_hidden_Selection = v
+}
+
+func (x *ModelSelectionResult) SetIssues(v []*OperationIssue) {
+	x.xxx_hidden_Issues = &v
 }
 
 func (x *ModelSelectionResult) HasSelection() bool {
@@ -1013,10 +1083,264 @@ type ModelSelectionResult_builder struct {
 
 	// The committed model selection.
 	Selection *ModelSelection
+	// Ordered nonterminal issues acquired after commit.
+	Issues []*OperationIssue
 }
 
 func (b0 ModelSelectionResult_builder) Build() *ModelSelectionResult {
 	m0 := &ModelSelectionResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Selection = b.Selection
+	x.xxx_hidden_Issues = &b.Issues
+	return m0
+}
+
+// OperationIssue reports a nonterminal issue with its complete cause.
+type OperationIssue struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Code        OperationIssueCode     `protobuf:"varint,1,opt,name=code,enum=glyph.programmatic.v1.OperationIssueCode"`
+	xxx_hidden_ExtensionId *string                `protobuf:"bytes,2,opt,name=extension_id,json=extensionId"`
+	xxx_hidden_HandlerId   *string                `protobuf:"bytes,3,opt,name=handler_id,json=handlerId"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,4,opt,name=message"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *OperationIssue) Reset() {
+	*x = OperationIssue{}
+	mi := &file_api_programmatic_v1_model_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *OperationIssue) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*OperationIssue) ProtoMessage() {}
+
+func (x *OperationIssue) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_model_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *OperationIssue) GetCode() OperationIssueCode {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Code
+		}
+	}
+	return OperationIssueCode_OPERATION_ISSUE_CODE_UNSPECIFIED
+}
+
+func (x *OperationIssue) GetExtensionId() string {
+	if x != nil {
+		if x.xxx_hidden_ExtensionId != nil {
+			return *x.xxx_hidden_ExtensionId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *OperationIssue) GetHandlerId() string {
+	if x != nil {
+		if x.xxx_hidden_HandlerId != nil {
+			return *x.xxx_hidden_HandlerId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *OperationIssue) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *OperationIssue) SetCode(v OperationIssueCode) {
+	x.xxx_hidden_Code = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+}
+
+func (x *OperationIssue) SetExtensionId(v string) {
+	x.xxx_hidden_ExtensionId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *OperationIssue) SetHandlerId(v string) {
+	x.xxx_hidden_HandlerId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *OperationIssue) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *OperationIssue) HasCode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *OperationIssue) HasExtensionId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *OperationIssue) HasHandlerId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *OperationIssue) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *OperationIssue) ClearCode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Code = OperationIssueCode_OPERATION_ISSUE_CODE_UNSPECIFIED
+}
+
+func (x *OperationIssue) ClearExtensionId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ExtensionId = nil
+}
+
+func (x *OperationIssue) ClearHandlerId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_HandlerId = nil
+}
+
+func (x *OperationIssue) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Message = nil
+}
+
+type OperationIssue_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The stable issue code.
+	Code *OperationIssueCode
+	// The configured extension identifier when applicable.
+	ExtensionId *string
+	// The registered handler identifier when applicable.
+	HandlerId *string
+	// The complete issue text, including its original cause.
+	Message *string
+}
+
+func (b0 OperationIssue_builder) Build() *OperationIssue {
+	m0 := &OperationIssue{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Code != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		x.xxx_hidden_Code = *b.Code
+	}
+	if b.ExtensionId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_ExtensionId = b.ExtensionId
+	}
+	if b.HandlerId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_HandlerId = b.HandlerId
+	}
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_Message = b.Message
+	}
+	return m0
+}
+
+// ModelSelectionChanged publishes the authoritative committed model selection.
+type ModelSelectionChanged struct {
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Selection *ModelSelection        `protobuf:"bytes,1,opt,name=selection"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ModelSelectionChanged) Reset() {
+	*x = ModelSelectionChanged{}
+	mi := &file_api_programmatic_v1_model_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModelSelectionChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModelSelectionChanged) ProtoMessage() {}
+
+func (x *ModelSelectionChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_model_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ModelSelectionChanged) GetSelection() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Selection
+	}
+	return nil
+}
+
+func (x *ModelSelectionChanged) SetSelection(v *ModelSelection) {
+	x.xxx_hidden_Selection = v
+}
+
+func (x *ModelSelectionChanged) HasSelection() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Selection != nil
+}
+
+func (x *ModelSelectionChanged) ClearSelection() {
+	x.xxx_hidden_Selection = nil
+}
+
+type ModelSelectionChanged_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The committed model selection.
+	Selection *ModelSelection
+}
+
+func (b0 ModelSelectionChanged_builder) Build() *ModelSelectionChanged {
+	m0 := &ModelSelectionChanged{}
 	b, x := &b0, m0
 	_, _ = b, x
 	x.xxx_hidden_Selection = b.Selection
@@ -1055,9 +1379,24 @@ const file_api_programmatic_v1_model_proto_rawDesc = "" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12Q\n" +
-	"\x10reasoning_choice\x18\x03 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\x0freasoningChoice\"[\n" +
+	"\x10reasoning_choice\x18\x03 \x01(\x0e2&.glyph.programmatic.v1.ReasoningChoiceR\x0freasoningChoice\"\x9a\x01\n" +
 	"\x14ModelSelectionResult\x12C\n" +
-	"\tselection\x18\x01 \x01(\v2%.glyph.programmatic.v1.ModelSelectionR\tselection*b\n" +
+	"\tselection\x18\x01 \x01(\v2%.glyph.programmatic.v1.ModelSelectionR\tselection\x12=\n" +
+	"\x06issues\x18\x02 \x03(\v2%.glyph.programmatic.v1.OperationIssueR\x06issues\"\xab\x01\n" +
+	"\x0eOperationIssue\x12=\n" +
+	"\x04code\x18\x01 \x01(\x0e2).glyph.programmatic.v1.OperationIssueCodeR\x04code\x12!\n" +
+	"\fextension_id\x18\x02 \x01(\tR\vextensionId\x12\x1d\n" +
+	"\n" +
+	"handler_id\x18\x03 \x01(\tR\thandlerId\x12\x18\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"\\\n" +
+	"\x15ModelSelectionChanged\x12C\n" +
+	"\tselection\x18\x01 \x01(\v2%.glyph.programmatic.v1.ModelSelectionR\tselection*\xe6\x01\n" +
+	"\x12OperationIssueCode\x12$\n" +
+	" OPERATION_ISSUE_CODE_UNSPECIFIED\x10\x00\x12&\n" +
+	"\"OPERATION_ISSUE_CODE_HANDLER_ERROR\x10\x01\x12/\n" +
+	"+OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION\x10\x02\x12'\n" +
+	"#OPERATION_ISSUE_CODE_OBSERVER_ERROR\x10\x03\x12(\n" +
+	"$OPERATION_ISSUE_CODE_DELIVERY_FAILED\x10\x04*b\n" +
 	"\rInputModality\x12\x1e\n" +
 	"\x1aINPUT_MODALITY_UNSPECIFIED\x10\x00\x12\x17\n" +
 	"\x13INPUT_MODALITY_TEXT\x10\x01\x12\x18\n" +
@@ -1073,35 +1412,41 @@ const file_api_programmatic_v1_model_proto_rawDesc = "" +
 	"\x16REASONING_CHOICE_XHIGH\x10\a\x12\x18\n" +
 	"\x14REASONING_CHOICE_MAX\x10\bB;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
 
-var file_api_programmatic_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_api_programmatic_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_api_programmatic_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_api_programmatic_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_programmatic_v1_model_proto_goTypes = []any{
-	(InputModality)(0),            // 0: glyph.programmatic.v1.InputModality
-	(ReasoningChoice)(0),          // 1: glyph.programmatic.v1.ReasoningChoice
-	(*GetModels)(nil),             // 2: glyph.programmatic.v1.GetModels
-	(*SelectModel)(nil),           // 3: glyph.programmatic.v1.SelectModel
-	(*SelectReasoningChoice)(nil), // 4: glyph.programmatic.v1.SelectReasoningChoice
-	(*ModelsResult)(nil),          // 5: glyph.programmatic.v1.ModelsResult
-	(*ConfiguredModel)(nil),       // 6: glyph.programmatic.v1.ConfiguredModel
-	(*ReasoningCapabilities)(nil), // 7: glyph.programmatic.v1.ReasoningCapabilities
-	(*ModelSelection)(nil),        // 8: glyph.programmatic.v1.ModelSelection
-	(*ModelSelectionResult)(nil),  // 9: glyph.programmatic.v1.ModelSelectionResult
+	(OperationIssueCode)(0),       // 0: glyph.programmatic.v1.OperationIssueCode
+	(InputModality)(0),            // 1: glyph.programmatic.v1.InputModality
+	(ReasoningChoice)(0),          // 2: glyph.programmatic.v1.ReasoningChoice
+	(*GetModels)(nil),             // 3: glyph.programmatic.v1.GetModels
+	(*SelectModel)(nil),           // 4: glyph.programmatic.v1.SelectModel
+	(*SelectReasoningChoice)(nil), // 5: glyph.programmatic.v1.SelectReasoningChoice
+	(*ModelsResult)(nil),          // 6: glyph.programmatic.v1.ModelsResult
+	(*ConfiguredModel)(nil),       // 7: glyph.programmatic.v1.ConfiguredModel
+	(*ReasoningCapabilities)(nil), // 8: glyph.programmatic.v1.ReasoningCapabilities
+	(*ModelSelection)(nil),        // 9: glyph.programmatic.v1.ModelSelection
+	(*ModelSelectionResult)(nil),  // 10: glyph.programmatic.v1.ModelSelectionResult
+	(*OperationIssue)(nil),        // 11: glyph.programmatic.v1.OperationIssue
+	(*ModelSelectionChanged)(nil), // 12: glyph.programmatic.v1.ModelSelectionChanged
 }
 var file_api_programmatic_v1_model_proto_depIdxs = []int32{
-	1, // 0: glyph.programmatic.v1.SelectReasoningChoice.choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	6, // 1: glyph.programmatic.v1.ModelsResult.models:type_name -> glyph.programmatic.v1.ConfiguredModel
-	8, // 2: glyph.programmatic.v1.ModelsResult.active_selection:type_name -> glyph.programmatic.v1.ModelSelection
-	7, // 3: glyph.programmatic.v1.ConfiguredModel.reasoning:type_name -> glyph.programmatic.v1.ReasoningCapabilities
-	0, // 4: glyph.programmatic.v1.ConfiguredModel.input_modalities:type_name -> glyph.programmatic.v1.InputModality
-	1, // 5: glyph.programmatic.v1.ReasoningCapabilities.choices:type_name -> glyph.programmatic.v1.ReasoningChoice
-	1, // 6: glyph.programmatic.v1.ReasoningCapabilities.default_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	1, // 7: glyph.programmatic.v1.ModelSelection.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
-	8, // 8: glyph.programmatic.v1.ModelSelectionResult.selection:type_name -> glyph.programmatic.v1.ModelSelection
-	9, // [9:9] is the sub-list for method output_type
-	9, // [9:9] is the sub-list for method input_type
-	9, // [9:9] is the sub-list for extension type_name
-	9, // [9:9] is the sub-list for extension extendee
-	0, // [0:9] is the sub-list for field type_name
+	2,  // 0: glyph.programmatic.v1.SelectReasoningChoice.choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	7,  // 1: glyph.programmatic.v1.ModelsResult.models:type_name -> glyph.programmatic.v1.ConfiguredModel
+	9,  // 2: glyph.programmatic.v1.ModelsResult.active_selection:type_name -> glyph.programmatic.v1.ModelSelection
+	8,  // 3: glyph.programmatic.v1.ConfiguredModel.reasoning:type_name -> glyph.programmatic.v1.ReasoningCapabilities
+	1,  // 4: glyph.programmatic.v1.ConfiguredModel.input_modalities:type_name -> glyph.programmatic.v1.InputModality
+	2,  // 5: glyph.programmatic.v1.ReasoningCapabilities.choices:type_name -> glyph.programmatic.v1.ReasoningChoice
+	2,  // 6: glyph.programmatic.v1.ReasoningCapabilities.default_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	2,  // 7: glyph.programmatic.v1.ModelSelection.reasoning_choice:type_name -> glyph.programmatic.v1.ReasoningChoice
+	9,  // 8: glyph.programmatic.v1.ModelSelectionResult.selection:type_name -> glyph.programmatic.v1.ModelSelection
+	11, // 9: glyph.programmatic.v1.ModelSelectionResult.issues:type_name -> glyph.programmatic.v1.OperationIssue
+	0,  // 10: glyph.programmatic.v1.OperationIssue.code:type_name -> glyph.programmatic.v1.OperationIssueCode
+	9,  // 11: glyph.programmatic.v1.ModelSelectionChanged.selection:type_name -> glyph.programmatic.v1.ModelSelection
+	12, // [12:12] is the sub-list for method output_type
+	12, // [12:12] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_model_proto_init() }
@@ -1114,8 +1459,8 @@ func file_api_programmatic_v1_model_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_programmatic_v1_model_proto_rawDesc), len(file_api_programmatic_v1_model_proto_rawDesc)),
-			NumEnums:      2,
-			NumMessages:   8,
+			NumEnums:      3,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

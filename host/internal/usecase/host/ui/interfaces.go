@@ -43,15 +43,61 @@ type AgentRunner interface {
 // SelectionFailure preserves the classified cause returned by model selection.
 type SelectionFailure interface {
 	error
-	SelectionCode() string
+	ModelSelectionCode() string
 }
 
-// ModelCatalog supplies configured models and commits runtime selection.
+// ModelCatalog supplies configured models and the active selection snapshot.
 type ModelCatalog interface {
 	Models() []model.Descriptor
 	ActiveSelection() model.Selection
-	SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error)
-	SelectReasoningChoice(choice model.ReasoningChoice) (model.Selection, error)
+}
+
+// ModelSelectionCommandKind identifies one UI selection request shape.
+type ModelSelectionCommandKind uint8
+
+const (
+	// ModelSelectionCommandModel requests one provider and model target.
+	ModelSelectionCommandModel ModelSelectionCommandKind = iota + 1
+	// ModelSelectionCommandReasoning requests one reasoning choice for the active model.
+	ModelSelectionCommandReasoning
+)
+
+// ModelSelectionCommand contains one validated UI selection request.
+type ModelSelectionCommand struct {
+	// Kind identifies the selected request shape.
+	Kind ModelSelectionCommandKind
+	// Provider identifies the requested provider for a model request.
+	Provider model.ProviderID
+	// Model identifies the requested model for a model request.
+	Model model.ID
+	// ReasoningChoice identifies the requested reasoning choice for a reasoning request.
+	ReasoningChoice model.ReasoningChoice
+}
+
+// ModelSelectionResult contains one shared selection execution outcome projected for UI.
+type ModelSelectionResult struct {
+	// Selection is the committed selection when Committed is true.
+	Selection model.Selection
+	// Committed reports whether authoritative selection state was committed.
+	Committed bool
+	// Issues contains ordered public diagnostics for a committed result.
+	Issues []ModelSelectionIssue
+	// Source preserves complete diagnostic or terminal failure causes.
+	Source error
+}
+
+// PreparedModelSelection owns one admitted UI selection until release.
+type PreparedModelSelection interface {
+	// Run executes handler composition, final validation, commit, and publication.
+	Run(context.Context) ModelSelectionResult
+	// Release frees shared selection admission exactly once.
+	Release()
+}
+
+// ModelSelection prepares all UI selection changes through the shared Host owner.
+type ModelSelection interface {
+	// PrepareUISelection validates and reserves one consumer-owned UI selection command.
+	PrepareUISelection(ModelSelectionCommand) (PreparedModelSelection, error)
 }
 
 // ActiveSessions provides UI session lifecycle operations.

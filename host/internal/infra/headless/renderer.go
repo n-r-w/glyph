@@ -22,6 +22,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
@@ -43,6 +44,8 @@ var (
 	_ startup.Reporter                 = (*Renderer)(nil)
 	_ sessions.EntryPublisher          = (*Renderer)(nil)
 	_ lifecycle.IssueDelivery          = (*Renderer)(nil)
+	_ modelselection.Publisher         = (*Renderer)(nil)
+	_ modelselection.IssueDelivery     = (*Renderer)(nil)
 )
 
 const (
@@ -82,6 +85,21 @@ func (r *Renderer) ReportRuntimeFailure(_ context.Context, failure extension.Run
 
 // DeliverExtensionIssue renders one typed nonterminal observer issue.
 func (r *Renderer) DeliverExtensionIssue(_ context.Context, issue lifecycle.Issue) error {
+	return writeText(r.stderr, fmt.Sprintf(
+		extensionIssueFormat, issue.ExtensionID, issue.HandlerID, issue.Code, issue.Err.Error(),
+	)+"\n")
+}
+
+// PublishSelection acknowledges committed selection state when headless mode has no connected client.
+func (r *Renderer) PublishSelection(model.Selection) (func(context.Context) error, error) {
+	if r == nil {
+		return nil, errors.New("headless renderer is required")
+	}
+	return func(context.Context) error { return nil }, nil
+}
+
+// DeliverSelectionIssue renders one typed nonterminal selection-handler issue.
+func (r *Renderer) DeliverSelectionIssue(_ context.Context, issue modelselection.Issue) error {
 	return writeText(r.stderr, fmt.Sprintf(
 		extensionIssueFormat, issue.ExtensionID, issue.HandlerID, issue.Code, issue.Err.Error(),
 	)+"\n")

@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -35,6 +36,27 @@ func captureConnection(t *testing.T, publish func(*Service) error) *uiv1.OpenReq
 	})
 	require.NoError(t, publish(service))
 	return <-messages
+}
+
+// TestPublishSelectionUsesConnectionEvent checks authoritative full selection output.
+func TestPublishSelectionUsesConnectionEvent(t *testing.T) {
+	t.Parallel()
+	// Arrange one complete committed selection.
+	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+	// Act through the real ordered output owner and acknowledgement.
+	mapped := captureConnection(t, func(output *Service) error {
+		wait, err := output.PublishSelection(selection)
+		if err != nil {
+			return err
+		}
+		return wait(t.Context())
+	})
+	// Assert all fields use the connection event rather than operation completion.
+	require.Empty(t, mapped.GetOperationId())
+	wire := mapped.GetConnectionEvent().GetModelSelectionChanged().GetSelection()
+	require.Equal(t, "provider", wire.GetProviderId())
+	require.Equal(t, "model", wire.GetModelId())
+	require.Equal(t, uiv1.ReasoningChoice_REASONING_CHOICE_HIGH, wire.GetReasoningChoice())
 }
 
 // TestMapSessionEntryAddedUsesConnectionEvent checks exact hidden-client committed message output.

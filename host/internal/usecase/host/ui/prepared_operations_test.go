@@ -41,8 +41,7 @@ func TestInitializeFailurePreservesCause(t *testing.T) {
 	activation := NewMockRuntimeActivation(controller)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		catalog, active, nil, nil, activation,
-	)
+		catalog, active, nil, nil, activation, nil)
 
 	// Act through Host startup.
 	err := service.Initialize(t.Context())
@@ -77,8 +76,8 @@ func TestActivationCleanupCancelsAndJoinsAuthenticationCheck(t *testing.T) {
 	authenticator.EXPECT().IsSignInRequired(gomock.Any()).AnyTimes().Return(false)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, activation,
-	)
+		nil, activation, nil)
+
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
@@ -103,8 +102,8 @@ func TestPrepareRejectsOrdinaryOperationBeforeAuthenticationReadiness(t *testing
 	controller := gomock.NewController(t)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), NewMockActiveSessions(controller), nil, nil, nil,
-	)
+		NewMockModelCatalog(controller), NewMockActiveSessions(controller), nil, nil, nil, nil)
+
 	command := newCommandForPreparedTest(controllerui.CommandGetSessionInfo)
 
 	// Act through bounded operation preparation.
@@ -134,8 +133,8 @@ func TestPrepareReservesSessionMutationBeforeRun(t *testing.T) {
 	}, nil, nil)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, nil,
-	)
+		NewMockModelCatalog(controller), control, nil, gate, nil, nil)
+
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandCreateSession)
 
@@ -212,8 +211,8 @@ func TestPreparedFailurePreservesCategoryTextAndCause(t *testing.T) {
 	control.EXPECT().CreateActive().Return(session.Info{}, nil, source)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, nil,
-	)
+		NewMockModelCatalog(controller), control, nil, gate, nil, nil)
+
 	service.setOperationAvailability(AvailabilityIdle)
 	prepared, err := service.Prepare(t.Context(), newCommandForPreparedTest(controllerui.CommandCreateSession))
 	require.NoError(t, err)
@@ -234,10 +233,11 @@ func TestSelectionFailureCodesMatchHostCategories(t *testing.T) {
 	t.Parallel()
 	// Arrange each model-selection source category and its required Host failure category.
 	for source, expected := range map[string]string{
-		selectionCodeNotFound:     controllerui.FailureCodeNotFound,
-		selectionCodeReasoning:    controllerui.FailureCodeReasoning,
-		selectionCodeProviderAuth: controllerui.FailureCodeProviderAuth,
-		"unknown":                 controllerui.FailureCodeInternal,
+		selectionCodeModelUnavailable:     controllerui.FailureCodeModelUnavailable,
+		selectionCodeProviderAuth:         controllerui.FailureCodeProviderAuth,
+		selectionCodeExtensionRejected:    controllerui.FailureCodeExtensionRejected,
+		selectionCodeExtensionUnavailable: controllerui.FailureCodeExtension,
+		"unknown":                         controllerui.FailureCodeInternal,
 	} {
 		// Act by classifying the case-specific selection error.
 		actual := selectionFailureCode(selectionCodeTestError(source))
@@ -253,8 +253,8 @@ type selectionCodeTestError string
 // Error returns the source category as complete test text.
 func (e selectionCodeTestError) Error() string { return string(e) }
 
-// SelectionCode returns the stable source category.
-func (e selectionCodeTestError) SelectionCode() string { return string(e) }
+// ModelSelectionCode returns the stable source category.
+func (e selectionCodeTestError) ModelSelectionCode() string { return string(e) }
 
 // expectSessionMutationGate configures successful gate ownership for prepared mutation tests.
 func expectSessionMutationGate(gate *MockGate, times int) {

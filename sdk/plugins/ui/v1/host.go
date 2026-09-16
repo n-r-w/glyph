@@ -236,6 +236,8 @@ func validateConnectionEvent(event *uiv1.HostConnectionEvent) error {
 		return validateSessionEntryAdded(event.GetSessionEntryAdded())
 	case uiv1.HostConnectionEvent_ExtensionIssue_case:
 		return validateExtensionIssue(event.GetExtensionIssue())
+	case uiv1.HostConnectionEvent_ModelSelectionChanged_case:
+		return validateModelSelectionChanged(event.GetModelSelectionChanged())
 	case uiv1.HostConnectionEvent_Event_not_set_case:
 		return errors.New("Host connection event is required")
 	default:

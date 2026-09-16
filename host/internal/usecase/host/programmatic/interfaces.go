@@ -76,20 +76,74 @@ const (
 	SelectionReasoningUnsupported SelectionCode = "reasoning_unsupported"
 	// SelectionCredentialUnavailable reports unavailable selection credentials.
 	SelectionCredentialUnavailable SelectionCode = "credential_unavailable" //nolint:gosec // This is an error code.
+	// SelectionBusy reports occupied shared selection admission.
+	SelectionBusy SelectionCode = "busy"
+	// SelectionModelUnavailable reports an invalid final target.
+	SelectionModelUnavailable SelectionCode = "model_unavailable"
+	// SelectionExtensionRejected reports an explicit handler rejection.
+	SelectionExtensionRejected SelectionCode = "extension_rejected"
+	// SelectionExtensionUnavailable reports selected runtime loss.
+	SelectionExtensionUnavailable SelectionCode = "extension_unavailable"
 )
 
 // SelectionFailure exposes a stable typed catalog failure.
 type SelectionFailure interface {
 	error
-	SelectionCode() string
+	ModelSelectionCode() string
 }
 
-// ModelCatalog provides configured models and runtime selection operations.
+// ModelCatalog provides configured models and the active selection snapshot.
 type ModelCatalog interface {
 	Models() []model.Descriptor
 	ActiveSelection() model.Selection
-	SelectModel(ctx context.Context, provider model.ProviderID, modelID model.ID) (model.Selection, error)
-	SelectReasoningChoice(choice model.ReasoningChoice) (model.Selection, error)
+}
+
+// ModelSelectionCommandKind identifies one Programmatic selection request shape.
+type ModelSelectionCommandKind uint8
+
+const (
+	// ModelSelectionCommandModel requests one provider and model target.
+	ModelSelectionCommandModel ModelSelectionCommandKind = iota + 1
+	// ModelSelectionCommandReasoning requests one reasoning choice for the active model.
+	ModelSelectionCommandReasoning
+)
+
+// ModelSelectionCommand contains one validated Programmatic selection request.
+type ModelSelectionCommand struct {
+	// Kind identifies the selected request shape.
+	Kind ModelSelectionCommandKind
+	// Provider identifies the requested provider for a model request.
+	Provider model.ProviderID
+	// Model identifies the requested model for a model request.
+	Model model.ID
+	// ReasoningChoice identifies the requested reasoning choice for a reasoning request.
+	ReasoningChoice model.ReasoningChoice
+}
+
+// ModelSelectionResult contains one shared selection execution outcome projected for Programmatic Control.
+type ModelSelectionResult struct {
+	// Selection is the committed selection when Committed is true.
+	Selection model.Selection
+	// Committed reports whether authoritative selection state was committed.
+	Committed bool
+	// Issues contains ordered public diagnostics for a committed result.
+	Issues []ModelSelectionIssue
+	// Source preserves complete diagnostic or terminal failure causes.
+	Source error
+}
+
+// PreparedModelSelection owns one admitted Programmatic selection until release.
+type PreparedModelSelection interface {
+	// Run executes handler composition, final validation, commit, and publication.
+	Run(context.Context) ModelSelectionResult
+	// Release frees shared selection admission exactly once.
+	Release()
+}
+
+// ModelSelection prepares all Programmatic selection changes through the shared Host owner.
+type ModelSelection interface {
+	// PrepareProgrammaticSelection validates and reserves one consumer-owned selection command.
+	PrepareProgrammaticSelection(ModelSelectionCommand) (PreparedModelSelection, error)
 }
 
 // Gate reserves session mutations before operation acceptance.

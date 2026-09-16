@@ -12,6 +12,61 @@ import (
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
+// TestSelectionConnectionEventIsAuthoritativeOverCompletion verifies delayed completion cannot carry stale state.
+func TestSelectionConnectionEventIsAuthoritativeOverCompletion(t *testing.T) {
+	t.Parallel()
+	// Arrange a newer connection event and an older operation completion.
+	newer := new(uiv1.HostConnectionEvent)
+	newer.SetModelSelectionChanged(uiv1.ModelSelectionChanged_builder{Selection: uiv1.ModelSelection_builder{
+		ProviderId: new("provider"), ModelId: new("new"),
+		ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+	}.Build(), Issues: nil}.Build())
+	older := new(uiv1.HostCompleted)
+	older.SetModelSelection(uiv1.ModelSelectionChanged_builder{Selection: uiv1.ModelSelection_builder{
+		ProviderId: new("provider"), ModelId: new("old"),
+		ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_LOW),
+	}.Build(), Issues: nil}.Build())
+
+	// Act by decoding the authoritative event and delayed completion.
+	eventPayload, err := DecodeConnectionEvent(newer)
+	require.NoError(t, err)
+	_, handled, err := DecodeCompleted(older)
+
+	// Assert only the connection event carries selection state and completion has no presentation payload.
+	require.NoError(t, err)
+	assert.False(t, handled)
+	assert.Equal(t, PayloadSelection, eventPayload.Kind)
+	assert.Equal(t, "new", eventPayload.Selection.ModelID)
+}
+
+// TestSelectionCompletionMapsUndeliveredDiagnostic verifies complete post-commit publication text reaches presentation.
+func TestSelectionCompletionMapsUndeliveredDiagnostic(t *testing.T) {
+	t.Parallel()
+	// Arrange one committed selection with a delivery issue that could not use the connection stream.
+	completed := new(uiv1.HostCompleted)
+	completed.SetModelSelection(uiv1.ModelSelectionChanged_builder{
+		Selection: uiv1.ModelSelection_builder{
+			ProviderId: new("provider"), ModelId: new("model"),
+			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+		}.Build(),
+		Issues: []*uiv1.OperationIssue{uiv1.OperationIssue_builder{
+			Code:        new(uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_DELIVERY_FAILED),
+			ExtensionId: new(""), HandlerId: new(""), Message: new("complete delivery cause"),
+		}.Build()},
+	}.Build())
+
+	// Act by decoding terminal selection diagnostics.
+	payload, present, err := DecodeCompleted(completed)
+
+	// Assert presentation receives the exact complete cause without selection state.
+	require.NoError(t, err)
+	require.True(t, present)
+	assert.Equal(t, PayloadText, payload.Kind)
+	assert.Equal(t, TextError, payload.Text.Kind)
+	assert.Equal(t, selectionDeliveryFailureCode, payload.Text.FailureCode)
+	assert.Equal(t, "complete delivery cause", payload.Text.Text)
+}
+
 // TestMapConnectionEventRetainsAddedMessageState verifies hidden messages reach tree state without transcript lines.
 func TestMapConnectionEventRetainsAddedMessageState(t *testing.T) {
 	t.Parallel()

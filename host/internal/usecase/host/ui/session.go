@@ -14,8 +14,10 @@ type Session struct {
 	runner AgentRunner
 	// authenticator manages provider authentication.
 	authenticator Authenticator
-	// modelCatalog owns configured models and the active selection.
+	// modelCatalog supplies configured models and the active selection snapshot.
 	modelCatalog ModelCatalog
+	// modelSelection owns shared selection admission and commit.
+	modelSelection ModelSelection
 	// activeSessions owns active-session lifecycle operations.
 	activeSessions ActiveSessions
 	// navigator owns handler policy and navigation commit orchestration.
@@ -28,8 +30,6 @@ type Session struct {
 	operationMutex sync.Mutex
 	// operationAvailability controls operation admission.
 	operationAvailability Availability
-	// selectionActive serializes model-selection commits.
-	selectionActive bool
 }
 
 var _ controllerui.Session = (*Session)(nil)
@@ -44,17 +44,18 @@ func NewSession(
 	navigator Navigator,
 	gate Gate,
 	runtime RuntimeActivation,
+	modelSelection ModelSelection,
 ) *Session {
 	return &Session{
 		output:         output,
 		runner:         runner,
 		authenticator:  authenticator,
 		modelCatalog:   modelCatalog,
+		modelSelection: modelSelection,
 		gate:           gate,
 		activeSessions: activeSessions, navigator: navigator,
 		runtime:               runtime,
 		operationMutex:        sync.Mutex{},
 		operationAvailability: AvailabilityCheckingAuthentication,
-		selectionActive:       false,
 	}
 }

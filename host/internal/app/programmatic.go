@@ -28,6 +28,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
@@ -71,14 +72,6 @@ func runProgrammaticWithPaths(
 	defer closeExtensions()
 	contexts := bindExtensionContexts(extensionFactory, extensions, tools, sessionServices)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
-	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers)
-	if _, err = startupService.Load(ctx, startup.Request{
-		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
-	}); err != nil {
-		return fmt.Errorf("start programmatic Host extensions: %w", err)
-	}
-	extensions.Activate(ctx)
-
 	providerCatalog, err := newProviderCatalog(configured, paths, nil)
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
@@ -88,6 +81,16 @@ func runProgrammaticWithPaths(
 	contexts.BindModels(providerCatalog, modelExecution)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
+	selectionOwner := modelselection.New(providerCatalog, delivery)
+	selectionOwner.BindHandlers(extensions, contexts, delivery)
+	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
+	if _, err = startupService.Load(ctx, startup.Request{
+		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
+	}); err != nil {
+		return fmt.Errorf("start programmatic Host extensions: %w", err)
+	}
+	extensions.Activate(ctx)
+
 	dispatcher := events.NewDispatcher(delivery, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active,
@@ -99,6 +102,7 @@ func runProgrammaticWithPaths(
 		agentCore,
 		sessionServices.active, sessionServices.tree, sessionServices.gate,
 		delivery,
+		selectionOwner,
 	)
 	controller := controllerprogrammatic.New(ctx, session, delivery)
 	lifecycleObservers.BindIssueDelivery(delivery)

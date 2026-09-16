@@ -271,6 +271,8 @@ type Frame struct {
 	AuthorizationURL mo.Option[string]
 	// ModelSelection contains the committed active selection.
 	ModelSelection mo.Option[model.Selection]
+	// SelectionIssues contains ordered diagnostics acquired after selection commit.
+	SelectionIssues []OperationIssue
 	// SessionInfo is present on replacement and information frames.
 	SessionInfo mo.Option[session.Info]
 	// Sessions is populated only by a list frame.

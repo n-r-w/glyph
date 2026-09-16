@@ -84,6 +84,8 @@ const (
 	RejectionExtensionInvalidResult
 	// RejectionExtensionUnavailable reports extension transport failure.
 	RejectionExtensionUnavailable
+	// RejectionExtensionRejected reports an explicit selection-handler rejection.
+	RejectionExtensionRejected
 )
 
 // Response is the completed result of one controller operation.
@@ -100,6 +102,8 @@ type Response struct {
 	Models mo.Option[ModelsResult]
 	// Selection contains the committed active model selection.
 	Selection mo.Option[model.Selection]
+	// SelectionIssues contains ordered diagnostics acquired after selection commit.
+	SelectionIssues []OperationIssue
 	// SessionInfo is present for create, resume, name, and information results.
 	SessionInfo mo.Option[session.Info]
 	// Sessions contains the ordered list result.

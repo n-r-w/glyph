@@ -3,6 +3,7 @@ package plugin
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/samber/mo"
 
@@ -53,11 +54,7 @@ func DecodeCompleted(completed *uiv1.HostCompleted) (Payload, bool, error) {
 		return update, true, err
 	}
 	if changed := completed.GetModelSelection(); changed != nil {
-		selection, err := mapModelSelection(changed.GetSelection())
-		if err != nil {
-			return Payload{}, true, err
-		}
-		return SelectionPayload(selection), true, nil
+		return mapModelSelectionCompletion(changed)
 	}
 	switch completed.WhichCompleted() {
 	case uiv1.HostCompleted_Submit_case:
@@ -77,8 +74,35 @@ func DecodeCompleted(completed *uiv1.HostCompleted) (Payload, bool, error) {
 	}
 }
 
-// extensionIssueFormat identifies the source of one nonterminal observer issue.
-const extensionIssueFormat = "extension %s handler %s [%s]: %s"
+// mapModelSelectionCompletion validates terminal state and returns only undelivered diagnostics.
+func mapModelSelectionCompletion(changed *uiv1.ModelSelectionChanged) (Payload, bool, error) {
+	if _, err := mapModelSelection(changed.GetSelection()); err != nil {
+		return Payload{}, true, err
+	}
+	deliveryFailures := make([]string, 0, len(changed.GetIssues()))
+	for index, issue := range changed.GetIssues() {
+		if issue == nil || !issue.HasCode() ||
+			issue.GetCode() == uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_UNSPECIFIED || !issue.HasMessage() {
+			return Payload{}, true, fmt.Errorf("model selection issue %d is incomplete", index)
+		}
+		if issue.GetCode() == uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_DELIVERY_FAILED {
+			deliveryFailures = append(deliveryFailures, issue.GetMessage())
+		}
+	}
+	if len(deliveryFailures) == 0 {
+		return Payload{}, false, nil
+	}
+	return TextPayload(TextUpdate{
+		Kind: TextError, Text: strings.Join(deliveryFailures, "\n"), FailureCode: selectionDeliveryFailureCode,
+	}), true, nil
+}
+
+const (
+	// extensionIssueFormat identifies the source of one nonterminal observer issue.
+	extensionIssueFormat = "extension %s handler %s [%s]: %s"
+	// selectionDeliveryFailureCode identifies a committed selection publication failure.
+	selectionDeliveryFailureCode = "DELIVERY_FAILED"
+)
 
 // DecodeConnectionEvent decodes one unsolicited Host update.
 func DecodeConnectionEvent(connection *uiv1.HostConnectionEvent) (Payload, error) {
@@ -94,6 +118,12 @@ func DecodeConnectionEvent(connection *uiv1.HostConnectionEvent) (Payload, error
 		return mapSessionEntryAdded(connection.GetSessionEntryAdded())
 	case uiv1.HostConnectionEvent_ExtensionIssue_case:
 		return mapExtensionIssue(connection.GetExtensionIssue())
+	case uiv1.HostConnectionEvent_ModelSelectionChanged_case:
+		selection, err := mapModelSelection(connection.GetModelSelectionChanged().GetSelection())
+		if err != nil {
+			return Payload{}, err
+		}
+		return SelectionPayload(selection), nil
 	case uiv1.HostConnectionEvent_AvailabilityChanged_case:
 		availability, err := mapAvailability(connection.GetAvailabilityChanged().GetAvailability())
 		if err != nil {

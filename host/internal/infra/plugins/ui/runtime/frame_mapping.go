@@ -66,7 +66,9 @@ func mapFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
 			return nil, errors.New("map UI frame: model selection payload is required")
 		}
 		completed := new(uiv1.HostCompleted)
-		completed.SetModelSelection(uiv1.ModelSelectionChanged_builder{Selection: mapModelSelection(selection)}.Build())
+		completed.SetModelSelection(uiv1.ModelSelectionChanged_builder{
+			Selection: mapModelSelection(selection), Issues: mapOperationIssues(frame.SelectionIssues),
+		}.Build())
 		return completedRequest(completed), nil
 	case controllerui.FrameSessionList, controllerui.FrameSessionChanged, controllerui.FrameSessionInformation,
 		controllerui.FrameSessionTree, controllerui.FrameSessionTreeNavigationProgress,

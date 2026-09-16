@@ -62,6 +62,37 @@ message ModelSelection {
 message ModelSelectionResult {
   // The committed model selection.
   ModelSelection selection = 1;
+  // Ordered nonterminal issues acquired after commit.
+  repeated OperationIssue issues = 2;
+}
+// OperationIssue reports a nonterminal issue with its complete cause.
+message OperationIssue {
+  // The stable issue code.
+  OperationIssueCode code = 1;
+  // The configured extension identifier when applicable.
+  string extension_id = 2;
+  // The registered handler identifier when applicable.
+  string handler_id = 3;
+  // The complete issue text, including its original cause.
+  string message = 4;
+}
+// OperationIssueCode identifies one safe nonterminal issue.
+enum OperationIssueCode {
+  // No issue code was provided.
+  OPERATION_ISSUE_CODE_UNSPECIFIED = 0;
+  // An extension handler returned an ordinary error.
+  OPERATION_ISSUE_CODE_HANDLER_ERROR = 1;
+  // An extension handler returned an invalid action.
+  OPERATION_ISSUE_CODE_INVALID_HANDLER_ACTION = 2;
+  // A post-commit observer returned an error.
+  OPERATION_ISSUE_CODE_OBSERVER_ERROR = 3;
+  // Client publication failed after commit.
+  OPERATION_ISSUE_CODE_DELIVERY_FAILED = 4;
+}
+// ModelSelectionChanged publishes the authoritative committed model selection.
+message ModelSelectionChanged {
+  // The committed model selection.
+  ModelSelection selection = 1;
 }
 // InputModality identifies one model input content kind.
 enum InputModality {

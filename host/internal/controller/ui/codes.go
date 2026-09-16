@@ -29,10 +29,14 @@ const (
 	FailureCodeExtensionInvalid = "EXTENSION_INVALID_RESULT"
 	// FailureCodeExtension reports an unavailable extension.
 	FailureCodeExtension = "EXTENSION_UNAVAILABLE"
+	// FailureCodeExtensionRejected reports an explicit extension selection rejection.
+	FailureCodeExtensionRejected = "EXTENSION_REJECTED"
 	// RejectionCodeTargetNotActive reports a cancellation target that is not active.
 	RejectionCodeTargetNotActive = "TARGET_NOT_ACTIVE"
 	// RejectionCodeOperationIDInUse reports an already reserved operation identifier.
 	RejectionCodeOperationIDInUse = "OPERATION_ID_IN_USE"
 	// RejectionCodeNotFound reports an unavailable selection during preparation.
 	RejectionCodeNotFound = "NOT_FOUND"
+	// RejectionCodeReasoningUnsupported reports an unavailable starting reasoning choice.
+	RejectionCodeReasoningUnsupported = "REASONING_UNSUPPORTED"
 )

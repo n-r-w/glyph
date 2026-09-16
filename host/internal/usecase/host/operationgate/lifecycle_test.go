@@ -119,7 +119,7 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 	gate := operationgate.New()
 	service := programmatic.New(
 		nil, nil, programmatic.NewMockStateQuery(controller),
-		active, nil, gate, programmaticoutput.New(),
+		active, nil, gate, programmaticoutput.New(), nil,
 	)
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)

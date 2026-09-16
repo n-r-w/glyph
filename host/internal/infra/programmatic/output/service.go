@@ -10,6 +10,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 
@@ -51,6 +52,8 @@ var (
 	_ runcontrol.SettledDelivery       = (*Service)(nil)
 	_ extensionruntime.FailureReporter = (*Service)(nil)
 	_ lifecycle.IssueDelivery          = (*Service)(nil)
+	_ modelselection.Publisher         = (*Service)(nil)
+	_ modelselection.IssueDelivery     = (*Service)(nil)
 	_ sessions.EntryPublisher          = (*Service)(nil)
 )
 

@@ -122,6 +122,10 @@ const (
 	RawHandlerKindToolExecutionUpdate RawHandlerKind = 13
 	// RawHandlerKindToolExecutionEnd identifies a tool-execution-end observer.
 	RawHandlerKindToolExecutionEnd RawHandlerKind = 14
+	// RawHandlerKindModelSelection identifies a model-selection request handler.
+	RawHandlerKindModelSelection RawHandlerKind = 15
+	// RawHandlerKindReasoningSelection identifies a reasoning-selection request handler.
+	RawHandlerKindReasoningSelection RawHandlerKind = 16
 )
 
 // RawHandlerDescriptor contains transport-mapped handler registration data.
@@ -212,4 +216,12 @@ type LifecycleRegistrar interface {
 	ValidateLifecycleHandlers(registration PendingRegistration) ([]AcceptedHandler, error)
 	// CommitLifecycleHandlers publishes accepted lifecycle registrations.
 	CommitLifecycleHandlers(registrations []AcceptedRegistration)
+}
+
+// SelectionRegistrar owns active-selection handler validation and publication.
+type SelectionRegistrar interface {
+	// ValidateSelectionHandlers validates one extension's selection registrations.
+	ValidateSelectionHandlers(registration PendingRegistration) ([]AcceptedHandler, error)
+	// CommitSelectionHandlers publishes accepted selection registrations.
+	CommitSelectionHandlers(registrations []AcceptedRegistration)
 }

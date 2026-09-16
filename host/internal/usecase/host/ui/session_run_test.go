@@ -34,8 +34,8 @@ func TestSubmitPreparationReservesRunnerBeforeAcceptance(t *testing.T) {
 	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, nil)
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
-		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil,
-	)
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil, nil)
+
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
 	command.OperationID = "operation"
@@ -71,8 +71,8 @@ func TestSubmitAvailabilityDeliveryFailureStopsRun(t *testing.T) {
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
 		channel, runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil, nil,
-		nil, nil,
-	)
+		nil, nil, nil)
+
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
 	command.Text = mo.Some("hello")
@@ -98,8 +98,8 @@ func TestSubmitPreparationRejectsBusyRunner(t *testing.T) {
 	runner.EXPECT().PrepareRun().Return("", session.ErrBusy)
 	service := NewSession(
 		NewMockOutput(controller), runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil, nil,
-		nil, nil,
-	)
+		nil, nil, nil)
+
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
 	command.Text = mo.Some("hello")
@@ -131,8 +131,8 @@ func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) 
 	runner.EXPECT().CancelPrepared("run")
 	authenticator.EXPECT().IsSignInRequired(source).Return(true)
 	service := NewSession(
-		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil,
-	)
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil, nil)
+
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
 	command.OperationID = "operation"

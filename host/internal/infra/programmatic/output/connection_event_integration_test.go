@@ -13,10 +13,44 @@ import (
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
+
+// TestPublishSelectionUsesOrderedWriter verifies authoritative full selection has no operation identifier.
+func TestPublishSelectionUsesOrderedWriter(t *testing.T) {
+	t.Parallel()
+	// Arrange one active ordered writer.
+	delivered := make(chan *programmaticv1.OpenResponse, 1)
+	writer := operation.NewWriter(
+		func(response *programmaticv1.OpenResponse) error { delivered <- response; return nil },
+	)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- writer.Run(ctx) }()
+	service := New()
+	unbind := service.BindWriter(writer)
+	defer unbind()
+	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+
+	// Act by publishing and waiting for acknowledgement.
+	wait, err := service.PublishSelection(selection)
+	require.NoError(t, err)
+	require.NoError(t, wait(t.Context()))
+	response := <-delivered
+
+	// Assert the complete selection is the connection event payload.
+	require.Empty(t, response.GetOperationId())
+	wire := response.GetConnectionEvent().GetModelSelectionChanged().GetSelection()
+	require.Equal(t, "provider", wire.GetProviderId())
+	require.Equal(t, "model", wire.GetModelId())
+	require.Equal(t, programmaticv1.ReasoningChoice_REASONING_CHOICE_HIGH, wire.GetReasoningChoice())
+	writer.Close()
+	require.NoError(t, <-done)
+}
 
 // TestPublishConnectionEventsUsesOrderedWriter verifies committed messages and issues have no operation identifier.
 func TestPublishConnectionEventsUsesOrderedWriter(t *testing.T) {

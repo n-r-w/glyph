@@ -14,7 +14,60 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/internal/operation"
 )
+
+// TestSelectionHandlerDiagnosticsRemainOrdered verifies explicit result diagnostics reach Programmatic completion.
+func (s *ServiceSuite) TestSelectionHandlerDiagnosticsRemainOrdered() {
+	// Arrange one committed result with ordered handler and delivery diagnostics.
+	ctrl := gomock.NewController(s.T())
+	selectionOwner := NewMockModelSelection(ctrl)
+	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+	source := errors.New("ordinary failed\ninvalid action\nselection event delivery failed")
+	resultIssues := []ModelSelectionIssue{
+		{
+			Kind:        ModelSelectionIssueHandlerError,
+			ExtensionID: "first",
+			HandlerID:   "ordinary",
+			Message:     "ordinary failed",
+		},
+		{
+			Kind:        ModelSelectionIssueInvalidHandlerAction,
+			ExtensionID: "second",
+			HandlerID:   "invalid",
+			Message:     "invalid action",
+		},
+		{
+			Kind:        ModelSelectionIssueDeliveryFailed,
+			ExtensionID: "",
+			HandlerID:   "",
+			Message:     "selection event delivery failed",
+		},
+	}
+	expectedIssues := projectModelSelectionIssues(resultIssues)
+	expectProgrammaticSelection(ctrl, selectionOwner, ModelSelectionCommand{
+		Kind: ModelSelectionCommandModel, Provider: selection.Provider, Model: selection.Model, ReasoningChoice: "",
+	}, ModelSelectionResult{Selection: selection, Committed: true, Issues: resultIssues, Source: source})
+	service := New(
+		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl), testStateQuery(s.T(), false),
+		nil, nil, nil, testRunOutput(s.T()), selectionOwner,
+	)
+	command := testProgrammaticCommand("selection", controller.CommandSelectModel)
+	command.ProviderID = mo.Some(selection.Provider)
+	command.ModelID = mo.Some(selection.Model)
+	prepared, err := service.Prepare(s.T().Context(), command)
+	s.Require().NoError(err)
+	defer prepared.Release()
+
+	// Act by executing the admitted selection.
+	outcome := prepared.Run(s.T().Context(), operation.Reporter[controller.OperationProgress]{})
+
+	// Assert completion uses the explicit ordered list without decoding an error protocol.
+	response, present := outcome.Result()
+	s.True(present)
+	s.Equal(expectedIssues, response.SelectionIssues)
+	s.ErrorIs(outcome.SourceError(), source)
+}
 
 // TestCommandRejectionPrecedence verifies first-match evaluation for overlapping failures.
 func (s *ServiceSuite) TestCommandRejectionPrecedence() {
@@ -97,8 +150,8 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 				nil,
 				testStateQuery(s.T(), false),
 				nil, nil,
-				nil, testRunOutput(s.T()),
-			)
+				nil, testRunOutput(s.T()), nil)
+
 			if test.active {
 				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 				_, operation, err := service.handle(s.T().Context(), controller.Command{
@@ -142,6 +195,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
 	catalog := NewMockModelCatalog(ctrl)
+	selectionOwner := NewMockModelSelection(ctrl)
 	service := New(
 		coordinator,
 		catalog,
@@ -149,6 +203,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		nil, nil,
 		nil,
 		testRunOutput(s.T()),
+		selectionOwner,
 	)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	_, activeOperation, err := service.handle(s.T().Context(), controller.Command{
@@ -184,10 +239,12 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	selectedReasoning := model.Selection{Provider: "other", Model: "next", ReasoningChoice: model.ReasoningChoiceHigh}
 	catalog.EXPECT().Models().Return(models)
 	catalog.EXPECT().ActiveSelection().Return(initial)
-	catalog.EXPECT().
-		SelectModel(gomock.Eq(commandContext), model.ProviderID("other"), model.ID("next")).
-		Return(selectedModel, nil)
-	catalog.EXPECT().SelectReasoningChoice(model.ReasoningChoiceHigh).Return(selectedReasoning, nil)
+	expectProgrammaticSelection(ctrl, selectionOwner, ModelSelectionCommand{
+		Kind: ModelSelectionCommandModel, Provider: "other", Model: "next", ReasoningChoice: "",
+	}, ModelSelectionResult{Selection: selectedModel, Committed: true, Issues: nil, Source: nil})
+	expectProgrammaticSelection(ctrl, selectionOwner, ModelSelectionCommand{
+		Kind: ModelSelectionCommandReasoning, Provider: "", Model: "", ReasoningChoice: model.ReasoningChoiceHigh,
+	}, ModelSelectionResult{Selection: selectedReasoning, Committed: true, Issues: nil, Source: nil})
 
 	tests := []struct {
 		command controller.Command
@@ -300,8 +357,7 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	ctrl := gomock.NewController(s.T())
 	service := New(
 		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl),
-		testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()),
-	)
+		testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), nil)
 
 	commands := []controller.Command{
 		{
@@ -357,6 +413,47 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	}
 }
 
+// TestSelectionPublicationFailureCompletesWithCommittedState verifies post-commit diagnostics do not report failure.
+func (s *ServiceSuite) TestSelectionPublicationFailureCompletesWithCommittedState() {
+	// Arrange a shared operation that committed before full delivery failed.
+	ctrl := gomock.NewController(s.T())
+	selectionOwner := NewMockModelSelection(ctrl)
+	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+	deliveryErr := errors.New("selection delivery failed")
+	expectProgrammaticSelection(ctrl, selectionOwner, ModelSelectionCommand{
+		Kind: ModelSelectionCommandModel, Provider: selection.Provider, Model: selection.Model, ReasoningChoice: "",
+	}, ModelSelectionResult{
+		Selection: selection, Committed: true,
+		Issues: []ModelSelectionIssue{{
+			Kind: ModelSelectionIssueDeliveryFailed, ExtensionID: "", HandlerID: "", Message: deliveryErr.Error(),
+		}},
+		Source: deliveryErr,
+	})
+	service := New(
+		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl), testStateQuery(s.T(), false),
+		nil, nil, nil, testRunOutput(s.T()), selectionOwner,
+	)
+	command := testProgrammaticCommand("selection", controller.CommandSelectModel)
+	command.ProviderID = mo.Some(selection.Provider)
+	command.ModelID = mo.Some(selection.Model)
+	prepared, err := service.Prepare(s.T().Context(), command)
+	s.Require().NoError(err)
+	defer prepared.Release()
+
+	// Act by executing the admitted selection.
+	outcome := prepared.Run(s.T().Context(), operation.Reporter[controller.OperationProgress]{})
+
+	// Assert terminal completion retains both committed state and complete diagnostics.
+	s.Equal(operation.TerminalStateCompleted, outcome.State())
+	response, present := outcome.Result()
+	s.True(present)
+	s.Equal(selection, response.Selection.MustGet())
+	s.Require().Len(response.SelectionIssues, 1)
+	s.Equal(controller.OperationIssueDeliveryFailed, response.SelectionIssues[0].Code)
+	s.Equal(deliveryErr.Error(), response.SelectionIssues[0].Message)
+	s.ErrorIs(outcome.SourceError(), deliveryErr)
+}
+
 // TestSelectionErrorsPreserveRejectionCodesAndCauses verifies the catalog error boundary.
 func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
 	tests := []struct {
@@ -379,19 +476,37 @@ func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
 			err:  selectionError{code: SelectionCredentialUnavailable},
 			code: controller.RejectionCredentialUnavailable,
 		},
+		{
+			name: "final model unavailable",
+			err:  selectionError{code: SelectionModelUnavailable},
+			code: controller.RejectionModelUnavailable,
+		},
+		{
+			name: "extension rejected",
+			err:  selectionError{code: SelectionExtensionRejected},
+			code: controller.RejectionExtensionRejected,
+		},
+		{
+			name: "extension unavailable",
+			err:  selectionError{code: SelectionExtensionUnavailable},
+			code: controller.RejectionExtensionUnavailable,
+		},
 		{name: "internal", err: errors.New("internal details"), code: controller.RejectionInternal},
 	}
 	for _, test := range tests {
 		s.Run(test.name, func() {
 			ctrl := gomock.NewController(s.T())
 			catalog := NewMockModelCatalog(ctrl)
+			selectionOwner := NewMockModelSelection(ctrl)
 			service := New(
 				NewMockCoordinator(ctrl), catalog,
-				testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()),
+				testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), selectionOwner,
 			)
-			catalog.EXPECT().
-				SelectModel(gomock.Any(), model.ProviderID("provider"), model.ID("model")).
-				Return(model.Selection{}, test.err)
+			expectProgrammaticSelection(ctrl, selectionOwner, ModelSelectionCommand{
+				Kind: ModelSelectionCommandModel, Provider: "provider", Model: "model", ReasoningChoice: "",
+			}, ModelSelectionResult{
+				Selection: model.Selection{}, Committed: false, Issues: nil, Source: test.err,
+			})
 
 			response, operation, err := service.handle(s.T().Context(), controller.Command{
 				OperationID: "selection",
@@ -416,4 +531,17 @@ func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
 			s.ErrorContains(response.Rejection.OrEmpty().Cause, test.err.Error())
 		})
 	}
+}
+
+// expectProgrammaticSelection configures generated mocks for one explicit consumer-owned result.
+func expectProgrammaticSelection(
+	controller *gomock.Controller,
+	owner *MockModelSelection,
+	command ModelSelectionCommand,
+	result ModelSelectionResult,
+) {
+	prepared := NewMockPreparedModelSelection(controller)
+	owner.EXPECT().PrepareProgrammaticSelection(command).Return(prepared, nil)
+	prepared.EXPECT().Run(gomock.Any()).Return(result)
+	prepared.EXPECT().Release()
 }

@@ -60,6 +60,7 @@ func TestServerRetainsWorkSourceBeforeTerminal(t *testing.T) {
 				request.SetOperationId("handler-operation")
 				payload := new(extensionpb.HostRequest)
 				payload.SetHandle(extensionpb.HandleRequest_builder{
+					ModelSelection: nil, ReasoningSelection: nil,
 					Context: testInvocationIdentity(), HandlerId: new("handler"),
 					SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, Lifecycle: nil,
 					SessionTree: extensionpb.SessionTreeInvocation_builder{

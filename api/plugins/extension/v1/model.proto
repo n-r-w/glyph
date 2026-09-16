@@ -16,6 +16,33 @@ message ModelSelection {
   string reasoning_choice = 3;
 }
 
+// SelectionHandlerInvocation carries immutable original and composed current targets.
+message SelectionHandlerInvocation {
+  // The complete immutable starting target.
+  ModelSelection original = 1;
+  // The complete target left by preceding handlers.
+  ModelSelection current = 2;
+}
+
+// SelectionHandlerAction contains exactly one selection decision.
+message SelectionHandlerAction {
+  // The selection decision.
+  oneof action {
+    PreserveSelection preserve = 1;
+    ModelSelection replace = 2;
+    RejectSelection reject = 3;
+  }
+}
+
+// PreserveSelection keeps the current complete target.
+message PreserveSelection {}
+
+// RejectSelection stops selection before commit.
+message RejectSelection {
+  // The complete nonempty rejection text.
+  string message = 1;
+}
+
 // ConfiguredModelRequest executes one explicit provider-neutral text request.
 message ConfiguredModelRequest {
   // The issued runtime-to-session binding.

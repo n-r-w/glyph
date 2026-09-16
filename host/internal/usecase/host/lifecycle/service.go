@@ -231,7 +231,9 @@ func lifecycleKind(kind startup.RawHandlerKind) (Kind, bool) {
 	case startup.RawHandlerKindUnspecified,
 		startup.RawHandlerKindSessionBeforeTreeRequest,
 		startup.RawHandlerKindSessionBeforeTreeResult,
-		startup.RawHandlerKindSessionTree:
+		startup.RawHandlerKindSessionTree,
+		startup.RawHandlerKindModelSelection,
+		startup.RawHandlerKindReasoningSelection:
 		return 0, false
 	default:
 		return 0, false

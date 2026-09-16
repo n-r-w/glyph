@@ -136,6 +136,7 @@ message HostConnectionEvent {
     AvailabilityChanged availability_changed = 3;
     SessionEntryAdded session_entry_added = 4;
     ExtensionIssue extension_issue = 5;
+    ModelSelectionChanged model_selection_changed = 6;
   }
 }
 

@@ -18,6 +18,10 @@ const (
 	InvocationResult
 	// InvocationObserver invokes a committed-navigation observer.
 	InvocationObserver
+	// InvocationModelSelection invokes a model-selection request handler.
+	InvocationModelSelection
+	// InvocationReasoningSelection invokes a reasoning-selection request handler.
+	InvocationReasoningSelection
 )
 
 // Navigation contains the process-visible navigation request, before capability validation.
@@ -132,6 +136,10 @@ type HandlerInvocation struct {
 	CurrentResult mo.Option[Summary]
 	// Commit contains committed facts only for observer operations.
 	Commit mo.Option[TreeCommit]
+	// OriginalSelection contains the immutable complete starting target.
+	OriginalSelection model.Selection
+	// CurrentSelection contains the target left by preceding selection handlers.
+	CurrentSelection model.Selection
 }
 
 // HandlerAction contains decoded process action values before capability policy.
@@ -148,4 +156,10 @@ type HandlerAction struct {
 	ResultAction int32
 	// Result preserves replacement summary presence.
 	Result mo.Option[Summary]
+	// SelectionAction retains the raw preserve, replace, or reject discriminator.
+	SelectionAction int32
+	// SelectionReplacement preserves a complete replacement target when present.
+	SelectionReplacement mo.Option[model.Selection]
+	// SelectionRejection preserves rejection text when present.
+	SelectionRejection mo.Option[string]
 }

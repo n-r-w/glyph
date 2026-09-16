@@ -238,6 +238,7 @@ func newContractService(t *testing.T) Service {
 		func(context.Context) (*extensionpb.HandleResponse, error) {
 			if handlerCalls.Add(1) == 1 {
 				return extensionpb.HandleResponse_builder{
+					ModelSelection: nil, ReasoningSelection: nil,
 					Lifecycle:                nil,
 					SessionBeforeTreeRequest: nil,
 					SessionBeforeTreeResult:  nil,
@@ -246,6 +247,7 @@ func newContractService(t *testing.T) Service {
 				}.Build(), nil
 			}
 			return extensionpb.HandleResponse_builder{
+				ModelSelection: nil, ReasoningSelection: nil,
 				Lifecycle:                nil,
 				SessionBeforeTreeRequest: nil,
 				SessionBeforeTreeResult:  nil,

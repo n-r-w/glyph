@@ -13,6 +13,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -73,6 +74,8 @@ var (
 	_ startup.Reporter                 = (*Service)(nil)
 	_ controllerui.Connection          = (*Service)(nil)
 	_ lifecycle.IssueDelivery          = (*Service)(nil)
+	_ modelselection.Publisher         = (*Service)(nil)
+	_ modelselection.IssueDelivery     = (*Service)(nil)
 	_ sessions.EntryPublisher          = (*Service)(nil)
 )
 

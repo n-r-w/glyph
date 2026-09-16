@@ -83,8 +83,7 @@ func TestReplacementAndLabelCommandsReturnCommittedState(t *testing.T) {
 				NewMockModelCatalog(controllerMock),
 				testStateQuery(t, false),
 				control, nil,
-				gate, testRunOutput(t),
-			)
+				gate, testRunOutput(t), nil)
 
 			// Act through Programmatic Control.
 			response, operation, err := service.handle(t.Context(), test.command)
@@ -153,8 +152,7 @@ func TestReplacementFailuresReturnClassifiedStateFreeRejections(t *testing.T) {
 				NewMockModelCatalog(controllerMock),
 				testStateQuery(t, false),
 				control, nil,
-				gate, testRunOutput(t),
-			)
+				gate, testRunOutput(t), nil)
 
 			// Act through Programmatic Control.
 			response, operation, err := service.handle(t.Context(), test.command)

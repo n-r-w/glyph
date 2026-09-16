@@ -96,6 +96,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				toolservice.New(extensions),
 				service,
 				lifecycle.New(extensions, nil),
+				nil,
 			)
 			report, err := startupService.Load(
 				t.Context(),

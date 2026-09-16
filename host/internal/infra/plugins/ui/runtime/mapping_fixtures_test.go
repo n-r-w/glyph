@@ -31,6 +31,7 @@ func testModelSelectionFrame() controllerui.Frame {
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),
 
+		SelectionIssues: nil,
 		ModelSelection: mo.Some(model.Selection{
 			Provider:        "openrouter",
 			Model:           "sonnet",

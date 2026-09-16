@@ -5,7 +5,6 @@ package runtime
 import (
 	"testing"
 
-	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -105,7 +104,7 @@ func TestRuntimeKeepsHandleRejectionAndFailureAvailable(t *testing.T) {
 			runtime := startHelperRuntime(t, testCase.mode)
 			_, err := runtime.Register(t.Context())
 			require.NoError(t, err)
-			request := validSessionTreeHandlerRequest()
+			request := runtimeObserverInvocation()
 
 			// Act: receive the selected terminal error, then handle later work.
 			_, terminalErr := runtime.Handle(t.Context(), "observer", request)
@@ -179,22 +178,4 @@ func assertRuntimeTerminalError(
 		require.EqualError(t, failureErr, expectedSourceText)
 	}
 	require.ErrorContains(t, terminalErr, expectedSourceText)
-}
-
-// validSessionTreeHandlerRequest returns one valid observer invocation.
-func validSessionTreeHandlerRequest() extensionruntime.HandlerInvocation {
-	return extensionruntime.HandlerInvocation{
-		Context: runtimeTestContext(),
-
-		Kind:           extensionruntime.InvocationObserver,
-		Original:       extensionruntime.Preparation{},
-		Current:        extensionruntime.Preparation{},
-		OriginalResult: mo.None[extensionruntime.Summary](),
-		CurrentResult:  mo.None[extensionruntime.Summary](),
-		Commit: mo.Some(extensionruntime.TreeCommit{
-			SessionID: "session", TargetEntryID: "target",
-			PrecedingActiveLeafID: mo.None[string](), NavigationDestinationID: mo.None[string](),
-			CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[extensionruntime.CommittedSummary](),
-		}),
-	}
 }

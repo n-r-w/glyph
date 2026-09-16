@@ -24,8 +24,8 @@ func (e selectionError) Error() string {
 	return "safe selection failure: " + string(e.code)
 }
 
-// SelectionCode returns the typed selection failure code.
-func (e selectionError) SelectionCode() string {
+// ModelSelectionCode returns the typed selection failure code.
+func (e selectionError) ModelSelectionCode() string {
 	return string(e.code)
 }
 

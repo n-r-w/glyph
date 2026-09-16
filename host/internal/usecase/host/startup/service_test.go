@@ -76,7 +76,7 @@ func TestServiceLoadAppliesValidationInApprovedOrder(t *testing.T) {
 	handlers.EXPECT().CommitSessionTreeHandlers(accepted)
 	lifecycle.EXPECT().CommitLifecycleHandlers(accepted)
 	runtimes.EXPECT().Accept(accepted)
-	service := New(runtimes, tools, handlers, lifecycle)
+	service := New(runtimes, tools, handlers, lifecycle, nil)
 	// Act load the explicit extension directory.
 	report, err := service.Load(t.Context(), Request{DataDirectory: "/data", ExtensionDirectory: "/plugins"})
 	// Assert only the fully accepted extension is published and errors keep their text.
@@ -139,13 +139,64 @@ func TestServiceLoadPartitionsHandlersAndRestoresRegistrationOrder(t *testing.T)
 	runtimes.EXPECT().Accept(expected)
 
 	// Act by loading the mixed registration.
-	report, err := New(runtimes, tools, sessionTree, lifecycle).Load(t.Context(), Request{
+	report, err := New(runtimes, tools, sessionTree, lifecycle, nil).Load(t.Context(), Request{
 		DataDirectory: "/data", ExtensionDirectory: "/plugins",
 	})
 
 	// Assert accepted common order remains identical to extension registration order.
 	require.NoError(t, err)
 	assert.Equal(t, expected, report.Extensions)
+}
+
+// TestServiceLoadRejectsWholeRegistrationWhenSelectionHandlerIsInvalid verifies capability commits remain atomic.
+func TestServiceLoadRejectsWholeRegistrationWhenSelectionHandlerIsInvalid(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one registration whose selection declaration fails after other capability validation.
+	controller := gomock.NewController(t)
+	runtimes := NewMockRuntimeLoader(controller)
+	tools := NewMockToolRegistrar(controller)
+	sessionTree := NewMockSessionTreeRegistrar(controller)
+	lifecycle := NewMockLifecycleRegistrar(controller)
+	selection := NewMockSelectionRegistrar(controller)
+	pending := PendingRegistration{ID: "extension", Path: "/extension", Tools: nil, Handlers: []RawHandlerDescriptor{
+		{Present: true, ID: "tree", Kind: RawHandlerKindSessionTree},
+		{Present: true, ID: "selection", Kind: RawHandlerKindModelSelection},
+	}}
+	runtimes.EXPECT().
+		LoadPending(t.Context(), gomock.Any()).
+		Return(PendingLoad{Issues: nil, Registrations: []PendingRegistration{pending}}, nil)
+	tools.EXPECT().ValidateLocal(pending).Return([]tool.Descriptor{}, nil)
+	sessionTree.EXPECT().ValidateSessionTreeHandlers(PendingRegistration{
+		ID: pending.ID, Path: pending.Path, Tools: nil,
+		Handlers: []RawHandlerDescriptor{{Present: true, ID: "tree", Kind: RawHandlerKindSessionTree}},
+	}).Return([]AcceptedHandler{{ID: "tree", Kind: RawHandlerKindSessionTree}}, nil)
+	lifecycle.EXPECT().ValidateLifecycleHandlers(PendingRegistration{
+		ID: pending.ID, Path: pending.Path, Tools: nil, Handlers: []RawHandlerDescriptor{},
+	}).Return([]AcceptedHandler{}, nil)
+	selectionErr := errors.New("invalid selection declaration")
+	selection.EXPECT().ValidateSelectionHandlers(PendingRegistration{
+		ID: pending.ID, Path: pending.Path, Tools: nil,
+		Handlers: []RawHandlerDescriptor{{Present: true, ID: "selection", Kind: RawHandlerKindModelSelection}},
+	}).Return(nil, selectionErr)
+	tools.EXPECT().Conflicts([]AcceptedRegistration{}).Return(nil)
+	runtimes.EXPECT().RejectPending([]string{"extension"})
+	tools.EXPECT().Commit([]AcceptedRegistration{})
+	sessionTree.EXPECT().CommitSessionTreeHandlers([]AcceptedRegistration{})
+	lifecycle.EXPECT().CommitLifecycleHandlers([]AcceptedRegistration{})
+	selection.EXPECT().CommitSelectionHandlers([]AcceptedRegistration{})
+	runtimes.EXPECT().Accept([]AcceptedRegistration{})
+
+	// Act by loading through all registration validators.
+	report, err := New(runtimes, tools, sessionTree, lifecycle, selection).Load(t.Context(), Request{
+		DataDirectory: "/data", ExtensionDirectory: "/plugins",
+	})
+
+	// Assert no declaration from the rejected registration is committed.
+	require.NoError(t, err)
+	assert.Empty(t, report.Extensions)
+	require.Len(t, report.Issues, 1)
+	assert.ErrorIs(t, report.Issues[0].Err, selectionErr)
 }
 
 // TestServiceLoadWrapsRuntimeLoadFailure verifies complete load errors remain in the chain.
@@ -163,6 +214,7 @@ func TestServiceLoadWrapsRuntimeLoadFailure(t *testing.T) {
 		NewMockToolRegistrar(controller),
 		NewMockSessionTreeRegistrar(controller),
 		NewMockLifecycleRegistrar(controller),
+		nil,
 	)
 	// Act load the default directory.
 	_, err := service.Load(t.Context(), Request{DataDirectory: "/data", ExtensionDirectory: ""})
@@ -200,7 +252,7 @@ func TestServiceStartReportsIssuesAndSummary(t *testing.T) {
 					ReportSummary(t.Context(), LoadReport{Issues: []Issue{issue}, Extensions: []AcceptedRegistration{}}).
 					Return(nil)
 			}
-			service := New(runtimes, tools, handlers, lifecycle)
+			service := New(runtimes, tools, handlers, lifecycle, nil)
 			// Act start and report extension state.
 			report, err := service.Start(t.Context(), Request{DataDirectory: "/data", ExtensionDirectory: ""}, reporter)
 			// Assert output failure retains both causes and the loaded report without a summary retry.

@@ -22,6 +22,7 @@ func (r *Runtime) ObserveLifecycle(
 	request := extensionpb.HandleRequest_builder{
 		HandlerId: new(handlerID), Context: mapContext(event.Context),
 		SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Lifecycle: invocation,
+		ModelSelection: nil, ReasoningSelection: nil,
 	}.Build()
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)

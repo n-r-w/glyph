@@ -324,6 +324,444 @@ func (b0 ModelSelection_builder) Build() *ModelSelection {
 	return m0
 }
 
+// SelectionHandlerInvocation carries immutable original and composed current targets.
+type SelectionHandlerInvocation struct {
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Original *ModelSelection        `protobuf:"bytes,1,opt,name=original"`
+	xxx_hidden_Current  *ModelSelection        `protobuf:"bytes,2,opt,name=current"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *SelectionHandlerInvocation) Reset() {
+	*x = SelectionHandlerInvocation{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SelectionHandlerInvocation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SelectionHandlerInvocation) ProtoMessage() {}
+
+func (x *SelectionHandlerInvocation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SelectionHandlerInvocation) GetOriginal() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Original
+	}
+	return nil
+}
+
+func (x *SelectionHandlerInvocation) GetCurrent() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Current
+	}
+	return nil
+}
+
+func (x *SelectionHandlerInvocation) SetOriginal(v *ModelSelection) {
+	x.xxx_hidden_Original = v
+}
+
+func (x *SelectionHandlerInvocation) SetCurrent(v *ModelSelection) {
+	x.xxx_hidden_Current = v
+}
+
+func (x *SelectionHandlerInvocation) HasOriginal() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Original != nil
+}
+
+func (x *SelectionHandlerInvocation) HasCurrent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Current != nil
+}
+
+func (x *SelectionHandlerInvocation) ClearOriginal() {
+	x.xxx_hidden_Original = nil
+}
+
+func (x *SelectionHandlerInvocation) ClearCurrent() {
+	x.xxx_hidden_Current = nil
+}
+
+type SelectionHandlerInvocation_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The complete immutable starting target.
+	Original *ModelSelection
+	// The complete target left by preceding handlers.
+	Current *ModelSelection
+}
+
+func (b0 SelectionHandlerInvocation_builder) Build() *SelectionHandlerInvocation {
+	m0 := &SelectionHandlerInvocation{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Original = b.Original
+	x.xxx_hidden_Current = b.Current
+	return m0
+}
+
+// SelectionHandlerAction contains exactly one selection decision.
+type SelectionHandlerAction struct {
+	state             protoimpl.MessageState          `protogen:"opaque.v1"`
+	xxx_hidden_Action isSelectionHandlerAction_Action `protobuf_oneof:"action"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *SelectionHandlerAction) Reset() {
+	*x = SelectionHandlerAction{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SelectionHandlerAction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SelectionHandlerAction) ProtoMessage() {}
+
+func (x *SelectionHandlerAction) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SelectionHandlerAction) GetPreserve() *PreserveSelection {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Preserve); ok {
+			return x.Preserve
+		}
+	}
+	return nil
+}
+
+func (x *SelectionHandlerAction) GetReplace() *ModelSelection {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Replace); ok {
+			return x.Replace
+		}
+	}
+	return nil
+}
+
+func (x *SelectionHandlerAction) GetReject() *RejectSelection {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Reject); ok {
+			return x.Reject
+		}
+	}
+	return nil
+}
+
+func (x *SelectionHandlerAction) SetPreserve(v *PreserveSelection) {
+	if v == nil {
+		x.xxx_hidden_Action = nil
+		return
+	}
+	x.xxx_hidden_Action = &selectionHandlerAction_Preserve{v}
+}
+
+func (x *SelectionHandlerAction) SetReplace(v *ModelSelection) {
+	if v == nil {
+		x.xxx_hidden_Action = nil
+		return
+	}
+	x.xxx_hidden_Action = &selectionHandlerAction_Replace{v}
+}
+
+func (x *SelectionHandlerAction) SetReject(v *RejectSelection) {
+	if v == nil {
+		x.xxx_hidden_Action = nil
+		return
+	}
+	x.xxx_hidden_Action = &selectionHandlerAction_Reject{v}
+}
+
+func (x *SelectionHandlerAction) HasAction() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Action != nil
+}
+
+func (x *SelectionHandlerAction) HasPreserve() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Preserve)
+	return ok
+}
+
+func (x *SelectionHandlerAction) HasReplace() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Replace)
+	return ok
+}
+
+func (x *SelectionHandlerAction) HasReject() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Reject)
+	return ok
+}
+
+func (x *SelectionHandlerAction) ClearAction() {
+	x.xxx_hidden_Action = nil
+}
+
+func (x *SelectionHandlerAction) ClearPreserve() {
+	if _, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Preserve); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+func (x *SelectionHandlerAction) ClearReplace() {
+	if _, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Replace); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+func (x *SelectionHandlerAction) ClearReject() {
+	if _, ok := x.xxx_hidden_Action.(*selectionHandlerAction_Reject); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+const SelectionHandlerAction_Action_not_set_case case_SelectionHandlerAction_Action = 0
+const SelectionHandlerAction_Preserve_case case_SelectionHandlerAction_Action = 1
+const SelectionHandlerAction_Replace_case case_SelectionHandlerAction_Action = 2
+const SelectionHandlerAction_Reject_case case_SelectionHandlerAction_Action = 3
+
+func (x *SelectionHandlerAction) WhichAction() case_SelectionHandlerAction_Action {
+	if x == nil {
+		return SelectionHandlerAction_Action_not_set_case
+	}
+	switch x.xxx_hidden_Action.(type) {
+	case *selectionHandlerAction_Preserve:
+		return SelectionHandlerAction_Preserve_case
+	case *selectionHandlerAction_Replace:
+		return SelectionHandlerAction_Replace_case
+	case *selectionHandlerAction_Reject:
+		return SelectionHandlerAction_Reject_case
+	default:
+		return SelectionHandlerAction_Action_not_set_case
+	}
+}
+
+type SelectionHandlerAction_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The selection decision.
+
+	// Fields of oneof xxx_hidden_Action:
+	Preserve *PreserveSelection
+	Replace  *ModelSelection
+	Reject   *RejectSelection
+	// -- end of xxx_hidden_Action
+}
+
+func (b0 SelectionHandlerAction_builder) Build() *SelectionHandlerAction {
+	m0 := &SelectionHandlerAction{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Preserve != nil {
+		x.xxx_hidden_Action = &selectionHandlerAction_Preserve{b.Preserve}
+	}
+	if b.Replace != nil {
+		x.xxx_hidden_Action = &selectionHandlerAction_Replace{b.Replace}
+	}
+	if b.Reject != nil {
+		x.xxx_hidden_Action = &selectionHandlerAction_Reject{b.Reject}
+	}
+	return m0
+}
+
+type case_SelectionHandlerAction_Action protoreflect.FieldNumber
+
+func (x case_SelectionHandlerAction_Action) String() string {
+	md := file_api_plugins_extension_v1_model_proto_msgTypes[2].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isSelectionHandlerAction_Action interface {
+	isSelectionHandlerAction_Action()
+}
+
+type selectionHandlerAction_Preserve struct {
+	Preserve *PreserveSelection `protobuf:"bytes,1,opt,name=preserve,oneof"`
+}
+
+type selectionHandlerAction_Replace struct {
+	Replace *ModelSelection `protobuf:"bytes,2,opt,name=replace,oneof"`
+}
+
+type selectionHandlerAction_Reject struct {
+	Reject *RejectSelection `protobuf:"bytes,3,opt,name=reject,oneof"`
+}
+
+func (*selectionHandlerAction_Preserve) isSelectionHandlerAction_Action() {}
+
+func (*selectionHandlerAction_Replace) isSelectionHandlerAction_Action() {}
+
+func (*selectionHandlerAction_Reject) isSelectionHandlerAction_Action() {}
+
+// PreserveSelection keeps the current complete target.
+type PreserveSelection struct {
+	state         protoimpl.MessageState `protogen:"opaque.v1"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PreserveSelection) Reset() {
+	*x = PreserveSelection{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PreserveSelection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PreserveSelection) ProtoMessage() {}
+
+func (x *PreserveSelection) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+type PreserveSelection_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+}
+
+func (b0 PreserveSelection_builder) Build() *PreserveSelection {
+	m0 := &PreserveSelection{}
+	b, x := &b0, m0
+	_, _ = b, x
+	return m0
+}
+
+// RejectSelection stops selection before commit.
+type RejectSelection struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,1,opt,name=message"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *RejectSelection) Reset() {
+	*x = RejectSelection{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RejectSelection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RejectSelection) ProtoMessage() {}
+
+func (x *RejectSelection) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *RejectSelection) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *RejectSelection) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *RejectSelection) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *RejectSelection) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Message = nil
+}
+
+type RejectSelection_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The complete nonempty rejection text.
+	Message *string
+}
+
+func (b0 RejectSelection_builder) Build() *RejectSelection {
+	m0 := &RejectSelection{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Message = b.Message
+	}
+	return m0
+}
+
 // ConfiguredModelRequest executes one explicit provider-neutral text request.
 type ConfiguredModelRequest struct {
 	state                   protoimpl.MessageState     `protogen:"opaque.v1"`
@@ -339,7 +777,7 @@ type ConfiguredModelRequest struct {
 
 func (x *ConfiguredModelRequest) Reset() {
 	*x = ConfiguredModelRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -351,7 +789,7 @@ func (x *ConfiguredModelRequest) String() string {
 func (*ConfiguredModelRequest) ProtoMessage() {}
 
 func (x *ConfiguredModelRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -486,7 +924,7 @@ type ConfiguredModelMessage struct {
 
 func (x *ConfiguredModelMessage) Reset() {
 	*x = ConfiguredModelMessage{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -498,7 +936,7 @@ func (x *ConfiguredModelMessage) String() string {
 func (*ConfiguredModelMessage) ProtoMessage() {}
 
 func (x *ConfiguredModelMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -606,7 +1044,7 @@ type ConfiguredModelResult struct {
 
 func (x *ConfiguredModelResult) Reset() {
 	*x = ConfiguredModelResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -618,7 +1056,7 @@ func (x *ConfiguredModelResult) String() string {
 func (*ConfiguredModelResult) ProtoMessage() {}
 
 func (x *ConfiguredModelResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -905,7 +1343,7 @@ type ConfiguredModelContent struct {
 
 func (x *ConfiguredModelContent) Reset() {
 	*x = ConfiguredModelContent{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -917,7 +1355,7 @@ func (x *ConfiguredModelContent) String() string {
 func (*ConfiguredModelContent) ProtoMessage() {}
 
 func (x *ConfiguredModelContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1122,7 +1560,7 @@ func (b0 ConfiguredModelContent_builder) Build() *ConfiguredModelContent {
 type case_ConfiguredModelContent_Content protoreflect.FieldNumber
 
 func (x case_ConfiguredModelContent_Content) String() string {
-	md := file_api_plugins_extension_v1_model_proto_msgTypes[4].Descriptor()
+	md := file_api_plugins_extension_v1_model_proto_msgTypes[8].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1169,7 +1607,7 @@ type ConfiguredModelText struct {
 
 func (x *ConfiguredModelText) Reset() {
 	*x = ConfiguredModelText{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1181,7 +1619,7 @@ func (x *ConfiguredModelText) String() string {
 func (*ConfiguredModelText) ProtoMessage() {}
 
 func (x *ConfiguredModelText) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1251,7 +1689,7 @@ type ConfiguredModelToolCall struct {
 
 func (x *ConfiguredModelToolCall) Reset() {
 	*x = ConfiguredModelToolCall{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1263,7 +1701,7 @@ func (x *ConfiguredModelToolCall) String() string {
 func (*ConfiguredModelToolCall) ProtoMessage() {}
 
 func (x *ConfiguredModelToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1402,7 +1840,7 @@ type ConfiguredModelUsage struct {
 
 func (x *ConfiguredModelUsage) Reset() {
 	*x = ConfiguredModelUsage{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1414,7 +1852,7 @@ func (x *ConfiguredModelUsage) String() string {
 func (*ConfiguredModelUsage) ProtoMessage() {}
 
 func (x *ConfiguredModelUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1630,7 +2068,7 @@ type ConfiguredModelDiagnostic struct {
 
 func (x *ConfiguredModelDiagnostic) Reset() {
 	*x = ConfiguredModelDiagnostic{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1642,7 +2080,7 @@ func (x *ConfiguredModelDiagnostic) String() string {
 func (*ConfiguredModelDiagnostic) ProtoMessage() {}
 
 func (x *ConfiguredModelDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1741,7 +2179,7 @@ type GetModelsRequest struct {
 
 func (x *GetModelsRequest) Reset() {
 	*x = GetModelsRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1753,7 +2191,7 @@ func (x *GetModelsRequest) String() string {
 func (*GetModelsRequest) ProtoMessage() {}
 
 func (x *GetModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1812,7 +2250,7 @@ type GetModelsResult struct {
 
 func (x *GetModelsResult) Reset() {
 	*x = GetModelsResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1824,7 +2262,7 @@ func (x *GetModelsResult) String() string {
 func (*GetModelsResult) ProtoMessage() {}
 
 func (x *GetModelsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1898,7 +2336,7 @@ type GetProvidersRequest struct {
 
 func (x *GetProvidersRequest) Reset() {
 	*x = GetProvidersRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1910,7 +2348,7 @@ func (x *GetProvidersRequest) String() string {
 func (*GetProvidersRequest) ProtoMessage() {}
 
 func (x *GetProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1968,7 +2406,7 @@ type GetProvidersResult struct {
 
 func (x *GetProvidersResult) Reset() {
 	*x = GetProvidersResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1980,7 +2418,7 @@ func (x *GetProvidersResult) String() string {
 func (*GetProvidersResult) ProtoMessage() {}
 
 func (x *GetProvidersResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2032,7 +2470,7 @@ type ProviderDescriptor struct {
 
 func (x *ProviderDescriptor) Reset() {
 	*x = ProviderDescriptor{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2044,7 +2482,7 @@ func (x *ProviderDescriptor) String() string {
 func (*ProviderDescriptor) ProtoMessage() {}
 
 func (x *ProviderDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2133,7 +2571,7 @@ type ModelDescriptor struct {
 
 func (x *ModelDescriptor) Reset() {
 	*x = ModelDescriptor{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2145,7 +2583,7 @@ func (x *ModelDescriptor) String() string {
 func (*ModelDescriptor) ProtoMessage() {}
 
 func (x *ModelDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2397,7 +2835,7 @@ type ReasoningCapabilities struct {
 
 func (x *ReasoningCapabilities) Reset() {
 	*x = ReasoningCapabilities{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2409,7 +2847,7 @@ func (x *ReasoningCapabilities) String() string {
 func (*ReasoningCapabilities) ProtoMessage() {}
 
 func (x *ReasoningCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2523,7 +2961,7 @@ type ToolCapabilities struct {
 
 func (x *ToolCapabilities) Reset() {
 	*x = ToolCapabilities{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2535,7 +2973,7 @@ func (x *ToolCapabilities) String() string {
 func (*ToolCapabilities) ProtoMessage() {}
 
 func (x *ToolCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2664,7 +3102,7 @@ type ModelPricing struct {
 
 func (x *ModelPricing) Reset() {
 	*x = ModelPricing{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2676,7 +3114,7 @@ func (x *ModelPricing) String() string {
 func (*ModelPricing) ProtoMessage() {}
 
 func (x *ModelPricing) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2851,7 +3289,7 @@ type PricingTier struct {
 
 func (x *PricingTier) Reset() {
 	*x = PricingTier{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2863,7 +3301,7 @@ func (x *PricingTier) String() string {
 func (*PricingTier) ProtoMessage() {}
 
 func (x *PricingTier) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3045,7 +3483,18 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
 	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12)\n" +
-	"\x10reasoning_choice\x18\x03 \x01(\tR\x0freasoningChoice\"\xa1\x02\n" +
+	"\x10reasoning_choice\x18\x03 \x01(\tR\x0freasoningChoice\"\xaa\x01\n" +
+	"\x1aSelectionHandlerInvocation\x12F\n" +
+	"\boriginal\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\boriginal\x12D\n" +
+	"\acurrent\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\acurrent\"\xfe\x01\n" +
+	"\x16SelectionHandlerAction\x12K\n" +
+	"\bpreserve\x18\x01 \x01(\v2-.glyph.plugins.extension.v1.PreserveSelectionH\x00R\bpreserve\x12F\n" +
+	"\areplace\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionH\x00R\areplace\x12E\n" +
+	"\x06reject\x18\x03 \x01(\v2+.glyph.plugins.extension.v1.RejectSelectionH\x00R\x06rejectB\b\n" +
+	"\x06action\"\x13\n" +
+	"\x11PreserveSelection\"+\n" +
+	"\x0fRejectSelection\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"\xa1\x02\n" +
 	"\x16ConfiguredModelRequest\x12I\n" +
 	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\x12H\n" +
 	"\tselection\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tselection\x12\"\n" +
@@ -3153,60 +3602,69 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\x14INPUT_MODALITY_IMAGE\x10\x02B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_api_plugins_extension_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_api_plugins_extension_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_api_plugins_extension_v1_model_proto_goTypes = []any{
-	(ConfiguredModelRole)(0),          // 0: glyph.plugins.extension.v1.ConfiguredModelRole
-	(ConfiguredModelOutcome)(0),       // 1: glyph.plugins.extension.v1.ConfiguredModelOutcome
-	(InputModality)(0),                // 2: glyph.plugins.extension.v1.InputModality
-	(*ModelSelection)(nil),            // 3: glyph.plugins.extension.v1.ModelSelection
-	(*ConfiguredModelRequest)(nil),    // 4: glyph.plugins.extension.v1.ConfiguredModelRequest
-	(*ConfiguredModelMessage)(nil),    // 5: glyph.plugins.extension.v1.ConfiguredModelMessage
-	(*ConfiguredModelResult)(nil),     // 6: glyph.plugins.extension.v1.ConfiguredModelResult
-	(*ConfiguredModelContent)(nil),    // 7: glyph.plugins.extension.v1.ConfiguredModelContent
-	(*ConfiguredModelText)(nil),       // 8: glyph.plugins.extension.v1.ConfiguredModelText
-	(*ConfiguredModelToolCall)(nil),   // 9: glyph.plugins.extension.v1.ConfiguredModelToolCall
-	(*ConfiguredModelUsage)(nil),      // 10: glyph.plugins.extension.v1.ConfiguredModelUsage
-	(*ConfiguredModelDiagnostic)(nil), // 11: glyph.plugins.extension.v1.ConfiguredModelDiagnostic
-	(*GetModelsRequest)(nil),          // 12: glyph.plugins.extension.v1.GetModelsRequest
-	(*GetModelsResult)(nil),           // 13: glyph.plugins.extension.v1.GetModelsResult
-	(*GetProvidersRequest)(nil),       // 14: glyph.plugins.extension.v1.GetProvidersRequest
-	(*GetProvidersResult)(nil),        // 15: glyph.plugins.extension.v1.GetProvidersResult
-	(*ProviderDescriptor)(nil),        // 16: glyph.plugins.extension.v1.ProviderDescriptor
-	(*ModelDescriptor)(nil),           // 17: glyph.plugins.extension.v1.ModelDescriptor
-	(*ReasoningCapabilities)(nil),     // 18: glyph.plugins.extension.v1.ReasoningCapabilities
-	(*ToolCapabilities)(nil),          // 19: glyph.plugins.extension.v1.ToolCapabilities
-	(*ModelPricing)(nil),              // 20: glyph.plugins.extension.v1.ModelPricing
-	(*PricingTier)(nil),               // 21: glyph.plugins.extension.v1.PricingTier
-	(*ExtensionContextRef)(nil),       // 22: glyph.plugins.extension.v1.ExtensionContextRef
+	(ConfiguredModelRole)(0),           // 0: glyph.plugins.extension.v1.ConfiguredModelRole
+	(ConfiguredModelOutcome)(0),        // 1: glyph.plugins.extension.v1.ConfiguredModelOutcome
+	(InputModality)(0),                 // 2: glyph.plugins.extension.v1.InputModality
+	(*ModelSelection)(nil),             // 3: glyph.plugins.extension.v1.ModelSelection
+	(*SelectionHandlerInvocation)(nil), // 4: glyph.plugins.extension.v1.SelectionHandlerInvocation
+	(*SelectionHandlerAction)(nil),     // 5: glyph.plugins.extension.v1.SelectionHandlerAction
+	(*PreserveSelection)(nil),          // 6: glyph.plugins.extension.v1.PreserveSelection
+	(*RejectSelection)(nil),            // 7: glyph.plugins.extension.v1.RejectSelection
+	(*ConfiguredModelRequest)(nil),     // 8: glyph.plugins.extension.v1.ConfiguredModelRequest
+	(*ConfiguredModelMessage)(nil),     // 9: glyph.plugins.extension.v1.ConfiguredModelMessage
+	(*ConfiguredModelResult)(nil),      // 10: glyph.plugins.extension.v1.ConfiguredModelResult
+	(*ConfiguredModelContent)(nil),     // 11: glyph.plugins.extension.v1.ConfiguredModelContent
+	(*ConfiguredModelText)(nil),        // 12: glyph.plugins.extension.v1.ConfiguredModelText
+	(*ConfiguredModelToolCall)(nil),    // 13: glyph.plugins.extension.v1.ConfiguredModelToolCall
+	(*ConfiguredModelUsage)(nil),       // 14: glyph.plugins.extension.v1.ConfiguredModelUsage
+	(*ConfiguredModelDiagnostic)(nil),  // 15: glyph.plugins.extension.v1.ConfiguredModelDiagnostic
+	(*GetModelsRequest)(nil),           // 16: glyph.plugins.extension.v1.GetModelsRequest
+	(*GetModelsResult)(nil),            // 17: glyph.plugins.extension.v1.GetModelsResult
+	(*GetProvidersRequest)(nil),        // 18: glyph.plugins.extension.v1.GetProvidersRequest
+	(*GetProvidersResult)(nil),         // 19: glyph.plugins.extension.v1.GetProvidersResult
+	(*ProviderDescriptor)(nil),         // 20: glyph.plugins.extension.v1.ProviderDescriptor
+	(*ModelDescriptor)(nil),            // 21: glyph.plugins.extension.v1.ModelDescriptor
+	(*ReasoningCapabilities)(nil),      // 22: glyph.plugins.extension.v1.ReasoningCapabilities
+	(*ToolCapabilities)(nil),           // 23: glyph.plugins.extension.v1.ToolCapabilities
+	(*ModelPricing)(nil),               // 24: glyph.plugins.extension.v1.ModelPricing
+	(*PricingTier)(nil),                // 25: glyph.plugins.extension.v1.PricingTier
+	(*ExtensionContextRef)(nil),        // 26: glyph.plugins.extension.v1.ExtensionContextRef
 }
 var file_api_plugins_extension_v1_model_proto_depIdxs = []int32{
-	22, // 0: glyph.plugins.extension.v1.ConfiguredModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	3,  // 1: glyph.plugins.extension.v1.ConfiguredModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	5,  // 2: glyph.plugins.extension.v1.ConfiguredModelRequest.messages:type_name -> glyph.plugins.extension.v1.ConfiguredModelMessage
-	0,  // 3: glyph.plugins.extension.v1.ConfiguredModelMessage.role:type_name -> glyph.plugins.extension.v1.ConfiguredModelRole
-	7,  // 4: glyph.plugins.extension.v1.ConfiguredModelResult.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
-	1,  // 5: glyph.plugins.extension.v1.ConfiguredModelResult.outcome:type_name -> glyph.plugins.extension.v1.ConfiguredModelOutcome
-	10, // 6: glyph.plugins.extension.v1.ConfiguredModelResult.usage:type_name -> glyph.plugins.extension.v1.ConfiguredModelUsage
-	11, // 7: glyph.plugins.extension.v1.ConfiguredModelResult.diagnostics:type_name -> glyph.plugins.extension.v1.ConfiguredModelDiagnostic
-	8,  // 8: glyph.plugins.extension.v1.ConfiguredModelContent.text:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	8,  // 9: glyph.plugins.extension.v1.ConfiguredModelContent.refusal:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	8,  // 10: glyph.plugins.extension.v1.ConfiguredModelContent.reasoning:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	9,  // 11: glyph.plugins.extension.v1.ConfiguredModelContent.tool_call:type_name -> glyph.plugins.extension.v1.ConfiguredModelToolCall
-	22, // 12: glyph.plugins.extension.v1.GetModelsRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	17, // 13: glyph.plugins.extension.v1.GetModelsResult.models:type_name -> glyph.plugins.extension.v1.ModelDescriptor
-	3,  // 14: glyph.plugins.extension.v1.GetModelsResult.active_selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	22, // 15: glyph.plugins.extension.v1.GetProvidersRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	16, // 16: glyph.plugins.extension.v1.GetProvidersResult.providers:type_name -> glyph.plugins.extension.v1.ProviderDescriptor
-	2,  // 17: glyph.plugins.extension.v1.ModelDescriptor.input_modalities:type_name -> glyph.plugins.extension.v1.InputModality
-	18, // 18: glyph.plugins.extension.v1.ModelDescriptor.reasoning:type_name -> glyph.plugins.extension.v1.ReasoningCapabilities
-	19, // 19: glyph.plugins.extension.v1.ModelDescriptor.tools:type_name -> glyph.plugins.extension.v1.ToolCapabilities
-	20, // 20: glyph.plugins.extension.v1.ModelDescriptor.pricing:type_name -> glyph.plugins.extension.v1.ModelPricing
-	21, // 21: glyph.plugins.extension.v1.ModelPricing.tiers:type_name -> glyph.plugins.extension.v1.PricingTier
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	3,  // 0: glyph.plugins.extension.v1.SelectionHandlerInvocation.original:type_name -> glyph.plugins.extension.v1.ModelSelection
+	3,  // 1: glyph.plugins.extension.v1.SelectionHandlerInvocation.current:type_name -> glyph.plugins.extension.v1.ModelSelection
+	6,  // 2: glyph.plugins.extension.v1.SelectionHandlerAction.preserve:type_name -> glyph.plugins.extension.v1.PreserveSelection
+	3,  // 3: glyph.plugins.extension.v1.SelectionHandlerAction.replace:type_name -> glyph.plugins.extension.v1.ModelSelection
+	7,  // 4: glyph.plugins.extension.v1.SelectionHandlerAction.reject:type_name -> glyph.plugins.extension.v1.RejectSelection
+	26, // 5: glyph.plugins.extension.v1.ConfiguredModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	3,  // 6: glyph.plugins.extension.v1.ConfiguredModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	9,  // 7: glyph.plugins.extension.v1.ConfiguredModelRequest.messages:type_name -> glyph.plugins.extension.v1.ConfiguredModelMessage
+	0,  // 8: glyph.plugins.extension.v1.ConfiguredModelMessage.role:type_name -> glyph.plugins.extension.v1.ConfiguredModelRole
+	11, // 9: glyph.plugins.extension.v1.ConfiguredModelResult.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
+	1,  // 10: glyph.plugins.extension.v1.ConfiguredModelResult.outcome:type_name -> glyph.plugins.extension.v1.ConfiguredModelOutcome
+	14, // 11: glyph.plugins.extension.v1.ConfiguredModelResult.usage:type_name -> glyph.plugins.extension.v1.ConfiguredModelUsage
+	15, // 12: glyph.plugins.extension.v1.ConfiguredModelResult.diagnostics:type_name -> glyph.plugins.extension.v1.ConfiguredModelDiagnostic
+	12, // 13: glyph.plugins.extension.v1.ConfiguredModelContent.text:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	12, // 14: glyph.plugins.extension.v1.ConfiguredModelContent.refusal:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	12, // 15: glyph.plugins.extension.v1.ConfiguredModelContent.reasoning:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	13, // 16: glyph.plugins.extension.v1.ConfiguredModelContent.tool_call:type_name -> glyph.plugins.extension.v1.ConfiguredModelToolCall
+	26, // 17: glyph.plugins.extension.v1.GetModelsRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	21, // 18: glyph.plugins.extension.v1.GetModelsResult.models:type_name -> glyph.plugins.extension.v1.ModelDescriptor
+	3,  // 19: glyph.plugins.extension.v1.GetModelsResult.active_selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	26, // 20: glyph.plugins.extension.v1.GetProvidersRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	20, // 21: glyph.plugins.extension.v1.GetProvidersResult.providers:type_name -> glyph.plugins.extension.v1.ProviderDescriptor
+	2,  // 22: glyph.plugins.extension.v1.ModelDescriptor.input_modalities:type_name -> glyph.plugins.extension.v1.InputModality
+	22, // 23: glyph.plugins.extension.v1.ModelDescriptor.reasoning:type_name -> glyph.plugins.extension.v1.ReasoningCapabilities
+	23, // 24: glyph.plugins.extension.v1.ModelDescriptor.tools:type_name -> glyph.plugins.extension.v1.ToolCapabilities
+	24, // 25: glyph.plugins.extension.v1.ModelDescriptor.pricing:type_name -> glyph.plugins.extension.v1.ModelPricing
+	25, // 26: glyph.plugins.extension.v1.ModelPricing.tiers:type_name -> glyph.plugins.extension.v1.PricingTier
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_model_proto_init() }
@@ -3215,7 +3673,12 @@ func file_api_plugins_extension_v1_model_proto_init() {
 		return
 	}
 	file_api_plugins_extension_v1_context_proto_init()
-	file_api_plugins_extension_v1_model_proto_msgTypes[4].OneofWrappers = []any{
+	file_api_plugins_extension_v1_model_proto_msgTypes[2].OneofWrappers = []any{
+		(*selectionHandlerAction_Preserve)(nil),
+		(*selectionHandlerAction_Replace)(nil),
+		(*selectionHandlerAction_Reject)(nil),
+	}
+	file_api_plugins_extension_v1_model_proto_msgTypes[8].OneofWrappers = []any{
 		(*configuredModelContent_Text)(nil),
 		(*configuredModelContent_Refusal)(nil),
 		(*configuredModelContent_Reasoning)(nil),
@@ -3227,7 +3690,7 @@ func file_api_plugins_extension_v1_model_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_model_proto_rawDesc), len(file_api_plugins_extension_v1_model_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   19,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

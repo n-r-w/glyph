@@ -60,7 +60,7 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	output.EXPECT().
 		Initialize(t.Context(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, state Initialization) error { initialization = state; return nil })
-	service := NewSession(output, nil, nil, catalog, active, nil, nil, nil)
+	service := NewSession(output, nil, nil, catalog, active, nil, nil, nil, nil)
 	require.NoError(t, service.Initialize(t.Context()))
 
 	// Assert all catalog models and the active selection are mapped exactly.

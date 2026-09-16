@@ -13,6 +13,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
@@ -89,6 +90,7 @@ var (
 	_ extensioncontroller.ContextOperations = (*Service)(nil)
 	_ sessiontree.ContextIssuer             = (*Service)(nil)
 	_ lifecycle.ContextIssuer               = (*Service)(nil)
+	_ modelselection.ContextIssuer          = (*Service)(nil)
 	_ tools.ContextIssuer                   = (*Service)(nil)
 )
 

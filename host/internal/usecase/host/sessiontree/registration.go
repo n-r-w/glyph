@@ -29,7 +29,8 @@ func (s *Service) ValidateSessionTreeHandlers(
 			startup.RawHandlerKindTurnEnd, startup.RawHandlerKindMessageStart,
 			startup.RawHandlerKindMessageUpdate, startup.RawHandlerKindMessageEnd,
 			startup.RawHandlerKindToolExecutionStart, startup.RawHandlerKindToolExecutionUpdate,
-			startup.RawHandlerKindToolExecutionEnd:
+			startup.RawHandlerKindToolExecutionEnd, startup.RawHandlerKindModelSelection,
+			startup.RawHandlerKindReasoningSelection:
 			return nil, fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
 		default:
 			return nil, fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
@@ -75,7 +76,8 @@ func acceptedHandlerKind(kind startup.RawHandlerKind) HandlerKind {
 		startup.RawHandlerKindTurnEnd, startup.RawHandlerKindMessageStart,
 		startup.RawHandlerKindMessageUpdate, startup.RawHandlerKindMessageEnd,
 		startup.RawHandlerKindToolExecutionStart, startup.RawHandlerKindToolExecutionUpdate,
-		startup.RawHandlerKindToolExecutionEnd:
+		startup.RawHandlerKindToolExecutionEnd, startup.RawHandlerKindModelSelection,
+		startup.RawHandlerKindReasoningSelection:
 		return 0
 	default:
 		return 0

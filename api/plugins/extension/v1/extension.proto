@@ -165,6 +165,10 @@ enum HandlerKind {
   HANDLER_KIND_TOOL_EXECUTION_UPDATE = 13;
   // The handler observes tool execution end.
   HANDLER_KIND_TOOL_EXECUTION_END = 14;
+  // The handler transforms a model-selection request.
+  HANDLER_KIND_MODEL_SELECTION = 15;
+  // The handler transforms a reasoning-selection request.
+  HANDLER_KIND_REASONING_SELECTION = 16;
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.

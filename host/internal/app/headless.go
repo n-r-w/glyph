@@ -22,6 +22,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
@@ -58,15 +59,6 @@ func runHeadlessWithPaths(
 	sessionServices.active.BindEntryPublisher(renderer)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
 	lifecycleObservers.BindIssueDelivery(renderer)
-	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers)
-	_, startupErr := startupService.Start(ctx, startup.Request{
-		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
-	}, renderer)
-	if startupErr != nil {
-		return fmt.Errorf("start headless Host: %w", startupErr)
-	}
-	extensions.Activate(ctx)
-
 	providerCatalog, err := newProviderCatalog(configured, paths, nil)
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
@@ -76,6 +68,16 @@ func runHeadlessWithPaths(
 	contexts.BindModels(providerCatalog, modelExecution)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
+	selectionOwner := modelselection.New(providerCatalog, renderer)
+	selectionOwner.BindHandlers(extensions, contexts, renderer)
+	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
+	_, startupErr := startupService.Start(ctx, startup.Request{
+		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
+	}, renderer)
+	if startupErr != nil {
+		return fmt.Errorf("start headless Host: %w", startupErr)
+	}
+	extensions.Activate(ctx)
 	dispatcher := events.NewDispatcher(renderer, lifecycleObservers)
 	agentCore := agentrun.New(
 		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active,

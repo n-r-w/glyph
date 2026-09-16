@@ -55,6 +55,10 @@ const (
 	HandlerKind_HANDLER_KIND_TOOL_EXECUTION_UPDATE HandlerKind = 13
 	// The handler observes tool execution end.
 	HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END HandlerKind = 14
+	// The handler transforms a model-selection request.
+	HandlerKind_HANDLER_KIND_MODEL_SELECTION HandlerKind = 15
+	// The handler transforms a reasoning-selection request.
+	HandlerKind_HANDLER_KIND_REASONING_SELECTION HandlerKind = 16
 )
 
 // Enum value maps for HandlerKind.
@@ -75,6 +79,8 @@ var (
 		12: "HANDLER_KIND_TOOL_EXECUTION_START",
 		13: "HANDLER_KIND_TOOL_EXECUTION_UPDATE",
 		14: "HANDLER_KIND_TOOL_EXECUTION_END",
+		15: "HANDLER_KIND_MODEL_SELECTION",
+		16: "HANDLER_KIND_REASONING_SELECTION",
 	}
 	HandlerKind_value = map[string]int32{
 		"HANDLER_KIND_UNSPECIFIED":                 0,
@@ -92,6 +98,8 @@ var (
 		"HANDLER_KIND_TOOL_EXECUTION_START":        12,
 		"HANDLER_KIND_TOOL_EXECUTION_UPDATE":       13,
 		"HANDLER_KIND_TOOL_EXECUTION_END":          14,
+		"HANDLER_KIND_MODEL_SELECTION":             15,
+		"HANDLER_KIND_REASONING_SELECTION":         16,
 	}
 )
 
@@ -3077,7 +3085,7 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x0fRegisterRequest\"\x9f\x01\n" +
 	"\x10RegisterResponse\x12@\n" +
 	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\x12I\n" +
-	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\x8a\x04\n" +
+	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xd2\x04\n" +
 	"\vHandlerKind\x12\x1c\n" +
 	"\x18HANDLER_KIND_UNSPECIFIED\x10\x00\x12,\n" +
 	"(HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST\x10\x01\x12+\n" +
@@ -3094,7 +3102,9 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x18HANDLER_KIND_MESSAGE_END\x10\v\x12%\n" +
 	"!HANDLER_KIND_TOOL_EXECUTION_START\x10\f\x12&\n" +
 	"\"HANDLER_KIND_TOOL_EXECUTION_UPDATE\x10\r\x12#\n" +
-	"\x1fHANDLER_KIND_TOOL_EXECUTION_END\x10\x0e2q\n" +
+	"\x1fHANDLER_KIND_TOOL_EXECUTION_END\x10\x0e\x12 \n" +
+	"\x1cHANDLER_KIND_MODEL_SELECTION\x10\x0f\x12$\n" +
+	" HANDLER_KIND_REASONING_SELECTION\x10\x102q\n" +
 	"\x10ExtensionService\x12]\n" +
 	"\x04Open\x12'.glyph.plugins.extension.v1.OpenRequest\x1a(.glyph.plugins.extension.v1.OpenResponse(\x010\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 

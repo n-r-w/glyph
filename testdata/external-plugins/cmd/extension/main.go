@@ -47,6 +47,10 @@ const (
 	navigationObserverID = "append-after-navigation"
 	// agentStartObserverID identifies the fixture's model-assisted lifecycle observer.
 	agentStartObserverID = "observe-agent-start"
+	// modelSelectionHandlerID identifies the fixture's model-selection handler.
+	modelSelectionHandlerID = "preserve-model-selection"
+	// reasoningSelectionHandlerID identifies the fixture's reasoning-selection handler.
+	reasoningSelectionHandlerID = "preserve-reasoning-selection"
 	// observerMessageEntryType identifies messages appended by the navigation observer.
 	observerMessageEntryType = "navigation-observer"
 	// observerMessageText is the exact observer-appended text.
@@ -73,12 +77,16 @@ type service struct {
 	savedCheckpointID string
 	// lifecycleEnabled reports whether this process registers the agent-start observer scenario.
 	lifecycleEnabled bool
+	// selectionComposition enables ordered model and reasoning target transformation.
+	selectionComposition bool
 }
 
 // registerOperation returns the fixture catalog.
 type registerOperation struct {
 	// lifecycleEnabled adds the model-assisted agent-start observer when requested.
 	lifecycleEnabled bool
+	// selectionComposition adds two composing handlers for each selection request kind.
+	selectionComposition bool
 }
 
 // handleOperation optionally appends one message after a selected navigation commit.
@@ -126,6 +134,7 @@ func main() {
 	extensionsdk.Serve(&service{
 		signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil,
 		savedMessageID: "", savedCheckpointID: "", lifecycleEnabled: os.Getenv(lifecycleEnvironment) == "1",
+		selectionComposition: os.Getenv(selectionCompositionEnvironment) == "1",
 	})
 }
 
@@ -134,7 +143,9 @@ func (s *service) PrepareRegister(
 	context.Context,
 	*extensionv1.RegisterRequest,
 ) (extensionsdk.RegisterOperation, error) {
-	return &registerOperation{lifecycleEnabled: s.lifecycleEnabled}, nil
+	return &registerOperation{
+		lifecycleEnabled: s.lifecycleEnabled, selectionComposition: s.selectionComposition,
+	}, nil
 }
 
 // PrepareHandle admits the fixture's committed-navigation observer.
@@ -143,7 +154,8 @@ func (s *service) PrepareHandle(
 	request *extensionv1.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
 	if request == nil || request.GetHandlerId() != navigationObserverID &&
-		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID {
+		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID &&
+		!isSelectionHandlerID(request.GetHandlerId()) {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture handler request is invalid"))
 	}
 	binding, err := extensionsdk.ContextFrom(ctx)
@@ -208,6 +220,7 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 			Id: new(navigationObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_TREE),
 		}.Build(),
 	}
+	handlers = append(handlers, selectionHandlerDescriptors(operation.selectionComposition)...)
 	if operation.lifecycleEnabled {
 		handlers = append(handlers, extensionv1.HandlerDescriptor_builder{
 			Id: new(agentStartObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_AGENT_START),
@@ -234,6 +247,9 @@ func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleR
 		response := new(extensionv1.HandleResponse)
 		response.SetLifecycle(new(extensionv1.LifecycleAction))
 		return response, nil
+	}
+	if operation.request.GetModelSelection() != nil || operation.request.GetReasoningSelection() != nil {
+		return operation.runSelectionHandler(), nil
 	}
 	if request := operation.request.GetSessionBeforeTreeRequest(); request != nil {
 		if operation.expectedCheckpointID != "" &&
