@@ -136,7 +136,7 @@ Status: Planned
 
 Add session-bound extension contexts, configured-model requests, active-selection control, lifecycle events, and public recovery of persisted extension state.
 
-Implementation is partially complete. [PHS-07.1](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md) is complete, so the remaining PHS-07 work may resume.
+Implementation is partially complete. [PHS-07.1](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md) is complete. The PHS-07 requirements and technical solution are approved, and the implementation dry run found no unresolved design blockers. The remaining selection work is ready for implementation.
 
 Documents:
 - [Problem Statement](specs/features/initial/phases/07-extension-context-lifecycle/problem.md)

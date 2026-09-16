@@ -2,13 +2,13 @@
 
 ## Context
 
-PHS-05.1 established separate owners for extension runtime management, tool capability orchestration, and session-tree capability orchestration. Glyph Host already owns the active session, configured model catalogue, active model selection, session persistence, and Agent Core event delivery.
+PHS-07 is partially implemented, and [PHS-07.1](../07.1-architecture-audit-and-correction/ticket.md) is complete. Glyph Host owns the active session, configured model catalogue, active model selection, session persistence, and Agent Core event delivery.
 
 External extensions use the public Extension Contract. Their behavior must remain independent of headless operation, the standard TUI, or another Glyph client.
 
 ## Observed Problem
 
-The public Extension Contract limits extensions to tool execution and session-tree handlers. An extension cannot identify the active session for its work, use a configured model for extension-owned behavior, add model-visible branch content with defined client visibility, observe the Agent Core lifecycle, participate in active model-selection changes, or recover session-backed extension state after losing its in-memory state.
+An extension cannot change the active model or reasoning choice, participate in approval or transformation of that selection, or observe selection changes through the public Extension Contract. Extension authors therefore lack the selection-related part of session-bound behavior, although other PHS-07 capabilities are already exposed.
 
 ## Affected Audience
 
@@ -16,22 +16,18 @@ The problem affects extension authors and users who expect the same extension be
 
 ## Evidence
 
-- `api/plugins/extension/v1/extension.proto` exposes registration, handler invocation, tool execution, cancellation, and operation lifecycle envelopes. It exposes no extension context, configured-model request, active-selection operation, or Agent Core lifecycle event.
-- `host/internal/usecase/host/extensionruntime/service.go` tracks runtime availability and active operations but no runtime generation or active-session binding.
-- `host/internal/usecase/host/providers/catalog.go` and `host/internal/usecase/host/providers/request.go` already own configured-model inspection, active selection, credential checks, and model requests without active-selection mutation. The Extension Contract cannot access these operations.
-- `host/internal/usecase/agent/run/event.go` produces Agent Core lifecycle events. `host/internal/usecase/host/events/service.go` delivers them to the active client path but not to extension handlers.
-- `host/internal/usecase/host/sessions/service.go` can persist branch-aware extension entries. `host/internal/usecase/host/sessiontree/history.go` excludes every extension entry from model context, and the Extension Contract exposes no entry-creation or state-recovery operation. `SessionTreeExtensionEntry` in `api/plugins/extension/v1/session_tree.proto` carries entry identity metadata but omits the saved payload.
-- UI Plugin Contract and Programmatic Control already expose client-neutral model, reasoning, agent-event, and session-tree information. The Extension Contract does not expose the corresponding extension capabilities.
+- `ExtensionRequest` in `api/plugins/extension/v1/extension.proto` exposes catalogue queries, configured-model requests, extension-entry appends, state recovery, and cancellation. It contains no model-selection or reasoning-selection request.
+- `HandlerKind` in the same file exposes session-tree handlers and agent, turn, message, and tool-execution observers. It contains no selection handler or selection observer.
+- `ExtensionContext` in `sdk/plugins/extension/v1/context.go` exposes asynchronous methods for the implemented context operations but no active-selection method.
+- `providers.Catalog.SelectModel` and `providers.Catalog.SelectReasoningChoice` in `host/internal/usecase/host/providers/catalog.go` implement selection changes used by Glyph clients. Their presence does not provide extension access or selection-handler composition.
 
 ## Impact
 
-An external extension cannot implement session-aware, model-aware, or lifecycle-aware behavior through public contracts. Extension behavior that depends on these capabilities cannot work consistently across headless operation, the standard TUI, Programmatic Control, and future Glyph clients.
-
-Any attempt to implement this behavior today would require unsupported access to Host internals or client-specific integration. A separately delivered extension cannot use either path because it imports only public Extension Contract and SDK packages.
+An extension can use an explicitly selected model for its own work but cannot apply its selection rules to the conversation's active model. It also cannot react to a user's model or reasoning change through selection events. These limitations prevent selection-aware extension behavior independent of the connected Glyph client.
 
 ## Current State
 
-Extension processes register tools and session-tree handlers. Glyph Host manages the active session, configured models, active selection, persistence, and Agent Core events without exposing these Host-owned capabilities to extensions as one session-bound public context.
+The implemented context operations cover session binding, configured-model access, persisted extension entries and messages, and active-branch recovery. Lifecycle observers cover agent, turn, message, and tool execution. These capabilities form the partial PHS-07 baseline, not evidence that every phase acceptance criterion passes.
 
 Glyph clients receive Host events through their own client contracts. Each client decides how to process or present those events.
 
@@ -41,7 +37,7 @@ Extension authors can implement session-aware, model-aware, and lifecycle-aware 
 
 ## Problem Boundary
 
-The problem covers missing public extension access to the active session, configured models, extension-owned model requests, branch-aware extension entries and their client visibility, Agent Core lifecycle activity, and active model-selection activity.
+The problem concerns session-bound extension behavior across headless operation, the standard TUI, and Programmatic Control. Active model-selection participation and observation are the missing public capabilities identified here. The other PHS-07 capabilities remain part of the phase rather than becoming a separate feature.
 
 The problem does not include how a Glyph client renders or otherwise presents events. It also does not include prompt, context, input, provider, tool, or TUI transformations.
 

@@ -2,268 +2,212 @@
 
 ## Problem Statement
 
-The [Problem Statement](problem.md) defines the missing public extension access to session-bound Host capabilities. The [PRD](prd.md) defines the approved behavior and scope.
+The [Problem Statement](problem.md) describes the partial PHS-07 implementation and missing public selection capabilities. The [PRD](prd.md) defines the approved requirements. This design completes that phase without rebuilding its implemented capabilities.
 
 ## Proposed Solution
 
-### Solution overview
+### Design status
 
-- Keep extensions and Glyph clients in separate processes. Every new cross-process call uses a protobuf contract.
-- Extend the existing `ExtensionService.Open` bidirectional stream with extension-initiated Host operations. Do not add a callback service, listener, or socket.
-- Keep state with its implemented owner. `providers` owns model data and active model selection, `sessions` owns session state and persistence, and `extensionruntime` owns runtime availability.
-- Add separate Host capability use cases for extension context, lifecycle observers, and model-selection handlers. Agent Core gains no Host, extension, protobuf, or transport dependency.
+The requirements and technical design are approved. The implementation dry run is complete with no unresolved design blockers. The remaining selection slice is not implemented, and implementation verification is pending.
 
-Requirement coverage:
+### Implemented baseline
 
-| PRD requirements | Owning solution section |
-|---|---|
-| FRQ-01, FRQ-02 | Extension context and runtime binding |
-| FRQ-03 | Configured models and providers |
-| FRQ-04 | Lifecycle observers |
-| FRQ-05, FRQ-06, FRQ-07 | Active model selection |
-| FRQ-08, FRQ-08.1, FRQ-08.2, FRQ-09, FRQ-10 | Extension entries and persistence; Session-state recovery boundary; Glyph client contracts and client visibility |
-| FRQ-11 | Session-tree navigation |
-| FRQ-12 | Error semantics |
+[PHS-07.1](../07.1-architecture-audit-and-correction/solution.md) establishes the ownership and error-preservation baseline. Source presence and existing test scenarios do not establish completion of the PHS-07 acceptance criteria.
 
-### Design decisions
+| Requirement group | Implemented owner and public path | Remaining design scope |
+| --- | --- | --- |
+| FRQ-01 through FRQ-03 | `extensioncontext.Service`, `ExtensionRequest`, SDK `ExtensionContext`, and `modelexecution.Service.Request` provide binding, catalogues, and configured-model requests. | Apply binding protection to selection commits. Keep configured requests independent of active selection. |
+| FRQ-04 | `lifecycle.Service`, `events.Dispatcher`, and `LifecycleInvocation` provide Agent Core observation. | Add model-selection and reasoning-selection observation. |
+| FRQ-05 through FRQ-07 | `providers.Catalog` stores selection. UI and Programmatic usecases call its selection methods directly. | Add shared admission, ordered selection handlers, final validation, and client-neutral publication. |
+| FRQ-08 through FRQ-11, including FRQ-08.1 and FRQ-08.2 | `sessions.Service`, public append/recovery operations, persistence, client projections, and navigation implement extension entries and messages. | Retain these paths and verify them with the completed selection capability. |
+| FRQ-12 | The shared operation runtime and PHS-07.1 preserve complete error causes. | Extend selection category mappings and result diagnostics across all callers. |
 
-- Use one symmetric operation stream. Host and extension operation trackers identify an operation by initiator and `operation_id`, so equal IDs in opposite directions do not conflict.
-- A configured-model request accepts instructions and ordered provider-neutral text messages. It has no tools, images, or provider-specific options in PHS-07.
-- A configured provider projection contains its provider ID and ordered model IDs. The model catalogue owns the descriptor fields listed under Configured models and providers.
-- Deliver each Agent Core event to the Glyph client before invoking lifecycle observers. Invoke observers synchronously in registration order before Agent Core proceeds to its next event.
-- Emit model-selection and reasoning-selection events only for values changed by a successful commit. Emit reasoning selection before model selection when both change.
-- Publish a committed extension message through a client-neutral `SessionEntryAdded` connection event. A post-commit delivery error does not roll back persistence.
-- Preserve the PHS-05 atomic branch-summarization commit with the result-source and handler-error behavior required by [PHS-05.2](../05.2-branch-summary-extension-control/ticket.md). A selected extension message uses its parent as the navigation destination, while a created `BranchSummaryEntry` becomes the active leaf.
-- Publish the navigation snapshot as operation progress before post-commit observers. Deliver later appends after that snapshot; terminal navigation completion does not replace client session state.
+The code paths that determine the remaining work are:
 
-### Rejected alternatives
+- UI: `ui.Session.prepareSelection` performs in-memory validation and reserves a UI-local selection flag. Its execution calls `Catalog.SelectModel` or `Catalog.SelectReasoningChoice` and returns a selection frame.
+- Programmatic: `programmatic.Service.Prepare` validates selection. `selectModel` and `selectReasoningChoice` later call the catalogue. This path has no reservation shared with UI or extension operations.
+- Extension: `controller/extension.Service.Prepare` validates a context reference and accounts for the runtime operation. `ExtensionRequest` has no selection operation yet.
+- Provider catalogue: `Catalog.SelectModel` checks credentials before locking, then computes reasoning fallback and changes selection. `SelectReasoningChoice` changes reasoning under the catalogue lock. Neither invokes extension selection handlers.
+- TUI: `controller/plugin.DecodeCompleted` currently turns selection completion into a presentation-state update. This path must be reconciled with unsolicited extension-originated changes.
 
-- Reject a second Host callback service. It would add another listener, address exchange, shutdown path, and cancellation owner for a local process connection that is already bidirectional.
-- Reject a generic extension capability bus. Context operations, lifecycle observation, and model selection have different state, validation, ordering, and failure owners.
-- Reject asynchronous lifecycle buffering. It would require queue capacity, overflow, stale-context, ordering, and shutdown behavior without an approved requirement.
-- Reject storage of model-visible messages inside opaque extension data. Host must validate, persist, project, and navigate message text and client visibility without decoding extension-owned payloads.
-- Reject automatic replay for extension-state recovery. An explicit asynchronous snapshot request needs no replay subscription, replay event order, or separate recovery lifecycle.
+### Ownership and dependency direction
 
-### Extension Contract stream
+Add only `host/internal/usecase/host/modelselection` as a new capability package. It owns selection admission, handler registrations and composition, final-selection coordination, and commit-event ordering. It does not own catalogue state, extension processes, transport, or client presentation.
 
-- `OpenRequest` retains Host-initiated requests and gains Host operation events for extension-initiated requests. `OpenResponse` retains extension operation events and gains extension-initiated requests.
-- Extension-initiated requests cover model and provider catalogue queries, configured-model requests, model and reasoning selection, hidden-entry append, visible-message append, `GetSessionState`, and cancellation.
-- Host returns accepted, running, completed, canceled, failed, or rejected states through the shared operation lifecycle from `api/operation/v1`.
-- Cancellation targets an operation owned by the receiving peer. Stream close cancels and joins owned operations and pending initiated operations in both directions.
-- SDK receive loops validate and route envelopes without running handlers on the receive goroutine. A Host-initiated handler can start and await an extension-initiated Host operation on the same stream without deadlock.
-- `RegisterResponse.handlers` keeps one common `HandlerDescriptor`. Its closed kinds are the three implemented session-tree kinds, model-selection request, reasoning-selection request, and every observer kind listed under Lifecycle observers. Startup rejects unspecified or unknown kinds and duplicate handler IDs within one extension.
+Retain these owners:
 
-Add these Extension Contract sources:
+| Owner | Responsibility in this phase |
+| --- | --- |
+| `providers.Catalog` | Model descriptors, reasoning fallback, credential checks, and the authoritative active selection. |
+| `extensioncontext.Service` | Issued context identity and validation of runtime/session bindings. |
+| `sessions.Service` | Active-session incarnation and protection against session replacement during a bound commit. |
+| `extensionruntime.Service` | Runtime availability, operation accounting, runtime commit protection, and process-facing handler calls. |
+| `lifecycle.Service` | Observer registration order, invocation, and ordinary-observer-error handling. |
+| Host UI and Programmatic usecases | Their client preparation/readiness rules, command results, and public error projections. |
+| Extension controller | Protobuf validation, bound runtime identity, operation preparation, and result/error mapping. |
+| Mode output adapters | Ordered selection and issue delivery through the connection's existing writer. |
+| TUI presentation usecase | Applying Host-confirmed selection and displaying operation outcomes. |
 
-- `api/plugins/extension/v1/context.proto` owns extension context identity and context references.
-- `api/plugins/extension/v1/model.proto` owns model descriptors, provider projections, configured-model requests and results, complete model selections, selection-handler payloads, and selection events.
-- `api/plugins/extension/v1/lifecycle.proto` owns Agent Core and Host lifecycle observer payloads.
-- `api/plugins/extension/v1/session.proto` owns extension-entry append requests, extension messages, client visibility, and the `GetSessionStateRequest` and `GetSessionStateResult` payloads defined under [Session-state recovery boundary](#session-state-recovery-boundary).
+Each consumer declares its own selection port and command/result types. `modelselection` implements the ports of Host UI, Host Programmatic, and the Extension controller. Their boundary methods project into one private selection operation; they do not duplicate composition policy.
 
-`api/plugins/extension/v1/extension.proto` retains the service, stream envelopes, operation lifecycle envelopes, registration, and common handler descriptors. `session_tree.proto` imports model types from `model.proto`. `tool.proto` retains tool registration and execution. No compatibility aliases, reserved fields, or old translation paths are added.
+The Extension controller calls the selection port directly. Do not route selection through an `extensioncontext` forwarding method: selection needs binding protection, so that arrangement would create opposite dependencies between the two capability packages.
 
-Every protobuf enum has an `UNSPECIFIED` zero sentinel. Host rejects that sentinel for required values, so domain value sets remain closed. Every numeric field that represents a position, size, count, or calculation uses `int64`.
+`modelselection` declares the catalogue, runtime-handler, binding-protection, observer, and output ports it consumes. Their real owners implement them with implementation-package assertions. In particular, `extensioncontext`, `lifecycle`, `providers`, and `extensionruntime` may import the `modelselection` consumer contracts; `modelselection` imports none of those implementations. Binding types in this port belong to `modelselection`, not to the implementing context package.
 
-### Extension context and runtime binding
+The proposed import edges were checked against the transitive package graph from `go list`. The modeled graph is acyclic. This check does not replace compilation and interface-signature checks during implementation. No shared contract-only package, forwarding service, alias, or assertion exception is added.
 
-- `ExtensionContext` contains an opaque `context_id`, extension ID, runtime instance ID, active session ID, and cwd.
-- `ExtensionContextRef` contains `context_id`, runtime instance ID, and active session ID. Host derives extension ID from the connected runtime and checks the complete reference against the binding it issued to that runtime.
-- Add `host/internal/usecase/host/extensioncontext`. It creates context snapshots, validates bindings, and coordinates context operations through consumer-owned interfaces. Each new runtime-to-active-session binding receives a new `context_id`; invocations within that binding reuse it.
-- Extend `extensionruntime.Service` with an opaque runtime instance ID assigned before each extension process start. The service accounts for Host-initiated and extension-initiated operations against that runtime instance.
-- Host validates the context binding before operation acceptance. It validates the binding again before returning a model or session-state result, committing a selection, or committing a session mutation.
-- Runtime or active-session replacement permanently invalidates the preceding context binding before operations can use the replacement state. Resuming the same durable session creates a new `context_id`, including after switching from session A to B and back to A. Durable session ID equality does not reactivate a preceding context. A stale operation commits no selection or session change.
-- The Extension SDK exposes operation cancellation through the Go `context.Context` supplied at operation start. Canceling that context sends `CancelOperation`. A separate `Wait` context controls only local waiting; canceling it does not cancel the operation or report a remote terminal state. Cancellation is not serialized as an `ExtensionContext` field.
+### Public operations and handlers
 
-The Extension SDK context provides typed asynchronous start methods for catalogue queries, configured-model requests, selection requests, entry appends, and session-state recovery. Start methods return an SDK-owned operation handle after local validation, tracking, and enqueue, without waiting for Host acceptance or execution. The caller waits for the result separately. This follows `Connection.Start` and `Operation.Wait` in `sdk/plugins/extension/v1/host.go`, which currently support Host-initiated operations. Public SDK types expose no `internal/operation` types. Tool, session-tree, selection, and lifecycle invocations carry one `ExtensionContext`. Registration carries no context because runtime acceptance has not completed. Command-initiated creation, resumption, forking, cloning, and navigation belong to PHS-10, not PHS-07.
+Reuse `ExtensionService.Open` and its two initiator namespaces. Add these typed payloads to the owning protobuf sources and SDK:
 
-### Configured models and providers
+- Extension-initiated model selection carries `ExtensionContextRef`, provider ID, and model ID. Reasoning selection carries the reference and one reasoning choice.
+- `HostCompleted` gains selection completion containing the committed full selection and ordered issues. SDK context start methods return concrete operation handles; `Wait` and cancellation retain the implemented separation between operation cancellation and local wait cancellation.
+- `HandlerKind` gains separate model-selection request and reasoning-selection request kinds, plus model-selection and reasoning-selection observer kinds.
+- Selection handler invocation carries the issued extension context, immutable original target, and current target. Each target is a complete provider/model/reasoning selection.
+- Selection action has exactly one variant: preserve, replace with a complete target, or reject with nonempty diagnostic text. An ordinary handler error remains a handler result, not a process failure.
+- `LifecycleInvocation` gains typed model-selection and reasoning-selection events. Each carries the preceding and committed full selections from the same commit. These are Host facts, not Agent Core events; they carry no fabricated run ID.
 
-- The model catalogue result contains active model selection and provider-neutral model descriptors. A descriptor contains provider ID, model ID, input modalities, context window, maximum output tokens, reasoning capabilities, tool capabilities, and pricing when configured.
-- The provider catalogue result contains provider ID and ordered model IDs. It excludes provider type, endpoint, API configuration, credential source, credentials, and provider reasoning context.
-- A configured-model request contains instructions and at least one ordered message. Each message has a closed `user` or `assistant` role and nonempty text.
-- PHS-07 configured-model requests contain no tools, images, or provider-specific options. Later owning phases can replace this contract without compatibility fields.
-- A configured-model result contains the provider-neutral terminal response, ordered text, refusal, reasoning, and tool-call content, outcome, usage, and diagnostics. It omits provider reasoning context.
-- The provider driver maps every readable reasoning block to visible reasoning content before Host creates the extension result.
-- `extensioncontext` declares the smallest provider interface it consumes. `providers.Catalog` implements catalogue queries and an explicit request for one `model.Selection` without changing active model selection.
-- Host supplies no tools to the provider request and executes no returned tool call. A returned tool call remains typed terminal response content.
-- A provider failure produces a failed contract operation with complete error text. Caller cancellation produces a canceled operation. Neither result changes active model selection or session state.
+Extend `model.proto` for selection operation and handler payloads, `lifecycle.proto` for observer payloads, and the existing handler envelope sources. Startup validates all handler IDs and kinds, partitions declarations by capability, and commits registrations only for accepted extensions. Preserve declared handler order within the accepted extension order.
 
-PHS-06 can replace provider dispatch behind the consumer-owned interface without changing the extension context use case or Extension Contract.
-
-### Lifecycle observers
-
-- Add `host/internal/usecase/host/lifecycle`. It owns lifecycle registration, registration order, context binding, observer invocation, and observer issues.
-- Lifecycle kinds are `agent_start`, `agent_end`, `agent_settled`, `turn_start`, `turn_end`, `message_start`, `message_update`, `message_end`, `tool_execution_start`, `tool_execution_update`, `tool_execution_end`, `model_selection`, and `reasoning_selection`.
-- `message_update` carries provider-neutral text, refusal, visible reasoning, and tool-call transitions in Agent Core source order.
-- `events.Dispatcher` attempts delivery of each Agent Core event to its Glyph client recipient, then calls the lifecycle service regardless of the client-delivery result. The lifecycle service invokes available observers in registration order.
-- Agent Core waits for the observer chain before it processes the next event. After observer delivery, `events.Dispatcher` returns the client-delivery error to Agent Core through its implemented event-sink contract. PHS-07 adds no event queue, buffering limit, or asynchronous shutdown protocol.
-- An ordinary observer error does not change or stop the observed operation, does not stop later observers, and does not deactivate the extension. Host emits an `ExtensionIssue` connection event with the extension ID, handler ID, issue code, and complete error text. Failure to deliver that issue returns the joined observer and delivery errors through the owning event-sink contract.
-- A runtime transport failure makes only that runtime unavailable through `extensionruntime.Service`. Host continues with later available observers and reports the runtime failure through the implemented failure path.
+Use edition 2023, enum zero sentinels, and `int64` for numeric positions or counters. No compatibility fields, aliases, reserved declarations, additional stream, or callback listener are added.
 
 ### Active model selection
 
-- Add `host/internal/usecase/host/modelselection`. UI, Programmatic Control, and extension selection requests call this service through interfaces declared by their consuming packages.
-- `providers.Catalog` retains catalogue, credential, and active-selection ownership. It adds non-mutating target resolution and one full-selection validation-and-commit operation.
-- For a model-selection request, Host forms the original target from the requested provider and model and preserves the reasoning compatibility behavior of `providers.fallbackReasoningChoice`. An exact supported choice is retained. An unsupported `off` or `on` uses the target default. An unsupported effort maps to `on` when supported; otherwise it maps to the nearest supported effort, with ties resolved toward lower effort, or to the target default when no effort is available. For a reasoning-selection request, Host combines the active provider and model with the requested reasoning choice.
-- Model-selection and reasoning-selection handlers are separate registered kinds. Both receive the immutable original target selection and the current target selection in registration order.
-- A handler returns exactly one action. `preserve` keeps the current target, `replace` supplies one complete target, and `reject` stops later handlers.
-- An ordinary handler error or invalid action records an issue, preserves the current target received by that handler, continues later handlers, and leaves the runtime available.
-- After handlers finish without rejection, Host validates provider-model existence, reasoning support, and credentials against the final current target. `providers.Catalog` commits provider, model, and reasoning choice under one lock.
-- Model-selection operations are serialized. A selection request started from a selection handler receives `BUSY` instead of waiting on its own operation.
-- Rejection, final validation failure, cancellation, or stale context performs no commit and emits no selection event.
-- Host compares the preceding and committed selections. It emits reasoning selection first when reasoning changed, then model selection when provider or model changed. A successful no-op emits neither event.
-- A client-initiated request returns a correlated completion. An extension-initiated selection also produces the client-neutral committed-selection connection event needed by the connected Glyph client.
-- A post-commit observer or client-delivery error cannot roll back the selection. Host returns committed selection plus ordered issues to every reachable operation initiator.
+#### Preparation and admission
 
-### Extension entries and persistence
+- Keep preparation limited to request shape, in-memory readiness/catalogue checks, context validation, and reservation. Credential access and extension calls run only after acceptance.
+- Preserve the client contracts' initial `NOT_FOUND` and `REASONING_UNSUPPORTED` rejections. This validates the requested starting selection, not a handler's later replacement. The extension selection operations use the same starting-selection rules.
+- Move selection reservation from the UI-local flag to `modelselection`. Acquire it before reading active selection and normalizing the target; release it on preparation rejection. All three initiators share the reservation through handler execution, commit, publication, and observer completion, then release it through prepared-operation cleanup.
+- A second selection request receives `BUSY`; it is not queued. This also applies to a request started inside a selection handler or observer, so a handler cannot wait on its own selection operation. Other extension operations remain available.
+- Keep the UI's authentication-readiness check at its consuming usecase. Do not use the agent-run/session-mutation gate for selection. An active model request keeps its selection snapshot, and committed selection affects later requests.
 
-- Keep `session.ExtensionEnvelope` as model-hidden opaque JSON data. Preserve its bytes through append, reload, and session snapshot replacement. Replace compact raw-JSON framing with the lossless byte encoding used by `encodeBytes` in `host/internal/infra/persistence/sessions/codec.go`, while retaining JSON-value validation.
-- Add `session.ExtensionMessage` with extension ID, entry type, exact text, and `session.ClientVisibility`.
-- `session.ClientVisibility` has only `visible` and `hidden`.
-- `sessions.Service` exposes separate append operations for a model-hidden extension entry and a model-visible extension message. Both operations accept the expected active session ID.
-- While holding the session lock, the service checks the expected session ID, validates the entry, uses the current active leaf as parent, persists one repository mutation, and publishes the candidate tree only after persistence succeeds.
-- Add the JSONL record type `extension_message` with ID, parent ID, timestamp, extension ID, entry type, exact text, and client visibility. The `extension` record keeps its model-hidden meaning.
-- Active history excludes model-hidden extension entries. It maps every model-visible extension message to provider-neutral user text regardless of client visibility.
-- After persistence commit, Host emits `SessionEntryAdded` with the complete extension message and client visibility. Delivery precedes completion of the extension-initiated append operation.
-- Client delivery failure leaves persistence and in-memory state committed. The extension receives the committed result and a `DELIVERY_FAILED` issue.
-- Appends are permitted from session-tree request handlers, result handlers, and post-commit observers. Each append is a separate operation. A later navigation failure or cancellation does not roll back a committed append.
-- Host serializes each affected session commit with enqueue of its client update on the connection's ordered writer. Navigation snapshot publication and append publication use this same boundary. Host releases the boundary before invoking extension handlers or waiting for transport writes; it does not hold the boundary for the complete navigation operation.
+#### Original and current target
 
-### Session-state recovery boundary
+A model request resolves its requested provider/model against the catalogue and computes the original reasoning choice using `providers.fallbackReasoningChoice`. Preserve its supported-choice, target-default, effort-to-`on`, nearest-effort, and lower-effort tie rules. A reasoning request combines its explicit choice with the active provider/model snapshot. Initialize current target from original target.
 
-To meet [PRD](prd.md) FRQ-08.1 and FRQ-08.2, Host exposes one asynchronous `GetSessionState` operation on `ExtensionService.Open`. Host supplies a snapshot; the extension interprets its stored payloads and reconstructs its own state.
+This initial resolution performs no credential I/O and changes no active selection. A handler can redirect a request away from a model with unavailable credentials; credentials are checked only for the final target.
 
-#### Request and result
+#### Handler composition
 
-- `GetSessionStateRequest` contains the issued `ExtensionContextRef`. It accepts no independent extension ID, session ID, or branch selector. Host derives the requesting extension from the connected runtime.
-- `GetSessionStateResult` contains the bound session ID, the snapshot's active leaf ID, and that extension's model-hidden entries and model-visible messages on the active branch in root-first order. An empty tree has no active leaf; a branch with no matching entries returns an empty list successfully.
-- Each returned entry contains its stored entry ID, parent ID, timestamp, extension ID, entry type, and exactly one typed content variant. A model-hidden entry carries its opaque JSON bytes. A model-visible message carries its exact text and client visibility. Recovery does not parse or re-encode the stored JSON bytes.
-- Parent IDs retain their stored values even when the parent belongs to another entry kind or extension and is not included in the result. Recovery filters the active branch without changing its ancestry or including abandoned branches.
+1. Take the matching registered handlers in order, excluding runtimes already unavailable when the chain is selected.
+2. Issue an invocation context and call each handler through runtime management. Every handler receives the same original target and the current target left by its predecessor.
+3. Preserve leaves current target unchanged. Replace changes all three target fields. Reject stops the chain and fails the operation without a selection commit.
+4. Validate action shape and required fields before changing current target. An invalid action or ordinary handler error records and reports an issue, preserves the received current target, and continues the chain without disabling the runtime.
+5. A runtime that fails after inclusion in the chain causes `EXTENSION_UNAVAILABLE` before commit. Runtime management owns its unavailable transition and failure reporting.
+6. After the chain, validate model existence, reasoning support, and credentials for the final target. A structurally complete replacement may be corrected by a later handler; catalogue validation of the final target occurs after composition.
 
-#### SDK and execution
+Cancellation before commit leaves active selection unchanged. Calls to append entries or make configured-model requests from a handler remain separate operations. A selection failure does not roll back an entry already committed by such a call.
 
-- `ExtensionContext.StartGetSessionState` starts the request and returns a concrete SDK-owned `SessionStateOperation`. Its `Wait` method returns `GetSessionStateResult` or the operation error. Start, wait, and cancellation follow [Extension context and runtime binding](#extension-context-and-runtime-binding).
-- Host performs context-reference validation and in-memory admission before acceptance. After `accepted` and `running`, Host executes the snapshot read outside the stream receive loop and returns one completed result, `canceled`, or `failed`. Recovery emits no progress events.
-- Recovery results arrive at the extension's gRPC server. Configure its receive limit to match the `math.MaxInt32` message limit used by the go-plugin Host client, rather than gRPC's default 4 MiB server receive limit. Reuse this transport capacity without truncating snapshots or adding pagination.
-- `extensioncontext` invokes a consumer-owned session-read interface. `sessions.Service` checks the expected active session ID and copies the session ID, active leaf ID, and matching active-branch entries under one session read lock. It releases that lock before transport delivery. Separate calls to `SessionID` and `ActiveEntries` do not provide this atomic snapshot.
-- Host revalidates the context binding before completing recovery. The result describes the branch at snapshot time, not changes committed after that read. Later navigation requires another request; it does not retroactively change the returned snapshot.
-- Recovery reads the loaded session state. It performs no repository mutation, session reload, entry append, lifecycle callback, or state reconstruction in Agent Core.
-- Start returns local validation, tracking, or enqueue errors directly. Host rejection and execution errors arrive through the operation handle under [Error semantics](#error-semantics). A failed, rejected, or canceled request returns no usable snapshot.
+### Atomic commit and stale-context protection
 
-#### Recovery use
+Split catalogue selection mutation into non-mutating target resolution/validation and one full-selection commit. Replace the direct selection-mutating methods used by UI and Programmatic; retain no bypass around the new capability owner.
 
-- After restart or active-session replacement, an extension uses the newly issued context on its first state-dependent invocation to start recovery and await the snapshot before using its persisted state. Registration remains context-free.
-- After branch navigation, an extension reads the active branch again before using branch-dependent state. A `session_tree` observer can start and await this request through its invocation context without blocking stream receipt.
-- PHS-16 uses this operation through the replacement runtime's new context. It adds no separate recovery path, store, or automatic replay.
+Credential I/O completes before commit protection is acquired. Under the catalogue mutex, recheck the final descriptor/choice and cancellation, update provider/model/reasoning and the active entry index together, and return the preceding and committed selections. The shared reservation prevents another selection writer from changing the baseline during composition. Catalogue reads and model requests remain available while a handler or credential check waits.
 
-### Glyph client contracts and client visibility
+For an extension-initiated selection, protect the issued runtime and session incarnation through the commit:
 
-- Add `ExtensionMessage` and `ClientVisibility` to `api/plugins/ui/v1/session.proto` and `api/programmatic/v1/session.proto`.
-- UI Plugin Contract and Programmatic Control carry the extension message in session-tree entries, detailed session entries, active-branch replacements, navigation progress snapshots, and `SessionEntryAdded` connection events.
-- Both client contracts carry exact message text for `visible` and `hidden`. Client visibility is presentation data and is not a security boundary.
-- Standard TUI includes `visible` messages in its ordinary transcript and excludes `hidden` messages. It retains both values in session-tree state without adding extension-defined rendering.
-- Programmatic Control exposes both values through connection events, the session tree, and detailed entries. Its ordinary `GetMessages` projection excludes `hidden` messages.
-- Add client-neutral committed-selection and `ExtensionIssue` connection events to UI Plugin Contract and Programmatic Control. Connection events have no operation ID.
+- `extensioncontext` resolves the issued reference and coordinates protection through its consumed session/runtime ports.
+- `sessions` validates and protects the expected incarnation at the session owner. Runtime protection reuses `extensionruntime.BeginContextCommit`.
+- Acquire session protection before runtime protection, as in extension-message append. The protection interval covers final binding validation, catalogue mutation, and enqueue of the committed client update.
+- Release session/runtime protection before waiting for transport acknowledgement or invoking observers. Never hold these guards across credential access, model execution, or extension calls.
+- A preceding session A binding remains stale after A-to-B-to-A replacement. Reusing the durable session ID does not authorize a commit.
 
-### Session-tree navigation
+Do not hold the context-service mutex for a complete selection operation. Do not add a second selection store, cross-process lock, or generic transaction coordinator.
 
-- Extend `session.Tree.NavigationPreparation` so a model-visible extension message uses its parent as the navigation destination and its exact text as next input.
-- The rule applies to `visible` and `hidden` client visibility because both messages remain in the complete session tree.
-- Without a branch summary, the navigation destination becomes the active leaf. With a branch summary, `sessions.Service.CommitNavigation` attaches the new `BranchSummaryEntry` to that destination and makes the summary the active leaf.
-- Session-tree orchestration retains request handlers, result handlers, final validation, and persistence commit. Immediately after commit, Host publishes the committed session tree and active branch as typed navigation operation progress through UI Plugin Contract and Programmatic Control, before invoking post-commit observers.
-- Post-commit observers can append and await their append operations. The client receives each later `SessionEntryAdded` after the navigation snapshot. This order also applies to appends from other extension operations, not only the observers of that navigation.
-- Terminal navigation completion contains status, navigation destination, the navigation commit's active leaf, created branch-summary metadata, exact next input, and ordered issues. It contains no replacement tree or active-branch snapshot. The navigation commit's active leaf describes that commit, not a later observer append.
-- Glyph clients apply the progress snapshot, then apply later session events in stream order. Terminal completion updates operation status, next input, and issues without replacing the transcript or resetting the active leaf. UI and Programmatic controllers never start Agent Core for returned next input.
-- Cancellation before navigation commit preserves the preceding navigation state. After commit, cancellation or observer and delivery errors cannot undo navigation or its published snapshot; the terminal result retains committed navigation information and reports post-commit issues to the reachable initiator through the shared operation lifecycle.
+### Client publication and lifecycle observation
 
-### Package ownership and composition
+Every changed selection publishes one client-neutral full-selection connection event, regardless of whether UI, Programmatic Control, or an extension initiated the operation. Both client protobuf contracts gain this event. Mode outputs use their existing ordered writer; headless composition acknowledges the state publication without inventing unsolicited CLI selection text.
 
-Add these packages:
+The operation sequence is:
 
-- `host/internal/usecase/host/extensioncontext` owns context binding and context operations.
-- `host/internal/usecase/host/lifecycle` owns lifecycle registrations and observer policy.
-- `host/internal/usecase/host/modelselection` owns selection handler policy and commit coordination.
-- `host/internal/controller/extension` validates and maps extension-initiated protobuf operations to consumer-owned Host interfaces.
+1. Atomically commit the full selection.
+2. Enqueue the committed full-selection client event before releasing bound commit protection.
+3. Release commit protection, then attempt client-delivery acknowledgement.
+4. Invoke reasoning-selection observers when reasoning changed, then model-selection observers when provider or model changed. Both groups receive the same detached preceding/committed values. Attempt observers even after a client-delivery failure.
+5. Return the committed selection and ordered issues to the initiator.
 
-Existing owners remain:
+A successful no-op returns its selection but emits neither a client selection-change event nor a selection lifecycle event.
 
-- `host/internal/usecase/host/extensionruntime` owns runtime identity, availability, monitoring, and operation accounting.
-- `host/internal/usecase/host/providers` owns model data, credentials, provider requests, and active selection state.
-- `host/internal/usecase/host/sessions` owns active session state, tree mutation, persistence coordination, and history.
-- `host/internal/usecase/host/sessiontree` owns navigation policy and handler orchestration.
-- `host/internal/usecase/host/events` owns client-first Agent Core event dispatch.
-- `host/internal/infra/plugins/extension` owns gRPC stream mapping and process transport.
-- `host/internal/app` owns construction and late binding without business policy.
+Selection completion is an operation result, not a second authoritative state update. TUI applies initialization and selection connection events to active selection; terminal selection completion finishes the pending command and retains diagnostics without reapplying its selection. Programmatic clients receive the same distinction. This prevents a delayed completion for selection A from overwriting a later connection event for selection B. No revision counter or event queue is required.
 
-Each interface is declared in its consuming package. Implementations include compile-time interface assertions after the import graph is checked for cycles. Agent Core imports do not change.
+Ordinary handler and observer errors use the existing `ExtensionIssue` connection event and remain available as ordered operation-result issues. Failure to publish an issue before commit fails selection with `INTERNAL` and retains both causes; this is a delivery failure, not an ordinary handler error. Standard TUI presents the connection issue once; completion diagnostics do not print that issue again. Completion reports delivery failures that prevented issue publication, retaining both the source and delivery text. A missing or failed connection cannot roll back a committed selection.
 
-Application composition performs this order:
+After commit, cancellation or delivery/observer failure returns a completed selection with diagnostics to a reachable initiator, following the implemented committed-append convention. It must not claim that no selection occurred. After connection loss, retain undelivered source errors through operation/runtime completion under the PHS-07.1 error rules.
 
-1. Construct session state and runtime transport bindings.
-2. Construct extension context, lifecycle, and model-selection services.
-3. Bind extension-initiated operation dispatch before extension registration.
-4. Load and accept extensions. Startup partitions registered session-tree, selection, and lifecycle handler kinds and asks each capability owner to validate and commit its registrations.
-5. Construct and bind the provider catalogue.
-6. Construct client delivery and Agent Core, then bind lifecycle delivery to `events.Dispatcher`.
-7. Activate runtime monitoring at the implemented mode-specific point.
+Keep the Agent Core event dispatcher and its client-first observation path unchanged. Add selection observation at the Host capability boundary, not inside Agent Core.
 
-App late bindings contain no validation, ordering, or state-transition policy.
+### Error contract
 
-### Non-functional considerations and risks
+Use the shared [Error Semantics](../../prd.md#error-semantics). Codes supplement complete causes; transport capacity does not authorize diagnostic truncation.
 
-- A slow lifecycle observer delays later Agent Core events. Host delivers the current event to the Glyph client first, and general cancellation cancels the observer operation. No queue is added for this local tool.
-- A nested extension-initiated operation can deadlock when a stream receive loop executes handlers directly. Both SDK peers route work from the receive loop to independent operation execution before awaiting callbacks.
-- A client delivery failure after session or selection commit leaves the client behind Host state. The committed operation result carries `DELIVERY_FAILED`, and the client can recover authoritative state through model and session queries after reconnection.
-- Three public contracts can map extension messages or selection events differently. Contract tests compare exact content, visibility, selection, error category, and complete error text across UI Plugin Contract and Programmatic Control.
+| Selection outcome | Public representation |
+| --- | --- |
+| Invalid request shape or missing required fields | Rejected `INVALID_ARGUMENT`. |
+| Requested starting model missing or requested starting reasoning unsupported | Rejected `NOT_FOUND` or `REASONING_UNSUPPORTED`. |
+| Another selection is reserved | Rejected `BUSY`. No selection queue. |
+| Invalid extension binding at admission | Rejected `STALE_CONTEXT`. |
+| Final transformed target is missing or has unsupported reasoning | Failed `MODEL_UNAVAILABLE`, with the exact final validation cause. |
+| Final target credentials are unavailable | Failed `CREDENTIAL_UNAVAILABLE`. |
+| Handler explicitly rejects | Failed `EXTENSION_REJECTED`, with its complete diagnostic text. |
+| Selected handler runtime becomes unavailable before commit | Failed `EXTENSION_UNAVAILABLE`. |
+| Extension binding is invalidated before commit | Failed `STALE_CONTEXT`. |
+| Pure cancellation before commit | Canceled under the shared operation lifecycle. |
+| Failure to deliver a handler issue before commit | Failed `INTERNAL`, retaining the handler and delivery causes; no selection commit. |
+| Ordinary handler error or invalid action | Reported `HANDLER_ERROR` or `INVALID_HANDLER_ACTION`; preserve current target and continue. |
+| Observer error after commit | Completed selection with `OBSERVER_ERROR`; continue later available observers. |
+| Delivery error after commit | Completed selection with `DELIVERY_FAILED`; retain the committed selection. |
+| Other failure before commit | Failed `INTERNAL` with complete causes. |
 
-Runtime and operation logs use `slog` with context and include operation ID, extension ID, runtime instance ID, and session ID. Logs, protobuf payloads outside provider operations, and diagnostics exclude credentials, authorization headers, OAuth values, and provider reasoning context.
+Selection rejection sets retain the shared operation-ID and readiness categories. Extension selection adds starting-selection validation to the context-operation rejection set. Client selection adds common `BUSY` admission. UI retains `NOT_READY` during authentication work. Cancellation requests retain `CANCEL-R`, including `TARGET_NOT_ACTIVE` for an already terminal target.
 
-PHS-07 keeps the implemented local capacity of one active session, one active agent run, and one connected Glyph client. It adds no distributed coordination or cross-process shared state.
+The closed failed set for client selection is `MODEL_UNAVAILABLE`, `CREDENTIAL_UNAVAILABLE`, `EXTENSION_REJECTED`, `EXTENSION_UNAVAILABLE`, and `INTERNAL`. Extension-initiated selection additionally admits `STALE_CONTEXT`. A completed result can contain `HANDLER_ERROR`, `INVALID_HANDLER_ACTION`, `OBSERVER_ERROR`, and `DELIVERY_FAILED` issues.
 
-### Error semantics
+Update both client usecase mappers, the Programmatic controller's command-specific failure allowlist, and SDK validation together. Amend the owning selection rows and `MODEL-F` definition in the [shared operation inventory](../../../../issues/blocking-contract-operation-processing/solution.md#operation-inventory); do not change accepted agent-run failure categories.
 
-All errors follow the shared [Error Semantics](../../prd.md#error-semantics). A code supplements complete error text and never replaces it.
+Use the existing mixed-error rule: only pure cancellation becomes a canceled terminal state. Independent acquired failures retain their source text and the owning failure category. Successfully reported nonfatal handler issues remain diagnostics, not invented terminal failures. Selection completions retain diagnostic sources through `CompletedWithSource`, as navigation completions already do.
 
-| Operation | Closed failed categories |
-|---|---|
-| Context and catalogue | `STALE_CONTEXT`, `INTERNAL` |
-| Configured-model request | `MODEL_UNAVAILABLE`, `CREDENTIAL_UNAVAILABLE`, `MODEL_FAILED`, `STALE_CONTEXT`, `INTERNAL` |
-| Model selection | `MODEL_UNAVAILABLE`, `CREDENTIAL_UNAVAILABLE`, `EXTENSION_REJECTED`, `EXTENSION_UNAVAILABLE`, `STALE_CONTEXT`, `INTERNAL` |
-| Extension entry append | `SESSION_UNAVAILABLE`, `PERSISTENCE_UNAVAILABLE`, `STALE_CONTEXT`, `INTERNAL` |
-| Session-state recovery | `SESSION_UNAVAILABLE`, `STALE_CONTEXT`, `INTERNAL` |
+### Preserved context, persistence, and navigation paths
 
-For recovery, an invalidated binding before acceptance produces a `STALE_CONTEXT` rejection; invalidation after acceptance produces a `STALE_CONTEXT` failure. Failure to read the bound active session produces `SESSION_UNAVAILABLE`. Other execution errors produce `INTERNAL`. Each error retains its complete cause text. Recovery does not retry automatically; the extension must obtain a new context before retrying an invalidated binding.
+No new persistence or recovery design is needed. Preserve these implemented boundaries:
 
-Context-operation rejection uses the closed set `INVALID_ARGUMENT`, `OPERATION_ID_IN_USE`, `NOT_READY`, `BUSY`, `STALE_CONTEXT`, and `INTERNAL`. `CancelOperation` retains `CANCEL-R` from the [shared operation contract](../../../../issues/blocking-contract-operation-processing/solution.md#operation-inventory), including `TARGET_NOT_ACTIVE` when the target has already terminated. Cancellation of an accepted target uses its canceled terminal state.
+- `ExtensionContext` start methods return without waiting for Host acceptance. Nested handler operations run outside the stream receive loops. Local `Wait` cancellation does not cancel the remote operation.
+- `modelexecution.Service.Request` owns configured requests, uses an explicit selection, supplies no tools, and reduces the terminal response. `providers.Catalog` supplies model bindings and credential checks, not a second execution path. PHS-06 adds retries inside model execution; PHS-12 replaces provider attempts.
+- `sessions.Service` persists hidden entries and visible-model messages, protects runtime/session binding, and publishes committed messages. Delivery failure retains the entry and reports `DELIVERY_FAILED`.
+- Recovery returns a single active-branch snapshot filtered to the calling extension. It preserves exact stored bytes, text, identity, parent links, and order without parsing extension state or replaying it automatically.
+- Navigation to an extension message uses its parent, including the implicit root, and returns exact next input. Committed progress precedes observer appends; terminal metadata does not replace a later transcript state.
+- The TUI presentation usecase remains the sole owner of private client state. SDK and terminal infrastructure retain their PHS-07.1 responsibilities.
 
-Nonterminal issue codes are `HANDLER_ERROR`, `INVALID_HANDLER_ACTION`, `OBSERVER_ERROR`, and `DELIVERY_FAILED`. An issue contains extension ID, handler ID when applicable, and complete error text.
+### Composition and affected boundaries
 
-The Extension Contract transport limits extension-originated external error text to 65,536 UTF-8 bytes at ingress without splitting a UTF-8 sequence. The retained text ends with `\n[external error text truncated]` when truncation occurs. Only secrets are redacted. Later Glyph layers preserve the bounded text and every added context or cause without another truncation.
+Application assembly constructs one `modelselection` instance per Host. It binds the real catalogue, context protection, runtime, lifecycle, and mode output through their consumer-owned interfaces. Bind the Extension controller's selection dependency before extension operations become available. Extend startup registration validation before accepting selection handlers; bind model dependencies before runtime activation. Assembly contains no selection policy.
+
+The implementation changes the Extension protobuf/SDK, extension controller/runtime, startup registration, provider selection methods, both client usecases and output mappings, client protobuf/SDK validation, TUI notification/presentation handling, and the external extension fixture. Agent Core, provider drivers, configured-model execution, and persistence formats gain no new selection responsibility.
 
 ### Verification
 
-- Add Extension SDK and runtime tests for operations in both directions, nested operations, cancellation, duplicate IDs, connection close, and runtime replacement.
-- Add context tests for stale runtime, stale session, cwd, model catalogue, provider catalogue, and credential exclusion. After switching from session A to B and back to A, assert that the old A context returns `STALE_CONTEXT` while the new A context works. Also cover resuming the active durable session without changing its ID.
-- Add configured-model tests for ordered history, visible reasoning content, provider-context omission, no tools, cancellation, failure categories, and unchanged active selection.
-- Add lifecycle tests for every event kind, client-first delivery, observer registration order, ordinary observer errors, runtime failure, and issue-delivery failure.
-- Add selection tests for original and current composition, preserve, replace, rejection, invalid action, atomic commit, concurrent selection, event order, no-op, and post-commit delivery failure. Retain the reasoning compatibility cases from `providers.fallbackReasoningChoice`, including nearest-effort selection and lower-effort tie resolution.
-- Add session domain and persistence tests for both extension record types, exact parent, restart, snapshot replacement, history projection, and failed writes.
-- Add public recovery tests for a restarted external extension, session replacement, branch navigation, exact stored payloads and entry identity, active-branch order, stale-context errors, and zero recovery-side session mutations. The fixture must reconstruct state without reading Host files.
-- For recovery SDK behavior, withhold Host acceptance and assert that `StartGetSessionState` returns an operation handle; then deliver lifecycle events and assert that `Wait` returns the typed result. Verify that a nested observer can await recovery while the stream continues to receive messages. Cancel only the wait context and assert that the operation can still complete; cancel the operation context and verify `CancelOperation` and the target terminal state.
-- For recovery snapshots, mix both extension entry types with another extension's entries and an abandoned branch. Assert only the caller's active-branch entries, unchanged parent IDs, exact payloads, and successful empty results. Overlap reads with navigation and assert that the active leaf and entries describe one snapshot, never a mixture. Invalidate the binding before acceptance and during execution to cover both `STALE_CONTEXT` paths.
-- Extend the persistence round-trip and replacement-restart tests with JSON whitespace and escapes; compare payload bytes, not only JSON values. Through the external extension process, recover an aggregate result larger than 4 MiB. Verify that a completion-before-cancel race retains `TARGET_NOT_ACTIVE` without failing the connection.
-- Add UI Plugin Contract and Programmatic Control tests for extension messages, client visibility, `SessionEntryAdded`, hidden transcript filtering, selection events, issues, and equivalent error text and categories.
-- Add navigation tests for both client visibility values, exact next input, no-summary and branch-summary active leaves, and zero Agent Core calls. A post-commit observer appends a message and awaits completion; assert snapshot progress before `SessionEntryAdded`, then terminal navigation completion without another transcript replacement. The client retains the appended entry while the completion identifies the earlier navigation commit's active leaf. Also cover an overlapping append from another extension, pre-commit handler appends followed by navigation failure, and post-commit cancellation or delivery failure.
-- Add an external extension fixture that receives `agent_start`, makes a configured-model request, appends its result, recovers its saved state after restart, transforms one selection, and receives `STALE_CONTEXT` after session replacement.
-- Run `task generate` twice and require no diff from the second run. Then run `task fmt`, `task fix_dry_run`, accepted fixes, `task lint`, `task test`, `task itest`, and `task test-coverage`.
+Reuse the existing behavioral tests before adding new fixtures. New behavior follows RED, GREEN, and REFACTOR. Tests below assert logic and public outcomes, not document text, prompts, or logs.
 
-Keep `docs/roadmap.md` at Planned until implementation and every verification item pass.
+| Test group and purpose | Inputs and expected outcomes | Boundary cases and dependencies |
+| --- | --- | --- |
+| Catalogue and selection composition | Reuse `providers/catalog_test.go`, `ui/session_selection_test.go`, and `programmatic/selection_test.go`. Two handlers see one original target and successive current values. Only the final target commits. | Preserve reasoning fallback and catalogue reads during blocked credentials; cover preserve, replace, reject, invalid action, ordinary error, final invalid target, and unchanged selection on failure. Unit tests use generated mocks of production consumer ports. |
+| Shared admission and binding | Overlap requests from different initiators; the second receives `BUSY`. Replace runtime/session during a blocked handler or credential check; a stale extension operation commits nothing. | Include nested selection from a handler and observer, A-to-B-to-A, cancellation before commit, and release after rejection/connection close. Extend context binding and commit-protection tests. |
+| Public Extension Contract | Extend the separate-module fixture to select a model and reasoning choice, register two composing handlers, and observe committed selections. SDK start returns before Host acceptance. | Exercise both operation namespaces, nested catalogue/model/append operations, runtime failure, exact error text, and cancellation. Use the real stream/process integration paths already used by `context_integration_test.go`. |
+| Client state and events | UI and Programmatic receive one committed full selection before observer effects. Both changed fields produce reasoning observation before model observation. No-op produces no selection event. | Delay one completion until after a later commit event; client state retains the later selection. Cover extension initiation, headless operation, active agent requests, and ordinary observer errors. Extend TUI `selection_lifecycle_test.go` and real public-contract tests. |
+| Commit and error delivery | Pre-commit failure preserves state. Post-commit cancellation, observer error, or writer failure retains committed selection and complete diagnostics. | Verify error-category allowlists, long error text, joined source/delivery errors, terminal source retention, and no duplicate TUI issue presentation. Use controlled writers in unit tests and existing real-stream integration fixtures. |
+| Full PHS-07 regression | Retain catalogue, lifecycle, append/recovery, and navigation scenarios across headless, UI, and Programmatic compositions. | Reuse `context_catalogue_modes_integration_test.go`, `lifecycle_observer_modes_integration_test.go`, `session_state_recovery_public_integration_test.go`, and `extension_message_navigation_public_integration_test.go`. Include exact payloads, active branches, hidden transcript filtering, implicit-root navigation, and observer appends. |
+
+Run `task generate` twice and require no second-run diff. Run `task fmt`, review `task fix_dry_run`, apply accepted fixes, then run `task lint`, `task test`, `task itest`, and `task test-coverage`. Report platform-gated integration scenarios separately; a skipped test is not passing evidence for that scenario.
+
+Keep the [roadmap](../../../../../roadmap.md) phase status at Planned until implementation and the [ticket acceptance criteria](ticket.md#acceptance-criteria) pass. The implementation handoff must distinguish preserved baseline behavior from the new selection slice, not remove either from phase acceptance.
 
 ## Overengineering and Overspecification Considerations
 
-The solution reuses one extension stream, the shared operation lifecycle, `host/internal/usecase/host/startup`, session persistence, provider catalogue, and event dispatcher. It adds three capability packages because context operations, lifecycle observation, and model-selection transformation have different policy and state ownership.
-
-The Rejected alternatives section excludes the additional service, generic capability abstraction, event queue, and opaque Host-owned message semantics. The solution also adds no provider-specific model API, compatibility layer, or implementation for middleware, compaction, retry, commands, notifications, provider extensions, or extension-defined rendering.
+- One capability owner is necessary because all three initiators must share handler composition and admission. `extensioncontext` and `lifecycle` already exist and are extended rather than recreated.
+- A selection reservation returns `BUSY` instead of adding a queue, scheduling policy, or recursive-selection protocol. It does not block model execution or unrelated context operations.
+- Session/runtime commit protection addresses replacement during a real asynchronous handler or credential request. It reuses state owners rather than adding a distributed lock or generic transaction subsystem.
+- One client state-publication path avoids late-completion overwrite without revision counters or duplicate authoritative state.
+- The design adds no callback service, generic capability bus, compatibility layer, event-replay store, new persistence schema, speculative provider API, or later-phase middleware, retry, command, and UI-extension capabilities.
+- Private helper names, file splits, and mock layouts remain implementation choices. Public outcomes, dependency direction, and commit/publication order are the design commitments.
 
 ## Open Questions
 
@@ -271,16 +215,13 @@ None.
 
 ## References
 
-- [Problem Statement](problem.md) - approved problem and boundary.
-- [PRD](prd.md) - approved PHS-07 requirements.
-- [Phase terminology](terms.md) - phase terminology index.
-- [Domain Glossary](../../../../../terms.md) - shared Glyph terminology.
-- [Target architecture](../../architecture.md) - process, package, state, and dependency ownership.
-- [Delivery plan](../../delivery-plan.md) - phase order and dependencies.
-- [PHS-05 technical solution](../05-session-tree/solution.md) - session-tree and branch-summarization behavior.
-- [PHS-05.1 technical solution](../05.1-extension-boundary-cleanup/solution.md) - implemented extension runtime and capability ownership.
-- `api/plugins/extension/v1` - current Extension Contract sources.
-- `api/plugins/ui/v1` - current UI Plugin Contract sources.
-- `api/programmatic/v1` - current Programmatic Control sources.
-- `host/internal/usecase/host` - current Host use cases.
-- `/opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/sessions.md` - feature reference for custom-message tree selection only.
+- [Problem Statement](problem.md) and [PRD](prd.md) define the approved problem and requirements.
+- [Ticket](ticket.md) defines phase acceptance and required verification.
+- [Domain Glossary](../../../../../terms.md) defines shared terms.
+- [Target architecture](../../architecture.md) defines ownership and import rules.
+- [PHS-07.1 solution](../07.1-architecture-audit-and-correction/solution.md) defines the implemented architecture and complete-error baseline.
+- [Shared operation contract](../../../../issues/blocking-contract-operation-processing/solution.md) defines asynchronous lifecycle and category inventories.
+- `api/plugins/extension/v1`, `api/plugins/ui/v1`, and `api/programmatic/v1` contain the public source contracts.
+- `host/internal/usecase/host/providers/catalog.go`, `host/internal/usecase/host/ui/prepared_operations.go`, and `host/internal/usecase/host/programmatic/prepared.go` contain the selection baseline.
+- `host/internal/usecase/host/extensioncontext/service.go`, `host/internal/usecase/host/sessions/service.go`, and `host/internal/usecase/host/extensionruntime/context.go` contain binding and commit-protection mechanisms.
+- `plugins/ui/tui/internal/controller/plugin/request_mapping.go` contains client completion and connection-event mapping.
