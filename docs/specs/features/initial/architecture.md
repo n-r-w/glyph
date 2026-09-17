@@ -146,7 +146,10 @@ The architecture keeps one `glyph` process and separate project roots for Host a
   - internal/domain/ - existing provider-neutral agent model session and tool models
   - internal/usecase/agent/run/ - existing Agent Core logical component
   - internal/usecase/host/ - existing Host orchestration packages
+    - extensioncontext/ - session/runtime-bound extension context and commit-protection owner
+    - lifecycle/ - ordered extension lifecycle observer owner
     - modelexecution/ - existing logical model-execution owner and raw provider-attempt contract
+    - modelselection/ - shared selection admission, handler composition, commit coordination, publication, and observer-order owner
   - internal/infra/ - existing infrastructure adapters
     - headless/ - one-shot output and diagnostics
     - programmatic/output/ - run-correlated and unsolicited Programmatic output
@@ -192,6 +195,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 - APC-10: The Extension Contract is Host-owned. It carries registration, extension contexts, ordered handler requests and results, provider-neutral model access, persisted extension-state recovery, command-initiated session control, tools, resources, commands, events, interactions, notifications, and provider registration and execution for bundled and separately delivered providers. Host owns session data access and state transitions; extensions own interpretation of their stored payloads.
 - APC-11: The model-provider contract is declared by the Host model-execution consumer. It carries provider-neutral model requests, streamed semantic output, typed usage, safe diagnostics, retry classification, and opaque provider reasoning context.
 - APC-11.1: PHS-07.1 establishes one `modelexecution.Service` and its provider-neutral raw provider-attempt interface. The service performs one attempt for Agent Core and configured-model callers. PHS-06 adds retry behavior inside that service. In-process provider adapters implement only the raw provider-attempt interface until PHS-12 replaces them with extension-runtime adapters without changing Agent Core or Host capability callers.
+- APC-11.2: `modelselection.Service` owns one selection reservation shared by UI, Programmatic Control, and extension initiators. It composes registered handlers, coordinates final catalogue validation and atomic commit, publishes the committed full selection, and invokes reasoning observers before model observers. The catalogue, context protection, extension runtime, lifecycle, and outputs implement interfaces consumed by `modelselection`; Agent Core owns no selection policy.
 - APC-12: The settings contract owns configured provider instances and model metadata. Unknown fields, unknown modalities, duplicate modalities, empty modality lists, modality lists without `text`, nonpositive limits, and `maxTokens` greater than `contextWindow` fail settings loading.
 - EVC-01: Agent lifecycle events originate from Agent Core. Mode output adds client correlation. The event dispatcher completes client delivery before attempting registered extension observers, even if client delivery fails, and preserves both error causes. After a finished run, run control completes Core settlement, client settled delivery, and settlement observers before releasing admission. Cancellation before execution releases the prepared reservation exactly once.
 - EVC-02: `session_before_tree` is the transforming extension point before tree navigation. `session_tree` is emitted only after navigation and any `BranchSummaryEntry` persistence commit.

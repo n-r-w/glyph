@@ -6,29 +6,21 @@ The [Problem Statement](problem.md) describes the partial PHS-07 implementation 
 
 ## Proposed Solution
 
-### Design status
+### Design and implementation status
 
-The requirements and technical design are approved. The implementation dry run is complete with no unresolved design blockers. The remaining selection slice is not implemented, and implementation verification is pending.
+The requirements and technical design are approved. The implementation is complete, and the Linux verification commands in [Implementation evidence](#implementation-evidence) pass. The phase remains Planned because the standard TUI PTY acceptance path is gated to Darwin arm64 and cannot run on the Linux verification host.
 
-### Implemented baseline
+### Implemented capability
 
-[PHS-07.1](../07.1-architecture-audit-and-correction/solution.md) establishes the ownership and error-preservation baseline. Source presence and existing test scenarios do not establish completion of the PHS-07 acceptance criteria.
+[PHS-07.1](../07.1-architecture-audit-and-correction/solution.md) establishes the ownership and error-preservation baseline. PHS-07 retains that baseline and adds the selection paths below.
 
-| Requirement group | Implemented owner and public path | Remaining design scope |
+| Requirement group | Implemented owner and public path | Implementation status |
 | --- | --- | --- |
-| FRQ-01 through FRQ-03 | `extensioncontext.Service`, `ExtensionRequest`, SDK `ExtensionContext`, and `modelexecution.Service.Request` provide binding, catalogues, and configured-model requests. | Apply binding protection to selection commits. Keep configured requests independent of active selection. |
-| FRQ-04 | `lifecycle.Service`, `events.Dispatcher`, and `LifecycleInvocation` provide Agent Core observation. | Add model-selection and reasoning-selection observation. |
-| FRQ-05 through FRQ-07 | `providers.Catalog` stores selection. UI and Programmatic usecases call its selection methods directly. | Add shared admission, ordered selection handlers, final validation, and client-neutral publication. |
-| FRQ-08 through FRQ-11, including FRQ-08.1 and FRQ-08.2 | `sessions.Service`, public append/recovery operations, persistence, client projections, and navigation implement extension entries and messages. | Retain these paths and verify them with the completed selection capability. |
-| FRQ-12 | The shared operation runtime and PHS-07.1 preserve complete error causes. | Extend selection category mappings and result diagnostics across all callers. |
-
-The code paths that determine the remaining work are:
-
-- UI: `ui.Session.prepareSelection` performs in-memory validation and reserves a UI-local selection flag. Its execution calls `Catalog.SelectModel` or `Catalog.SelectReasoningChoice` and returns a selection frame.
-- Programmatic: `programmatic.Service.Prepare` validates selection. `selectModel` and `selectReasoningChoice` later call the catalogue. This path has no reservation shared with UI or extension operations.
-- Extension: `controller/extension.Service.Prepare` validates a context reference and accounts for the runtime operation. `ExtensionRequest` has no selection operation yet.
-- Provider catalogue: `Catalog.SelectModel` checks credentials before locking, then computes reasoning fallback and changes selection. `SelectReasoningChoice` changes reasoning under the catalogue lock. Neither invokes extension selection handlers.
-- TUI: `controller/plugin.DecodeCompleted` currently turns selection completion into a presentation-state update. This path must be reconciled with unsolicited extension-originated changes.
+| FRQ-01 through FRQ-03 | `extensioncontext.Service`, `ExtensionRequest`, SDK `ExtensionContext`, and `modelexecution.Service.Request` provide binding, catalogues, and configured-model requests. | Retained behavior. Selection commit uses the same session/runtime binding protection. |
+| FRQ-04 | `lifecycle.Service`, `events.Dispatcher`, and `LifecycleInvocation` provide Agent Core, model-selection, and reasoning-selection observation. | Retained Agent Core observation plus implemented selection observation. |
+| FRQ-05 through FRQ-07 | `modelselection.Service` owns shared admission, ordered handlers, final validation coordination, atomic catalogue commit, client publication, and observer ordering for UI, Programmatic Control, and extension initiators. | Implemented selection behavior. Direct client mutation bypasses are removed. |
+| FRQ-08 through FRQ-11, including FRQ-08.1 and FRQ-08.2 | `sessions.Service`, public append/recovery operations, persistence, client projections, and navigation implement extension entries and messages. | Retained behavior with public regression evidence. |
+| FRQ-12 | The shared operation runtime and PHS-07.1 preserve complete error causes. Selection mappers expose the closed categories and ordered diagnostic sources defined below. | Retained transport behavior plus implemented selection categories. |
 
 ### Ownership and dependency direction
 
@@ -183,22 +175,68 @@ Application assembly constructs one `modelselection` instance per Host. It binds
 
 The implementation changes the Extension protobuf/SDK, extension controller/runtime, startup registration, provider selection methods, both client usecases and output mappings, client protobuf/SDK validation, TUI notification/presentation handling, and the external extension fixture. Agent Core, provider drivers, configured-model execution, and persistence formats gain no new selection responsibility.
 
-### Verification
+### Implementation evidence
 
-Reuse the existing behavioral tests before adding new fixtures. New behavior follows RED, GREEN, and REFACTOR. Tests below assert logic and public outcomes, not document text, prompts, or logs.
+The table maps each [ticket acceptance criterion](ticket.md#acceptance-criteria) to executable behavior. “Retained” identifies behavior implemented before the selection work. “Selection” identifies the new shared selection capability.
 
-| Test group and purpose | Inputs and expected outcomes | Boundary cases and dependencies |
-| --- | --- | --- |
-| Catalogue and selection composition | Reuse `providers/catalog_test.go`, `ui/session_selection_test.go`, and `programmatic/selection_test.go`. Two handlers see one original target and successive current values. Only the final target commits. | Preserve reasoning fallback and catalogue reads during blocked credentials; cover preserve, replace, reject, invalid action, ordinary error, final invalid target, and unchanged selection on failure. Unit tests use generated mocks of production consumer ports. |
-| Shared admission and binding | Overlap requests from different initiators; the second receives `BUSY`. Replace runtime/session during a blocked handler or credential check; a stale extension operation commits nothing. | Include nested selection from a handler and observer, A-to-B-to-A, cancellation before commit, and release after rejection/connection close. Extend context binding and commit-protection tests. |
-| Public Extension Contract | Extend the separate-module fixture to select a model and reasoning choice, register two composing handlers, and observe committed selections. SDK start returns before Host acceptance. | Exercise both operation namespaces, nested catalogue/model/append operations, runtime failure, exact error text, and cancellation. Use the real stream/process integration paths already used by `context_integration_test.go`. |
-| Client state and events | UI and Programmatic receive one committed full selection before observer effects. Both changed fields produce reasoning observation before model observation. No-op produces no selection event. | Delay one completion until after a later commit event; client state retains the later selection. Cover extension initiation, headless operation, active agent requests, and ordinary observer errors. Extend TUI `selection_lifecycle_test.go` and real public-contract tests. |
-| Commit and error delivery | Pre-commit failure preserves state. Post-commit cancellation, observer error, or writer failure retains committed selection and complete diagnostics. | Verify error-category allowlists, long error text, joined source/delivery errors, terminal source retention, and no duplicate TUI issue presentation. Use controlled writers in unit tests and existing real-stream integration fixtures. |
-| Full PHS-07 regression | Retain catalogue, lifecycle, append/recovery, and navigation scenarios across headless, UI, and Programmatic compositions. | Reuse `context_catalogue_modes_integration_test.go`, `lifecycle_observer_modes_integration_test.go`, `session_state_recovery_public_integration_test.go`, and `extension_message_navigation_public_integration_test.go`. Include exact payloads, active branches, hidden transcript filtering, implicit-root navigation, and observer appends. |
+| Criterion | Scope | Executable evidence | Evidence limit |
+| --- | --- | --- | --- |
+| ACC-01 | Retained plus selection | `TestPublicContextCataloguesAcrossApplicationModes`, `TestPublicConfiguredRequestAcrossApplicationModes`, `TestPublicExtensionMessagesAcrossApplicationModes`, and `TestPublicExtensionSelectionAcrossApplicationModes` run headless, UI application assembly, and Programmatic Control against the external fixture. | `TestLifecycleObserverThroughStandardTUI` is integration-tagged but calls `t.Skip` unless the runtime is Darwin arm64. The Linux checks do not establish the real standard TUI PTY path. |
+| ACC-02 | Retained plus selection | `TestPublicRetainedContextNeverReactivates`, `TestBindingsNeverReactivate`, and `TestProtectSelectionCommitRejectsSupersededContext` cover concrete session/runtime replacement and A-to-B-to-A identity. `TestExtensionSelectionRejectsStaleBindingAfterCredentialValidation` and `TestExtensionSelectionRejectsStaleBindingBeforeCommit` cover final protection rejection, complete stale text, and no selection commit. | None on Linux. |
+| ACC-03 | Retained | `TestPublicContextCataloguesAcrossApplicationModes` and `TestCataloguesRevalidateBlockedReads` exercise the public descriptor, provider ordering, active selection, and stale-read paths. | None on Linux. |
+| ACC-04 | Retained | `TestPublicConfiguredRequestAcrossApplicationModes`, `TestConfiguredRequestPassesExactInput`, and the `modelexecution` service tests cover ordered input, terminal content, diagnostics, no tools, and selection independence. | None on Linux. |
+| ACC-05 | Retained | `TestLifecycleObserverAcrossApplicationModes`, `TestServiceObservesEveryLifecycleGroup`, `TestServiceContinuesAfterOrdinaryObserverError`, and the observer cancellation integration tests cover client-first delivery, registration order, continuation, and run release. | The standard TUI PTY instance of ACC-01 remains unavailable on Linux; UI application assembly passes. |
+| ACC-06 | Selection | `TestPublicSelectionHandlersComposeOriginalAndCurrentTargets` and the `modelselection` handler tests cover immutable original, successive current values, preserve, replace, reject, invalid action, ordinary error, cancellation, and runtime loss. | None on Linux. |
+| ACC-07 | Selection | `TestCatalogResolvesValidatesAndCommitsCompleteSelection`, `TestCatalogCommitCancellationPreservesSelection`, `TestCatalogFinalValidationFailurePreservesSelection`, `TestServiceObservesChangedSelectionAfterDelivery`, `TestServiceDoesNotPublishUnchangedSelection`, both stale-binding tests, `TestModelCommandsUseCatalogDuringActiveRun`, and `TestSelectionReadinessAndActiveRunIndependence` cover validation, atomic commit, active-run independence, no-op, reasoning-before-model observation, post-commit issues, and no pre-commit event. | None on Linux. |
+| ACC-08 | Retained | `TestAppendUsesCurrentActiveLeafForEverySupportedEntry`, `TestHistoryProjectsBothExtensionMessageVisibilities`, and `TestPublicExtensionMessagesAcrossApplicationModes` cover implicit-root attachment, persistence fields, model visibility, and client visibility. | None on Linux. |
+| ACC-08.1 | Retained | `TestPublicExtensionRecoversHiddenStateAfterProcessRestart` exercises the external process, restart, exact identities and payloads, parent links, and branch order through the public contract. | None on Linux. |
+| ACC-08.2 | Retained | `TestPublicRetainedContextNeverReactivates`, `TestSessionRecoveryRejectsReplacementDuringRead`, `TestExtensionStateFiltersOneActiveBranch`, and `TestExtensionStateIsCoherentDuringNavigation` cover stale recovery and active-branch filtering. | None on Linux. |
+| ACC-09 | Retained | `TestPublicExtensionMessagesAcrossApplicationModes`, `TestSessionEntryAddedRetainsHiddenTreeStateWithoutTranscriptRendering`, `TestRestoredTranscriptOmitsOnlyHiddenExtensionMessages`, and `TestMapSessionTreeRetainsExtensionMessageState` cover exact text and visibility in both client contracts and the TUI state. | None on Linux. |
+| ACC-10 | Retained | `TestMessageAppendReturnsCommittedEntryWithDeliveryIssue`, `TestMessageAppendWithoutPublisherReportsCommittedDeliveryFailure`, and `TestExtensionMessageAppendCommitsBeforePublication` cover committed results and `DELIVERY_FAILED` without rollback. | None on Linux. |
+| ACC-11 | Retained | `TestProgrammaticNavigationPublishesSnapshotBeforeObserverAppend`, `TestUINavigationPublishesSnapshotBeforeObserverAppend`, and session navigation unit tests cover exact next input, parent or implicit-root destination, summary modes, and no agent run. | None on Linux. |
+| ACC-11.1 | Retained | The two public navigation snapshot tests above and `TestNavigationDeliveryProofSurvivesLateResult` cover progress-before-observer ordering and terminal completion without a replacement snapshot. | None on Linux. |
+| ACC-12 | Retained plus selection | `TestSelectionFailureMappingsUsePublicCodes`, `TestSelectionFailureCodesMatchHostCategories`, `TestFailureCodeForCommandEnforcesClosedSets`, `TestMapExtensionEventPreservesCompleteExternalErrorText`, `TestFailedTerminalSendPreservesCompletionCauses`, `TestSDKPersistenceCleanupUsesCause`, and `TestRendererRuntimeFailurePreservesSource` cover closed selection categories and complete or long errors through Extension, Programmatic, UI, and headless boundaries. | None on Linux. |
+| ACC-13 | Retained plus selection | `TestNestedCatalogueReadsKeepBothReceiveLoopsLive`, both public nested-selection tests, `TestHostDuplicateIDsAndInactiveCancellation`, `TestExternalExitCancelsAndJoinsHostReads`, and the stream-close integration tests cover nested work and shared lifecycle termination. | None on Linux. |
+| ACC-14 | Retained plus selection | Compile-time assertions in `modelselection`, `extensioncontext`, `lifecycle`, catalogue, runtime, and output implementations plus `task lint` (`ifaceguard`) and `task test` enforce consumer-owned interfaces and the import graph. | None on Linux. |
 
-Run `task generate` twice and require no second-run diff. Run `task fmt`, review `task fix_dry_run`, apply accepted fixes, then run `task lint`, `task test`, `task itest`, and `task test-coverage`. Report platform-gated integration scenarios separately; a skipped test is not passing evidence for that scenario.
+The evidence is implemented in the linked ownership areas: [Host application integration tests](../../../../../../host/internal/app), [selection usecase tests](../../../../../../host/internal/usecase/host/modelselection), [extension SDK tests](../../../../../../sdk/plugins/extension/v1), and [standard TUI tests](../../../../../../plugins/ui/tui/internal).
 
-Keep the [roadmap](../../../../../roadmap.md) phase status at Planned until implementation and the [ticket acceptance criteria](ticket.md#acceptance-criteria) pass. The implementation handoff must distinguish preserved baseline behavior from the new selection slice, not remove either from phase acceptance.
+#### Acceptance-closure coverage
+
+The final Linux closure adds only missing regression coverage:
+
+- `TestSelectionAdmissionIsSharedAcrossInitiators` proves that a reservation owned by any of UI, Programmatic Control, or an extension returns `BUSY` to all three initiator paths.
+- `TestExtensionSelectionRejectsStaleBindingAfterCredentialValidation` blocks credential validation, then makes final binding protection return `STALE_CONTEXT` and proves that neither catalogue commit nor client publication occurs. Concrete session/runtime replacement remains covered by the `extensioncontext` tests listed for ACC-02.
+- `TestFailureCodeForCommandEnforcesClosedSets` enumerates all five client-selection failure categories and rejects the agent-run-only `MODEL_FAILED` category.
+
+These tests passed against the implementation without a production-code change. They add acceptance evidence, not new behavior, so no RED failure is claimed.
+
+#### TDD record
+
+Two narrow historical exceptions are recorded:
+
+1. The initial private selection-handler composition tests were added after the first composition implementation. A later public external-process composition scenario produced a valid behavioral RED before its fixture implementation, but that later RED does not rewrite the initial sequence.
+2. Startup routing for model-selection and reasoning-selection observer kinds was implemented before its startup test produced a compiling RED. Removing the routing later proved test sensitivity, but that run was not pre-implementation RED.
+
+All other recorded behavior corrections used compiling behavioral RED runs before production changes. The acceptance-closure tests above found no runtime defect and required no production correction.
+
+#### Verification results
+
+The final Linux closure produced these results:
+
+| Command | Result |
+| --- | --- |
+| `task generate` twice | Passed. Complete tracked and non-ignored untracked file manifests were identical after both runs, with SHA-256 `3ab14b6c401cd51e69e6b218825579bad4d0709ca1796d43b0851eba0a7cb96c`. |
+| `task fmt` | Passed. |
+| `task fix_dry_run` | Passed with no proposed fix. |
+| `task lint` | Passed with zero issues, no `ifaceguard` errors, no vulnerabilities, and zero external-fixture issues. |
+| `task test` | Passed. |
+| `task itest` | Passed on Linux. `TestLifecycleObserverThroughStandardTUI` called `t.Skip` because the runtime was not Darwin arm64; this skip is not passing PTY evidence. |
+| `task test-coverage` | Passed at 84.2%; the required minimum is 80.0%. |
+| `task build` | Passed. |
+| `git diff --check` | Passed. |
+
+These command results do not replace the two approved historical TDD exceptions in the preceding section. No independent deep review is claimed by this implementation evidence. Passing Linux commands are separate from the unavailable Darwin arm64 PTY evidence. The [roadmap](../../../../../roadmap.md) therefore keeps the phase status Planned.
 
 ## Overengineering and Overspecification Considerations
 
@@ -222,6 +260,6 @@ None.
 - [PHS-07.1 solution](../07.1-architecture-audit-and-correction/solution.md) defines the implemented architecture and complete-error baseline.
 - [Shared operation contract](../../../../issues/blocking-contract-operation-processing/solution.md) defines asynchronous lifecycle and category inventories.
 - `api/plugins/extension/v1`, `api/plugins/ui/v1`, and `api/programmatic/v1` contain the public source contracts.
-- `host/internal/usecase/host/providers/catalog.go`, `host/internal/usecase/host/ui/prepared_operations.go`, and `host/internal/usecase/host/programmatic/prepared.go` contain the selection baseline.
+- `host/internal/usecase/host/modelselection`, `host/internal/usecase/host/providers/catalog.go`, `host/internal/usecase/host/ui/prepared_operations.go`, and `host/internal/usecase/host/programmatic/prepared.go` contain the implemented shared selection path.
 - `host/internal/usecase/host/extensioncontext/service.go`, `host/internal/usecase/host/sessions/service.go`, and `host/internal/usecase/host/extensionruntime/context.go` contain binding and commit-protection mechanisms.
 - `plugins/ui/tui/internal/controller/plugin/request_mapping.go` contains client completion and connection-event mapping.

@@ -267,8 +267,9 @@ func (*CanceledError) Unwrap() error
   - `READY-R`: `BASE-R` plus `NOT_READY`.
   - `RUN-R`: `BASE-R` plus `BUSY`.
   - `UI-RUN-R`: `RUN-R` plus `NOT_READY`.
-  - `MODEL-R`: `BASE-R` plus `NOT_FOUND` and `REASONING_UNSUPPORTED`.
+  - `MODEL-R`: `BASE-R` plus `BUSY`, `NOT_FOUND`, and `REASONING_UNSUPPORTED`.
   - `UI-MODEL-R`: `MODEL-R` plus `NOT_READY`.
+  - `EXTENSION-MODEL-R`: `MODEL-R` plus `NOT_READY`, `STALE_CONTEXT`, and `INTERNAL`.
   - `SESSION-R`: `BASE-R` plus `BUSY`.
   - `UI-SESSION-R`: `SESSION-R` plus `NOT_READY`.
   - `CANCEL-R`: `INVALID_ARGUMENT`, `OPERATION_ID_IN_USE`, `TARGET_NOT_ACTIVE`.
@@ -276,12 +277,13 @@ func (*CanceledError) Unwrap() error
 - APC-20: Failed-category sets below are closed. Every set includes `INTERNAL`:
   - `RUN-F`: `PERSISTENCE_UNAVAILABLE`, `INTERNAL`. For accepted Programmatic `UserRequest` and UI `SubmitCommand` failures, a source-classified failure to persist agent history uses `PERSISTENCE_UNAVAILABLE`; other failures use `INTERNAL`. A joined failure containing that persistence cause uses the persistence category and retains every cause's complete text. [PHS-07.1](../../features/initial/phases/07.1-architecture-audit-and-correction/solution.md#source-backed-persistence-classification) implements this distinction with [source and executable evidence](../../features/initial/phases/07.1-architecture-audit-and-correction/solution.md#u7-run-persistence-cause-and-tui-cleanup). Broader logical model-execution categories remain in PHS-06, and provider source classification remains in PHS-12.
   - `AUTH-F`: `AUTHENTICATION_FAILED`, `INTERNAL`.
-  - `MODEL-F`: `CREDENTIAL_UNAVAILABLE`, `INTERNAL`.
+  - `MODEL-F`: `MODEL_UNAVAILABLE`, `CREDENTIAL_UNAVAILABLE`, `EXTENSION_REJECTED`, `EXTENSION_UNAVAILABLE`, `INTERNAL`.
+  - `EXTENSION-MODEL-F`: `MODEL-F` plus `STALE_CONTEXT`.
   - `SESSION-F`: `SESSION_UNAVAILABLE`, `PERSISTENCE_UNAVAILABLE`, `INTERNAL`.
   - `NAVIGATION-F`: `SESSION_UNAVAILABLE`, `PERSISTENCE_UNAVAILABLE`, `MODEL_UNAVAILABLE`, `CREDENTIAL_UNAVAILABLE`, `MODEL_FAILED`, `EXTENSION_INVALID_RESULT`, `EXTENSION_UNAVAILABLE`, `INTERNAL`.
   - `CONNECTION-F`: `EXTENSION_UNAVAILABLE`, `INTERNAL`.
   - `INTERNAL-F`: `INTERNAL`.
-- DEC-12: `BASE-R` preparation validates identifiers and fields without domain work. `READY-R` also requires completed plugin startup. `RUN-R` additionally reserves the agent-run gate. `SESSION-R` additionally reserves the session-mutation gate. `MODEL-R` checks the in-memory model catalogue and reasoning choices; credential access remains in `Run`. Read operations reserve no domain gate. `EXTENSION-R` uses only extension-owned in-memory admission.
+- DEC-12: `BASE-R` preparation validates identifiers and fields without domain work. `READY-R` also requires completed plugin startup. `RUN-R` additionally reserves the agent-run gate. `SESSION-R` additionally reserves the session-mutation gate. `MODEL-R` checks the in-memory model catalogue and reasoning choices and reserves the selection gate shared by all three initiators; credential access remains in `Run`. Read operations reserve no domain gate. `EXTENSION-R` uses only extension-owned in-memory admission.
 
 UI operations:
 
@@ -291,8 +293,8 @@ UI operations:
 | `CancelOperation` | Host or UI SDK | Target is owned and nonterminal; `CANCEL-R` | None | `CancelCompleted` | `INTERNAL` |
 | `SubmitCommand` | Host | Nonempty content and agent-run reservation; `UI-RUN-R` | `AgentEvent` | `SubmitCompleted` | `RUN-F` |
 | `RetryAuthenticationCommand` | Host | Authentication is available; `READY-R` | `AuthorizationRequest` | `AuthenticationCompleted` | `AUTH-F` |
-| `SelectModelCommand` | Host | Required identifiers and in-memory catalogue match; `UI-MODEL-R` | None | `ModelSelectionChanged` | `MODEL-F` |
-| `SelectReasoningChoiceCommand` | Host | Defined supported choice; `UI-MODEL-R` | None | `ModelSelectionChanged` | `MODEL-F` |
+| `SelectModelCommand` | Host | Required identifiers, in-memory catalogue match, and shared selection reservation; `UI-MODEL-R` | None | `ModelSelectionChanged` | `MODEL-F` |
+| `SelectReasoningChoiceCommand` | Host | Defined supported choice and shared selection reservation; `UI-MODEL-R` | None | `ModelSelectionChanged` | `MODEL-F` |
 | `CreateSessionCommand` | Host | Session-mutation reservation; `UI-SESSION-R` | None | `SessionChanged` | `SESSION-F` |
 | `ListSessionsCommand` | Host | `READY-R`; no domain gate | None | `SessionList` | `SESSION-F` |
 | `ResumeSessionCommand` | Host | Nonempty session identifier and session-mutation reservation; `UI-SESSION-R` | None | `SessionChanged` | `SESSION-F` |
@@ -313,8 +315,8 @@ Programmatic Control operations:
 | `GetRunState` | Host | `BASE-R`; no domain gate | None | `RunStateResult` | `INTERNAL` |
 | `GetMessages` | Host | `BASE-R`; no domain gate | None | `MessagesResult` | `INTERNAL-F` |
 | `GetModels` | Host | `BASE-R`; no domain gate | None | `ModelsResult` | `INTERNAL` |
-| `SelectModel` | Host | Required identifiers and in-memory catalogue match; `MODEL-R` | None | `ModelSelectionResult` | `MODEL-F` |
-| `SelectReasoningChoice` | Host | Defined supported choice; `MODEL-R` | None | `ModelSelectionResult` | `MODEL-F` |
+| `SelectModel` | Host | Required identifiers, in-memory catalogue match, and shared selection reservation; `MODEL-R` | None | `ModelSelectionResult` | `MODEL-F` |
+| `SelectReasoningChoice` | Host | Defined supported choice and shared selection reservation; `MODEL-R` | None | `ModelSelectionResult` | `MODEL-F` |
 | `CreateSession` | Host | Session-mutation reservation; `SESSION-R` | None | `SessionInfoResult` | `SESSION-F` |
 | `ListSessions` | Host | `BASE-R`; no domain gate | None | `SessionsResult` | `SESSION-F` |
 | `ResumeSession` | Host | Nonempty session identifier and session-mutation reservation; `SESSION-R` | None | `SessionInfoResult` | `SESSION-F` |
@@ -335,7 +337,9 @@ Extension operations:
 | `RegisterRequest` | Extension SDK | First Host request; `STARTUP-R` | None | `RegisterResponse` | `INTERNAL-F` |
 | `HandleRequest` | Extension SDK | Known handler and matching payload; `EXTENSION-R` | None | `HandleResponse`, including ordinary `HandlerError` | `INTERNAL-F` |
 | `ExecuteRequest` | Extension SDK | Nonempty tool name and valid JSON argument bytes; `EXTENSION-R` | `ToolProgress` | `ToolResult`, including `is_error` | `INTERNAL-F` |
-| `CancelOperation` | Extension SDK | Target is owned and nonterminal; `CANCEL-R` | None | `CancelCompleted` | `INTERNAL` |
+| `SelectModelRequest` | Host | Issued context, required identifiers, in-memory catalogue match, and shared selection reservation; `EXTENSION-MODEL-R` | None | `SelectionResult` | `EXTENSION-MODEL-F` |
+| `SelectReasoningRequest` | Host | Issued context, defined supported choice, and shared selection reservation; `EXTENSION-MODEL-R` | None | `SelectionResult` | `EXTENSION-MODEL-F` |
+| `CancelOperation` | Extension SDK or Host | Target is owned and nonterminal; `CANCEL-R` | None | `CancelCompleted` | `INTERNAL` |
 
 ### Admission and domain ordering
 

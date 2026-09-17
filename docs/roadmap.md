@@ -136,7 +136,7 @@ Status: Planned
 
 Add session-bound extension contexts, configured-model requests, active-selection control, lifecycle events, and public recovery of persisted extension state.
 
-Implementation is partially complete. [PHS-07.1](specs/features/initial/phases/07.1-architecture-audit-and-correction/ticket.md) is complete. The PHS-07 requirements and technical solution are approved, and the implementation dry run found no unresolved design blockers. The remaining selection work is ready for implementation.
+The implementation and required Linux checks are complete. The [technical solution evidence](specs/features/initial/phases/07-extension-context-lifecycle/solution.md#implementation-evidence) maps every acceptance criterion to executable coverage and records the two narrow historical TDD exceptions. Status remains Planned because the standard TUI PTY acceptance path requires Darwin arm64 and is unavailable on the Linux verification host; passing Linux checks do not satisfy that platform gate.
 
 Documents:
 - [Problem Statement](specs/features/initial/phases/07-extension-context-lifecycle/problem.md)

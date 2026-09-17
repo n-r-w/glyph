@@ -117,6 +117,62 @@ func TestExtensionSelectionPreservesProtectionCancellation(t *testing.T) {
 	assert.ErrorIs(t, result.Source, context.Canceled)
 }
 
+// TestExtensionSelectionRejectsStaleBindingAfterCredentialValidation verifies final protection follows slow validation.
+func TestExtensionSelectionRejectsStaleBindingAfterCredentialValidation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange: block credential validation before final binding protection rejects the issued context.
+	controller := gomock.NewController(t)
+	catalog := NewMockCatalog(controller)
+	publisher := NewMockPublisher(controller)
+	protection := NewMockBindingProtection(controller)
+	target := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+	binding := Binding{
+		ExtensionID: "extension", RuntimeID: "runtime",
+		Context: extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"},
+	}
+	validationStarted := make(chan struct{})
+	validationRelease := make(chan struct{})
+	catalog.EXPECT().ResolveModel(target.Provider, target.Model).Return(target, nil)
+	catalog.EXPECT().ValidateSelection(gomock.Any(), target).DoAndReturn(
+		func(_ context.Context, _ model.Selection) error {
+			close(validationStarted)
+			<-validationRelease
+			return nil
+		},
+	)
+	staleErr := NewMockBindingFailure(controller)
+	staleErr.EXPECT().ContextCode().Return(bindingStaleContextCode)
+	staleErr.EXPECT().Error().Return("issued context became stale during credential validation").AnyTimes()
+	protection.EXPECT().ProtectSelectionCommit(gomock.Any(), binding, gomock.Any()).Return(staleErr)
+	service := New(catalog, publisher)
+	service.BindProtection(protection)
+	prepared, err := service.PrepareExtensionSelection(extensioncontroller.SelectionCommand{
+		Kind:        extensioncontroller.SelectionCommandModel,
+		ExtensionID: binding.ExtensionID, RuntimeID: binding.RuntimeID, Context: binding.Context,
+		Provider: target.Provider, Model: target.Model, ReasoningChoice: "",
+	})
+	require.NoError(t, err)
+	resultChannel := make(chan extensioncontroller.SelectionResult, 1)
+
+	// Act: complete blocked credential work, then let final protection reject the stale binding.
+	go func() {
+		resultChannel <- prepared.Run(t.Context())
+	}()
+	<-validationStarted
+	close(validationRelease)
+	result := <-resultChannel
+	prepared.Release()
+
+	// Assert: stale final protection prevents both atomic commit and client publication.
+	assert.False(t, result.Committed)
+	var failure extensioncontroller.SelectionFailure
+	require.ErrorAs(t, result.Source, &failure)
+	assert.Equal(t, ErrorCodeStaleContext, failure.ModelSelectionCode())
+	assert.ErrorIs(t, result.Source, staleErr)
+	assert.Contains(t, result.Source.Error(), "became stale during credential validation")
+}
+
 // TestExtensionSelectionRejectsStaleBindingBeforeCommit verifies stale protection cannot mutate or publish selection.
 func TestExtensionSelectionRejectsStaleBindingBeforeCommit(t *testing.T) {
 	t.Parallel()
@@ -133,7 +189,9 @@ func TestExtensionSelectionRejectsStaleBindingBeforeCommit(t *testing.T) {
 	}
 	catalog.EXPECT().ResolveModel(target.Provider, target.Model).Return(target, nil)
 	catalog.EXPECT().ValidateSelection(gomock.Any(), target).Return(nil)
-	staleErr := staleBindingTestError{cause: errors.New("session incarnation changed")}
+	staleErr := NewMockBindingFailure(controller)
+	staleErr.EXPECT().ContextCode().Return(bindingStaleContextCode)
+	staleErr.EXPECT().Error().Return("session incarnation changed").AnyTimes()
 	protection.EXPECT().ProtectSelectionCommit(gomock.Any(), binding, gomock.Any()).Return(staleErr)
 	service := New(catalog, publisher)
 	service.BindProtection(protection)
@@ -156,18 +214,3 @@ func TestExtensionSelectionRejectsStaleBindingBeforeCommit(t *testing.T) {
 	assert.ErrorIs(t, result.Source, staleErr)
 	assert.Contains(t, result.Source.Error(), "session incarnation changed")
 }
-
-// staleBindingTestError exposes the context category used by the binding owner.
-type staleBindingTestError struct {
-	// cause contains complete stale-binding detail.
-	cause error
-}
-
-// Error returns complete stale-binding text.
-func (e staleBindingTestError) Error() string { return e.cause.Error() }
-
-// Unwrap exposes the original stale-binding cause.
-func (e staleBindingTestError) Unwrap() error { return e.cause }
-
-// ContextCode returns the stable stale-binding category.
-func (e staleBindingTestError) ContextCode() string { return "STALE_CONTEXT" }
