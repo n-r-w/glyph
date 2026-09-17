@@ -71,6 +71,7 @@ func runHeadlessWithPaths(
 	selectionOwner := modelselection.New(providerCatalog, renderer)
 	selectionOwner.BindHandlers(extensions, contexts, renderer)
 	selectionOwner.BindProtection(contexts)
+	selectionOwner.BindObserver(lifecycleObservers)
 	bindExtensionHostFactory(extensionFactory, extensions, contexts, selectionOwner)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	_, startupErr := startupService.Start(ctx, startup.Request{

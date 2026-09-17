@@ -32,6 +32,8 @@ const (
 	SelectionIssueCode_SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION SelectionIssueCode = 2
 	// The committed selection could not be delivered to the client.
 	SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED SelectionIssueCode = 3
+	// A selection observer returned an ordinary error.
+	SelectionIssueCode_SELECTION_ISSUE_CODE_OBSERVER_ERROR SelectionIssueCode = 4
 )
 
 // Enum value maps for SelectionIssueCode.
@@ -41,12 +43,14 @@ var (
 		1: "SELECTION_ISSUE_CODE_HANDLER_ERROR",
 		2: "SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION",
 		3: "SELECTION_ISSUE_CODE_DELIVERY_FAILED",
+		4: "SELECTION_ISSUE_CODE_OBSERVER_ERROR",
 	}
 	SelectionIssueCode_value = map[string]int32{
 		"SELECTION_ISSUE_CODE_UNSPECIFIED":            0,
 		"SELECTION_ISSUE_CODE_HANDLER_ERROR":          1,
 		"SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION": 2,
 		"SELECTION_ISSUE_CODE_DELIVERY_FAILED":        3,
+		"SELECTION_ISSUE_CODE_OBSERVER_ERROR":         4,
 	}
 )
 
@@ -4167,12 +4171,13 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\n" +
 	"cache_read\x18\x04 \x01(\x01R\tcacheRead\x12\x1f\n" +
 	"\vcache_write\x18\x05 \x01(\x01R\n" +
-	"cacheWrite*\xbd\x01\n" +
+	"cacheWrite*\xe6\x01\n" +
 	"\x12SelectionIssueCode\x12$\n" +
 	" SELECTION_ISSUE_CODE_UNSPECIFIED\x10\x00\x12&\n" +
 	"\"SELECTION_ISSUE_CODE_HANDLER_ERROR\x10\x01\x12/\n" +
 	"+SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION\x10\x02\x12(\n" +
-	"$SELECTION_ISSUE_CODE_DELIVERY_FAILED\x10\x03*\x81\x01\n" +
+	"$SELECTION_ISSUE_CODE_DELIVERY_FAILED\x10\x03\x12'\n" +
+	"#SELECTION_ISSUE_CODE_OBSERVER_ERROR\x10\x04*\x81\x01\n" +
 	"\x13ConfiguredModelRole\x12%\n" +
 	"!CONFIGURED_MODEL_ROLE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aCONFIGURED_MODEL_ROLE_USER\x10\x01\x12#\n" +

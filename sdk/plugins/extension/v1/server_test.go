@@ -64,6 +64,34 @@ func TestConfiguredModelFailureCategoriesRemainClosed(t *testing.T) {
 	assert.Contains(t, err.Error(), "complete configured request failure")
 }
 
+// TestSelectionCompletionValidationAcceptsObserverIssue verifies public observer diagnostics reach SDK callers.
+func TestSelectionCompletionValidationAcceptsObserverIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one committed selection with an ordinary observer diagnostic.
+	completed := new(extensionpb.HostCompleted)
+	completed.SetSelection(extensionpb.SelectionResult_builder{
+		Selection: extensionpb.ModelSelection_builder{
+			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("high"),
+		}.Build(),
+		Issues: []*extensionpb.SelectionIssue{extensionpb.SelectionIssue_builder{
+			Code:        new(extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_OBSERVER_ERROR),
+			ExtensionId: new("extension"), HandlerId: new("observer"), Message: new("observer failed"),
+		}.Build()},
+	}.Build())
+	event := new(extensionpb.HostEvent)
+	event.SetCompleted(completed)
+
+	// Act through request-specific SDK validation.
+	mapped, terminal, err := mapHostEvent("selection", hostRequestModelSelection, event)
+
+	// Assert the completed observer diagnostic remains reachable.
+	require.NoError(t, err)
+	assert.True(t, terminal)
+	require.NotNil(t, mapped.Result.GetSelection())
+	assert.Equal(t, "observer failed", mapped.Result.GetSelection().GetIssues()[0].GetMessage())
+}
+
 // TestSelectionCompletionValidationRejectsMalformedPayload verifies required selection and closed issue kinds.
 func TestSelectionCompletionValidationRejectsMalformedPayload(t *testing.T) {
 	t.Parallel()

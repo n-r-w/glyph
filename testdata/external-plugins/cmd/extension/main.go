@@ -85,6 +85,12 @@ type service struct {
 	selectionComposition bool
 	// selectionNested enables nested context operations from a selection handler.
 	selectionNested bool
+	// selectionObservers enables committed selection lifecycle observers.
+	selectionObservers bool
+	// selectionObserverNested enables nested context operations from a selection observer.
+	selectionObserverNested bool
+	// selectionObserverError makes the first reasoning observer fail ordinarily.
+	selectionObserverError bool
 }
 
 // registerOperation returns the fixture catalog.
@@ -93,6 +99,8 @@ type registerOperation struct {
 	lifecycleEnabled bool
 	// selectionComposition adds two composing handlers for each selection request kind.
 	selectionComposition bool
+	// selectionObservers adds model and reasoning selection lifecycle observers.
+	selectionObservers bool
 }
 
 // handleOperation optionally appends one message after a selected navigation commit.
@@ -109,6 +117,12 @@ type handleOperation struct {
 	lifecycle bool
 	// selectionNested enables nested context operations for the model handler.
 	selectionNested bool
+	// selectionObserver reports that this operation observes one committed selection.
+	selectionObserver bool
+	// selectionObserverNested enables nested operations from a selection observer.
+	selectionObserverNested bool
+	// selectionObserverError makes the first reasoning observer fail ordinarily.
+	selectionObserverError bool
 	// signals stores the process synchronization directory.
 	signals string
 }
@@ -144,8 +158,11 @@ func main() {
 	extensionsdk.Serve(&service{
 		signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil,
 		savedMessageID: "", savedCheckpointID: "", lifecycleEnabled: os.Getenv(lifecycleEnvironment) == "1",
-		selectionComposition: os.Getenv(selectionCompositionEnvironment) == "1",
-		selectionNested:      os.Getenv(selectionNestedEnvironment) == "1",
+		selectionComposition:    os.Getenv(selectionCompositionEnvironment) == "1",
+		selectionNested:         os.Getenv(selectionNestedEnvironment) == "1",
+		selectionObservers:      os.Getenv(selectionObserversEnvironment) == "1",
+		selectionObserverNested: os.Getenv(selectionObserverNestedEnvironment) == "1",
+		selectionObserverError:  os.Getenv(selectionObserverErrorEnvironment) == "1",
 	})
 }
 
@@ -156,6 +173,7 @@ func (s *service) PrepareRegister(
 ) (extensionsdk.RegisterOperation, error) {
 	return &registerOperation{
 		lifecycleEnabled: s.lifecycleEnabled, selectionComposition: s.selectionComposition,
+		selectionObservers: s.selectionObservers,
 	}, nil
 }
 
@@ -166,7 +184,7 @@ func (s *service) PrepareHandle(
 ) (extensionsdk.HandleOperation, error) {
 	if request == nil || request.GetHandlerId() != navigationObserverID &&
 		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID &&
-		!isSelectionHandlerID(request.GetHandlerId()) {
+		!isSelectionHandlerID(request.GetHandlerId()) && !isSelectionObserverID(request.GetHandlerId()) {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture handler request is invalid"))
 	}
 	binding, err := extensionsdk.ContextFrom(ctx)
@@ -180,7 +198,9 @@ func (s *service) PrepareHandle(
 	return &handleOperation{
 		context: binding, request: request, expectedMessageID: expectedMessageID,
 		expectedCheckpointID: expectedCheckpointID, lifecycle: request.GetHandlerId() == agentStartObserverID,
-		selectionNested: s.selectionNested, signals: s.signals,
+		selectionNested: s.selectionNested, selectionObserver: isSelectionObserverID(request.GetHandlerId()),
+		selectionObserverNested: s.selectionObserverNested, selectionObserverError: s.selectionObserverError,
+		signals: s.signals,
 	}, nil
 }
 
@@ -235,6 +255,9 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 		}.Build(),
 	}
 	handlers = append(handlers, selectionHandlerDescriptors(operation.selectionComposition)...)
+	if operation.selectionObservers {
+		handlers = append(handlers, selectionObserverDescriptors()...)
+	}
 	if operation.lifecycleEnabled {
 		handlers = append(handlers, extensionv1.HandlerDescriptor_builder{
 			Id: new(agentStartObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_AGENT_START),
@@ -264,6 +287,9 @@ func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleR
 	}
 	if operation.request.GetModelSelection() != nil || operation.request.GetReasoningSelection() != nil {
 		return operation.runSelectionHandler(ctx)
+	}
+	if operation.selectionObserver {
+		return operation.runSelectionObserver(ctx)
 	}
 	if request := operation.request.GetSessionBeforeTreeRequest(); request != nil {
 		if operation.expectedCheckpointID != "" &&

@@ -22,7 +22,27 @@ message LifecycleInvocation {
     ToolExecutionStart tool_execution_start = 9;
     ToolExecutionUpdate tool_execution_update = 10;
     ToolExecutionEnd tool_execution_end = 11;
+    // A committed provider or model selection change.
+    ModelSelectionChanged model_selection = 12;
+    // A committed reasoning selection change.
+    ReasoningSelectionChanged reasoning_selection = 13;
   }
+}
+
+// ModelSelectionChanged carries the detached selection values around one commit.
+message ModelSelectionChanged {
+  // The complete selection before the commit.
+  ModelSelection preceding = 1;
+  // The complete committed selection.
+  ModelSelection committed = 2;
+}
+
+// ReasoningSelectionChanged carries the detached selection values around one commit.
+message ReasoningSelectionChanged {
+  // The complete selection before the commit.
+  ModelSelection preceding = 1;
+  // The complete committed selection.
+  ModelSelection committed = 2;
 }
 
 // LifecycleAction acknowledges one observed lifecycle event.

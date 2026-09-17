@@ -446,7 +446,9 @@ func handlerKindMatches(kind extensionpb.HandlerKind, request *extensionpb.Handl
 		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_END,
 		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_START,
 		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_UPDATE,
-		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END:
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END,
+		extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER,
+		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER:
 		return lifecycleKindMatches(kind, request.GetLifecycle())
 	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED:
 		return false
@@ -460,6 +462,22 @@ func lifecycleKindMatches(kind extensionpb.HandlerKind, invocation *extensionpb.
 	if invocation == nil {
 		return false
 	}
+	if kind == extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER ||
+		kind == extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER {
+		return selectionLifecycleKindMatches(kind, invocation)
+	}
+	if kind >= extensionpb.HandlerKind_HANDLER_KIND_AGENT_START &&
+		kind <= extensionpb.HandlerKind_HANDLER_KIND_TURN_END {
+		return boundaryLifecycleKindMatches(kind, invocation)
+	}
+	return transitionLifecycleKindMatches(kind, invocation)
+}
+
+// boundaryLifecycleKindMatches checks agent, settlement, and turn lifecycle payloads.
+func boundaryLifecycleKindMatches(
+	kind extensionpb.HandlerKind,
+	invocation *extensionpb.LifecycleInvocation,
+) bool {
 	switch kind {
 	case extensionpb.HandlerKind_HANDLER_KIND_AGENT_START:
 		return invocation.GetAgentStart() != nil
@@ -471,6 +489,32 @@ func lifecycleKindMatches(kind extensionpb.HandlerKind, invocation *extensionpb.
 		return invocation.GetTurnStart() != nil
 	case extensionpb.HandlerKind_HANDLER_KIND_TURN_END:
 		return invocation.GetTurnEnd() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE,
+		extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION,
+		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_START,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_UPDATE,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_END,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_START,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_UPDATE,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END,
+		extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER,
+		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER:
+		return false
+	default:
+		return false
+	}
+}
+
+// transitionLifecycleKindMatches checks message and tool lifecycle payloads.
+func transitionLifecycleKindMatches(
+	kind extensionpb.HandlerKind,
+	invocation *extensionpb.LifecycleInvocation,
+) bool {
+	switch kind {
 	case extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_START:
 		return invocation.GetMessageStart() != nil
 	case extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_UPDATE:
@@ -488,7 +532,47 @@ func lifecycleKindMatches(kind extensionpb.HandlerKind, invocation *extensionpb.
 		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT,
 		extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE,
 		extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION,
-		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION:
+		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION,
+		extensionpb.HandlerKind_HANDLER_KIND_AGENT_START,
+		extensionpb.HandlerKind_HANDLER_KIND_AGENT_END,
+		extensionpb.HandlerKind_HANDLER_KIND_AGENT_SETTLED,
+		extensionpb.HandlerKind_HANDLER_KIND_TURN_START,
+		extensionpb.HandlerKind_HANDLER_KIND_TURN_END,
+		extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER,
+		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER:
+		return false
+	default:
+		return false
+	}
+}
+
+// selectionLifecycleKindMatches checks the two Host selection lifecycle payloads.
+func selectionLifecycleKindMatches(
+	kind extensionpb.HandlerKind,
+	invocation *extensionpb.LifecycleInvocation,
+) bool {
+	switch kind {
+	case extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER:
+		return invocation.GetModelSelection() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER:
+		return invocation.GetReasoningSelection() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_UNSPECIFIED,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT,
+		extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE,
+		extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION,
+		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION,
+		extensionpb.HandlerKind_HANDLER_KIND_AGENT_START,
+		extensionpb.HandlerKind_HANDLER_KIND_AGENT_END,
+		extensionpb.HandlerKind_HANDLER_KIND_AGENT_SETTLED,
+		extensionpb.HandlerKind_HANDLER_KIND_TURN_START,
+		extensionpb.HandlerKind_HANDLER_KIND_TURN_END,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_START,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_UPDATE,
+		extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_END,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_START,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_UPDATE,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_END:
 		return false
 	default:
 		return false

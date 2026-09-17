@@ -15,10 +15,22 @@ const (
 	selectionCompositionEnvironment = "GLYPH_EXTERNAL_SELECTION_COMPOSITION"
 	// selectionNestedEnvironment enables nested public operations from a selection handler.
 	selectionNestedEnvironment = "GLYPH_EXTERNAL_SELECTION_NESTED"
+	// selectionObserversEnvironment enables committed selection lifecycle observers.
+	selectionObserversEnvironment = "GLYPH_EXTERNAL_SELECTION_OBSERVERS"
+	// selectionObserverNestedEnvironment enables nested public operations from a selection observer.
+	selectionObserverNestedEnvironment = "GLYPH_EXTERNAL_SELECTION_OBSERVER_NESTED"
+	// selectionObserverErrorEnvironment makes the first reasoning observer fail ordinarily.
+	selectionObserverErrorEnvironment = "GLYPH_EXTERNAL_SELECTION_OBSERVER_ERROR"
 	// nestedSelectionCompleteSignal marks successful nested operation checks.
 	nestedSelectionCompleteSignal = "nested-selection-complete"
 	// nestedSelectionBusyCode is the expected recursive selection rejection.
 	nestedSelectionBusyCode = "BUSY"
+	// nestedSelectionObserverCompleteSignal marks successful nested observer operation checks.
+	nestedSelectionObserverCompleteSignal = "nested-selection-observer-complete"
+	// reasoningSelectionObservedSignal marks one completed reasoning selection observation.
+	reasoningSelectionObservedSignal = "reasoning-selection-observed"
+	// laterReasoningSelectionObservedSignal marks continuation after the first reasoning observer.
+	laterReasoningSelectionObservedSignal = "reasoning-selection-later-observed"
 	// nestedSelectionEntryType identifies the nested handler append.
 	nestedSelectionEntryType = "nested-selection"
 	// nestedSelectionEntryText is the exact nested handler message.
@@ -31,6 +43,12 @@ const (
 	reasoningSelectionFirstHandlerID = "compose-reasoning-first"
 	// reasoningSelectionSecondHandlerID identifies the second composing reasoning handler.
 	reasoningSelectionSecondHandlerID = "compose-reasoning-second"
+	// modelSelectionObserverID identifies the committed model-selection observer.
+	modelSelectionObserverID = "observe-model-selection"
+	// reasoningSelectionObserverID identifies the first committed reasoning-selection observer.
+	reasoningSelectionObserverID = "observe-reasoning-selection"
+	// reasoningSelectionLaterObserverID identifies the later reasoning-selection observer.
+	reasoningSelectionLaterObserverID = "observe-reasoning-selection-later"
 	// selectionProviderID is the provider expected by public composition scenarios.
 	selectionProviderID = "openai-codex"
 	// selectionModelID is the model expected by public composition scenarios.
@@ -72,6 +90,29 @@ func selectionHandlerDescriptors(composition bool) []*extensionv1.HandlerDescrip
 			Kind: new(extensionv1.HandlerKind_HANDLER_KIND_REASONING_SELECTION),
 		}.Build(),
 	}
+}
+
+// selectionObserverDescriptors returns the committed selection lifecycle observer declarations.
+func selectionObserverDescriptors() []*extensionv1.HandlerDescriptor {
+	return []*extensionv1.HandlerDescriptor{
+		extensionv1.HandlerDescriptor_builder{
+			Id: new(modelSelectionObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER),
+		}.Build(),
+		extensionv1.HandlerDescriptor_builder{
+			Id:   new(reasoningSelectionObserverID),
+			Kind: new(extensionv1.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER),
+		}.Build(),
+		extensionv1.HandlerDescriptor_builder{
+			Id:   new(reasoningSelectionLaterObserverID),
+			Kind: new(extensionv1.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER),
+		}.Build(),
+	}
+}
+
+// isSelectionObserverID reports whether an identifier belongs to the fixture's selection observers.
+func isSelectionObserverID(handlerID string) bool {
+	return handlerID == modelSelectionObserverID || handlerID == reasoningSelectionObserverID ||
+		handlerID == reasoningSelectionLaterObserverID
 }
 
 // isSelectionHandlerID reports whether an identifier belongs to the fixture's selection handlers.
@@ -123,6 +164,64 @@ func (operation *handleOperation) runSelectionHandler(ctx context.Context) (*ext
 		Reject: nil,
 	}.Build()
 	return selectionActionResponse(modelHandler, action), nil
+}
+
+// runSelectionObserver validates detached commit values and optionally exercises nested Host operations.
+func (operation *handleOperation) runSelectionObserver(ctx context.Context) (*extensionv1.HandleResponse, error) {
+	signalName, err := selectionObserverSignal(operation.request)
+	if err != nil {
+		return nil, err
+	}
+	if operation.selectionObserverError && operation.request.GetHandlerId() == reasoningSelectionObserverID {
+		response := new(extensionv1.HandleResponse)
+		response.SetError(extensionv1.HandlerError_builder{Message: new("public reasoning observer failed")}.Build())
+		return response, nil
+	}
+	if operation.selectionObserverNested && operation.request.GetHandlerId() == reasoningSelectionObserverID {
+		if nestedErr := operation.runNestedSelectionOperations(ctx); nestedErr != nil {
+			return nil, nestedErr
+		}
+		signal(operation.signals, nestedSelectionObserverCompleteSignal)
+	}
+	signal(operation.signals, signalName)
+	response := new(extensionv1.HandleResponse)
+	response.SetLifecycle(new(extensionv1.LifecycleAction))
+	return response, nil
+}
+
+// selectionObserverSignal validates one typed selection lifecycle payload and returns its success signal.
+func selectionObserverSignal(request *extensionv1.HandleRequest) (string, error) {
+	invocation := request.GetLifecycle()
+	if invocation == nil {
+		return "", errors.New("selection lifecycle invocation is missing")
+	}
+	var preceding *extensionv1.ModelSelection
+	var committed *extensionv1.ModelSelection
+	signalName := "model-selection-observed"
+	if request.GetHandlerId() == reasoningSelectionObserverID ||
+		request.GetHandlerId() == reasoningSelectionLaterObserverID {
+		change := invocation.GetReasoningSelection()
+		if change == nil {
+			return "", errors.New("reasoning selection lifecycle payload is missing")
+		}
+		preceding = change.GetPreceding()
+		committed = change.GetCommitted()
+		signalName = reasoningSelectionObservedSignal
+	} else {
+		change := invocation.GetModelSelection()
+		if change == nil {
+			return "", errors.New("model selection lifecycle payload is missing")
+		}
+		preceding = change.GetPreceding()
+		committed = change.GetCommitted()
+	}
+	if preceding == nil || committed == nil || preceding.GetProviderId() == "" || committed.GetProviderId() == "" {
+		return "", errors.New("selection lifecycle values are incomplete")
+	}
+	if request.GetHandlerId() == reasoningSelectionLaterObserverID {
+		signalName = laterReasoningSelectionObservedSignal
+	}
+	return signalName, nil
 }
 
 // selectionValidationResponse maps an invalid invocation to an ordinary handler-error result.

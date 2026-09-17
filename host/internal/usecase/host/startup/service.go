@@ -261,7 +261,8 @@ func isSessionTreeKind(kind RawHandlerKind) bool {
 
 // isLifecycleKind reports whether lifecycle policy owns one kind.
 func isLifecycleKind(kind RawHandlerKind) bool {
-	return kind >= RawHandlerKindAgentStart && kind <= RawHandlerKindToolExecutionEnd
+	return kind >= RawHandlerKindAgentStart && kind <= RawHandlerKindToolExecutionEnd ||
+		kind == RawHandlerKindModelSelectionObserver || kind == RawHandlerKindReasoningSelectionObserver
 }
 
 // isSelectionKind reports whether active-selection policy owns one kind.

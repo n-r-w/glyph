@@ -43,6 +43,7 @@ func TestSelectionRequestUsesDirectSelectionPort(t *testing.T) {
 				ExtensionID: "second", HandlerID: "handler-b", Code: "INVALID_HANDLER_ACTION",
 				Message: "second issue",
 			},
+			{ExtensionID: "third", HandlerID: "observer", Code: "OBSERVER_ERROR", Message: "third issue"},
 		},
 		Source: nil,
 	})
@@ -69,7 +70,7 @@ func TestSelectionRequestUsesDirectSelectionPort(t *testing.T) {
 	assert.Equal(t, "provider", result.GetSelection().GetSelection().GetProviderId())
 	assert.Equal(t, "model", result.GetSelection().GetSelection().GetModelId())
 	assert.Equal(t, "high", result.GetSelection().GetSelection().GetReasoningChoice())
-	require.Len(t, result.GetSelection().GetIssues(), 2)
+	require.Len(t, result.GetSelection().GetIssues(), 3)
 	assert.Equal(
 		t,
 		extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_HANDLER_ERROR,
@@ -80,6 +81,11 @@ func TestSelectionRequestUsesDirectSelectionPort(t *testing.T) {
 		t,
 		extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION,
 		result.GetSelection().GetIssues()[1].GetCode(),
+	)
+	assert.Equal(
+		t,
+		extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_OBSERVER_ERROR,
+		result.GetSelection().GetIssues()[2].GetCode(),
 	)
 }
 

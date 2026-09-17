@@ -99,17 +99,19 @@ func (r selectionResult) source() error {
 		return r.err
 	}
 	causes := make([]error, 0, len(r.issues)+1)
+	deliveryAdded := false
 	for _, issue := range r.issues {
+		if issue.Code == IssueCodeObserverError && r.deliveryErr != nil && !deliveryAdded {
+			causes = append(causes, r.deliveryErr)
+			deliveryAdded = true
+		}
 		causes = append(causes, issue.Err)
 	}
-	causes = append(causes, r.deliveryErr)
+	if !deliveryAdded {
+		causes = append(causes, r.deliveryErr)
+	}
 	return errors.Join(causes...)
 }
-
-const (
-	// deliveryFailedIssueCode identifies a failed committed-state publication.
-	deliveryFailedIssueCode = "DELIVERY_FAILED"
-)
 
 // projectedIssue is the consumer-neutral value used only while projecting private results.
 type projectedIssue struct {
@@ -129,14 +131,21 @@ func projectIssues(result selectionResult) []projectedIssue {
 		return nil
 	}
 	projected := make([]projectedIssue, 0, len(result.issues)+1)
+	deliveryAdded := false
 	for _, issue := range result.issues {
+		if issue.Code == IssueCodeObserverError && result.deliveryErr != nil && !deliveryAdded {
+			projected = append(projected, projectedIssue{
+				code: IssueCodeDeliveryFailed, extensionID: "", handlerID: "", message: result.deliveryErr.Error(),
+			})
+			deliveryAdded = true
+		}
 		projected = append(projected, projectedIssue{
 			code: issue.Code, extensionID: issue.ExtensionID, handlerID: issue.HandlerID, message: issue.Err.Error(),
 		})
 	}
-	if result.deliveryErr != nil {
+	if result.deliveryErr != nil && !deliveryAdded {
 		projected = append(projected, projectedIssue{
-			code: deliveryFailedIssueCode, extensionID: "", handlerID: "", message: result.deliveryErr.Error(),
+			code: IssueCodeDeliveryFailed, extensionID: "", handlerID: "", message: result.deliveryErr.Error(),
 		})
 	}
 	return projected
@@ -154,8 +163,10 @@ func mapUIIssues(result selectionResult) []hostui.ModelSelectionIssue {
 		switch issue.code {
 		case IssueCodeInvalidHandlerAction:
 			kind = hostui.ModelSelectionIssueInvalidHandlerAction
-		case deliveryFailedIssueCode:
+		case IssueCodeDeliveryFailed:
 			kind = hostui.ModelSelectionIssueDeliveryFailed
+		case IssueCodeObserverError:
+			kind = hostui.ModelSelectionIssueObserverError
 		case IssueCodeHandlerError:
 		}
 		mapped = append(mapped, hostui.ModelSelectionIssue{
@@ -177,8 +188,10 @@ func mapProgrammaticIssues(result selectionResult) []hostprogrammatic.ModelSelec
 		switch issue.code {
 		case IssueCodeInvalidHandlerAction:
 			kind = hostprogrammatic.ModelSelectionIssueInvalidHandlerAction
-		case deliveryFailedIssueCode:
+		case IssueCodeDeliveryFailed:
 			kind = hostprogrammatic.ModelSelectionIssueDeliveryFailed
+		case IssueCodeObserverError:
+			kind = hostprogrammatic.ModelSelectionIssueObserverError
 		case IssueCodeHandlerError:
 		}
 		mapped = append(mapped, hostprogrammatic.ModelSelectionIssue{

@@ -126,6 +126,10 @@ const (
 	RawHandlerKindModelSelection RawHandlerKind = 15
 	// RawHandlerKindReasoningSelection identifies a reasoning-selection request handler.
 	RawHandlerKindReasoningSelection RawHandlerKind = 16
+	// RawHandlerKindModelSelectionObserver identifies a committed model-selection observer.
+	RawHandlerKindModelSelectionObserver RawHandlerKind = 17
+	// RawHandlerKindReasoningSelectionObserver identifies a committed reasoning-selection observer.
+	RawHandlerKindReasoningSelectionObserver RawHandlerKind = 18
 )
 
 // RawHandlerDescriptor contains transport-mapped handler registration data.

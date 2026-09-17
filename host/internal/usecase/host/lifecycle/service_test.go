@@ -17,6 +17,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
@@ -229,6 +230,241 @@ func TestServiceContinuesAfterOrdinaryObserverError(t *testing.T) {
 	// Assert the issue is nonterminal and later observers still run in order.
 	require.NoError(t, err)
 	assert.Equal(t, []string{"first", "issue", "second"}, order)
+}
+
+// TestServiceSelectionObserversReturnOrderedIssues verifies ordinary failures remain nonterminal diagnostics.
+func TestServiceSelectionObserversReturnOrderedIssues(t *testing.T) {
+	t.Parallel()
+
+	// Arrange two model-selection observers where the first reports one ordinary failure.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntime(controller)
+	contexts := NewMockContextIssuer(controller)
+	issueDelivery := NewMockIssueDelivery(controller)
+	service := New(runtime, contexts)
+	service.BindIssueDelivery(issueDelivery)
+	service.CommitLifecycleHandlers([]startup.AcceptedRegistration{
+		{
+			ID:       "first",
+			Path:     "/first",
+			Tools:    nil,
+			Handlers: []startup.AcceptedHandler{{ID: "broken", Kind: startup.RawHandlerKindModelSelectionObserver}},
+		},
+		{
+			ID:       "second",
+			Path:     "/second",
+			Tools:    nil,
+			Handlers: []startup.AcceptedHandler{{ID: "later", Kind: startup.RawHandlerKindModelSelectionObserver}},
+		},
+	})
+	firstBinding := extension.Context{
+		ID:                "one",
+		ExtensionID:       "first",
+		RuntimeInstanceID: "runtime-one",
+		SessionID:         "session",
+		WorkingDirectory:  "/cwd",
+	}
+	secondBinding := extension.Context{
+		ID:                "two",
+		ExtensionID:       "second",
+		RuntimeInstanceID: "runtime-two",
+		SessionID:         "session",
+		WorkingDirectory:  "/cwd",
+	}
+	change := modelselection.SelectionChange{
+		Preceding: model.Selection{Provider: "old", Model: "old-model", ReasoningChoice: model.ReasoningChoiceLow},
+		Committed: model.Selection{Provider: "new", Model: "new-model", ReasoningChoice: model.ReasoningChoiceHigh},
+	}
+	observerErr := errors.New("selection observer failed: exact cause")
+	order := make([]string, 0, 3)
+	runtime.EXPECT().HandlerRuntimeAvailable("first").Return(true)
+	contexts.EXPECT().IssueContext("first").Return(firstBinding, nil)
+	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "first", "broken", firstBinding, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, _ string, _ extension.Context, event Event) (bool, error) {
+			order = append(order, "first")
+			assert.True(t, event.SelectionEvent)
+			assert.Equal(t, change, event.Selection)
+			return false, observerErr
+		},
+	)
+	issueDelivery.EXPECT().DeliverExtensionIssue(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, issue Issue) error {
+			order = append(order, "issue")
+			assert.Equal(t, IssueCodeObserverError, issue.Code)
+			assert.ErrorIs(t, issue.Err, observerErr)
+			return nil
+		},
+	)
+	runtime.EXPECT().HandlerRuntimeAvailable("second").Return(true)
+	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil)
+	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "second", "later", secondBinding, gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, _ string, _ extension.Context, event Event) (bool, error) {
+			order = append(order, "second")
+			assert.Equal(t, change, event.Selection)
+			return false, nil
+		},
+	)
+
+	// Act through the selection-specific lifecycle boundary.
+	result := service.ObserveSelection(t.Context(), modelselection.ObservationKindModel, change)
+
+	// Assert the ordinary failure is returned in order and does not stop the later observer.
+	assert.Equal(t, []string{"first", "issue", "second"}, order)
+	require.Len(t, result, 1)
+	assert.Equal(t, "first", result[0].ExtensionID)
+	assert.Equal(t, "broken", result[0].HandlerID)
+	assert.Equal(t, IssueCodeObserverError, result[0].Code)
+	assert.ErrorIs(t, result[0].Err, observerErr)
+}
+
+// TestSelectionObserverContextRaceRetainsCauseAndContinues verifies binding races stay diagnostic.
+func TestSelectionObserverContextRaceRetainsCauseAndContinues(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one context issuance failure concurrent with runtime loss, followed by one available observer.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntime(controller)
+	contexts := NewMockContextIssuer(controller)
+	service := New(runtime, contexts)
+	service.CommitLifecycleHandlers([]startup.AcceptedRegistration{
+		{ID: "first", Path: "/first", Tools: nil, Handlers: []startup.AcceptedHandler{{
+			ID: "racing", Kind: startup.RawHandlerKindModelSelectionObserver,
+		}}},
+		{ID: "second", Path: "/second", Tools: nil, Handlers: []startup.AcceptedHandler{{
+			ID: "later", Kind: startup.RawHandlerKindModelSelectionObserver,
+		}}},
+	})
+	contextErr := errors.New("selection observer context became stale")
+	secondBinding := extension.Context{
+		ID: "second-context", ExtensionID: "second", RuntimeInstanceID: "second-runtime",
+		SessionID: "session", WorkingDirectory: "/cwd",
+	}
+	runtime.EXPECT().HandlerRuntimeAvailable("first").Return(true)
+	contexts.EXPECT().IssueContext("first").Return(extension.Context{}, contextErr)
+	runtime.EXPECT().HandlerRuntimeAvailable("first").Return(false)
+	runtime.EXPECT().HandlerRuntimeAvailable("second").Return(true)
+	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil)
+	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "second", "later", secondBinding, gomock.Any()).Return(false, nil)
+
+	// Act through committed model-selection observation.
+	result := service.ObserveSelection(t.Context(), modelselection.ObservationKindModel, modelselection.SelectionChange{
+		Preceding: model.Selection{Provider: "old", Model: "old", ReasoningChoice: model.ReasoningChoiceLow},
+		Committed: model.Selection{Provider: "new", Model: "new", ReasoningChoice: model.ReasoningChoiceLow},
+	})
+
+	// Assert the acquired context cause remains reachable while the later observer still runs.
+	require.Len(t, result, 1)
+	assert.Equal(t, modelselection.IssueCodeObserverError, result[0].Code)
+	assert.ErrorIs(t, result[0].Err, contextErr)
+}
+
+// TestSelectionObserverRuntimeFailureRetainsCauseAndContinues verifies post-commit runtime loss stays diagnostic.
+func TestSelectionObserverRuntimeFailureRetainsCauseAndContinues(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one observer runtime failure followed by one available observer.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntime(controller)
+	contexts := NewMockContextIssuer(controller)
+	service := New(runtime, contexts)
+	service.CommitLifecycleHandlers([]startup.AcceptedRegistration{
+		{ID: "first", Path: "/first", Tools: nil, Handlers: []startup.AcceptedHandler{{
+			ID: "crash", Kind: startup.RawHandlerKindModelSelectionObserver,
+		}}},
+		{ID: "second", Path: "/second", Tools: nil, Handlers: []startup.AcceptedHandler{{
+			ID: "later", Kind: startup.RawHandlerKindModelSelectionObserver,
+		}}},
+	})
+	firstBinding := extension.Context{
+		ID: "first-context", ExtensionID: "first", RuntimeInstanceID: "first-runtime",
+		SessionID: "session", WorkingDirectory: "/cwd",
+	}
+	secondBinding := extension.Context{
+		ID: "second-context", ExtensionID: "second", RuntimeInstanceID: "second-runtime",
+		SessionID: "session", WorkingDirectory: "/cwd",
+	}
+	runtimeErr := errors.New("selection observer runtime exited")
+	order := make([]string, 0, 2)
+	runtime.EXPECT().HandlerRuntimeAvailable("first").Return(true)
+	contexts.EXPECT().IssueContext("first").Return(firstBinding, nil)
+	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "first", "crash", firstBinding, gomock.Any()).DoAndReturn(
+		func(context.Context, string, string, extension.Context, Event) (bool, error) {
+			order = append(order, "first")
+			return true, runtimeErr
+		},
+	)
+	runtime.EXPECT().HandlerRuntimeAvailable("second").Return(true)
+	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil)
+	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "second", "later", secondBinding, gomock.Any()).DoAndReturn(
+		func(context.Context, string, string, extension.Context, Event) (bool, error) {
+			order = append(order, "second")
+			return false, nil
+		},
+	)
+
+	// Act through committed model-selection observation.
+	result := service.ObserveSelection(t.Context(), modelselection.ObservationKindModel, modelselection.SelectionChange{
+		Preceding: model.Selection{Provider: "old", Model: "old", ReasoningChoice: model.ReasoningChoiceLow},
+		Committed: model.Selection{Provider: "new", Model: "new", ReasoningChoice: model.ReasoningChoiceLow},
+	})
+
+	// Assert runtime failure remains reachable while the later observer still runs.
+	assert.Equal(t, []string{"first", "second"}, order)
+	require.Len(t, result, 1)
+	assert.Equal(t, modelselection.IssueCodeObserverError, result[0].Code)
+	assert.ErrorIs(t, result[0].Err, runtimeErr)
+}
+
+// TestSelectionObserverIssueDeliveryFailureRetainsBothCauses verifies undelivered diagnostics stay complete.
+func TestSelectionObserverIssueDeliveryFailureRetainsBothCauses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one ordinary observer failure followed by failed client issue delivery.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntime(controller)
+	contexts := NewMockContextIssuer(controller)
+	delivery := NewMockIssueDelivery(controller)
+	service := New(runtime, contexts)
+	service.BindIssueDelivery(delivery)
+	service.CommitLifecycleHandlers([]startup.AcceptedRegistration{{
+		ID: "extension", Path: "/extension", Tools: nil,
+		Handlers: []startup.AcceptedHandler{{
+			ID: "observer", Kind: startup.RawHandlerKindReasoningSelectionObserver,
+		}},
+	}})
+	binding := extension.Context{
+		ID: "context", ExtensionID: "extension", RuntimeInstanceID: "runtime",
+		SessionID: "session", WorkingDirectory: "/cwd",
+	}
+	observerErr := errors.New("observer source failed")
+	deliveryErr := errors.New("client issue delivery failed")
+	runtime.EXPECT().HandlerRuntimeAvailable("extension").Return(true)
+	contexts.EXPECT().IssueContext("extension").Return(binding, nil)
+	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "extension", "observer", binding, gomock.Any()).Return(
+		false, observerErr,
+	)
+	delivery.EXPECT().DeliverExtensionIssue(gomock.Any(), gomock.Any()).Return(deliveryErr)
+
+	// Act through detached post-commit observation.
+	result := service.ObserveSelection(
+		t.Context(),
+		modelselection.ObservationKindReasoning,
+		modelselection.SelectionChange{
+			Preceding: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow},
+			Committed: model.Selection{
+				Provider:        "provider",
+				Model:           "model",
+				ReasoningChoice: model.ReasoningChoiceHigh,
+			},
+		},
+	)
+
+	// Assert ordered observer and delivery issues retain both independent source causes.
+	require.Len(t, result, 2)
+	assert.Equal(t, modelselection.IssueCodeObserverError, result[0].Code)
+	assert.Equal(t, modelselection.IssueCodeDeliveryFailed, result[1].Code)
+	assert.ErrorIs(t, result[1].Err, observerErr)
+	assert.ErrorIs(t, result[1].Err, deliveryErr)
 }
 
 // TestServiceTreatsIndependentObserverCancellationAsIssue verifies remote cancellation does not cancel Agent Core.

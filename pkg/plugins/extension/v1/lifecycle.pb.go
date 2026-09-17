@@ -216,6 +216,24 @@ func (x *LifecycleInvocation) GetToolExecutionEnd() *ToolExecutionEnd {
 	return nil
 }
 
+func (x *LifecycleInvocation) GetModelSelection() *ModelSelectionChanged {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*lifecycleInvocation_ModelSelection); ok {
+			return x.ModelSelection
+		}
+	}
+	return nil
+}
+
+func (x *LifecycleInvocation) GetReasoningSelection() *ReasoningSelectionChanged {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Event.(*lifecycleInvocation_ReasoningSelection); ok {
+			return x.ReasoningSelection
+		}
+	}
+	return nil
+}
+
 func (x *LifecycleInvocation) SetAgentStart(v *AgentStart) {
 	if v == nil {
 		x.xxx_hidden_Event = nil
@@ -302,6 +320,22 @@ func (x *LifecycleInvocation) SetToolExecutionEnd(v *ToolExecutionEnd) {
 		return
 	}
 	x.xxx_hidden_Event = &lifecycleInvocation_ToolExecutionEnd{v}
+}
+
+func (x *LifecycleInvocation) SetModelSelection(v *ModelSelectionChanged) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &lifecycleInvocation_ModelSelection{v}
+}
+
+func (x *LifecycleInvocation) SetReasoningSelection(v *ReasoningSelectionChanged) {
+	if v == nil {
+		x.xxx_hidden_Event = nil
+		return
+	}
+	x.xxx_hidden_Event = &lifecycleInvocation_ReasoningSelection{v}
 }
 
 func (x *LifecycleInvocation) HasEvent() bool {
@@ -399,6 +433,22 @@ func (x *LifecycleInvocation) HasToolExecutionEnd() bool {
 	return ok
 }
 
+func (x *LifecycleInvocation) HasModelSelection() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*lifecycleInvocation_ModelSelection)
+	return ok
+}
+
+func (x *LifecycleInvocation) HasReasoningSelection() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Event.(*lifecycleInvocation_ReasoningSelection)
+	return ok
+}
+
 func (x *LifecycleInvocation) ClearEvent() {
 	x.xxx_hidden_Event = nil
 }
@@ -469,6 +519,18 @@ func (x *LifecycleInvocation) ClearToolExecutionEnd() {
 	}
 }
 
+func (x *LifecycleInvocation) ClearModelSelection() {
+	if _, ok := x.xxx_hidden_Event.(*lifecycleInvocation_ModelSelection); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
+func (x *LifecycleInvocation) ClearReasoningSelection() {
+	if _, ok := x.xxx_hidden_Event.(*lifecycleInvocation_ReasoningSelection); ok {
+		x.xxx_hidden_Event = nil
+	}
+}
+
 const LifecycleInvocation_Event_not_set_case case_LifecycleInvocation_Event = 0
 const LifecycleInvocation_AgentStart_case case_LifecycleInvocation_Event = 1
 const LifecycleInvocation_AgentEnd_case case_LifecycleInvocation_Event = 2
@@ -481,6 +543,8 @@ const LifecycleInvocation_MessageEnd_case case_LifecycleInvocation_Event = 8
 const LifecycleInvocation_ToolExecutionStart_case case_LifecycleInvocation_Event = 9
 const LifecycleInvocation_ToolExecutionUpdate_case case_LifecycleInvocation_Event = 10
 const LifecycleInvocation_ToolExecutionEnd_case case_LifecycleInvocation_Event = 11
+const LifecycleInvocation_ModelSelection_case case_LifecycleInvocation_Event = 12
+const LifecycleInvocation_ReasoningSelection_case case_LifecycleInvocation_Event = 13
 
 func (x *LifecycleInvocation) WhichEvent() case_LifecycleInvocation_Event {
 	if x == nil {
@@ -509,6 +573,10 @@ func (x *LifecycleInvocation) WhichEvent() case_LifecycleInvocation_Event {
 		return LifecycleInvocation_ToolExecutionUpdate_case
 	case *lifecycleInvocation_ToolExecutionEnd:
 		return LifecycleInvocation_ToolExecutionEnd_case
+	case *lifecycleInvocation_ModelSelection:
+		return LifecycleInvocation_ModelSelection_case
+	case *lifecycleInvocation_ReasoningSelection:
+		return LifecycleInvocation_ReasoningSelection_case
 	default:
 		return LifecycleInvocation_Event_not_set_case
 	}
@@ -531,6 +599,10 @@ type LifecycleInvocation_builder struct {
 	ToolExecutionStart  *ToolExecutionStart
 	ToolExecutionUpdate *ToolExecutionUpdate
 	ToolExecutionEnd    *ToolExecutionEnd
+	// A committed provider or model selection change.
+	ModelSelection *ModelSelectionChanged
+	// A committed reasoning selection change.
+	ReasoningSelection *ReasoningSelectionChanged
 	// -- end of xxx_hidden_Event
 }
 
@@ -570,6 +642,12 @@ func (b0 LifecycleInvocation_builder) Build() *LifecycleInvocation {
 	}
 	if b.ToolExecutionEnd != nil {
 		x.xxx_hidden_Event = &lifecycleInvocation_ToolExecutionEnd{b.ToolExecutionEnd}
+	}
+	if b.ModelSelection != nil {
+		x.xxx_hidden_Event = &lifecycleInvocation_ModelSelection{b.ModelSelection}
+	}
+	if b.ReasoningSelection != nil {
+		x.xxx_hidden_Event = &lifecycleInvocation_ReasoningSelection{b.ReasoningSelection}
 	}
 	return m0
 }
@@ -632,6 +710,16 @@ type lifecycleInvocation_ToolExecutionEnd struct {
 	ToolExecutionEnd *ToolExecutionEnd `protobuf:"bytes,11,opt,name=tool_execution_end,json=toolExecutionEnd,oneof"`
 }
 
+type lifecycleInvocation_ModelSelection struct {
+	// A committed provider or model selection change.
+	ModelSelection *ModelSelectionChanged `protobuf:"bytes,12,opt,name=model_selection,json=modelSelection,oneof"`
+}
+
+type lifecycleInvocation_ReasoningSelection struct {
+	// A committed reasoning selection change.
+	ReasoningSelection *ReasoningSelectionChanged `protobuf:"bytes,13,opt,name=reasoning_selection,json=reasoningSelection,oneof"`
+}
+
 func (*lifecycleInvocation_AgentStart) isLifecycleInvocation_Event() {}
 
 func (*lifecycleInvocation_AgentEnd) isLifecycleInvocation_Event() {}
@@ -654,6 +742,202 @@ func (*lifecycleInvocation_ToolExecutionUpdate) isLifecycleInvocation_Event() {}
 
 func (*lifecycleInvocation_ToolExecutionEnd) isLifecycleInvocation_Event() {}
 
+func (*lifecycleInvocation_ModelSelection) isLifecycleInvocation_Event() {}
+
+func (*lifecycleInvocation_ReasoningSelection) isLifecycleInvocation_Event() {}
+
+// ModelSelectionChanged carries the detached selection values around one commit.
+type ModelSelectionChanged struct {
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Preceding *ModelSelection        `protobuf:"bytes,1,opt,name=preceding"`
+	xxx_hidden_Committed *ModelSelection        `protobuf:"bytes,2,opt,name=committed"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ModelSelectionChanged) Reset() {
+	*x = ModelSelectionChanged{}
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModelSelectionChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModelSelectionChanged) ProtoMessage() {}
+
+func (x *ModelSelectionChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ModelSelectionChanged) GetPreceding() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Preceding
+	}
+	return nil
+}
+
+func (x *ModelSelectionChanged) GetCommitted() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Committed
+	}
+	return nil
+}
+
+func (x *ModelSelectionChanged) SetPreceding(v *ModelSelection) {
+	x.xxx_hidden_Preceding = v
+}
+
+func (x *ModelSelectionChanged) SetCommitted(v *ModelSelection) {
+	x.xxx_hidden_Committed = v
+}
+
+func (x *ModelSelectionChanged) HasPreceding() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Preceding != nil
+}
+
+func (x *ModelSelectionChanged) HasCommitted() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Committed != nil
+}
+
+func (x *ModelSelectionChanged) ClearPreceding() {
+	x.xxx_hidden_Preceding = nil
+}
+
+func (x *ModelSelectionChanged) ClearCommitted() {
+	x.xxx_hidden_Committed = nil
+}
+
+type ModelSelectionChanged_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The complete selection before the commit.
+	Preceding *ModelSelection
+	// The complete committed selection.
+	Committed *ModelSelection
+}
+
+func (b0 ModelSelectionChanged_builder) Build() *ModelSelectionChanged {
+	m0 := &ModelSelectionChanged{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Preceding = b.Preceding
+	x.xxx_hidden_Committed = b.Committed
+	return m0
+}
+
+// ReasoningSelectionChanged carries the detached selection values around one commit.
+type ReasoningSelectionChanged struct {
+	state                protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Preceding *ModelSelection        `protobuf:"bytes,1,opt,name=preceding"`
+	xxx_hidden_Committed *ModelSelection        `protobuf:"bytes,2,opt,name=committed"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
+}
+
+func (x *ReasoningSelectionChanged) Reset() {
+	*x = ReasoningSelectionChanged{}
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReasoningSelectionChanged) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReasoningSelectionChanged) ProtoMessage() {}
+
+func (x *ReasoningSelectionChanged) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReasoningSelectionChanged) GetPreceding() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Preceding
+	}
+	return nil
+}
+
+func (x *ReasoningSelectionChanged) GetCommitted() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Committed
+	}
+	return nil
+}
+
+func (x *ReasoningSelectionChanged) SetPreceding(v *ModelSelection) {
+	x.xxx_hidden_Preceding = v
+}
+
+func (x *ReasoningSelectionChanged) SetCommitted(v *ModelSelection) {
+	x.xxx_hidden_Committed = v
+}
+
+func (x *ReasoningSelectionChanged) HasPreceding() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Preceding != nil
+}
+
+func (x *ReasoningSelectionChanged) HasCommitted() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Committed != nil
+}
+
+func (x *ReasoningSelectionChanged) ClearPreceding() {
+	x.xxx_hidden_Preceding = nil
+}
+
+func (x *ReasoningSelectionChanged) ClearCommitted() {
+	x.xxx_hidden_Committed = nil
+}
+
+type ReasoningSelectionChanged_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The complete selection before the commit.
+	Preceding *ModelSelection
+	// The complete committed selection.
+	Committed *ModelSelection
+}
+
+func (b0 ReasoningSelectionChanged_builder) Build() *ReasoningSelectionChanged {
+	m0 := &ReasoningSelectionChanged{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Preceding = b.Preceding
+	x.xxx_hidden_Committed = b.Committed
+	return m0
+}
+
 // LifecycleAction acknowledges one observed lifecycle event.
 type LifecycleAction struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
@@ -663,7 +947,7 @@ type LifecycleAction struct {
 
 func (x *LifecycleAction) Reset() {
 	*x = LifecycleAction{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +959,7 @@ func (x *LifecycleAction) String() string {
 func (*LifecycleAction) ProtoMessage() {}
 
 func (x *LifecycleAction) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[1]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -710,7 +994,7 @@ type AgentStart struct {
 
 func (x *AgentStart) Reset() {
 	*x = AgentStart{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -722,7 +1006,7 @@ func (x *AgentStart) String() string {
 func (*AgentStart) ProtoMessage() {}
 
 func (x *AgentStart) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[2]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -792,7 +1076,7 @@ type AgentEnd struct {
 
 func (x *AgentEnd) Reset() {
 	*x = AgentEnd{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -804,7 +1088,7 @@ func (x *AgentEnd) String() string {
 func (*AgentEnd) ProtoMessage() {}
 
 func (x *AgentEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[3]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -938,7 +1222,7 @@ type AgentSettled struct {
 
 func (x *AgentSettled) Reset() {
 	*x = AgentSettled{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -950,7 +1234,7 @@ func (x *AgentSettled) String() string {
 func (*AgentSettled) ProtoMessage() {}
 
 func (x *AgentSettled) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[4]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1018,7 +1302,7 @@ type TurnStart struct {
 
 func (x *TurnStart) Reset() {
 	*x = TurnStart{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1030,7 +1314,7 @@ func (x *TurnStart) String() string {
 func (*TurnStart) ProtoMessage() {}
 
 func (x *TurnStart) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[5]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1100,7 +1384,7 @@ type TurnEnd struct {
 
 func (x *TurnEnd) Reset() {
 	*x = TurnEnd{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1112,7 +1396,7 @@ func (x *TurnEnd) String() string {
 func (*TurnEnd) ProtoMessage() {}
 
 func (x *TurnEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[6]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1221,7 +1505,7 @@ type MessageStart struct {
 
 func (x *MessageStart) Reset() {
 	*x = MessageStart{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1233,7 +1517,7 @@ func (x *MessageStart) String() string {
 func (*MessageStart) ProtoMessage() {}
 
 func (x *MessageStart) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[7]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1305,7 +1589,7 @@ type MessageUpdate struct {
 
 func (x *MessageUpdate) Reset() {
 	*x = MessageUpdate{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1317,7 +1601,7 @@ func (x *MessageUpdate) String() string {
 func (*MessageUpdate) ProtoMessage() {}
 
 func (x *MessageUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1502,7 +1786,7 @@ type LifecycleToolCall struct {
 
 func (x *LifecycleToolCall) Reset() {
 	*x = LifecycleToolCall{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1514,7 +1798,7 @@ func (x *LifecycleToolCall) String() string {
 func (*LifecycleToolCall) ProtoMessage() {}
 
 func (x *LifecycleToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1725,7 +2009,7 @@ type LifecycleToolCallField struct {
 
 func (x *LifecycleToolCallField) Reset() {
 	*x = LifecycleToolCallField{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1737,7 +2021,7 @@ func (x *LifecycleToolCallField) String() string {
 func (*LifecycleToolCallField) ProtoMessage() {}
 
 func (x *LifecycleToolCallField) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1894,7 +2178,7 @@ func (b0 LifecycleToolCallField_builder) Build() *LifecycleToolCallField {
 type case_LifecycleToolCallField_Content protoreflect.FieldNumber
 
 func (x case_LifecycleToolCallField_Content) String() string {
-	md := file_api_plugins_extension_v1_lifecycle_proto_msgTypes[10].Descriptor()
+	md := file_api_plugins_extension_v1_lifecycle_proto_msgTypes[12].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1930,7 +2214,7 @@ type MessageEnd struct {
 
 func (x *MessageEnd) Reset() {
 	*x = MessageEnd{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1942,7 +2226,7 @@ func (x *MessageEnd) String() string {
 func (*MessageEnd) ProtoMessage() {}
 
 func (x *MessageEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2037,7 +2321,7 @@ type ToolExecutionStart struct {
 
 func (x *ToolExecutionStart) Reset() {
 	*x = ToolExecutionStart{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2049,7 +2333,7 @@ func (x *ToolExecutionStart) String() string {
 func (*ToolExecutionStart) ProtoMessage() {}
 
 func (x *ToolExecutionStart) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2187,7 +2471,7 @@ type ToolExecutionUpdate struct {
 
 func (x *ToolExecutionUpdate) Reset() {
 	*x = ToolExecutionUpdate{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2199,7 +2483,7 @@ func (x *ToolExecutionUpdate) String() string {
 func (*ToolExecutionUpdate) ProtoMessage() {}
 
 func (x *ToolExecutionUpdate) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2402,7 +2686,7 @@ type ToolExecutionEnd struct {
 
 func (x *ToolExecutionEnd) Reset() {
 	*x = ToolExecutionEnd{}
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2414,7 +2698,7 @@ func (x *ToolExecutionEnd) String() string {
 func (*ToolExecutionEnd) ProtoMessage() {}
 
 func (x *ToolExecutionEnd) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_lifecycle_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2586,7 +2870,7 @@ var File_api_plugins_extension_v1_lifecycle_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_lifecycle_proto_rawDesc = "" +
 	"\n" +
-	"(api/plugins/extension/v1/lifecycle.proto\x12\x1aglyph.plugins.extension.v1\x1a$api/plugins/extension/v1/model.proto\x1a#api/plugins/extension/v1/tool.proto\"\xa2\a\n" +
+	"(api/plugins/extension/v1/lifecycle.proto\x12\x1aglyph.plugins.extension.v1\x1a$api/plugins/extension/v1/model.proto\x1a#api/plugins/extension/v1/tool.proto\"\xea\b\n" +
 	"\x13LifecycleInvocation\x12I\n" +
 	"\vagent_start\x18\x01 \x01(\v2&.glyph.plugins.extension.v1.AgentStartH\x00R\n" +
 	"agentStart\x12C\n" +
@@ -2602,8 +2886,16 @@ const file_api_plugins_extension_v1_lifecycle_proto_rawDesc = "" +
 	"\x14tool_execution_start\x18\t \x01(\v2..glyph.plugins.extension.v1.ToolExecutionStartH\x00R\x12toolExecutionStart\x12e\n" +
 	"\x15tool_execution_update\x18\n" +
 	" \x01(\v2/.glyph.plugins.extension.v1.ToolExecutionUpdateH\x00R\x13toolExecutionUpdate\x12\\\n" +
-	"\x12tool_execution_end\x18\v \x01(\v2,.glyph.plugins.extension.v1.ToolExecutionEndH\x00R\x10toolExecutionEndB\a\n" +
-	"\x05event\"\x11\n" +
+	"\x12tool_execution_end\x18\v \x01(\v2,.glyph.plugins.extension.v1.ToolExecutionEndH\x00R\x10toolExecutionEnd\x12\\\n" +
+	"\x0fmodel_selection\x18\f \x01(\v21.glyph.plugins.extension.v1.ModelSelectionChangedH\x00R\x0emodelSelection\x12h\n" +
+	"\x13reasoning_selection\x18\r \x01(\v25.glyph.plugins.extension.v1.ReasoningSelectionChangedH\x00R\x12reasoningSelectionB\a\n" +
+	"\x05event\"\xab\x01\n" +
+	"\x15ModelSelectionChanged\x12H\n" +
+	"\tpreceding\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tpreceding\x12H\n" +
+	"\tcommitted\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tcommitted\"\xaf\x01\n" +
+	"\x19ReasoningSelectionChanged\x12H\n" +
+	"\tpreceding\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tpreceding\x12H\n" +
+	"\tcommitted\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tcommitted\"\x11\n" +
 	"\x0fLifecycleAction\"#\n" +
 	"\n" +
 	"AgentStart\x12\x15\n" +
@@ -2671,55 +2963,64 @@ const file_api_plugins_extension_v1_lifecycle_proto_rawDesc = "" +
 	"!MESSAGE_UPDATE_KIND_TOOL_CALL_END\x10\x06B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_lifecycle_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_plugins_extension_v1_lifecycle_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_api_plugins_extension_v1_lifecycle_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_api_plugins_extension_v1_lifecycle_proto_goTypes = []any{
-	(MessageUpdateKind)(0),         // 0: glyph.plugins.extension.v1.MessageUpdateKind
-	(*LifecycleInvocation)(nil),    // 1: glyph.plugins.extension.v1.LifecycleInvocation
-	(*LifecycleAction)(nil),        // 2: glyph.plugins.extension.v1.LifecycleAction
-	(*AgentStart)(nil),             // 3: glyph.plugins.extension.v1.AgentStart
-	(*AgentEnd)(nil),               // 4: glyph.plugins.extension.v1.AgentEnd
-	(*AgentSettled)(nil),           // 5: glyph.plugins.extension.v1.AgentSettled
-	(*TurnStart)(nil),              // 6: glyph.plugins.extension.v1.TurnStart
-	(*TurnEnd)(nil),                // 7: glyph.plugins.extension.v1.TurnEnd
-	(*MessageStart)(nil),           // 8: glyph.plugins.extension.v1.MessageStart
-	(*MessageUpdate)(nil),          // 9: glyph.plugins.extension.v1.MessageUpdate
-	(*LifecycleToolCall)(nil),      // 10: glyph.plugins.extension.v1.LifecycleToolCall
-	(*LifecycleToolCallField)(nil), // 11: glyph.plugins.extension.v1.LifecycleToolCallField
-	(*MessageEnd)(nil),             // 12: glyph.plugins.extension.v1.MessageEnd
-	(*ToolExecutionStart)(nil),     // 13: glyph.plugins.extension.v1.ToolExecutionStart
-	(*ToolExecutionUpdate)(nil),    // 14: glyph.plugins.extension.v1.ToolExecutionUpdate
-	(*ToolExecutionEnd)(nil),       // 15: glyph.plugins.extension.v1.ToolExecutionEnd
-	(*ConfiguredModelResult)(nil),  // 16: glyph.plugins.extension.v1.ConfiguredModelResult
-	(*ConfiguredModelContent)(nil), // 17: glyph.plugins.extension.v1.ConfiguredModelContent
-	(ProgressChannel)(0),           // 18: glyph.plugins.extension.v1.ProgressChannel
-	(*ToolResultContent)(nil),      // 19: glyph.plugins.extension.v1.ToolResultContent
+	(MessageUpdateKind)(0),            // 0: glyph.plugins.extension.v1.MessageUpdateKind
+	(*LifecycleInvocation)(nil),       // 1: glyph.plugins.extension.v1.LifecycleInvocation
+	(*ModelSelectionChanged)(nil),     // 2: glyph.plugins.extension.v1.ModelSelectionChanged
+	(*ReasoningSelectionChanged)(nil), // 3: glyph.plugins.extension.v1.ReasoningSelectionChanged
+	(*LifecycleAction)(nil),           // 4: glyph.plugins.extension.v1.LifecycleAction
+	(*AgentStart)(nil),                // 5: glyph.plugins.extension.v1.AgentStart
+	(*AgentEnd)(nil),                  // 6: glyph.plugins.extension.v1.AgentEnd
+	(*AgentSettled)(nil),              // 7: glyph.plugins.extension.v1.AgentSettled
+	(*TurnStart)(nil),                 // 8: glyph.plugins.extension.v1.TurnStart
+	(*TurnEnd)(nil),                   // 9: glyph.plugins.extension.v1.TurnEnd
+	(*MessageStart)(nil),              // 10: glyph.plugins.extension.v1.MessageStart
+	(*MessageUpdate)(nil),             // 11: glyph.plugins.extension.v1.MessageUpdate
+	(*LifecycleToolCall)(nil),         // 12: glyph.plugins.extension.v1.LifecycleToolCall
+	(*LifecycleToolCallField)(nil),    // 13: glyph.plugins.extension.v1.LifecycleToolCallField
+	(*MessageEnd)(nil),                // 14: glyph.plugins.extension.v1.MessageEnd
+	(*ToolExecutionStart)(nil),        // 15: glyph.plugins.extension.v1.ToolExecutionStart
+	(*ToolExecutionUpdate)(nil),       // 16: glyph.plugins.extension.v1.ToolExecutionUpdate
+	(*ToolExecutionEnd)(nil),          // 17: glyph.plugins.extension.v1.ToolExecutionEnd
+	(*ModelSelection)(nil),            // 18: glyph.plugins.extension.v1.ModelSelection
+	(*ConfiguredModelResult)(nil),     // 19: glyph.plugins.extension.v1.ConfiguredModelResult
+	(*ConfiguredModelContent)(nil),    // 20: glyph.plugins.extension.v1.ConfiguredModelContent
+	(ProgressChannel)(0),              // 21: glyph.plugins.extension.v1.ProgressChannel
+	(*ToolResultContent)(nil),         // 22: glyph.plugins.extension.v1.ToolResultContent
 }
 var file_api_plugins_extension_v1_lifecycle_proto_depIdxs = []int32{
-	3,  // 0: glyph.plugins.extension.v1.LifecycleInvocation.agent_start:type_name -> glyph.plugins.extension.v1.AgentStart
-	4,  // 1: glyph.plugins.extension.v1.LifecycleInvocation.agent_end:type_name -> glyph.plugins.extension.v1.AgentEnd
-	5,  // 2: glyph.plugins.extension.v1.LifecycleInvocation.agent_settled:type_name -> glyph.plugins.extension.v1.AgentSettled
-	6,  // 3: glyph.plugins.extension.v1.LifecycleInvocation.turn_start:type_name -> glyph.plugins.extension.v1.TurnStart
-	7,  // 4: glyph.plugins.extension.v1.LifecycleInvocation.turn_end:type_name -> glyph.plugins.extension.v1.TurnEnd
-	8,  // 5: glyph.plugins.extension.v1.LifecycleInvocation.message_start:type_name -> glyph.plugins.extension.v1.MessageStart
-	9,  // 6: glyph.plugins.extension.v1.LifecycleInvocation.message_update:type_name -> glyph.plugins.extension.v1.MessageUpdate
-	12, // 7: glyph.plugins.extension.v1.LifecycleInvocation.message_end:type_name -> glyph.plugins.extension.v1.MessageEnd
-	13, // 8: glyph.plugins.extension.v1.LifecycleInvocation.tool_execution_start:type_name -> glyph.plugins.extension.v1.ToolExecutionStart
-	14, // 9: glyph.plugins.extension.v1.LifecycleInvocation.tool_execution_update:type_name -> glyph.plugins.extension.v1.ToolExecutionUpdate
-	15, // 10: glyph.plugins.extension.v1.LifecycleInvocation.tool_execution_end:type_name -> glyph.plugins.extension.v1.ToolExecutionEnd
-	16, // 11: glyph.plugins.extension.v1.TurnEnd.response:type_name -> glyph.plugins.extension.v1.ConfiguredModelResult
-	15, // 12: glyph.plugins.extension.v1.TurnEnd.tool_results:type_name -> glyph.plugins.extension.v1.ToolExecutionEnd
-	0,  // 13: glyph.plugins.extension.v1.MessageUpdate.kind:type_name -> glyph.plugins.extension.v1.MessageUpdateKind
-	17, // 14: glyph.plugins.extension.v1.MessageUpdate.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
-	10, // 15: glyph.plugins.extension.v1.MessageUpdate.tool_call:type_name -> glyph.plugins.extension.v1.LifecycleToolCall
-	11, // 16: glyph.plugins.extension.v1.LifecycleToolCall.fields:type_name -> glyph.plugins.extension.v1.LifecycleToolCallField
-	16, // 17: glyph.plugins.extension.v1.MessageEnd.response:type_name -> glyph.plugins.extension.v1.ConfiguredModelResult
-	18, // 18: glyph.plugins.extension.v1.ToolExecutionUpdate.channel:type_name -> glyph.plugins.extension.v1.ProgressChannel
-	19, // 19: glyph.plugins.extension.v1.ToolExecutionEnd.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	20, // [20:20] is the sub-list for method output_type
-	20, // [20:20] is the sub-list for method input_type
-	20, // [20:20] is the sub-list for extension type_name
-	20, // [20:20] is the sub-list for extension extendee
-	0,  // [0:20] is the sub-list for field type_name
+	5,  // 0: glyph.plugins.extension.v1.LifecycleInvocation.agent_start:type_name -> glyph.plugins.extension.v1.AgentStart
+	6,  // 1: glyph.plugins.extension.v1.LifecycleInvocation.agent_end:type_name -> glyph.plugins.extension.v1.AgentEnd
+	7,  // 2: glyph.plugins.extension.v1.LifecycleInvocation.agent_settled:type_name -> glyph.plugins.extension.v1.AgentSettled
+	8,  // 3: glyph.plugins.extension.v1.LifecycleInvocation.turn_start:type_name -> glyph.plugins.extension.v1.TurnStart
+	9,  // 4: glyph.plugins.extension.v1.LifecycleInvocation.turn_end:type_name -> glyph.plugins.extension.v1.TurnEnd
+	10, // 5: glyph.plugins.extension.v1.LifecycleInvocation.message_start:type_name -> glyph.plugins.extension.v1.MessageStart
+	11, // 6: glyph.plugins.extension.v1.LifecycleInvocation.message_update:type_name -> glyph.plugins.extension.v1.MessageUpdate
+	14, // 7: glyph.plugins.extension.v1.LifecycleInvocation.message_end:type_name -> glyph.plugins.extension.v1.MessageEnd
+	15, // 8: glyph.plugins.extension.v1.LifecycleInvocation.tool_execution_start:type_name -> glyph.plugins.extension.v1.ToolExecutionStart
+	16, // 9: glyph.plugins.extension.v1.LifecycleInvocation.tool_execution_update:type_name -> glyph.plugins.extension.v1.ToolExecutionUpdate
+	17, // 10: glyph.plugins.extension.v1.LifecycleInvocation.tool_execution_end:type_name -> glyph.plugins.extension.v1.ToolExecutionEnd
+	2,  // 11: glyph.plugins.extension.v1.LifecycleInvocation.model_selection:type_name -> glyph.plugins.extension.v1.ModelSelectionChanged
+	3,  // 12: glyph.plugins.extension.v1.LifecycleInvocation.reasoning_selection:type_name -> glyph.plugins.extension.v1.ReasoningSelectionChanged
+	18, // 13: glyph.plugins.extension.v1.ModelSelectionChanged.preceding:type_name -> glyph.plugins.extension.v1.ModelSelection
+	18, // 14: glyph.plugins.extension.v1.ModelSelectionChanged.committed:type_name -> glyph.plugins.extension.v1.ModelSelection
+	18, // 15: glyph.plugins.extension.v1.ReasoningSelectionChanged.preceding:type_name -> glyph.plugins.extension.v1.ModelSelection
+	18, // 16: glyph.plugins.extension.v1.ReasoningSelectionChanged.committed:type_name -> glyph.plugins.extension.v1.ModelSelection
+	19, // 17: glyph.plugins.extension.v1.TurnEnd.response:type_name -> glyph.plugins.extension.v1.ConfiguredModelResult
+	17, // 18: glyph.plugins.extension.v1.TurnEnd.tool_results:type_name -> glyph.plugins.extension.v1.ToolExecutionEnd
+	0,  // 19: glyph.plugins.extension.v1.MessageUpdate.kind:type_name -> glyph.plugins.extension.v1.MessageUpdateKind
+	20, // 20: glyph.plugins.extension.v1.MessageUpdate.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
+	12, // 21: glyph.plugins.extension.v1.MessageUpdate.tool_call:type_name -> glyph.plugins.extension.v1.LifecycleToolCall
+	13, // 22: glyph.plugins.extension.v1.LifecycleToolCall.fields:type_name -> glyph.plugins.extension.v1.LifecycleToolCallField
+	19, // 23: glyph.plugins.extension.v1.MessageEnd.response:type_name -> glyph.plugins.extension.v1.ConfiguredModelResult
+	21, // 24: glyph.plugins.extension.v1.ToolExecutionUpdate.channel:type_name -> glyph.plugins.extension.v1.ProgressChannel
+	22, // 25: glyph.plugins.extension.v1.ToolExecutionEnd.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_lifecycle_proto_init() }
@@ -2741,8 +3042,10 @@ func file_api_plugins_extension_v1_lifecycle_proto_init() {
 		(*lifecycleInvocation_ToolExecutionStart)(nil),
 		(*lifecycleInvocation_ToolExecutionUpdate)(nil),
 		(*lifecycleInvocation_ToolExecutionEnd)(nil),
+		(*lifecycleInvocation_ModelSelection)(nil),
+		(*lifecycleInvocation_ReasoningSelection)(nil),
 	}
-	file_api_plugins_extension_v1_lifecycle_proto_msgTypes[10].OneofWrappers = []any{
+	file_api_plugins_extension_v1_lifecycle_proto_msgTypes[12].OneofWrappers = []any{
 		(*lifecycleToolCallField_ValueJson)(nil),
 		(*lifecycleToolCallField_Prefix)(nil),
 	}
@@ -2752,7 +3055,7 @@ func file_api_plugins_extension_v1_lifecycle_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_lifecycle_proto_rawDesc), len(file_api_plugins_extension_v1_lifecycle_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   15,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

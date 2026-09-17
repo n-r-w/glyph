@@ -413,3 +413,41 @@ func (mr *MockIssueDeliveryMockRecorder) DeliverSelectionIssue(arg0, arg1 any) *
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeliverSelectionIssue", reflect.TypeOf((*MockIssueDelivery)(nil).DeliverSelectionIssue), arg0, arg1)
 }
+
+// MockObserver is a mock of Observer interface.
+type MockObserver struct {
+	ctrl     *gomock.Controller
+	recorder *MockObserverMockRecorder
+	isgomock struct{}
+}
+
+// MockObserverMockRecorder is the mock recorder for MockObserver.
+type MockObserverMockRecorder struct {
+	mock *MockObserver
+}
+
+// NewMockObserver creates a new mock instance.
+func NewMockObserver(ctrl *gomock.Controller) *MockObserver {
+	mock := &MockObserver{ctrl: ctrl}
+	mock.recorder = &MockObserverMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockObserver) EXPECT() *MockObserverMockRecorder {
+	return m.recorder
+}
+
+// ObserveSelection mocks base method.
+func (m *MockObserver) ObserveSelection(arg0 context.Context, arg1 ObservationKind, arg2 SelectionChange) []Issue {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObserveSelection", arg0, arg1, arg2)
+	ret0, _ := ret[0].([]Issue)
+	return ret0
+}
+
+// ObserveSelection indicates an expected call of ObserveSelection.
+func (mr *MockObserverMockRecorder) ObserveSelection(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveSelection", reflect.TypeOf((*MockObserver)(nil).ObserveSelection), arg0, arg1, arg2)
+}

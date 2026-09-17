@@ -59,6 +59,10 @@ const (
 	HandlerKind_HANDLER_KIND_MODEL_SELECTION HandlerKind = 15
 	// The handler transforms a reasoning-selection request.
 	HandlerKind_HANDLER_KIND_REASONING_SELECTION HandlerKind = 16
+	// The handler observes a committed provider or model selection change.
+	HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER HandlerKind = 17
+	// The handler observes a committed reasoning selection change.
+	HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER HandlerKind = 18
 )
 
 // Enum value maps for HandlerKind.
@@ -81,25 +85,29 @@ var (
 		14: "HANDLER_KIND_TOOL_EXECUTION_END",
 		15: "HANDLER_KIND_MODEL_SELECTION",
 		16: "HANDLER_KIND_REASONING_SELECTION",
+		17: "HANDLER_KIND_MODEL_SELECTION_OBSERVER",
+		18: "HANDLER_KIND_REASONING_SELECTION_OBSERVER",
 	}
 	HandlerKind_value = map[string]int32{
-		"HANDLER_KIND_UNSPECIFIED":                 0,
-		"HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST": 1,
-		"HANDLER_KIND_SESSION_BEFORE_TREE_RESULT":  2,
-		"HANDLER_KIND_SESSION_TREE":                3,
-		"HANDLER_KIND_AGENT_START":                 4,
-		"HANDLER_KIND_AGENT_END":                   5,
-		"HANDLER_KIND_AGENT_SETTLED":               6,
-		"HANDLER_KIND_TURN_START":                  7,
-		"HANDLER_KIND_TURN_END":                    8,
-		"HANDLER_KIND_MESSAGE_START":               9,
-		"HANDLER_KIND_MESSAGE_UPDATE":              10,
-		"HANDLER_KIND_MESSAGE_END":                 11,
-		"HANDLER_KIND_TOOL_EXECUTION_START":        12,
-		"HANDLER_KIND_TOOL_EXECUTION_UPDATE":       13,
-		"HANDLER_KIND_TOOL_EXECUTION_END":          14,
-		"HANDLER_KIND_MODEL_SELECTION":             15,
-		"HANDLER_KIND_REASONING_SELECTION":         16,
+		"HANDLER_KIND_UNSPECIFIED":                  0,
+		"HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST":  1,
+		"HANDLER_KIND_SESSION_BEFORE_TREE_RESULT":   2,
+		"HANDLER_KIND_SESSION_TREE":                 3,
+		"HANDLER_KIND_AGENT_START":                  4,
+		"HANDLER_KIND_AGENT_END":                    5,
+		"HANDLER_KIND_AGENT_SETTLED":                6,
+		"HANDLER_KIND_TURN_START":                   7,
+		"HANDLER_KIND_TURN_END":                     8,
+		"HANDLER_KIND_MESSAGE_START":                9,
+		"HANDLER_KIND_MESSAGE_UPDATE":               10,
+		"HANDLER_KIND_MESSAGE_END":                  11,
+		"HANDLER_KIND_TOOL_EXECUTION_START":         12,
+		"HANDLER_KIND_TOOL_EXECUTION_UPDATE":        13,
+		"HANDLER_KIND_TOOL_EXECUTION_END":           14,
+		"HANDLER_KIND_MODEL_SELECTION":              15,
+		"HANDLER_KIND_REASONING_SELECTION":          16,
+		"HANDLER_KIND_MODEL_SELECTION_OBSERVER":     17,
+		"HANDLER_KIND_REASONING_SELECTION_OBSERVER": 18,
 	}
 )
 
@@ -3220,7 +3228,7 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x0fRegisterRequest\"\x9f\x01\n" +
 	"\x10RegisterResponse\x12@\n" +
 	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\x12I\n" +
-	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xd2\x04\n" +
+	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xac\x05\n" +
 	"\vHandlerKind\x12\x1c\n" +
 	"\x18HANDLER_KIND_UNSPECIFIED\x10\x00\x12,\n" +
 	"(HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST\x10\x01\x12+\n" +
@@ -3239,7 +3247,9 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\"HANDLER_KIND_TOOL_EXECUTION_UPDATE\x10\r\x12#\n" +
 	"\x1fHANDLER_KIND_TOOL_EXECUTION_END\x10\x0e\x12 \n" +
 	"\x1cHANDLER_KIND_MODEL_SELECTION\x10\x0f\x12$\n" +
-	" HANDLER_KIND_REASONING_SELECTION\x10\x102q\n" +
+	" HANDLER_KIND_REASONING_SELECTION\x10\x10\x12)\n" +
+	"%HANDLER_KIND_MODEL_SELECTION_OBSERVER\x10\x11\x12-\n" +
+	")HANDLER_KIND_REASONING_SELECTION_OBSERVER\x10\x122q\n" +
 	"\x10ExtensionService\x12]\n" +
 	"\x04Open\x12'.glyph.plugins.extension.v1.OpenRequest\x1a(.glyph.plugins.extension.v1.OpenResponse(\x010\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 

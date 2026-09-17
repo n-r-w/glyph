@@ -20,20 +20,22 @@ import (
 // emptyLifecycleSource creates one source event with every optional payload absent.
 func emptyLifecycleSource(eventType agent.EventType) extensionruntime.LifecycleInvocation {
 	return extensionruntime.LifecycleInvocation{
-		Context:      extension.Context{},
-		Settled:      false,
-		TurnResults:  nil,
-		Outcome:      mo.None[agent.RunOutcome](),
-		ErrorMessage: mo.None[string](),
-		Type:         eventType,
-		RunID:        "run",
-		Position:     mo.None[int](),
-		Content:      mo.None[extensionruntime.Content](),
-		Response:     mo.None[extensionruntime.Response](),
-		Preview:      mo.None[model.ToolCallPreview](),
-		ToolCall:     mo.None[model.ToolCall](),
-		Progress:     mo.None[tool.Progress](),
-		ToolResult:   mo.None[agent.ToolResult](),
+		Context:        extension.Context{},
+		Settled:        false,
+		TurnResults:    nil,
+		Outcome:        mo.None[agent.RunOutcome](),
+		ErrorMessage:   mo.None[string](),
+		Type:           eventType,
+		RunID:          "run",
+		Position:       mo.None[int](),
+		Content:        mo.None[extensionruntime.Content](),
+		Response:       mo.None[extensionruntime.Response](),
+		Preview:        mo.None[model.ToolCallPreview](),
+		ToolCall:       mo.None[model.ToolCall](),
+		Progress:       mo.None[tool.Progress](),
+		ToolResult:     mo.None[agent.ToolResult](),
+		SelectionEvent: false, ReasoningSelection: false,
+		PrecedingSelection: model.Selection{}, CommittedSelection: model.Selection{},
 	}
 }
 
@@ -109,6 +111,16 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 			event: lifecycleSourceWithResult(result),
 			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetToolExecutionEnd() != nil },
 		},
+		{
+			name:  "model selection",
+			event: selectionLifecycleSource(false),
+			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetModelSelection() != nil },
+		},
+		{
+			name:  "reasoning selection",
+			event: selectionLifecycleSource(true),
+			check: func(value *extensionpb.LifecycleInvocation) bool { return value.GetReasoningSelection() != nil },
+		},
 	}
 
 	// Act and assert each source event maps to its exact typed lifecycle group.
@@ -117,6 +129,21 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 		require.NoError(t, err, test.name)
 		assert.True(t, test.check(mapped), test.name)
 	}
+}
+
+// selectionLifecycleSource creates one Host selection event without a fabricated run identifier.
+func selectionLifecycleSource(reasoning bool) extensionruntime.LifecycleInvocation {
+	event := emptyLifecycleSource(agent.EventType(0))
+	event.RunID = ""
+	event.SelectionEvent = true
+	event.ReasoningSelection = reasoning
+	event.PrecedingSelection = model.Selection{
+		Provider: "old-provider", Model: "old-model", ReasoningChoice: model.ReasoningChoiceLow,
+	}
+	event.CommittedSelection = model.Selection{
+		Provider: "new-provider", Model: "new-model", ReasoningChoice: model.ReasoningChoiceHigh,
+	}
+	return event
 }
 
 // lifecycleSourceWithAgent creates one terminal agent source.

@@ -50,6 +50,8 @@ const (
 	selectionIssueHandlerError = "HANDLER_ERROR"
 	// selectionIssueInvalidHandlerAction identifies a malformed handler action.
 	selectionIssueInvalidHandlerAction = "INVALID_HANDLER_ACTION"
+	// selectionIssueObserverError identifies an ordinary selection observer failure.
+	selectionIssueObserverError = "OBSERVER_ERROR"
 )
 
 // mapModelSelectionRequest validates and projects a public model-selection request.
@@ -190,6 +192,8 @@ func mapSelectionIssueCode(code string) (extensionpb.SelectionIssueCode, error) 
 		return extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION, nil
 	case deliveryFailedIssueCode:
 		return extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED, nil
+	case selectionIssueObserverError:
+		return extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_OBSERVER_ERROR, nil
 	default:
 		return extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_UNSPECIFIED,
 			fmt.Errorf("unknown model selection issue %q", code)

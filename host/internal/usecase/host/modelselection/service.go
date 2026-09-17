@@ -33,6 +33,8 @@ type Service struct {
 	issues IssueDelivery
 	// protection validates and protects bound extension selection commits.
 	protection BindingProtection
+	// observer delivers post-commit selection lifecycle events.
+	observer Observer
 }
 
 var (
@@ -73,7 +75,7 @@ type selectionResult struct {
 func New(catalog Catalog, publisher Publisher) *Service {
 	return &Service{
 		catalog: catalog, publisher: publisher, mutex: sync.Mutex{}, active: false,
-		handlers: nil, runtime: nil, contexts: nil, issues: nil, protection: nil,
+		handlers: nil, runtime: nil, contexts: nil, issues: nil, protection: nil, observer: nil,
 	}
 }
 
@@ -91,6 +93,13 @@ func (s *Service) BindProtection(protection BindingProtection) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.protection = protection
+}
+
+// BindObserver installs selection lifecycle observation before selection operations become available.
+func (s *Service) BindObserver(observer Observer) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.observer = observer
 }
 
 // prepareModel reserves selection and resolves the requested starting model.
@@ -178,6 +187,7 @@ func (s *Service) commitSelection(
 		selection: model.Selection{}, committed: false, issues: issues, deliveryErr: nil, err: nil,
 	}
 	var wait func(context.Context) error
+	var change mo.Option[SelectionChange]
 	commit := func() error {
 		preceding, committed, commitErr := s.catalog.CommitSelection(ctx, final)
 		if commitErr != nil {
@@ -188,6 +198,7 @@ func (s *Service) commitSelection(
 		if preceding == committed {
 			return nil
 		}
+		change = mo.Some(SelectionChange{Preceding: preceding, Committed: committed})
 		var publicationErr error
 		wait, publicationErr = s.publisher.PublishSelection(committed)
 		result.deliveryErr = publicationErr
@@ -195,19 +206,23 @@ func (s *Service) commitSelection(
 	}
 	protected, commitErr := s.commitWithBindingProtection(ctx, binding, commit)
 	if commitErr != nil {
-		if result.committed {
+		switch {
+		case result.committed:
 			result.deliveryErr = errors.Join(result.deliveryErr, commitErr)
-			return result
-		}
-		if protected {
+		case protected:
 			result.err = classifyBindingProtection(commitErr)
-		} else {
+		default:
 			result.err = commitErr
 		}
+	}
+	if !result.committed {
 		return result
 	}
 	if result.deliveryErr == nil && wait != nil {
 		result.deliveryErr = wait(ctx)
+	}
+	if committedChange, changed := change.Get(); changed {
+		result.issues = s.observeSelection(context.WithoutCancel(ctx), committedChange, result.issues)
 	}
 	return result
 }

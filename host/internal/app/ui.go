@@ -111,6 +111,7 @@ func runUIWithPaths(
 	selectionOwner := modelselection.New(providerCatalog, transport)
 	selectionOwner.BindHandlers(extensions, contexts, transport)
 	selectionOwner.BindProtection(contexts)
+	selectionOwner.BindObserver(lifecycleObservers)
 	bindExtensionHostFactory(extensionFactory, extensions, contexts, selectionOwner)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	_, err = startupService.Start(ctx, startup.Request{

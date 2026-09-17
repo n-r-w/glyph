@@ -12,6 +12,8 @@ const (
 	ModelSelectionIssueInvalidHandlerAction
 	// ModelSelectionIssueDeliveryFailed reports failed publication after commit.
 	ModelSelectionIssueDeliveryFailed
+	// ModelSelectionIssueObserverError reports one ordinary observer failure.
+	ModelSelectionIssueObserverError
 )
 
 // ModelSelectionIssue contains one ordered successful selection diagnostic.
@@ -40,6 +42,8 @@ func projectModelSelectionIssues(issues []ModelSelectionIssue) []controller.Oper
 			code = controller.OperationIssueInvalidHandlerAction
 		case ModelSelectionIssueDeliveryFailed:
 			code = controller.OperationIssueDeliveryFailed
+		case ModelSelectionIssueObserverError:
+			code = controller.OperationIssueObserverError
 		default:
 		}
 		mapped[index] = controller.OperationIssue{

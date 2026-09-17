@@ -16,6 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
@@ -123,6 +124,29 @@ func TestHandlerProjectionPreservesOriginalCurrentAndHidesPrivateData(t *testing
 	require.NotContains(t, string(encoded), "private provider bytes")
 	require.NotContains(t, string(encoded), "private extension bytes")
 	require.NotContains(t, string(encoded), "private prepared input")
+}
+
+// TestSelectionLifecycleProjectionPreservesDetachedCommit verifies Host selection facts reach runtime projection.
+func TestSelectionLifecycleProjectionPreservesDetachedCommit(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one committed reasoning-selection change without an Agent Core event.
+	change := modelselection.SelectionChange{
+		Preceding: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow},
+		Committed: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh},
+	}
+	source := lifecycle.Event{
+		Agent: agent.Event{}, Settled: false, Selection: change, SelectionEvent: true, ReasoningSelection: true,
+	}
+
+	// Act through runtime-owned public projection.
+	result := (&Service{}).projectLifecycle(extension.Context{}, source)
+
+	// Assert both complete selections and the Host selection identity are retained.
+	require.True(t, result.SelectionEvent)
+	require.True(t, result.ReasoningSelection)
+	require.Equal(t, change.Preceding, result.PrecedingSelection)
+	require.Equal(t, change.Committed, result.CommittedSelection)
 }
 
 // TestLifecycleProjectionPreservesTransitionAndFiltersPrivateContext moves neutral filtering before transport.

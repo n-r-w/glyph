@@ -205,7 +205,8 @@ func validateSelectionResult(result *extensionpb.SelectionResult) error {
 		switch issue.GetCode() {
 		case extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_HANDLER_ERROR,
 			extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION,
-			extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED:
+			extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED,
+			extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_OBSERVER_ERROR:
 		case extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_UNSPECIFIED:
 			return errors.New("host selection completion has an unspecified issue kind")
 		default:

@@ -76,11 +76,13 @@ func TestServiceDoesNotPublishUnchangedSelection(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalog(controller)
 	publisher := NewMockPublisher(controller)
+	observer := NewMockObserver(controller)
 	target := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	catalog.EXPECT().ResolveReasoning(target.ReasoningChoice).Return(target, nil)
 	catalog.EXPECT().ValidateSelection(gomock.Any(), target).Return(nil)
 	catalog.EXPECT().CommitSelection(gomock.Any(), target).Return(target, target, nil)
 	service := New(catalog, publisher)
+	service.BindObserver(observer)
 	run, release, err := prepareReasoningForTest(service, target.ReasoningChoice)
 	require.NoError(t, err)
 	defer release()
@@ -144,6 +146,83 @@ func TestServiceRetainsCommittedSelectionWhenPublicationFails(t *testing.T) {
 	assert.Equal(t, target, selection)
 	assert.True(t, committed)
 	assert.ErrorIs(t, err, deliveryErr)
+}
+
+// TestServiceObservesChangedSelectionAfterDelivery verifies detached ordered post-commit observation.
+func TestServiceObservesChangedSelectionAfterDelivery(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a commit that changes reasoning and model, then fails and cancels during delivery acknowledgement.
+	controller := gomock.NewController(t)
+	catalog := NewMockCatalog(controller)
+	publisher := NewMockPublisher(controller)
+	observer := NewMockObserver(controller)
+	preceding := model.Selection{Provider: "old", Model: "old-model", ReasoningChoice: model.ReasoningChoiceLow}
+	committed := model.Selection{Provider: "new", Model: "new-model", ReasoningChoice: model.ReasoningChoiceHigh}
+	deliveryErr := errors.New("selection delivery failed after commit")
+	reasoningErr := errors.New("reasoning observer failed")
+	modelErr := errors.New("model observer failed")
+	ctx, cancel := context.WithCancel(t.Context())
+	order := make([]string, 0, 4)
+	catalog.EXPECT().ResolveModel(committed.Provider, committed.Model).Return(committed, nil)
+	catalog.EXPECT().ValidateSelection(gomock.Any(), committed).Return(nil)
+	catalog.EXPECT().CommitSelection(gomock.Any(), committed).Return(preceding, committed, nil)
+	publisher.EXPECT().
+		PublishSelection(committed).
+		DoAndReturn(func(model.Selection) (func(context.Context) error, error) {
+			order = append(order, "published")
+			return func(context.Context) error {
+				order = append(order, "acknowledgement")
+				cancel()
+				return deliveryErr
+			}, nil
+		})
+	change := SelectionChange{Preceding: preceding, Committed: committed}
+	observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindReasoning, change).DoAndReturn(
+		func(observerCtx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
+			assert.NoError(t, observerCtx.Err())
+			order = append(order, "reasoning")
+			return []Issue{
+				{
+					ExtensionID: "reasoning-extension",
+					HandlerID:   "reasoning-observer",
+					Code:        IssueCodeObserverError,
+					Err:         reasoningErr,
+				},
+			}
+		},
+	)
+	observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindModel, change).DoAndReturn(
+		func(observerCtx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
+			assert.NoError(t, observerCtx.Err())
+			order = append(order, "model")
+			return []Issue{
+				{
+					ExtensionID: "model-extension",
+					HandlerID:   "model-observer",
+					Code:        IssueCodeObserverError,
+					Err:         modelErr,
+				},
+			}
+		},
+	)
+	service := New(catalog, publisher)
+	service.BindObserver(observer)
+	prepared, err := service.prepareModel(committed.Provider, committed.Model)
+	require.NoError(t, err)
+	defer prepared.Release()
+
+	// Act after all pre-commit work succeeds.
+	result := prepared.Run(ctx)
+
+	// Assert client publication precedes reasoning and model observation, and all diagnostics remain ordered.
+	assert.True(t, result.committed)
+	assert.Equal(t, committed, result.selection)
+	assert.Equal(t, []string{"published", "acknowledgement", "reasoning", "model"}, order)
+	require.Len(t, result.issues, 2)
+	assert.ErrorIs(t, result.issues[0].Err, reasoningErr)
+	assert.ErrorIs(t, result.issues[1].Err, modelErr)
+	assert.ErrorIs(t, result.deliveryErr, deliveryErr)
 }
 
 // TestServicePreservesCredentialCancellation verifies canceled credential I/O stays pure before commit.

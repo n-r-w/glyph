@@ -65,7 +65,9 @@ func selectionHandlerKind(kind startup.RawHandlerKind) (HandlerKind, bool) {
 		startup.RawHandlerKindMessageEnd,
 		startup.RawHandlerKindToolExecutionStart,
 		startup.RawHandlerKindToolExecutionUpdate,
-		startup.RawHandlerKindToolExecutionEnd:
+		startup.RawHandlerKindToolExecutionEnd,
+		startup.RawHandlerKindModelSelectionObserver,
+		startup.RawHandlerKindReasoningSelectionObserver:
 		return 0, false
 	default:
 		return 0, false

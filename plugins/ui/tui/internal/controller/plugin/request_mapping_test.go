@@ -39,6 +39,31 @@ func TestSelectionConnectionEventIsAuthoritativeOverCompletion(t *testing.T) {
 	assert.Equal(t, "new", eventPayload.Selection.ModelID)
 }
 
+// TestSelectionCompletionDoesNotRepeatReportedObserverIssue verifies connection issues have one display path.
+func TestSelectionCompletionDoesNotRepeatReportedObserverIssue(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one committed selection whose observer issue was already sent as a connection event.
+	completed := new(uiv1.HostCompleted)
+	completed.SetModelSelection(uiv1.ModelSelectionChanged_builder{
+		Selection: uiv1.ModelSelection_builder{
+			ProviderId: new("provider"), ModelId: new("model"),
+			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
+		}.Build(),
+		Issues: []*uiv1.OperationIssue{uiv1.OperationIssue_builder{
+			Code:        new(uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_OBSERVER_ERROR),
+			ExtensionId: new("extension"), HandlerId: new("observer"), Message: new("observer failed"),
+		}.Build()},
+	}.Build())
+
+	// Act by decoding terminal selection diagnostics.
+	_, present, err := DecodeCompleted(completed)
+
+	// Assert completion settles the request without presenting the already reported issue again.
+	require.NoError(t, err)
+	assert.False(t, present)
+}
+
 // TestSelectionCompletionMapsUndeliveredDiagnostic verifies complete post-commit publication text reaches presentation.
 func TestSelectionCompletionMapsUndeliveredDiagnostic(t *testing.T) {
 	t.Parallel()

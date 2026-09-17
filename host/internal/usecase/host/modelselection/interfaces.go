@@ -82,3 +82,9 @@ type IssueDelivery interface {
 	// DeliverExtensionIssue attempts ordered delivery to the connected Glyph client.
 	DeliverSelectionIssue(context.Context, Issue) error
 }
+
+// Observer delivers committed selection changes to registered extension observers.
+type Observer interface {
+	// ObserveSelection invokes one observer group and returns ordered post-commit diagnostics.
+	ObserveSelection(context.Context, ObservationKind, SelectionChange) []Issue
+}

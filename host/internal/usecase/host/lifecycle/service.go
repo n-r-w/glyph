@@ -10,6 +10,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
@@ -44,6 +45,10 @@ const (
 	KindToolExecutionUpdate
 	// KindToolExecutionEnd observes terminal tool execution.
 	KindToolExecutionEnd
+	// KindModelSelection observes committed provider or model selection changes.
+	KindModelSelection
+	// KindReasoningSelection observes committed reasoning selection changes.
+	KindReasoningSelection
 )
 
 // Handler identifies one accepted lifecycle observer.
@@ -85,6 +90,7 @@ type Service struct {
 var (
 	_ startup.LifecycleRegistrar = (*Service)(nil)
 	_ events.Observer            = (*Service)(nil)
+	_ modelselection.Observer    = (*Service)(nil)
 )
 
 // New creates an empty lifecycle owner.
@@ -137,12 +143,106 @@ func (s *Service) Observe(ctx context.Context, event agent.Event) error {
 	if !observed {
 		return nil
 	}
-	return s.observe(ctx, kind, Event{Agent: event, Settled: false})
+	return s.observe(ctx, kind, Event{
+		Agent: event, Settled: false, Selection: modelselection.SelectionChange{},
+		SelectionEvent: false, ReasoningSelection: false,
+	})
 }
 
 // ObserveSettled delivers Host settlement to matching observers.
 func (s *Service) ObserveSettled(ctx context.Context, runID string) error {
-	return s.observe(ctx, KindAgentSettled, Event{Agent: settledSource(runID), Settled: true})
+	return s.observe(ctx, KindAgentSettled, Event{
+		Agent: settledSource(runID), Settled: true, Selection: modelselection.SelectionChange{},
+		SelectionEvent: false, ReasoningSelection: false,
+	})
+}
+
+// ObserveSelection delivers one committed selection change to matching observers.
+func (s *Service) ObserveSelection(
+	ctx context.Context,
+	observationKind modelselection.ObservationKind,
+	change modelselection.SelectionChange,
+) []modelselection.Issue {
+	kind := KindModelSelection
+	if observationKind == modelselection.ObservationKindReasoning {
+		kind = KindReasoningSelection
+	}
+	event := Event{
+		Agent: agent.Event{}, Settled: false, Selection: change, SelectionEvent: true,
+		ReasoningSelection: observationKind == modelselection.ObservationKindReasoning,
+	}
+	s.mutex.RLock()
+	handlers := slices.Clone(s.handlers)
+	delivery := s.issues
+	s.mutex.RUnlock()
+	availability := make(map[string]bool)
+	result := make([]modelselection.Issue, 0)
+	for _, handler := range handlers {
+		if handler.Kind != kind {
+			continue
+		}
+		available, checked := availability[handler.ExtensionID]
+		if !checked {
+			available = s.runtime.HandlerRuntimeAvailable(handler.ExtensionID)
+			availability[handler.ExtensionID] = available
+		}
+		if !available {
+			continue
+		}
+		binding, err := s.contexts.IssueContext(handler.ExtensionID)
+		switch {
+		case err == nil:
+			var unavailable bool
+			unavailable, err = s.runtime.ObserveLifecycle(
+				ctx, handler.ExtensionID, handler.HandlerID, binding, event,
+			)
+			if unavailable {
+				if err != nil {
+					result = append(result, modelselection.Issue{
+						ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
+						Code: modelselection.IssueCodeObserverError, Err: err,
+					})
+				}
+				continue
+			}
+		case !s.runtime.HandlerRuntimeAvailable(handler.ExtensionID):
+			result = append(result, modelselection.Issue{
+				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
+				Code: modelselection.IssueCodeObserverError, Err: err,
+			})
+			continue
+		default:
+			err = fmt.Errorf("issue selection lifecycle context for extension %q: %w", handler.ExtensionID, err)
+		}
+		if err == nil {
+			continue
+		}
+		observerIssue := modelselection.Issue{
+			ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
+			Code: modelselection.IssueCodeObserverError, Err: err,
+		}
+		result = append(result, observerIssue)
+		if delivery == nil {
+			result = append(result, modelselection.Issue{
+				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
+				Code: modelselection.IssueCodeDeliveryFailed,
+				Err:  errors.Join(err, errors.New("lifecycle issue delivery is not bound")),
+			})
+			continue
+		}
+		publicIssue := Issue{
+			ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
+			Code: IssueCodeObserverError, Err: err,
+		}
+		if deliveryErr := delivery.DeliverExtensionIssue(ctx, publicIssue); deliveryErr != nil {
+			result = append(result, modelselection.Issue{
+				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
+				Code: modelselection.IssueCodeDeliveryFailed,
+				Err:  errors.Join(err, fmt.Errorf("deliver selection observer issue: %w", deliveryErr)),
+			})
+		}
+	}
+	return result
 }
 
 // observe invokes one matching observer chain outside service state locks.
@@ -228,6 +328,10 @@ func lifecycleKind(kind startup.RawHandlerKind) (Kind, bool) {
 		return KindToolExecutionUpdate, true
 	case startup.RawHandlerKindToolExecutionEnd:
 		return KindToolExecutionEnd, true
+	case startup.RawHandlerKindModelSelectionObserver:
+		return KindModelSelection, true
+	case startup.RawHandlerKindReasoningSelectionObserver:
+		return KindReasoningSelection, true
 	case startup.RawHandlerKindUnspecified,
 		startup.RawHandlerKindSessionBeforeTreeRequest,
 		startup.RawHandlerKindSessionBeforeTreeResult,

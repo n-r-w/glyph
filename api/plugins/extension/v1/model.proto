@@ -64,6 +64,8 @@ enum SelectionIssueCode {
   SELECTION_ISSUE_CODE_INVALID_HANDLER_ACTION = 2;
   // The committed selection could not be delivered to the client.
   SELECTION_ISSUE_CODE_DELIVERY_FAILED = 3;
+  // A selection observer returned an ordinary error.
+  SELECTION_ISSUE_CODE_OBSERVER_ERROR = 4;
 }
 
 // SelectionHandlerInvocation carries immutable original and composed current targets.

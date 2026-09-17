@@ -103,6 +103,7 @@ func TestServiceLoadPartitionsHandlersAndRestoresRegistrationOrder(t *testing.T)
 		Handlers: []RawHandlerDescriptor{
 			{Present: true, ID: "agent", Kind: RawHandlerKindAgentStart},
 			{Present: true, ID: "tree", Kind: RawHandlerKindSessionTree},
+			{Present: true, ID: "selection-observer", Kind: RawHandlerKindReasoningSelectionObserver},
 			{Present: true, ID: "message", Kind: RawHandlerKindMessageUpdate},
 		},
 	}
@@ -118,16 +119,20 @@ func TestServiceLoadPartitionsHandlersAndRestoresRegistrationOrder(t *testing.T)
 		ID: "extension", Path: "/extension", Tools: nil,
 		Handlers: []RawHandlerDescriptor{
 			{Present: true, ID: "agent", Kind: RawHandlerKindAgentStart},
+			{Present: true, ID: "selection-observer", Kind: RawHandlerKindReasoningSelectionObserver},
 			{Present: true, ID: "message", Kind: RawHandlerKindMessageUpdate},
 		},
 	}).Return([]AcceptedHandler{
-		{ID: "agent", Kind: RawHandlerKindAgentStart}, {ID: "message", Kind: RawHandlerKindMessageUpdate},
+		{ID: "agent", Kind: RawHandlerKindAgentStart},
+		{ID: "selection-observer", Kind: RawHandlerKindReasoningSelectionObserver},
+		{ID: "message", Kind: RawHandlerKindMessageUpdate},
 	}, nil)
 	expected := []AcceptedRegistration{{
 		ID: "extension", Path: "/extension", Tools: []tool.Descriptor{},
 		Handlers: []AcceptedHandler{
 			{ID: "agent", Kind: RawHandlerKindAgentStart},
 			{ID: "tree", Kind: RawHandlerKindSessionTree},
+			{ID: "selection-observer", Kind: RawHandlerKindReasoningSelectionObserver},
 			{ID: "message", Kind: RawHandlerKindMessageUpdate},
 		},
 	}}

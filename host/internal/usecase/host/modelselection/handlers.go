@@ -80,11 +80,11 @@ type HandlerAction struct {
 	Rejection string
 }
 
-// Issue is one ordered nonfatal selection-handler diagnostic.
+// Issue is one ordered nonfatal selection handler, observer, or delivery diagnostic.
 type Issue struct {
 	// ExtensionID identifies the extension that produced the issue.
 	ExtensionID string
-	// HandlerID identifies the handler that produced the issue.
+	// HandlerID identifies the handler or observer that produced the issue.
 	HandlerID string
 	// Code identifies the stable diagnostic category.
 	Code string

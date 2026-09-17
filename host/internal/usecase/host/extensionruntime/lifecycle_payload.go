@@ -62,6 +62,14 @@ type LifecycleInvocation struct {
 	Outcome mo.Option[agent.RunOutcome]
 	// ErrorMessage retains complete agent-end failure text.
 	ErrorMessage mo.Option[string]
+	// SelectionEvent reports that this is a Host selection lifecycle event.
+	SelectionEvent bool
+	// ReasoningSelection reports that SelectionEvent describes a reasoning change.
+	ReasoningSelection bool
+	// PrecedingSelection is the complete selection before the commit.
+	PrecedingSelection model.Selection
+	// CommittedSelection is the complete committed selection.
+	CommittedSelection model.Selection
 }
 
 // projectLifecycle removes provider-only content and private terminal history before process encoding.
@@ -72,6 +80,8 @@ func (s *Service) projectLifecycle(binding extension.Context, source lifecycle.E
 		Content: mo.None[Content](), ToolCall: event.ToolCall, Preview: event.Preview, Progress: event.Progress,
 		ToolResult: event.ToolResult, Response: mo.None[Response](), TurnResults: nil,
 		Outcome: mo.None[agent.RunOutcome](), ErrorMessage: mo.None[string](),
+		SelectionEvent: source.SelectionEvent, ReasoningSelection: source.ReasoningSelection,
+		PrecedingSelection: source.Selection.Preceding, CommittedSelection: source.Selection.Committed,
 	}
 	if value, present := event.Content.Get(); present && visibleLifecycleContent(value) {
 		result.Content = mo.Some(projectContent(value))

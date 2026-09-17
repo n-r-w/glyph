@@ -84,6 +84,7 @@ func runProgrammaticWithPaths(
 	selectionOwner := modelselection.New(providerCatalog, delivery)
 	selectionOwner.BindHandlers(extensions, contexts, delivery)
 	selectionOwner.BindProtection(contexts)
+	selectionOwner.BindObserver(lifecycleObservers)
 	bindExtensionHostFactory(extensionFactory, extensions, contexts, selectionOwner)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	if _, err = startupService.Load(ctx, startup.Request{

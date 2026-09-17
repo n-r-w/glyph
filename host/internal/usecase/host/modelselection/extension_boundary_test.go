@@ -78,7 +78,7 @@ func TestExtensionSelectionProtectsOnlyCommitAndEnqueue(t *testing.T) {
 	assert.True(t, result.Committed)
 	assert.Equal(t, target, result.Selection)
 	require.Len(t, result.Issues, 1)
-	assert.Equal(t, deliveryFailedIssueCode, result.Issues[0].Code)
+	assert.Equal(t, IssueCodeDeliveryFailed, result.Issues[0].Code)
 	assert.ErrorIs(t, result.Source, deliveryErr)
 }
 

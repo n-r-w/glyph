@@ -13,6 +13,21 @@ import (
 
 // mapLifecycleEvent maps one provider-neutral source event without provider reasoning context.
 func mapLifecycleEvent(event extensionruntime.LifecycleInvocation) (*extensionpb.LifecycleInvocation, error) {
+	if event.SelectionEvent {
+		mapped := new(extensionpb.LifecycleInvocation)
+		if event.ReasoningSelection {
+			mapped.SetReasoningSelection(extensionpb.ReasoningSelectionChanged_builder{
+				Preceding: mapModelSelection(event.PrecedingSelection),
+				Committed: mapModelSelection(event.CommittedSelection),
+			}.Build())
+		} else {
+			mapped.SetModelSelection(extensionpb.ModelSelectionChanged_builder{
+				Preceding: mapModelSelection(event.PrecedingSelection),
+				Committed: mapModelSelection(event.CommittedSelection),
+			}.Build())
+		}
+		return mapped, nil
+	}
 	if event.Settled {
 		mapped := new(extensionpb.LifecycleInvocation)
 		mapped.SetAgentSettled(extensionpb.AgentSettled_builder{RunId: new(event.RunID)}.Build())

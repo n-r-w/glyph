@@ -16,6 +16,36 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
+// TestSelectionLifecycleKindsMatchTypedPayloads verifies observer declarations accept only their typed payload.
+func TestSelectionLifecycleKindsMatchTypedPayloads(t *testing.T) {
+	t.Parallel()
+
+	// Arrange typed model and reasoning lifecycle payloads.
+	modelInvocation := new(extensionpb.LifecycleInvocation)
+	modelInvocation.SetModelSelection(extensionpb.ModelSelectionChanged_builder{
+		Preceding: new(extensionpb.ModelSelection), Committed: new(extensionpb.ModelSelection),
+	}.Build())
+	reasoningInvocation := new(extensionpb.LifecycleInvocation)
+	reasoningInvocation.SetReasoningSelection(extensionpb.ReasoningSelectionChanged_builder{
+		Preceding: new(extensionpb.ModelSelection), Committed: new(extensionpb.ModelSelection),
+	}.Build())
+
+	// Act and assert each observer kind accepts only its matching typed lifecycle payload.
+	assert.True(t, lifecycleKindMatches(extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER, modelInvocation))
+	assert.False(
+		t,
+		lifecycleKindMatches(extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER, reasoningInvocation),
+	)
+	assert.True(
+		t,
+		lifecycleKindMatches(extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER, reasoningInvocation),
+	)
+	assert.False(
+		t,
+		lifecycleKindMatches(extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER, modelInvocation),
+	)
+}
+
 // TestServerEmitsExactRejectionCategoriesAndKeepsStreamOpen verifies producer rejection branches and later use.
 func TestServerEmitsExactRejectionCategoriesAndKeepsStreamOpen(t *testing.T) {
 	t.Parallel()
