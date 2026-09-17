@@ -2,6 +2,7 @@
 package modelselection
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=modelselection
+//go:generate go tool mockgen -destination=operation_mock_integration_test.go -package=modelselection github.com/n-r-w/glyph/internal/operation Delivery
 
 import (
 	"context"

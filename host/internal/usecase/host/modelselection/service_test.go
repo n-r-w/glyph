@@ -180,7 +180,7 @@ func TestServiceObservesChangedSelectionAfterDelivery(t *testing.T) {
 	change := SelectionChange{Preceding: preceding, Committed: committed}
 	observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindReasoning, change).DoAndReturn(
 		func(observerCtx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
-			assert.NoError(t, observerCtx.Err())
+			assert.ErrorIs(t, observerCtx.Err(), context.Canceled)
 			order = append(order, "reasoning")
 			return []Issue{
 				{
@@ -194,7 +194,7 @@ func TestServiceObservesChangedSelectionAfterDelivery(t *testing.T) {
 	)
 	observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindModel, change).DoAndReturn(
 		func(observerCtx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
-			assert.NoError(t, observerCtx.Err())
+			assert.ErrorIs(t, observerCtx.Err(), context.Canceled)
 			order = append(order, "model")
 			return []Issue{
 				{
@@ -222,6 +222,45 @@ func TestServiceObservesChangedSelectionAfterDelivery(t *testing.T) {
 	require.Len(t, result.issues, 2)
 	assert.ErrorIs(t, result.issues[0].Err, reasoningErr)
 	assert.ErrorIs(t, result.issues[1].Err, modelErr)
+	assert.ErrorIs(t, result.deliveryErr, deliveryErr)
+}
+
+// TestServiceObservesAfterNonCancellationDeliveryFailure verifies delivery failure does not skip observers.
+func TestServiceObservesAfterNonCancellationDeliveryFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one changed reasoning commit with failed delivery acknowledgement and an active operation context.
+	controller := gomock.NewController(t)
+	catalog := NewMockCatalog(controller)
+	publisher := NewMockPublisher(controller)
+	observer := NewMockObserver(controller)
+	preceding := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
+	committed := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
+	deliveryErr := errors.New("selection client delivery failed")
+	catalog.EXPECT().ResolveReasoning(committed.ReasoningChoice).Return(committed, nil)
+	catalog.EXPECT().ValidateSelection(gomock.Any(), committed).Return(nil)
+	catalog.EXPECT().CommitSelection(gomock.Any(), committed).Return(preceding, committed, nil)
+	publisher.EXPECT().PublishSelection(committed).Return(
+		func(context.Context) error { return deliveryErr }, nil,
+	)
+	observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindReasoning, SelectionChange{
+		Preceding: preceding, Committed: committed,
+	}).DoAndReturn(func(ctx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
+		assert.NoError(t, ctx.Err())
+		return nil
+	})
+	service := New(catalog, publisher)
+	service.BindObserver(observer)
+	prepared, err := service.prepareReasoning(committed.ReasoningChoice)
+	require.NoError(t, err)
+	defer prepared.Release()
+
+	// Act through the shared selection operation.
+	result := prepared.Run(t.Context())
+
+	// Assert committed state and the non-cancellation delivery failure remain reachable after observation.
+	assert.True(t, result.committed)
+	assert.Equal(t, committed, result.selection)
 	assert.ErrorIs(t, result.deliveryErr, deliveryErr)
 }
 

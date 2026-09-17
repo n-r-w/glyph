@@ -222,7 +222,7 @@ func (s *Service) commitSelection(
 		result.deliveryErr = wait(ctx)
 	}
 	if committedChange, changed := change.Get(); changed {
-		result.issues = s.observeSelection(context.WithoutCancel(ctx), committedChange, result.issues)
+		result.issues = s.observeSelection(ctx, committedChange, result.issues)
 	}
 	return result
 }
