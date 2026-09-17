@@ -13,8 +13,8 @@ func NewFrame(kind FrameKind) Frame {
 	return Frame{
 		NextInput: mo.None[string](),
 		Kind:      kind, Lifecycle: mo.None[Lifecycle](),
-		AuthorizationURL: mo.None[string](),
-		ModelSelection:   mo.None[model.Selection](), SelectionIssues: nil,
+		AuthorizationURL: mo.None[string](), AuthorizationCode: mo.None[string](),
+		ModelSelection: mo.None[model.Selection](), SelectionIssues: nil,
 		SessionInfo: mo.None[session.Info](), Sessions: nil,
 		SessionEntries: nil, SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[SessionTree](),
 		TreeNavigationProgress: mo.None[TreeNavigationProgress](),

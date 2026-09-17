@@ -22,8 +22,12 @@ func TestMapCommandsBuildsEveryRetainedOperationRequest(t *testing.T) {
 	}{
 		{name: "submit", command: commandFixture(presentationdomain.CommandSubmit, mo.Some("hello"))},
 		{
-			name:    "retry authentication",
-			command: commandFixture(presentationdomain.CommandRetryAuthentication, mo.None[string]()),
+			name: "retry authentication",
+			command: func() presentationdomain.Command {
+				command := commandFixture(presentationdomain.CommandRetryAuthentication, mo.None[string]())
+				command.AuthenticationMethod = presentationdomain.AuthenticationMethodBrowser
+				return command
+			}(),
 		},
 		{name: "create session", command: commandFixture(presentationdomain.CommandCreateSession, mo.None[string]())},
 		{name: "list sessions", command: commandFixture(presentationdomain.CommandListSessions, mo.None[string]())},

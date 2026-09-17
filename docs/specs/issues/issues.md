@@ -1,5 +1,7 @@
 # Issues
 
+- [X] TUI hyperlinks: `docs/specs/issues/tui-hyperlinks`
+
 - [ ] Agent run failure semantics: `docs/specs/issues/agent-run-failure-semantics`
   - [X] Shared `Failed.code` transport and closed failure-category sets: `docs/specs/issues/blocking-contract-operation-processing/solution.md`
   - [X] Source-backed history-persistence failure distinction for both client contracts, verified in PHS-07.1 U7: `docs/specs/features/initial/phases/07.1-architecture-audit-and-correction/solution.md`

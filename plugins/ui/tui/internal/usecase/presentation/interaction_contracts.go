@@ -44,10 +44,24 @@ const (
 	CommandSetEntryLabel
 )
 
+// AuthenticationMethod identifies a user-selected sign-in flow.
+type AuthenticationMethod uint8
+
+const (
+	// AuthenticationMethodUnspecified represents an absent sign-in choice.
+	AuthenticationMethodUnspecified AuthenticationMethod = iota
+	// AuthenticationMethodBrowser uses a browser and a callback on the Glyph computer.
+	AuthenticationMethodBrowser
+	// AuthenticationMethodDeviceCode uses a code entered in a browser on any computer.
+	AuthenticationMethodDeviceCode
+)
+
 // Command is one user request emitted through the UI stream.
 type Command struct {
 	// Kind identifies the Host action and active payload.
 	Kind CommandKind
+	// AuthenticationMethod selects the flow for an authentication command.
+	AuthenticationMethod AuthenticationMethod
 	// Text contains submitted user text.
 	Text mo.Option[string]
 	// ProviderID identifies a requested model provider.

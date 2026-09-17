@@ -21,13 +21,17 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 )
 
 // expectAuthorizationCallback completes the loopback callback presented by the driver.
 func expectAuthorizationCallback(t *testing.T, interaction *MockInteraction, options driverOptions) {
 	t.Helper()
-	interaction.EXPECT().PresentAuthorizationURL(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, authorizationURL string) error {
+	interaction.EXPECT().PresentAuthorization(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, challenge authentication.Challenge) error {
+			authorizationURL := challenge.URL
+			require.True(t, challenge.UserCode.IsNone())
 			parsed, err := url.Parse(authorizationURL)
 			require.NoError(t, err)
 			callbackURL := parsed.Query().Get("redirect_uri") + "?code=code&state=" +
@@ -100,8 +104,10 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 		return listenConfig.Listen(t.Context(), network, "127.0.0.1:0")
 	}
 	gomock.InOrder(
-		interaction.EXPECT().PresentAuthorizationURL(gomock.Any(), gomock.Any()).DoAndReturn(
-			func(ctx context.Context, authorizationURL string) error {
+		interaction.EXPECT().PresentAuthorization(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, challenge authentication.Challenge) error {
+				authorizationURL := challenge.URL
+				require.True(t, challenge.UserCode.IsNone())
 				parsed, err := url.Parse(authorizationURL)
 				require.NoError(t, err)
 				query := parsed.Query()
@@ -141,7 +147,7 @@ func TestDriverSignInValidatesStateExchangesAndPersists(t *testing.T) {
 	)
 	service := newDriver(testConfig(), credentials, interaction, options)
 
-	err := service.SignIn(t.Context())
+	err := service.SignIn(t.Context(), authentication.MethodBrowser)
 
 	require.NoError(t, err)
 	assert.Equal(t, "approved-code", exchangedCode.Load())
@@ -154,7 +160,7 @@ func TestDriverSignInCancellationClosesCallbackServer(t *testing.T) {
 
 	credentials := NewMockCredentials(gomock.NewController(t))
 	interaction := NewMockInteraction(gomock.NewController(t))
-	interaction.EXPECT().PresentAuthorizationURL(gomock.Any(), gomock.Any()).Return(nil)
+	interaction.EXPECT().PresentAuthorization(gomock.Any(), gomock.Any()).Return(nil)
 	interaction.EXPECT().OpenBrowser(gomock.Any(), gomock.Any()).Return(nil)
 	var callbackListener *net.TCPListener
 	options := defaultDriverOptions()
@@ -174,7 +180,7 @@ func TestDriverSignInCancellationClosesCallbackServer(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	err := service.SignIn(ctx)
+	err := service.SignIn(ctx, authentication.MethodBrowser)
 
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotNil(t, callbackListener)
@@ -208,7 +214,7 @@ func TestDriverSignInRejectsIncompleteToken(t *testing.T) {
 		testConfig(), credentials, interaction, options,
 	)
 
-	err := service.SignIn(t.Context())
+	err := service.SignIn(t.Context(), authentication.MethodBrowser)
 
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "missing-refresh")
@@ -240,7 +246,7 @@ func TestDriverSignInPreservesTokenExchangeFailure(t *testing.T) {
 	service := newDriver(testConfig(), credentials, interaction, options)
 
 	// Act by completing the callback and exchanging its code.
-	err := service.SignIn(t.Context())
+	err := service.SignIn(t.Context(), authentication.MethodBrowser)
 
 	// Assert endpoint context and provider error detail remain visible.
 	require.Error(t, err)

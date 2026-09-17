@@ -40,8 +40,11 @@ func TestMapFramePreservesSessionInformationAndStatistics(t *testing.T) {
 		},
 	}
 	frame := controllerui.Frame{
-		NextInput: mo.None[string](),
-		Kind:      controllerui.FrameSessionInformation,
+		AuthorizationCode:      mo.None[string](),
+		SelectionIssues:        nil,
+		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		NextInput:              mo.None[string](),
+		Kind:                   controllerui.FrameSessionInformation,
 
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),

@@ -295,6 +295,8 @@ type SessionSummary struct {
 type event struct {
 	// FailureCode retains the source category independently of diagnostic wording.
 	FailureCode string
+	// AuthorizationCode contains the one-time value for an authorization event.
+	AuthorizationCode mo.Option[string]
 	// Kind identifies the presentation update and active payload.
 	Kind eventKind
 	// Startup contains ordered startup lines.
@@ -433,6 +435,8 @@ type projection struct {
 	Availability mo.Option[Availability]
 	// AuthorizationURL contains the pending browser OAuth URL.
 	AuthorizationURL mo.Option[string]
+	// AuthorizationCode contains the current device-code challenge and is never persisted in the transcript.
+	AuthorizationCode mo.Option[string]
 	// Settled reports whether the active agent run has settled.
 	Settled mo.Option[bool]
 	// Models lists selectable configured models.

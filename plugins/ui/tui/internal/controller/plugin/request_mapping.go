@@ -32,7 +32,16 @@ func mapHostProgress(progress *uiv1.HostProgress) (Payload, error) {
 		if authorization == nil || !authorization.HasUrl() {
 			return Payload{}, errors.New("authorization URL is required")
 		}
-		return TextPayload(TextUpdate{Kind: TextAuthorization, Text: authorization.GetUrl(), FailureCode: ""}), nil
+		code := mo.None[string]()
+		if authorization.HasUserCode() {
+			if authorization.GetUserCode() == "" {
+				return Payload{}, errors.New("authorization user code must not be empty")
+			}
+			code = mo.Some(authorization.GetUserCode())
+		}
+		return TextPayload(TextUpdate{
+			Kind: TextAuthorization, Text: authorization.GetUrl(), AuthorizationCode: code, FailureCode: "",
+		}), nil
 	case uiv1.HostProgress_SessionTreeNavigation_case:
 		return mapTreeNavigationProgress(progress.GetSessionTreeNavigation())
 	case uiv1.HostProgress_Progress_not_set_case:
@@ -94,6 +103,7 @@ func mapModelSelectionCompletion(changed *uiv1.ModelSelectionChanged) (Payload, 
 	}
 	return TextPayload(TextUpdate{
 		Kind: TextError, Text: strings.Join(deliveryFailures, "\n"), FailureCode: selectionDeliveryFailureCode,
+		AuthorizationCode: mo.None[string](),
 	}), true, nil
 }
 
@@ -142,7 +152,14 @@ func mapInformation(information *uiv1.Information) (Payload, error) {
 	if information == nil || !information.HasText() {
 		return Payload{}, errors.New("information text is required")
 	}
-	return TextPayload(TextUpdate{Kind: TextInformation, Text: information.GetText(), FailureCode: ""}), nil
+	return TextPayload(
+		TextUpdate{
+			Kind:              TextInformation,
+			Text:              information.GetText(),
+			FailureCode:       "",
+			AuthorizationCode: mo.None[string](),
+		},
+	), nil
 }
 
 // mapConnectionError retains a validated connection failure's category and complete diagnostic text.
@@ -151,7 +168,14 @@ func mapConnectionError(failure *uiv1.Error) (Payload, error) {
 		!failure.HasText() || failure.GetText() == "" {
 		return Payload{}, errors.New("connection error category and text are required")
 	}
-	return TextPayload(TextUpdate{Kind: TextError, Text: failure.GetText(), FailureCode: failure.GetCode()}), nil
+	return TextPayload(
+		TextUpdate{
+			Kind:              TextError,
+			Text:              failure.GetText(),
+			FailureCode:       failure.GetCode(),
+			AuthorizationCode: mo.None[string](),
+		},
+	), nil
 }
 
 // mapExtensionIssue validates and identifies one nonterminal observer issue.
@@ -160,9 +184,16 @@ func mapExtensionIssue(issue *uiv1.ExtensionIssue) (Payload, error) {
 		issue.GetCode() == "" || issue.GetText() == "" {
 		return Payload{}, errors.New("extension issue identity, code, and text are required")
 	}
-	return TextPayload(TextUpdate{Kind: TextError, FailureCode: issue.GetCode(), Text: fmt.Sprintf(
-		extensionIssueFormat, issue.GetExtensionId(), issue.GetHandlerId(), issue.GetCode(), issue.GetText(),
-	)}), nil
+	return TextPayload(
+		TextUpdate{
+			Kind:              TextError,
+			AuthorizationCode: mo.None[string](),
+			FailureCode:       issue.GetCode(),
+			Text: fmt.Sprintf(
+				extensionIssueFormat, issue.GetExtensionId(), issue.GetHandlerId(), issue.GetCode(), issue.GetText(),
+			),
+		},
+	), nil
 }
 
 // mapSessionEntryAdded validates a committed extension-message update.

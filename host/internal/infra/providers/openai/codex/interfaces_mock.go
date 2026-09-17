@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	authentication "github.com/n-r-w/glyph/host/internal/domain/authentication"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -122,16 +123,16 @@ func (mr *MockInteractionMockRecorder) OpenBrowser(ctx, authorizationURL any) *g
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "OpenBrowser", reflect.TypeOf((*MockInteraction)(nil).OpenBrowser), ctx, authorizationURL)
 }
 
-// PresentAuthorizationURL mocks base method.
-func (m *MockInteraction) PresentAuthorizationURL(ctx context.Context, authorizationURL string) error {
+// PresentAuthorization mocks base method.
+func (m *MockInteraction) PresentAuthorization(ctx context.Context, challenge authentication.Challenge) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PresentAuthorizationURL", ctx, authorizationURL)
+	ret := m.ctrl.Call(m, "PresentAuthorization", ctx, challenge)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
-// PresentAuthorizationURL indicates an expected call of PresentAuthorizationURL.
-func (mr *MockInteractionMockRecorder) PresentAuthorizationURL(ctx, authorizationURL any) *gomock.Call {
+// PresentAuthorization indicates an expected call of PresentAuthorization.
+func (mr *MockInteractionMockRecorder) PresentAuthorization(ctx, challenge any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PresentAuthorizationURL", reflect.TypeOf((*MockInteraction)(nil).PresentAuthorizationURL), ctx, authorizationURL)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PresentAuthorization", reflect.TypeOf((*MockInteraction)(nil).PresentAuthorization), ctx, challenge)
 }

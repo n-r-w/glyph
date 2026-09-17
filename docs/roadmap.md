@@ -4,6 +4,12 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 ## Cross-cutting issues
 
+### TUI hyperlinks
+
+Status: Completed
+
+Read-only TUI output now retains complete web-link targets across wrapping and clipping. The [technical solution](specs/issues/tui-hyperlinks/solution.md) records behavior, terminal requirements, and verification. The remaining PHS-12.1 rendering scope is unchanged.
+
 ### Blocking contract operation processing
 
 Status: Completed
@@ -62,6 +68,8 @@ Documents:
 Status: Completed
 
 Added the required built-in providers, reasoning behavior, and runtime model selection.
+
+The [Codex device-code login feature](specs/features/codex-device-code-login/solution.md) adds an explicit TUI choice between local browser sign-in and code-based sign-in for SSH. See [sign-in instructions](guidelines/authentication.md).
 
 Documents:
 - [Ticket](specs/features/initial/phases/03-providers-models-runtime-selection/ticket.md)

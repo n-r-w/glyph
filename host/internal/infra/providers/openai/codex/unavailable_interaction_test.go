@@ -8,6 +8,8 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
+
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 )
 
 // TestSignInWithoutInteractionPreservesSetupAndCleanup rejects presentation after creating the OAuth listener.
@@ -26,7 +28,7 @@ func TestSignInWithoutInteractionPreservesSetupAndCleanup(t *testing.T) {
 	}
 	driver := newDriver(testConfig(), credentials, nil, options)
 	// Act through the real OAuth setup and presentation sequence.
-	err := driver.SignIn(t.Context())
+	err := driver.SignIn(t.Context(), authentication.MethodBrowser)
 	// Assert the baseline presentation cause and that cleanup released the callback port.
 	require.ErrorIs(t, err, ErrInteractionUnavailable)
 	require.EqualError(t, err, "present OpenAI Codex authorization URL: glyph client interaction is unavailable")

@@ -14,8 +14,9 @@ import (
 // sessionListFrame normalizes stored previews and constructs independently owned UI list rows.
 func sessionListFrame(listed []StoredSession) controllerui.Frame {
 	return controllerui.Frame{
-		NextInput: mo.None[string](),
-		Kind:      controllerui.FrameSessionList,
+		NextInput:         mo.None[string](),
+		Kind:              controllerui.FrameSessionList,
+		AuthorizationCode: mo.None[string](),
 
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),
@@ -58,8 +59,9 @@ func sessionInfoFrame(
 	statistics mo.Option[session.Statistics],
 ) controllerui.Frame {
 	return controllerui.Frame{
-		NextInput: mo.None[string](),
-		Kind:      kind,
+		NextInput:         mo.None[string](),
+		Kind:              kind,
+		AuthorizationCode: mo.None[string](),
 
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),

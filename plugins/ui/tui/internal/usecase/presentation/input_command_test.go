@@ -39,11 +39,8 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 		ModelSelection:       mo.None[ModelSelection](),
 		SessionInfo:          mo.None[SessionInfo](),
 	}))
-	model = executeCommand(t, model, inputcontroller.Key{
-		Code: 'r',
-		Mod:  inputcontroller.ModCtrl,
-		Text: "",
-	})
+	require.Nil(t, model.Key(inputcontroller.Key{Code: 'r', Mod: inputcontroller.ModCtrl, Text: ""}))
+	model = executeCommand(t, model, inputcontroller.Key{Code: inputcontroller.KeyEnter, Mod: 0, Text: ""})
 
 	next, command := updateApplication(model, inputcontroller.Key{
 		Code: 'q',
@@ -61,29 +58,32 @@ func TestModelEmitsStopRetryAndQuitFromDocumentedKeys(t *testing.T) {
 
 	assert.Equal(t, []Command{
 		{
-			Kind:            CommandStop,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TreeCommand:     mo.None[TreeCommand](),
+			Kind:                 CommandStop,
+			AuthenticationMethod: AuthenticationMethodUnspecified,
+			Text:                 mo.None[string](),
+			ProviderID:           mo.None[string](),
+			ModelID:              mo.None[string](),
+			ReasoningChoice:      mo.None[ReasoningChoice](),
+			SessionID:            mo.None[string](),
+			SessionName:          mo.None[string](),
+			TreeCommand:          mo.None[TreeCommand](),
 		},
 		{
-			Kind:            CommandRetryAuthentication,
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			ReasoningChoice: mo.None[ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TreeCommand:     mo.None[TreeCommand](),
+			Kind:                 CommandRetryAuthentication,
+			AuthenticationMethod: AuthenticationMethodBrowser,
+			Text:                 mo.None[string](),
+			ProviderID:           mo.None[string](),
+			ModelID:              mo.None[string](),
+			ReasoningChoice:      mo.None[ReasoningChoice](),
+			SessionID:            mo.None[string](),
+			SessionName:          mo.None[string](),
+			TreeCommand:          mo.None[TreeCommand](),
 		},
 		{
-			Kind:       CommandQuit,
-			Text:       mo.None[string](),
-			ProviderID: mo.None[string](),
+			Kind:                 CommandQuit,
+			AuthenticationMethod: AuthenticationMethodUnspecified,
+			Text:                 mo.None[string](),
+			ProviderID:           mo.None[string](),
 
 			ModelID:         mo.None[string](),
 			ReasoningChoice: mo.None[ReasoningChoice](),

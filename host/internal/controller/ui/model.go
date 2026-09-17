@@ -269,6 +269,8 @@ type Frame struct {
 	Lifecycle mo.Option[Lifecycle]
 	// AuthorizationURL contains the browser OAuth URL.
 	AuthorizationURL mo.Option[string]
+	// AuthorizationCode contains the one-time code for a pending device authorization.
+	AuthorizationCode mo.Option[string]
 	// ModelSelection contains the committed active selection.
 	ModelSelection mo.Option[model.Selection]
 	// SelectionIssues contains ordered diagnostics acquired after selection commit.

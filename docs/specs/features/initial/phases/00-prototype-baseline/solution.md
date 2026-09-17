@@ -354,10 +354,10 @@ plugins/ui/tui/
 
 - LIM-01: `~/.glyph/logs/glyph.log` grows without rotation or retention limits in the prototype.
 - NXT-01: The full-product logging design must define rotation, retention, and maximum disk usage before replacing the prototype logging implementation.
-- LIM-02: The prototype Codex provider has only an SSE transport. It does not implement WebSocket transport, connection-scoped continuation caching, automatic fallback from WebSocket to SSE, zstd request compression, device-code login, or provider-level automatic retries.
+- LIM-02: The prototype Codex provider has only an SSE transport. It does not implement WebSocket transport, connection-scoped continuation caching, automatic fallback from WebSocket to SSE, zstd request compression, or provider-level automatic retries.
 - NXT-02: Reassess the LIM-02 capabilities after the prototype proves browser OAuth, token refresh, SSE Responses, encrypted reasoning replay, and tool calls against the ChatGPT Codex backend.
 - LIM-03: Browser OAuth does not work when Glyph runs through SSH on a remote computer or VPS because the browser's `localhost` callback reaches the user's local computer. The prototype does not accept a manually copied authorization code or redirect URL.
-- NXT-03: Before claiming remote-terminal OAuth support, the full product must select and implement either manual redirect transfer, device-code login, or another provider-supported remote login flow.
+- NXT-03: Remote-terminal sign-in is provided by the [Codex device-code login feature](../../../codex-device-code-login/solution.md). The browser-flow limitation in LIM-03 still applies to that method.
 - LIM-04: The prototype host accepts only the DEC-38 schema profile even though the protobuf field can carry a broader provider-neutral JSON Schema.
 - LIM-07: Provider-neutral messages and Codex models are image-capable, but the standard TUI and `glyph run` expose text-only user input.
 - NXT-07: Add user-facing image input only after a controller and transport contract define image acquisition, validation, size limits, and presentation.

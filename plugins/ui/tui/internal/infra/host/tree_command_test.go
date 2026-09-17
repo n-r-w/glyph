@@ -92,7 +92,8 @@ func TestMapCommandEncodesTreeOperations(t *testing.T) {
 // treeMappingCommand creates a complete tree command for mapping tests.
 func treeMappingCommand(kind presentation.CommandKind, treeCommand presentation.TreeCommand) presentation.Command {
 	return presentation.Command{
-		Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
+		AuthenticationMethod: presentation.AuthenticationMethodUnspecified,
+		Kind:                 kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
 		ReasoningChoice: mo.None[presentation.ReasoningChoice](), SessionID: mo.None[string](),
 		SessionName: mo.None[string](), TreeCommand: mo.Some(treeCommand),
 	}

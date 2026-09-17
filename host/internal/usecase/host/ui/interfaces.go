@@ -8,6 +8,7 @@ import (
 	"github.com/n-r-w/glyph/internal/operation"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
@@ -125,7 +126,7 @@ type ActiveSessions interface {
 // Authenticator keeps credential interpretation and refresh inside the provider.
 type Authenticator interface {
 	CheckAuthentication(ctx context.Context) error
-	SignIn(ctx context.Context) error
+	SignIn(ctx context.Context, method authentication.Method) error
 	IsSignInRequired(err error) bool
 }
 

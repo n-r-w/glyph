@@ -15,6 +15,7 @@ import (
 
 	ui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
+	authentication "github.com/n-r-w/glyph/host/internal/domain/authentication"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	operation "github.com/n-r-w/glyph/internal/operation"
@@ -667,17 +668,17 @@ func (mr *MockAuthenticatorMockRecorder) IsSignInRequired(err any) *gomock.Call 
 }
 
 // SignIn mocks base method.
-func (m *MockAuthenticator) SignIn(ctx context.Context) error {
+func (m *MockAuthenticator) SignIn(ctx context.Context, method authentication.Method) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SignIn", ctx)
+	ret := m.ctrl.Call(m, "SignIn", ctx, method)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SignIn indicates an expected call of SignIn.
-func (mr *MockAuthenticatorMockRecorder) SignIn(ctx any) *gomock.Call {
+func (mr *MockAuthenticatorMockRecorder) SignIn(ctx, method any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignIn", reflect.TypeOf((*MockAuthenticator)(nil).SignIn), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignIn", reflect.TypeOf((*MockAuthenticator)(nil).SignIn), ctx, method)
 }
 
 // MockGate is a mock of Gate interface.

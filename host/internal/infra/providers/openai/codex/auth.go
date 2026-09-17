@@ -15,7 +15,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/samber/mo"
 	"golang.org/x/oauth2"
+
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 )
 
 const (
@@ -66,8 +69,22 @@ type loopbackServer struct {
 // ErrInteractionUnavailable identifies authorization presentation without an active Glyph client.
 var ErrInteractionUnavailable = errors.New("glyph client interaction is unavailable")
 
-// SignIn performs browser OAuth and persists the resulting provider payload.
-func (s *Driver) SignIn(ctx context.Context) error {
+// SignIn runs the selected OAuth flow and persists the resulting provider payload.
+func (s *Driver) SignIn(ctx context.Context, method authentication.Method) error {
+	switch method {
+	case authentication.MethodBrowser:
+		return s.signInBrowser(ctx)
+	case authentication.MethodDeviceCode:
+		return s.signInDeviceCode(ctx)
+	case authentication.MethodUnspecified:
+		return errors.New("OpenAI Codex sign-in method is required")
+	default:
+		return fmt.Errorf("unknown OpenAI Codex sign-in method %d", method)
+	}
+}
+
+// signInBrowser preserves the browser PKCE flow with its callback on the Glyph computer.
+func (s *Driver) signInBrowser(ctx context.Context) error {
 	state, err := newOAuthState()
 	if err != nil {
 		return err
@@ -115,6 +132,11 @@ func (s *Driver) SignIn(ctx context.Context) error {
 		}
 		return fmt.Errorf("exchange OpenAI Codex authorization code: %w", err)
 	}
+	return s.persistSignInToken(token)
+}
+
+// persistSignInToken validates and stores the same credential payload for both interactive flows.
+func (s *Driver) persistSignInToken(token *oauth2.Token) error {
 	if token.AccessToken == "" || token.RefreshToken == "" || token.Expiry.IsZero() {
 		return errors.New("OpenAI Codex authorization response is missing required credentials")
 	}
@@ -144,7 +166,9 @@ func (s *Driver) presentAuthorizationURL(ctx context.Context, authorizationURL s
 	if s.interaction == nil {
 		return ErrInteractionUnavailable
 	}
-	return s.interaction.PresentAuthorizationURL(ctx, authorizationURL)
+	return s.interaction.PresentAuthorization(ctx, authentication.Challenge{
+		URL: authorizationURL, UserCode: mo.None[string](),
+	})
 }
 
 // SignOut deletes only the OpenAI Codex provider payload.

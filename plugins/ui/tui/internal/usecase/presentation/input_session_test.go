@@ -110,6 +110,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventSessionList,
+		AuthorizationCode:    mo.None[string](),
 		Startup:              nil,
 		Availability:         mo.None[Availability](),
 		Position:             mo.None[int](),
@@ -217,6 +218,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventInformation,
+		AuthorizationCode:    mo.None[string](),
 		Startup:              nil,
 		Availability:         mo.None[Availability](),
 		Position:             mo.None[int](),
@@ -268,6 +270,7 @@ func TestModelResumeSelectorEmitsSelectedSession(t *testing.T) {
 	model = updateModel(t, model, event{
 		FailureCode:          "",
 		RestoredTranscript:   restored,
+		AuthorizationCode:    mo.None[string](),
 		Kind:                 eventSessionChanged,
 		Startup:              nil,
 		Availability:         mo.None[Availability](),

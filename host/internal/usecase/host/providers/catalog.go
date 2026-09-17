@@ -11,6 +11,7 @@ import (
 	"github.com/samber/mo"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
+	authdomain "github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -292,12 +293,12 @@ func (c *Catalog) CheckAuthentication(ctx context.Context) error {
 }
 
 // SignIn starts authentication for the active provider.
-func (c *Catalog) SignIn(ctx context.Context) error {
-	authentication := c.activeAuthentication()
-	if authentication == nil {
+func (c *Catalog) SignIn(ctx context.Context, method authdomain.Method) error {
+	authenticator := c.activeAuthentication()
+	if authenticator == nil {
 		return nil
 	}
-	return authentication.SignIn(ctx)
+	return authenticator.SignIn(ctx, method)
 }
 
 // IsSignInRequired classifies an active-provider authentication error.

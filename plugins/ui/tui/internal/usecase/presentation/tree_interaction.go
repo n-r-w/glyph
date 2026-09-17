@@ -260,7 +260,8 @@ func treeCommand(
 	payload TreeCommand,
 ) Command {
 	return Command{
-		Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
+		AuthenticationMethod: AuthenticationMethodUnspecified,
+		Kind:                 kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
 		ReasoningChoice: mo.None[ReasoningChoice](), SessionID: mo.None[string](),
 		SessionName: mo.None[string](), TreeCommand: mo.Some(payload),
 	}

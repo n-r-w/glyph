@@ -160,9 +160,12 @@ func TestMappingRejectsMissingPayloads(t *testing.T) {
 	} {
 		// Act by invoking mapFrame to exercise malformed stream items fail explicitly.
 		_, err := mapFrame(controllerui.Frame{
-			NextInput:      mo.None[string](),
-			SessionEntries: nil,
-			Kind:           kind,
+			AuthorizationCode:      mo.None[string](),
+			SelectionIssues:        nil,
+			TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+			NextInput:              mo.None[string](),
+			SessionEntries:         nil,
+			Kind:                   kind,
 
 			Lifecycle:        mo.None[controllerui.Lifecycle](),
 			AuthorizationURL: mo.None[string](),

@@ -37,13 +37,15 @@ type interaction struct {
 	emitting bool
 	// selectorOpen routes keys away from the editor into the visible selector.
 	selectorOpen bool
+	// authenticationSelector focuses the two sign-in methods instead of model or session rows.
+	authenticationSelector bool
 	// sessionSelector distinguishes resume rows from model rows while reusing navigation state.
 	sessionSelector bool
 	// resumePending keeps one selected session stable until Host accepts or rejects replacement.
 	resumePending bool
 	// resumeStatus shows a Host rejection without adding it to the active transcript.
 	resumeStatus string
-	// selectorRow is the selected model or session row.
+	// selectorRow is the selected authentication, model, or session row.
 	selectorRow int
 	// reasoningExpanded controls only local display and never changes Host selection.
 	reasoningExpanded bool
@@ -84,6 +86,7 @@ func newInteraction(initial event) interaction {
 		cursor:                  0,
 		emitting:                false,
 		selectorOpen:            false,
+		authenticationSelector:  false,
 		selectorRow:             0,
 		reasoningExpanded:       false,
 		branchSummariesExpanded: false,

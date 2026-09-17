@@ -8,6 +8,7 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 
@@ -56,7 +57,7 @@ func TestModelRendersStartupTranscriptActiveOutputAuthorizationAndResize(t *test
 	assert.Contains(t, view.Content, "Glyph session initialized.")
 	assert.Contains(t, view.Content, "[info] Ready.")
 	assert.Contains(t, view.Content, "assistant: Working")
-	assert.Contains(t, view.Content, "Authorization: https://example.test/oauth")
+	assert.Contains(t, ansi.Strip(view.Content), "Authorization: https://example.test/oauth")
 	assert.Contains(t, view.Content, "Terminal: 100x40")
 	assert.Contains(t, view.Content, "Request: hello|")
 	assert.Contains(t, view.Content, "Ctrl+P next model | Shift+Ctrl+P previous model | Shift+Tab reasoning")

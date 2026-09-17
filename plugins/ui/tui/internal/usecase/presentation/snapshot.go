@@ -24,6 +24,8 @@ type DisplayBody struct {
 	Availability mo.Option[Availability]
 	// AuthorizationURL contains the latest authorization URL.
 	AuthorizationURL mo.Option[string]
+	// AuthorizationCode contains the one-time value shown during device-code sign-in.
+	AuthorizationCode mo.Option[string]
 	// ModelSelection is the Host-confirmed selected model.
 	ModelSelection mo.Option[ModelSelection]
 }
@@ -48,13 +50,15 @@ type Snapshot struct {
 	Input []rune
 	// Cursor is the draft insertion position.
 	Cursor int
-	// SelectorOpen identifies an open model or session selector.
+	// SelectorOpen identifies an open authentication, model, or session selector.
 	SelectorOpen bool
+	// AuthenticationSelector shows sign-in methods instead of model or session rows.
+	AuthenticationSelector bool
 	// SessionSelector selects session rows instead of model rows.
 	SessionSelector bool
 	// ResumeStatus contains a resume rejection shown beside its retained selector.
 	ResumeStatus string
-	// SelectorRow identifies the selected model or session row.
+	// SelectorRow identifies the selected authentication, model, or session row.
 	SelectorRow int
 	// ReasoningExpanded controls transcript reasoning visibility.
 	ReasoningExpanded bool
@@ -83,15 +87,16 @@ func (service *Service) publish() {
 		state := service.model.state.Clone()
 		service.model.projectionChanged = false
 		service.body = DisplayBody{
-			Startup:          state.Startup,
-			Transcript:       state.Transcript,
-			ActiveModel:      state.ActiveModel,
-			ActiveToolCalls:  state.ActiveToolCalls,
-			Models:           state.Models,
-			Sessions:         state.Sessions,
-			Availability:     state.Availability,
-			AuthorizationURL: state.AuthorizationURL,
-			ModelSelection:   state.ModelSelection,
+			Startup:           state.Startup,
+			Transcript:        state.Transcript,
+			ActiveModel:       state.ActiveModel,
+			ActiveToolCalls:   state.ActiveToolCalls,
+			Models:            state.Models,
+			Sessions:          state.Sessions,
+			Availability:      state.Availability,
+			AuthorizationURL:  state.AuthorizationURL,
+			AuthorizationCode: state.AuthorizationCode,
+			ModelSelection:    state.ModelSelection,
 		}
 	}
 	tree := mo.None[TreeView]()
@@ -115,6 +120,7 @@ func (service *Service) publish() {
 		Input:                     slices.Clone(service.model.input),
 		Cursor:                    service.model.cursor,
 		SelectorOpen:              service.model.selectorOpen,
+		AuthenticationSelector:    service.model.authenticationSelector,
 		SessionSelector:           service.model.sessionSelector,
 		ResumeStatus:              service.model.resumeStatus,
 		SelectorRow:               service.model.selectorRow,

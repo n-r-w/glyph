@@ -116,6 +116,7 @@ func (model interaction) applyEmissionResult(message emissionResultMsg) (interac
 			FailureCode:          "",
 			RestoredTranscript:   nil,
 			Kind:                 eventError,
+			AuthorizationCode:    mo.None[string](),
 			Startup:              nil,
 			Availability:         mo.None[Availability](),
 			Position:             mo.None[int](),
@@ -150,6 +151,7 @@ func (model interaction) applyEmissionResult(message emissionResultMsg) (interac
 			FailureCode:          "",
 			RestoredTranscript:   nil,
 			Kind:                 eventUserSubmitted,
+			AuthorizationCode:    mo.None[string](),
 			Startup:              nil,
 			Availability:         mo.None[Availability](),
 			Position:             mo.None[int](),
@@ -327,14 +329,15 @@ func (model interaction) updateEnter(availability Availability) (interaction, *c
 		return model, nil
 	}
 	return model.emitCommand(Command{
-		Kind:            CommandSubmit,
-		Text:            mo.Some(text),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.None[ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[TreeCommand](),
+		AuthenticationMethod: AuthenticationMethodUnspecified,
+		Kind:                 CommandSubmit,
+		Text:                 mo.Some(text),
+		ProviderID:           mo.None[string](),
+		ModelID:              mo.None[string](),
+		ReasoningChoice:      mo.None[ReasoningChoice](),
+		SessionID:            mo.None[string](),
+		SessionName:          mo.None[string](),
+		TreeCommand:          mo.None[TreeCommand](),
 	})
 }
 
@@ -348,14 +351,15 @@ func isSelectionShortcut(key inputcontroller.Key) bool {
 // emptyCommand creates a command without an operation-specific payload.
 func emptyCommand(kind CommandKind) Command {
 	return Command{
-		Kind:            kind,
-		Text:            mo.None[string](),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.None[ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[TreeCommand](),
+		Kind:                 kind,
+		AuthenticationMethod: AuthenticationMethodUnspecified,
+		Text:                 mo.None[string](),
+		ProviderID:           mo.None[string](),
+		ModelID:              mo.None[string](),
+		ReasoningChoice:      mo.None[ReasoningChoice](),
+		SessionID:            mo.None[string](),
+		SessionName:          mo.None[string](),
+		TreeCommand:          mo.None[TreeCommand](),
 	}
 }
 
@@ -366,13 +370,13 @@ func (model interaction) updateControlKey(code rune) (interaction, *commandInten
 		return model.emitCommand(emptyCommand(CommandQuit))
 	case 'c':
 		if availability, ok := model.state.Availability.Get(); ok &&
-			availability == AvailabilityRunning {
+			(availability == AvailabilityRunning || availability == AvailabilityAuthenticating) {
 			return model.emitCommand(emptyCommand(CommandStop))
 		}
 	case 'r':
 		availability, ok := model.state.Availability.Get()
 		if ok && availability == AvailabilityAuthenticationFailed {
-			return model.emitCommand(emptyCommand(CommandRetryAuthentication))
+			return model.openAuthenticationSelector()
 		}
 	case 'l':
 		return model.openSelector()

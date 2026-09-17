@@ -507,6 +507,7 @@ func treeControllerEvent(
 	treeEvent treeEvent,
 ) event {
 	return event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		Kind:                 kind,
 		Startup:              nil,

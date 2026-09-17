@@ -22,6 +22,7 @@ func TestStateCopiesTypedToolResultImage(t *testing.T) {
 	}
 	// Act by applying the result and mutating the caller-owned bytes.
 	state := (projection{}).Apply(event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolResult,
@@ -78,18 +79,19 @@ func TestStateClonesContentsAcrossStateSnapshots(t *testing.T) {
 		}}),
 	}
 	previous := projection{
-		Startup:          []Line{line},
-		Transcript:       []Line{line},
-		Models:           nil,
-		ActiveModel:      nil,
-		ActiveToolCalls:  nil,
-		ActiveTools:      nil,
-		Availability:     mo.None[Availability](),
-		AuthorizationURL: mo.None[string](),
-		Settled:          mo.None[bool](),
-		ModelSelection:   mo.None[ModelSelection](),
-		SessionInfo:      mo.None[SessionInfo](),
-		Sessions:         nil,
+		AuthorizationCode: mo.None[string](),
+		Startup:           []Line{line},
+		Transcript:        []Line{line},
+		Models:            nil,
+		ActiveModel:       nil,
+		ActiveToolCalls:   nil,
+		ActiveTools:       nil,
+		Availability:      mo.None[Availability](),
+		AuthorizationURL:  mo.None[string](),
+		Settled:           mo.None[bool](),
+		ModelSelection:    mo.None[ModelSelection](),
+		SessionInfo:       mo.None[SessionInfo](),
+		Sessions:          nil,
 	}
 	// Act by applying an event and mutating both image copies in the next state.
 	next := previous.Apply(
@@ -122,6 +124,7 @@ func TestStateProjectsTypedToolResultTextInOrder(t *testing.T) {
 
 	// Arrange an event with ordered text and image tool-result content.
 	event := event{
+		AuthorizationCode:  mo.None[string](),
 		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventToolResult,

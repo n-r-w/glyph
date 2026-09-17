@@ -1,6 +1,10 @@
 package providers
 
-import "context"
+import (
+	"context"
+
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
+)
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=providers
 
@@ -15,7 +19,7 @@ type CredentialChecker interface {
 type ProviderAuthentication interface {
 	CredentialChecker
 	// SignIn runs interactive provider authentication.
-	SignIn(ctx context.Context) error
+	SignIn(ctx context.Context, method authentication.Method) error
 	// IsSignInRequired reports whether an error requires interactive authentication.
 	IsSignInRequired(err error) bool
 }

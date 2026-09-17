@@ -34,7 +34,7 @@ func testLifecycleFrame() controllerui.Frame {
 			Outcome:            mo.None[string](),
 			ErrorMessage:       mo.None[string](),
 		}),
-		AuthorizationURL: mo.None[string](),
+		AuthorizationURL: mo.None[string](), AuthorizationCode: mo.None[string](),
 
 		ModelSelection:         mo.None[model.Selection](),
 		SelectionIssues:        nil,

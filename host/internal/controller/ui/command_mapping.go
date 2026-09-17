@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/samber/mo"
@@ -37,7 +38,21 @@ func mapUIRequest(command *uiv1.UIRequest) (Command, error) {
 		}
 		return newCommand(CommandSubmit, mo.Some(submit.GetText())), nil
 	case command.GetRetryAuthentication() != nil:
-		return newCommand(CommandRetryAuthentication, mo.None[string]()), nil
+		mapped := newCommand(CommandRetryAuthentication, mo.None[string]())
+		switch command.GetRetryAuthentication().GetMethod() {
+		case uiv1.AuthenticationMethod_AUTHENTICATION_METHOD_BROWSER:
+			mapped.AuthenticationMethod = authentication.MethodBrowser
+		case uiv1.AuthenticationMethod_AUTHENTICATION_METHOD_DEVICE_CODE:
+			mapped.AuthenticationMethod = authentication.MethodDeviceCode
+		case uiv1.AuthenticationMethod_AUTHENTICATION_METHOD_UNSPECIFIED:
+			return Command{}, errors.New("receive UI command: authentication method is required")
+		default:
+			return Command{}, fmt.Errorf(
+				"receive UI command: unknown authentication method %d",
+				command.GetRetryAuthentication().GetMethod(),
+			)
+		}
+		return mapped, nil
 	case command.GetSelectModel() != nil, command.GetSelectReasoningChoice() != nil:
 		return Command{}, errors.New("receive UI command: selection command was not mapped")
 	case command.GetCreateSession() != nil, command.GetListSessions() != nil,
@@ -61,18 +76,19 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 			return Command{}, true, errors.New("receive UI command: provider and model are required")
 		}
 		return Command{
-			OperationID:     "",
-			Kind:            CommandSelectModel,
-			ProviderID:      mo.Some(selected.GetProviderId()),
-			ModelID:         mo.Some(selected.GetModelId()),
-			Text:            mo.None[string](),
-			ReasoningChoice: mo.None[model.ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
-			EntryLabel:      mo.None[string](),
+			OperationID:          "",
+			Kind:                 CommandSelectModel,
+			AuthenticationMethod: authentication.MethodUnspecified,
+			ProviderID:           mo.Some(selected.GetProviderId()),
+			ModelID:              mo.Some(selected.GetModelId()),
+			Text:                 mo.None[string](),
+			ReasoningChoice:      mo.None[model.ReasoningChoice](),
+			SessionID:            mo.None[string](),
+			SessionName:          mo.None[string](),
+			TargetEntryID:        mo.None[string](),
+			SummaryMode:          SummaryModeNoSummary,
+			CustomFocus:          mo.None[string](),
+			EntryLabel:           mo.None[string](),
 		}, true, nil
 	case command.GetSelectReasoningChoice() != nil:
 		selected := command.GetSelectReasoningChoice()
@@ -84,18 +100,19 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 			return Command{}, true, err
 		}
 		return Command{
-			OperationID:     "",
-			Kind:            CommandSelectReasoningChoice,
-			ReasoningChoice: mo.Some(choice),
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TargetEntryID:   mo.None[string](),
-			SummaryMode:     SummaryModeNoSummary,
-			CustomFocus:     mo.None[string](),
-			EntryLabel:      mo.None[string](),
+			OperationID:          "",
+			Kind:                 CommandSelectReasoningChoice,
+			AuthenticationMethod: authentication.MethodUnspecified,
+			ReasoningChoice:      mo.Some(choice),
+			Text:                 mo.None[string](),
+			ProviderID:           mo.None[string](),
+			ModelID:              mo.None[string](),
+			SessionID:            mo.None[string](),
+			SessionName:          mo.None[string](),
+			TargetEntryID:        mo.None[string](),
+			SummaryMode:          SummaryModeNoSummary,
+			CustomFocus:          mo.None[string](),
+			EntryLabel:           mo.None[string](),
 		}, true, nil
 	default:
 		return Command{}, false, nil
@@ -169,18 +186,19 @@ func mapSessionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 // emptySessionCommand initializes absent arguments for lifecycle commands without payloads.
 func newCommand(kind CommandKind, text mo.Option[string]) Command {
 	return Command{
-		OperationID:     "",
-		Kind:            kind,
-		Text:            text,
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TargetEntryID:   mo.None[string](),
-		SummaryMode:     SummaryModeNoSummary,
-		CustomFocus:     mo.None[string](),
-		EntryLabel:      mo.None[string](),
+		OperationID:          "",
+		Kind:                 kind,
+		AuthenticationMethod: authentication.MethodUnspecified,
+		Text:                 text,
+		ProviderID:           mo.None[string](),
+		ModelID:              mo.None[string](),
+		ReasoningChoice:      mo.None[model.ReasoningChoice](),
+		SessionID:            mo.None[string](),
+		SessionName:          mo.None[string](),
+		TargetEntryID:        mo.None[string](),
+		SummaryMode:          SummaryModeNoSummary,
+		CustomFocus:          mo.None[string](),
+		EntryLabel:           mo.None[string](),
 	}
 }
 

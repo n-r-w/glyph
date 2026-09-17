@@ -1,6 +1,10 @@
 package codex
 
-import "context"
+import (
+	"context"
+
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
+)
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=codex
 //go:generate go tool mockgen -destination=net_listener_mock.go -package=codex -mock_names=Listener=MockNetListener net Listener
@@ -14,8 +18,8 @@ type Credentials interface {
 	Delete() error
 }
 
-// Interaction presents browser authentication through Glyph Host.
+// Interaction presents provider authentication through Glyph Host.
 type Interaction interface {
-	PresentAuthorizationURL(ctx context.Context, authorizationURL string) error
+	PresentAuthorization(ctx context.Context, challenge authentication.Challenge) error
 	OpenBrowser(ctx context.Context, authorizationURL string) error
 }

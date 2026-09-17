@@ -3,6 +3,7 @@ package ui
 import (
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
@@ -46,6 +47,8 @@ type Command struct {
 	OperationID string
 	// Kind identifies the requested Host action and active payload.
 	Kind CommandKind
+	// AuthenticationMethod selects the interactive sign-in flow for an authentication command.
+	AuthenticationMethod authentication.Method
 	// Text contains submitted user text.
 	Text mo.Option[string]
 	// ProviderID identifies a requested model provider.

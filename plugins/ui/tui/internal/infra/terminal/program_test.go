@@ -27,7 +27,7 @@ func TestRuntimeEmitsSubmittedTerminalInput(t *testing.T) {
 		func(_ string, command presentation.Command, _ string) error { emitted <- command; return nil },
 	)
 	host.EXPECT().StopDispatch()
-	application, input, output := initializedRuntime(t, controller, host)
+	application, input, output := initializedRuntime(t, controller, host, plugininput.AvailabilityIdle)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	done := make(chan error, 1)
@@ -60,7 +60,7 @@ func TestRuntimeUsesSuppliedTerminalIO(t *testing.T) {
 	)
 	host.EXPECT().CloseConnection(gomock.Any()).Return(nil)
 	host.EXPECT().StopDispatch()
-	application, input, output := initializedRuntime(t, controller, host)
+	application, input, output := initializedRuntime(t, controller, host, plugininput.AvailabilityIdle)
 	done := make(chan error, 1)
 	go func() { done <- application.Run(t.Context()) }()
 	<-output.written
@@ -74,9 +74,37 @@ func TestRuntimeUsesSuppliedTerminalIO(t *testing.T) {
 	require.NotEmpty(t, output.String())
 }
 
+// TestRuntimeSelectsDeviceCodeThroughTerminal checks the method selector through real terminal input.
+func TestRuntimeSelectsDeviceCodeThroughTerminal(t *testing.T) {
+	t.Parallel()
+	// Arrange a real terminal runtime with an authentication failure and a captured Host request.
+	controller := gomock.NewController(t)
+	host := presentation.NewMockHost(controller)
+	emitted := make(chan presentation.Command, 1)
+	host.EXPECT().Send(gomock.Any(), gomock.Any(), "").DoAndReturn(
+		func(_ string, command presentation.Command, _ string) error { emitted <- command; return nil },
+	)
+	host.EXPECT().StopDispatch()
+	application, input, output := initializedRuntime(t, controller, host, plugininput.AvailabilityAuthenticationFailed)
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	done := make(chan error, 1)
+	go func() { done <- application.Run(ctx) }()
+	<-output.written
+	// Act with Ctrl+R, Down, and Enter through the real framework key decoder.
+	_, err := io.WriteString(input, "\x12\x1b[B\r")
+	require.NoError(t, err)
+	command := <-emitted
+	cancel()
+	// Assert the chosen remote-browser flow reaches asynchronous Host dispatch.
+	require.Equal(t, presentation.CommandRetryAuthentication, command.Kind)
+	require.Equal(t, presentation.AuthenticationMethodDeviceCode, command.AuthenticationMethod)
+	require.ErrorIs(t, <-done, context.Canceled)
+}
+
 // initializedRuntime binds production input and state owners to isolated Host and terminal resources.
 func initializedRuntime(
-	t *testing.T, controller *gomock.Controller, host presentation.Host,
+	t *testing.T, controller *gomock.Controller, host presentation.Host, availability plugininput.Availability,
 ) (*presentation.Service, *io.PipeWriter, *notifyingWriter) {
 	t.Helper()
 	input, writer := io.Pipe()
@@ -96,7 +124,7 @@ func initializedRuntime(
 	application := presentation.New(host, runtime, runtime)
 	runtime.BindInput(tuiinput.New(application), plugininput.New(application), source)
 	work, err := application.PrepareInitialize(plugininput.Initialization{
-		Availability: plugininput.AvailabilityIdle, Startup: nil, Models: nil,
+		Availability: availability, Startup: nil, Models: nil,
 		Selection: plugininput.ModelSelection{}, Session: plugininput.SessionInfo{},
 	})
 	require.NoError(t, err)

@@ -17,6 +17,7 @@ import (
 func newSelectionTestModel(t *testing.T, availability Availability, emit func(Command) error) *Service {
 	t.Helper()
 	model := newTestApplication(event{
+		AuthorizationCode:  mo.None[string](),
 		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventInitialization,
@@ -77,6 +78,7 @@ func newTestModel(t testing.TB, availability Availability, emit func(Command) er
 		emit = func(Command) error { return nil }
 	}
 	return newTestApplication(event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventInitialization,

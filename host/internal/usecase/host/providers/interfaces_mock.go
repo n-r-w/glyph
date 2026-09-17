@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	authentication "github.com/n-r-w/glyph/host/internal/domain/authentication"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -107,15 +108,15 @@ func (mr *MockProviderAuthenticationMockRecorder) IsSignInRequired(err any) *gom
 }
 
 // SignIn mocks base method.
-func (m *MockProviderAuthentication) SignIn(ctx context.Context) error {
+func (m *MockProviderAuthentication) SignIn(ctx context.Context, method authentication.Method) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SignIn", ctx)
+	ret := m.ctrl.Call(m, "SignIn", ctx, method)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // SignIn indicates an expected call of SignIn.
-func (mr *MockProviderAuthenticationMockRecorder) SignIn(ctx any) *gomock.Call {
+func (mr *MockProviderAuthenticationMockRecorder) SignIn(ctx, method any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignIn", reflect.TypeOf((*MockProviderAuthentication)(nil).SignIn), ctx)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SignIn", reflect.TypeOf((*MockProviderAuthentication)(nil).SignIn), ctx, method)
 }

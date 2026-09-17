@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -83,17 +84,17 @@ func TestAuthenticationRetryRequiresFailedAvailability(t *testing.T) {
 	assert.Equal(t, controllerui.RejectionCodeNotReady, rejection.PreparationCode())
 }
 
-// TestAuthenticationRetryTransitionsToIdle verifies successful retry lifecycle and availability.
+// TestAuthenticationRetryTransitionsToIdle verifies device-code selection and successful authentication.
 func TestAuthenticationRetryTransitionsToIdle(t *testing.T) {
 	t.Parallel()
-	// Arrange controller, channel, and authenticator for Prepared.Run to verify successful retry lifecycle and availability.
+	// Arrange a failed authentication state and an explicit device-code choice.
 
 	controller := gomock.NewController(t)
 	channel := NewMockOutput(controller)
 	authenticator := NewMockAuthenticator(controller)
 	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
-	authenticator.EXPECT().SignIn(gomock.Any()).Return(nil)
+	authenticator.EXPECT().SignIn(gomock.Any(), authentication.MethodDeviceCode).Return(nil)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
 		nil, nil, nil)
@@ -101,6 +102,7 @@ func TestAuthenticationRetryTransitionsToIdle(t *testing.T) {
 	service.setOperationAvailability(AvailabilityAuthenticationFailed)
 	command := newCommandForPreparedTest(controllerui.CommandRetryAuthentication)
 	command.OperationID = "operation"
+	command.AuthenticationMethod = authentication.MethodDeviceCode
 	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)
 
@@ -116,7 +118,7 @@ func TestAuthenticationRetryTransitionsToIdle(t *testing.T) {
 // TestAuthenticationRetryFailurePreservesCause verifies retry failures remain classified and visible.
 func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	t.Parallel()
-	// Arrange controller, channel, and authenticator for Prepared.Run to verify retry failures remain classified and visible.
+	// Arrange a browser sign-in failure with its original cause.
 
 	controller := gomock.NewController(t)
 	channel := NewMockOutput(controller)
@@ -124,7 +126,7 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	source := errors.New("browser authentication failed")
 	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
-	authenticator.EXPECT().SignIn(gomock.Any()).Return(source)
+	authenticator.EXPECT().SignIn(gomock.Any(), authentication.MethodBrowser).Return(source)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
 		nil, nil, nil)
@@ -132,6 +134,7 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	service.setOperationAvailability(AvailabilityAuthenticationFailed)
 	command := newCommandForPreparedTest(controllerui.CommandRetryAuthentication)
 	command.OperationID = "operation"
+	command.AuthenticationMethod = authentication.MethodBrowser
 	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)
 
@@ -142,7 +145,7 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	// Assert retry failures remain classified and visible.
 	assert.Equal(t, operation.TerminalStateFailed, outcome.State())
 	assert.Equal(t, controllerui.FailureCodeAuthentication, outcome.Code())
-	assert.ErrorIs(t, outcome.Err(), source)
+	require.ErrorIs(t, outcome.Err(), source)
 	assert.Equal(t, AvailabilityAuthenticationFailed, service.operationAvailabilitySnapshot())
 }
 

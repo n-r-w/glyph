@@ -100,7 +100,7 @@ openai-codex:
         default: high
 ```
 
-An `openai-codex` provider must not set `baseURL`, `api`, or `apiKey`. Authentication uses the Codex credential flow.
+An `openai-codex` provider must not set `baseURL`, `api`, or `apiKey`. Authentication uses the [Codex sign-in flow](authentication.md), with browser and device-code choices in the standard TUI.
 
 ### OpenAI-compatible provider
 

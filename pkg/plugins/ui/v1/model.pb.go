@@ -148,6 +148,54 @@ func (x ReasoningChoice) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
+// AuthenticationMethod identifies the explicitly selected interactive sign-in flow.
+type AuthenticationMethod int32
+
+const (
+	// No sign-in method was selected.
+	AuthenticationMethod_AUTHENTICATION_METHOD_UNSPECIFIED AuthenticationMethod = 0
+	// Use a browser with a callback on the Glyph computer.
+	AuthenticationMethod_AUTHENTICATION_METHOD_BROWSER AuthenticationMethod = 1
+	// Enter a one-time code in a browser on any computer.
+	AuthenticationMethod_AUTHENTICATION_METHOD_DEVICE_CODE AuthenticationMethod = 2
+)
+
+// Enum value maps for AuthenticationMethod.
+var (
+	AuthenticationMethod_name = map[int32]string{
+		0: "AUTHENTICATION_METHOD_UNSPECIFIED",
+		1: "AUTHENTICATION_METHOD_BROWSER",
+		2: "AUTHENTICATION_METHOD_DEVICE_CODE",
+	}
+	AuthenticationMethod_value = map[string]int32{
+		"AUTHENTICATION_METHOD_UNSPECIFIED": 0,
+		"AUTHENTICATION_METHOD_BROWSER":     1,
+		"AUTHENTICATION_METHOD_DEVICE_CODE": 2,
+	}
+)
+
+func (x AuthenticationMethod) Enum() *AuthenticationMethod {
+	p := new(AuthenticationMethod)
+	*p = x
+	return p
+}
+
+func (x AuthenticationMethod) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AuthenticationMethod) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_ui_v1_model_proto_enumTypes[2].Descriptor()
+}
+
+func (AuthenticationMethod) Type() protoreflect.EnumType {
+	return &file_api_plugins_ui_v1_model_proto_enumTypes[2]
+}
+
+func (x AuthenticationMethod) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // AuthenticationCompleted acknowledges completed authentication.
 type AuthenticationCompleted struct {
 	state         protoimpl.MessageState `protogen:"opaque.v1"`
@@ -872,10 +920,11 @@ func (b0 OperationIssue_builder) Build() *OperationIssue {
 	return m0
 }
 
-// AuthorizationRequest presents one browser OAuth URL.
+// AuthorizationRequest presents the current sign-in URL and optional one-time code.
 type AuthorizationRequest struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Url         *string                `protobuf:"bytes,1,opt,name=url"`
+	xxx_hidden_UserCode    *string                `protobuf:"bytes,2,opt,name=user_code,json=userCode"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -917,9 +966,24 @@ func (x *AuthorizationRequest) GetUrl() string {
 	return ""
 }
 
+func (x *AuthorizationRequest) GetUserCode() string {
+	if x != nil {
+		if x.xxx_hidden_UserCode != nil {
+			return *x.xxx_hidden_UserCode
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *AuthorizationRequest) SetUrl(v string) {
 	x.xxx_hidden_Url = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *AuthorizationRequest) SetUserCode(v string) {
+	x.xxx_hidden_UserCode = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
 }
 
 func (x *AuthorizationRequest) HasUrl() bool {
@@ -929,16 +993,30 @@ func (x *AuthorizationRequest) HasUrl() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
+func (x *AuthorizationRequest) HasUserCode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
 func (x *AuthorizationRequest) ClearUrl() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Url = nil
 }
 
+func (x *AuthorizationRequest) ClearUserCode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_UserCode = nil
+}
+
 type AuthorizationRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The browser URL used to start authorization.
+	// The provider page opened in the user's browser.
 	Url *string
+	// The one-time code entered on that page, present only for device-code authorization.
+	UserCode *string
 }
 
 func (b0 AuthorizationRequest_builder) Build() *AuthorizationRequest {
@@ -946,17 +1024,24 @@ func (b0 AuthorizationRequest_builder) Build() *AuthorizationRequest {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Url != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
 		x.xxx_hidden_Url = b.Url
+	}
+	if b.UserCode != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_UserCode = b.UserCode
 	}
 	return m0
 }
 
-// RetryAuthenticationCommand starts OAuth after an authentication failure.
+// RetryAuthenticationCommand starts the selected sign-in flow after an authentication failure.
 type RetryAuthenticationCommand struct {
-	state         protoimpl.MessageState `protogen:"opaque.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Method      AuthenticationMethod   `protobuf:"varint,1,opt,name=method,enum=glyph.plugins.ui.v1.AuthenticationMethod"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *RetryAuthenticationCommand) Reset() {
@@ -984,15 +1069,47 @@ func (x *RetryAuthenticationCommand) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+func (x *RetryAuthenticationCommand) GetMethod() AuthenticationMethod {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Method
+		}
+	}
+	return AuthenticationMethod_AUTHENTICATION_METHOD_UNSPECIFIED
+}
+
+func (x *RetryAuthenticationCommand) SetMethod(v AuthenticationMethod) {
+	x.xxx_hidden_Method = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *RetryAuthenticationCommand) HasMethod() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *RetryAuthenticationCommand) ClearMethod() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Method = AuthenticationMethod_AUTHENTICATION_METHOD_UNSPECIFIED
+}
+
 type RetryAuthenticationCommand_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The user's selected sign-in method; unspecified values are rejected.
+	Method *AuthenticationMethod
 }
 
 func (b0 RetryAuthenticationCommand_builder) Build() *RetryAuthenticationCommand {
 	m0 := &RetryAuthenticationCommand{}
 	b, x := &b0, m0
 	_, _ = b, x
+	if b.Method != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Method = *b.Method
+	}
 	return m0
 }
 
@@ -1217,10 +1334,12 @@ const file_api_plugins_ui_v1_model_proto_rawDesc = "" +
 	"\fextension_id\x18\x02 \x01(\tR\vextensionId\x12\x1d\n" +
 	"\n" +
 	"handler_id\x18\x03 \x01(\tR\thandlerId\x12\x18\n" +
-	"\amessage\x18\x04 \x01(\tR\amessage\"(\n" +
+	"\amessage\x18\x04 \x01(\tR\amessage\"E\n" +
 	"\x14AuthorizationRequest\x12\x10\n" +
-	"\x03url\x18\x01 \x01(\tR\x03url\"\x1c\n" +
-	"\x1aRetryAuthenticationCommand\"P\n" +
+	"\x03url\x18\x01 \x01(\tR\x03url\x12\x1b\n" +
+	"\tuser_code\x18\x02 \x01(\tR\buserCode\"_\n" +
+	"\x1aRetryAuthenticationCommand\x12A\n" +
+	"\x06method\x18\x01 \x01(\x0e2).glyph.plugins.ui.v1.AuthenticationMethodR\x06method\"P\n" +
 	"\x12SelectModelCommand\x12\x1f\n" +
 	"\vprovider_id\x18\x01 \x01(\tR\n" +
 	"providerId\x12\x19\n" +
@@ -1242,38 +1361,44 @@ const file_api_plugins_ui_v1_model_proto_rawDesc = "" +
 	"\x17REASONING_CHOICE_MEDIUM\x10\x05\x12\x19\n" +
 	"\x15REASONING_CHOICE_HIGH\x10\x06\x12\x1a\n" +
 	"\x16REASONING_CHOICE_XHIGH\x10\a\x12\x18\n" +
-	"\x14REASONING_CHOICE_MAX\x10\bB/Z-github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1b\beditionsp\xe8\a"
+	"\x14REASONING_CHOICE_MAX\x10\b*\x87\x01\n" +
+	"\x14AuthenticationMethod\x12%\n" +
+	"!AUTHENTICATION_METHOD_UNSPECIFIED\x10\x00\x12!\n" +
+	"\x1dAUTHENTICATION_METHOD_BROWSER\x10\x01\x12%\n" +
+	"!AUTHENTICATION_METHOD_DEVICE_CODE\x10\x02B/Z-github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1b\beditionsp\xe8\a"
 
-var file_api_plugins_ui_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_api_plugins_ui_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
 var file_api_plugins_ui_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_plugins_ui_v1_model_proto_goTypes = []any{
 	(OperationIssueCode)(0),              // 0: glyph.plugins.ui.v1.OperationIssueCode
 	(ReasoningChoice)(0),                 // 1: glyph.plugins.ui.v1.ReasoningChoice
-	(*AuthenticationCompleted)(nil),      // 2: glyph.plugins.ui.v1.AuthenticationCompleted
-	(*ConfiguredModel)(nil),              // 3: glyph.plugins.ui.v1.ConfiguredModel
-	(*ReasoningCapabilities)(nil),        // 4: glyph.plugins.ui.v1.ReasoningCapabilities
-	(*ModelSelection)(nil),               // 5: glyph.plugins.ui.v1.ModelSelection
-	(*ModelSelectionChanged)(nil),        // 6: glyph.plugins.ui.v1.ModelSelectionChanged
-	(*OperationIssue)(nil),               // 7: glyph.plugins.ui.v1.OperationIssue
-	(*AuthorizationRequest)(nil),         // 8: glyph.plugins.ui.v1.AuthorizationRequest
-	(*RetryAuthenticationCommand)(nil),   // 9: glyph.plugins.ui.v1.RetryAuthenticationCommand
-	(*SelectModelCommand)(nil),           // 10: glyph.plugins.ui.v1.SelectModelCommand
-	(*SelectReasoningChoiceCommand)(nil), // 11: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	(AuthenticationMethod)(0),            // 2: glyph.plugins.ui.v1.AuthenticationMethod
+	(*AuthenticationCompleted)(nil),      // 3: glyph.plugins.ui.v1.AuthenticationCompleted
+	(*ConfiguredModel)(nil),              // 4: glyph.plugins.ui.v1.ConfiguredModel
+	(*ReasoningCapabilities)(nil),        // 5: glyph.plugins.ui.v1.ReasoningCapabilities
+	(*ModelSelection)(nil),               // 6: glyph.plugins.ui.v1.ModelSelection
+	(*ModelSelectionChanged)(nil),        // 7: glyph.plugins.ui.v1.ModelSelectionChanged
+	(*OperationIssue)(nil),               // 8: glyph.plugins.ui.v1.OperationIssue
+	(*AuthorizationRequest)(nil),         // 9: glyph.plugins.ui.v1.AuthorizationRequest
+	(*RetryAuthenticationCommand)(nil),   // 10: glyph.plugins.ui.v1.RetryAuthenticationCommand
+	(*SelectModelCommand)(nil),           // 11: glyph.plugins.ui.v1.SelectModelCommand
+	(*SelectReasoningChoiceCommand)(nil), // 12: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
 }
 var file_api_plugins_ui_v1_model_proto_depIdxs = []int32{
-	4, // 0: glyph.plugins.ui.v1.ConfiguredModel.reasoning:type_name -> glyph.plugins.ui.v1.ReasoningCapabilities
+	5, // 0: glyph.plugins.ui.v1.ConfiguredModel.reasoning:type_name -> glyph.plugins.ui.v1.ReasoningCapabilities
 	1, // 1: glyph.plugins.ui.v1.ReasoningCapabilities.choices:type_name -> glyph.plugins.ui.v1.ReasoningChoice
 	1, // 2: glyph.plugins.ui.v1.ReasoningCapabilities.default_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
 	1, // 3: glyph.plugins.ui.v1.ModelSelection.reasoning_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
-	5, // 4: glyph.plugins.ui.v1.ModelSelectionChanged.selection:type_name -> glyph.plugins.ui.v1.ModelSelection
-	7, // 5: glyph.plugins.ui.v1.ModelSelectionChanged.issues:type_name -> glyph.plugins.ui.v1.OperationIssue
+	6, // 4: glyph.plugins.ui.v1.ModelSelectionChanged.selection:type_name -> glyph.plugins.ui.v1.ModelSelection
+	8, // 5: glyph.plugins.ui.v1.ModelSelectionChanged.issues:type_name -> glyph.plugins.ui.v1.OperationIssue
 	0, // 6: glyph.plugins.ui.v1.OperationIssue.code:type_name -> glyph.plugins.ui.v1.OperationIssueCode
-	1, // 7: glyph.plugins.ui.v1.SelectReasoningChoiceCommand.choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	2, // 7: glyph.plugins.ui.v1.RetryAuthenticationCommand.method:type_name -> glyph.plugins.ui.v1.AuthenticationMethod
+	1, // 8: glyph.plugins.ui.v1.SelectReasoningChoiceCommand.choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	9, // [9:9] is the sub-list for method output_type
+	9, // [9:9] is the sub-list for method input_type
+	9, // [9:9] is the sub-list for extension type_name
+	9, // [9:9] is the sub-list for extension extendee
+	0, // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_model_proto_init() }
@@ -1286,7 +1411,7 @@ func file_api_plugins_ui_v1_model_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_ui_v1_model_proto_rawDesc), len(file_api_plugins_ui_v1_model_proto_rawDesc)),
-			NumEnums:      2,
+			NumEnums:      3,
 			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   0,

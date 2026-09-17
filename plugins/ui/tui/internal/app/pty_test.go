@@ -108,6 +108,8 @@ func TestStandardTUIPTY(t *testing.T) {
 	observer.WaitNext(t, "Authentication failed")
 	observer.WaitNext(t, "[error] Authentication failed safely.")
 	testsupporttui.Write(t, input, string([]byte{18}))
+	observer.WaitNext(t, "Browser (on this computer)")
+	testsupporttui.Write(t, input, "\x1b[13u")
 
 	observer.WaitNext(t, "Idle")
 	testsupporttui.Write(t, input, string([]byte{17}))
@@ -369,7 +371,9 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	response, err = stream.Recv()
 	require.NoError(t, err)
 	retryID := response.GetOperationId()
-	assert.NotNil(t, response.GetRequest().GetRetryAuthentication())
+	require.NotNil(t, response.GetRequest().GetRetryAuthentication())
+	assert.Equal(t, uiv1.AuthenticationMethod_AUTHENTICATION_METHOD_BROWSER,
+		response.GetRequest().GetRetryAuthentication().GetMethod())
 	beginHostOperation(t, stream, retryID)
 	completeAuthenticationOperation(t, stream, retryID)
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_IDLE)

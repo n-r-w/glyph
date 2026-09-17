@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -283,7 +284,8 @@ func runPreparedCommand(t *testing.T, service *Session, command controllerui.Com
 // newCommandForPreparedTest creates one complete operation request with absent optional fields.
 func newCommandForPreparedTest(kind controllerui.CommandKind) controllerui.Command {
 	return controllerui.Command{
-		OperationID: "operation", Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](),
+		AuthenticationMethod: authentication.MethodUnspecified,
+		OperationID:          "operation", Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](),
 		ModelID: mo.None[string](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID: mo.None[string](), SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
 		SummaryMode: controllerui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),

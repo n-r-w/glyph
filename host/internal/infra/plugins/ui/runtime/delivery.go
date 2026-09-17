@@ -10,6 +10,7 @@ import (
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -78,12 +79,14 @@ func (*Service) DeliverSettled(ctx context.Context, _ string) error {
 	return nil
 }
 
-// PresentAuthorizationURL sends the OAuth URL before any best-effort browser launch.
-func (d *Service) PresentAuthorizationURL(ctx context.Context, authorizationURL string) error {
+// PresentAuthorization sends operation-scoped sign-in information to the active UI.
+func (d *Service) PresentAuthorization(ctx context.Context, challenge authentication.Challenge) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("present UI authorization URL: %w", err)
 	}
-	if err := d.sendFrame(authorizationFrame(authorizationURL)); err != nil {
+	frame := authorizationFrame(challenge.URL)
+	frame.AuthorizationCode = challenge.UserCode
+	if err := d.sendFrame(frame); err != nil {
 		return fmt.Errorf("present UI authorization URL: %w", err)
 	}
 	return nil

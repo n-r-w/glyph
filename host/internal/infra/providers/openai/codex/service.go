@@ -33,6 +33,14 @@ type Config struct {
 
 // driverOptions contains provider-owned protocol endpoints and deterministic seams.
 type driverOptions struct {
+	// deviceCodeURL issues a user code for remote-browser authentication.
+	deviceCodeURL string
+	// deviceTokenURL reports completion of a device authorization.
+	deviceTokenURL string
+	// deviceVerificationURL is opened by the user on the browser computer.
+	deviceVerificationURL string
+	// deviceRedirectURL identifies the provider's device-code token exchange.
+	deviceRedirectURL string
 	// authorizationURL is the browser OAuth endpoint.
 	authorizationURL string
 	// tokenURL is the OAuth token endpoint.
@@ -114,9 +122,13 @@ func (*Driver) IsSignInRequired(err error) bool {
 // defaultDriverOptions returns the approved ChatGPT Codex endpoints and system dependencies.
 func defaultDriverOptions() driverOptions {
 	return driverOptions{ //nolint:gosec // These are approved public protocol endpoints, not credentials.
-		authorizationURL: "https://auth.openai.com/oauth/authorize",
-		tokenURL:         "https://auth.openai.com/oauth/token",
-		modelBaseURL:     "https://chatgpt.com/backend-api/codex",
+		deviceCodeURL:         deviceCodeEndpoint,
+		deviceTokenURL:        devicePollingEndpoint,
+		deviceVerificationURL: deviceVerificationURL,
+		deviceRedirectURL:     deviceRedirectURL,
+		authorizationURL:      "https://auth.openai.com/oauth/authorize",
+		tokenURL:              "https://auth.openai.com/oauth/token",
+		modelBaseURL:          "https://chatgpt.com/backend-api/codex",
 		httpClient: &http.Client{
 			Transport: nil, CheckRedirect: nil, Jar: nil, Timeout: 0,
 		},

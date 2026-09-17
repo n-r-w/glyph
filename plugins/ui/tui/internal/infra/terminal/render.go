@@ -160,7 +160,7 @@ func (model Model) View() tea.View {
 	if model.snapshot.TreeStatus != "" {
 		status += statusSeparator + model.snapshot.TreeStatus
 	}
-	lines = append(lines, tuiTitle, status)
+	lines = append(lines, tuiTitle, renderHyperlinks(status))
 	lines = append(lines, body...)
 	lines = append(lines, selector...)
 	selectionKeys := selectionKeysText
@@ -191,9 +191,17 @@ func (model Model) reasoningSelectionVisible() bool {
 
 // visibleSelectorLines renders a bounded window around the highlighted model.
 func (model Model) visibleSelectorLines() []string {
+	if model.snapshot.SelectorOpen && model.snapshot.AuthenticationSelector {
+		return model.authenticationSelectorLines()
+	}
 	if model.snapshot.TreeMode != presentation.TreeClosed {
 		return model.treeSelectorLines()
 	}
+	return model.modelAndSessionSelectorLines()
+}
+
+// modelAndSessionSelectorLines renders the shared model and session selector viewport.
+func (model Model) modelAndSessionSelectorLines() []string {
 	rowCount := len(model.snapshot.Body.Models)
 	title := modelsSelectorTitle
 	if model.snapshot.SessionSelector {
@@ -235,7 +243,7 @@ func (model Model) visibleSelectorLines() []string {
 			continue
 		}
 		configured := model.snapshot.Body.Models[index]
-		lines = append(lines, prefix+configured.ProviderID+" / "+configured.ModelID)
+		lines = append(lines, renderHyperlinks(prefix+configured.ProviderID+" / "+configured.ModelID))
 	}
 	if statusLineCount > 0 {
 		lines = append(lines, ellipsize(sessionStatusLabel+model.snapshot.ResumeStatus, max(1, model.width)))
@@ -245,7 +253,7 @@ func (model Model) visibleSelectorLines() []string {
 
 // ellipsize keeps selector rows single-line and rune-safe within the available terminal width.
 func ellipsize(value string, width int) string {
-	normalized := strings.Join(strings.Fields(value), " ")
+	normalized := renderHyperlinks(strings.Join(strings.Fields(value), " "))
 	if width <= 0 {
 		return ""
 	}
@@ -277,7 +285,11 @@ func (model Model) visibleBodyLines(reservedLines int) []string {
 	// appendNewestWrapped stores visual lines in reverse order to avoid repeated prepends.
 	lines := make([]string, 0, estimatedLines)
 	if authorizationURL, ok := model.snapshot.Body.AuthorizationURL.Get(); ok {
-		lines = appendNewestWrapped(lines, authorizationLabel+authorizationURL, model.width, capacity)
+		text := authorizationLabel + authorizationURL
+		if code, present := model.snapshot.Body.AuthorizationCode.Get(); present {
+			text += "\n" + authorizationCodeLabel + code
+		}
+		lines = appendNewestWrapped(lines, text, model.width, capacity)
 	}
 
 	if hasBodyCapacity(lines, capacity) {
@@ -373,11 +385,11 @@ func renderActiveModelLine(content presentation.ActiveModelContent, reasoningExp
 
 // wrappedBodyLines converts one logical body line into readable terminal-width visual lines.
 func wrappedBodyLines(line string, width int) []string {
-	if width <= 0 {
-		return strings.Split(line, "\n")
+	linked := renderHyperlinks(line)
+	if width > 0 {
+		linked = ansi.Wrap(linked, width, "")
 	}
-
-	return strings.Split(ansi.Wrap(line, width, ""), "\n")
+	return independentHyperlinkLines(linked)
 }
 
 // renderToolCall displays completed argument values and provisional string prefixes.

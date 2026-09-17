@@ -24,9 +24,10 @@ func testSimpleFrame(kind controllerui.FrameKind, text string) controllerui.Fram
 // testModelSelectionFrame creates one Host-confirmed selection frame.
 func testModelSelectionFrame() controllerui.Frame {
 	return controllerui.Frame{
-		NextInput:      mo.None[string](),
-		SessionEntries: nil,
-		Kind:           controllerui.FrameModelSelectionChanged,
+		AuthorizationCode: mo.None[string](),
+		NextInput:         mo.None[string](),
+		SessionEntries:    nil,
+		Kind:              controllerui.FrameModelSelectionChanged,
 
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),

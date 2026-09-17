@@ -33,6 +33,7 @@ func testEvent(
 		models = nil
 	}
 	return event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 payload.Kind,

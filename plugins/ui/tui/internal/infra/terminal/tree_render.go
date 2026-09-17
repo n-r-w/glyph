@@ -172,7 +172,7 @@ func (model Model) treeSelectorLines() []string {
 		if model.snapshot.TreeStatus != "" {
 			status += statusSeparator + model.snapshot.TreeStatus
 		}
-		lines = append(lines, status)
+		lines = append(lines, renderHyperlinks(status))
 		return append(lines, treeSelectorHelpText)
 	case presentation.TreeClosed:
 		return nil
@@ -234,7 +234,7 @@ func (model Model) renderTreeRow(row treeRow, selected bool) string {
 		label+treeEntryKindText(row.Entry.Kind),
 		treeInlineText(row.Entry.Text),
 	)
-	return ansi.Truncate(text, max(1, model.width), treeRowEllipsis)
+	return ansi.Truncate(renderHyperlinks(text), max(1, model.width), treeRowEllipsis)
 }
 
 // treeInlineText normalizes dynamic entry content without changing topology spacing.

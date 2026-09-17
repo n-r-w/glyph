@@ -11,6 +11,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/errtree"
@@ -176,7 +177,7 @@ func (s *Session) Prepare(
 		return s.prepareSubmit(command)
 	}
 	if command.Kind == controllerui.CommandRetryAuthentication {
-		return s.prepareAuthentication()
+		return s.prepareAuthentication(command.AuthenticationMethod)
 	}
 	if command.Kind == controllerui.CommandSelectModel || command.Kind == controllerui.CommandSelectReasoningChoice {
 		return s.prepareSelection(command)
@@ -243,7 +244,9 @@ func runFailureCode(err error) string {
 }
 
 // prepareAuthentication reserves one interactive authentication attempt.
-func (s *Session) prepareAuthentication() (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
+func (s *Session) prepareAuthentication(
+	method authentication.Method,
+) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 	if s.operationAvailabilitySnapshot() != AvailabilityAuthenticationFailed {
 		return nil, rejectOperation(
 			controllerui.RejectionCodeNotReady,
@@ -259,7 +262,7 @@ func (s *Session) prepareAuthentication() (operation.Prepared[controllerui.Frame
 			if deliveryErr := s.output.SetAvailability(AvailabilityAuthenticating); deliveryErr != nil {
 				return controllerui.Frame{}, fmt.Errorf("report authentication availability: %w", deliveryErr)
 			}
-			err := s.authenticator.SignIn(ctx)
+			err := s.authenticator.SignIn(ctx, method)
 			authenticationSucceeded = err == nil
 			return controllerui.NewFrame(controllerui.FrameAuthenticationCompleted), err
 		},

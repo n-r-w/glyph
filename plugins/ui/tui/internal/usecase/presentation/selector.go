@@ -20,6 +20,9 @@ func (model interaction) openSelector() (interaction, *commandIntent) {
 
 // updateSelector handles only modal navigation, confirmation, and cancellation.
 func (model interaction) updateSelector(key inputcontroller.Key) (interaction, *commandIntent) {
+	if model.authenticationSelector {
+		return model.updateAuthenticationSelector(key)
+	}
 	rowCount := len(model.state.Models)
 	if model.sessionSelector {
 		rowCount = len(model.state.Sessions)
@@ -65,6 +68,7 @@ func (model interaction) cancelSelector() interaction {
 		model.cursor = 0
 	}
 	model.selectorOpen = false
+	model.authenticationSelector = false
 	model.sessionSelector = false
 	model.resumePending = false
 	model.resumeStatus = ""
@@ -84,14 +88,15 @@ func (model interaction) cycleModel(direction int) (interaction, *commandIntent)
 // modelSelectionCommand maps one selectable model to its command payload.
 func modelSelectionCommand(selected ConfiguredModel) Command {
 	return Command{
-		Kind:            CommandSelectModel,
-		Text:            mo.None[string](),
-		ProviderID:      mo.Some(selected.ProviderID),
-		ModelID:         mo.Some(selected.ModelID),
-		ReasoningChoice: mo.None[ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[TreeCommand](),
+		Kind:                 CommandSelectModel,
+		AuthenticationMethod: AuthenticationMethodUnspecified,
+		Text:                 mo.None[string](),
+		ProviderID:           mo.Some(selected.ProviderID),
+		ModelID:              mo.Some(selected.ModelID),
+		ReasoningChoice:      mo.None[ReasoningChoice](),
+		SessionID:            mo.None[string](),
+		SessionName:          mo.None[string](),
+		TreeCommand:          mo.None[TreeCommand](),
 	}
 }
 
@@ -113,14 +118,15 @@ func (model interaction) cycleReasoning() (interaction, *commandIntent) {
 		index = (current + 1) % len(configured.Reasoning.Choices)
 	}
 	return model.emitCommand(Command{
-		Kind:            CommandSelectReasoningChoice,
-		Text:            mo.None[string](),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.Some(configured.Reasoning.Choices[index]),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[TreeCommand](),
+		Kind:                 CommandSelectReasoningChoice,
+		AuthenticationMethod: AuthenticationMethodUnspecified,
+		Text:                 mo.None[string](),
+		ProviderID:           mo.None[string](),
+		ModelID:              mo.None[string](),
+		ReasoningChoice:      mo.Some(configured.Reasoning.Choices[index]),
+		SessionID:            mo.None[string](),
+		SessionName:          mo.None[string](),
+		TreeCommand:          mo.None[TreeCommand](),
 	})
 }
 

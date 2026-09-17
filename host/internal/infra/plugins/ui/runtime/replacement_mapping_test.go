@@ -60,8 +60,11 @@ func replacementFrame(
 	tree mo.Option[controllerui.SessionTree],
 ) controllerui.Frame {
 	return controllerui.Frame{
-		Kind:      kind,
-		NextInput: nextInput,
+		AuthorizationCode:      mo.None[string](),
+		SelectionIssues:        nil,
+		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		Kind:                   kind,
+		NextInput:              nextInput,
 
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),

@@ -93,14 +93,29 @@ enum ReasoningChoice {
   REASONING_CHOICE_MAX = 8;
 }
 
-// AuthorizationRequest presents one browser OAuth URL.
-message AuthorizationRequest {
-  // The browser URL used to start authorization.
-  string url = 1;
+// AuthenticationMethod identifies the explicitly selected interactive sign-in flow.
+enum AuthenticationMethod {
+  // No sign-in method was selected.
+  AUTHENTICATION_METHOD_UNSPECIFIED = 0;
+  // Use a browser with a callback on the Glyph computer.
+  AUTHENTICATION_METHOD_BROWSER = 1;
+  // Enter a one-time code in a browser on any computer.
+  AUTHENTICATION_METHOD_DEVICE_CODE = 2;
 }
 
-// RetryAuthenticationCommand starts OAuth after an authentication failure.
-message RetryAuthenticationCommand {}
+// AuthorizationRequest presents the current sign-in URL and optional one-time code.
+message AuthorizationRequest {
+  // The provider page opened in the user's browser.
+  string url = 1;
+  // The one-time code entered on that page, present only for device-code authorization.
+  string user_code = 2;
+}
+
+// RetryAuthenticationCommand starts the selected sign-in flow after an authentication failure.
+message RetryAuthenticationCommand {
+  // The user's selected sign-in method; unspecified values are rejected.
+  AuthenticationMethod method = 1;
+}
 
 // SelectModelCommand requests one configured provider and model.
 message SelectModelCommand {

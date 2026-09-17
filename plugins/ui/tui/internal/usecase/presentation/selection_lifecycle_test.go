@@ -28,6 +28,7 @@ func TestStateUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 
 	// Act by applying host initialization.
 	state := (projection{}).Apply(event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventInitialization,
@@ -73,6 +74,7 @@ func TestStateUpdatesOnlyHostConfirmedSelection(t *testing.T) {
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventModelSelectionChanged,
+		AuthorizationCode:    mo.None[string](),
 		ModelSelection:       mo.Some(confirmed),
 		Startup:              nil,
 		Availability:         mo.None[Availability](),
@@ -107,6 +109,7 @@ func TestStateReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 
 	// Arrange a provisional tool call in presentation state.
 	state := (projection{}).Apply(event{
+		AuthorizationCode:  mo.None[string](),
 		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventToolCallPreview,
@@ -146,6 +149,7 @@ func TestStateReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 	require.True(t, state.ActiveToolCalls["call-1"].Provisional)
 	// Act by applying final-call and execution-start events.
 	state = state.Apply(event{
+		AuthorizationCode:  mo.None[string](),
 		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventToolCallFinal,
@@ -184,6 +188,7 @@ func TestStateReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventModelEnd,
+		AuthorizationCode:    mo.None[string](),
 		Status:               mo.Some("tool_use"),
 		Startup:              nil,
 		Availability:         mo.None[Availability](),
@@ -211,6 +216,7 @@ func TestStateReplacesProvisionalToolCallBeforeExecutionStart(t *testing.T) {
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolStarted,
+		AuthorizationCode:    mo.None[string](),
 		ToolCallID:           mo.Some("call-1"),
 		ToolName:             mo.Some("read"),
 		Status:               mo.Some("started"),

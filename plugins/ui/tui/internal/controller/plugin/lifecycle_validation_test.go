@@ -5,6 +5,7 @@ package plugin
 import (
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -29,7 +30,18 @@ func TestOperationMappersRejectUnknownLifecycleAndMapSafeError(t *testing.T) {
 	// Assert malformed lifecycle fails while safe error text remains visible.
 	require.Error(t, unknownErr)
 	require.NoError(t, err)
-	assert.Equal(t, TextPayload(TextUpdate{FailureCode: "INTERNAL", Kind: TextError, Text: "safe error"}), event)
+	assert.Equal(
+		t,
+		TextPayload(
+			TextUpdate{
+				FailureCode:       "INTERNAL",
+				Kind:              TextError,
+				Text:              "safe error",
+				AuthorizationCode: mo.None[string](),
+			},
+		),
+		event,
+	)
 }
 
 // TestMapLifecycleRejectsEmptyToolResultContents verifies missing terminal output fails at the UI boundary.

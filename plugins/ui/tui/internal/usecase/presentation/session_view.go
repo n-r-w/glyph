@@ -67,14 +67,15 @@ func (model interaction) emitCommand(command Command) (interaction, *commandInte
 // emitSessionCommand preserves the editor until the Host confirms or rejects the lifecycle operation.
 func (model interaction) emitSessionCommand(kind CommandKind, id, name string) (interaction, *commandIntent) {
 	command := Command{
-		Kind:            kind,
-		Text:            mo.None[string](),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.None[ReasoningChoice](),
-		SessionID:       mo.EmptyableToOption(id),
-		SessionName:     mo.EmptyableToOption(name),
-		TreeCommand:     mo.None[TreeCommand](),
+		AuthenticationMethod: AuthenticationMethodUnspecified,
+		Kind:                 kind,
+		Text:                 mo.None[string](),
+		ProviderID:           mo.None[string](),
+		ModelID:              mo.None[string](),
+		ReasoningChoice:      mo.None[ReasoningChoice](),
+		SessionID:            mo.EmptyableToOption(id),
+		SessionName:          mo.EmptyableToOption(name),
+		TreeCommand:          mo.None[TreeCommand](),
 	}
 	if kind == CommandSetSessionName {
 		command.SessionName = mo.Some(name)
@@ -167,6 +168,7 @@ func formatSessionInfo(info SessionInfo) string {
 // sessionInformationEvent adapts formatted session metadata to a non-session-changing information event.
 func sessionInformationEvent(text string) event {
 	return event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventInformation,

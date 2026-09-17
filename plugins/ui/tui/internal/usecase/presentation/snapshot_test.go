@@ -48,7 +48,12 @@ func TestDisplaySnapshotIsDetached(t *testing.T) {
 		OperationID: "",
 		Payload: mo.Some(
 			plugininput.TextPayload(
-				plugininput.TextUpdate{FailureCode: "", Kind: plugininput.TextInformation, Text: "later"},
+				plugininput.TextUpdate{
+					FailureCode:       "",
+					Kind:              plugininput.TextInformation,
+					Text:              "later",
+					AuthorizationCode: mo.None[string](),
+				},
 			),
 		),
 		Failure: nil,

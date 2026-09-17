@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	authdomain "github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
@@ -463,17 +464,17 @@ func TestCatalogAuthenticationDelegatesOnlyToActiveProvider(t *testing.T) {
 	require.NoError(t, err)
 
 	require.NoError(t, catalog.CheckAuthentication(t.Context()))
-	require.NoError(t, catalog.SignIn(t.Context()))
+	require.NoError(t, catalog.SignIn(t.Context(), authdomain.MethodBrowser))
 	assert.False(t, catalog.IsSignInRequired(errors.New("other")))
 
 	_, err = selectModelForTest(t.Context(), catalog, "openai-codex", "model")
 	require.NoError(t, err)
 	signInRequired := errors.New("sign in required")
 	authentication.EXPECT().CheckCredentials(gomock.Any()).Return(signInRequired)
-	authentication.EXPECT().SignIn(gomock.Any()).Return(nil)
+	authentication.EXPECT().SignIn(gomock.Any(), authdomain.MethodDeviceCode).Return(nil)
 	authentication.EXPECT().IsSignInRequired(signInRequired).Return(true)
 	require.ErrorIs(t, catalog.CheckAuthentication(t.Context()), signInRequired)
-	require.NoError(t, catalog.SignIn(t.Context()))
+	require.NoError(t, catalog.SignIn(t.Context(), authdomain.MethodDeviceCode))
 	assert.True(t, catalog.IsSignInRequired(signInRequired))
 }
 

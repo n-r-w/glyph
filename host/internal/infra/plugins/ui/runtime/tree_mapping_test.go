@@ -195,8 +195,11 @@ func TestMapTreeOptionalPresenceDistinguishesEmptyFromAbsent(t *testing.T) {
 // runtimeTreeFrame initializes all frame fields for one tree result.
 func runtimeTreeFrame(kind controllerui.FrameKind) controllerui.Frame {
 	return controllerui.Frame{
-		NextInput: mo.None[string](),
-		Kind:      kind,
+		AuthorizationCode:      mo.None[string](),
+		SelectionIssues:        nil,
+		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		NextInput:              mo.None[string](),
+		Kind:                   kind,
 
 		Lifecycle:        mo.None[controllerui.Lifecycle](),
 		AuthorizationURL: mo.None[string](),

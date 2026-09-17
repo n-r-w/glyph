@@ -18,6 +18,7 @@ func TestStateAssignsToolCompletionStatusAndResultContentOnce(t *testing.T) {
 	state := (projection{}).Apply(testToolEndedEvent("read", "completed", false))
 	// Act by applying the terminal tool-result event.
 	state = state.Apply(event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolResult,
@@ -154,6 +155,7 @@ func TestStateRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 			FailureCode:          "",
 			RestoredTranscript:   nil,
 			Kind:                 eventAgentSettled,
+			AuthorizationCode:    mo.None[string](),
 			Failure:              mo.Some(true),
 			Text:                 mo.Some("Provider failed."),
 			Startup:              nil,
@@ -180,6 +182,7 @@ func TestStateRendersOneSafeErrorAcrossTerminalLifecycleEvents(t *testing.T) {
 			FailureCode:          "",
 			RestoredTranscript:   nil,
 			Kind:                 eventError,
+			AuthorizationCode:    mo.None[string](),
 			Text:                 mo.Some("Provider failed."),
 			Startup:              nil,
 			Availability:         mo.None[Availability](),

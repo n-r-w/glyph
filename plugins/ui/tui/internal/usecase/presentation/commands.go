@@ -83,7 +83,8 @@ func (service *Service) prepareCommand(command Command) tuiinput.Work {
 	service.pending[identifier] = pendingCommand{
 		command: command, dispatchPending: true, terminal: false, acknowledgementApplied: false,
 	}
-	if service.foreground == "" && (command.Kind == CommandSubmit || command.Kind == CommandNavigateSessionTree) {
+	if service.foreground == "" && (command.Kind == CommandSubmit || command.Kind == CommandNavigateSessionTree ||
+		command.Kind == CommandRetryAuthentication) {
 		service.foreground = identifier
 	}
 	return &preparedDispatch{

@@ -39,6 +39,8 @@ func (state *projection) applyLifecycleEvent(event event) bool {
 	case eventAvailability:
 		if event.Availability.IsSome() {
 			state.Availability = event.Availability
+			state.AuthorizationURL = mo.None[string]()
+			state.AuthorizationCode = mo.None[string]()
 		}
 	case eventTurnStarted:
 		state.Settled = mo.Some(false)
@@ -70,6 +72,7 @@ func (state *projection) applyTextEvent(event event) bool {
 	case eventAuthorization:
 		if event.Text.IsSome() {
 			state.AuthorizationURL = event.Text
+			state.AuthorizationCode = event.AuthorizationCode
 		}
 	case eventInformation:
 		if event.Text.IsSome() {

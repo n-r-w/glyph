@@ -105,14 +105,15 @@ func TestModelSubmitsOnlyWhileIdleAndClearsAfterSuccessfulEmission(t *testing.T)
 
 	model = updateModel(t, model, command.Execute())
 	assert.Equal(t, []Command{{
-		Kind:            CommandSubmit,
-		Text:            mo.Some("request"),
-		ProviderID:      mo.None[string](),
-		ModelID:         mo.None[string](),
-		ReasoningChoice: mo.None[ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[TreeCommand](),
+		AuthenticationMethod: AuthenticationMethodUnspecified,
+		Kind:                 CommandSubmit,
+		Text:                 mo.Some("request"),
+		ProviderID:           mo.None[string](),
+		ModelID:              mo.None[string](),
+		ReasoningChoice:      mo.None[ReasoningChoice](),
+		SessionID:            mo.None[string](),
+		SessionName:          mo.None[string](),
+		TreeCommand:          mo.None[TreeCommand](),
 	}}, commands)
 	assert.Empty(t, model.model.input)
 	assert.Zero(t, model.model.cursor)

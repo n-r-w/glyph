@@ -11,8 +11,10 @@ import (
 // newRenderModel creates output-only view data without application transition behavior.
 func newRenderModel() Model {
 	return Model{snapshot: presentation.Snapshot{
+		AuthenticationSelector: false,
 		Body: presentation.DisplayBody{
-			Startup: nil, Transcript: nil, ActiveModel: nil, ActiveToolCalls: nil, Models: nil, Sessions: nil,
+			AuthorizationCode: mo.None[string](),
+			Startup:           nil, Transcript: nil, ActiveModel: nil, ActiveToolCalls: nil, Models: nil, Sessions: nil,
 			Availability: mo.Some(presentation.AvailabilityIdle), AuthorizationURL: mo.None[string](),
 			ModelSelection: mo.None[presentation.ModelSelection](),
 		},

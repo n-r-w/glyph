@@ -50,7 +50,9 @@ func mapFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
 			return nil, errors.New("map UI frame: authorization payload is required")
 		}
 		progress := new(uiv1.HostProgress)
-		progress.SetAuthorization(uiv1.AuthorizationRequest_builder{Url: new(authorizationURL)}.Build())
+		progress.SetAuthorization(uiv1.AuthorizationRequest_builder{
+			Url: new(authorizationURL), UserCode: frame.AuthorizationCode.ToPointer(),
+		}.Build())
 		return progressRequest(progress), nil
 	case controllerui.FrameSubmitCompleted:
 		completed := new(uiv1.HostCompleted)

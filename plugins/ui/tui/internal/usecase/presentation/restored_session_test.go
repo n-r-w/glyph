@@ -22,7 +22,8 @@ func TestStateReplacesRestoredTranscriptOnlyAfterConfirmedSessionChange(t *testi
 		NewTextLine(LineModel, mo.Some("prior-model")),
 	}
 	state := projection{
-		Startup: nil, Transcript: []Line{oldLine}, Models: nil,
+		AuthorizationCode: mo.None[string](),
+		Startup:           nil, Transcript: []Line{oldLine}, Models: nil,
 		ActiveModel: nil, ActiveToolCalls: nil, ActiveTools: nil,
 		Availability: mo.None[Availability](), Settled: mo.None[bool](),
 		AuthorizationURL: mo.None[string](), ModelSelection: mo.None[ModelSelection](),
@@ -73,7 +74,8 @@ func TestStateOwnsRestoredUserImageBytes(t *testing.T) {
 		}}),
 	}}
 	state := projection{
-		Startup: nil, Transcript: nil, Models: nil, ActiveModel: nil, ActiveToolCalls: nil, ActiveTools: nil,
+		AuthorizationCode: mo.None[string](),
+		Startup:           nil, Transcript: nil, Models: nil, ActiveModel: nil, ActiveToolCalls: nil, ActiveTools: nil,
 		Availability: mo.None[Availability](), AuthorizationURL: mo.None[string](),
 		Settled: mo.None[bool](), ModelSelection: mo.None[ModelSelection](),
 		SessionInfo: mo.None[SessionInfo](), Sessions: nil,

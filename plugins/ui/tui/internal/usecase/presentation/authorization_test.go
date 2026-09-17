@@ -33,8 +33,8 @@ func TestStateProjectsAuthorizationInformationAndSafeErrors(t *testing.T) {
 		eventAvailability, AvailabilityAuthenticationFailed,
 	))
 
-	// Assert authorization state and safe transcript lines are projected.
-	assert.Equal(t, mo.Some("https://example.test/oauth"), state.AuthorizationURL)
+	// Assert the failed attempt clears its URL while retaining status and diagnostic lines.
+	assert.True(t, state.AuthorizationURL.IsNone())
 	assert.Equal(t, mo.Some(AvailabilityAuthenticationFailed), state.Availability)
 	assert.Equal(t, []Line{
 		{
@@ -63,6 +63,7 @@ func TestStatePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 		"nested": []any{[]byte{1, 2, 3}},
 	}
 	state := (projection{}).Apply(event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventToolCallPreview,
@@ -111,6 +112,7 @@ func TestStatePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 
 	// Act by applying content with absent text and optional JSON.
 	state = state.Apply(event{
+		AuthorizationCode:    mo.None[string](),
 		FailureCode:          "",
 		RestoredTranscript:   nil,
 		Kind:                 eventModelDelta,

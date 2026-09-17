@@ -85,6 +85,8 @@ type TextUpdate struct {
 	Kind TextKind
 	// Text is the complete diagnostic or URL.
 	Text string
+	// AuthorizationCode is present only for a device-code authorization challenge.
+	AuthorizationCode mo.Option[string]
 	// FailureCode retains the source category for diagnostics and is empty for other text.
 	FailureCode string
 }

@@ -49,14 +49,15 @@ func TestModelSelectorConfirmsAndCancelsWithoutChangingDraftOrTranscript(t *test
 	})
 	assert.False(t, model.model.selectorOpen)
 	assert.Equal(t, []Command{{
-		Kind:            CommandSelectModel,
-		ProviderID:      mo.Some("openrouter"),
-		ModelID:         mo.Some("sonnet"),
-		Text:            mo.None[string](),
-		ReasoningChoice: mo.None[ReasoningChoice](),
-		SessionID:       mo.None[string](),
-		SessionName:     mo.None[string](),
-		TreeCommand:     mo.None[TreeCommand](),
+		AuthenticationMethod: AuthenticationMethodUnspecified,
+		Kind:                 CommandSelectModel,
+		ProviderID:           mo.Some("openrouter"),
+		ModelID:              mo.Some("sonnet"),
+		Text:                 mo.None[string](),
+		ReasoningChoice:      mo.None[ReasoningChoice](),
+		SessionID:            mo.None[string](),
+		SessionName:          mo.None[string](),
+		TreeCommand:          mo.None[TreeCommand](),
 	}}, commands)
 	assert.Equal(t, "draft", string(model.model.input))
 	assert.Equal(t, originalTranscript, model.model.state.Transcript)
@@ -91,6 +92,7 @@ func TestModelSelectorKeepsEveryRowReachable(t *testing.T) {
 		}
 	}
 	model := newTestApplication(event{
+		AuthorizationCode:  mo.None[string](),
 		FailureCode:        "",
 		RestoredTranscript: nil,
 		Kind:               eventInitialization,
@@ -232,34 +234,37 @@ func TestModelSelectionCyclingWorksDuringRun(t *testing.T) {
 	// Assert the model emits selection commands but waits for host confirmation before display changes.
 	assert.Equal(t, []Command{
 		{
-			Kind:            CommandSelectModel,
-			ProviderID:      mo.Some("openrouter"),
-			ModelID:         mo.Some("sonnet"),
-			Text:            mo.None[string](),
-			ReasoningChoice: mo.None[ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TreeCommand:     mo.None[TreeCommand](),
+			Kind:                 CommandSelectModel,
+			AuthenticationMethod: AuthenticationMethodUnspecified,
+			ProviderID:           mo.Some("openrouter"),
+			ModelID:              mo.Some("sonnet"),
+			Text:                 mo.None[string](),
+			ReasoningChoice:      mo.None[ReasoningChoice](),
+			SessionID:            mo.None[string](),
+			SessionName:          mo.None[string](),
+			TreeCommand:          mo.None[TreeCommand](),
 		},
 		{
-			Kind:            CommandSelectModel,
-			ProviderID:      mo.Some("openrouter"),
-			ModelID:         mo.Some("sonnet"),
-			Text:            mo.None[string](),
-			ReasoningChoice: mo.None[ReasoningChoice](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TreeCommand:     mo.None[TreeCommand](),
+			Kind:                 CommandSelectModel,
+			AuthenticationMethod: AuthenticationMethodUnspecified,
+			ProviderID:           mo.Some("openrouter"),
+			ModelID:              mo.Some("sonnet"),
+			Text:                 mo.None[string](),
+			ReasoningChoice:      mo.None[ReasoningChoice](),
+			SessionID:            mo.None[string](),
+			SessionName:          mo.None[string](),
+			TreeCommand:          mo.None[TreeCommand](),
 		},
 		{
-			Kind:            CommandSelectReasoningChoice,
-			ReasoningChoice: mo.Some(ReasoningChoiceHigh),
-			Text:            mo.None[string](),
-			ProviderID:      mo.None[string](),
-			ModelID:         mo.None[string](),
-			SessionID:       mo.None[string](),
-			SessionName:     mo.None[string](),
-			TreeCommand:     mo.None[TreeCommand](),
+			Kind:                 CommandSelectReasoningChoice,
+			AuthenticationMethod: AuthenticationMethodUnspecified,
+			ReasoningChoice:      mo.Some(ReasoningChoiceHigh),
+			Text:                 mo.None[string](),
+			ProviderID:           mo.None[string](),
+			ModelID:              mo.None[string](),
+			SessionID:            mo.None[string](),
+			SessionName:          mo.None[string](),
+			TreeCommand:          mo.None[TreeCommand](),
 		},
 	}, commands)
 	assert.Equal(t, mo.Some(ModelSelection{

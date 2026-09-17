@@ -31,9 +31,7 @@ func mapCommand(command presentationdomain.Command) (*uiv1.UIRequest, error) {
 	case presentationdomain.CommandStop:
 		return nil, errors.New("UI stop intent is controller-owned")
 	case presentationdomain.CommandRetryAuthentication:
-		request := new(uiv1.UIRequest)
-		request.SetRetryAuthentication(new(uiv1.RetryAuthenticationCommand))
-		return request, nil
+		return mapAuthenticationCommand(command.AuthenticationMethod)
 	case presentationdomain.CommandQuit:
 		return nil, errors.New("UI quit intent is controller-owned")
 	case presentationdomain.CommandSelectModel:

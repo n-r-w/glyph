@@ -18,7 +18,7 @@ import (
 func TestForegroundCancelTargetSurvivesConcurrentCommands(t *testing.T) {
 	t.Parallel()
 	for name, foreground := range map[string]CommandKind{
-		"submit": CommandSubmit, "navigation": CommandNavigateSessionTree,
+		"submit": CommandSubmit, "navigation": CommandNavigateSessionTree, "authentication": CommandRetryAuthentication,
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -185,7 +185,8 @@ func TestCompletionWithoutPayloadReleasesOperation(t *testing.T) {
 			t.Parallel()
 			// Arrange authentication retry and an independent connection availability update.
 			service := newTestModel(t, AvailabilityAuthenticationFailed, nil)
-			work := service.Key(tuiinput.Key{Code: 'r', Text: "", Mod: tuiinput.ModCtrl})
+			require.Nil(t, service.Key(tuiinput.Key{Code: 'r', Text: "", Mod: tuiinput.ModCtrl}))
+			work := service.Key(testKey(tuiinput.KeyEnter))
 			require.NotNil(t, work)
 			result := work.Execute()
 			require.NoError(t, result.Err)
