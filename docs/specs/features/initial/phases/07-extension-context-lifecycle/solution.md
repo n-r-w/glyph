@@ -18,7 +18,7 @@ The requirements and technical design are approved. The implementation is comple
 | --- | --- | --- |
 | FRQ-01 through FRQ-03 | `extensioncontext.Service`, `ExtensionRequest`, SDK `ExtensionContext`, and `modelexecution.Service.Request` provide binding, catalogues, and configured-model requests. | Retained behavior. Selection commit uses the same session/runtime binding protection. |
 | FRQ-04 | `lifecycle.Service`, `events.Dispatcher`, and `LifecycleInvocation` provide Agent Core, model-selection, and reasoning-selection observation. | Retained Agent Core observation plus implemented selection observation. |
-| FRQ-05 through FRQ-07 | `modelselection.Service` owns shared admission, ordered handlers, final validation coordination, atomic catalogue commit, client publication, and observer ordering for UI, Programmatic Control, and extension initiators. | Implemented selection behavior. Direct client mutation bypasses are removed. |
+| FRQ-05 through FRQ-07 | `modelselection.Service` owns shared admission, ordered handlers, final validation coordination, atomic catalogue commit, client publication, and observer ordering for UI, Programmatic Control, and extension initiators. Programmatic Control executes selection only through `Service.Prepare`, `Service.prepareSelection`, `commandPrepared.Run`, `commandPrepared.runSelection`, and `commandPrepared.Release`. | Implemented selection behavior. Direct client mutation bypasses and the duplicate private Programmatic execution path are removed. |
 | FRQ-08 through FRQ-11, including FRQ-08.1 and FRQ-08.2 | `sessions.Service`, public append/recovery operations, persistence, client projections, and navigation implement extension entries and messages. | Retained behavior with public regression evidence. |
 | FRQ-12 | The shared operation runtime and PHS-07.1 preserve complete error causes. Selection mappers expose the closed categories and ordered diagnostic sources defined below. | Retained transport behavior plus implemented selection categories. |
 
@@ -186,8 +186,8 @@ The table maps each [ticket acceptance criterion](ticket.md#acceptance-criteria)
 | ACC-03 | Retained | `TestPublicContextCataloguesAcrossApplicationModes` and `TestCataloguesRevalidateBlockedReads` exercise the public descriptor, provider ordering, active selection, and stale-read paths. | None on Linux. |
 | ACC-04 | Retained | `TestPublicConfiguredRequestAcrossApplicationModes`, `TestConfiguredRequestPassesExactInput`, and the `modelexecution` service tests cover ordered input, terminal content, diagnostics, no tools, and selection independence. | None on Linux. |
 | ACC-05 | Retained | `TestLifecycleObserverAcrossApplicationModes`, `TestServiceObservesEveryLifecycleGroup`, `TestServiceContinuesAfterOrdinaryObserverError`, and the observer cancellation integration tests cover client-first delivery, registration order, continuation, and run release. | The standard TUI PTY instance of ACC-01 remains unavailable on Linux; UI application assembly passes. |
-| ACC-06 | Selection | `TestPublicSelectionHandlersComposeOriginalAndCurrentTargets` and the `modelselection` handler tests cover immutable original, successive current values, preserve, replace, reject, invalid action, ordinary error, cancellation, and runtime loss. | None on Linux. |
-| ACC-07 | Selection | `TestCatalogResolvesValidatesAndCommitsCompleteSelection`, `TestCatalogCommitCancellationPreservesSelection`, `TestCatalogFinalValidationFailurePreservesSelection`, `TestServiceObservesChangedSelectionAfterDelivery`, `TestServiceDoesNotPublishUnchangedSelection`, both stale-binding tests, `TestModelCommandsUseCatalogDuringActiveRun`, and `TestSelectionReadinessAndActiveRunIndependence` cover validation, atomic commit, active-run independence, no-op, reasoning-before-model observation, post-commit issues, and no pre-commit event. | None on Linux. |
+| ACC-06 | Selection | `TestPublicSelectionHandlersComposeOriginalAndCurrentTargets` and the `modelselection` handler tests cover immutable original, successive current values, preserve, replace, reject, invalid action, ordinary error, cancellation, and runtime loss. `TestMapHandleResponseReturnsOrdinaryHandlerError` and `TestRuntimeNormalizesEmptyHandlerErrorsWithoutStoppingRuntime` prove that only exactly empty ordinary error text becomes `extension handler returned an empty error message` while nonempty and whitespace-only text remain exact and the runtime remains active. | None on Linux. |
+| ACC-07 | Selection | `TestCatalogResolvesValidatesAndCommitsCompleteSelection`, `TestCatalogCommitCancellationPreservesSelection`, `TestCatalogFinalValidationFailurePreservesSelection`, `TestServiceObservesChangedSelectionAfterDelivery`, `TestServiceObservesAfterNonCancellationDeliveryFailure`, `TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission`, `TestServiceDoesNotPublishUnchangedSelection`, both stale-binding tests, `TestModelCommandsUseCatalogDuringActiveRun`, and `TestSelectionReadinessAndActiveRunIndependence` cover validation, atomic commit, active-run independence, no-op, reasoning-before-model observation, cancellation-linked post-commit observers, committed completion after cancellation, admission release, post-commit issues, and no pre-commit event. | None on Linux. |
 | ACC-08 | Retained | `TestAppendUsesCurrentActiveLeafForEverySupportedEntry`, `TestHistoryProjectsBothExtensionMessageVisibilities`, and `TestPublicExtensionMessagesAcrossApplicationModes` cover implicit-root attachment, persistence fields, model visibility, and client visibility. | None on Linux. |
 | ACC-08.1 | Retained | `TestPublicExtensionRecoversHiddenStateAfterProcessRestart` exercises the external process, restart, exact identities and payloads, parent links, and branch order through the public contract. | None on Linux. |
 | ACC-08.2 | Retained | `TestPublicRetainedContextNeverReactivates`, `TestSessionRecoveryRejectsReplacementDuringRead`, `TestExtensionStateFiltersOneActiveBranch`, and `TestExtensionStateIsCoherentDuringNavigation` cover stale recovery and active-branch filtering. | None on Linux. |
@@ -195,8 +195,8 @@ The table maps each [ticket acceptance criterion](ticket.md#acceptance-criteria)
 | ACC-10 | Retained | `TestMessageAppendReturnsCommittedEntryWithDeliveryIssue`, `TestMessageAppendWithoutPublisherReportsCommittedDeliveryFailure`, and `TestExtensionMessageAppendCommitsBeforePublication` cover committed results and `DELIVERY_FAILED` without rollback. | None on Linux. |
 | ACC-11 | Retained | `TestProgrammaticNavigationPublishesSnapshotBeforeObserverAppend`, `TestUINavigationPublishesSnapshotBeforeObserverAppend`, and session navigation unit tests cover exact next input, parent or implicit-root destination, summary modes, and no agent run. | None on Linux. |
 | ACC-11.1 | Retained | The two public navigation snapshot tests above and `TestNavigationDeliveryProofSurvivesLateResult` cover progress-before-observer ordering and terminal completion without a replacement snapshot. | None on Linux. |
-| ACC-12 | Retained plus selection | `TestSelectionFailureMappingsUsePublicCodes`, `TestSelectionFailureCodesMatchHostCategories`, `TestFailureCodeForCommandEnforcesClosedSets`, `TestMapExtensionEventPreservesCompleteExternalErrorText`, `TestFailedTerminalSendPreservesCompletionCauses`, `TestSDKPersistenceCleanupUsesCause`, and `TestRendererRuntimeFailurePreservesSource` cover closed selection categories and complete or long errors through Extension, Programmatic, UI, and headless boundaries. | None on Linux. |
-| ACC-13 | Retained plus selection | `TestNestedCatalogueReadsKeepBothReceiveLoopsLive`, both public nested-selection tests, `TestHostDuplicateIDsAndInactiveCancellation`, `TestExternalExitCancelsAndJoinsHostReads`, and the stream-close integration tests cover nested work and shared lifecycle termination. | None on Linux. |
+| ACC-12 | Retained plus selection | `TestSelectionFailureMappingsUsePublicCodes`, `TestSelectionFailureCodesMatchHostCategories`, `TestFailureCodeForCommandEnforcesClosedSets`, `TestSelectionErrorsPreservePublicCodesAndCauses`, `TestSelectionFailuresRemainRequestLocal`, `TestMapExtensionEventPreservesCompleteExternalErrorText`, `TestFailedTerminalSendPreservesCompletionCauses`, `TestSDKPersistenceCleanupUsesCause`, and `TestRendererRuntimeFailurePreservesSource` cover closed selection categories, request-local extension failures, and complete or long errors through Extension, Programmatic, UI, and headless boundaries. | None on Linux. |
+| ACC-13 | Retained plus selection | `TestNestedCatalogueReadsKeepBothReceiveLoopsLive`, `TestSelectionFailuresRemainRequestLocal`, both public nested-selection tests, `TestHostDuplicateIDsAndInactiveCancellation`, `TestExternalExitCancelsAndJoinsHostReads`, and the stream-close integration tests cover nested work, later same-stream operations after selection failure, and shared lifecycle termination. | None on Linux. |
 | ACC-14 | Retained plus selection | Compile-time assertions in `modelselection`, `extensioncontext`, `lifecycle`, catalogue, runtime, and output implementations plus `task lint` (`ifaceguard`) and `task test` enforce consumer-owned interfaces and the import graph. | None on Linux. |
 
 The evidence is implemented in the linked ownership areas: [Host application integration tests](../../../../../../host/internal/app), [selection usecase tests](../../../../../../host/internal/usecase/host/modelselection), [extension SDK tests](../../../../../../sdk/plugins/extension/v1), and [standard TUI tests](../../../../../../plugins/ui/tui/internal).
@@ -211,6 +211,13 @@ The final Linux closure adds only missing regression coverage:
 
 These tests passed against the implementation without a production-code change. They add acceptance evidence, not new behavior, so no RED failure is claimed.
 
+The later focused corrections add this evidence without changing the acceptance model:
+
+- `TestSelectionFailuresRemainRequestLocal` proves `EXTENSION_REJECTED` and `EXTENSION_UNAVAILABLE` remain request-local for both extension selection operations, preserve complete text, and leave the stream available.
+- `TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission` proves targeted cancellation remains linked to post-commit observers while the terminal result remains Completed with the committed selection and diagnostics; cleanup releases selection admission.
+- `TestMapHandleResponseReturnsOrdinaryHandlerError` and `TestRuntimeNormalizesEmptyHandlerErrorsWithoutStoppingRuntime` prove the exact-empty-only ordinary Host diagnostic and continued runtime availability.
+- Programmatic selection tests use the `Service.Prepare`, `commandPrepared.Run`, and `commandPrepared.Release` lifecycle; `TestSelectionErrorsPreservePublicCodesAndCauses` covers preparation and execution failure projection.
+
 #### TDD record
 
 Two narrow historical exceptions are recorded:
@@ -218,7 +225,7 @@ Two narrow historical exceptions are recorded:
 1. The initial private selection-handler composition tests were added after the first composition implementation. A later public external-process composition scenario produced a valid behavioral RED before its fixture implementation, but that later RED does not rewrite the initial sequence.
 2. Startup routing for model-selection and reasoning-selection observer kinds was implemented before its startup test produced a compiling RED. Removing the routing later proved test sensitivity, but that run was not pre-implementation RED.
 
-All other recorded behavior corrections used compiling behavioral RED runs before production changes. The acceptance-closure tests above found no runtime defect and required no production correction.
+All other recorded behavior corrections used compiling behavioral RED runs before production changes. The request-local failure, cancellation-linked observer, and exact-empty diagnostic corrections each had compiling behavioral RED evidence. Removing the duplicate Programmatic execution path was behavior-preserving cleanup and used the retained public prepared-operation tests without an artificial absence test. No additional historical exception was used.
 
 #### Verification results
 
@@ -226,13 +233,13 @@ The final Linux closure produced these results:
 
 | Command | Result |
 | --- | --- |
-| `task generate` twice | Passed. Complete tracked and non-ignored untracked file manifests were identical after both runs, with SHA-256 `3ab14b6c401cd51e69e6b218825579bad4d0709ca1796d43b0851eba0a7cb96c`. |
+| `task generate` twice | Passed; the second run produced no diff. |
 | `task fmt` | Passed. |
 | `task fix_dry_run` | Passed with no proposed fix. |
 | `task lint` | Passed with zero issues, no `ifaceguard` errors, no vulnerabilities, and zero external-fixture issues. |
 | `task test` | Passed. |
 | `task itest` | Passed on Linux. `TestLifecycleObserverThroughStandardTUI` called `t.Skip` because the runtime was not Darwin arm64; this skip is not passing PTY evidence. |
-| `task test-coverage` | Passed at 84.2%; the required minimum is 80.0%. |
+| `task test-coverage` | Passed at 84.3%; the required minimum is 80.0%. |
 | `task build` | Passed. |
 | `git diff --check` | Passed. |
 

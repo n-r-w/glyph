@@ -136,7 +136,7 @@ Status: Planned
 
 Add session-bound extension contexts, configured-model requests, active-selection control, lifecycle events, and public recovery of persisted extension state.
 
-The implementation and required Linux checks are complete. The [technical solution evidence](specs/features/initial/phases/07-extension-context-lifecycle/solution.md#implementation-evidence) maps every acceptance criterion to executable coverage and records the two narrow historical TDD exceptions. Status remains Planned because the standard TUI PTY acceptance path requires Darwin arm64 and is unavailable on the Linux verification host; passing Linux checks do not satisfy that platform gate.
+The implementation and required Linux checks are complete at 84.3% coverage. The [technical solution evidence](specs/features/initial/phases/07-extension-context-lifecycle/solution.md#implementation-evidence) includes the request-local selection failure, cancellation-linked committed observer, exact-empty ordinary diagnostic, and single Programmatic prepared-operation path corrections while retaining the two narrow historical TDD exceptions. Status remains Planned because the standard TUI PTY acceptance path requires Darwin arm64 and is unavailable on the Linux verification host; passing Linux checks do not satisfy that platform gate.
 
 Documents:
 - [Problem Statement](specs/features/initial/phases/07-extension-context-lifecycle/problem.md)
