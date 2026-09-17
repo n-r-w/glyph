@@ -206,7 +206,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		selectionOwner,
 	)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
-	_, activeOperation, err := service.handle(s.T().Context(), controller.Command{
+	activeOperation, err := service.Prepare(s.T().Context(), controller.Command{
 		OperationID:     "active",
 		Kind:            controller.CommandUserRequest,
 		UserText:        mo.Some("request"),
@@ -343,11 +343,15 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 	}
 
 	for _, test := range tests {
-		response, operation, handleErr := service.handle(commandContext, test.command)
+		prepared, prepareErr := service.Prepare(commandContext, test.command)
+		s.Require().NoError(prepareErr)
+		outcome := prepared.Run(commandContext, operation.Reporter[controller.OperationProgress]{})
+		prepared.Release()
 
-		// Assert the command returns its exact catalog response without a new operation.
-		s.Require().NoError(handleErr)
-		s.Nil(operation)
+		// Assert the public lifecycle completes with the exact catalogue response during the active run.
+		s.Equal(operation.TerminalStateCompleted, outcome.State())
+		response, present := outcome.Result()
+		s.True(present)
 		s.Equal(test.want, response)
 	}
 }
@@ -404,12 +408,11 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 		},
 	}
 	for _, command := range commands {
-		response, operation, err := service.handle(s.T().Context(), command)
-		s.Require().NoError(err)
-		s.Nil(operation)
-		s.Equal(controller.ResponseRejected, response.Kind)
-		s.Equal(controller.RejectionInvalidArgument, response.Rejection.OrEmpty().Code)
-		s.Equal(command.Kind, response.Rejection.OrEmpty().Command)
+		prepared, err := service.Prepare(s.T().Context(), command)
+		s.Nil(prepared)
+		var rejection *controller.RejectionError
+		s.Require().ErrorAs(err, &rejection)
+		s.Equal(controller.RejectionCodeInvalidArgument, rejection.Code())
 	}
 }
 
@@ -454,81 +457,82 @@ func (s *ServiceSuite) TestSelectionPublicationFailureCompletesWithCommittedStat
 	s.ErrorIs(outcome.SourceError(), deliveryErr)
 }
 
-// TestSelectionErrorsPreserveRejectionCodesAndCauses verifies the catalog error boundary.
-func (s *ServiceSuite) TestSelectionErrorsPreserveRejectionCodesAndCauses() {
+// TestSelectionErrorsPreservePublicCodesAndCauses verifies preparation and execution error projection.
+func (s *ServiceSuite) TestSelectionErrorsPreservePublicCodesAndCauses() {
 	tests := []struct {
-		name string
-		err  error
-		code controller.RejectionCode
+		name         string
+		err          error
+		preparation  bool
+		expectedCode string
 	}{
 		{
-			name: "not found",
-			err:  selectionError{code: SelectionNotFound},
-			code: controller.RejectionNotFound,
+			name: "not found", err: selectionError{code: SelectionNotFound}, preparation: true,
+			expectedCode: controller.RejectionCodeNotFound,
 		},
 		{
-			name: "reasoning unsupported",
-			err:  selectionError{code: SelectionReasoningUnsupported},
-			code: controller.RejectionReasoningUnsupported,
+			name: "reasoning unsupported", err: selectionError{code: SelectionReasoningUnsupported}, preparation: true,
+			expectedCode: controller.RejectionCodeReasoningUnsupported,
 		},
 		{
-			name: "credential unavailable",
-			err:  selectionError{code: SelectionCredentialUnavailable},
-			code: controller.RejectionCredentialUnavailable,
+			name:         "credential unavailable",
+			err:          selectionError{code: SelectionCredentialUnavailable},
+			preparation:  false,
+			expectedCode: controller.FailureCodeCredentialUnavailable,
 		},
 		{
-			name: "final model unavailable",
-			err:  selectionError{code: SelectionModelUnavailable},
-			code: controller.RejectionModelUnavailable,
+			name: "final model unavailable", err: selectionError{code: SelectionModelUnavailable}, preparation: false,
+			expectedCode: controller.FailureCodeModelUnavailable,
 		},
 		{
-			name: "extension rejected",
-			err:  selectionError{code: SelectionExtensionRejected},
-			code: controller.RejectionExtensionRejected,
+			name: "extension rejected", err: selectionError{code: SelectionExtensionRejected}, preparation: false,
+			expectedCode: controller.FailureCodeExtensionRejected,
 		},
 		{
-			name: "extension unavailable",
-			err:  selectionError{code: SelectionExtensionUnavailable},
-			code: controller.RejectionExtensionUnavailable,
+			name: "extension unavailable", err: selectionError{code: SelectionExtensionUnavailable}, preparation: false,
+			expectedCode: controller.FailureCodeExtensionUnavailable,
 		},
-		{name: "internal", err: errors.New("internal details"), code: controller.RejectionInternal},
+		{
+			name: "internal", err: errors.New("internal details"), preparation: false,
+			expectedCode: controller.FailureCodeInternal,
+		},
 	}
 	for _, test := range tests {
 		s.Run(test.name, func() {
 			ctrl := gomock.NewController(s.T())
-			catalog := NewMockModelCatalog(ctrl)
 			selectionOwner := NewMockModelSelection(ctrl)
 			service := New(
-				NewMockCoordinator(ctrl), catalog,
+				NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl),
 				testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), selectionOwner,
 			)
-			expectProgrammaticSelection(ctrl, selectionOwner, ModelSelectionCommand{
+			selectionCommand := ModelSelectionCommand{
 				Kind: ModelSelectionCommandModel, Provider: "provider", Model: "model", ReasoningChoice: "",
-			}, ModelSelectionResult{
-				Selection: model.Selection{}, Committed: false, Issues: nil, Source: test.err,
-			})
+			}
+			if test.preparation {
+				selectionOwner.EXPECT().PrepareProgrammaticSelection(selectionCommand).Return(nil, test.err)
+			} else {
+				expectProgrammaticSelection(ctrl, selectionOwner, selectionCommand, ModelSelectionResult{
+					Selection: model.Selection{}, Committed: false, Issues: nil, Source: test.err,
+				})
+			}
+			command := testProgrammaticCommand("selection", controller.CommandSelectModel)
+			command.ProviderID = mo.Some(model.ProviderID("provider"))
+			command.ModelID = mo.Some(model.ID("model"))
 
-			response, operation, err := service.handle(s.T().Context(), controller.Command{
-				OperationID: "selection",
-				Kind:        controller.CommandSelectModel,
-				ProviderID: mo.Some(
-					model.ProviderID("provider"),
-				),
-				ModelID:         mo.Some(model.ID("model")),
-				UserText:        mo.None[string](),
-				ReasoningChoice: mo.None[model.ReasoningChoice](),
-				SessionID:       mo.None[session.ID](),
-				SessionName:     mo.None[string](),
-				TargetEntryID:   mo.None[string](),
-				SummaryMode:     controller.SummaryModeNoSummary,
-				CustomFocus:     mo.None[string](),
-				EntryLabel:      mo.None[string](),
-			})
+			prepared, err := service.Prepare(s.T().Context(), command)
+			if test.preparation {
+				s.Nil(prepared)
+				var rejection *controller.RejectionError
+				s.Require().ErrorAs(err, &rejection)
+				s.Equal(test.expectedCode, rejection.Code())
+				s.ErrorContains(err, test.err.Error())
+				return
+			}
 			s.Require().NoError(err)
-			s.Nil(operation)
-			s.Equal(controller.ResponseRejected, response.Kind)
-			s.Equal(test.code, response.Rejection.OrEmpty().Code)
-			s.ErrorContains(response.Rejection.OrEmpty().Cause, test.err.Error())
+			outcome := prepared.Run(s.T().Context(), operation.Reporter[controller.OperationProgress]{})
+			prepared.Release()
+			s.Equal(operation.TerminalStateFailed, outcome.State())
+			s.Equal(test.expectedCode, outcome.Code())
+			s.ErrorContains(outcome.SourceError(), test.err.Error())
 		})
 	}
 }

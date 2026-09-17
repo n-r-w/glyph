@@ -118,13 +118,8 @@ func (s *Service) handleImmediate(
 		return response, true, err
 	case controller.CommandGetModels:
 		return s.models(command.OperationID), true, nil
-	case controller.CommandSelectModel:
-		response, err := s.selectModel(ctx, command)
-		return response, true, err
-	case controller.CommandSelectReasoningChoice:
-		response, err := s.selectReasoningChoice(ctx, command)
-		return response, true, err
-	case controller.CommandUnspecified, controller.CommandCancel:
+	case controller.CommandUnspecified, controller.CommandCancel,
+		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
 		return s.rejection(
 			command,
 			controller.RejectionInvalidArgument,
@@ -229,61 +224,6 @@ func (s *Service) models(operationID string) controller.Response {
 		ActiveSelection: mo.Some(s.modelCatalog.ActiveSelection()),
 	})
 	return response
-}
-
-// selectModel executes model selection through the shared owner for direct internal callers.
-func (s *Service) selectModel(ctx context.Context, command controller.Command) (controller.Response, error) {
-	providerID, hasProvider := command.ProviderID.Get()
-	modelID, hasModel := command.ModelID.Get()
-	if !hasProvider || !hasModel {
-		return s.rejection(
-			command,
-			controller.RejectionInvalidArgument,
-			errors.New("provider and model are required"),
-		), nil
-	}
-	prepared, err := s.modelSelection.PrepareProgrammaticSelection(ModelSelectionCommand{
-		Kind: ModelSelectionCommandModel, Provider: providerID, Model: modelID, ReasoningChoice: "",
-	})
-	if err != nil {
-		return s.selectionRejected(command, err), nil
-	}
-	defer prepared.Release()
-	result := prepared.Run(ctx)
-	if result.Source != nil && !result.Committed {
-		return s.selectionRejected(command, result.Source), nil
-	}
-	response := emptyResponse(command.OperationID, controller.ResponseModelSelection)
-	response.Selection = mo.Some(result.Selection)
-	response.SelectionIssues = projectModelSelectionIssues(result.Issues)
-	return response, result.Source
-}
-
-// selectReasoningChoice executes reasoning selection through the shared owner for direct internal callers.
-func (s *Service) selectReasoningChoice(ctx context.Context, command controller.Command) (controller.Response, error) {
-	choice, present := command.ReasoningChoice.Get()
-	if !present {
-		return s.rejection(
-			command,
-			controller.RejectionInvalidArgument,
-			errors.New("reasoning choice is required"),
-		), nil
-	}
-	prepared, err := s.modelSelection.PrepareProgrammaticSelection(ModelSelectionCommand{
-		Kind: ModelSelectionCommandReasoning, Provider: "", Model: "", ReasoningChoice: choice,
-	})
-	if err != nil {
-		return s.selectionRejected(command, err), nil
-	}
-	defer prepared.Release()
-	result := prepared.Run(ctx)
-	if result.Source != nil && !result.Committed {
-		return s.selectionRejected(command, result.Source), nil
-	}
-	response := emptyResponse(command.OperationID, controller.ResponseModelSelection)
-	response.Selection = mo.Some(result.Selection)
-	response.SelectionIssues = projectModelSelectionIssues(result.Issues)
-	return response, result.Source
 }
 
 // selectionRejected maps a model-selection failure to an operation rejection.
