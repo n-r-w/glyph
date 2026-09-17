@@ -148,6 +148,7 @@ func validateHostFailureCode(kind hostRequestKind, code string) error {
 func validateHostOutputFailureCode(code string) error {
 	for _, kind := range []hostRequestKind{
 		hostRequestModels, hostRequestConfiguredModel, hostRequestAppendExtension, hostRequestSessionState,
+		hostRequestModelSelection, hostRequestReasoningSelection,
 	} {
 		if validateHostFailureCode(kind, code) == nil {
 			return nil
