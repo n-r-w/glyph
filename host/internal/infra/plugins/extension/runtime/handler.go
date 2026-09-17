@@ -13,6 +13,11 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
+const (
+	// emptyOrdinaryHandlerErrorMessage replaces an unusable exactly empty extension diagnostic.
+	emptyOrdinaryHandlerErrorMessage = "extension handler returned an empty error message"
+)
+
 // ordinaryHandlerError preserves an extension-reported error without classifying a protocol failure.
 type ordinaryHandlerError struct {
 	// message contains the safe extension-provided failure text.
@@ -21,6 +26,14 @@ type ordinaryHandlerError struct {
 
 // Error returns the safe extension-provided failure text.
 func (err ordinaryHandlerError) Error() string { return err.message }
+
+// newOrdinaryHandlerError normalizes only exactly empty extension diagnostics.
+func newOrdinaryHandlerError(message string) ordinaryHandlerError {
+	if message == "" {
+		message = emptyOrdinaryHandlerErrorMessage
+	}
+	return ordinaryHandlerError{message: message}
+}
 
 // Handle maps one typed Host invocation to the extension operation stream.
 func (r *Runtime) Handle(
@@ -160,7 +173,7 @@ func mapHandleResponse(
 		return extensionruntime.HandlerAction{}, errors.New("handler response is missing")
 	}
 	if handlerErr := response.GetError(); handlerErr != nil {
-		return extensionruntime.HandlerAction{}, ordinaryHandlerError{message: handlerErr.GetMessage()}
+		return extensionruntime.HandlerAction{}, newOrdinaryHandlerError(handlerErr.GetMessage())
 	}
 	result := extensionruntime.HandlerAction{
 		Kind:                 request.Kind,

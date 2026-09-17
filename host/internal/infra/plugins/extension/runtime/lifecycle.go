@@ -47,7 +47,7 @@ func (r *Runtime) ObserveLifecycle(
 		return r.protocolViolation(errors.New("lifecycle observer response is missing"))
 	}
 	if handlerErr := response.GetError(); handlerErr != nil {
-		return ordinaryHandlerError{message: handlerErr.GetMessage()}
+		return newOrdinaryHandlerError(handlerErr.GetMessage())
 	}
 	if response.GetLifecycle() == nil {
 		return r.protocolViolation(errors.New("lifecycle observer returned another action kind"))

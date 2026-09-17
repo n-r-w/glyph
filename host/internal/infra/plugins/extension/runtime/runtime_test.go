@@ -881,6 +881,32 @@ func TestRuntimeKeepsHandlerErrorsAsCompletedData(t *testing.T) {
 	}
 }
 
+// TestRuntimeNormalizesEmptyHandlerErrorsWithoutStoppingRuntime verifies empty completed data stays ordinary.
+func TestRuntimeNormalizesEmptyHandlerErrorsWithoutStoppingRuntime(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an SDK extension that completes Handle with an exactly empty HandlerError message.
+	runtime := startHelperRuntime(t, "handler-empty-error")
+	_, err := runtime.Register(t.Context())
+	require.NoError(t, err)
+	request := runtimeObserverInvocation()
+
+	// Act by invoking the same handler twice through the real local gRPC stream.
+	_, firstErr := runtime.Handle(t.Context(), "observer", request)
+	_, secondErr := runtime.Handle(t.Context(), "observer", request)
+
+	// Assert each diagnostic is nonempty and ordinary while the same runtime remains usable.
+	for _, handleErr := range []error{firstErr, secondErr} {
+		require.EqualError(t, handleErr, "extension handler returned an empty error message")
+		require.NotErrorIs(t, handleErr, extensionruntime.ErrExtensionUnavailable)
+	}
+	select {
+	case <-runtime.Done():
+		assert.Fail(t, "runtime stopped after an empty completed HandlerError message")
+	default:
+	}
+}
+
 // TestRuntimeRejectsPeerErrorLifecycleViolations verifies peer error payloads survive later protocol validation.
 func TestRuntimeRejectsPeerErrorLifecycleViolations(t *testing.T) {
 	t.Parallel()
@@ -1171,8 +1197,8 @@ func (s *protocolService) PrepareHandle(
 	_ context.Context,
 	request *extensionpb.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
-	if (s.mode != "handler" && s.mode != "handler-error" && s.mode != "handle-rejection" &&
-		s.mode != "handle-failure" && s.mode != "wait-handle-release") ||
+	if (s.mode != "handler" && s.mode != "handler-error" && s.mode != "handler-empty-error" &&
+		s.mode != "handle-rejection" && s.mode != "handle-failure" && s.mode != "wait-handle-release") ||
 		request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
 		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected handler request"))
 	}
@@ -1225,7 +1251,7 @@ func (operation *protocolRegisterOperation) Run(
 	}.Build()
 
 	switch operation.service.mode {
-	case "handler", "handler-error", "handle-rejection", "handle-failure", "wait-handle-release":
+	case "handler", "handler-error", "handler-empty-error", "handle-rejection", "handle-failure", "wait-handle-release":
 		response.SetHandlers([]*extensionpb.HandlerDescriptor{
 			extensionpb.HandlerDescriptor_builder{
 				Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
@@ -1250,12 +1276,16 @@ func (operation *protocolHandleOperation) Run(
 	if operation.service.mode == "handle-failure" && operation.service.attempts.Add(1) == 1 {
 		return nil, extensionsdk.Fail("INTERNAL", errors.New("complete Handle failure source"))
 	}
-	if operation.service.mode == "handler-error" {
+	if operation.service.mode == "handler-error" || operation.service.mode == "handler-empty-error" {
+		message := "complete handler error text"
+		if operation.service.mode == "handler-empty-error" {
+			message = ""
+		}
 		return extensionpb.HandleResponse_builder{
 			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil,
-			Error: extensionpb.HandlerError_builder{Message: new("complete handler error text")}.Build(),
+			Error: extensionpb.HandlerError_builder{Message: new(message)}.Build(),
 		}.Build(), nil
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.

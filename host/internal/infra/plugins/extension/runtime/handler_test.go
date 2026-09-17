@@ -145,22 +145,35 @@ func TestMapSelectionResponseDefersInvalidActionToCapability(t *testing.T) {
 	assert.True(t, action.SelectionRejection.IsNone())
 }
 
-// TestMapHandleResponseReturnsOrdinaryHandlerError verifies a typed handler failure does not become a protocol failure.
+// TestMapHandleResponseReturnsOrdinaryHandlerError verifies empty normalization and exact nonempty preservation.
 func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 	t.Parallel()
 
-	// Arrange an observer invocation and one typed ordinary handler failure.
-	//nolint:exhaustruct_v5 // The response builder sets only the ordinary error outcome.
-	response := extensionpb.HandleResponse_builder{
-		Error: extensionpb.HandlerError_builder{Message: new("handler failed")}.Build(),
-	}.Build()
+	for _, test := range []struct {
+		name     string
+		message  string
+		expected string
+	}{
+		{name: "empty", message: "", expected: "extension handler returned an empty error message"},
+		{name: "nonempty", message: "handler failed", expected: "handler failed"},
+		{name: "whitespace", message: " \t ", expected: " \t "},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one typed ordinary handler failure with exact source text.
+			//nolint:exhaustruct_v5 // The response builder sets only the ordinary error outcome.
+			response := extensionpb.HandleResponse_builder{
+				Error: extensionpb.HandlerError_builder{Message: new(test.message)}.Build(),
+			}.Build()
 
-	// Act by mapping the typed ordinary failure.
-	mapped, err := mapHandleResponse(handlerInvocation(extensionruntime.InvocationObserver), response)
+			// Act by mapping the typed ordinary failure.
+			mapped, err := mapHandleResponse(handlerInvocation(extensionruntime.InvocationObserver), response)
 
-	// Assert no action is returned and the safe handler failure is preserved.
-	assert.Empty(t, mapped)
-	require.EqualError(t, err, "handler failed")
+			// Assert no action is returned and only exactly empty text is normalized.
+			assert.Empty(t, mapped)
+			require.EqualError(t, err, test.expected)
+		})
+	}
 }
 
 // TestMapHandleResponseRejectsAnotherActionKind verifies a registered kind cannot return another typed action.
