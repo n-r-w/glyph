@@ -1,5 +1,7 @@
 # Issues
 
+- [ ] PHS-07 standard TUI PTY verification: [Accepted technical debt](../features/initial/phases/07-extension-context-lifecycle/technical-debt.md)
+
 - [X] TUI hyperlinks: `docs/specs/issues/tui-hyperlinks`
 
 - [ ] Agent run failure semantics: `docs/specs/issues/agent-run-failure-semantics`

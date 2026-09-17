@@ -54,7 +54,7 @@
 ### PHS-07. Extension context and lifecycle
 - Dependencies: PHS-05.2, PHS-04.1, PHS-07.1
 - Ticket: [Ticket](phases/07-extension-context-lifecycle/ticket.md)
-- Completion gate: PHS-07.1 is complete. Remaining PHS-07 work may resume.
+- Completion: PHS-07 is Completed with [accepted technical debt](phases/07-extension-context-lifecycle/technical-debt.md).
 
 ### PHS-06. Context compaction and retry control
 - Dependencies: PHS-07, PHS-04.1

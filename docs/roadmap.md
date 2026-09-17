@@ -140,11 +140,11 @@ Documents:
 
 ## PHS-07: Extension context and lifecycle
 
-Status: Planned
+Status: Completed
 
-Add session-bound extension contexts, configured-model requests, active-selection control, lifecycle events, and public recovery of persisted extension state.
+Added session-bound extension contexts, configured-model requests, active-selection control, lifecycle events, and public recovery of persisted extension state.
 
-The implementation and required Linux checks are complete at 84.3% coverage. The [technical solution evidence](specs/features/initial/phases/07-extension-context-lifecycle/solution.md#implementation-evidence) includes the request-local selection failure, cancellation-linked committed observer, exact-empty ordinary diagnostic, and single Programmatic prepared-operation path corrections while retaining the two narrow historical TDD exceptions. Status remains Planned because the standard TUI PTY acceptance path requires Darwin arm64 and is unavailable on the Linux verification host; passing Linux checks do not satisfy that platform gate.
+The implementation and Linux verification evidence are recorded in the [technical solution](specs/features/initial/phases/07-extension-context-lifecycle/solution.md#implementation-evidence). Phase closure accepts the remaining standard TUI PTY verification as [technical debt](specs/features/initial/phases/07-extension-context-lifecycle/technical-debt.md), not as a passed check.
 
 Documents:
 - [Problem Statement](specs/features/initial/phases/07-extension-context-lifecycle/problem.md)

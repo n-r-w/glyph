@@ -8,7 +8,7 @@ The [Problem Statement](problem.md) describes the partial PHS-07 implementation 
 
 ### Design and implementation status
 
-The requirements and technical design are approved. The implementation is complete, and the Linux verification commands in [Implementation evidence](#implementation-evidence) pass. The phase remains Planned because the standard TUI PTY acceptance path is gated to Darwin arm64 and cannot run on the Linux verification host.
+The requirements and technical design are approved. The implementation is complete, and the Linux verification commands in [Implementation evidence](#implementation-evidence) pass. The phase is Completed with user-accepted [technical debt](technical-debt.md) for the remaining standard TUI PTY verification.
 
 ### Implemented capability
 
@@ -181,11 +181,11 @@ The table maps each [ticket acceptance criterion](ticket.md#acceptance-criteria)
 
 | Criterion | Scope | Executable evidence | Evidence limit |
 | --- | --- | --- | --- |
-| ACC-01 | Retained plus selection | `TestPublicContextCataloguesAcrossApplicationModes`, `TestPublicConfiguredRequestAcrossApplicationModes`, `TestPublicExtensionMessagesAcrossApplicationModes`, and `TestPublicExtensionSelectionAcrossApplicationModes` run headless, UI application assembly, and Programmatic Control against the external fixture. | `TestLifecycleObserverThroughStandardTUI` is integration-tagged but calls `t.Skip` unless the runtime is Darwin arm64. The Linux checks do not establish the real standard TUI PTY path. |
+| ACC-01 | Retained plus selection | `TestPublicContextCataloguesAcrossApplicationModes`, `TestPublicConfiguredRequestAcrossApplicationModes`, `TestPublicExtensionMessagesAcrossApplicationModes`, and `TestPublicExtensionSelectionAcrossApplicationModes` run headless, UI application assembly, and Programmatic Control against the external fixture. | The real standard TUI PTY path remains [accepted technical debt](technical-debt.md). |
 | ACC-02 | Retained plus selection | `TestPublicRetainedContextNeverReactivates`, `TestBindingsNeverReactivate`, and `TestProtectSelectionCommitRejectsSupersededContext` cover concrete session/runtime replacement and A-to-B-to-A identity. `TestExtensionSelectionRejectsStaleBindingAfterCredentialValidation` and `TestExtensionSelectionRejectsStaleBindingBeforeCommit` cover final protection rejection, complete stale text, and no selection commit. | None on Linux. |
 | ACC-03 | Retained | `TestPublicContextCataloguesAcrossApplicationModes` and `TestCataloguesRevalidateBlockedReads` exercise the public descriptor, provider ordering, active selection, and stale-read paths. | None on Linux. |
 | ACC-04 | Retained | `TestPublicConfiguredRequestAcrossApplicationModes`, `TestConfiguredRequestPassesExactInput`, and the `modelexecution` service tests cover ordered input, terminal content, diagnostics, no tools, and selection independence. | None on Linux. |
-| ACC-05 | Retained | `TestLifecycleObserverAcrossApplicationModes`, `TestServiceObservesEveryLifecycleGroup`, `TestServiceContinuesAfterOrdinaryObserverError`, and the observer cancellation integration tests cover client-first delivery, registration order, continuation, and run release. | The standard TUI PTY instance of ACC-01 remains unavailable on Linux; UI application assembly passes. |
+| ACC-05 | Retained | `TestLifecycleObserverAcrossApplicationModes`, `TestServiceObservesEveryLifecycleGroup`, `TestServiceContinuesAfterOrdinaryObserverError`, and the observer cancellation integration tests cover client-first delivery, registration order, continuation, and run release. | UI application assembly passes; standard TUI PTY evidence is tracked with ACC-01 in [technical debt](technical-debt.md). |
 | ACC-06 | Selection | `TestPublicSelectionHandlersComposeOriginalAndCurrentTargets` and the `modelselection` handler tests cover immutable original, successive current values, preserve, replace, reject, invalid action, ordinary error, cancellation, and runtime loss. `TestMapHandleResponseReturnsOrdinaryHandlerError` and `TestRuntimeNormalizesEmptyHandlerErrorsWithoutStoppingRuntime` prove that only exactly empty ordinary error text becomes `extension handler returned an empty error message` while nonempty and whitespace-only text remain exact and the runtime remains active. | None on Linux. |
 | ACC-07 | Selection | `TestCatalogResolvesValidatesAndCommitsCompleteSelection`, `TestCatalogCommitCancellationPreservesSelection`, `TestCatalogFinalValidationFailurePreservesSelection`, `TestServiceObservesChangedSelectionAfterDelivery`, `TestServiceObservesAfterNonCancellationDeliveryFailure`, `TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission`, `TestServiceDoesNotPublishUnchangedSelection`, both stale-binding tests, `TestModelCommandsUseCatalogDuringActiveRun`, and `TestSelectionReadinessAndActiveRunIndependence` cover validation, atomic commit, active-run independence, no-op, reasoning-before-model observation, cancellation-linked post-commit observers, committed completion after cancellation, admission release, post-commit issues, and no pre-commit event. | None on Linux. |
 | ACC-08 | Retained | `TestAppendUsesCurrentActiveLeafForEverySupportedEntry`, `TestHistoryProjectsBothExtensionMessageVisibilities`, and `TestPublicExtensionMessagesAcrossApplicationModes` cover implicit-root attachment, persistence fields, model visibility, and client visibility. | None on Linux. |
@@ -243,7 +243,7 @@ The final Linux closure produced these results:
 | `task build` | Passed. |
 | `git diff --check` | Passed. |
 
-These command results do not replace the two approved historical TDD exceptions in the preceding section. No independent deep review is claimed by this implementation evidence. Passing Linux commands are separate from the unavailable Darwin arm64 PTY evidence. The [roadmap](../../../../../roadmap.md) therefore keeps the phase status Planned.
+These command results do not replace the two approved historical TDD exceptions in the preceding section. No independent deep review is claimed by this implementation evidence. The [roadmap](../../../../../roadmap.md) marks the phase Completed with the remaining PTY verification tracked separately as [accepted technical debt](technical-debt.md). The skipped scenario is not reported as passing.
 
 ## Overengineering and Overspecification Considerations
 

@@ -2,6 +2,12 @@
 
 Implement one vertical slice that gives isolated extension processes UI-neutral access to session-bound Host capabilities through protobuf contracts.
 
+## Completion status
+
+Status: Completed
+
+Phase closure accepts the remaining PTY verification as [technical debt](technical-debt.md). The acceptance criteria remain the reference for closing that debt; the skipped scenario is not counted as passed.
+
 ## Key definitions and abbreviations
 
 The [phase terminology](terms.md) identifies the terms used by this ticket. The [Domain Glossary](../../../../../terms.md) defines their meanings.
