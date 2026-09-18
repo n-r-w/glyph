@@ -55,8 +55,8 @@ Out of scope:
 - FRQ-01.5: Agent Core shall not regain the generic Host hook dependency removed by PHS-05.1. Host shall own the adapter from Agent Core's effective-context interface to extension middleware.
 - FRQ-01.6: Provider middleware coordination shall use the Host model-execution and provider-execution boundaries introduced by PHS-06. Provider middleware coordination shall import no OpenAI Codex, OpenAI-compatible, provider SDK, or provider credential package.
 - FRQ-02: Apply transformations sequentially. Each handler shall receive the immutable original input and the current value returned by preceding handlers and shall be able to preserve the current value or replace it with a value derived from either input.
-- FRQ-03: Continue later handlers and the core operation after an ordinary handler error while reporting that error. The next handler shall receive the same current value that the failed handler received.
-- FRQ-03.1: A reported handler error shall contain its closed Glyph category and complete error text while later handlers and the parent operation continue under FRQ-03.
+- FRQ-03: A middleware handler error or invalid action shall follow the [extension failure rule](../../prd.md#extension-failure-rule). Host shall stop the affected request and invoke no later handler. Host shall not retry the handler, restart the chain, or repeat a provider request to recover from that failure.
+- FRQ-03.1: The failed operation shall expose its closed Glyph category and complete error text. Failure before provider dispatch shall prevent dispatch; failure during provider-response handling shall stop that model execution.
 
 ### Non-Functional Requirements
 
@@ -76,7 +76,7 @@ Out of scope:
 - ACC-03: An input handler can transform or fully handle text and image input.
 - ACC-03.1: A text-and-image model accepts final text and image input, while a text-only model rejects final image input before Agent Core or a provider request starts.
 - ACC-04: Two transforming handlers observe registration order, and the second can inspect the immutable original input while preserving or discarding the first handler's current value.
-- ACC-05: After an earlier ordinary handler error, the next handler receives the unchanged original input and the same current value that the failed handler received, while the error report retains its Glyph category and complete error text.
+- ACC-05: A handler error or invalid action stops the affected request, invokes no later handler, and causes no retry. The client receives the Glyph category and complete error text. An input, context, or provider-request handler failure before provider dispatch results in no provider request.
 - ACC-06: `host/internal/usecase/agent/run` obtains effective context through its own minimal interface, retains no generic Host hook dependency, and receives no plugin or transport type.
 - ACC-06.1: Provider middleware coordination invokes the PHS-06 Host model-execution and provider-execution boundaries and imports no concrete OpenAI provider package. Replacing an in-process provider adapter with an extension-runtime adapter changes no middleware, Agent Core, or PHS-07 configured-model request caller.
 

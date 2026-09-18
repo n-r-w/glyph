@@ -14,13 +14,14 @@
 - `bundled extension`: A compatible extension distributed and enabled by default with Glyph while retaining the ordinary extension lifecycle.
 - `bundled tools extension`: The bundled extension that registers `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` for the standard coding agent.
 - `bundled resource extension`: The bundled extension that converts collected resource contributions into system instructions and model context and makes prompt templates available through Glyph clients.
+- `bundled compaction extension`: See the [Domain Glossary](../../../terms.md).
 - `bundled provider extension`: A bundled extension that supplies one or more model provider implementations through the ordinary extension contract and runtime.
 - `extension contract`: A documented operation, data type, event, or registration point through which an extension interacts with Glyph.
 - `extension point`: A documented boundary at which an extension handler can observe, block, modify, or replace an operation.
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
 - `extension context`: Host-provided access to one extension runtime and its active session.
 - `agent run`: One continuous agent-loop execution initiated by a message and ending when no automatic model or tool work remains or the run is stopped.
-- `standard coding agent`: The coding-agent configuration distributed with Glyph; it enables the bundled tools extension and bundled resource extension and can run headlessly or through the standard TUI.
+- `standard coding agent`: The coding-agent configuration distributed with Glyph; it enables the bundled tools, resource, and compaction extensions and can run headlessly or through the standard TUI.
 - `context`: The information sent to a model to produce its next response or tool request.
 - `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
 - `session`: A related sequence of user requests, model responses, tool calls, and agent state.
@@ -290,7 +291,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The Glyph host shall own retry-policy configuration, retry-decision coordination, extension dispatch, delay scheduling, final-decision validation, and retry events outside Agent Core.
 - After one model request fails, the Glyph host shall create an immutable original retry decision from the provider classification, configured built-in policy, completed attempt count, and provider-supplied delay, and shall initialize the current retry decision with the same value.
 - Retry handlers shall run sequentially. Each handler shall receive the original retry decision and the current retry decision returned by preceding handlers and shall be able to preserve, replace, or cancel that retry. Cancellation shall be terminal and shall stop later retry handlers.
-- An invalid retry action or ordinary handler error shall be reported, shall preserve the decision received by that handler, and shall not stop later retry handlers or deactivate the extension.
+- An invalid retry action or retry-handler error shall end the logical model execution under the [extension failure rule](#extension-failure-rule). Host shall schedule no further provider attempt for that execution.
 - The Glyph host shall validate the final retry decision before it schedules a delay or repeats the model request. When handlers preserve the built-in decision, Glyph shall apply the configured built-in policy.
 - Agent Core shall expose only the minimum mechanism needed to consume one logical model execution result and shall not depend on retry policy, extension handlers, plugin transport, or delay scheduling.
 - Glyph clients shall receive retry events and choose how to present them.
@@ -298,16 +299,16 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - A retry shall repeat only the failed model request and shall not repeat any completed tool execution.
 - Failed intermediate attempts shall produce operation events and shall not create session messages or enter model context. After retry finishes, Glyph shall persist only the terminal model outcome.
 - Retry shall be enabled by default with three retries after the initial request. The default delays shall be 1, 2, and 4 seconds.
-- A provider-supplied `Retry-After` delay shall be capped at 30 seconds by the built-in policy.
+- The built-in policy shall honor a provider-supplied `Retry-After` delay up to a configurable maximum of 30 seconds by default. When the requested delay exceeds that maximum, the logical model execution shall end with an error that states the requested delay and configured maximum. Glyph shall not shorten the requested delay to the maximum and retry early.
 - The built-in retryable HTTP statuses shall be 408, 429, 500, 502, 503, and 504. Transport timeouts, connection resets, and unexpected connection closure before a terminal provider response shall also be retryable.
-- The retry policy configuration shall include the enabled state, maximum retry count, ordered retry delays, `Retry-After` cap, and built-in retryable HTTP statuses.
+- The retry policy configuration shall include the enabled state, maximum retry count, ordered retry delays, and the maximum accepted `Retry-After` delay. Provider adapters shall own HTTP failure classification; the retryable HTTP status set shall not be user-configurable.
 
 #### Extension Capabilities
 
 - Glyph extension contracts shall support tools, lifecycle events, system-prompt changes, context transformations, sessions, and model access without requiring terminal capabilities or exposing plugin transport types to Agent Core.
 - Each extension point shall declare whether it is an observer, transformer, gate, or replaceable operation and which actions its handlers can return.
 - Multiple transformations of the same operation shall run sequentially. Each handler shall receive both the immutable original input and the current value returned by preceding handlers, and shall be able to preserve the current value or replace it with a value derived from either input.
-- When an ordinary transforming handler fails, the next handler shall receive the same current value that the failed handler received.
+- Transforming-handler failures shall follow the [extension failure rule](#extension-failure-rule).
 - After model context assembly and before every provider request, Agent Core shall request effective context through its consumer-owned interface. The Host adapter shall invoke active context transformations sequentially exactly once and return the final provider-neutral context.
 - A context transformation shall affect only the outbound context for that provider request; persisted session state shall change only when an extension separately adds a session entry through the session contract.
 - Extensions shall be able to observe, transform, or fully handle user text and images before agent processing.
@@ -328,13 +329,18 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - Before each manual, threshold, or overflow-recovery compaction, the Glyph host shall create an immutable original compaction request and a current compaction request initialized with the same value.
 - Compaction request handlers shall run sequentially. Each handler shall receive the original request, the current request, and the current compaction result when one exists.
 - A compaction request handler shall be able to replace the current request and set, replace, or clear the current result independently in one state update. It shall also be able to preserve the complete current state or cancel compaction. The next handler shall receive the unchanged original request and the current state returned by the preceding handler.
-- When the compaction request handlers finish without a current result, the built-in compaction strategy shall process the current request.
-- After an extension or the built-in strategy produces a compaction result, compaction result handlers shall run sequentially. Each result handler shall receive the immutable original request, the final current request, the immutable original result, and the current result returned by preceding result handlers and shall be able to preserve or replace the current result or cancel compaction.
-- The Glyph host shall validate the final compaction result before session persistence. An invalid handler result shall be reported, shall not replace the preceding current state, and shall not deactivate the extension.
+- After compaction request handlers finish successfully without a current result, Host shall invoke the single registered compaction generator with the final current request. The bundled extension shall provide that generator by default; a custom extension shall be able to replace it. An existing current result shall bypass generator lookup and invocation. Zero or multiple generators with no supplied result shall fail compaction without a Host fallback or load-order selection.
+- After a compaction result exists, compaction result handlers shall run sequentially. Each result handler shall receive the immutable original request, the final current request, the immutable original result, and the current result returned by preceding result handlers and shall be able to preserve or replace the current result or cancel compaction.
+- The Glyph host shall validate handler actions and the final compaction result before session persistence. A handler error or invalid result shall stop compaction under the [extension failure rule](#extension-failure-rule) without appending a compaction entry.
 - Extensions shall receive events for agent start, agent end, agent settled, turn start, turn end, message start, message update, message end, tool-execution start, tool-execution update, tool-execution end, model selection, reasoning selection, compaction success, and compaction failure.
 - An extension shall be able to replace a finalized message without changing its role; multiple replacements shall run sequentially.
-- Except for a pre-execution tool-handler error, an ordinary extension-handler error shall be reported while later handlers and the agent-core or Host operation associated with that extension point continue and the extension remains active.
-- A pre-execution tool-handler error shall be reported, block that tool, and leave the extension active.
+
+##### Extension failure rule
+
+- When an extension handler or observer on an operation's execution path returns an error, returns an invalid action, or becomes unavailable, Glyph shall report the complete error text and fail that operation. During an agent run, the failure shall stop that run. Glyph shall invoke no later handler in the failed chain and shall not retry the failed extension, restart the chain, or schedule a provider retry to recover from the extension failure.
+- An extension failure before a session or selection commit shall prevent that commit. An observer failure after commit shall stop further processing and expose the error together with the committed outcome; it shall not undo persisted state or completed tool actions.
+- An ordinary handler error shall not itself deactivate the extension. Extension-runtime crashes retain the availability rules in [Environment Reload](#environment-reload).
+- Provider-declared transient failures remain subject to the retry policy. A provider extension's runtime failure is an extension failure, not a transient provider response. An explicit tool-policy rejection or a tool's returned execution-error result is not a handler failure and retains the tool-result behavior in [Agent and Tool Runtime](#agent-and-tool-runtime).
 
 #### Run Control
 
@@ -352,7 +358,10 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - The Glyph host shall initiate automatic compaction when the remaining model context cannot accommodate the response budget.
 - Manual compaction shall accept user instructions for the summary and shall use the same extension point as automatic compaction.
 - Compaction coordination, extension dispatch, final-result validation, and session persistence shall remain outside Agent Core.
+- Glyph shall distribute a compaction extension enabled by default for the standard coding agent. The extension shall own the standard summary-generation strategy and its instructions, including use of the preceding summary and configured-model requests. Host shall own no summary-generation implementation for context compaction. User extensions shall be able to supply a complete replacement result through the same public compaction contracts without requiring the bundled compaction extension.
 - Context compaction shall append a summary entry that replaces an older context prefix in model-visible context while preserving the remaining suffix unchanged and retaining the original session entries.
+- The recent unsummarized suffix shall use a configurable token budget, with a default of 20,000 tokens. The boundary shall retain complete messages and shall not separate a tool result from its tool call. Response-budget accounting shall remain separate.
+- Repeated compaction shall produce an updated summary from the preceding summary and the newly summarized part of the previously retained suffix. It shall not summarize the complete original history again. The next model request shall contain the updated summary and the retained suffix, not a chain of preceding compaction summaries. Session restoration shall reproduce this active-branch context.
 - Glyph shall automatically save sessions and allow them to resume after application restart.
 - Session information shall include message and tool counts, normalized token usage, persisted estimated cost, and provider-model cost breakdown. Counts shall remain available independently. Token totals shall be available only when every stored model response has usage. Estimated cost shall be available only when every stored model response has persisted cost.
 - Each `BranchSummaryEntry` shall own its branch boundary, actual result source, and explicit optional states for normalized token usage and persisted estimated cost. A model-generated result shall identify its provider, model, and reasoning choice. A result produced without a model shall identify the producing extension and shall claim no model usage or estimated cost. Missing reported usage or applicable pricing shall produce absent estimated cost. Source and accounting shall not be inferred from an unused built-in summary model. Context compaction, retry, and context-window behavior shall own their accounting. The standard TUI shall present all available session values.

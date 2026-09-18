@@ -14,7 +14,7 @@ The session-tree request, result, and observer chains replace received error tex
 
 ## Target picture
 
-A client can navigate with an extension-produced summary without invoking or authenticating an unused model. Persisted and client-visible result metadata identifies the result source. Ordinary handler failures retain their causes while navigation follows its defined continuation rules.
+A client can navigate with an extension-produced summary without invoking or authenticating an unused model. Persisted and client-visible result metadata identifies the result source. Handler failures retain their complete causes and stop navigation under the [extension failure rule](../../prd.md#extension-failure-rule).
 
 ## Scenarios
 
@@ -31,8 +31,8 @@ A client can navigate with an extension-produced summary without invoking or aut
 - Actor: Glyph user.
 - Pre-condition: Two request handlers are registered.
 - Trigger: The first handler returns an ordinary error containing `load summary rules: open rules.json: permission denied`.
-- Required behavior: The second handler receives the preceding current state. The client receives the original cause in the operation issue.
-- Example input and expected output: Navigation succeeds after the second handler supplies a valid result. The returned issue identifies the first extension and handler and retains the complete error text.
+- Required behavior: Navigation fails without invoking the second handler or changing the active leaf. The client receives the complete error text.
+- Example input and expected output: The failure identifies the first extension and handler and retains `load summary rules: open rules.json: permission denied`. No summary is committed and no retry occurs.
 
 ## Scope
 
@@ -63,7 +63,7 @@ Out of scope:
 - FRQ-03: Host shall persist the result source and expose it through UI Plugin Contract and Programmatic Control. Estimated cost shall use the actual model source and reported usage. Missing usage or applicable pricing shall produce absent estimated cost, not a cost derived from the unused built-in model.
 - FRQ-04: Final summary validation shall retain nonempty-content, navigation-target, branch-boundary, and usage checks. Navigation and summary persistence shall commit atomically. Cancellation or invalid final state before commit shall change neither the active leaf nor persisted entries.
 - FRQ-05: Session-tree request-handler, result-handler, and observer issues shall preserve the received error text and every added context message under the shared [error semantics](../../prd.md#error-semantics). A fixed message shall not replace the cause. Machine-readable issue categories shall supplement the text.
-- FRQ-06: An ordinary request or result handler error shall preserve the current state received by that handler, continue later handlers, and leave the extension active. An observer error after commit shall report an issue without undoing navigation. Error-text preservation shall not change these outcomes.
+- FRQ-06: Request-handler, result-handler, and observer failures shall follow the [extension failure rule](../../prd.md#extension-failure-rule). A request or result handler failure shall prevent the navigation commit. A post-commit observer failure shall stop later observers and expose its complete error text with the committed navigation outcome without undoing navigation. Neither failure shall cause a retry.
 
 ### Non-functional requirements
 
@@ -82,7 +82,7 @@ Out of scope:
 - ACC-03: A model-generated replacement from a model different from the built-in selection persists its actual model source. Available usage and pricing produce cost for that source, not the built-in selection.
 - ACC-04: Clearing an extension result still invokes built-in summarization. Unavailable credentials then fail the request before navigation commits. Successful built-in summarization retains its actual model source and accounting.
 - ACC-05: Request-handler, result-handler, and observer failures each return a distinct non-secret cause through real Extension Contract invocation and both client contracts. The received issue preserves the cause, extension ID, handler ID, and issue category.
-- ACC-06: Request and result handler failures continue the chain with the preceding state. Observer failures retain committed navigation. Explicit cancellation and invalid final summary state produce no navigation commit.
+- ACC-06: Request and result handler failures stop the chain before commit, expose complete error text, and perform no retry. Observer failures stop later observers, expose complete error text, and retain committed navigation. Explicit cancellation and invalid final summary state produce no navigation commit.
 
 ## Overengineering and overspecification considerations
 
@@ -91,7 +91,7 @@ The phase completes one extension-controlled navigation path across contracts, H
 ## Constraints and risks
 
 - Result transformation can make source or usage metadata inaccurate. The final result must identify its producing source rather than inherit the built-in selection automatically.
-- Tests that expect generic handler messages can preserve the defect. Public-contract assertions must check the received cause and continuation behavior together.
+- Tests that expect generic handler messages can preserve the defect. Public-contract assertions must check the received cause, stopped processing, and commit outcome together.
 
 ## Assumptions
 

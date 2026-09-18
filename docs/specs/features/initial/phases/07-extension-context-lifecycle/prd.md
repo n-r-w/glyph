@@ -46,7 +46,7 @@ Out of scope:
   - Origin: `source`, [ticket](ticket.md) ACC-04.
   - Goal: Support model-assisted extension behavior without changing the user's conversation selection.
   - Goal achievement: Full. The request uses an independent selection and returns the final response and visible reasoning content.
-- FRQ-04: Extensions shall receive agent, turn, message, tool-execution, model-selection, and reasoning-selection lifecycle events with an extension context bound to the extension runtime and active session at event delivery. Glyph client delivery of each Agent Core event shall precede observer delivery in registration order. An ordinary observer error shall be reported without stopping later observers or deactivating the extension.
+- FRQ-04: Extensions shall receive agent, turn, message, tool-execution, model-selection, and reasoning-selection lifecycle events with an extension context bound to the extension runtime and active session at event delivery. Glyph client delivery of each Agent Core event shall precede observer delivery in registration order. An observer error shall stop later observers and the operation invoking them under the [extension failure rule](../../prd.md#extension-failure-rule). Glyph shall report the complete error text without retrying the observer or rolling back committed state.
   - Origin: `source`, [product requirements](../../prd.md#extension-capabilities) and [ticket](ticket.md) ACC-05.
   - Goal: Support lifecycle-aware extension behavior independently of the connected Glyph client.
   - Goal achievement: Full. The required lifecycle groups are available through the Extension Contract.
@@ -58,10 +58,10 @@ Out of scope:
   - Origin: `source`, [ticket](ticket.md) ACC-07 and [selection semantics](solution.md#active-model-selection).
   - Goal: Prevent a partially applied model selection.
   - Goal achievement: Full. Final validation precedes one state commit and its event.
-- FRQ-07: An ordinary handler error or invalid handler action shall be reported, preserve the current target selection received by that handler, continue later handlers, and leave the extension active. An explicit rejection shall stop the handler chain. A runtime crash during a handler invocation before commit shall fail the selection operation without changing the active selection.
-  - Origin: `source`, [product handler semantics](../../prd.md#extension-capabilities) and [runtime failure semantics](../../prd.md#environment-reload).
-  - Goal: Isolate one extension error from other extensions and the active model selection.
-  - Goal achievement: Full. Ordinary errors and explicit rejection have separate outcomes.
+- FRQ-07: A handler error, invalid handler action, or runtime crash before commit shall fail the selection operation under the [extension failure rule](../../prd.md#extension-failure-rule). Host shall preserve the active selection, report the complete error text, invoke no later handler, and perform no retry. An explicit rejection shall stop the handler chain.
+  - Origin: `source`, [product handler semantics](../../prd.md#extension-failure-rule) and [runtime failure semantics](../../prd.md#environment-reload).
+  - Goal: Stop selection when an extension on its execution path fails.
+  - Goal achievement: Full. Failed handler processing cannot commit a selection or continue silently.
 - FRQ-08: An extension shall be able to append a model-hidden extension entry or model-visible extension message at the active position, including the implicit root. Both entry types shall survive application restart.
   - Origin: `source`, [product session requirements](../../prd.md#context-and-sessions) and [ticket](ticket.md) ACC-08.
   - Goal: Support durable extension state and durable model context.

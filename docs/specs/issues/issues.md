@@ -1,5 +1,7 @@
 # Issues
 
+- [ ] Align implemented extension chains with the [extension failure rule](../features/initial/prd.md#extension-failure-rule). Requirements are updated; implementation and verification remain pending. See the [roadmap](../../roadmap.md#extension-failures-stop-the-invoking-operation).
+
 - [ ] PHS-07 standard TUI PTY verification: [Accepted technical debt](../features/initial/phases/07-extension-context-lifecycle/technical-debt.md)
 
 - [X] TUI hyperlinks: `docs/specs/issues/tui-hyperlinks`

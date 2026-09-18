@@ -4,6 +4,12 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 ## Cross-cutting issues
 
+### Extension failures stop the invoking operation
+
+Status: Requirements updated; implementation pending
+
+The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) requires an extension error to stop the invoking operation, expose complete error text, and cause no retry. The affected phase requirements are aligned. Completed phase statuses below describe their accepted implementation baselines, not verification of this new rule. Existing technical solutions and code have not been changed for this requirement.
+
 ### TUI hyperlinks
 
 Status: Completed
@@ -120,7 +126,7 @@ Documents:
 
 Status: Completed
 
-Extension-produced branch summaries no longer depend on an unused model. Persisted sources own model usage, cost uses the actual model, and both client contracts retain complete handler error causes. All phase acceptance criteria passed.
+Extension-produced branch summaries no longer depend on an unused model. Persisted sources own model usage, cost uses the actual model, and both client contracts retain complete handler error causes. The accepted baseline passed its acceptance criteria; the revised [extension failure rule](#extension-failures-stop-the-invoking-operation) remains unimplemented.
 
 Documents:
 - [Ticket](specs/features/initial/phases/05.2-branch-summary-extension-control/ticket.md)
@@ -157,10 +163,11 @@ Documents:
 
 Status: Planned
 
-Add extensible context compaction and Host-owned retry decision coordination inside Host model execution.
+Add extension-owned context-summary generation, Host compaction coordination, and retry control inside Host model execution. The standard strategy is a bundled compaction extension. Requirements are agreed. After dry run, the agreed ownership correction separates extension model access into `extensionmodels`. The technical solution, detailed sizing policy, interchangeable registered generator, and planned retry dependency are approved. The independent dry run completed without unresolved blockers. Requirements and technical solution are ready for separately authorized implementation; implementation has not started.
 
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)
+- [Technical solution](specs/features/initial/phases/06-context-compaction-retry-control/solution.md)
 
 ## PHS-08: Prompt, context, input, and provider middleware
 

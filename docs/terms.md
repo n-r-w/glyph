@@ -12,7 +12,7 @@
 - `agent loop`: The repeated sequence of requesting a model response, executing model-requested actions, and returning their results to the model until the run completes or is stopped.
 - `agent run`: One continuous agent-loop execution initiated by a message and ending when no automatic model or tool work remains or the run is stopped.
 - `coding agent`: An agent intended to work with source code and related software development tasks.
-- `standard coding agent`: The coding-agent configuration distributed with Glyph; it enables the bundled tools extension and bundled resource extension and can run headlessly or through the standard TUI.
+- `standard coding agent`: The coding-agent configuration distributed with Glyph; it enables the bundled tools, resource, and compaction extensions and can run headlessly or through the standard TUI.
 - `tool`: A typed operation that an agent exposes to a model by name.
 - `Glyph plugin`: A separately delivered Glyph component. The defined Glyph plugin kinds are extension and UI plugin.
 - `extension`: A Glyph plugin that contributes platform or agent capabilities through extension contracts.
@@ -23,6 +23,7 @@
 - `bundled extension`: A compatible extension distributed and enabled by default with Glyph while retaining the ordinary extension lifecycle.
 - `bundled tools extension`: The bundled extension that registers `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` for the standard coding agent.
 - `bundled resource extension`: The bundled extension that converts collected resource contributions into system instructions and model context and makes prompt templates available through Glyph clients.
+- `bundled compaction extension`: The bundled extension that supplies the standard context-compaction strategy through the ordinary Extension Contract.
 - `bundled provider extension`: A bundled extension that supplies one or more model provider implementations through the ordinary extension contract and runtime.
 - `extension contract`: A documented operation, data type, event, or registration point through which an extension interacts with Glyph.
 - `extension point`: A documented boundary at which an extension handler can observe, block, modify, or replace an operation.
@@ -39,11 +40,15 @@
 - `current target selection`: The target selection produced by preceding active-selection handlers and initialized from the original target selection.
 - `context`: The information sent to a model to produce its next response or tool request.
 - `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
+- `CompactionEntry`: A persisted session entry containing a context summary and the first entry of its preserved active-branch suffix.
+- `response reset`: A semantic event that discards an unfinished model response and its tool-call previews without changing committed session entries.
 - `branch summarization`: Creation of a summary for entries on the branch that the user leaves during session-tree navigation.
 - `BranchSummaryEntry`: The persisted session entry produced by branch summarization.
 - `session_before_tree`: The transforming extension point before session-tree navigation and branch summarization.
 - `session_tree`: The extension event emitted after session-tree navigation and any `BranchSummaryEntry` persistence commit.
 - `response budget`: The token capacity reserved for the next model response.
+- `context-token estimate`: An approximate token count for the model-visible input of one request, distinct from provider-reported usage and cumulative session accounting.
+- `reported-usage baseline`: Provider-reported usage associated with one captured conversation request and its completed response.
 - `skill`: A reusable instruction resource contributed by an extension.
 - `prompt template`: A reusable user-request template contributed by an extension.
 - `context file`: A file containing project instructions contributed by an extension.
