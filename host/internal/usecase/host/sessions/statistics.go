@@ -99,20 +99,13 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 			)
 		}
 		if summary, present := entry.BranchSummary.Get(); present {
-			// Extension-only summaries do not make otherwise complete model totals unavailable.
-			modelSource, modelPresent := summary.Source.Model.Get()
-			if !modelPresent {
-				continue
-			}
-			summaryUsage, usagePresent := modelSource.Usage.Get()
-			if !usagePresent {
-				statistics.TokenUsage = mo.None[session.TokenUsage]()
-			} else {
-				usage = usage.Add(summaryUsage)
-			}
-			accumulateCost(
-				mo.Some(modelSource.Selection.Provider), mo.Some(modelSource.Selection.Model), summary.EstimatedCost,
-				&aggregateCost, groupCosts,
+			accumulateSummaryAccounting(
+				summary.Source, summary.EstimatedCost, &usage, &statistics, &aggregateCost, groupCosts,
+			)
+		}
+		if compaction, present := entry.Compaction.Get(); present {
+			accumulateSummaryAccounting(
+				compaction.Source, compaction.EstimatedCost, &usage, &statistics, &aggregateCost, groupCosts,
 			)
 		}
 	}
@@ -126,6 +119,32 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 	}
 	statistics.CostBreakdown = costBreakdown(groupCosts)
 	return statistics
+}
+
+// accumulateSummaryAccounting counts one persisted model-backed summary without counting its projection.
+func accumulateSummaryAccounting(
+	source session.BranchSummarySource,
+	estimatedCost mo.Option[session.EstimatedCost],
+	usage *session.TokenUsage,
+	statistics *session.Statistics,
+	aggregateCost *accumulatedCost,
+	groupCosts map[providerModelKey]accumulatedCost,
+) {
+	// Extension-only summaries do not make otherwise complete model totals unavailable.
+	modelSource, modelPresent := source.Model.Get()
+	if !modelPresent {
+		return
+	}
+	summaryUsage, usagePresent := modelSource.Usage.Get()
+	if !usagePresent {
+		statistics.TokenUsage = mo.None[session.TokenUsage]()
+	} else {
+		*usage = usage.Add(summaryUsage)
+	}
+	accumulateCost(
+		mo.Some(modelSource.Selection.Provider), mo.Some(modelSource.Selection.Model), estimatedCost,
+		aggregateCost, groupCosts,
+	)
 }
 
 // accumulateCost keeps aggregate and exact provider-model availability independent.

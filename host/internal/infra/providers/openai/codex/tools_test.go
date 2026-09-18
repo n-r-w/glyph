@@ -84,10 +84,10 @@ func TestDriverStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 	require.Equal(t, "read", events[0].Preview.OrEmpty().Name)
 	require.True(t, events[0].Preview.OrEmpty().Provisional)
 	require.Equal(t, mo.Some("hel"), events[1].Preview.OrEmpty().Fields[1].Prefix)
-	require.Equal(
+	require.JSONEq(
 		t,
-		map[string]any{"path": "file.txt", "query": "hello"},
-		events[3].ToolCall.OrEmpty().Arguments,
+		`{"path":"file.txt","query":"hello"}`,
+		events[3].ToolCall.OrEmpty().Arguments.String(),
 	)
 }
 
@@ -151,7 +151,7 @@ func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 	assert.Equal(t, model.ToolCall{
 		ID:        "call-1",
 		Name:      "read",
-		Arguments: map[string]any{"path": "file.txt"},
+		Arguments: testToolCallArguments(`{"path":"file.txt"}`),
 	}, events[1].ToolCall.OrEmpty())
 }
 
@@ -299,9 +299,9 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 	assert.Equal(t, "final answer", response.Content[1].Text.OrEmpty())
 	assert.Equal(t, model.ContentToolCall, response.Content[2].Kind)
 	assert.Equal(t, "read", response.Content[2].ToolCall.OrEmpty().Name)
-	assert.Equal(
+	assert.JSONEq(
 		t,
-		map[string]any{"path": "file.txt"},
-		response.Content[2].ToolCall.OrEmpty().Arguments,
+		`{"path":"file.txt"}`,
+		response.Content[2].ToolCall.OrEmpty().Arguments.String(),
 	)
 }

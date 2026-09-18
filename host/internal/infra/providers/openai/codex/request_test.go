@@ -176,7 +176,7 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 							model.ToolCall{
 								ID:        "call-old",
 								Name:      "read",
-								Arguments: map[string]any{"path": "old.txt"},
+								Arguments: testToolCallArguments(`{"path":"old.txt"}`),
 							},
 						),
 					},
@@ -262,10 +262,10 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 	assert.Equal(t, model.ContentText, response.Content[1].Kind)
 	assert.Equal(t, "answer", response.Content[1].Text.OrEmpty())
 	assert.Equal(t, model.ContentToolCall, response.Content[2].Kind)
-	assert.Equal(
+	assert.JSONEq(
 		t,
-		map[string]any{"path": "file.txt"},
-		response.Content[2].ToolCall.OrEmpty().Arguments,
+		`{"path":"file.txt"}`,
+		response.Content[2].ToolCall.OrEmpty().Arguments.String(),
 	)
 }
 

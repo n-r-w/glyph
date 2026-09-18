@@ -269,13 +269,9 @@ func mapLifecycleMessageUpdate(event extensionruntime.LifecycleInvocation) (*ext
 		builder.Content = mapped
 	}
 	if call, present := event.ToolCall.Get(); present {
-		arguments, err := json.Marshal(call.Arguments)
-		if err != nil {
-			return nil, fmt.Errorf("encode lifecycle tool call arguments: %w", err)
-		}
 		builder.ToolCall = extensionpb.LifecycleToolCall_builder{
 			Id: new(call.ID), Name: new(call.Name), Position: builder.Position,
-			Provisional: new(false), Fields: nil, ArgumentsJson: arguments,
+			Provisional: new(false), Fields: nil, ArgumentsJson: call.Arguments.Bytes(),
 		}.Build()
 	}
 	if preview, present := event.Preview.Get(); present && builder.ToolCall == nil {

@@ -2,7 +2,7 @@ package extensionv1
 
 import (
 	"context"
-	"encoding/json/jsontext"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -590,8 +590,11 @@ func (s *server) validateExecute(request *extensionpb.ExecuteRequest) error {
 	if request == nil || request.GetToolName() == "" {
 		return Reject(rejectionCodeInvalidArgument, errors.New("tool name is required"))
 	}
-	if !jsontext.Value(request.GetArgumentsJson()).IsValid() {
-		return Reject(rejectionCodeInvalidArgument, errors.New("tool arguments must contain valid JSON"))
+	if err := json.Unmarshal(request.GetArgumentsJson(), new(map[string]any)); err != nil {
+		return Reject(
+			rejectionCodeInvalidArgument,
+			fmt.Errorf("tool arguments must contain a JSON object or null: %w", err),
+		)
 	}
 	return nil
 }

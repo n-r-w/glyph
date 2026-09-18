@@ -116,6 +116,8 @@ const (
 	SessionTreeEntryExtension
 	// SessionTreeEntryBranchSummary identifies a persisted branch summary.
 	SessionTreeEntryBranchSummary
+	// SessionTreeEntryCompaction identifies an active-context compaction marker.
+	SessionTreeEntryCompaction
 	// SessionTreeEntryExtensionMessage identifies a model-visible extension message.
 	SessionTreeEntryExtensionMessage
 )
@@ -144,6 +146,8 @@ type SessionTreeEntry struct {
 	Extension mo.Option[ExtensionEntry]
 	// BranchSummary contains a persisted branch summary.
 	BranchSummary mo.Option[BranchSummary]
+	// Compaction contains a persisted active-context compaction marker.
+	Compaction mo.Option[Compaction]
 	// ExtensionMessage contains exact model-visible text and client visibility.
 	ExtensionMessage mo.Option[ExtensionMessage]
 }
@@ -166,6 +170,20 @@ type ExtensionMessage struct {
 	Text string
 	// Visibility controls ordinary client transcript presentation.
 	Visibility session.ClientVisibility
+}
+
+// Compaction contains one persisted active-context compaction projection.
+type Compaction struct {
+	// Summary contains the model-context summary text.
+	Summary string
+	// FirstKeptEntryID identifies the first retained original entry.
+	FirstKeptEntryID string
+	// Source identifies the actual producer and its model usage.
+	Source session.CompactionSource
+	// EstimatedCost contains persisted cost when available.
+	EstimatedCost mo.Option[session.EstimatedCost]
+	// Details contains optional opaque extension-owned result data.
+	Details mo.Option[[]byte]
 }
 
 // BranchSummary contains one persisted branch-summary projection.

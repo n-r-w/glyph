@@ -110,6 +110,7 @@ func (s *Service) createReplacement(ctx context.Context, tree session.Tree) (ses
 	s.publishContextIdentityLocked()
 	branch := tree.ActiveBranch()
 	s.history = storedHistoryFromEntries(branch)
+	s.contextHistory = storedCompactedHistoryFromEntries(branch)
 	s.writeUnavailable = false
 	return loaded.Info(), cloneEntries(loaded.Tree.ActiveBranch()), nil
 }

@@ -1437,15 +1437,15 @@ func (*toolCallPreviewField_Prefix) isToolCallPreviewField_Content() {}
 
 // FinalToolCall carries a completed function call.
 type FinalToolCall struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
-	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
-	xxx_hidden_Position    int64                  `protobuf:"varint,3,opt,name=position"`
-	xxx_hidden_Arguments   *structpb.Struct       `protobuf:"bytes,4,opt,name=arguments"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_CallId        *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
+	xxx_hidden_Name          *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Position      int64                  `protobuf:"varint,3,opt,name=position"`
+	xxx_hidden_ArgumentsJson []byte                 `protobuf:"bytes,4,opt,name=arguments_json,json=argumentsJson"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *FinalToolCall) Reset() {
@@ -1500,9 +1500,9 @@ func (x *FinalToolCall) GetPosition() int64 {
 	return 0
 }
 
-func (x *FinalToolCall) GetArguments() *structpb.Struct {
+func (x *FinalToolCall) GetArgumentsJson() []byte {
 	if x != nil {
-		return x.xxx_hidden_Arguments
+		return x.xxx_hidden_ArgumentsJson
 	}
 	return nil
 }
@@ -1522,8 +1522,12 @@ func (x *FinalToolCall) SetPosition(v int64) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
 }
 
-func (x *FinalToolCall) SetArguments(v *structpb.Struct) {
-	x.xxx_hidden_Arguments = v
+func (x *FinalToolCall) SetArgumentsJson(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_ArgumentsJson = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *FinalToolCall) HasCallId() bool {
@@ -1547,11 +1551,11 @@ func (x *FinalToolCall) HasPosition() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *FinalToolCall) HasArguments() bool {
+func (x *FinalToolCall) HasArgumentsJson() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Arguments != nil
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *FinalToolCall) ClearCallId() {
@@ -1569,8 +1573,9 @@ func (x *FinalToolCall) ClearPosition() {
 	x.xxx_hidden_Position = 0
 }
 
-func (x *FinalToolCall) ClearArguments() {
-	x.xxx_hidden_Arguments = nil
+func (x *FinalToolCall) ClearArgumentsJson() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_ArgumentsJson = nil
 }
 
 type FinalToolCall_builder struct {
@@ -1582,8 +1587,8 @@ type FinalToolCall_builder struct {
 	Name *string
 	// The zero-based position in the model response.
 	Position *int64
-	// The decoded tool arguments.
-	Arguments *structpb.Struct
+	// The exact validated tool argument JSON.
+	ArgumentsJson []byte
 }
 
 func (b0 FinalToolCall_builder) Build() *FinalToolCall {
@@ -1602,7 +1607,10 @@ func (b0 FinalToolCall_builder) Build() *FinalToolCall {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
 		x.xxx_hidden_Position = *b.Position
 	}
-	x.xxx_hidden_Arguments = b.Arguments
+	if b.ArgumentsJson != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_ArgumentsJson = b.ArgumentsJson
+	}
 	return m0
 }
 
@@ -3545,12 +3553,12 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueH\x00R\x05value\x12\x18\n" +
 	"\x06prefix\x18\x03 \x01(\tH\x00R\x06prefixB\t\n" +
-	"\acontent\"\x8f\x01\n" +
+	"\acontent\"\x7f\n" +
 	"\rFinalToolCall\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bposition\x18\x03 \x01(\x03R\bposition\x125\n" +
-	"\targuments\x18\x04 \x01(\v2\x17.google.protobuf.StructR\targuments\"E\n" +
+	"\bposition\x18\x03 \x01(\x03R\bposition\x12%\n" +
+	"\x0earguments_json\x18\x04 \x01(\fR\rargumentsJson\"E\n" +
 	"\rToolExecution\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\"j\n" +
@@ -3678,7 +3686,6 @@ var file_api_programmatic_v1_agent_proto_goTypes = []any{
 	(*TurnSummary)(nil),          // 20: glyph.programmatic.v1.TurnSummary
 	(*AgentSummary)(nil),         // 21: glyph.programmatic.v1.AgentSummary
 	(*structpb.Value)(nil),       // 22: google.protobuf.Value
-	(*structpb.Struct)(nil),      // 23: google.protobuf.Struct
 }
 var file_api_programmatic_v1_agent_proto_depIdxs = []int32{
 	0,  // 0: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
@@ -3694,26 +3701,25 @@ var file_api_programmatic_v1_agent_proto_depIdxs = []int32{
 	1,  // 10: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
 	8,  // 11: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
 	22, // 12: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	23, // 13: glyph.programmatic.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	2,  // 14: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
-	13, // 15: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
-	14, // 16: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
-	3,  // 17: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
-	18, // 18: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
-	19, // 19: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
-	16, // 20: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
-	17, // 21: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
-	17, // 22: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
-	17, // 23: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
-	9,  // 24: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	15, // 25: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
-	12, // 26: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
-	4,  // 27: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	2,  // 13: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
+	13, // 14: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
+	14, // 15: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
+	3,  // 16: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
+	18, // 17: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
+	19, // 18: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
+	16, // 19: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
+	17, // 20: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
+	17, // 21: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
+	17, // 22: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
+	9,  // 23: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	15, // 24: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
+	12, // 25: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
+	4,  // 26: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_agent_proto_init() }

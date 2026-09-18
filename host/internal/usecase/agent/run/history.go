@@ -36,8 +36,8 @@ func cloneToolPreviews(previews map[string]model.ToolCallPreview) map[string]mod
 	return cloned
 }
 
-// projectHistory excludes failed responses and supplies temporary skipped results.
-func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
+// ProjectHistory excludes failed responses and supplies temporary skipped results.
+func ProjectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 	projected := make([]agent.HistoryEntry, 0, len(history))
 	for index := 0; index < len(history); {
 		entry := history[index]
@@ -58,16 +58,25 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 		}
 
 		projected = append(projected, entry.Clone())
-		results := make(map[string]agent.HistoryEntry)
+		calls := modelToolCalls(response)
+		results := make(map[string]agent.HistoryEntry, len(calls))
+		intervening := make([]agent.HistoryEntry, 0)
 		next := index + 1
-		for next < len(history) && history[next].Kind == agent.HistoryEntryToolResult {
-			result, hasResult := history[next].ToolResult.Get()
+		// A later model response, not an intervening message, delimits ownership of persisted tool results.
+		for next < len(history) && history[next].Kind != agent.HistoryEntryModel {
+			candidate := history[next]
+			if candidate.Kind != agent.HistoryEntryToolResult {
+				intervening = append(intervening, candidate.Clone())
+				next++
+				continue
+			}
+			result, hasResult := candidate.ToolResult.Get()
 			if hasResult {
-				results[result.CallID] = history[next]
+				results[result.CallID] = candidate
 			}
 			next++
 		}
-		for _, call := range modelToolCalls(response) {
+		for _, call := range calls {
 			if stored, exists := results[call.ID]; exists {
 				projected = append(projected, stored.Clone())
 				continue
@@ -81,7 +90,8 @@ func projectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 				}),
 			})
 		}
-		// Results without a finalized model call violate the linked-result invariant and do not enter provider history.
+		projected = append(projected, intervening...)
+		// Results without a finalized call owned by this response do not enter provider history.
 		index = next
 	}
 	return projected

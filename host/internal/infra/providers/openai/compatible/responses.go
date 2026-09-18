@@ -288,8 +288,8 @@ func (state *responsesAccumulator) finishTool(toolState *responsesToolState, arg
 	if name == "" {
 		name = toolState.name
 	}
-	var decoded map[string]any
-	if err := json.Unmarshal([]byte(arguments), &decoded); err != nil {
+	decoded, err := model.NewToolCallArguments([]byte(arguments))
+	if err != nil {
 		return fmt.Errorf("decode Responses tool-call arguments: %w", err)
 	}
 	call := model.ToolCall{
@@ -409,8 +409,8 @@ func responsesModelResponse(
 			content = append(content, visible)
 		case responseItemTypeFunctionCall:
 			call := output.AsFunctionCall()
-			var arguments map[string]any
-			if err := json.Unmarshal([]byte(call.Arguments), &arguments); err != nil {
+			arguments, err := model.NewToolCallArguments([]byte(call.Arguments))
+			if err != nil {
 				return model.Response{}, fmt.Errorf("decode Responses tool-call arguments: %w", err)
 			}
 			content = append(content, model.Content{

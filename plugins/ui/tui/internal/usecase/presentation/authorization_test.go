@@ -91,7 +91,7 @@ func TestStatePreservesAbsentStateAndCopiesOptionalJSON(t *testing.T) {
 				Value:  mo.Some[any](value),
 				Prefix: mo.None[string](),
 			}},
-			Arguments: nil,
+			ArgumentsJSON: nil,
 		}),
 		Models:            nil,
 		ModelSelection:    mo.None[ModelSelection](),

@@ -280,6 +280,12 @@ func mapTreeEntryContent(value *uiv1.SessionTreeEntry) (TreeEntryKind, string, e
 			return TreeEntryUnspecified, "", errors.New("branch summary text is required")
 		}
 		return TreeEntryBranchSummary, summary.GetSummary(), nil
+	case value.GetCompaction() != nil:
+		compaction := value.GetCompaction()
+		if !compaction.HasSummary() || !compaction.HasFirstKeptEntryId() || !compaction.HasSource() {
+			return TreeEntryUnspecified, "", errors.New("compaction tree entry is incomplete")
+		}
+		return TreeEntryCompaction, compaction.GetSummary(), nil
 	default:
 		return TreeEntryUnspecified, "", errors.New("session tree entry payload is missing")
 	}

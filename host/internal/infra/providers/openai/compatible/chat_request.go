@@ -253,15 +253,11 @@ func chatToolCallParam(item model.Content, index int) (openai.ChatCompletionMess
 	if !present {
 		return openai.ChatCompletionMessageToolCallUnionParam{}, fmt.Errorf("model content %d has no tool call", index)
 	}
-	arguments, err := json.Marshal(call.Arguments)
-	if err != nil {
-		return openai.ChatCompletionMessageToolCallUnionParam{}, fmt.Errorf("encode tool-call arguments: %w", err)
-	}
 	return openai.ChatCompletionMessageToolCallUnionParam{
 		OfFunction: &openai.ChatCompletionMessageFunctionToolCallParam{
 			ID: call.ID,
 			Function: openai.ChatCompletionMessageFunctionToolCallFunctionParam{
-				Arguments: string(arguments),
+				Arguments: call.Arguments.String(),
 				Name:      call.Name,
 			},
 			Type: "",

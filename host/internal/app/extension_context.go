@@ -4,6 +4,7 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	extensiontransport "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/tools"
@@ -26,11 +27,12 @@ func bindExtensionContexts(
 func bindExtensionHostFactory(
 	factory *extensiontransport.Factory,
 	runtimes *extensionruntime.Service,
+	models *extensionmodels.Service,
 	contexts *extensioncontext.Service,
 	selection *modelselection.Service,
 ) {
 	factory.BindHostServiceFactory(func(extensionID, runtimeID string) extensionsdk.HostService {
-		controller := extensioncontroller.New(contexts, runtimes, extensionID, runtimeID)
+		controller := extensioncontroller.New(models, contexts, runtimes, extensionID, runtimeID)
 		controller.BindSelection(selection)
 		return controller
 	})

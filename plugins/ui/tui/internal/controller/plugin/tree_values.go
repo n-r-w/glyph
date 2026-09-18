@@ -46,6 +46,8 @@ const (
 	TreeEntryExtension
 	// TreeEntryBranchSummary identifies an abandoned-branch summary.
 	TreeEntryBranchSummary
+	// TreeEntryCompaction identifies an active-context compaction marker.
+	TreeEntryCompaction
 	// TreeEntryExtensionMessage identifies a model-visible extension message.
 	TreeEntryExtensionMessage
 )

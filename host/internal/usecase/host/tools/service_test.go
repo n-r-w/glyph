@@ -256,7 +256,7 @@ func TestServiceListsAndExecutesAcceptedTools(t *testing.T) {
 	service.Commit(accepted)
 	runtime.EXPECT().ToolRuntimeAvailable("extension").Return(true).Times(3)
 	runtime.EXPECT().
-		ExecuteTool(t.Context(), "extension", "read", []byte(`{"path":"file"}`), gomock.Any(), gomock.Any()).
+		ExecuteTool(t.Context(), "extension", "read", []byte(`{ "path":"\u0066ile" }`), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, _, _ string, _ []byte, _ tool.ProgressHandler, supplied extension.Context) (tool.Result, error) {
 			assert.Equal(t, binding, supplied)
 			return tool.Result{Contents: tool.TextContents("content"), IsError: false}, nil
@@ -265,12 +265,12 @@ func TestServiceListsAndExecutesAcceptedTools(t *testing.T) {
 	listed := service.Tools()
 	invalid, invalidErr := service.Execute(
 		t.Context(),
-		model.ToolCall{ID: "bad", Name: "read", Arguments: map[string]any{}},
+		model.ToolCall{ID: "bad", Name: "read", Arguments: testToolCallArguments(`{}`)},
 		func(tool.Progress) error { return nil },
 	)
 	result, executeErr := service.Execute(
 		t.Context(),
-		model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "file"}},
+		model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{ "path":"\u0066ile" }`)},
 		func(tool.Progress) error { return nil },
 	)
 	// Assert sorted listing and model-visible results preserve behavior.
@@ -344,7 +344,7 @@ func TestServiceReturnsUnavailableResult(t *testing.T) {
 	// Act execute the unavailable tool.
 	result, executeErr := service.Execute(
 		t.Context(),
-		model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "file"}},
+		model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{ "path":"\u0066ile" }`)},
 		func(tool.Progress) error { return nil },
 	)
 	// Assert exact existing unavailable text.

@@ -26,6 +26,8 @@ const (
 	recordTypeExtensionMessage = "extension_message"
 	// recordTypeBranchSummary identifies a persisted branch summary.
 	recordTypeBranchSummary = "branch_summary"
+	// recordTypeCompaction identifies a persisted active-context compaction marker.
+	recordTypeCompaction = "compaction"
 	// mutationTypeEntry identifies an entry mutation envelope.
 	mutationTypeEntry = "entry"
 	// mutationTypeNavigation identifies a navigation mutation envelope.
@@ -176,8 +178,8 @@ type toolCallRecord struct {
 	ID string `json:"id"`
 	// Name identifies the requested tool.
 	Name string `json:"name"`
-	// Arguments contains finalized tool input.
-	Arguments map[string]any `json:"arguments"`
+	// Arguments contains the exact finalized tool-input JSON bytes.
+	Arguments []byte `json:"arguments"`
 }
 
 type usageRecord struct {
@@ -288,6 +290,28 @@ type branchSummaryRecord struct {
 	Source branchSummarySourceRecord `json:"source"`
 	// EstimatedCost contains persisted summary cost when calculable.
 	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitzero"`
+}
+
+// compactionRecord stores one active-context summary and retained boundary.
+type compactionRecord struct {
+	// Type must be "compaction".
+	Type string `json:"type"`
+	// ID uniquely identifies this entry.
+	ID string `json:"id"`
+	// ParentID identifies the preceding active-branch entry.
+	ParentID mo.Option[string] `json:"parentId"`
+	// CreatedAt uses RFC3339 nanosecond precision.
+	CreatedAt string `json:"createdAt"`
+	// Summary contains the persisted synthetic context.
+	Summary string `json:"summary"`
+	// FirstKeptEntryID identifies the first original entry retained after the summary.
+	FirstKeptEntryID string `json:"firstKeptEntryId"`
+	// Source contains the actual producer and its nested model usage.
+	Source branchSummarySourceRecord `json:"source"`
+	// EstimatedCost contains persisted summary cost when calculable.
+	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitzero"`
+	// Details contains opaque extension-owned result data when present.
+	Details *[]byte `json:"details,omitzero"`
 }
 
 // branchSummarySourceRecord stores exactly one summary producer.

@@ -24,7 +24,9 @@ const (
 
 // Service maps requests from one connected runtime to Host context operations.
 type Service struct {
-	// contexts owns issued binding validation and context capabilities.
+	// models owns extension-facing catalog reads and configured model requests.
+	models ModelOperations
+	// contexts owns issued binding validation and session capabilities.
 	contexts ContextOperations
 	// runtime owns active-operation accounting for the connected process.
 	runtime RuntimeOperations
@@ -39,8 +41,14 @@ type Service struct {
 var _ extensionsdk.HostService = (*Service)(nil)
 
 // New binds dispatch to the extension and runtime identity supplied by process composition.
-func New(contexts ContextOperations, runtime RuntimeOperations, extensionID, runtimeID string) *Service {
+func New(
+	models ModelOperations,
+	contexts ContextOperations,
+	runtime RuntimeOperations,
+	extensionID, runtimeID string,
+) *Service {
 	return &Service{
+		models:      models,
 		contexts:    contexts,
 		runtime:     runtime,
 		selection:   nil,
@@ -344,12 +352,12 @@ func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted,
 		}
 		result.SetGetSessionState(mapped)
 	case hasConfigured:
-		response, err := o.service.contexts.Request(
+		response, err := o.service.models.Request(
 			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
 			configured.selection, configured.instructions, configured.history,
 		)
 		if err != nil {
-			return nil, mapContextFailure("request configured model", err)
+			return nil, mapModelFailure("request configured model", err)
 		}
 		mapped, err := mapConfiguredResponse(response)
 		if err != nil {
@@ -357,15 +365,15 @@ func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted,
 		}
 		result.SetConfiguredModel(mapped)
 	case o.models:
-		catalog, err := o.service.contexts.ReadModels(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
+		catalog, err := o.service.models.ReadModels(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
 		if err != nil {
-			return nil, mapContextFailure("read model catalog", err)
+			return nil, mapModelFailure("read model catalog", err)
 		}
 		result.SetGetModels(mapModelCatalog(catalog))
 	default:
-		providers, err := o.service.contexts.ReadProviders(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
+		providers, err := o.service.models.ReadProviders(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
 		if err != nil {
-			return nil, mapContextFailure("read provider catalog", err)
+			return nil, mapModelFailure("read provider catalog", err)
 		}
 		result.SetGetProviders(mapProviderCatalog(providers))
 	}
@@ -378,6 +386,25 @@ func (o *contextOperation) Release() {
 		selection.Release()
 	}
 	o.release()
+}
+
+// modelFailureCode extracts the closed model-owner category without replacing the error text.
+func modelFailureCode(err error) string {
+	if failure, found := errors.AsType[ModelFailure](err); found {
+		return failure.ModelCode()
+	}
+	if failure, found := errors.AsType[ContextFailure](err); found {
+		return failure.ContextCode()
+	}
+	return internalFailureCode
+}
+
+// mapModelFailure preserves cancellation as cancellation and classified model failures as complete causes.
+func mapModelFailure(action string, err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%s: %w", action, err)
+	}
+	return extensionsdk.Fail(modelFailureCode(err), fmt.Errorf("%s: %w", action, err))
 }
 
 // contextFailureCode extracts the closed owner category without replacing the error text.

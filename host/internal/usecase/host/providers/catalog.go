@@ -13,7 +13,7 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	authdomain "github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
@@ -56,7 +56,7 @@ type SelectionError struct {
 
 var (
 	_ extensioncontroller.SelectionFailure = (*SelectionError)(nil)
-	_ extensioncontext.RequestFailure      = (*SelectionError)(nil)
+	_ extensionmodels.RequestFailure       = (*SelectionError)(nil)
 	_ modelselection.CatalogFailure        = (*SelectionError)(nil)
 	_ sessiontree.SelectionFailure         = (*SelectionError)(nil)
 	_ hostprogrammatic.SelectionFailure    = (*SelectionError)(nil)
@@ -119,7 +119,7 @@ type Catalog struct {
 var (
 	_ modelexecution.CatalogResolver = (*Catalog)(nil)
 	_ modelselection.Catalog         = (*Catalog)(nil)
-	_ extensioncontext.Catalog       = (*Catalog)(nil)
+	_ extensionmodels.Catalog        = (*Catalog)(nil)
 	_ sessiontree.ModelSelection     = (*Catalog)(nil)
 	_ hostprogrammatic.ModelCatalog  = (*Catalog)(nil)
 	_ hostsessions.PricingCatalog    = (*Catalog)(nil)

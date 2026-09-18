@@ -1660,15 +1660,15 @@ func (*toolCallPreviewField_Prefix) isToolCallPreviewField_Content() {}
 
 // FinalToolCall carries exact arguments decoded at function-call completion.
 type FinalToolCall struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
-	xxx_hidden_Name        *string                `protobuf:"bytes,2,opt,name=name"`
-	xxx_hidden_Position    int64                  `protobuf:"varint,3,opt,name=position"`
-	xxx_hidden_Arguments   *structpb.Struct       `protobuf:"bytes,4,opt,name=arguments"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_CallId        *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
+	xxx_hidden_Name          *string                `protobuf:"bytes,2,opt,name=name"`
+	xxx_hidden_Position      int64                  `protobuf:"varint,3,opt,name=position"`
+	xxx_hidden_ArgumentsJson []byte                 `protobuf:"bytes,4,opt,name=arguments_json,json=argumentsJson"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *FinalToolCall) Reset() {
@@ -1723,9 +1723,9 @@ func (x *FinalToolCall) GetPosition() int64 {
 	return 0
 }
 
-func (x *FinalToolCall) GetArguments() *structpb.Struct {
+func (x *FinalToolCall) GetArgumentsJson() []byte {
 	if x != nil {
-		return x.xxx_hidden_Arguments
+		return x.xxx_hidden_ArgumentsJson
 	}
 	return nil
 }
@@ -1745,8 +1745,12 @@ func (x *FinalToolCall) SetPosition(v int64) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
 }
 
-func (x *FinalToolCall) SetArguments(v *structpb.Struct) {
-	x.xxx_hidden_Arguments = v
+func (x *FinalToolCall) SetArgumentsJson(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_ArgumentsJson = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *FinalToolCall) HasCallId() bool {
@@ -1770,11 +1774,11 @@ func (x *FinalToolCall) HasPosition() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
-func (x *FinalToolCall) HasArguments() bool {
+func (x *FinalToolCall) HasArgumentsJson() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_Arguments != nil
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *FinalToolCall) ClearCallId() {
@@ -1792,8 +1796,9 @@ func (x *FinalToolCall) ClearPosition() {
 	x.xxx_hidden_Position = 0
 }
 
-func (x *FinalToolCall) ClearArguments() {
-	x.xxx_hidden_Arguments = nil
+func (x *FinalToolCall) ClearArgumentsJson() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_ArgumentsJson = nil
 }
 
 type FinalToolCall_builder struct {
@@ -1805,8 +1810,8 @@ type FinalToolCall_builder struct {
 	Name *string
 	// The zero-based position in the model response.
 	Position *int64
-	// The decoded tool arguments.
-	Arguments *structpb.Struct
+	// The exact validated tool argument JSON.
+	ArgumentsJson []byte
 }
 
 func (b0 FinalToolCall_builder) Build() *FinalToolCall {
@@ -1825,7 +1830,10 @@ func (b0 FinalToolCall_builder) Build() *FinalToolCall {
 		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
 		x.xxx_hidden_Position = *b.Position
 	}
-	x.xxx_hidden_Arguments = b.Arguments
+	if b.ArgumentsJson != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_ArgumentsJson = b.ArgumentsJson
+	}
 	return m0
 }
 
@@ -2881,12 +2889,12 @@ const file_api_plugins_ui_v1_agent_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12.\n" +
 	"\x05value\x18\x02 \x01(\v2\x16.google.protobuf.ValueH\x00R\x05value\x12\x18\n" +
 	"\x06prefix\x18\x03 \x01(\tH\x00R\x06prefixB\t\n" +
-	"\acontent\"\x8f\x01\n" +
+	"\acontent\"\x7f\n" +
 	"\rFinalToolCall\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x1a\n" +
-	"\bposition\x18\x03 \x01(\x03R\bposition\x125\n" +
-	"\targuments\x18\x04 \x01(\v2\x17.google.protobuf.StructR\targuments\"\xb4\x01\n" +
+	"\bposition\x18\x03 \x01(\x03R\bposition\x12%\n" +
+	"\x0earguments_json\x18\x04 \x01(\fR\rargumentsJson\"\xb4\x01\n" +
 	"\fModelContent\x129\n" +
 	"\x04type\x18\x01 \x01(\x0e2%.glyph.plugins.ui.v1.ModelContentTypeR\x04type\x12\x1a\n" +
 	"\bposition\x18\x02 \x01(\x03R\bposition\x12\x12\n" +
@@ -2983,7 +2991,6 @@ var file_api_plugins_ui_v1_agent_proto_goTypes = []any{
 	(*ModelUsage)(nil),            // 15: glyph.plugins.ui.v1.ModelUsage
 	(*ModelDiagnostic)(nil),       // 16: glyph.plugins.ui.v1.ModelDiagnostic
 	(*structpb.Value)(nil),        // 17: google.protobuf.Value
-	(*structpb.Struct)(nil),       // 18: google.protobuf.Struct
 }
 var file_api_plugins_ui_v1_agent_proto_depIdxs = []int32{
 	3,  // 0: glyph.plugins.ui.v1.AgentEvent.type:type_name -> glyph.plugins.ui.v1.LifecycleType
@@ -2997,19 +3004,18 @@ var file_api_plugins_ui_v1_agent_proto_depIdxs = []int32{
 	8,  // 8: glyph.plugins.ui.v1.ToolResultContent.image:type_name -> glyph.plugins.ui.v1.ToolResultImage
 	10, // 9: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
 	17, // 10: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	18, // 11: glyph.plugins.ui.v1.FinalToolCall.arguments:type_name -> google.protobuf.Struct
-	2,  // 12: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
-	1,  // 13: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	15, // 14: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
-	16, // 15: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
-	14, // 16: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
-	1,  // 17: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	11, // 18: glyph.plugins.ui.v1.ModelResponseContent.tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
-	19, // [19:19] is the sub-list for method output_type
-	19, // [19:19] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	2,  // 11: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
+	1,  // 12: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	15, // 13: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
+	16, // 14: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
+	14, // 15: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
+	1,  // 16: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	11, // 17: glyph.plugins.ui.v1.ModelResponseContent.tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_agent_proto_init() }

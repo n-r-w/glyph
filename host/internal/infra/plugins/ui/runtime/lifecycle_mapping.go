@@ -11,7 +11,6 @@ import (
 
 	"github.com/samber/lo"
 
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -196,15 +195,11 @@ func mapToolCallLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentEvent)
 		if !present {
 			return nil, errors.New("map UI lifecycle: final tool call is required")
 		}
-		arguments, err := structpb.NewStruct(call.Arguments)
-		if err != nil {
-			return nil, fmt.Errorf("map UI lifecycle final tool call: %w", err)
-		}
 		mapped.SetFinalToolCall(uiv1.FinalToolCall_builder{
-			CallId:    new(call.CallID),
-			Name:      new(call.Name),
-			Position:  new(int64(call.Position)),
-			Arguments: arguments,
+			CallId:        new(call.CallID),
+			Name:          new(call.Name),
+			Position:      new(int64(call.Position)),
+			ArgumentsJson: call.ArgumentsJSON,
 		}.Build())
 		return mapped, nil
 	}

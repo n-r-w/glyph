@@ -116,7 +116,11 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 			toolErr := errors.New("unique tool execution failure")
 			progressErr := errors.New("unique progress delivery failure")
 			persistenceErr := fmt.Errorf("%w: unique ToolResult persistence failure", agent.ErrPersistenceUnavailable)
-			call := model.ToolCall{ID: "combined-tool", Name: "write", Arguments: map[string]any{"path": "output.txt"}}
+			call := model.ToolCall{
+				ID:        "combined-tool",
+				Name:      "write",
+				Arguments: testToolCallArguments(`{"path":"output.txt"}`),
+			}
 			response := model.Response{
 				Content: []model.Content{testCallItem(call)}, Outcome: mo.Some(model.OutcomeToolUse),
 				ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
@@ -201,7 +205,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
 	persistErr := errors.New("/secret/path tool-result provider-context")
-	call := model.ToolCall{ID: "call", Name: "write", Arguments: map[string]any{"path": "output.txt"}}
+	call := model.ToolCall{ID: "call", Name: "write", Arguments: testToolCallArguments(`{"path":"output.txt"}`)}
 	response := model.Response{
 		Content: []model.Content{testCallItem(call)}, Outcome: mo.Some(model.OutcomeToolUse),
 		ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),

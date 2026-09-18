@@ -419,7 +419,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.Some(model.ToolCall{
 					ID:        "call",
 					Name:      "tool",
-					Arguments: map[string]any{"arg": "value"},
+					Arguments: testToolCallArguments(`{ "arg": "value" }`),
 				}),
 				mo.None[tool.Progress](),
 				mo.None[agent.ToolResult](),
@@ -431,10 +431,10 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[controller.ModelContent](),
 				mo.None[controller.ToolCallPreview](),
 				mo.Some(controller.FinalToolCall{
-					CallID:    "call",
-					Name:      "tool",
-					Position:  5,
-					Arguments: map[string]any{"arg": "value"},
+					CallID:        "call",
+					Name:          "tool",
+					Position:      5,
+					ArgumentsJSON: []byte(`{ "arg": "value" }`),
 				}),
 				mo.None[controller.ToolExecution](),
 				mo.None[controller.ToolProgress](),
@@ -480,7 +480,7 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.None[model.Response](),
 				mo.None[model.ToolCallPreview](),
 				mo.Some(model.ToolCall{
-					Arguments: nil,
+					Arguments: testToolCallArguments(`{}`),
 					ID:        "call",
 					Name:      "tool",
 				}),

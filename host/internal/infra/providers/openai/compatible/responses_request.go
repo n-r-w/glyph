@@ -205,12 +205,8 @@ func responsesModelItems(
 			if !present {
 				return nil, fmt.Errorf("model content %d has no tool call", index)
 			}
-			arguments, err := json.Marshal(call.Arguments)
-			if err != nil {
-				return nil, fmt.Errorf("encode tool-call arguments: %w", err)
-			}
 			items = append(items, responses.ResponseInputItemParamOfFunctionCall(
-				string(arguments), call.ID, call.Name,
+				call.Arguments.String(), call.ID, call.Name,
 			))
 		default:
 			return nil, fmt.Errorf("unsupported model content kind %d", item.Kind)

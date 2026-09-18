@@ -49,7 +49,7 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
-	call := model.ToolCall{ID: "call", Name: "tool", Arguments: map[string]any{}}
+	call := model.ToolCall{ID: "call", Name: "tool", Arguments: testToolCallArguments(`{}`)}
 	result := agent.ToolResult{CallID: "call", ToolName: "tool", Contents: tool.TextContents("done"), IsError: false}
 	tests := []struct {
 		name  string
@@ -191,7 +191,7 @@ func lifecycleSourceWithCall(eventType agent.EventType, call model.ToolCall) ext
 // lifecycleSourceWithProgress creates one tool progress source.
 func lifecycleSourceWithProgress() extensionruntime.LifecycleInvocation {
 	event := emptyLifecycleSource(agent.EventToolExecutionUpdate)
-	event.ToolCall = mo.Some(model.ToolCall{ID: "call", Name: "tool", Arguments: map[string]any{}})
+	event.ToolCall = mo.Some(model.ToolCall{ID: "call", Name: "tool", Arguments: testToolCallArguments(`{}`)})
 	event.Progress = mo.Some(tool.Progress{Channel: tool.ProgressChannelStatus, Content: "working"})
 	return event
 }
@@ -217,7 +217,7 @@ func TestMapLifecyclePreservesNestedProviderNeutralContent(t *testing.T) {
 	turn := lifecycleSourceWithTurn(response)
 	turn.TurnResults = []agent.ToolResult{result}
 	progress := lifecycleSourceWithProgress()
-	progress.ToolCall = mo.Some(model.ToolCall{ID: "call", Name: "tool", Arguments: map[string]any{}})
+	progress.ToolCall = mo.Some(model.ToolCall{ID: "call", Name: "tool", Arguments: testToolCallArguments(`{}`)})
 	preview := emptyLifecycleSource(agent.EventToolCallDelta)
 	preview.Position = mo.Some(2)
 	preview.Preview = mo.Some(model.ToolCallPreview{

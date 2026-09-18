@@ -161,6 +161,206 @@ func TestTreeNavigationPreparesExtensionMessageInput(t *testing.T) {
 	}
 }
 
+// TestTreeRestoreRejectsCompactionBoundaryInsideHiddenToolGroup verifies persisted markers keep tool groups whole.
+func TestTreeRestoreRejectsCompactionBoundaryInsideHiddenToolGroup(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a reachable stored branch with a hidden entry between one tool call and its result.
+	createdAt := time.Unix(1, 0).UTC()
+	arguments, err := model.NewToolCallArguments([]byte(`{}`))
+	require.NoError(t, err)
+	root := treeUserEntry("root", mo.None[string](), "root", createdAt)
+	call := treeToolCallEntry("call", "root", "tool-call", arguments, createdAt.Add(time.Second))
+	hidden := treeBaseEntry("hidden", mo.Some("call"), createdAt.Add(2*time.Second))
+	hidden.Extension = mo.Some(ExtensionEnvelope{
+		ExtensionID: "extension", EntryType: "state", Data: []byte(`{"hidden":true}`),
+	})
+	result := treeBaseEntry("result", mo.Some("hidden"), createdAt.Add(3*time.Second))
+	result.ToolResult = mo.Some(ToolResult{CallID: "tool-call", ToolName: "tool", Contents: nil, IsError: false})
+	marker := treeCompactionEntry("compaction", "result", "hidden", createdAt.Add(4*time.Second))
+
+	// Act by restoring the persisted branch and marker.
+	_, err = NewTree([]Entry{root, call, hidden, result, marker}, mo.Some("compaction"), nil)
+
+	// Assert restoration rejects a boundary that discards the call while retaining its result.
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tool")
+}
+
+// TestTreeRestoreRejectsCompactionBoundaryInsideVisibleToolGroup verifies a model-visible extension message does not
+// terminate ownership of the actual tool result that follows it.
+func TestTreeRestoreRejectsCompactionBoundaryInsideVisibleToolGroup(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one tool call, an extension message appended during execution, and the actual result.
+	createdAt := time.Unix(1, 0).UTC()
+	arguments, err := model.NewToolCallArguments([]byte(`{}`))
+	require.NoError(t, err)
+	root := treeUserEntry("root", mo.None[string](), "root", createdAt)
+	call := treeToolCallEntry("call", "root", "tool-call", arguments, createdAt.Add(time.Second))
+	message := treeBaseEntry("message", mo.Some("call"), createdAt.Add(2*time.Second))
+	message.ExtensionMessage = mo.Some(ExtensionMessage{
+		ExtensionID: "extension", EntryType: "progress", Text: "tool is running",
+		Visibility: ClientVisibilityVisible,
+	})
+	result := treeBaseEntry("result", mo.Some("message"), createdAt.Add(3*time.Second))
+	result.ToolResult = mo.Some(ToolResult{CallID: "tool-call", ToolName: "tool", Contents: nil, IsError: false})
+	marker := treeCompactionEntry("compaction", "result", "message", createdAt.Add(4*time.Second))
+
+	// Act by restoring a marker that keeps the message and result but discards their owning call.
+	_, err = NewTree([]Entry{root, call, message, result, marker}, mo.Some("compaction"), nil)
+
+	// Assert the intervening model-visible message does not make the split boundary valid.
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "tool")
+}
+
+// TestTreeRestoreAssociatesRepeatedToolIDsWithTheirModelResponses verifies tool IDs are local to one response.
+func TestTreeRestoreAssociatesRepeatedToolIDsWithTheirModelResponses(t *testing.T) {
+	t.Parallel()
+
+	// Arrange two complete tool turns that reuse the same provider-local call ID.
+	createdAt := time.Unix(1, 0).UTC()
+	arguments, err := model.NewToolCallArguments([]byte(`{}`))
+	require.NoError(t, err)
+	firstUser := treeUserEntry("u1", mo.None[string](), "first", createdAt)
+	firstModel := treeToolCallEntry("m1", "u1", "same", arguments, createdAt.Add(time.Second))
+	firstResult := treeBaseEntry("r1", mo.Some("m1"), createdAt.Add(2*time.Second))
+	firstResult.ToolResult = mo.Some(ToolResult{CallID: "same", ToolName: "tool", Contents: nil, IsError: false})
+	secondUser := treeUserEntry("u2", mo.Some("r1"), "second", createdAt.Add(3*time.Second))
+	secondModel := treeToolCallEntry("m2", "u2", "same", arguments, createdAt.Add(4*time.Second))
+	secondResult := treeBaseEntry("r2", mo.Some("m2"), createdAt.Add(5*time.Second))
+	secondResult.ToolResult = mo.Some(ToolResult{CallID: "same", ToolName: "tool", Contents: nil, IsError: false})
+	marker := treeCompactionEntry("compaction", "r2", "m2", createdAt.Add(6*time.Second))
+
+	// Act by restoring a compaction that retains the complete second turn.
+	tree, err := NewTree(
+		[]Entry{firstUser, firstModel, firstResult, secondUser, secondModel, secondResult, marker},
+		mo.Some("compaction"),
+		nil,
+	)
+
+	// Assert the first turn's equal call ID is not treated as owner of the retained result.
+	require.NoError(t, err)
+	require.Len(t, tree.ActiveBranch(), 7)
+}
+
+// TestTreeRestoreAllowsCompactionAfterFailedOrAbortedCalls verifies model-hidden calls do not imply runtime work.
+func TestTreeRestoreAllowsCompactionAfterFailedOrAbortedCalls(t *testing.T) {
+	t.Parallel()
+
+	for _, test := range []struct {
+		name    string
+		outcome model.Outcome
+	}{
+		{name: "failed", outcome: model.OutcomeFailed},
+		{name: "aborted", outcome: model.OutcomeAborted},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange a stored failed or aborted response whose finalized call is excluded from model-visible history.
+			createdAt := time.Unix(1, 0).UTC()
+			arguments, err := model.NewToolCallArguments([]byte(`{}`))
+			require.NoError(t, err)
+			root := treeUserEntry("root", mo.None[string](), "root", createdAt)
+			call := treeToolCallEntry("call", "root", "tool-call", arguments, createdAt.Add(time.Second))
+			response := call.Model.MustGet()
+			response.Outcome = mo.Some(test.outcome)
+			call.Model = mo.Some(response)
+			later := treeUserEntry("later", mo.Some("call"), "later", createdAt.Add(2*time.Second))
+			marker := treeCompactionEntry("compaction", "later", "later", createdAt.Add(3*time.Second))
+
+			// Act by restoring a compaction after the model-hidden failed response.
+			tree, err := NewTree([]Entry{root, call, later, marker}, mo.Some("compaction"), nil)
+
+			// Assert absent results do not permanently block compaction.
+			require.NoError(t, err)
+			require.Len(t, tree.ActiveBranch(), 4)
+		})
+	}
+}
+
+// TestTreeRestoreRejectsBoundaryBeforeLatestCompaction verifies repeated compaction never reintroduces summarized entries.
+func TestTreeRestoreRejectsBoundaryBeforeLatestCompaction(t *testing.T) {
+	t.Parallel()
+
+	// Arrange a stored branch whose second marker moves backward before the first marker's retained boundary.
+	createdAt := time.Unix(1, 0).UTC()
+	entries := []Entry{
+		treeUserEntry("u1", mo.None[string](), "summarized", createdAt),
+		treeUserEntry("u2", mo.Some("u1"), "first retained", createdAt.Add(time.Second)),
+		treeCompactionEntry("c1", "u2", "u2", createdAt.Add(2*time.Second)),
+		treeUserEntry("u3", mo.Some("c1"), "later retained", createdAt.Add(3*time.Second)),
+		treeCompactionEntry("c2", "u3", "u1", createdAt.Add(4*time.Second)),
+	}
+
+	// Act by restoring the reachable repeated-compaction sequence.
+	_, err := NewTree(entries, mo.Some("c2"), nil)
+
+	// Assert the later marker cannot move its retained boundary backward.
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "preceding compaction")
+}
+
+// TestTreeRestoreAcceptsSameAndForwardRepeatedCompactionBoundaries verifies monotonic retained boundaries.
+func TestTreeRestoreAcceptsSameAndForwardRepeatedCompactionBoundaries(t *testing.T) {
+	t.Parallel()
+
+	for _, firstKeptID := range []string{"u2", "u3"} {
+		t.Run(firstKeptID, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange a second marker at the prior boundary or a later retained entry.
+			createdAt := time.Unix(1, 0).UTC()
+			entries := []Entry{
+				treeUserEntry("u1", mo.None[string](), "summarized", createdAt),
+				treeUserEntry("u2", mo.Some("u1"), "first retained", createdAt.Add(time.Second)),
+				treeCompactionEntry("c1", "u2", "u2", createdAt.Add(2*time.Second)),
+				treeUserEntry("u3", mo.Some("c1"), "later retained", createdAt.Add(3*time.Second)),
+				treeCompactionEntry("c2", "u3", firstKeptID, createdAt.Add(4*time.Second)),
+			}
+
+			// Act by restoring the repeated-compaction sequence.
+			tree, err := NewTree(entries, mo.Some("c2"), nil)
+
+			// Assert same-boundary updates and forward movement remain valid.
+			require.NoError(t, err)
+			require.Len(t, tree.ActiveBranch(), 5)
+		})
+	}
+}
+
+// TestTreeRestoreAllowsCompactionAfterInterruptedToolBatch verifies skipped unpersisted results use history projection.
+func TestTreeRestoreAllowsCompactionAfterInterruptedToolBatch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an interrupted two-call batch with only its active call result persisted.
+	createdAt := time.Unix(1, 0).UTC()
+	arguments, err := model.NewToolCallArguments([]byte(`{}`))
+	require.NoError(t, err)
+	root := treeUserEntry("root", mo.None[string](), "root", createdAt)
+	call := treeToolCallEntry("call", "root", "active", arguments, createdAt.Add(time.Second))
+	response := call.Model.MustGet()
+	response.Content = append(response.Content, model.Content{
+		Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
+		ProviderContext: mo.None[model.ProviderContext](),
+		ToolCall:        mo.Some(model.ToolCall{ID: "skipped", Name: "tool", Arguments: arguments}),
+	})
+	call.Model = mo.Some(response)
+	result := treeBaseEntry("result", mo.Some("call"), createdAt.Add(2*time.Second))
+	result.ToolResult = mo.Some(ToolResult{CallID: "active", ToolName: "tool", Contents: nil, IsError: true})
+	later := treeUserEntry("later", mo.Some("result"), "later", createdAt.Add(3*time.Second))
+	marker := treeCompactionEntry("compaction", "later", "later", createdAt.Add(4*time.Second))
+
+	// Act by restoring compaction after the interrupted batch.
+	tree, err := NewTree([]Entry{root, call, result, later, marker}, mo.Some("compaction"), nil)
+
+	// Assert the omitted skipped result does not imply a permanently pending batch.
+	require.NoError(t, err)
+	require.Len(t, tree.ActiveBranch(), 5)
+}
+
 // TestTreeAddPreservesBranchesAndValidatesParent verifies append-only branch insertion.
 func TestTreeAddPreservesBranchesAndValidatesParent(t *testing.T) {
 	t.Parallel()
@@ -183,6 +383,53 @@ func TestTreeAddPreservesBranchesAndValidatesParent(t *testing.T) {
 		return entry.ID
 	}))
 	require.Equal(t, mo.Some("new"), tree.ActiveLeafID())
+}
+
+// treeToolCallEntry returns one model response that owns a finalized tool call.
+func treeToolCallEntry(
+	id string,
+	parentID string,
+	callID string,
+	arguments model.ToolCallArguments,
+	createdAt time.Time,
+) Entry {
+	entry := treeBaseEntry(id, mo.Some(parentID), createdAt)
+	entry.Model = mo.Some(model.Response{
+		Content: []model.Content{{
+			Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall:        mo.Some(model.ToolCall{ID: callID, Name: "tool", Arguments: arguments}),
+		}},
+		Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
+		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+		ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+		Usage: mo.None[model.Usage](), Diagnostics: nil,
+	})
+	return entry
+}
+
+// treeCompactionEntry returns one stored compaction marker.
+func treeCompactionEntry(id, parentID, firstKeptID string, createdAt time.Time) Entry {
+	entry := treeBaseEntry(id, mo.Some(parentID), createdAt)
+	entry.Compaction = mo.Some(CompactionEntry{
+		Summary: "summary", FirstKeptEntryID: firstKeptID,
+		Source: CompactionSource{
+			ExtensionID: mo.Some("extension"), Model: mo.None[BranchSummaryModelSource](),
+		},
+		EstimatedCost: mo.None[EstimatedCost](), Details: mo.None[[]byte](),
+	})
+	return entry
+}
+
+// treeBaseEntry returns one empty tree entry for test payload construction.
+func treeBaseEntry(id string, parentID mo.Option[string], createdAt time.Time) Entry {
+	return Entry{
+		ID: id, ParentID: parentID, CreatedAt: createdAt,
+		Information: mo.None[Information](), User: mo.None[UserMessage](), Model: mo.None[ModelResponse](),
+		EstimatedCost: mo.None[EstimatedCost](), ToolResult: mo.None[ToolResult](),
+		Extension: mo.None[ExtensionEnvelope](), ExtensionMessage: mo.None[ExtensionMessage](),
+		BranchSummary: mo.None[BranchSummaryEntry](), Compaction: mo.None[CompactionEntry](),
+	}
 }
 
 func treeUserEntry(id string, parentID mo.Option[string], text string, createdAt time.Time) Entry {

@@ -81,6 +81,8 @@ const (
 	reasoningLinePrefix = "reasoning:"
 	// branchSummaryLinePrefix identifies abandoned-branch context.
 	branchSummaryLinePrefix = "[branch]"
+	// compactionLinePrefix identifies active-context compaction summaries.
+	compactionLinePrefix = "[compact]"
 	// branchSummaryCollapsedText describes hidden branch-summary content.
 	branchSummaryCollapsedText = "Branch summary (ctrl+o to expand)"
 	// branchSummaryExpandedTitle labels visible branch-summary content.
@@ -407,9 +409,8 @@ func renderToolCall(call presentation.ToolCallState) string {
 			parts = append(parts, field.Name+"="+prefix)
 		}
 	}
-	if !call.Provisional && call.Arguments != nil {
-		arguments, _ := json.Marshal(call.Arguments)
-		parts = []string{string(arguments)}
+	if !call.Provisional && call.ArgumentsJSON != nil {
+		parts = []string{string(call.ArgumentsJSON)}
 	}
 	line := toolCallPrefix + call.Name + " (" + status + ")"
 	if len(parts) > 0 {
@@ -437,6 +438,8 @@ func linePrefix(kind presentation.LineKind) string {
 		return reasoningLinePrefix
 	case presentation.LineBranchSummary:
 		return branchSummaryLinePrefix
+	case presentation.LineCompaction:
+		return compactionLinePrefix
 	case presentation.LineToolStatus, presentation.LineToolStdout,
 		presentation.LineToolStderr, presentation.LineToolDone,
 		presentation.LineToolError:
@@ -462,7 +465,7 @@ func toolLinePrefix(kind presentation.LineKind) string {
 	case presentation.LineUnspecified, presentation.LineInformation,
 		presentation.LineError, presentation.LineWarning, presentation.LineUser,
 		presentation.LineModel, presentation.LineRefusal, presentation.LineReasoning,
-		presentation.LineBranchSummary:
+		presentation.LineBranchSummary, presentation.LineCompaction:
 		return ""
 	}
 	return ""

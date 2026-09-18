@@ -189,8 +189,8 @@ type FinalToolCall struct {
 	Name string
 	// Position identifies the call order within the response.
 	Position int
-	// Arguments contains the finalized tool input.
-	Arguments map[string]any
+	// ArgumentsJSON contains the exact finalized tool-input JSON.
+	ArgumentsJSON []byte
 }
 
 // Lifecycle carries one explicit provider-neutral lifecycle event.
@@ -307,6 +307,8 @@ type SessionEntry struct {
 	ToolResult mo.Option[agent.ToolResult]
 	// BranchSummary carries restored abandoned-branch context.
 	BranchSummary mo.Option[BranchSummary]
+	// Compaction carries one persisted active-context compaction marker.
+	Compaction mo.Option[Compaction]
 	// ExtensionMessage contains exact model-visible extension text and visibility.
 	ExtensionMessage mo.Option[ExtensionMessage]
 }
@@ -323,6 +325,8 @@ const (
 	SessionEntryToolResult
 	// SessionEntryBranchSummary is one restored abandoned-branch summary.
 	SessionEntryBranchSummary
+	// SessionEntryCompaction is one active-context compaction marker.
+	SessionEntryCompaction
 	// SessionEntryExtensionMessage is one model-visible extension message.
 	SessionEntryExtensionMessage
 )

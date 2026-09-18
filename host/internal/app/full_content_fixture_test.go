@@ -57,7 +57,7 @@ func appendFullContentFixtureWithUsage(
 	createdAt := loadedEntries[len(loadedEntries)-1].CreatedAt.Add(time.Hour)
 	storagePath := loaded.StoragePath
 	call := model.ToolCall{
-		ID: "full-call", Name: "bash", Arguments: map[string]any{"command": "printf full-tool"},
+		ID: "full-call", Name: "bash", Arguments: testToolCallArguments(`{"command":"printf full-tool"}`),
 	}
 	// Summary accounting mirrors the provider response used to create the persisted summary.
 	summaryUsage := mo.None[session.TokenUsage]()
@@ -104,7 +104,8 @@ func appendFullContentFixtureWithUsage(
 			Extension:     mo.None[session.ExtensionEnvelope](),
 			EstimatedCost: mo.None[session.EstimatedCost](),
 			BranchSummary: mo.None[session.
-				BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+				BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ParentID: mo.None[string](), ID: "full-model-entry", CreatedAt: createdAt.Add(2 * time.Second),
@@ -141,7 +142,8 @@ func appendFullContentFixtureWithUsage(
 			}),
 			ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 			EstimatedCost: estimatedCost, BranchSummary: mo.None[session.
-					BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+					BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ParentID:    mo.None[string](),
@@ -168,7 +170,8 @@ func appendFullContentFixtureWithUsage(
 			Extension:     mo.None[session.ExtensionEnvelope](),
 			EstimatedCost: mo.None[session.EstimatedCost](),
 			BranchSummary: mo.None[session.
-				BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+				BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ParentID:      mo.None[string](),
@@ -192,7 +195,8 @@ func appendFullContentFixtureWithUsage(
 						Usage: summaryUsage,
 					}),
 				}, EstimatedCost: summaryEstimatedCost,
-			}), ExtensionMessage: mo.None[session.ExtensionMessage](),
+			}), Compaction: mo.None[session.CompactionEntry](),
+			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ParentID: mo.None[string](), ID: "full-extension-entry", CreatedAt: createdAt.Add(5 * time.Second),
@@ -202,7 +206,8 @@ func appendFullContentFixtureWithUsage(
 				ExtensionID: "example.extension", EntryType: "checkpoint",
 				Data: []byte(`{"private":"full-extension"}`),
 			}), EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.
-						BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+						BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 	}
 	for index := range entries {

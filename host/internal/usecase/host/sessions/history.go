@@ -8,6 +8,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 func terminalContinuationEntry(history agent.HistoryEntry) (session.Entry, bool, error) {
@@ -22,6 +23,7 @@ func terminalContinuationEntry(history agent.HistoryEntry) (session.Entry, bool,
 		Extension:        mo.None[session.ExtensionEnvelope](),
 		EstimatedCost:    mo.None[session.EstimatedCost](),
 		BranchSummary:    mo.None[session.BranchSummaryEntry](),
+		Compaction:       mo.None[session.CompactionEntry](),
 		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	switch history.Kind {
@@ -64,6 +66,16 @@ func storedHistoryFromEntries(entries []session.Entry) []storedHistoryEntry {
 				value: projected[projectionIndex], clientVisible: clientVisible,
 			})
 		}
+	}
+	return history
+}
+
+// storedCompactedHistoryFromEntries rebuilds the model context from the active branch's latest compaction.
+func storedCompactedHistoryFromEntries(entries []session.Entry) []storedHistoryEntry {
+	projected := agentrun.ProjectHistory(compactedHistoryFromEntries(entries))
+	history := make([]storedHistoryEntry, len(projected))
+	for index := range projected {
+		history[index] = storedHistoryEntry{value: projected[index], clientVisible: true}
 	}
 	return history
 }

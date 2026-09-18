@@ -76,6 +76,12 @@ type ProviderAttempt interface {
 	Stream(ctx context.Context, request ProviderRequest, handle StreamHandler) error
 }
 
+// ConversationContext observes completed agent calls and later owns context preparation.
+type ConversationContext interface {
+	// ObserveCompletedConversation records one delivered terminal conversation response.
+	ObserveCompletedConversation(request ProviderRequest, response model.Response)
+}
+
 // CatalogBinding binds one validated selection to its raw provider attempt.
 type CatalogBinding struct {
 	// Model contains the immutable configured model descriptor.

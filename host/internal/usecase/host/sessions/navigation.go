@@ -84,6 +84,7 @@ func (s *Service) CommitNavigation(
 	s.active.Tree = candidateTree
 	branch := candidateTree.ActiveBranch()
 	s.history = storedHistoryFromEntries(branch)
+	s.contextHistory = storedCompactedHistoryFromEntries(branch)
 	commit := sessiontree.NavigationCommit{
 		Committed:      true,
 		Tree:           candidateTree.Clone(),
@@ -117,7 +118,8 @@ func (s *Service) buildBranchSummaryEntry(
 		BranchSummary: mo.Some(session.BranchSummaryEntry{
 			Summary: draft.Summary, FirstEntryID: draft.FirstEntryID, LastEntryID: draft.LastEntryID,
 			Source: draft.Source, EstimatedCost: cost,
-		}), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		}), Compaction: mo.None[session.CompactionEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	summary := entry.BranchSummary.OrEmpty()
 	if validationErr := summary.ValidateAccounting(); validationErr != nil {

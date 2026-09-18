@@ -1,7 +1,7 @@
 package runtime
 
 import (
-	"encoding/json/v2"
+	"bytes"
 	"fmt"
 
 	"github.com/samber/mo"
@@ -120,11 +120,7 @@ func mapSessionEntry(entry extensionruntime.TreeEntry) (*extensionpb.SessionTree
 		return builder.Build(), nil
 	}
 	if response, present := entry.Model.Get(); present {
-		mapped, err := mapModelResponse(response)
-		if err != nil {
-			return nil, fmt.Errorf("map abandoned model entry %q: %w", entry.ID, err)
-		}
-		builder.Model = mapped
+		builder.Model = mapModelResponse(response)
 		return builder.Build(), nil
 	}
 	if result, present := entry.ToolResult.Get(); present {
@@ -133,6 +129,26 @@ func mapSessionEntry(entry extensionruntime.TreeEntry) (*extensionpb.SessionTree
 	}
 	if summary, present := entry.BranchSummary.Get(); present {
 		builder.BranchSummary = extensionpb.SessionTreeBranchSummary_builder{Summary: new(summary)}.Build()
+		return builder.Build(), nil
+	}
+	if compaction, present := entry.Compaction.Get(); present {
+		if err := compaction.ValidateAccounting(); err != nil {
+			return nil, fmt.Errorf("map compaction entry %q: %w", entry.ID, err)
+		}
+		mapped := extensionpb.SessionTreeCompaction_builder{
+			Summary: new(compaction.Summary), FirstKeptEntryId: new(compaction.FirstKeptEntryID),
+			Source: mapSummarySource(compaction.Source), EstimatedCost: nil, Details: nil,
+		}
+		if cost, costPresent := compaction.EstimatedCost.Get(); costPresent {
+			mapped.EstimatedCost = extensionpb.EstimatedCost_builder{
+				Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
+				CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
+			}.Build()
+		}
+		if details, detailsPresent := compaction.Details.Get(); detailsPresent {
+			mapped.Details = bytes.Clone(details)
+		}
+		builder.Compaction = mapped.Build()
 		return builder.Build(), nil
 	}
 	if extension, present := entry.Extension.Get(); present {
@@ -175,7 +191,7 @@ func mapUserMessage(message session.UserMessage) *extensionpb.SessionTreeUserMes
 }
 
 // mapModelResponse maps ordered finalized model content without provider-owned replay context.
-func mapModelResponse(response []extensionruntime.Content) (*extensionpb.SessionTreeModelResponse, error) {
+func mapModelResponse(response []extensionruntime.Content) *extensionpb.SessionTreeModelResponse {
 	content := make([]*extensionpb.SessionTreeModelContent, 0, len(response))
 	for index := range response {
 		item := response[index]
@@ -187,17 +203,13 @@ func mapModelResponse(response []extensionruntime.Content) (*extensionpb.Session
 			builder.Text = new(text)
 		}
 		if call, ok := item.ToolCall.Get(); ok {
-			arguments, err := json.Marshal(call.Arguments, json.Deterministic(true))
-			if err != nil {
-				return nil, fmt.Errorf("encode tool call %q arguments: %w", call.ID, err)
-			}
 			builder.ToolCall = extensionpb.SessionTreeToolCall_builder{
-				Id: new(call.ID), Name: new(call.Name), ArgumentsJson: arguments,
+				Id: new(call.ID), Name: new(call.Name), ArgumentsJson: call.Arguments.Bytes(),
 			}.Build()
 		}
 		content = append(content, builder.Build())
 	}
-	return extensionpb.SessionTreeModelResponse_builder{Content: content}.Build(), nil
+	return extensionpb.SessionTreeModelResponse_builder{Content: content}.Build()
 }
 
 // mapModelContentKind maps provider-neutral response content kinds.

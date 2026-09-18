@@ -39,7 +39,7 @@ func TestDriverStreamRecoversFunctionCallFromTerminalOutput(t *testing.T) {
 		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallDelta,
 		modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, map[string]any{"path": "file.txt"}, events[2].ToolCall.OrEmpty().Arguments)
+	assert.JSONEq(t, `{"path":"file.txt"}`, events[2].ToolCall.OrEmpty().Arguments.String())
 }
 
 // TestDriverStreamRecoversMissingFunctionLifecycleFromTerminalOutput verifies terminal identity creates both events.
@@ -59,7 +59,7 @@ func TestDriverStreamRecoversMissingFunctionLifecycleFromTerminalOutput(t *testi
 		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, "call-1", events[0].Preview.OrEmpty().CallID)
-	assert.Equal(t, map[string]any{"path": "file.txt"}, events[1].ToolCall.OrEmpty().Arguments)
+	assert.JSONEq(t, `{"path":"file.txt"}`, events[1].ToolCall.OrEmpty().Arguments.String())
 }
 
 // TestDriverStreamAcceptsFunctionDoneWithoutIdentity verifies output index closes the active call.
@@ -84,7 +84,7 @@ func TestDriverStreamAcceptsFunctionDoneWithoutIdentity(t *testing.T) {
 		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallDelta,
 		modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, map[string]any{"path": "file.txt"}, events[2].ToolCall.OrEmpty().Arguments)
+	assert.JSONEq(t, `{"path":"file.txt"}`, events[2].ToolCall.OrEmpty().Arguments.String())
 }
 
 // TestDriverStreamAcceptsSemanticallyEquivalentFinalizedFunctionArguments verifies decoded values define equality.
@@ -212,7 +212,7 @@ func TestDriverStreamRecoversCustomCallWithoutAddedEvent(t *testing.T) {
 	require.Equal(t, []modelexecution.StreamEventKind{
 		modelexecution.StreamEventToolCallStart, modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
-	assert.Equal(t, map[string]any{"payload": "abc"}, events[1].ToolCall.OrEmpty().Arguments)
+	assert.JSONEq(t, `{"payload":"abc"}`, events[1].ToolCall.OrEmpty().Arguments.String())
 }
 
 // TestDriverStreamRecoversCustomCallFromTerminalOutput verifies terminal custom input closes an active call once.
@@ -237,7 +237,7 @@ func TestDriverStreamRecoversCustomCallFromTerminalOutput(t *testing.T) {
 		modelexecution.StreamEventToolCallEnd, modelexecution.StreamEventDone,
 	}, streamEventKinds(events))
 	assert.Equal(t, mo.Some("ab"), events[1].Preview.OrEmpty().Fields[0].Prefix)
-	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.OrEmpty().Arguments)
+	assert.JSONEq(t, `{"payload":"abc"}`, events[2].ToolCall.OrEmpty().Arguments.String())
 }
 
 func streamOmittedToolEvents(

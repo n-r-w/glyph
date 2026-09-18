@@ -1,6 +1,7 @@
 package runtime
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -182,6 +183,7 @@ func mapSessionTreeEntry(entry controllerui.SessionTreeEntry) (*uiv1.SessionTree
 			Model:            entry.Model,
 			ToolResult:       entry.ToolResult,
 			BranchSummary:    mo.None[controllerui.BranchSummary](),
+			Compaction:       mo.None[controllerui.Compaction](),
 			ExtensionMessage: mo.None[controllerui.ExtensionMessage](),
 		}
 		mapped, err := mapRestoredSessionEntries([]controllerui.SessionEntry{public})
@@ -196,7 +198,8 @@ func mapSessionTreeEntry(entry controllerui.SessionTreeEntry) (*uiv1.SessionTree
 		case controllerui.SessionTreeEntryToolResult:
 			wire.SetToolResult(mapped[0].GetToolResult())
 		case controllerui.SessionTreeEntryUnspecified, controllerui.SessionTreeEntryExtension,
-			controllerui.SessionTreeEntryBranchSummary, controllerui.SessionTreeEntryExtensionMessage:
+			controllerui.SessionTreeEntryBranchSummary, controllerui.SessionTreeEntryCompaction,
+			controllerui.SessionTreeEntryExtensionMessage:
 			return nil, errors.New("tree entry kind cannot use transcript mapping")
 		default:
 			return nil, fmt.Errorf("unknown transcript tree entry kind %d", entry.Kind)
@@ -226,6 +229,16 @@ func mapSessionTreeEntry(entry controllerui.SessionTreeEntry) (*uiv1.SessionTree
 			return nil, err
 		}
 		wire.SetBranchSummary(mapped)
+	case controllerui.SessionTreeEntryCompaction:
+		compaction, present := entry.Compaction.Get()
+		if !present {
+			return nil, errors.New("compaction is absent")
+		}
+		mapped, err := mapCompaction(compaction)
+		if err != nil {
+			return nil, err
+		}
+		wire.SetCompaction(mapped)
 	case controllerui.SessionTreeEntryUnspecified:
 		return nil, errors.New("tree entry kind is unspecified")
 	default:
@@ -255,16 +268,30 @@ func mapBranchSummary(summary controllerui.BranchSummary) (*uiv1.BranchSummary, 
 	wire.SetSummary(summary.Summary)
 	wire.SetFirstEntryId(summary.FirstEntryID)
 	wire.SetLastEntryId(summary.LastEntryID)
-	// Only a model source enters reasoning and token conversion.
-	source := new(uiv1.BranchSummarySource)
-	if extensionID, present := summary.Source.ExtensionID.Get(); present {
-		source.SetExtensionId(extensionID)
-	} else if modelSource, modelPresent := summary.Source.Model.Get(); modelPresent {
+	source, err := mapBranchSummarySource(summary.Source)
+	if err != nil {
+		return nil, err
+	}
+	wire.SetSource(source)
+	if cost, present := summary.EstimatedCost.Get(); present {
+		wire.SetEstimatedCost(mapEstimatedCost(cost))
+	}
+	return wire, nil
+}
+
+// mapBranchSummarySource maps one exclusive summary producer and optional normalized usage.
+func mapBranchSummarySource(source session.BranchSummarySource) (*uiv1.BranchSummarySource, error) {
+	if err := source.Validate(); err != nil {
+		return nil, err
+	}
+	wire := new(uiv1.BranchSummarySource)
+	if extensionID, present := source.ExtensionID.Get(); present {
+		wire.SetExtensionId(extensionID)
+	} else if modelSource, modelPresent := source.Model.Get(); modelPresent {
 		reasoning, err := mapModelReasoningChoice(modelSource.Selection.ReasoningChoice)
 		if err != nil {
 			return nil, err
 		}
-		// Keep actual model identity and its usage in the same wire alternative.
 		mappedModel := new(uiv1.BranchSummaryModelSource)
 		mappedModel.SetProviderId(string(modelSource.Selection.Provider))
 		mappedModel.SetModelId(string(modelSource.Selection.Model))
@@ -279,11 +306,33 @@ func mapBranchSummary(summary controllerui.BranchSummary) (*uiv1.BranchSummary, 
 			mapped.SetTotalTokens(usage.TotalTokens)
 			mappedModel.SetUsage(mapped)
 		}
-		source.SetModel(mappedModel)
+		wire.SetModel(mappedModel)
 	}
-	wire.SetSource(source)
-	if cost, present := summary.EstimatedCost.Get(); present {
+	return wire, nil
+}
+
+// mapCompaction maps one persisted context-compaction marker and optional accounting.
+func mapCompaction(compaction controllerui.Compaction) (*uiv1.Compaction, error) {
+	domain := session.CompactionEntry{
+		Summary: compaction.Summary, FirstKeptEntryID: compaction.FirstKeptEntryID,
+		Source: compaction.Source, EstimatedCost: compaction.EstimatedCost, Details: compaction.Details,
+	}
+	if err := domain.ValidateAccounting(); err != nil {
+		return nil, err
+	}
+	source, err := mapBranchSummarySource(compaction.Source)
+	if err != nil {
+		return nil, err
+	}
+	wire := uiv1.Compaction_builder{
+		Summary: new(compaction.Summary), FirstKeptEntryId: new(compaction.FirstKeptEntryID), Source: source,
+		EstimatedCost: nil, Details: nil,
+	}.Build()
+	if cost, present := compaction.EstimatedCost.Get(); present {
 		wire.SetEstimatedCost(mapEstimatedCost(cost))
+	}
+	if details, present := compaction.Details.Get(); present {
+		wire.SetDetails(bytes.Clone(details))
 	}
 	return wire, nil
 }

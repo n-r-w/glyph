@@ -134,14 +134,10 @@ func mapModelResponse(response controllerui.ModelResponse) (*uiv1.ModelResponse,
 		func(item controllerui.ModelResponseContent, _ int) (*uiv1.ModelResponseContent, error) {
 			var call *uiv1.FinalToolCall
 			if value, present := item.ToolCall.Get(); present {
-				arguments, mapErr := structpb.NewStruct(value.Arguments)
-				if mapErr != nil {
-					return nil, fmt.Errorf("map restored tool call arguments: %w", mapErr)
-				}
 				position := int64(value.Position)
 				call = uiv1.FinalToolCall_builder{
 					CallId: new(value.CallID), Name: new(value.Name),
-					Position: new(position), Arguments: arguments,
+					Position: new(position), ArgumentsJson: value.ArgumentsJSON,
 				}.Build()
 			}
 			return uiv1.ModelResponseContent_builder{

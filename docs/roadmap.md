@@ -161,9 +161,9 @@ Documents:
 
 ## PHS-06: Context compaction and retry control
 
-Status: Planned
+Status: In progress
 
-Add extension-owned context-summary generation, Host compaction coordination, and retry control inside Host model execution. The standard strategy is a bundled compaction extension. Requirements are agreed. After dry run, the agreed ownership correction separates extension model access into `extensionmodels`. The technical solution, detailed sizing policy, interchangeable registered generator, and planned retry dependency are approved. The independent dry run completed without unresolved blockers. Requirements and technical solution are ready for separately authorized implementation; implementation has not started.
+Add extension-owned context-summary generation, Host compaction coordination, and retry control inside Host model execution. The standard strategy is a bundled compaction extension. Unit 0 moved model access into `extensionmodels`. Unit 0.1 implements the [single JSON argument representation](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#tool-call-argument-representation). Unit 1 implements compacted context, deterministic sizing, exact reported-usage reuse, and shared commit-and-restore boundary validation. Its model-history projection and Tree-owned boundary validation scope tool-result ownership to one model response across intervening extension messages; the [implementation evidence](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#implementation-evidence) records the behavioral and assembled-path checks. Provider failure classification, retry execution, compaction orchestration, and the bundled generator remain pending.
 
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)

@@ -28,6 +28,7 @@ func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
 	// Arrange one explicit request and a terminal response with every public content kind and private reasoning context.
 	controller := gomock.NewController(t)
 	contexts := NewMockContextOperations(controller)
+	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
@@ -77,7 +78,7 @@ func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
 			{
 				Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
 				ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(model.ToolCall{
-					ID: "call", Name: "do-not-run", Arguments: map[string]any{"value": "exact"},
+					ID: "call", Name: "do-not-run", Arguments: testToolCallArguments(`{"value":"exact"}`),
 				}),
 			},
 		},
@@ -93,9 +94,9 @@ func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
 	released := false
 	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() { released = true }, nil)
-	contexts.EXPECT().Request(gomock.Any(), "extension", "runtime", reference, selection, "", history).
+	models.EXPECT().Request(gomock.Any(), "extension", "runtime", reference, selection, "", history).
 		Return(response, nil)
-	service := New(contexts, runtime, "extension", "runtime")
+	service := New(models, contexts, runtime, "extension", "runtime")
 	request := new(extensionpb.ExtensionRequest)
 	request.SetConfiguredModel(extensionpb.ConfiguredModelRequest_builder{
 		Context: extensionpb.ExtensionContextRef_builder{
@@ -154,6 +155,7 @@ func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
 	// Arrange one valid context and a stored entry whose parent is omitted from recovery.
 	controller := gomock.NewController(t)
 	contexts := NewMockContextOperations(controller)
+	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil).Times(2)
@@ -181,7 +183,7 @@ func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
 			SessionID: "session", ActiveLeafID: mo.Some("entry"), Entries: []session.Entry{stored},
 		}, nil,
 	)
-	service := New(contexts, runtime, "extension", "runtime")
+	service := New(models, contexts, runtime, "extension", "runtime")
 	contextRef := extensionpb.ExtensionContextRef_builder{
 		ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
 	}.Build()
@@ -222,6 +224,7 @@ func TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue(t *testing.
 	// Arrange one admitted message append whose client publication fails after commit.
 	controller := gomock.NewController(t)
 	contexts := NewMockContextOperations(controller)
+	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
@@ -245,7 +248,7 @@ func TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue(t *testing.
 			ExtensionID: "extension", Code: "DELIVERY_FAILED", Message: "publish message: writer failed",
 		}},
 	}, nil)
-	service := New(contexts, runtime, "extension", "runtime")
+	service := New(models, contexts, runtime, "extension", "runtime")
 	request := new(extensionpb.ExtensionRequest)
 	request.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageRequest_builder{
 		Context: extensionpb.ExtensionContextRef_builder{
@@ -296,17 +299,18 @@ func TestConfiguredModelRequestPreservesClosedFailures(t *testing.T) {
 			// Arrange one admitted request and a generated classified failure from its context owner.
 			controller := gomock.NewController(t)
 			contexts := NewMockContextOperations(controller)
+			models := NewMockModelOperations(controller)
 			runtime := NewMockRuntimeOperations(controller)
-			failure := NewMockContextFailure(controller)
-			failure.EXPECT().ContextCode().Return(code)
+			failure := NewMockModelFailure(controller)
+			failure.EXPECT().ModelCode().Return(code)
 			failure.EXPECT().Error().Return("complete configured request cause").AnyTimes()
 			reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 			contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
 			runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil)
-			contexts.EXPECT().Request(
+			models.EXPECT().Request(
 				gomock.Any(), "extension", "runtime", reference, gomock.Any(), "", gomock.Any(),
 			).Return(model.Response{}, failure)
-			service := New(contexts, runtime, "extension", "runtime")
+			service := New(models, contexts, runtime, "extension", "runtime")
 			request := new(extensionpb.ExtensionRequest)
 			request.SetConfiguredModel(extensionpb.ConfiguredModelRequest_builder{
 				Context: extensionpb.ExtensionContextRef_builder{
@@ -328,6 +332,46 @@ func TestConfiguredModelRequestPreservesClosedFailures(t *testing.T) {
 			assert.Contains(t, err.Error(), "complete configured request cause")
 		})
 	}
+}
+
+// TestConfiguredModelRequestPreservesStaleContext verifies model operations retain validator-owned failure identity.
+func TestConfiguredModelRequestPreservesStaleContext(t *testing.T) {
+	t.Parallel()
+
+	// Arrange an admitted configured request whose final context revalidation reports a stale binding.
+	controller := gomock.NewController(t)
+	contexts := NewMockContextOperations(controller)
+	models := NewMockModelOperations(controller)
+	runtime := NewMockRuntimeOperations(controller)
+	failure := NewMockContextFailure(controller)
+	failure.EXPECT().ContextCode().Return("STALE_CONTEXT")
+	failure.EXPECT().Error().Return("complete stale context cause").AnyTimes()
+	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
+	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
+	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil)
+	models.EXPECT().Request(
+		gomock.Any(), "extension", "runtime", reference, gomock.Any(), "", gomock.Any(),
+	).Return(model.Response{}, failure)
+	service := New(models, contexts, runtime, "extension", "runtime")
+	request := new(extensionpb.ExtensionRequest)
+	request.SetConfiguredModel(extensionpb.ConfiguredModelRequest_builder{
+		Context: extensionpb.ExtensionContextRef_builder{
+			ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
+		}.Build(),
+		Selection: validConfiguredSelection(), Instructions: new(""), Messages: validConfiguredMessages(),
+	}.Build())
+	prepared, err := service.Prepare(t.Context(), "operation", request)
+	require.NoError(t, err)
+	defer prepared.Release()
+
+	// Act through the admitted controller operation.
+	_, err = prepared.Run(t.Context())
+
+	// Assert the validator category and complete cause cross the model-operation boundary unchanged.
+	publicFailure, present := errors.AsType[*extensionsdk.FailureError](err)
+	require.True(t, present)
+	assert.Equal(t, "STALE_CONTEXT", publicFailure.Code())
+	assert.Contains(t, err.Error(), "complete stale context cause")
 }
 
 // TestConfiguredModelRequestRejectsInvalidTextHistory verifies every required public input boundary.
@@ -376,6 +420,7 @@ func TestConfiguredModelRequestRejectsInvalidTextHistory(t *testing.T) {
 			// Arrange one malformed request without admitting runtime work.
 			controller := gomock.NewController(t)
 			service := New(
+				NewMockModelOperations(controller),
 				NewMockContextOperations(controller),
 				NewMockRuntimeOperations(controller),
 				"extension",
@@ -422,6 +467,7 @@ func TestModelCatalogueMapsCompleteDescriptor(t *testing.T) {
 	// Arrange: provide all neutral descriptor fields through generated consumer-interface mocks.
 	controller := gomock.NewController(t)
 	contexts := NewMockContextOperations(controller)
+	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
@@ -448,13 +494,13 @@ func TestModelCatalogueMapsCompleteDescriptor(t *testing.T) {
 			}},
 		),
 	}
-	contexts.EXPECT().ReadModels(gomock.Any(), "extension", "runtime", reference).Return(ModelCatalog{
+	models.EXPECT().ReadModels(gomock.Any(), "extension", "runtime", reference).Return(ModelCatalog{
 		Models: []model.Descriptor{
 			descriptor,
 		},
 		Selection: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh},
 	}, nil)
-	service := New(contexts, runtime, "extension", "runtime")
+	service := New(models, contexts, runtime, "extension", "runtime")
 	request := new(extensionpb.ExtensionRequest)
 	request.SetGetModels(extensionpb.GetModelsRequest_builder{Context: extensionpb.ExtensionContextRef_builder{
 		ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),

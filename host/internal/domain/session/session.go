@@ -112,6 +112,8 @@ type Entry struct {
 	ExtensionMessage mo.Option[ExtensionMessage]
 	// BranchSummary contains one persisted abandoned-branch summary.
 	BranchSummary mo.Option[BranchSummaryEntry]
+	// Compaction contains one persisted active-context compaction marker.
+	Compaction mo.Option[CompactionEntry]
 }
 
 // BranchSummaryEntry stores summary text, its branch boundary, and the actual result source.

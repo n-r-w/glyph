@@ -61,7 +61,10 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 	active := New(repository, ids, clock, pricing, "/project")
 	require.NoError(t, active.Initialize(t.Context()))
 
-	call := model.ToolCall{ID: "call-1", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
+	call := model.ToolCall{
+		ID: "call-1", Name: "read",
+		Arguments: testToolCallArguments(`{ "path":"\u0069nput.txt", "number":1.00 }`),
+	}
 	providerContext := model.ProviderContext{
 		Source: model.ProviderContextSource{
 			ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.Some("compatible"),
@@ -134,7 +137,8 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 	escapedContext := escapedModel.Content[1].ProviderContext.MustGet()
 	escapedContext.Payload[0] = 9
 	escapedCall := escapedModel.Content[2].ToolCall.MustGet()
-	escapedCall.Arguments["path"] = "mutated"
+	escapedArguments := escapedCall.Arguments.Bytes()
+	escapedArguments[0] = '['
 	escapedToolResult := escaped[2].ToolResult.MustGet()
 	require.Len(t, escapedToolResult.Contents, 2)
 	escapedToolResult.Contents[1].Image.MustGet().Data[0] = 0
@@ -158,7 +162,8 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 	persistedResponse := persisted[1].Model.MustGet()
 	require.Len(t, persistedResponse.Content, 3)
 	persistedResponse.Content[1].ProviderContext.MustGet().Payload[0] = 8
-	persistedResponse.Content[2].ToolCall.MustGet().Arguments["path"] = "changed after resume"
+	persistedArguments := persistedResponse.Content[2].ToolCall.MustGet().Arguments.Bytes()
+	persistedArguments[0] = '['
 	persistedToolResult := persisted[2].ToolResult.MustGet()
 	require.Len(t, persistedToolResult.Contents, 2)
 	persistedToolResult.Contents[1].Image.MustGet().Data[0] = 1

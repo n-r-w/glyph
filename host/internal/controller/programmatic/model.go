@@ -152,6 +152,8 @@ type SessionEntry struct {
 	ToolResult mo.Option[ToolResult]
 	// BranchSummary contains restored abandoned-branch context.
 	BranchSummary mo.Option[BranchSummary]
+	// Compaction contains one persisted active-context compaction marker.
+	Compaction mo.Option[Compaction]
 	// ExtensionMessage contains exact model-visible extension text and visibility.
 	ExtensionMessage mo.Option[ExtensionMessage]
 }
@@ -203,6 +205,8 @@ const (
 	HistoryEntryToolResult
 	// HistoryEntryBranchSummary identifies restored abandoned-branch context.
 	HistoryEntryBranchSummary
+	// HistoryEntryCompaction identifies an active-context compaction marker.
+	HistoryEntryCompaction
 	// HistoryEntryExtensionMessage identifies a model-visible extension message.
 	HistoryEntryExtensionMessage
 )
@@ -346,8 +350,8 @@ type FinalToolCall struct {
 	Name string
 	// Position identifies the call order within the response.
 	Position int
-	// Arguments contains the finalized tool input.
-	Arguments map[string]any
+	// ArgumentsJSON contains the exact finalized tool-input JSON.
+	ArgumentsJSON []byte
 }
 
 // ToolExecution identifies a tool invocation.

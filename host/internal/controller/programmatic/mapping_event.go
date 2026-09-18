@@ -90,11 +90,7 @@ func mapToolCallEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 		if !present {
 			return errors.New("map tool call end event: final tool call is missing")
 		}
-		call, err := mapFinalToolCall(callValue)
-		if err != nil {
-			return err
-		}
-		wire.SetFinalToolCall(call)
+		wire.SetFinalToolCall(mapFinalToolCall(callValue))
 	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
 		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd, AgentEventMessageEnd,
 		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,

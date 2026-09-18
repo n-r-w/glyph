@@ -237,6 +237,8 @@ const (
 	TranscriptReasoning
 	// TranscriptBranchSummary renders one abandoned-branch summary.
 	TranscriptBranchSummary
+	// TranscriptCompaction renders one active-context compaction summary.
+	TranscriptCompaction
 	// TranscriptToolStatus renders tool status text.
 	TranscriptToolStatus
 	// TranscriptToolStdout renders standard tool output.
@@ -285,6 +287,6 @@ type ToolCallState struct {
 	Provisional bool
 	// Fields contains ordered provisional argument fields.
 	Fields []ToolCallField
-	// Arguments contains finalized tool input.
-	Arguments map[string]any
+	// ArgumentsJSON contains exact finalized tool-input JSON.
+	ArgumentsJSON []byte
 }

@@ -241,7 +241,7 @@ func TestRendererDoesNotWriteNewlineForToolOnlyMessage(t *testing.T) {
 							model.ToolCall{
 								ID:        "call",
 								Name:      "read",
-								Arguments: map[string]any{},
+								Arguments: testToolCallArguments(`{}`),
 							},
 						),
 					},
@@ -277,7 +277,7 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 			ToolCall: mo.Some(model.ToolCall{
 				ID:        "call",
 				Name:      "bash",
-				Arguments: map[string]any{},
+				Arguments: testToolCallArguments(`{}`),
 			}),
 		},
 		rendererProgressEvent(tool.ProgressChannelStatus, "working"),
@@ -296,7 +296,7 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 			ToolCall: mo.Some(model.ToolCall{
 				ID:        "call",
 				Name:      "bash",
-				Arguments: map[string]any{},
+				Arguments: testToolCallArguments(`{}`),
 			}),
 			ToolResult: mo.Some(agent.ToolResult{
 				CallID:   "call",

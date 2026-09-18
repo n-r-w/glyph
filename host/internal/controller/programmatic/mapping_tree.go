@@ -1,6 +1,7 @@
 package programmatic
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -184,6 +185,16 @@ func EncodeSessionTreeEntry(entry SessionTreeEntry) (*programmaticv1.SessionTree
 			return nil, err
 		}
 		wire.SetBranchSummary(mapped)
+	case SessionTreeEntryCompaction:
+		compaction, present := entry.Compaction.Get()
+		if !present {
+			return nil, errors.New("compaction payload is absent")
+		}
+		mapped, err := mapCompaction(compaction)
+		if err != nil {
+			return nil, err
+		}
+		wire.SetCompaction(mapped)
 	case SessionTreeEntryUnspecified:
 		return nil, errors.New("tree entry kind is unspecified")
 	default:
@@ -213,16 +224,30 @@ func mapBranchSummary(summary BranchSummary) (*programmaticv1.BranchSummary, err
 	wire.SetSummary(summary.Summary)
 	wire.SetFirstEntryId(summary.FirstEntryID)
 	wire.SetLastEntryId(summary.LastEntryID)
-	// Only a model source enters reasoning and token conversion.
-	source := new(programmaticv1.BranchSummarySource)
-	if extensionID, present := summary.Source.ExtensionID.Get(); present {
-		source.SetExtensionId(extensionID)
-	} else if modelSource, modelPresent := summary.Source.Model.Get(); modelPresent {
+	source, err := mapBranchSummarySource(summary.Source)
+	if err != nil {
+		return nil, err
+	}
+	wire.SetSource(source)
+	if cost, present := summary.EstimatedCost.Get(); present {
+		wire.SetEstimatedCost(mapEstimatedCost(cost))
+	}
+	return wire, nil
+}
+
+// mapBranchSummarySource maps one exclusive summary producer and optional normalized usage.
+func mapBranchSummarySource(source session.BranchSummarySource) (*programmaticv1.BranchSummarySource, error) {
+	if err := source.Validate(); err != nil {
+		return nil, err
+	}
+	wire := new(programmaticv1.BranchSummarySource)
+	if extensionID, present := source.ExtensionID.Get(); present {
+		wire.SetExtensionId(extensionID)
+	} else if modelSource, modelPresent := source.Model.Get(); modelPresent {
 		reasoning, err := mapReasoningChoice(modelSource.Selection.ReasoningChoice)
 		if err != nil {
 			return nil, err
 		}
-		// Keep actual model identity and its usage in the same wire alternative.
 		mappedModel := new(programmaticv1.BranchSummaryModelSource)
 		mappedModel.SetProviderId(string(modelSource.Selection.Provider))
 		mappedModel.SetModelId(string(modelSource.Selection.Model))
@@ -234,11 +259,33 @@ func mapBranchSummary(summary BranchSummary) (*programmaticv1.BranchSummary, err
 			mapped.SetCacheReadTokens(usage.CacheReadTokens)
 			mappedModel.SetUsage(mapped)
 		}
-		source.SetModel(mappedModel)
+		wire.SetModel(mappedModel)
 	}
-	wire.SetSource(source)
-	if cost, present := summary.EstimatedCost.Get(); present {
+	return wire, nil
+}
+
+// mapCompaction maps one persisted context-compaction marker and optional accounting.
+func mapCompaction(compaction Compaction) (*programmaticv1.Compaction, error) {
+	domain := session.CompactionEntry{
+		Summary: compaction.Summary, FirstKeptEntryID: compaction.FirstKeptEntryID,
+		Source: compaction.Source, EstimatedCost: compaction.EstimatedCost, Details: compaction.Details,
+	}
+	if err := domain.ValidateAccounting(); err != nil {
+		return nil, err
+	}
+	source, err := mapBranchSummarySource(compaction.Source)
+	if err != nil {
+		return nil, err
+	}
+	wire := programmaticv1.Compaction_builder{
+		Summary: new(compaction.Summary), FirstKeptEntryId: new(compaction.FirstKeptEntryID), Source: source,
+		EstimatedCost: nil, Details: nil,
+	}.Build()
+	if cost, present := compaction.EstimatedCost.Get(); present {
 		wire.SetEstimatedCost(mapEstimatedCost(cost))
+	}
+	if details, present := compaction.Details.Get(); present {
+		wire.SetDetails(bytes.Clone(details))
 	}
 	return wire, nil
 }

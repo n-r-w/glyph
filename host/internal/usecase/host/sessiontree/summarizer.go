@@ -30,10 +30,7 @@ func (s *Service) summarize(
 	customFocus mo.Option[string],
 ) (BranchSummaryDraft, error) {
 	// conversation contains only approved source values in the summary-specific representation.
-	conversation, err := serializeBranchSummaryConversation(preparation.AbandonedPath)
-	if err != nil {
-		return BranchSummaryDraft{}, fmt.Errorf("prepare branch summary conversation: %w", err)
-	}
+	conversation := serializeBranchSummaryConversation(preparation.AbandonedPath)
 	// userInput contains one bounded source conversation, optional escaped focus, and the embedded task.
 	userInput := renderBranchSummaryUserInput(conversation, customFocus)
 	// history sends exactly one provider user-role message and keeps source records out of provider roles.

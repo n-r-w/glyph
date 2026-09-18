@@ -67,7 +67,7 @@ type finalizedFunctionOutput struct {
 	// name identifies the requested tool.
 	name string
 	// arguments contains finalized function arguments.
-	arguments map[string]any
+	arguments model.ToolCallArguments
 	// custom reports whether the item uses custom tool input.
 	custom bool
 	// customInput contains exact finalized custom input.
@@ -323,7 +323,9 @@ func (a *semanticAssembler) reconcileFunctionOutput(
 	case responseItemTypeCustomToolCall:
 		call := item.AsCustomToolCall()
 		if finalized, ok := a.finalizedFunctionCalls[outputIndex]; ok {
-			return finalized.Validate(call.ID, call.CallID, call.Name, nil, true, call.Input)
+			return finalized.Validate(
+				call.ID, call.CallID, call.Name, model.ToolCallArguments{}, true, call.Input,
+			)
 		}
 		if _, active := a.functionCalls[outputIndex]; !active {
 			if err := a.startCustom(outputIndex, call.ID, call.CallID, call.Name, ""); err != nil {
@@ -341,7 +343,7 @@ func (finalized finalizedFunctionOutput) Validate(
 	itemID string,
 	callID string,
 	name string,
-	arguments map[string]any,
+	arguments model.ToolCallArguments,
 	custom bool,
 	customInput string,
 ) error {
@@ -355,7 +357,15 @@ func (finalized finalizedFunctionOutput) Validate(
 		}
 		return nil
 	}
-	if !reflect.DeepEqual(finalized.arguments, arguments) {
+	var finalizedValue any
+	if err := json.Unmarshal(finalized.arguments.Bytes(), &finalizedValue); err != nil {
+		return fmt.Errorf("decode finalized Codex tool-call arguments: %w", err)
+	}
+	var candidateValue any
+	if err := json.Unmarshal(arguments.Bytes(), &candidateValue); err != nil {
+		return fmt.Errorf("decode repeated Codex tool-call arguments: %w", err)
+	}
+	if !reflect.DeepEqual(finalizedValue, candidateValue) {
 		return errors.New(requestFailedCause)
 	}
 	return nil
@@ -646,16 +656,24 @@ func (a *semanticAssembler) endCustom(outputIndex int64, itemID, input string) e
 	if !slot.custom || identitiesConflict(slot.itemID, itemID) {
 		return fmt.Errorf("codex custom output %d is not active", outputIndex)
 	}
+	encoded, err := json.Marshal(map[string]string{slot.inputProperty: input})
+	if err != nil {
+		return fmt.Errorf("encode Codex custom tool-call arguments: %w", err)
+	}
+	arguments, err := model.NewToolCallArguments(encoded)
+	if err != nil {
+		return fmt.Errorf("validate Codex custom tool-call arguments: %w", err)
+	}
 	event := semanticStreamEvent(modelexecution.StreamEventToolCallEnd, slot.position, 0, "")
 	event.ToolCall = mo.Some(model.ToolCall{
-		ID: slot.callID, Name: slot.name, Arguments: map[string]any{slot.inputProperty: input},
+		ID: slot.callID, Name: slot.name, Arguments: arguments,
 	})
-	if err := a.handle(event); err != nil {
-		return err
+	if handleErr := a.handle(event); handleErr != nil {
+		return handleErr
 	}
 	delete(a.functionCalls, outputIndex)
 	a.finalizedFunctionCalls[outputIndex] = finalizedFunctionOutput{
-		itemID: slot.itemID, callID: slot.callID, name: slot.name, arguments: nil,
+		itemID: slot.itemID, callID: slot.callID, name: slot.name, arguments: model.ToolCallArguments{},
 		custom: true, customInput: input,
 	}
 	return nil
@@ -680,10 +698,6 @@ func (a *semanticAssembler) endFunction(
 		delete(a.functionCalls, outputIndex)
 		return err
 	}
-	finalizedArguments, err := decodeFunctionArguments(arguments)
-	if err != nil {
-		return err
-	}
 	slot.preview.close()
 	event := semanticStreamEvent(modelexecution.StreamEventToolCallEnd, slot.position, 0, "")
 	event.ToolCall = mo.Some(model.ToolCall{ID: slot.callID, Name: slot.name, Arguments: decoded})
@@ -692,16 +706,16 @@ func (a *semanticAssembler) endFunction(
 	}
 	delete(a.functionCalls, outputIndex)
 	a.finalizedFunctionCalls[outputIndex] = finalizedFunctionOutput{
-		itemID: slot.itemID, callID: slot.callID, name: slot.name, arguments: finalizedArguments,
+		itemID: slot.itemID, callID: slot.callID, name: slot.name, arguments: decoded,
 		custom: false, customInput: "",
 	}
 	return nil
 }
 
-func decodeFunctionArguments(arguments string) (map[string]any, error) {
-	var decoded map[string]any
-	if err := json.Unmarshal([]byte(arguments), &decoded); err != nil {
-		return nil, fmt.Errorf("decode OpenAI Codex tool-call arguments: %w", err)
+func decodeFunctionArguments(arguments string) (model.ToolCallArguments, error) {
+	decoded, err := model.NewToolCallArguments([]byte(arguments))
+	if err != nil {
+		return model.ToolCallArguments{}, fmt.Errorf("decode OpenAI Codex tool-call arguments: %w", err)
 	}
 	return decoded, nil
 }

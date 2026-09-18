@@ -205,6 +205,26 @@ func malformedHostPayloadCases() []invalidHostPayloadCase {
 				event.SetFinalToolCall(call)
 			},
 		)},
+		{name: "tool call end invalid arguments JSON", request: submit, event: malformedAgentEvent(
+			uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END, func(event *uiv1.AgentEvent) {
+				call := new(uiv1.FinalToolCall)
+				call.SetCallId("call")
+				call.SetName("tool")
+				call.SetPosition(0)
+				call.SetArgumentsJson([]byte(`{"path":`))
+				event.SetFinalToolCall(call)
+			},
+		)},
+		{name: "tool call end non-object arguments JSON", request: submit, event: malformedAgentEvent(
+			uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END, func(event *uiv1.AgentEvent) {
+				call := new(uiv1.FinalToolCall)
+				call.SetCallId("call")
+				call.SetName("tool")
+				call.SetPosition(0)
+				call.SetArgumentsJson([]byte(`[]`))
+				event.SetFinalToolCall(call)
+			},
+		)},
 		{name: "tool execution start identity", request: submit, event: malformedAgentEvent(
 			uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START, func(event *uiv1.AgentEvent) {
 				event.SetToolName("tool")

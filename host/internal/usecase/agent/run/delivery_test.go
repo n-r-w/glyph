@@ -100,7 +100,7 @@ func TestServiceRunLengthWithCalls(t *testing.T) {
 	provider := NewMockModelProvider(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	call := model.ToolCall{ID: "length-call", Name: "read", Arguments: map[string]any{"path": "x"}}
+	call := model.ToolCall{ID: "length-call", Name: "read", Arguments: testToolCallArguments(`{"path":"x"}`)}
 	length := model.Response{
 		Content: []model.Content{testCallItem(call)},
 		Outcome: mo.Some(

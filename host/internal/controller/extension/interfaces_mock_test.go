@@ -20,6 +20,75 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockModelOperations is a mock of ModelOperations interface.
+type MockModelOperations struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelOperationsMockRecorder
+	isgomock struct{}
+}
+
+// MockModelOperationsMockRecorder is the mock recorder for MockModelOperations.
+type MockModelOperationsMockRecorder struct {
+	mock *MockModelOperations
+}
+
+// NewMockModelOperations creates a new mock instance.
+func NewMockModelOperations(ctrl *gomock.Controller) *MockModelOperations {
+	mock := &MockModelOperations{ctrl: ctrl}
+	mock.recorder = &MockModelOperationsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelOperations) EXPECT() *MockModelOperationsMockRecorder {
+	return m.recorder
+}
+
+// ReadModels mocks base method.
+func (m *MockModelOperations) ReadModels(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) (ModelCatalog, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadModels", ctx, extensionID, runtimeID, reference)
+	ret0, _ := ret[0].(ModelCatalog)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadModels indicates an expected call of ReadModels.
+func (mr *MockModelOperationsMockRecorder) ReadModels(ctx, extensionID, runtimeID, reference any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadModels", reflect.TypeOf((*MockModelOperations)(nil).ReadModels), ctx, extensionID, runtimeID, reference)
+}
+
+// ReadProviders mocks base method.
+func (m *MockModelOperations) ReadProviders(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) ([]Provider, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadProviders", ctx, extensionID, runtimeID, reference)
+	ret0, _ := ret[0].([]Provider)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadProviders indicates an expected call of ReadProviders.
+func (mr *MockModelOperationsMockRecorder) ReadProviders(ctx, extensionID, runtimeID, reference any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadProviders", reflect.TypeOf((*MockModelOperations)(nil).ReadProviders), ctx, extensionID, runtimeID, reference)
+}
+
+// Request mocks base method.
+func (m *MockModelOperations) Request(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Request", ctx, extensionID, runtimeID, reference, selection, instructions, history)
+	ret0, _ := ret[0].(model.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Request indicates an expected call of Request.
+func (mr *MockModelOperationsMockRecorder) Request(ctx, extensionID, runtimeID, reference, selection, instructions, history any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelOperations)(nil).Request), ctx, extensionID, runtimeID, reference, selection, instructions, history)
+}
+
 // MockContextOperations is a mock of ContextOperations interface.
 type MockContextOperations struct {
 	ctrl     *gomock.Controller
@@ -74,36 +143,6 @@ func (mr *MockContextOperationsMockRecorder) AppendExtensionMessage(ctx, extensi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtensionMessage", reflect.TypeOf((*MockContextOperations)(nil).AppendExtensionMessage), ctx, extensionID, runtimeID, reference, entryType, text, visibility)
 }
 
-// ReadModels mocks base method.
-func (m *MockContextOperations) ReadModels(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) (ModelCatalog, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadModels", ctx, extensionID, runtimeID, reference)
-	ret0, _ := ret[0].(ModelCatalog)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReadModels indicates an expected call of ReadModels.
-func (mr *MockContextOperationsMockRecorder) ReadModels(ctx, extensionID, runtimeID, reference any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadModels", reflect.TypeOf((*MockContextOperations)(nil).ReadModels), ctx, extensionID, runtimeID, reference)
-}
-
-// ReadProviders mocks base method.
-func (m *MockContextOperations) ReadProviders(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) ([]Provider, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ReadProviders", ctx, extensionID, runtimeID, reference)
-	ret0, _ := ret[0].([]Provider)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ReadProviders indicates an expected call of ReadProviders.
-func (mr *MockContextOperationsMockRecorder) ReadProviders(ctx, extensionID, runtimeID, reference any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadProviders", reflect.TypeOf((*MockContextOperations)(nil).ReadProviders), ctx, extensionID, runtimeID, reference)
-}
-
 // ReadSessionState mocks base method.
 func (m *MockContextOperations) ReadSessionState(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef) (SessionState, error) {
 	m.ctrl.T.Helper()
@@ -117,21 +156,6 @@ func (m *MockContextOperations) ReadSessionState(ctx context.Context, extensionI
 func (mr *MockContextOperationsMockRecorder) ReadSessionState(ctx, extensionID, runtimeID, reference any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadSessionState", reflect.TypeOf((*MockContextOperations)(nil).ReadSessionState), ctx, extensionID, runtimeID, reference)
-}
-
-// Request mocks base method.
-func (m *MockContextOperations) Request(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Request", ctx, extensionID, runtimeID, reference, selection, instructions, history)
-	ret0, _ := ret[0].(model.Response)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Request indicates an expected call of Request.
-func (mr *MockContextOperationsMockRecorder) Request(ctx, extensionID, runtimeID, reference, selection, instructions, history any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockContextOperations)(nil).Request), ctx, extensionID, runtimeID, reference, selection, instructions, history)
 }
 
 // ValidateContext mocks base method.
@@ -287,6 +311,58 @@ func (m *MockSelectionFailure) ModelSelectionCode() string {
 func (mr *MockSelectionFailureMockRecorder) ModelSelectionCode() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelSelectionCode", reflect.TypeOf((*MockSelectionFailure)(nil).ModelSelectionCode))
+}
+
+// MockModelFailure is a mock of ModelFailure interface.
+type MockModelFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockModelFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockModelFailureMockRecorder is the mock recorder for MockModelFailure.
+type MockModelFailureMockRecorder struct {
+	mock *MockModelFailure
+}
+
+// NewMockModelFailure creates a new mock instance.
+func NewMockModelFailure(ctrl *gomock.Controller) *MockModelFailure {
+	mock := &MockModelFailure{ctrl: ctrl}
+	mock.recorder = &MockModelFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockModelFailure) EXPECT() *MockModelFailureMockRecorder {
+	return m.recorder
+}
+
+// Error mocks base method.
+func (m *MockModelFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockModelFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockModelFailure)(nil).Error))
+}
+
+// ModelCode mocks base method.
+func (m *MockModelFailure) ModelCode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ModelCode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// ModelCode indicates an expected call of ModelCode.
+func (mr *MockModelFailureMockRecorder) ModelCode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ModelCode", reflect.TypeOf((*MockModelFailure)(nil).ModelCode))
 }
 
 // MockContextFailure is a mock of ContextFailure interface.

@@ -93,6 +93,7 @@ func projectTreeEntry(entry session.Entry) TreeEntry {
 		Model:            mo.None[[]Content](),
 		ToolResult:       entry.ToolResult,
 		BranchSummary:    mo.None[string](),
+		Compaction:       mo.None[session.CompactionEntry](),
 		Extension:        mo.None[ExtensionIdentity](),
 		ExtensionMessage: entry.ExtensionMessage,
 	}
@@ -105,6 +106,9 @@ func projectTreeEntry(entry session.Entry) TreeEntry {
 	}
 	if summary, present := entry.BranchSummary.Get(); present {
 		result.BranchSummary = mo.Some(summary.Summary)
+	}
+	if compaction, present := entry.Compaction.Get(); present {
+		result.Compaction = mo.Some(compaction.Clone())
 	}
 	if hidden, present := entry.Extension.Get(); present {
 		result.Extension = mo.Some(ExtensionIdentity{ExtensionID: hidden.ExtensionID, EntryType: hidden.EntryType})

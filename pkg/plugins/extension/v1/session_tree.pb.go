@@ -2585,6 +2585,15 @@ func (x *SessionTreeEntry) GetExtensionMessage() *SessionTreeExtensionMessage {
 	return nil
 }
 
+func (x *SessionTreeEntry) GetCompaction() *SessionTreeCompaction {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Compaction); ok {
+			return x.Compaction
+		}
+	}
+	return nil
+}
+
 func (x *SessionTreeEntry) SetId(v string) {
 	x.xxx_hidden_Id = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
@@ -2636,6 +2645,14 @@ func (x *SessionTreeEntry) SetExtensionMessage(v *SessionTreeExtensionMessage) {
 		return
 	}
 	x.xxx_hidden_Content = &sessionTreeEntry_ExtensionMessage{v}
+}
+
+func (x *SessionTreeEntry) SetCompaction(v *SessionTreeCompaction) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &sessionTreeEntry_Compaction{v}
 }
 
 func (x *SessionTreeEntry) HasId() bool {
@@ -2700,6 +2717,14 @@ func (x *SessionTreeEntry) HasExtensionMessage() bool {
 	return ok
 }
 
+func (x *SessionTreeEntry) HasCompaction() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Compaction)
+	return ok
+}
+
 func (x *SessionTreeEntry) ClearId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Id = nil
@@ -2745,6 +2770,12 @@ func (x *SessionTreeEntry) ClearExtensionMessage() {
 	}
 }
 
+func (x *SessionTreeEntry) ClearCompaction() {
+	if _, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Compaction); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
 const SessionTreeEntry_Content_not_set_case case_SessionTreeEntry_Content = 0
 const SessionTreeEntry_User_case case_SessionTreeEntry_Content = 2
 const SessionTreeEntry_Model_case case_SessionTreeEntry_Content = 3
@@ -2752,6 +2783,7 @@ const SessionTreeEntry_ToolResult_case case_SessionTreeEntry_Content = 4
 const SessionTreeEntry_BranchSummary_case case_SessionTreeEntry_Content = 5
 const SessionTreeEntry_Extension_case case_SessionTreeEntry_Content = 6
 const SessionTreeEntry_ExtensionMessage_case case_SessionTreeEntry_Content = 7
+const SessionTreeEntry_Compaction_case case_SessionTreeEntry_Content = 8
 
 func (x *SessionTreeEntry) WhichContent() case_SessionTreeEntry_Content {
 	if x == nil {
@@ -2770,6 +2802,8 @@ func (x *SessionTreeEntry) WhichContent() case_SessionTreeEntry_Content {
 		return SessionTreeEntry_Extension_case
 	case *sessionTreeEntry_ExtensionMessage:
 		return SessionTreeEntry_ExtensionMessage_case
+	case *sessionTreeEntry_Compaction:
+		return SessionTreeEntry_Compaction_case
 	default:
 		return SessionTreeEntry_Content_not_set_case
 	}
@@ -2789,6 +2823,7 @@ type SessionTreeEntry_builder struct {
 	BranchSummary    *SessionTreeBranchSummary
 	Extension        *SessionTreeExtensionEntry
 	ExtensionMessage *SessionTreeExtensionMessage
+	Compaction       *SessionTreeCompaction
 	// -- end of xxx_hidden_Content
 }
 
@@ -2817,6 +2852,9 @@ func (b0 SessionTreeEntry_builder) Build() *SessionTreeEntry {
 	}
 	if b.ExtensionMessage != nil {
 		x.xxx_hidden_Content = &sessionTreeEntry_ExtensionMessage{b.ExtensionMessage}
+	}
+	if b.Compaction != nil {
+		x.xxx_hidden_Content = &sessionTreeEntry_Compaction{b.Compaction}
 	}
 	return m0
 }
@@ -2859,6 +2897,10 @@ type sessionTreeEntry_ExtensionMessage struct {
 	ExtensionMessage *SessionTreeExtensionMessage `protobuf:"bytes,7,opt,name=extension_message,json=extensionMessage,oneof"`
 }
 
+type sessionTreeEntry_Compaction struct {
+	Compaction *SessionTreeCompaction `protobuf:"bytes,8,opt,name=compaction,oneof"`
+}
+
 func (*sessionTreeEntry_User) isSessionTreeEntry_Content() {}
 
 func (*sessionTreeEntry_Model) isSessionTreeEntry_Content() {}
@@ -2870,6 +2912,8 @@ func (*sessionTreeEntry_BranchSummary) isSessionTreeEntry_Content() {}
 func (*sessionTreeEntry_Extension) isSessionTreeEntry_Content() {}
 
 func (*sessionTreeEntry_ExtensionMessage) isSessionTreeEntry_Content() {}
+
+func (*sessionTreeEntry_Compaction) isSessionTreeEntry_Content() {}
 
 // SessionTreeExtensionMessage contains one model-visible extension message.
 type SessionTreeExtensionMessage struct {
@@ -3987,6 +4031,206 @@ func (b0 SessionTreeBranchSummary_builder) Build() *SessionTreeBranchSummary {
 	return m0
 }
 
+// SessionTreeCompaction contains one persisted active-context compaction marker.
+type SessionTreeCompaction struct {
+	state                       protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Summary          *string                `protobuf:"bytes,1,opt,name=summary"`
+	xxx_hidden_FirstKeptEntryId *string                `protobuf:"bytes,2,opt,name=first_kept_entry_id,json=firstKeptEntryId"`
+	xxx_hidden_Source           *BranchSummarySource   `protobuf:"bytes,3,opt,name=source"`
+	xxx_hidden_EstimatedCost    *EstimatedCost         `protobuf:"bytes,4,opt,name=estimated_cost,json=estimatedCost"`
+	xxx_hidden_Details          []byte                 `protobuf:"bytes,5,opt,name=details"`
+	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
+	XXX_presence                [1]uint32
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
+}
+
+func (x *SessionTreeCompaction) Reset() {
+	*x = SessionTreeCompaction{}
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SessionTreeCompaction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SessionTreeCompaction) ProtoMessage() {}
+
+func (x *SessionTreeCompaction) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SessionTreeCompaction) GetSummary() string {
+	if x != nil {
+		if x.xxx_hidden_Summary != nil {
+			return *x.xxx_hidden_Summary
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SessionTreeCompaction) GetFirstKeptEntryId() string {
+	if x != nil {
+		if x.xxx_hidden_FirstKeptEntryId != nil {
+			return *x.xxx_hidden_FirstKeptEntryId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SessionTreeCompaction) GetSource() *BranchSummarySource {
+	if x != nil {
+		return x.xxx_hidden_Source
+	}
+	return nil
+}
+
+func (x *SessionTreeCompaction) GetEstimatedCost() *EstimatedCost {
+	if x != nil {
+		return x.xxx_hidden_EstimatedCost
+	}
+	return nil
+}
+
+func (x *SessionTreeCompaction) GetDetails() []byte {
+	if x != nil {
+		return x.xxx_hidden_Details
+	}
+	return nil
+}
+
+func (x *SessionTreeCompaction) SetSummary(v string) {
+	x.xxx_hidden_Summary = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+}
+
+func (x *SessionTreeCompaction) SetFirstKeptEntryId(v string) {
+	x.xxx_hidden_FirstKeptEntryId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+}
+
+func (x *SessionTreeCompaction) SetSource(v *BranchSummarySource) {
+	x.xxx_hidden_Source = v
+}
+
+func (x *SessionTreeCompaction) SetEstimatedCost(v *EstimatedCost) {
+	x.xxx_hidden_EstimatedCost = v
+}
+
+func (x *SessionTreeCompaction) SetDetails(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_Details = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+}
+
+func (x *SessionTreeCompaction) HasSummary() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *SessionTreeCompaction) HasFirstKeptEntryId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *SessionTreeCompaction) HasSource() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Source != nil
+}
+
+func (x *SessionTreeCompaction) HasEstimatedCost() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_EstimatedCost != nil
+}
+
+func (x *SessionTreeCompaction) HasDetails() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
+func (x *SessionTreeCompaction) ClearSummary() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Summary = nil
+}
+
+func (x *SessionTreeCompaction) ClearFirstKeptEntryId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_FirstKeptEntryId = nil
+}
+
+func (x *SessionTreeCompaction) ClearSource() {
+	x.xxx_hidden_Source = nil
+}
+
+func (x *SessionTreeCompaction) ClearEstimatedCost() {
+	x.xxx_hidden_EstimatedCost = nil
+}
+
+func (x *SessionTreeCompaction) ClearDetails() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_Details = nil
+}
+
+type SessionTreeCompaction_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The summary text included in model context.
+	Summary *string
+	// The first original entry retained after the summary.
+	FirstKeptEntryId *string
+	// The actual producer and its optional model usage.
+	Source *BranchSummarySource
+	// Persisted estimated cost when available for a model source.
+	EstimatedCost *EstimatedCost
+	// Opaque extension-owned result details when present.
+	Details []byte
+}
+
+func (b0 SessionTreeCompaction_builder) Build() *SessionTreeCompaction {
+	m0 := &SessionTreeCompaction{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Summary != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		x.xxx_hidden_Summary = b.Summary
+	}
+	if b.FirstKeptEntryId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		x.xxx_hidden_FirstKeptEntryId = b.FirstKeptEntryId
+	}
+	x.xxx_hidden_Source = b.Source
+	x.xxx_hidden_EstimatedCost = b.EstimatedCost
+	if b.Details != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_Details = b.Details
+	}
+	return m0
+}
+
 // SessionTreeExtensionEntry identifies one model-hidden extension entry without exposing its payload.
 type SessionTreeExtensionEntry struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
@@ -4000,7 +4244,7 @@ type SessionTreeExtensionEntry struct {
 
 func (x *SessionTreeExtensionEntry) Reset() {
 	*x = SessionTreeExtensionEntry{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4012,7 +4256,7 @@ func (x *SessionTreeExtensionEntry) String() string {
 func (*SessionTreeExtensionEntry) ProtoMessage() {}
 
 func (x *SessionTreeExtensionEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4114,7 +4358,7 @@ type BranchSummaryResult struct {
 
 func (x *BranchSummaryResult) Reset() {
 	*x = BranchSummaryResult{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4126,7 +4370,7 @@ func (x *BranchSummaryResult) String() string {
 func (*BranchSummaryResult) ProtoMessage() {}
 
 func (x *BranchSummaryResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4217,7 +4461,7 @@ type BranchSummarySource struct {
 
 func (x *BranchSummarySource) Reset() {
 	*x = BranchSummarySource{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4229,7 +4473,7 @@ func (x *BranchSummarySource) String() string {
 func (*BranchSummarySource) ProtoMessage() {}
 
 func (x *BranchSummarySource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4356,7 +4600,7 @@ func (b0 BranchSummarySource_builder) Build() *BranchSummarySource {
 type case_BranchSummarySource_Source protoreflect.FieldNumber
 
 func (x case_BranchSummarySource_Source) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[23].Descriptor()
+	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[24].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -4392,7 +4636,7 @@ type BranchSummaryModelSource struct {
 
 func (x *BranchSummaryModelSource) Reset() {
 	*x = BranchSummaryModelSource{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4404,7 +4648,7 @@ func (x *BranchSummaryModelSource) String() string {
 func (*BranchSummaryModelSource) ProtoMessage() {}
 
 func (x *BranchSummaryModelSource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4494,7 +4738,7 @@ type TokenUsage struct {
 
 func (x *TokenUsage) Reset() {
 	*x = TokenUsage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4506,7 +4750,7 @@ func (x *TokenUsage) String() string {
 func (*TokenUsage) ProtoMessage() {}
 
 func (x *TokenUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4726,7 +4970,7 @@ type CommittedBranchSummary struct {
 
 func (x *CommittedBranchSummary) Reset() {
 	*x = CommittedBranchSummary{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4738,7 +4982,7 @@ func (x *CommittedBranchSummary) String() string {
 func (*CommittedBranchSummary) ProtoMessage() {}
 
 func (x *CommittedBranchSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4959,7 +5203,7 @@ type EstimatedCost struct {
 
 func (x *EstimatedCost) Reset() {
 	*x = EstimatedCost{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4971,7 +5215,7 @@ func (x *EstimatedCost) String() string {
 func (*EstimatedCost) ProtoMessage() {}
 
 func (x *EstimatedCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
+	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5214,7 +5458,7 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\x18preceding_active_leaf_id\x18\x02 \x01(\tR\x15precedingActiveLeafId\x12:\n" +
 	"\x19navigation_destination_id\x18\x03 \x01(\tR\x17navigationDestinationId\x12,\n" +
 	"\x12common_ancestor_id\x18\x04 \x01(\tR\x10commonAncestorId\x12Y\n" +
-	"\x11abandoned_entries\x18\x05 \x03(\v2,.glyph.plugins.extension.v1.SessionTreeEntryR\x10abandonedEntries\"\xb9\x04\n" +
+	"\x11abandoned_entries\x18\x05 \x03(\v2,.glyph.plugins.extension.v1.SessionTreeEntryR\x10abandonedEntries\"\x8e\x05\n" +
 	"\x10SessionTreeEntry\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12H\n" +
 	"\x04user\x18\x02 \x01(\v22.glyph.plugins.extension.v1.SessionTreeUserMessageH\x00R\x04user\x12L\n" +
@@ -5223,7 +5467,10 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"toolResult\x12]\n" +
 	"\x0ebranch_summary\x18\x05 \x01(\v24.glyph.plugins.extension.v1.SessionTreeBranchSummaryH\x00R\rbranchSummary\x12U\n" +
 	"\textension\x18\x06 \x01(\v25.glyph.plugins.extension.v1.SessionTreeExtensionEntryH\x00R\textension\x12f\n" +
-	"\x11extension_message\x18\a \x01(\v27.glyph.plugins.extension.v1.SessionTreeExtensionMessageH\x00R\x10extensionMessageB\t\n" +
+	"\x11extension_message\x18\a \x01(\v27.glyph.plugins.extension.v1.SessionTreeExtensionMessageH\x00R\x10extensionMessage\x12S\n" +
+	"\n" +
+	"compaction\x18\b \x01(\v21.glyph.plugins.extension.v1.SessionTreeCompactionH\x00R\n" +
+	"compactionB\t\n" +
 	"\acontent\"\xc1\x01\n" +
 	"\x1bSessionTreeExtensionMessage\x12!\n" +
 	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
@@ -5259,7 +5506,13 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\bcontents\x18\x03 \x03(\v2-.glyph.plugins.extension.v1.ToolResultContentR\bcontents\x12\x19\n" +
 	"\bis_error\x18\x04 \x01(\bR\aisError\"4\n" +
 	"\x18SessionTreeBranchSummary\x12\x18\n" +
-	"\asummary\x18\x01 \x01(\tR\asummary\"]\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\"\x95\x02\n" +
+	"\x15SessionTreeCompaction\x12\x18\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\x12-\n" +
+	"\x13first_kept_entry_id\x18\x02 \x01(\tR\x10firstKeptEntryId\x12G\n" +
+	"\x06source\x18\x03 \x01(\v2/.glyph.plugins.extension.v1.BranchSummarySourceR\x06source\x12P\n" +
+	"\x0eestimated_cost\x18\x04 \x01(\v2).glyph.plugins.extension.v1.EstimatedCostR\restimatedCost\x12\x18\n" +
+	"\adetails\x18\x05 \x01(\fR\adetails\"]\n" +
 	"\x19SessionTreeExtensionEntry\x12!\n" +
 	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
 	"\n" +
@@ -5319,7 +5572,7 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_session_tree_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_api_plugins_extension_v1_session_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
+var file_api_plugins_extension_v1_session_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
 var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
 	(RequestAction)(0),                         // 0: glyph.plugins.extension.v1.RequestAction
 	(ResultAction)(0),                          // 1: glyph.plugins.extension.v1.ResultAction
@@ -5346,82 +5599,86 @@ var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
 	(*SessionTreeToolCall)(nil),                // 22: glyph.plugins.extension.v1.SessionTreeToolCall
 	(*SessionTreeToolResult)(nil),              // 23: glyph.plugins.extension.v1.SessionTreeToolResult
 	(*SessionTreeBranchSummary)(nil),           // 24: glyph.plugins.extension.v1.SessionTreeBranchSummary
-	(*SessionTreeExtensionEntry)(nil),          // 25: glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	(*BranchSummaryResult)(nil),                // 26: glyph.plugins.extension.v1.BranchSummaryResult
-	(*BranchSummarySource)(nil),                // 27: glyph.plugins.extension.v1.BranchSummarySource
-	(*BranchSummaryModelSource)(nil),           // 28: glyph.plugins.extension.v1.BranchSummaryModelSource
-	(*TokenUsage)(nil),                         // 29: glyph.plugins.extension.v1.TokenUsage
-	(*CommittedBranchSummary)(nil),             // 30: glyph.plugins.extension.v1.CommittedBranchSummary
-	(*EstimatedCost)(nil),                      // 31: glyph.plugins.extension.v1.EstimatedCost
-	(*ExtensionContext)(nil),                   // 32: glyph.plugins.extension.v1.ExtensionContext
-	(*LifecycleInvocation)(nil),                // 33: glyph.plugins.extension.v1.LifecycleInvocation
-	(*SelectionHandlerInvocation)(nil),         // 34: glyph.plugins.extension.v1.SelectionHandlerInvocation
-	(*LifecycleAction)(nil),                    // 35: glyph.plugins.extension.v1.LifecycleAction
-	(*SelectionHandlerAction)(nil),             // 36: glyph.plugins.extension.v1.SelectionHandlerAction
-	(*ModelSelection)(nil),                     // 37: glyph.plugins.extension.v1.ModelSelection
-	(ClientVisibility)(0),                      // 38: glyph.plugins.extension.v1.ClientVisibility
-	(*ToolResultContent)(nil),                  // 39: glyph.plugins.extension.v1.ToolResultContent
+	(*SessionTreeCompaction)(nil),              // 25: glyph.plugins.extension.v1.SessionTreeCompaction
+	(*SessionTreeExtensionEntry)(nil),          // 26: glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	(*BranchSummaryResult)(nil),                // 27: glyph.plugins.extension.v1.BranchSummaryResult
+	(*BranchSummarySource)(nil),                // 28: glyph.plugins.extension.v1.BranchSummarySource
+	(*BranchSummaryModelSource)(nil),           // 29: glyph.plugins.extension.v1.BranchSummaryModelSource
+	(*TokenUsage)(nil),                         // 30: glyph.plugins.extension.v1.TokenUsage
+	(*CommittedBranchSummary)(nil),             // 31: glyph.plugins.extension.v1.CommittedBranchSummary
+	(*EstimatedCost)(nil),                      // 32: glyph.plugins.extension.v1.EstimatedCost
+	(*ExtensionContext)(nil),                   // 33: glyph.plugins.extension.v1.ExtensionContext
+	(*LifecycleInvocation)(nil),                // 34: glyph.plugins.extension.v1.LifecycleInvocation
+	(*SelectionHandlerInvocation)(nil),         // 35: glyph.plugins.extension.v1.SelectionHandlerInvocation
+	(*LifecycleAction)(nil),                    // 36: glyph.plugins.extension.v1.LifecycleAction
+	(*SelectionHandlerAction)(nil),             // 37: glyph.plugins.extension.v1.SelectionHandlerAction
+	(*ModelSelection)(nil),                     // 38: glyph.plugins.extension.v1.ModelSelection
+	(ClientVisibility)(0),                      // 39: glyph.plugins.extension.v1.ClientVisibility
+	(*ToolResultContent)(nil),                  // 40: glyph.plugins.extension.v1.ToolResultContent
 }
 var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
-	32, // 0: glyph.plugins.extension.v1.HandleRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
+	33, // 0: glyph.plugins.extension.v1.HandleRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
 	7,  // 1: glyph.plugins.extension.v1.HandleRequest.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
 	8,  // 2: glyph.plugins.extension.v1.HandleRequest.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
 	9,  // 3: glyph.plugins.extension.v1.HandleRequest.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeInvocation
-	33, // 4: glyph.plugins.extension.v1.HandleRequest.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleInvocation
-	34, // 5: glyph.plugins.extension.v1.HandleRequest.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
-	34, // 6: glyph.plugins.extension.v1.HandleRequest.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
+	34, // 4: glyph.plugins.extension.v1.HandleRequest.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleInvocation
+	35, // 5: glyph.plugins.extension.v1.HandleRequest.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
+	35, // 6: glyph.plugins.extension.v1.HandleRequest.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
 	10, // 7: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
 	11, // 8: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
 	12, // 9: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
 	6,  // 10: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
-	35, // 11: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
-	36, // 12: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	36, // 13: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	36, // 11: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
+	37, // 12: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	37, // 13: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
 	13, // 14: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
 	14, // 15: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
 	13, // 16: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
 	14, // 17: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	26, // 18: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	27, // 18: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
 	13, // 19: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
 	14, // 20: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
 	13, // 21: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
 	14, // 22: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	26, // 23: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	26, // 24: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	30, // 25: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
+	27, // 23: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	27, // 24: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	31, // 25: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
 	0,  // 26: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
 	13, // 27: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
 	1,  // 28: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	26, // 29: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	27, // 29: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
 	1,  // 30: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	26, // 31: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	27, // 31: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
 	2,  // 32: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
-	37, // 33: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
+	38, // 33: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
 	15, // 34: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
 	17, // 35: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
 	20, // 36: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
 	23, // 37: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
 	24, // 38: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
-	25, // 39: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	26, // 39: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
 	16, // 40: glyph.plugins.extension.v1.SessionTreeEntry.extension_message:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionMessage
-	38, // 41: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
-	18, // 42: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
-	19, // 43: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
-	21, // 44: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
-	3,  // 45: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
-	22, // 46: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
-	39, // 47: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	27, // 48: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	28, // 49: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
-	37, // 50: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	29, // 51: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	27, // 52: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	31, // 53: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	54, // [54:54] is the sub-list for method output_type
-	54, // [54:54] is the sub-list for method input_type
-	54, // [54:54] is the sub-list for extension type_name
-	54, // [54:54] is the sub-list for extension extendee
-	0,  // [0:54] is the sub-list for field type_name
+	25, // 41: glyph.plugins.extension.v1.SessionTreeEntry.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
+	39, // 42: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
+	18, // 43: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
+	19, // 44: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
+	21, // 45: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
+	3,  // 46: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
+	22, // 47: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
+	40, // 48: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	28, // 49: glyph.plugins.extension.v1.SessionTreeCompaction.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	32, // 50: glyph.plugins.extension.v1.SessionTreeCompaction.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	28, // 51: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	29, // 52: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
+	38, // 53: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	30, // 54: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
+	28, // 55: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	32, // 56: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	57, // [57:57] is the sub-list for method output_type
+	57, // [57:57] is the sub-list for method input_type
+	57, // [57:57] is the sub-list for extension type_name
+	57, // [57:57] is the sub-list for extension extendee
+	0,  // [0:57] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_tree_proto_init() }
@@ -5458,12 +5715,13 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*sessionTreeEntry_BranchSummary)(nil),
 		(*sessionTreeEntry_Extension)(nil),
 		(*sessionTreeEntry_ExtensionMessage)(nil),
+		(*sessionTreeEntry_Compaction)(nil),
 	}
 	file_api_plugins_extension_v1_session_tree_proto_msgTypes[14].OneofWrappers = []any{
 		(*sessionTreeUserContent_Text)(nil),
 		(*sessionTreeUserContent_Image)(nil),
 	}
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[23].OneofWrappers = []any{
+	file_api_plugins_extension_v1_session_tree_proto_msgTypes[24].OneofWrappers = []any{
 		(*branchSummarySource_ExtensionId)(nil),
 		(*branchSummarySource_Model)(nil),
 	}
@@ -5473,7 +5731,7 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_session_tree_proto_rawDesc), len(file_api_plugins_extension_v1_session_tree_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   28,
+			NumMessages:   29,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

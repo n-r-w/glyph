@@ -393,7 +393,8 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 				Content: []model.Content{{
 					Kind: model.ContentToolCall,
 					ToolCall: mo.Some(model.ToolCall{
-						ID: "call-old", Name: "sample", Arguments: map[string]any{"payload": "old"},
+						ID: "call-old", Name: "sample",
+						Arguments: testToolCallArguments(`{ "payload":"\u006fld", "number":1.00 }`),
 					}), Text: mo.None[string](), Final: false, ProviderContext: mo.None[model.ProviderContext](),
 				}},
 				Outcome:       mo.Some(model.OutcomeToolUse),
@@ -450,13 +451,13 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 		Value: mo.None[any](), Prefix: mo.Some("ab"),
 	}, events[1].Preview.OrEmpty().Fields[0])
 	assert.Equal(t, modelexecution.StreamEventToolCallEnd, events[2].Kind)
-	assert.Equal(t, map[string]any{"payload": "abc"}, events[2].ToolCall.OrEmpty().Arguments)
+	assert.JSONEq(t, `{"payload":"abc"}`, events[2].ToolCall.OrEmpty().Arguments.String())
 	assert.Equal(t, modelexecution.StreamEventDone, events[3].Kind)
 	require.Len(t, events[3].Response.OrEmpty().Content, 1)
-	assert.Equal(
+	assert.JSONEq(
 		t,
-		map[string]any{"payload": "abc"},
-		events[3].Response.OrEmpty().Content[0].ToolCall.OrEmpty().Arguments,
+		`{"payload":"abc"}`,
+		events[3].Response.OrEmpty().Content[0].ToolCall.OrEmpty().Arguments.String(),
 	)
 }
 

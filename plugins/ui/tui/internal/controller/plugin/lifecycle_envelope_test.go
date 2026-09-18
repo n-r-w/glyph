@@ -5,8 +5,7 @@ package plugin
 import (
 	"testing"
 
-	"google.golang.org/protobuf/types/known/structpb"
-
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
@@ -69,7 +68,7 @@ func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) 
 		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END:
 			lifecycle.SetFinalToolCall(uiv1.FinalToolCall_builder{
 				CallId: new("call"), Name: new("tool"), Position: new(int64(0)),
-				Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{}},
+				ArgumentsJson: []byte(`{}`),
 			}.Build())
 		case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
 			lifecycle.SetToolCallId("")
@@ -269,7 +268,11 @@ func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 	missingFinalPosition := lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END)
 	missingFinalPosition.SetFinalToolCall(uiv1.FinalToolCall_builder{
 		CallId: new("call"), Name: new("tool"), Position: nil,
-		Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{}},
+		ArgumentsJson: []byte(`{}`),
+	}.Build())
+	nonObjectFinalArguments := lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END)
+	nonObjectFinalArguments.SetFinalToolCall(uiv1.FinalToolCall_builder{
+		CallId: new("call"), Name: new("tool"), Position: new(int64(0)), ArgumentsJson: []byte(`[]`),
 	}.Build())
 	missingStartCallID := lifecycle(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START)
 	missingStartCallID.SetToolName("tool")
@@ -287,6 +290,7 @@ func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 		{name: "model content type", lifecycle: missingModelType},
 		{name: "tool call preview provisional", lifecycle: missingPreviewProvisional},
 		{name: "final tool call position", lifecycle: missingFinalPosition},
+		{name: "final tool call argument shape", lifecycle: nonObjectFinalArguments},
 		{name: "tool execution start call ID", lifecycle: missingStartCallID},
 		{name: "tool progress text", lifecycle: missingProgressText},
 		{name: "tool execution end call ID", lifecycle: missingEndCallID},
@@ -302,6 +306,10 @@ func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 			_, err := DecodeLifecycle(roundTripLifecycle(t, test.lifecycle))
 			// Assert each lifecycle variant checks its scalar contract.
 			require.Error(t, err)
+			if test.name == "final tool call argument shape" {
+				assert.ErrorContains(t, err, "unmarshal JSON array")
+				assert.ErrorContains(t, err, "into Go map[string]interface {}")
+			}
 		})
 	}
 }

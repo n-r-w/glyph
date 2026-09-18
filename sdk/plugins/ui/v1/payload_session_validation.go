@@ -64,6 +64,8 @@ func validateSessionEntry(entry *uiv1.SessionEntry) error {
 		return validateToolResult(entry.GetToolResult())
 	case uiv1.SessionEntry_BranchSummary_case:
 		return validateBranchSummary(entry.GetBranchSummary())
+	case uiv1.SessionEntry_Compaction_case:
+		return validateCompaction(entry.GetCompaction())
 	case uiv1.SessionEntry_ExtensionMessage_case:
 		return validateExtensionMessage(entry.GetExtensionMessage())
 	case uiv1.SessionEntry_Entry_not_set_case:
@@ -98,6 +100,8 @@ func validateSessionTreeEntry(entry *uiv1.SessionTreeEntry) error {
 		return nil
 	case uiv1.SessionTreeEntry_BranchSummary_case:
 		return validateBranchSummary(entry.GetBranchSummary())
+	case uiv1.SessionTreeEntry_Compaction_case:
+		return validateCompaction(entry.GetCompaction())
 	case uiv1.SessionTreeEntry_ExtensionMessage_case:
 		return validateExtensionMessage(entry.GetExtensionMessage())
 	case uiv1.SessionTreeEntry_Entry_not_set_case:
@@ -149,6 +153,43 @@ func validateToolResult(result *uiv1.ToolResult) error {
 		return errors.New("Host tool result is required")
 	}
 	return validateToolResultContents(result.GetContents(), true)
+}
+
+// validateCompaction validates required context and source fields with optional accounting.
+func validateCompaction(compaction *uiv1.Compaction) error {
+	if compaction == nil || !compaction.HasSummary() || compaction.GetSummary() == "" ||
+		!compaction.HasFirstKeptEntryId() || compaction.GetFirstKeptEntryId() == "" || !compaction.HasSource() {
+		return errors.New("Host compaction fields are required")
+	}
+	if err := validateCompactionSource(compaction.GetSource()); err != nil {
+		return err
+	}
+	if cost := compaction.GetEstimatedCost(); cost != nil {
+		return validateEstimatedCost(cost)
+	}
+	return nil
+}
+
+// validateCompactionSource validates one exclusive extension or model producer.
+func validateCompactionSource(source *uiv1.BranchSummarySource) error {
+	switch source.WhichSource() {
+	case uiv1.BranchSummarySource_ExtensionId_case:
+		if source.GetExtensionId() == "" {
+			return errors.New("Host compaction extension source is required")
+		}
+	case uiv1.BranchSummarySource_Model_case:
+		modelSource := source.GetModel()
+		if modelSource == nil || !modelSource.HasProviderId() || modelSource.GetProviderId() == "" ||
+			!modelSource.HasModelId() || modelSource.GetModelId() == "" || !modelSource.HasReasoningChoice() ||
+			modelSource.GetReasoningChoice() == uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
+			return errors.New("Host compaction model source fields are required")
+		}
+	case uiv1.BranchSummarySource_Source_not_set_case:
+		return errors.New("Host compaction source is required")
+	default:
+		return errors.New("Host compaction source is unknown")
+	}
+	return nil
 }
 
 // validateBranchSummary validates the text required by presentation mapping.

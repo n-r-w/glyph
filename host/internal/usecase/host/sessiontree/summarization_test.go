@@ -181,45 +181,6 @@ func TestNavigateExtensionMessageCreatesSummaryAtParent(t *testing.T) {
 	assert.Equal(t, "summary", result.CreatedSummary.MustGet().ID)
 }
 
-// TestNavigateSerializationFailureDoesNotRequestModelOrCommit verifies invalid tool arguments stop navigation before
-// model execution or state mutation.
-func TestNavigateSerializationFailureDoesNotRequestModelOrCommit(t *testing.T) {
-	t.Parallel()
-
-	// Arrange an abandoned path with one tool argument that deterministic JSON cannot encode.
-	controller := gomock.NewController(t)
-	active := NewMockActiveSession(controller)
-	models := NewMockModelRequester(controller)
-	modelSelection := NewMockModelSelection(controller)
-	handlers := NewMockRuntime(controller)
-	service := New(active, modelSelection, models, handlers)
-	createdAt := time.Unix(1, 0).UTC()
-	entries := []session.Entry{
-		navigationUserEntry("root", mo.None[string](), "root input", createdAt),
-		navigationUserEntry("user", mo.Some("root"), "source input", createdAt.Add(time.Second)),
-		branchSummaryModelEntry(model.ToolCall{
-			ID: "call", Name: "tool", Arguments: map[string]any{"invalid": func() {}},
-		}),
-	}
-	entries[2].ParentID = mo.Some("user")
-	tree, err := session.NewTree(entries, mo.Some("model"), nil)
-	require.NoError(t, err)
-	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	active.EXPECT().Tree().Return(tree)
-	active.EXPECT().SessionID().Return("session")
-	modelSelection.EXPECT().ActiveSelection().Return(selection)
-
-	// Act by navigating with built-in summarization.
-	_, err = navigateTreeForTest(t, service, t.Context(), NavigationRequest{
-		TargetEntryID: "user", SummaryMode: SummaryModeSummarize,
-		CustomFocus: mo.None[string](),
-	})
-
-	// Assert serialization fails before model execution, result handling, validation, observers, and commit.
-	require.Error(t, err)
-	assert.ErrorContains(t, err, "prepare branch summary conversation")
-}
-
 // TestNavigateRejectsInvalidSummaryResponseWithoutCommit verifies invalid model output cannot mutate active state.
 func TestNavigateRejectsInvalidSummaryResponseWithoutCommit(t *testing.T) {
 	t.Parallel()

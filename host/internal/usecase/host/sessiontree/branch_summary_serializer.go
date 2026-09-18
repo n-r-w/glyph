@@ -1,8 +1,6 @@
 package sessiontree
 
 import (
-	"encoding/json/v2"
-	"fmt"
 	"strconv"
 	"strings"
 
@@ -51,7 +49,7 @@ type branchSummaryField struct {
 }
 
 // serializeBranchSummaryConversation serializes approved model-visible content in entry and block order.
-func serializeBranchSummaryConversation(entries []session.Entry) (string, error) {
+func serializeBranchSummaryConversation(entries []session.Entry) string {
 	var serialized strings.Builder
 	hasBlock := false
 	for entryIndex := range entries {
@@ -60,9 +58,7 @@ func serializeBranchSummaryConversation(entries []session.Entry) (string, error)
 			writeBranchSummaryUser(&serialized, &hasBlock, user)
 		}
 		if response, present := entry.Model.Get(); present {
-			if err := writeBranchSummaryModel(&serialized, &hasBlock, response); err != nil {
-				return "", err
-			}
+			writeBranchSummaryModel(&serialized, &hasBlock, response)
 		}
 		if result, present := entry.ToolResult.Get(); present {
 			writeBranchSummaryToolResult(&serialized, &hasBlock, result)
@@ -78,7 +74,7 @@ func serializeBranchSummaryConversation(entries []session.Entry) (string, error)
 			}})
 		}
 	}
-	return serialized.String(), nil
+	return serialized.String()
 }
 
 // writeBranchSummaryUser writes ordered user text blocks and excludes non-text input.
@@ -100,7 +96,7 @@ func writeBranchSummaryModel(
 	serialized *strings.Builder,
 	hasBlock *bool,
 	response model.Response,
-) error {
+) {
 	for contentIndex := range response.Content {
 		content := &response.Content[contentIndex]
 		switch content.Kind {
@@ -111,34 +107,26 @@ func writeBranchSummaryModel(
 		case model.ContentRefusal:
 			writeBranchSummaryTextContent(serialized, hasBlock, branchSummaryRefusalLabel, content)
 		case model.ContentToolCall:
-			if err := writeBranchSummaryToolCall(serialized, hasBlock, content); err != nil {
-				return err
-			}
+			writeBranchSummaryToolCall(serialized, hasBlock, content)
 		}
 	}
-	return nil
 }
 
-// writeBranchSummaryToolCall writes one present tool call with deterministic arguments.
+// writeBranchSummaryToolCall writes one present tool call with its exact arguments.
 func writeBranchSummaryToolCall(
 	serialized *strings.Builder,
 	hasBlock *bool,
 	content *model.Content,
-) error {
+) {
 	call, present := content.ToolCall.Get()
 	if !present {
-		return nil
-	}
-	arguments, err := json.Marshal(call.Arguments, json.Deterministic(true))
-	if err != nil {
-		return fmt.Errorf("encode tool call %q arguments: %w", call.ID, err)
+		return
 	}
 	writeBranchSummaryBlock(serialized, hasBlock, branchSummaryToolCallLabel, []branchSummaryField{
 		{label: branchSummaryCallIDLabel, value: call.ID},
 		{label: branchSummaryToolNameLabel, value: call.Name},
-		{label: branchSummaryArgumentsLabel, value: string(arguments)},
+		{label: branchSummaryArgumentsLabel, value: call.Arguments.String()},
 	})
-	return nil
 }
 
 // writeBranchSummaryToolResult writes tool metadata and ordered text result blocks.

@@ -18,6 +18,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -43,9 +44,11 @@ type Service struct {
 	// active contains durable session records and public metadata.
 	active LoadedSession
 	// contextIdentity publishes immutable incarnation state without waiting for storage I/O locks.
-	contextIdentity atomic.Pointer[extensioncontext.SessionIdentity]
-	// history owns provider-neutral values and their ordinary client visibility.
+	contextIdentity atomic.Pointer[contextcompaction.SessionIdentity]
+	// history owns the unchanged provider-neutral client transcript and its visibility.
 	history []storedHistoryEntry
+	// contextHistory owns the independently compacted model-context projection.
+	contextHistory []storedHistoryEntry
 	// writeUnavailable blocks mutations after this process observes a persistence failure.
 	writeUnavailable bool
 	// publisher enqueues committed entries without rereading active session state.
@@ -76,8 +79,9 @@ func New(
 		pricing:          pricing,
 		workingDirectory: workingDirectory,
 		active:           LoadedSession{},
-		contextIdentity:  atomic.Pointer[extensioncontext.SessionIdentity]{},
+		contextIdentity:  atomic.Pointer[contextcompaction.SessionIdentity]{},
 		history:          nil,
+		contextHistory:   nil,
 		writeUnavailable: false,
 		publisher:        nil,
 	}
@@ -126,6 +130,7 @@ func (s *Service) CreateActive() (session.Info, []session.Entry, error) {
 	s.active = loaded
 	s.publishContextIdentityLocked()
 	s.history = nil
+	s.contextHistory = nil
 	// Active replacement creates a new process-local write state independent from the replaced session.
 	s.writeUnavailable = false
 	// Capture both response values before another operation can replace active state.
@@ -153,9 +158,11 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Info
 	loaded = loaded.Clone()
 	branch := loaded.Tree.ActiveBranch()
 	history := storedHistoryFromEntries(branch)
+	contextHistory := storedCompactedHistoryFromEntries(branch)
 	s.active = loaded
 	s.publishContextIdentityLocked()
 	s.history = history
+	s.contextHistory = contextHistory
 	// Successful validation and replacement are the only resume path that restores mutation access.
 	s.writeUnavailable = false
 	return s.active.Info(), cloneEntries(s.active.Tree.ActiveBranch()), nil
@@ -242,7 +249,7 @@ func (s *Service) ActiveInformation() (session.Info, session.Statistics) {
 func (s *Service) Snapshot() []agent.HistoryEntry {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
-	return cloneStoredHistory(s.history, false)
+	return cloneStoredHistory(s.contextHistory, false)
 }
 
 // ClientSnapshot returns ordinary transcript history with hidden extension messages excluded.
@@ -271,7 +278,9 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	}
 	if !durable {
 		// Unsupported partial model responses remain complete but process-local.
-		s.history = append(s.history, storedHistoryEntry{value: owned, clientVisible: true})
+		stored := storedHistoryEntry{value: owned, clientVisible: true}
+		s.history = append(s.history, stored)
+		s.contextHistory = append(s.contextHistory, stored)
 		return nil
 	}
 	if response, modelPresent := projection.Model.Get(); modelPresent {
@@ -281,14 +290,16 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 	if appendErr != nil {
 		return appendErr
 	}
-	s.history = append(s.history, storedHistoryEntry{value: owned, clientVisible: true})
+	stored := storedHistoryEntry{value: owned, clientVisible: true}
+	s.history = append(s.history, stored)
+	s.contextHistory = append(s.contextHistory, stored)
 	return nil
 }
 
 // AppendExtension persists one model-hidden entry only for the expected active-session incarnation.
 func (s *Service) AppendExtension(
 	ctx context.Context,
-	expected extensioncontext.SessionIdentity,
+	expected contextcompaction.SessionIdentity,
 	extension session.ExtensionEnvelope,
 	commitGuard extensioncontext.ContextCommitGuard,
 ) (session.Entry, error) {
@@ -315,6 +326,7 @@ func (s *Service) AppendExtension(
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.Some(owned),
 		ExtensionMessage: mo.None[session.ExtensionMessage](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		Compaction: mo.None[session.CompactionEntry](),
 	}
 	committed, err := s.appendEntryLocked(ctx, entry)
 	if err != nil {
@@ -329,7 +341,7 @@ func (s *Service) AppendExtension(
 // AppendExtensionMessage persists and enqueues one message under the session lock, then waits without commit locks.
 func (s *Service) AppendExtensionMessage(
 	ctx context.Context,
-	expected extensioncontext.SessionIdentity,
+	expected contextcompaction.SessionIdentity,
 	message session.ExtensionMessage,
 	commitGuard extensioncontext.ContextCommitGuard,
 ) (session.Entry, error) {
@@ -356,6 +368,7 @@ func (s *Service) AppendExtensionMessage(
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
 		ExtensionMessage: mo.Some(message), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		Compaction: mo.None[session.CompactionEntry](),
 	}
 	committed, err := s.appendEntryLocked(ctx, entry)
 	if err != nil {
@@ -366,7 +379,9 @@ func (s *Service) AppendExtensionMessage(
 		}
 		return session.Entry{}, err
 	}
-	s.history = append(s.history, storedHistoryFromEntries([]session.Entry{committed})...)
+	stored := storedHistoryFromEntries([]session.Entry{committed})
+	s.history = append(s.history, stored...)
+	s.contextHistory = append(s.contextHistory, stored...)
 	var wait func(context.Context) error
 	var publishErr error
 	if s.publisher == nil {
@@ -391,7 +406,7 @@ func (s *Service) AppendExtensionMessage(
 // ExtensionState returns the caller extension's entries from one locked active-branch snapshot.
 func (s *Service) ExtensionState(
 	ctx context.Context,
-	expected extensioncontext.SessionIdentity,
+	expected contextcompaction.SessionIdentity,
 	extensionID string,
 ) (extensioncontext.SessionSnapshot, error) {
 	s.mutex.RLock()
@@ -416,7 +431,7 @@ func (s *Service) ExtensionState(
 }
 
 // validateExpectedSessionLocked rejects cancellation and every replaced active-session incarnation.
-func (s *Service) validateExpectedSessionLocked(ctx context.Context, expected extensioncontext.SessionIdentity) error {
+func (s *Service) validateExpectedSessionLocked(ctx context.Context, expected contextcompaction.SessionIdentity) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("access extension session state: %w", err)
 	}

@@ -22,7 +22,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -90,11 +92,11 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	contextSession := extensioncontext.NewMockSessionState(controller)
 	contextSession.EXPECT().
 		ContextSession().
-		Return(extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
+		Return(contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
 		AnyTimes()
 	contexts := extensioncontext.New(extensions, contextSession)
-	contextCatalog := extensioncontext.NewMockCatalog(controller)
-	contextRequester := extensioncontext.NewMockModelRequester(controller)
+	contextCatalog := extensionmodels.NewMockCatalog(controller)
+	contextRequester := extensionmodels.NewMockModelRequester(controller)
 	contextCatalog.EXPECT().Models().Return([]model.Descriptor{
 		{
 			Provider:      "provider",
@@ -115,11 +117,11 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 		ActiveSelection().
 		Return(model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}).
 		AnyTimes()
-	contexts.BindModels(contextCatalog, contextRequester)
+	extensionModels := extensionmodels.New(contextCatalog, contextRequester, contexts)
 	service.BindContextIssuer(contexts)
 	tools.BindContextIssuer(contexts)
 	factory.BindHostServiceFactory(func(extensionID, runtimeID string) extensionsdk.HostService {
-		return extensioncontroller.New(contexts, extensions, extensionID, runtimeID)
+		return extensioncontroller.New(extensionModels, contexts, extensions, extensionID, runtimeID)
 	})
 	startupService := startup.New(extensions, tools, service, lifecycle.New(extensions, nil), nil)
 	report, err := startupService.Load(
@@ -353,7 +355,8 @@ func grpcUserEntry(id string, parentID mo.Option[string], text string, createdAt
 		Information: mo.None[session.Information](), User: mo.Some(model.TextMessage(text)),
 		Model: mo.None[model.Response](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 
@@ -373,6 +376,6 @@ func grpcSummaryEntry() session.Entry {
 				Model:       mo.None[session.BranchSummaryModelSource](),
 			},
 			EstimatedCost: mo.None[session.EstimatedCost](),
-		}), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		}), Compaction: mo.None[session.CompactionEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }

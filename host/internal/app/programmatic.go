@@ -25,7 +25,9 @@ import (
 	programmaticsocket "github.com/n-r-w/glyph/host/internal/infra/programmatic/socket"
 
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
@@ -76,16 +78,18 @@ func runProgrammaticWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
+	// contextCompaction owns active-conversation sizing and completed-usage observations.
+	contextCompaction := contextcompaction.New(sessionServices.active)
 	// modelExecution owns every logical model request in the programmatic assembly.
-	modelExecution := modelexecution.New(providerCatalog)
-	contexts.BindModels(providerCatalog, modelExecution)
+	modelExecution := modelexecution.New(providerCatalog, contextCompaction)
+	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
 	selectionOwner := modelselection.New(providerCatalog, delivery)
 	selectionOwner.BindHandlers(extensions, contexts, delivery)
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
-	bindExtensionHostFactory(extensionFactory, extensions, contexts, selectionOwner)
+	bindExtensionHostFactory(extensionFactory, extensions, extensionModels, contexts, selectionOwner)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	if _, err = startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,

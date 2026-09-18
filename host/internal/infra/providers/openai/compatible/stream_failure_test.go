@@ -306,6 +306,16 @@ func (s *serviceSuite) TestMalformedToolArgumentsPreserveParserCause() {
 			want: "decode chat Completions tool-call arguments: jsontext: invalid character",
 		},
 		{
+			name: "Chat Completions top-level array", api: APIChatCompletions,
+			events: []string{
+				`{"id":"chat-1","choices":[{"index":0,` +
+					`"delta":{"tool_calls":[{"index":0,"id":"call-1",` +
+					`"type":"function","function":{"name":"read","arguments":"[]"}}]},` +
+					`"finish_reason":"tool_calls"}]}`,
+			},
+			want: "unmarshal JSON array into Go map[string]interface {}",
+		},
+		{
 			name: "Responses stream", api: APIResponses,
 			events: []string{
 				`{"type":"response.output_item.added","output_index":0,` +
@@ -315,6 +325,16 @@ func (s *serviceSuite) TestMalformedToolArgumentsPreserveParserCause() {
 					`"item_id":"item-1","name":"read","arguments":"}"}`,
 			},
 			want: "decode Responses tool-call arguments: jsontext: invalid character",
+		},
+		{
+			name: "Responses completed top-level scalar", api: APIResponses,
+			events: []string{
+				`{"type":"response.completed","response":{"id":"resp-1",` +
+					`"model":"actual","status":"completed","output":[{"id":"item-1",` +
+					`"type":"function_call","call_id":"call-1","name":"read",` +
+					`"arguments":"1","status":"completed"}]}}`,
+			},
+			want: "unmarshal JSON number into Go map[string]interface {}",
 		},
 		{
 			name: "Responses completed output", api: APIResponses,

@@ -2,7 +2,6 @@ package plugin
 
 import (
 	"bytes"
-	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"strings"
@@ -30,11 +29,7 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]Transcript, error) {
 			continue
 		}
 		if response := entry.GetModel(); response != nil {
-			mapped, err := mapRestoredModelResponse(response)
-			if err != nil {
-				return nil, err
-			}
-			lines = append(lines, mapped...)
+			lines = append(lines, mapRestoredModelResponse(response)...)
 			continue
 		}
 		if result := entry.GetToolResult(); result != nil {
@@ -70,6 +65,13 @@ func mapRestoredTranscript(entries []*uiv1.SessionEntry) ([]Transcript, error) {
 			lines = append(lines, Transcript{
 				Kind: TranscriptBranchSummary, ToolName: mo.None[string](), Status: mo.None[string](),
 				Text: mo.Some(summary.GetSummary()), Contents: mo.None[[]Content](),
+			})
+			continue
+		}
+		if compaction := entry.GetCompaction(); compaction != nil {
+			lines = append(lines, Transcript{
+				Kind: TranscriptCompaction, ToolName: mo.None[string](), Status: mo.None[string](),
+				Text: mo.Some(compaction.GetSummary()), Contents: mo.None[[]Content](),
 			})
 		}
 	}
@@ -111,17 +113,13 @@ func mapRestoredContents(contents []*uiv1.UserContent) ([]Content, string, error
 }
 
 // mapRestoredModelResponse keeps stored visible model content and terminal failures in display order.
-func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]Transcript, error) {
+func mapRestoredModelResponse(response *uiv1.ModelResponse) []Transcript {
 	lines := make([]Transcript, 0, len(response.GetContent()))
 	for _, content := range response.GetContent() {
 		if call := content.GetToolCall(); call != nil {
-			arguments, err := json.Marshal(call.GetArguments().AsMap())
-			if err != nil {
-				return nil, fmt.Errorf("map restored tool call: %w", err)
-			}
 			lines = append(lines, Transcript{
 				Kind: TranscriptToolStatus, ToolName: mo.Some(call.GetName()),
-				Status: mo.Some("arguments"), Text: mo.Some(string(arguments)),
+				Status: mo.Some("arguments"), Text: mo.Some(string(call.GetArgumentsJson())),
 				Contents: mo.None[[]Content](),
 			})
 			continue
@@ -148,7 +146,7 @@ func mapRestoredModelResponse(response *uiv1.ModelResponse) ([]Transcript, error
 			})
 		}
 	}
-	return lines, nil
+	return lines
 }
 
 // mapRestoredToolResult uses the same terminal line kinds as live tool completion.

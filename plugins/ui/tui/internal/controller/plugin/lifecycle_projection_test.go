@@ -263,6 +263,6 @@ func TestMapToolCallPreviewPreservesCompleteSnapshot(t *testing.T) {
 				Prefix: mo.Some(`{"partial":`),
 			},
 		},
-		Arguments: nil,
+		ArgumentsJSON: nil,
 	}, mapped)
 }

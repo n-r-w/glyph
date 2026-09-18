@@ -74,7 +74,7 @@ func TestPublishConnectionEventsUsesOrderedWriter(t *testing.T) {
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
 		ExtensionMessage: mo.Some(session.ExtensionMessage{
 			ExtensionID: "example", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityHidden,
 		}),

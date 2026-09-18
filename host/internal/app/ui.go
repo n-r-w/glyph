@@ -24,7 +24,9 @@ import (
 	uiruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/ui/runtime"
 
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
@@ -103,16 +105,18 @@ func runUIWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
+	// contextCompaction owns active-conversation sizing and completed-usage observations.
+	contextCompaction := contextcompaction.New(sessionServices.active)
 	// modelExecution owns every logical model request in the UI assembly.
-	modelExecution := modelexecution.New(providerCatalog)
-	contexts.BindModels(providerCatalog, modelExecution)
+	modelExecution := modelexecution.New(providerCatalog, contextCompaction)
+	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
 	selectionOwner := modelselection.New(providerCatalog, transport)
 	selectionOwner.BindHandlers(extensions, contexts, transport)
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
-	bindExtensionHostFactory(extensionFactory, extensions, contexts, selectionOwner)
+	bindExtensionHostFactory(extensionFactory, extensions, extensionModels, contexts, selectionOwner)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	_, err = startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,

@@ -13,9 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
-	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
+	contextcompaction "github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -98,7 +97,7 @@ func (m *MockSessionState) EXPECT() *MockSessionStateMockRecorder {
 }
 
 // AppendExtension mocks base method.
-func (m *MockSessionState) AppendExtension(arg0 context.Context, arg1 SessionIdentity, arg2 session.ExtensionEnvelope, arg3 ContextCommitGuard) (session.Entry, error) {
+func (m *MockSessionState) AppendExtension(arg0 context.Context, arg1 contextcompaction.SessionIdentity, arg2 session.ExtensionEnvelope, arg3 ContextCommitGuard) (session.Entry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppendExtension", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(session.Entry)
@@ -113,7 +112,7 @@ func (mr *MockSessionStateMockRecorder) AppendExtension(arg0, arg1, arg2, arg3 a
 }
 
 // AppendExtensionMessage mocks base method.
-func (m *MockSessionState) AppendExtensionMessage(arg0 context.Context, arg1 SessionIdentity, arg2 session.ExtensionMessage, arg3 ContextCommitGuard) (session.Entry, error) {
+func (m *MockSessionState) AppendExtensionMessage(arg0 context.Context, arg1 contextcompaction.SessionIdentity, arg2 session.ExtensionMessage, arg3 ContextCommitGuard) (session.Entry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppendExtensionMessage", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(session.Entry)
@@ -128,10 +127,10 @@ func (mr *MockSessionStateMockRecorder) AppendExtensionMessage(arg0, arg1, arg2,
 }
 
 // ContextSession mocks base method.
-func (m *MockSessionState) ContextSession() SessionIdentity {
+func (m *MockSessionState) ContextSession() contextcompaction.SessionIdentity {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContextSession")
-	ret0, _ := ret[0].(SessionIdentity)
+	ret0, _ := ret[0].(contextcompaction.SessionIdentity)
 	return ret0
 }
 
@@ -142,7 +141,7 @@ func (mr *MockSessionStateMockRecorder) ContextSession() *gomock.Call {
 }
 
 // ExtensionState mocks base method.
-func (m *MockSessionState) ExtensionState(arg0 context.Context, arg1 SessionIdentity, arg2 string) (SessionSnapshot, error) {
+func (m *MockSessionState) ExtensionState(arg0 context.Context, arg1 contextcompaction.SessionIdentity, arg2 string) (SessionSnapshot, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExtensionState", arg0, arg1, arg2)
 	ret0, _ := ret[0].(SessionSnapshot)
@@ -157,7 +156,7 @@ func (mr *MockSessionStateMockRecorder) ExtensionState(arg0, arg1, arg2 any) *go
 }
 
 // ProtectContextCommit mocks base method.
-func (m *MockSessionState) ProtectContextCommit(arg0 context.Context, arg1 SessionIdentity, arg2 ContextCommitGuard, arg3 func() error) error {
+func (m *MockSessionState) ProtectContextCommit(arg0 context.Context, arg1 contextcompaction.SessionIdentity, arg2 ContextCommitGuard, arg3 func() error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProtectContextCommit", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -168,147 +167,4 @@ func (m *MockSessionState) ProtectContextCommit(arg0 context.Context, arg1 Sessi
 func (mr *MockSessionStateMockRecorder) ProtectContextCommit(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtectContextCommit", reflect.TypeOf((*MockSessionState)(nil).ProtectContextCommit), arg0, arg1, arg2, arg3)
-}
-
-// MockCatalog is a mock of Catalog interface.
-type MockCatalog struct {
-	ctrl     *gomock.Controller
-	recorder *MockCatalogMockRecorder
-	isgomock struct{}
-}
-
-// MockCatalogMockRecorder is the mock recorder for MockCatalog.
-type MockCatalogMockRecorder struct {
-	mock *MockCatalog
-}
-
-// NewMockCatalog creates a new mock instance.
-func NewMockCatalog(ctrl *gomock.Controller) *MockCatalog {
-	mock := &MockCatalog{ctrl: ctrl}
-	mock.recorder = &MockCatalogMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockCatalog) EXPECT() *MockCatalogMockRecorder {
-	return m.recorder
-}
-
-// ActiveSelection mocks base method.
-func (m *MockCatalog) ActiveSelection() model.Selection {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ActiveSelection")
-	ret0, _ := ret[0].(model.Selection)
-	return ret0
-}
-
-// ActiveSelection indicates an expected call of ActiveSelection.
-func (mr *MockCatalogMockRecorder) ActiveSelection() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveSelection", reflect.TypeOf((*MockCatalog)(nil).ActiveSelection))
-}
-
-// Models mocks base method.
-func (m *MockCatalog) Models() []model.Descriptor {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Models")
-	ret0, _ := ret[0].([]model.Descriptor)
-	return ret0
-}
-
-// Models indicates an expected call of Models.
-func (mr *MockCatalogMockRecorder) Models() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Models", reflect.TypeOf((*MockCatalog)(nil).Models))
-}
-
-// MockModelRequester is a mock of ModelRequester interface.
-type MockModelRequester struct {
-	ctrl     *gomock.Controller
-	recorder *MockModelRequesterMockRecorder
-	isgomock struct{}
-}
-
-// MockModelRequesterMockRecorder is the mock recorder for MockModelRequester.
-type MockModelRequesterMockRecorder struct {
-	mock *MockModelRequester
-}
-
-// NewMockModelRequester creates a new mock instance.
-func NewMockModelRequester(ctrl *gomock.Controller) *MockModelRequester {
-	mock := &MockModelRequester{ctrl: ctrl}
-	mock.recorder = &MockModelRequesterMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockModelRequester) EXPECT() *MockModelRequesterMockRecorder {
-	return m.recorder
-}
-
-// Request mocks base method.
-func (m *MockModelRequester) Request(ctx context.Context, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Request", ctx, selection, instructions, history)
-	ret0, _ := ret[0].(model.Response)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Request indicates an expected call of Request.
-func (mr *MockModelRequesterMockRecorder) Request(ctx, selection, instructions, history any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelRequester)(nil).Request), ctx, selection, instructions, history)
-}
-
-// MockRequestFailure is a mock of RequestFailure interface.
-type MockRequestFailure struct {
-	ctrl     *gomock.Controller
-	recorder *MockRequestFailureMockRecorder
-	isgomock struct{}
-}
-
-// MockRequestFailureMockRecorder is the mock recorder for MockRequestFailure.
-type MockRequestFailureMockRecorder struct {
-	mock *MockRequestFailure
-}
-
-// NewMockRequestFailure creates a new mock instance.
-func NewMockRequestFailure(ctrl *gomock.Controller) *MockRequestFailure {
-	mock := &MockRequestFailure{ctrl: ctrl}
-	mock.recorder = &MockRequestFailureMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockRequestFailure) EXPECT() *MockRequestFailureMockRecorder {
-	return m.recorder
-}
-
-// Error mocks base method.
-func (m *MockRequestFailure) Error() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Error")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// Error indicates an expected call of Error.
-func (mr *MockRequestFailureMockRecorder) Error() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockRequestFailure)(nil).Error))
-}
-
-// SelectionCode mocks base method.
-func (m *MockRequestFailure) SelectionCode() string {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "SelectionCode")
-	ret0, _ := ret[0].(string)
-	return ret0
-}
-
-// SelectionCode indicates an expected call of SelectionCode.
-func (mr *MockRequestFailureMockRecorder) SelectionCode() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SelectionCode", reflect.TypeOf((*MockRequestFailure)(nil).SelectionCode))
 }

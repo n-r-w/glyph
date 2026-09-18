@@ -209,18 +209,15 @@ func TestRequiredFieldValidationPreservesAllowedZeroAndContainerStates(t *testin
 			response := modelRecord["response"].(map[string]any)
 			modelContents := response["content"].([]any)
 			providerContext := modelContents[1].(map[string]any)["providerContext"].(map[string]any)
-			arguments := modelContents[2].(map[string]any)["toolCall"].(map[string]any)
 			toolResult := toolRecord["result"].(map[string]any)
 			message := userRecord["message"].(map[string]any)
 			if test.emptyState {
 				providerContext["payload"] = ""
-				arguments["arguments"] = map[string]any{}
 				response["diagnostics"] = []any{}
 				toolResult["contents"] = []any{}
 				message["content"] = []any{}
 			} else {
 				providerContext["payload"] = nil
-				arguments["arguments"] = nil
 				response["diagnostics"] = nil
 				toolResult["contents"] = nil
 				message["content"] = nil
@@ -245,19 +242,16 @@ func TestRequiredFieldValidationPreservesAllowedZeroAndContainerStates(t *testin
 			assert.Zero(t, loaded.Tree.Entries()[0].EstimatedCost.MustGet().Total)
 			assert.Empty(t, modelValue.Content[0].Text.MustGet())
 			providerPayload := modelValue.Content[1].ProviderContext.MustGet().Payload
-			toolArguments := modelValue.Content[2].ToolCall.MustGet().Arguments
 			toolValue := loaded.Tree.Entries()[1].ToolResult.MustGet()
 			userValue := loaded.Tree.Entries()[2].User.MustGet()
 			assert.False(t, toolValue.IsError)
 			if test.emptyState {
 				assert.NotNil(t, providerPayload)
-				assert.NotNil(t, toolArguments)
 				assert.NotNil(t, modelValue.Diagnostics)
 				assert.NotNil(t, toolValue.Contents)
 				assert.NotNil(t, userValue.Content)
 			} else {
 				assert.Nil(t, providerPayload)
-				assert.Nil(t, toolArguments)
 				assert.Nil(t, modelValue.Diagnostics)
 				assert.Nil(t, toolValue.Contents)
 				assert.Nil(t, userValue.Content)
@@ -286,7 +280,7 @@ func requiredModelRecord() map[string]any {
 					"providerId": "", "api": "", "model": "", "payload": nil,
 				}},
 				map[string]any{"kind": float64(4), "toolCall": map[string]any{
-					"id": "call-1", "name": "tool", "arguments": nil,
+					"id": "call-1", "name": "tool", "arguments": "e30=",
 				}},
 			},
 			"outcome": float64(1),

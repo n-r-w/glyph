@@ -118,8 +118,8 @@ message FinalToolCall {
   string name = 2;
   // The zero-based position in the model response.
   int64 position = 3;
-  // The decoded tool arguments.
-  google.protobuf.Struct arguments = 4;
+  // The exact validated tool argument JSON.
+  bytes arguments_json = 4;
 }
 
 // ModelContent carries one typed model content transition.

@@ -3,7 +3,10 @@
 package extensionv1
 
 import (
+	"bytes"
 	"context"
+	"encoding/json/v2"
+	"fmt"
 	"io"
 	"testing"
 
@@ -83,17 +86,27 @@ func TestServerEmitsExactRejectionCategoriesAndKeepsStreamOpen(t *testing.T) {
 		"non-JSON Execute arguments": {
 			request: openExecuteRequestWith("rejected", "tool", []byte(`{"invalid"`)),
 			id:      "rejected", code: rejectionCodeInvalidArgument,
-			message: "tool arguments must contain valid JSON", configure: nil,
+			message: executeArgumentRejectionMessage(t, []byte(`{"invalid"`)), configure: nil,
+		},
+		"array Execute arguments": {
+			request: openExecuteRequestWith("rejected", "tool", []byte(`[]`)),
+			id:      "rejected", code: rejectionCodeInvalidArgument,
+			message: executeArgumentRejectionMessage(t, []byte(`[]`)), configure: nil,
+		},
+		"scalar Execute arguments": {
+			request: openExecuteRequestWith("rejected", "tool", []byte(`1`)),
+			id:      "rejected", code: rejectionCodeInvalidArgument,
+			message: executeArgumentRejectionMessage(t, []byte(`1`)), configure: nil,
 		},
 		"duplicate Execute argument names": {
 			request: openExecuteRequestWith("rejected", "tool", []byte(`{"key":1,"key":2}`)),
 			id:      "rejected", code: rejectionCodeInvalidArgument,
-			message: "tool arguments must contain valid JSON", configure: nil,
+			message: executeArgumentRejectionMessage(t, []byte(`{"key":1,"key":2}`)), configure: nil,
 		},
 		"invalid UTF-8 Execute arguments": {
 			request: openExecuteRequestWith("rejected", "tool", []byte{'"', 0xff, '"'}),
 			id:      "rejected", code: rejectionCodeInvalidArgument,
-			message: "tool arguments must contain valid JSON", configure: nil,
+			message: executeArgumentRejectionMessage(t, []byte{'"', 0xff, '"'}), configure: nil,
 		},
 		"unregistered handler": {
 			request: openHandleRequest("rejected", "missing"), id: "rejected",
@@ -133,6 +146,61 @@ func TestServerEmitsExactRejectionCategoriesAndKeepsStreamOpen(t *testing.T) {
 	// Assert: delegated checks require exact rejection data, no rejected lifecycle, and later completed work.
 }
 
+// TestServerExecutePreservesAcceptedArgumentBytes verifies object and null inputs reach the operation unchanged.
+func TestServerExecutePreservesAcceptedArgumentBytes(t *testing.T) {
+	t.Parallel()
+
+	for name, arguments := range map[string][]byte{
+		"object": []byte(`{ "text":"\u0061", "number":1.00 }`),
+		"null":   []byte(`null`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one complete Execute operation and capture the request admitted by the SDK server.
+			controller := gomock.NewController(t)
+			service := NewMockService(controller)
+			execute := NewMockExecuteOperation(controller)
+			stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
+			service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, request *extensionpb.ExecuteRequest) (ExecuteOperation, error) {
+					assert.True(t, bytes.Equal(arguments, request.GetArgumentsJson()))
+					return execute, nil
+				},
+			)
+			execute.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
+				extensionpb.ToolResult_builder{IsError: new(false), Contents: validTextContents("done")}.Build(), nil,
+			)
+			execute.EXPECT().Release()
+			stream.EXPECT().Context().AnyTimes().Return(t.Context())
+			completed := make(chan struct{})
+			gomock.InOrder(
+				stream.EXPECT().Recv().Return(openExecuteRequestWith("execute", "tool", arguments), nil),
+				stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenRequest, error) {
+					<-completed
+					return nil, io.EOF
+				}),
+			)
+			responses := make([]*extensionpb.OpenResponse, 0, 3)
+			stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(response *extensionpb.OpenResponse) error {
+				responses = append(responses, response)
+				if response.GetOperationId() == "execute" && response.GetEvent().GetCompleted() != nil {
+					close(completed)
+				}
+				return nil
+			})
+			server := newServer(service)
+			server.ready = true
+
+			// Act by executing through the complete SDK stream path.
+			err := server.Open(stream)
+
+			// Assert the accepted operation completes after receiving the exact argument bytes.
+			require.NoError(t, err)
+			assertCompletedResponse(t, responses, "execute")
+		})
+	}
+}
+
 // TestServerRejectsRequestWithoutContent verifies missing stream content terminates with FailedPrecondition.
 func TestServerRejectsRequestWithoutContent(t *testing.T) {
 	t.Parallel()
@@ -163,6 +231,14 @@ func TestServerRejectsRequestWithoutContent(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
 	require.ErrorContains(t, err, "extension stream message requires a request or close")
+}
+
+// executeArgumentRejectionMessage returns the complete decoder-backed rejection expected from Execute validation.
+func executeArgumentRejectionMessage(t *testing.T, arguments []byte) string {
+	t.Helper()
+	decoderErr := json.Unmarshal(arguments, new(map[string]any))
+	require.Error(t, decoderErr)
+	return fmt.Sprintf("tool arguments must contain a JSON object or null: %v", decoderErr)
 }
 
 // testServerRejectionThenSuccessfulExecute verifies one rejection followed by completed Execute on the same stream.

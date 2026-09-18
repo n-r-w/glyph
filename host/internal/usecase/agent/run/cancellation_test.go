@@ -281,7 +281,7 @@ func TestServiceRunToolMixedCancellationUsesOriginalTerminalText(t *testing.T) {
 	provider := NewMockModelProvider(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	call := model.ToolCall{ID: "call", Name: "extension-tool", Arguments: map[string]any{}}
+	call := model.ToolCall{ID: "call", Name: "extension-tool", Arguments: testToolCallArguments(`{}`)}
 	response := model.Response{
 		Content:       []model.Content{testCallItem(call)},
 		Outcome:       mo.Some(model.OutcomeToolUse),
@@ -346,8 +346,8 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 		tools := NewMockToolRuntime(gomock.NewController(t))
 		events := NewMockEventSink(gomock.NewController(t))
 		calls := []model.ToolCall{
-			{ID: "active", Name: "bash", Arguments: map[string]any{}},
-			{ID: "skipped", Name: "edit", Arguments: map[string]any{}},
+			{ID: "active", Name: "bash", Arguments: testToolCallArguments(`{}`)},
+			{ID: "skipped", Name: "edit", Arguments: testToolCallArguments(`{}`)},
 		}
 		response := model.Response{
 			Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},

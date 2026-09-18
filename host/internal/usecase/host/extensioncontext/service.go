@@ -8,10 +8,10 @@ import (
 	"sync"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -21,24 +21,12 @@ import (
 const (
 	// staleContextCode identifies a permanently invalidated or mismatched binding.
 	staleContextCode = "STALE_CONTEXT"
-	// internalCode identifies unavailable catalog composition.
+	// internalCode identifies an unclassified context operation failure.
 	internalCode = "INTERNAL"
-	// modelUnavailableCode identifies an unknown selection or unsupported reasoning choice.
-	modelUnavailableCode = "MODEL_UNAVAILABLE"
-	// credentialUnavailableCode identifies provider credentials that cannot authorize a request.
-	credentialUnavailableCode = "CREDENTIAL_UNAVAILABLE" //nolint:gosec // This is a public error category.
-	// modelFailedCode identifies provider execution failure after selection validation.
-	modelFailedCode = "MODEL_FAILED"
 	// persistenceUnavailableCode identifies a durable append failure.
 	persistenceUnavailableCode = "PERSISTENCE_UNAVAILABLE"
 	// deliveryFailedIssueCode identifies failed client publication after commit.
 	deliveryFailedIssueCode = "DELIVERY_FAILED"
-	// selectionCodeNotFound identifies a provider selection that is not configured.
-	selectionCodeNotFound = "not_found"
-	// selectionCodeReasoningUnsupported identifies a reasoning choice unsupported by the selected model.
-	selectionCodeReasoningUnsupported = "reasoning_unsupported"
-	// selectionCodeCredentialUnavailable identifies unavailable provider credentials.
-	selectionCodeCredentialUnavailable = "credential_unavailable" //nolint:gosec // This is a provider error code.
 )
 
 // ContextError preserves the context-operation category and its complete cause.
@@ -79,18 +67,15 @@ type Service struct {
 	runtime RuntimeState
 	// session supplies atomic active-session identity.
 	session SessionState
-	// mutex protects catalog binding, sequence allocation, and issued contexts.
+	// mutex protects issued contexts.
 	mutex sync.Mutex
-	// catalog is bound after provider construction and supplies configured model queries.
-	catalog Catalog
-	// modelRequester is bound after provider construction and executes configured requests.
-	modelRequester ModelRequester
 	// bindings retains only the latest binding for each extension.
 	bindings map[string]binding
 }
 
 var (
 	_ extensioncontroller.ContextOperations = (*Service)(nil)
+	_ extensionmodels.ContextValidator      = (*Service)(nil)
 	_ sessiontree.ContextIssuer             = (*Service)(nil)
 	_ lifecycle.ContextIssuer               = (*Service)(nil)
 	_ modelselection.ContextIssuer          = (*Service)(nil)
@@ -101,17 +86,8 @@ var (
 // New constructs context ownership over the runtime and session state owners.
 func New(runtime RuntimeState, sessionState SessionState) *Service {
 	return &Service{
-		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, catalog: nil, modelRequester: nil,
-		bindings: make(map[string]binding),
+		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, bindings: make(map[string]binding),
 	}
-}
-
-// BindModels installs configured model queries and requests after provider construction.
-func (s *Service) BindModels(catalog Catalog, modelRequester ModelRequester) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	s.catalog = catalog
-	s.modelRequester = modelRequester
 }
 
 // IssueContext returns the binding for one accepted runtime and active-session incarnation.
@@ -161,92 +137,6 @@ func (s *Service) validateContextLocked(
 		return binding{}, staleBinding(extensionID, "runtime or active-session incarnation was replaced")
 	}
 	return issued, nil
-}
-
-// ReadModels returns complete defensive model descriptors and active selection.
-func (s *Service) ReadModels(
-	ctx context.Context,
-	extensionID, runtimeID string,
-	reference extension.ContextRef,
-) (extensioncontroller.ModelCatalog, error) {
-	catalog, err := s.readCatalog(ctx, extensionID, runtimeID, reference)
-	if err != nil {
-		return extensioncontroller.ModelCatalog{}, err
-	}
-	result := extensioncontroller.ModelCatalog{Models: catalog.Models(), Selection: catalog.ActiveSelection()}
-	if validationErr := s.validateResult(ctx, extensionID, runtimeID, reference); validationErr != nil {
-		return extensioncontroller.ModelCatalog{}, validationErr
-	}
-	return result, nil
-}
-
-// ReadProviders returns provider identifiers and their ordered model identifiers.
-func (s *Service) ReadProviders(
-	ctx context.Context,
-	extensionID, runtimeID string,
-	reference extension.ContextRef,
-) ([]extensioncontroller.Provider, error) {
-	catalog, err := s.readCatalog(ctx, extensionID, runtimeID, reference)
-	if err != nil {
-		return nil, err
-	}
-	providers := make([]extensioncontroller.Provider, 0)
-	descriptors := catalog.Models()
-	for descriptorIndex := range descriptors {
-		descriptor := &descriptors[descriptorIndex]
-		index := -1
-		for candidate := range providers {
-			if providers[candidate].ID == descriptor.Provider {
-				index = candidate
-				break
-			}
-		}
-		if index < 0 {
-			index = len(providers)
-			providers = append(providers, extensioncontroller.Provider{ID: descriptor.Provider, ModelIDs: nil})
-		}
-		providers[index].ModelIDs = append(providers[index].ModelIDs, descriptor.Model)
-	}
-	if validationErr := s.validateResult(ctx, extensionID, runtimeID, reference); validationErr != nil {
-		return nil, validationErr
-	}
-	return providers, nil
-}
-
-// Request executes one explicit configured model request and revalidates its binding before completion.
-func (s *Service) Request(
-	ctx context.Context,
-	extensionID, runtimeID string,
-	reference extension.ContextRef,
-	selection model.Selection,
-	instructions string,
-	history []agent.HistoryEntry,
-) (model.Response, error) {
-	if _, err := s.readCatalog(ctx, extensionID, runtimeID, reference); err != nil {
-		return model.Response{}, err
-	}
-	response, err := s.modelRequester.Request(ctx, selection, instructions, history)
-	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			return model.Response{}, fmt.Errorf("request configured model: %w", err)
-		}
-		code := modelFailedCode
-		if failure, found := errors.AsType[RequestFailure](err); found {
-			switch failure.SelectionCode() {
-			case selectionCodeNotFound, selectionCodeReasoningUnsupported:
-				code = modelUnavailableCode
-			case selectionCodeCredentialUnavailable:
-				code = credentialUnavailableCode
-			default:
-				code = internalCode
-			}
-		}
-		return model.Response{}, &ContextError{code: code, cause: fmt.Errorf("request configured model: %w", err)}
-	}
-	if validationErr := s.validateResult(ctx, extensionID, runtimeID, reference); validationErr != nil {
-		return model.Response{}, validationErr
-	}
-	return response, nil
 }
 
 // AppendExtension persists one caller-owned hidden entry under the issued session incarnation.
@@ -367,37 +257,20 @@ func (s *Service) boundSession(
 	ctx context.Context,
 	extensionID, runtimeID string,
 	reference extension.ContextRef,
-) (SessionIdentity, error) {
+) (contextcompaction.SessionIdentity, error) {
 	if err := ctx.Err(); err != nil {
-		return SessionIdentity{}, fmt.Errorf("complete extension context operation: %w", err)
+		return contextcompaction.SessionIdentity{}, fmt.Errorf("complete extension context operation: %w", err)
 	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	issued, err := s.validateContextLocked(extensionID, runtimeID, reference)
 	if err != nil {
-		return SessionIdentity{}, err
+		return contextcompaction.SessionIdentity{}, err
 	}
-	return SessionIdentity{
+	return contextcompaction.SessionIdentity{
 		ID: issued.context.SessionID, WorkingDirectory: issued.context.WorkingDirectory,
 		Incarnation: issued.incarnation,
 	}, nil
-}
-
-// readCatalog validates admission and snapshots the late-bound catalog dependency.
-func (s *Service) readCatalog(
-	ctx context.Context,
-	extensionID, runtimeID string,
-	reference extension.ContextRef,
-) (Catalog, error) {
-	if err := s.validateResult(ctx, extensionID, runtimeID, reference); err != nil {
-		return nil, err
-	}
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	if s.catalog == nil {
-		return nil, &ContextError{code: internalCode, cause: errors.New("provider catalog is not bound")}
-	}
-	return s.catalog, nil
 }
 
 // validateResult checks cancellation and binding before a result leaves the capability owner.

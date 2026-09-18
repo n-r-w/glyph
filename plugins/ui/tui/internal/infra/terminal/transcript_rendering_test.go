@@ -74,7 +74,7 @@ func TestModelRendersProvisionalToolCallNameFieldsAndPrefix(t *testing.T) {
 			Fields: []presentation.ToolCallField{
 				{Name: "path", Value: mo.Some[any]("file.txt"), Prefix: mo.None[string]()},
 				{Name: "query", Value: mo.None[any](), Prefix: mo.Some("hel")},
-			}, Arguments: nil,
+			}, ArgumentsJSON: nil,
 		},
 	}
 	// Act by rendering the pending call.

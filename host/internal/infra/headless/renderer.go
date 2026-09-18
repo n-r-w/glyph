@@ -65,8 +65,8 @@ func (r *Renderer) PublishSessionEntry(
 	if r == nil {
 		return nil, errors.New("headless renderer is required")
 	}
-	if entry.ID == "" || entry.ExtensionMessage.IsNone() {
-		return nil, errors.New("committed extension message is required")
+	if entry.ID == "" || entry.ExtensionMessage.IsSome() == entry.Compaction.IsSome() {
+		return nil, errors.New("committed extension message or compaction entry is required")
 	}
 	return func(context.Context) error { return nil }, nil
 }

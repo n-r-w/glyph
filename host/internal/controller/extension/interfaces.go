@@ -14,10 +14,8 @@ import (
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock_test.go -package=extension
 
-// ContextOperations supplies bound catalog reads without transport policy.
-type ContextOperations interface {
-	// ValidateContext rejects a reference not issued to the connected runtime or no longer active.
-	ValidateContext(extensionID, runtimeID string, reference extensiondomain.ContextRef) error
+// ModelOperations supplies extension-facing catalog reads and configured model requests.
+type ModelOperations interface {
 	// ReadModels returns a defensive provider-neutral catalog after binding revalidation.
 	ReadModels(
 		ctx context.Context,
@@ -39,6 +37,12 @@ type ContextOperations interface {
 		instructions string,
 		history []agent.HistoryEntry,
 	) (model.Response, error)
+}
+
+// ContextOperations supplies binding and session operations without transport policy.
+type ContextOperations interface {
+	// ValidateContext rejects a reference not issued to the connected runtime or no longer active.
+	ValidateContext(extensionID, runtimeID string, reference extensiondomain.ContextRef) error
 	// AppendExtension persists one hidden entry under the bound session incarnation.
 	AppendExtension(
 		ctx context.Context,
@@ -178,6 +182,13 @@ type SelectionFailure interface {
 	error
 	// ModelSelectionCode returns the category without replacing complete error text.
 	ModelSelectionCode() string
+}
+
+// ModelFailure exposes the closed extension model-operation failure category.
+type ModelFailure interface {
+	error
+	// ModelCode returns the category without replacing the complete error text.
+	ModelCode() string
 }
 
 // ContextFailure exposes the closed context-operation failure category.

@@ -230,8 +230,8 @@ type ToolCall struct {
 	ID string
 	// Name identifies the requested tool.
 	Name string
-	// Arguments contains the finalized tool input.
-	Arguments map[string]any
+	// Arguments contains the exact validated finalized tool input.
+	Arguments ToolCallArguments
 }
 
 // ToolCallPreviewFieldKind identifies whether one preview field is complete or still streaming.

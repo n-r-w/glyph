@@ -27,6 +27,8 @@ const (
 	treeEntryExtensionSearchText = "extension"
 	// treeEntryBranchSummarySearchText identifies branch summaries during search.
 	treeEntryBranchSummarySearchText = "branch summary"
+	// treeEntryCompactionSearchText identifies context compactions during search.
+	treeEntryCompactionSearchText = "context compaction"
 )
 
 // SummaryMode identifies branch-summary behavior for tree navigation.
@@ -103,6 +105,8 @@ const (
 	TreeEntryExtension
 	// TreeEntryBranchSummary identifies an abandoned-branch summary.
 	TreeEntryBranchSummary
+	// TreeEntryCompaction identifies an active-context compaction marker.
+	TreeEntryCompaction
 	// TreeEntryExtensionMessage identifies a model-visible extension message.
 	TreeEntryExtensionMessage
 )
@@ -488,6 +492,8 @@ func treeEntryKindText(kind TreeEntryKind) string {
 		return treeEntryExtensionSearchText
 	case TreeEntryBranchSummary:
 		return treeEntryBranchSummarySearchText
+	case TreeEntryCompaction:
+		return treeEntryCompactionSearchText
 	case TreeEntryUnspecified:
 		return unknownTreeValue
 	default:

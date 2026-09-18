@@ -70,6 +70,16 @@ func mapSessionEntries(entries []SessionEntry) ([]*programmaticv1.SessionEntry, 
 				return nil, fmt.Errorf("map session entry %d: %w", index, err)
 			}
 			wire.SetBranchSummary(mapped)
+		case HistoryEntryCompaction:
+			compaction, present := entry.Compaction.Get()
+			if !present {
+				return nil, fmt.Errorf("map session entry %d: missing compaction payload", index)
+			}
+			mapped, err := mapCompaction(compaction)
+			if err != nil {
+				return nil, fmt.Errorf("map session entry %d: %w", index, err)
+			}
+			wire.SetCompaction(mapped)
 		case HistoryEntryUnspecified:
 			return nil, fmt.Errorf("map session entry %d: unsupported kind %d", index, entry.Kind)
 		default:
@@ -126,6 +136,8 @@ func mapHistoryEntries(entries []HistoryEntry) ([]*programmaticv1.HistoryEntry, 
 			return nil, fmt.Errorf("map history entry %d: unspecified entry kind", index)
 		case HistoryEntryBranchSummary:
 			return nil, fmt.Errorf("map history entry %d: branch summary is not a direct history payload", index)
+		case HistoryEntryCompaction:
+			return nil, fmt.Errorf("map history entry %d: compaction is not a direct history payload", index)
 		default:
 			return nil, fmt.Errorf("map history entry %d: unknown entry kind %d", index, entry.Kind)
 		}
@@ -229,17 +241,14 @@ func mapToolCallPreview(preview ToolCallPreview) (*programmaticv1.ToolCallPrevie
 	return mapped, nil
 }
 
-func mapFinalToolCall(call FinalToolCall) (*programmaticv1.FinalToolCall, error) {
-	arguments, err := structpb.NewStruct(call.Arguments)
-	if err != nil {
-		return nil, fmt.Errorf("map final tool call arguments: %w", err)
-	}
+// mapFinalToolCall preserves finalized argument JSON in the public payload.
+func mapFinalToolCall(call FinalToolCall) *programmaticv1.FinalToolCall {
 	mapped := new(programmaticv1.FinalToolCall)
 	mapped.SetCallId(call.CallID)
 	mapped.SetName(call.Name)
 	mapped.SetPosition(int64(call.Position))
-	mapped.SetArguments(arguments)
-	return mapped, nil
+	mapped.SetArgumentsJson(call.ArgumentsJSON)
+	return mapped
 }
 
 func mapToolProgress(progress ToolProgress) (*programmaticv1.ToolProgress, error) {
@@ -372,11 +381,7 @@ func mapModelResponseItem(item ModelResponseContent, index int) (*programmaticv1
 		if !present {
 			return nil, fmt.Errorf("map model response content %d: tool call is missing", index)
 		}
-		call, err := mapFinalToolCall(callValue)
-		if err != nil {
-			return nil, fmt.Errorf("map model response content %d: %w", index, err)
-		}
-		mapped.SetToolCall(call)
+		mapped.SetToolCall(mapFinalToolCall(callValue))
 	case ModelResponseContentUnspecified:
 		return nil, fmt.Errorf("map model response content %d: unspecified content kind", index)
 	default:

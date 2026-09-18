@@ -158,6 +158,7 @@ func TestRepositoryReopensListsKnownSessionAndRejectsUnknownID(t *testing.T) {
 				ToolResult:       mo.None[session.ToolResult](),
 				Extension:        mo.None[session.ExtensionEnvelope](),
 				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				Compaction:       mo.None[session.CompactionEntry](),
 				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			},
 		),
@@ -241,6 +242,7 @@ func TestApplyRejectsStoragePathOutsideProjectDirectory(t *testing.T) {
 				ToolResult:       mo.None[session.ToolResult](),
 				Extension:        mo.None[session.ExtensionEnvelope](),
 				BranchSummary:    mo.None[session.BranchSummaryEntry](),
+				Compaction:       mo.None[session.CompactionEntry](),
 				ExtensionMessage: mo.None[session.ExtensionMessage](),
 			},
 		),
@@ -266,7 +268,8 @@ func sessionInformationEntry(id string, createdAt time.Time, name string) sessio
 		Information:   mo.Some(session.Information{Name: name}),
 		Extension:     mo.None[session.ExtensionEnvelope](),
 		EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }
 

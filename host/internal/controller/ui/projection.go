@@ -109,7 +109,7 @@ func projectModelResponseContent(
 		return mo.Some(ModelResponseContent{
 			Kind: ModelContentKind(0), Text: "",
 			ToolCall: mo.Some(FinalToolCall{
-				CallID: call.ID, Name: call.Name, Position: position, Arguments: call.Clone().Arguments,
+				CallID: call.ID, Name: call.Name, Position: position, ArgumentsJSON: call.Arguments.Bytes(),
 			}),
 		}), nil
 	}
@@ -174,6 +174,7 @@ func ProjectSessionEntry(entry session.Entry, position int) (SessionEntry, bool,
 			Model:            mo.None[ModelResponse](),
 			ToolResult:       mo.None[agent.ToolResult](),
 			BranchSummary:    mo.None[BranchSummary](),
+			Compaction:       mo.None[Compaction](),
 			ExtensionMessage: mo.None[ExtensionMessage](),
 		}, true, nil
 	}
@@ -185,7 +186,8 @@ func ProjectSessionEntry(entry session.Entry, position int) (SessionEntry, bool,
 		return SessionEntry{
 			ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: SessionEntryModel,
 			User: mo.None[model.Message](), Model: mo.Some(mapped), ToolResult: mo.None[agent.ToolResult](),
-			BranchSummary: mo.None[BranchSummary](), ExtensionMessage: mo.None[ExtensionMessage](),
+			BranchSummary: mo.None[BranchSummary](), Compaction: mo.None[Compaction](),
+			ExtensionMessage: mo.None[ExtensionMessage](),
 		}, true, nil
 	}
 	if result, present := entry.ToolResult.Get(); present {
@@ -199,6 +201,7 @@ func ProjectSessionEntry(entry session.Entry, position int) (SessionEntry, bool,
 				result.Clone(),
 			),
 			BranchSummary:    mo.None[BranchSummary](),
+			Compaction:       mo.None[Compaction](),
 			ExtensionMessage: mo.None[ExtensionMessage](),
 		}, true, nil
 	}
@@ -207,10 +210,22 @@ func ProjectSessionEntry(entry session.Entry, position int) (SessionEntry, bool,
 			ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: SessionEntryExtensionMessage,
 			User: mo.None[model.Message](), Model: mo.None[ModelResponse](),
 			ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.None[BranchSummary](),
-			ExtensionMessage: mo.Some(ExtensionMessage{
+			Compaction: mo.None[Compaction](), ExtensionMessage: mo.Some(ExtensionMessage{
 				ExtensionID: message.ExtensionID, EntryType: message.EntryType,
 				Text: message.Text, Visibility: message.Visibility,
 			}),
+		}, true, nil
+	}
+	if compaction, present := entry.Compaction.Get(); present {
+		return SessionEntry{
+			ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: SessionEntryCompaction,
+			User: mo.None[model.Message](), Model: mo.None[ModelResponse](),
+			ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.None[BranchSummary](),
+			Compaction: mo.Some(Compaction{
+				Summary: compaction.Summary, FirstKeptEntryID: compaction.FirstKeptEntryID,
+				Source: compaction.Source, EstimatedCost: compaction.EstimatedCost,
+				Details: compaction.Clone().Details,
+			}), ExtensionMessage: mo.None[ExtensionMessage](),
 		}, true, nil
 	}
 	if summary, present := entry.BranchSummary.Get(); present {
@@ -221,7 +236,7 @@ func ProjectSessionEntry(entry session.Entry, position int) (SessionEntry, bool,
 			BranchSummary: mo.Some(BranchSummary{
 				Summary: summary.Summary, FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
 				Source: summary.Source, EstimatedCost: summary.EstimatedCost,
-			}), ExtensionMessage: mo.None[ExtensionMessage](),
+			}), Compaction: mo.None[Compaction](), ExtensionMessage: mo.None[ExtensionMessage](),
 		}, true, nil
 	}
 
@@ -235,7 +250,8 @@ func ProjectSessionTreeEntry(entry session.Entry, label string) (SessionTreeEntr
 		Kind: SessionTreeEntryUnspecified,
 		User: mo.None[model.Message](), Model: mo.None[ModelResponse](),
 		ToolResult: mo.None[agent.ToolResult](), Extension: mo.None[ExtensionEntry](),
-		BranchSummary: mo.None[BranchSummary](), ExtensionMessage: mo.None[ExtensionMessage](),
+		BranchSummary: mo.None[BranchSummary](), Compaction: mo.None[Compaction](),
+		ExtensionMessage: mo.None[ExtensionMessage](),
 	}
 	if extension, present := entry.Extension.Get(); present {
 		mapped.Kind = SessionTreeEntryExtension
@@ -263,6 +279,7 @@ func ProjectSessionTreeEntry(entry session.Entry, label string) (SessionTreeEntr
 	mapped.Model = public.Model
 	mapped.ToolResult = public.ToolResult
 	mapped.BranchSummary = public.BranchSummary
+	mapped.Compaction = public.Compaction
 	mapped.ExtensionMessage = public.ExtensionMessage
 	switch public.Kind {
 	case SessionEntryUser:
@@ -273,6 +290,8 @@ func ProjectSessionTreeEntry(entry session.Entry, label string) (SessionTreeEntr
 		mapped.Kind = SessionTreeEntryToolResult
 	case SessionEntryBranchSummary:
 		mapped.Kind = SessionTreeEntryBranchSummary
+	case SessionEntryCompaction:
+		mapped.Kind = SessionTreeEntryCompaction
 	case SessionEntryExtensionMessage:
 		mapped.Kind = SessionTreeEntryExtensionMessage
 	default:

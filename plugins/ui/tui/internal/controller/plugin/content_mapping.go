@@ -167,12 +167,12 @@ func mapToolCallPreview(preview *uiv1.ToolCallPreview) (ToolCallState, error) {
 		fields[index] = mapped
 	}
 	return ToolCallState{
-		CallID:      preview.GetCallId(),
-		Name:        preview.GetName(),
-		Position:    int(preview.GetPosition()),
-		Provisional: preview.GetProvisional(),
-		Fields:      fields,
-		Arguments:   nil,
+		CallID:        preview.GetCallId(),
+		Name:          preview.GetName(),
+		Position:      int(preview.GetPosition()),
+		Provisional:   preview.GetProvisional(),
+		Fields:        fields,
+		ArgumentsJSON: nil,
 	}, nil
 }
 

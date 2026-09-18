@@ -16,6 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
@@ -86,6 +87,50 @@ func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(
 	)
 }
 
+// TestNavigationRebuildsCompactedContextForSelectedBranch verifies branches before and after a compaction marker.
+func TestNavigationRebuildsCompactedContextForSelectedBranch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one active branch with a persisted compaction marker and a later message.
+	controller := gomock.NewController(t)
+	repository := NewMockRepository(controller)
+	entries := []session.Entry{
+		compactionUserEntry("u1", mo.None[string](), "old"),
+		compactionUserEntry("u2", mo.Some("u1"), "kept"),
+		compactionMarkerEntry("c1", "u2", "summary", "u2"),
+		compactionUserEntry("u3", mo.Some("c1"), "new"),
+	}
+	tree, err := session.NewTree(entries, mo.Some("u3"), nil)
+	require.NoError(t, err)
+	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(
+		ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil,
+	).Times(2)
+	service := New(repository, nil, nil, nil, "/project")
+	service.active = LoadedSession{
+		Header:      session.Header{ID: "session", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project"},
+		StoragePath: "/sessions/session.jsonl", Tree: tree,
+		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
+	}
+	service.history = storedHistoryFromEntries(tree.ActiveBranch())
+	service.contextHistory = storedCompactedHistoryFromEntries(tree.ActiveBranch())
+
+	// Act by navigating before the marker and then to the marker itself.
+	_, err = commitNavigationForTest(t, service, t.Context(), navigationCommit("u3", "u1"))
+	require.NoError(t, err)
+	before := service.Snapshot()
+	_, err = commitNavigationForTest(t, service, t.Context(), navigationCommit("u1", "c1"))
+	require.NoError(t, err)
+	after := service.Snapshot()
+
+	// Assert only the selected branch's compaction markers affect model context.
+	require.Len(t, before, 1)
+	require.Equal(t, "old", before[0].User.MustGet().Text(""))
+	require.Len(t, after, 2)
+	require.Contains(t, after[0].User.MustGet().Text(""), "summary")
+	require.Equal(t, "kept", after[1].User.MustGet().Text(""))
+	require.Len(t, service.ClientSnapshot(), 2)
+}
+
 // TestOverlappingMessageAppendContinuesFromNavigationCommit verifies another extension waits for publication ordering.
 func TestOverlappingMessageAppendContinuesFromNavigationCommit(t *testing.T) {
 	t.Parallel()
@@ -98,7 +143,7 @@ func TestOverlappingMessageAppendContinuesFromNavigationCommit(t *testing.T) {
 	createdAt := time.Unix(1, 0).UTC()
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
-	expected := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	expected := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	service.contextIdentity.Store(&expected)
 	calls := 0
 	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -270,7 +315,7 @@ func TestExtensionStateIsCoherentDuringNavigation(t *testing.T) {
 	require.NoError(t, err)
 	service := New(repository, nil, nil, nil, "/project")
 	service.active = commitNavigationLoadedSession(tree, createdAt)
-	expected := extensioncontext.SessionIdentity{
+	expected := contextcompaction.SessionIdentity{
 		ID: "session", WorkingDirectory: "/project", Incarnation: 1,
 	}
 	service.contextIdentity.Store(&expected)

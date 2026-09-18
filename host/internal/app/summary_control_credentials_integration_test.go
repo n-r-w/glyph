@@ -78,7 +78,12 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				}, Provider: provider, CredentialChecker: credentials, Authentication: nil,
 			}}, selection)
 			require.NoError(t, err)
-			service := sessiontree.New(active, models, modelexecution.New(models), extensions)
+			service := sessiontree.New(
+				active,
+				models,
+				modelexecution.New(models, modelexecution.NewMockConversationContext(controller)),
+				extensions,
+			)
 			contexts := sessiontree.NewMockContextIssuer(controller)
 			contexts.EXPECT().IssueContext("control").DoAndReturn(func(extensionID string) (extension.Context, error) {
 				instance, _ := extensions.ContextRuntime(extensionID)

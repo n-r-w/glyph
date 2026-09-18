@@ -205,10 +205,7 @@ func (s *Service) Execute(
 	call model.ToolCall,
 	handleProgress tool.ProgressHandler,
 ) (agent.ToolResult, error) {
-	argumentsJSON, err := json.Marshal(call.Arguments, json.Deterministic(true))
-	if err != nil {
-		return agent.ToolResult{}, fmt.Errorf("encode tool %q arguments: %w", call.Name, err)
-	}
+	argumentsJSON := call.Arguments.Bytes()
 	s.mutex.RLock()
 	accepted, exists := s.owners[call.Name]
 	s.mutex.RUnlock()

@@ -82,6 +82,8 @@ type TreeEntry struct {
 	ToolResult mo.Option[session.ToolResult]
 	// BranchSummary contains summary text when present.
 	BranchSummary mo.Option[string]
+	// Compaction contains one persisted active-context compaction marker.
+	Compaction mo.Option[session.CompactionEntry]
 	// Extension identifies hidden extension state without its bytes.
 	Extension mo.Option[ExtensionIdentity]
 	// ExtensionMessage contains model-visible extension message text and client visibility.

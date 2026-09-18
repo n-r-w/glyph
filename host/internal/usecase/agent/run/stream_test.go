@@ -146,7 +146,7 @@ func TestApplyToolCallStreamEventReplacesPreviewWithFinalCall(t *testing.T) {
 		ToolCall: mo.Some(model.ToolCall{
 			ID:        "call-1",
 			Name:      "read",
-			Arguments: map[string]any{"path": "file.txt"},
+			Arguments: testToolCallArguments(`{"path":"file.txt"}`),
 		}),
 	}
 	require.NoError(t, end.applyToolCallTo(previews))
@@ -391,7 +391,7 @@ func TestValidateStreamEventShapeCoversEveryKind(t *testing.T) {
 	call := model.ToolCall{
 		ID:        "call",
 		Name:      "tool",
-		Arguments: map[string]any{"zero": float64(0), "empty": "", "false": false, "null": nil},
+		Arguments: testToolCallArguments(`{"zero":0,"empty":"","false":false,"null":null}`),
 	}
 	response := model.Response{
 		Content: nil, ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](),
@@ -506,7 +506,7 @@ func TestValidateTerminalContentPreservesValidOptionalValues(t *testing.T) {
 	call := model.ToolCall{
 		ID:        "call",
 		Name:      "tool",
-		Arguments: map[string]any{"zero": float64(0), "empty": "", "false": false, "null": nil},
+		Arguments: testToolCallArguments(`{"zero":0,"empty":"","false":false,"null":null}`),
 	}
 	tests := []struct {
 		name    string

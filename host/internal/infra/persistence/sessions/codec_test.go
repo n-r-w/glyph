@@ -11,6 +11,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -28,7 +29,10 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 
 	// Arrange terminal model content, provider context, tool identity, usage, and tool output.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	call := model.ToolCall{ID: "call-1", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
+	call := model.ToolCall{
+		ID: "call-1", Name: "read",
+		Arguments: testToolCallArguments(`{ "path":"\u0069nput.txt", "number":1.00 }`),
+	}
 	response := model.Response{
 		Content: []model.Content{
 			{
@@ -457,6 +461,34 @@ func TestDecodeModelContentShape(t *testing.T) {
 	}
 }
 
+// TestDecodeModelContentRejectsInvalidToolCallArgumentsJSON verifies restored arguments are validated at storage input.
+func TestDecodeModelContentRejectsInvalidToolCallArgumentsJSON(t *testing.T) {
+	t.Parallel()
+
+	for name, arguments := range map[string][]byte{
+		"malformed":        []byte(`{"path":`),
+		"top-level array":  []byte(`[]`),
+		"top-level scalar": []byte(`1`),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange a persisted finalized tool call with rejected JSON bytes.
+			record := &modelContentRecord{
+				Kind: model.ContentToolCall, Text: nil, ProviderContext: nil,
+				ToolCall: &toolCallRecord{ID: "call", Name: "tool", Arguments: arguments},
+			}
+
+			// Act by decoding the persisted model content.
+			_, err := decodeModelContent(record)
+
+			// Assert the persistence boundary rejects the value and preserves the parser cause.
+			require.Error(t, err)
+			assert.ErrorContains(t, err, `decode tool call "call" arguments`)
+			assert.ErrorContains(t, err, "json")
+		})
+	}
+}
+
 func modelContentShape(kind model.ContentKind, mask int) model.Content {
 	content := model.Content{
 		Kind: kind, Text: mo.None[string](), Final: true,
@@ -475,7 +507,7 @@ func modelContentShape(kind model.ContentKind, mask int) model.Content {
 	}
 	if mask&4 != 0 {
 		content.ToolCall = mo.Some(model.ToolCall{
-			ID: "call", Name: "tool", Arguments: map[string]any{"key": "value"},
+			ID: "call", Name: "tool", Arguments: testToolCallArguments(`{"key":"value"}`),
 		})
 	}
 	return content
@@ -494,7 +526,7 @@ func modelContentRecordShape(kind model.ContentKind, mask int) modelContentRecor
 	}
 	if mask&4 != 0 {
 		record.ToolCall = &toolCallRecord{
-			ID: "call", Name: "tool", Arguments: map[string]any{"key": "value"},
+			ID: "call", Name: "tool", Arguments: []byte(`{"key":"value"}`),
 		}
 	}
 	return record

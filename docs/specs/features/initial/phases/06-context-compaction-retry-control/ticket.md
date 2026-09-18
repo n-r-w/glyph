@@ -150,7 +150,7 @@ None.
 
 ## Technical Supplement
 
-The [approved technical solution](solution.md) defines package ownership, compaction persistence and projection, retry coordination, stream reset, and verification. Implementation requires a successful dry run and separate implementation authorization.
+The [approved technical solution](solution.md) defines package ownership, compaction persistence and projection, retry coordination, stream reset, and verification. Its [tool-call argument representation](solution.md#tool-call-argument-representation) defines the single JSON value used for exact argument sizing and the migration of its producers and consumers. Implementation is authorized and in progress; [implementation evidence](solution.md#implementation-evidence) records completed units and pending work.
 
 ## References
 

@@ -49,7 +49,7 @@ func (call ToolCallState) Clone() ToolCallState {
 	for index := range call.Fields {
 		call.Fields[index] = call.Fields[index].Clone()
 	}
-	call.Arguments = cloneJSONMap(call.Arguments)
+	call.ArgumentsJSON = bytes.Clone(call.ArgumentsJSON)
 	return call
 }
 

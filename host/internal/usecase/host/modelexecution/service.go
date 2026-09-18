@@ -10,7 +10,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
@@ -18,18 +18,20 @@ import (
 type Service struct {
 	// catalog resolves logical model selections to raw provider bindings.
 	catalog CatalogResolver
+	// conversationContext observes completed delivered agent responses.
+	conversationContext ConversationContext
 }
 
 var (
-	_ agentrun.ModelRuntime           = (*Service)(nil)
-	_ agentrun.ModelProvider          = (*Service)(nil)
-	_ extensioncontext.ModelRequester = (*Service)(nil)
-	_ sessiontree.ModelRequester      = (*Service)(nil)
+	_ agentrun.ModelRuntime          = (*Service)(nil)
+	_ agentrun.ModelProvider         = (*Service)(nil)
+	_ extensionmodels.ModelRequester = (*Service)(nil)
+	_ sessiontree.ModelRequester     = (*Service)(nil)
 )
 
 // New creates the logical model-execution owner.
-func New(catalog CatalogResolver) *Service {
-	return &Service{catalog: catalog}
+func New(catalog CatalogResolver, conversationContext ConversationContext) *Service {
+	return &Service{catalog: catalog, conversationContext: conversationContext}
 }
 
 // Snapshot returns the active logical model snapshot with this service as its provider.
@@ -72,7 +74,18 @@ func (s *Service) Stream(
 		History:         ownedHistory,
 		Tools:           request.Tools,
 	}, func(event StreamEvent) error {
-		return handle(logicalStreamEvent(event))
+		if handleErr := handle(logicalStreamEvent(event)); handleErr != nil {
+			return handleErr
+		}
+		if event.Kind == StreamEventDone || event.Kind == StreamEventError {
+			if response, present := event.Response.Get(); present {
+				s.conversationContext.ObserveCompletedConversation(ProviderRequest{
+					Instructions: request.Instructions, Model: binding.Model,
+					ReasoningChoice: binding.ReasoningChoice, History: ownedHistory, Tools: request.Tools,
+				}, response)
+			}
+		}
+		return nil
 	})
 }
 

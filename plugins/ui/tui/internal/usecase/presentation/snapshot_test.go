@@ -37,7 +37,7 @@ func TestDisplaySnapshotIsDetached(t *testing.T) {
 		Fields: []ToolCallField{
 			{Name: "path", Value: mo.Some[any](map[string]any{"nested": []any{"original"}}), Prefix: mo.None[string]()},
 		},
-		Arguments: nil,
+		ArgumentsJSON: nil,
 	}}
 	first := displaySnapshot(t, service)
 

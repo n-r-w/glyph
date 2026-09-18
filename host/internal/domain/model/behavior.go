@@ -156,9 +156,8 @@ func (source ProviderContextSource) CompatibleWith(target ProviderContextSource)
 	return sourceHasKey && targetHasKey && sourceKey != "" && sourceKey == targetKey
 }
 
-// Clone returns a deep copy of the tool call.
+// Clone returns a detached copy of the immutable tool call.
 func (call ToolCall) Clone() ToolCall {
-	call.Arguments = cloneJSONMap(call.Arguments)
 	return call
 }
 

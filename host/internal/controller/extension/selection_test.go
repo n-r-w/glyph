@@ -24,6 +24,7 @@ func TestSelectionRequestUsesDirectSelectionPort(t *testing.T) {
 	// Arrange: provide a valid issued context and one committed result with ordered diagnostics.
 	controller := gomock.NewController(t)
 	contexts := NewMockContextOperations(controller)
+	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
 	selection := NewMockModelSelection(controller)
 	preparedSelection := NewMockPreparedSelection(controller)
@@ -48,7 +49,7 @@ func TestSelectionRequestUsesDirectSelectionPort(t *testing.T) {
 		Source: nil,
 	})
 	preparedSelection.EXPECT().Release()
-	service := New(contexts, runtime, "extension", "runtime")
+	service := New(models, contexts, runtime, "extension", "runtime")
 	service.BindSelection(selection)
 	request := new(extensionpb.ExtensionRequest)
 	request.SetSelectModel(extensionpb.SelectModelRequest_builder{
@@ -216,7 +217,13 @@ func TestSelectionRequestRejectsMissingRequiredFields(t *testing.T) {
 
 	// Arrange: omit the required model identifier from a complete context reference.
 	controller := gomock.NewController(t)
-	service := New(NewMockContextOperations(controller), NewMockRuntimeOperations(controller), "extension", "runtime")
+	service := New(
+		NewMockModelOperations(controller),
+		NewMockContextOperations(controller),
+		NewMockRuntimeOperations(controller),
+		"extension",
+		"runtime",
+	)
 	service.BindSelection(NewMockModelSelection(controller))
 	request := new(extensionpb.ExtensionRequest)
 	request.SetSelectModel(extensionpb.SelectModelRequest_builder{

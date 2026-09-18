@@ -6,9 +6,8 @@ import (
 
 	"github.com/samber/mo"
 
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extensioncontext
@@ -24,25 +23,25 @@ type RuntimeState interface {
 // SessionState supplies one atomic active-session identity snapshot.
 type SessionState interface {
 	// ContextSession returns durable identity, project directory, and process-local incarnation.
-	ContextSession() SessionIdentity
+	ContextSession() contextcompaction.SessionIdentity
 	// AppendExtension appends one entry only while the expected session incarnation remains active.
 	AppendExtension(
 		context.Context,
-		SessionIdentity,
+		contextcompaction.SessionIdentity,
 		session.ExtensionEnvelope,
 		ContextCommitGuard,
 	) (session.Entry, error)
 	// AppendExtensionMessage persists and publishes one message under the bound session incarnation.
 	AppendExtensionMessage(
 		context.Context,
-		SessionIdentity,
+		contextcompaction.SessionIdentity,
 		session.ExtensionMessage,
 		ContextCommitGuard,
 	) (session.Entry, error)
 	// ExtensionState returns one coherent filtered active-branch snapshot.
-	ExtensionState(context.Context, SessionIdentity, string) (SessionSnapshot, error)
+	ExtensionState(context.Context, contextcompaction.SessionIdentity, string) (SessionSnapshot, error)
 	// ProtectContextCommit validates and protects the expected session before runtime while commit runs.
-	ProtectContextCommit(context.Context, SessionIdentity, ContextCommitGuard, func() error) error
+	ProtectContextCommit(context.Context, contextcompaction.SessionIdentity, ContextCommitGuard, func() error) error
 }
 
 // ContextCommitGuard acquires runtime validity across one owning session commit.
@@ -56,40 +55,4 @@ type SessionSnapshot struct {
 	ActiveLeafID mo.Option[string]
 	// Entries contains matching extension entries in root-first branch order.
 	Entries []session.Entry
-}
-
-// SessionIdentity distinguishes active incarnations of the same durable session.
-type SessionIdentity struct {
-	// ID identifies the durable active session.
-	ID string
-	// WorkingDirectory identifies the session project.
-	WorkingDirectory string
-	// Incarnation changes on every successful active-session replacement.
-	Incarnation uint64
-}
-
-// Catalog supplies provider-neutral descriptors and active selection.
-type Catalog interface {
-	// Models returns defensive descriptors in configured order.
-	Models() []model.Descriptor
-	// ActiveSelection returns the complete active selection.
-	ActiveSelection() model.Selection
-}
-
-// ModelRequester executes explicit configured model requests.
-type ModelRequester interface {
-	// Request executes one explicit configured selection without changing active selection.
-	Request(
-		ctx context.Context,
-		selection model.Selection,
-		instructions string,
-		history []agent.HistoryEntry,
-	) (model.Response, error)
-}
-
-// RequestFailure exposes a provider-owned configured-request failure category.
-type RequestFailure interface {
-	error
-	// SelectionCode returns the provider catalog failure code.
-	SelectionCode() string
 }

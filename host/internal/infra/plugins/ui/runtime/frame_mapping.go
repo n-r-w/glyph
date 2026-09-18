@@ -218,6 +218,16 @@ func mapRestoredSessionEntries(entries []controllerui.SessionEntry) ([]*uiv1.Ses
 				return nil, fmt.Errorf("map restored session entry %d: %w", index, err)
 			}
 			wire.SetBranchSummary(mapped)
+		case controllerui.SessionEntryCompaction:
+			compaction, present := entry.Compaction.Get()
+			if !present {
+				return nil, fmt.Errorf("map restored session entry %d: compaction is missing", index)
+			}
+			mapped, err := mapCompaction(compaction)
+			if err != nil {
+				return nil, fmt.Errorf("map restored session entry %d: %w", index, err)
+			}
+			wire.SetCompaction(mapped)
 		}
 		return wire, nil
 	})

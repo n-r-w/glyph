@@ -356,6 +356,33 @@ func TestModelResponsePreservesToolArgumentDecodeCause(t *testing.T) {
 	assert.Contains(t, response.ErrorMessage.OrEmpty(), "unexpected EOF")
 }
 
+// TestModelResponseRejectsNonObjectToolArguments verifies completed SDK calls retain the prior map argument shape.
+func TestModelResponseRejectsNonObjectToolArguments(t *testing.T) {
+	t.Parallel()
+
+	for name, arguments := range map[string]string{"array": `[]`, "scalar": `"value"`} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one completed SDK function call with valid JSON outside the established map shape.
+			encodedArguments, err := json.Marshal(arguments)
+			require.NoError(t, err)
+			payload := []byte(`{"output":[{"type":"function_call","call_id":"call","name":"read","arguments":` +
+				string(encodedArguments) + `}]}`)
+			var sdkResponse responses.Response
+			require.NoError(t, json.Unmarshal(payload, &sdkResponse))
+
+			// Act by converting the terminal SDK response.
+			response, err := modelResponse(sdkResponse, model.OutcomeStop, nil)
+
+			// Assert both conversion outputs contain the complete JSON shape cause.
+			require.Error(t, err)
+			require.ErrorContains(t, err, "unmarshal JSON")
+			require.ErrorContains(t, err, "into Go map[string]interface {}")
+			assert.Contains(t, response.ErrorMessage.OrEmpty(), err.Error())
+		})
+	}
+}
+
 // TestDriverStreamPreservesMalformedReasoningCause verifies reasoning context parser detail reaches both boundaries.
 func TestDriverStreamPreservesMalformedReasoningCause(t *testing.T) {
 	t.Parallel()

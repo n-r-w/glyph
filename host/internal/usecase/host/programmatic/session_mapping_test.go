@@ -105,7 +105,7 @@ func TestMapSessionEntriesProjectsCompletePublicContentWithoutPrivateData(t *tes
 
 	// Arrange complete public content and one private extension entry.
 	createdAt := time.Date(2026, 8, 27, 1, 0, 0, 0, time.UTC)
-	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
+	call := model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{"path":"input.txt"}`)}
 	response := model.Response{
 		Content: []model.Content{
 			{

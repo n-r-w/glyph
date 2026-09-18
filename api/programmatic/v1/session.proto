@@ -229,6 +229,7 @@ message SessionTreeEntry {
     ExtensionEntry extension = 8;
     BranchSummary branch_summary = 9;
     ExtensionMessage extension_message = 10;
+    Compaction compaction = 11;
   }
 }
 // ExtensionEntry identifies one opaque extension entry without private payload bytes.
@@ -268,6 +269,20 @@ message BranchSummary {
   BranchSummarySource source = 4;
   // Persisted estimated cost when available for a model source.
   EstimatedCost estimated_cost = 5;
+}
+
+// Compaction contains one persisted active-context compaction marker.
+message Compaction {
+  // The summary text included in model context.
+  string summary = 1;
+  // The first original entry retained after the summary.
+  string first_kept_entry_id = 2;
+  // The actual producer and its optional model usage.
+  BranchSummarySource source = 3;
+  // Persisted estimated cost when available for a model source.
+  EstimatedCost estimated_cost = 4;
+  // Opaque extension-owned result details when present.
+  bytes details = 5;
 }
 // BranchSummarySource identifies exactly one producer of a summary.
 message BranchSummarySource {
@@ -310,6 +325,7 @@ message SessionEntry {
     ToolResult tool_result = 5;
     BranchSummary branch_summary = 7;
     ExtensionMessage extension_message = 8;
+    Compaction compaction = 9;
   }
   // Estimated cost is present only for a model entry with calculated cost.
   EstimatedCost estimated_cost = 6;

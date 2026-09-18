@@ -1,6 +1,8 @@
 package plugin
 
 import (
+	"bytes"
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -295,20 +297,23 @@ func mapToolCallLifecycle(event *AgentUpdate, lifecycle *uiv1.AgentEvent) error 
 		return nil
 	}
 	call := lifecycle.GetFinalToolCall()
-	if call == nil || call.GetArguments() == nil {
+	if call == nil || !call.HasArgumentsJson() {
 		return errors.New("final tool call is missing")
+	}
+	if err := json.Unmarshal(call.GetArgumentsJson(), new(map[string]any)); err != nil {
+		return fmt.Errorf("final tool call arguments must contain a JSON object or null: %w", err)
 	}
 	if !call.HasCallId() || !call.HasName() || !call.HasPosition() {
 		return errors.New("final tool call scalar is missing")
 	}
 	event.Kind = AgentToolCallFinal
 	event.ToolCall = mo.Some(ToolCallState{
-		CallID:      call.GetCallId(),
-		Name:        call.GetName(),
-		Position:    int(call.GetPosition()),
-		Provisional: false,
-		Fields:      nil,
-		Arguments:   call.GetArguments().AsMap(),
+		CallID:        call.GetCallId(),
+		Name:          call.GetName(),
+		Position:      int(call.GetPosition()),
+		Provisional:   false,
+		Fields:        nil,
+		ArgumentsJSON: bytes.Clone(call.GetArgumentsJson()),
 	})
 	return nil
 }

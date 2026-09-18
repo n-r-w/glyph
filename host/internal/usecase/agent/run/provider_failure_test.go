@@ -138,8 +138,10 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 		Content: []model.Content{
 			testTextItem("partial"),
 			{
-				Kind:            model.ContentToolCall,
-				ToolCall:        mo.Some(model.ToolCall{ID: "unsafe", Name: "read", Arguments: map[string]any{}}),
+				Kind: model.ContentToolCall,
+				ToolCall: mo.Some(
+					model.ToolCall{ID: "unsafe", Name: "read", Arguments: testToolCallArguments(`{}`)},
+				),
 				Text:            mo.None[string](),
 				Final:           false,
 				ProviderContext: mo.None[model.ProviderContext](),

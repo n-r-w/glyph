@@ -263,7 +263,8 @@ func restartSourceTree(t *testing.T) session.Tree {
 					Data:        []byte(`{ "escaped": "\u0061", "opaque": true }`),
 				},
 			),
-			BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+			BranchSummary: mo.None[session.BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		{
 			ID: "message", ParentID: mo.Some("extension"), CreatedAt: createdAt.Add(2 * time.Second),
@@ -276,6 +277,7 @@ func restartSourceTree(t *testing.T) session.Tree {
 				Text:        "exact\ntext",
 				Visibility:  session.ClientVisibilityHidden,
 			}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+			Compaction: mo.None[session.CompactionEntry](),
 		},
 		{
 			ID:            "summary",
@@ -299,7 +301,8 @@ func restartSourceTree(t *testing.T) session.Tree {
 						Usage: mo.None[session.TokenUsage](),
 					}),
 				}, EstimatedCost: mo.None[session.EstimatedCost](),
-			}), ExtensionMessage: mo.None[session.ExtensionMessage](),
+			}), Compaction: mo.None[session.CompactionEntry](),
+			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		},
 		restartUserEntry("target", mo.Some("summary"), "exact target", createdAt.Add(4*time.Second)),
 	}
@@ -322,6 +325,7 @@ func restartUserEntry(id string, parent mo.Option[string], text string, createdA
 		EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult:    mo.None[session.ToolResult](),
 		Extension:     mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 }

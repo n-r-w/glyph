@@ -201,7 +201,11 @@ func buildModelInput(
 				return nil, fmt.Errorf("model content %d has no tool call", index)
 			}
 			if property, custom := grammarInputProperties[call.Name]; custom {
-				value, ok := call.Arguments[property].(string)
+				var decoded map[string]any
+				if err := json.Unmarshal(call.Arguments.Bytes(), &decoded); err != nil {
+					return nil, fmt.Errorf("decode Codex grammar tool %q arguments: %w", call.Name, err)
+				}
+				value, ok := decoded[property].(string)
 				if !ok {
 					return nil, fmt.Errorf("codex grammar tool %q requires string argument %q", call.Name, property)
 				}
@@ -209,12 +213,8 @@ func buildModelInput(
 					call.ID, value, call.Name,
 				))
 			} else {
-				arguments, err := json.Marshal(call.Arguments)
-				if err != nil {
-					return nil, fmt.Errorf("encode Codex tool-call arguments: %w", err)
-				}
 				input = append(input, responses.ResponseInputItemParamOfFunctionCall(
-					string(arguments), call.ID, call.Name,
+					call.Arguments.String(), call.ID, call.Name,
 				))
 			}
 		}

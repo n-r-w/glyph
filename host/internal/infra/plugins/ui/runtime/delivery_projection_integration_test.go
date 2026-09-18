@@ -152,7 +152,7 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 			},
 		),
 	)
-	arguments := map[string]any{"options": map[string]any{"items": []any{"first"}}}
+	arguments := testToolCallArguments(`{ "options":{"items":["\u0066irst"]}, "number":1.00 }`)
 	require.NoError(
 		t,
 		service.DeliverAgent(t.Context(), agent.Event{
@@ -184,15 +184,15 @@ func TestDeliveryMapsToolCallPreviewAndFinalArguments(t *testing.T) {
 	finalCall, present := finalLifecycle.FinalToolCall.Get()
 	require.True(t, present)
 	require.Equal(t, mo.Some("fi"), mappedPreview.Fields[0].Prefix)
+	assert.Equal(t, arguments.Bytes(), finalCall.ArgumentsJSON)
 	require.True(t, mappedPreview.Provisional)
 	previewValue, present := mappedPreview.Fields[1].Value.Get()
 	require.True(t, present)
 	previewValue.(map[string]any)["items"].([]any)[0] = "changed"
-	finalCall.Arguments["options"].(map[string]any)["items"].([]any)[0] = "changed"
+	finalCall.ArgumentsJSON[0] = '['
 	originalPreviewValue, present := preview.Fields[1].Value.Get()
 	require.True(t, present)
 	assert.Equal(t, "first", originalPreviewValue.(map[string]any)["items"].([]any)[0])
-	assert.Equal(t, "first", arguments["options"].(map[string]any)["items"].([]any)[0])
 }
 
 // TestDeliveryFiltersProviderContextFromMessageEnd verifies opaque provider data cannot cross the UI boundary.

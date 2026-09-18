@@ -4,6 +4,7 @@ package sessions
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -275,7 +276,7 @@ func testStatisticsModelEntry(outcome model.Outcome, usage mo.Option[model.Usage
 		content = append(content, model.Content{
 			Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
 			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(model.ToolCall{
-				ID: "call", Name: "tool", Arguments: map[string]any{"index": index},
+				ID: "call", Name: "tool", Arguments: testToolCallArguments(fmt.Sprintf(`{"index":%d}`, index)),
 			}),
 		})
 	}

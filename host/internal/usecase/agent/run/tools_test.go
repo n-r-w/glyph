@@ -30,8 +30,8 @@ func TestServiceRunToolUse(t *testing.T) {
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
 	calls := []model.ToolCall{
-		{ID: "call-1", Name: "first", Arguments: map[string]any{"value": float64(1)}},
-		{ID: "call-2", Name: "second", Arguments: map[string]any{"nested": map[string]any{"ok": true}}},
+		{ID: "call-1", Name: "first", Arguments: testToolCallArguments(`{"value":1}`)},
+		{ID: "call-2", Name: "second", Arguments: testToolCallArguments(`{"nested":{"ok":true}}`)},
 	}
 	firstResponse := model.Response{
 		Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
@@ -224,7 +224,7 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	}).AnyTimes()
 	requestStarted := make(chan struct{})
 	releaseRequest := make(chan struct{})
-	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "file"}}
+	call := model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{"path":"file"}`)}
 	oldProvider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ModelRequest, update StreamHandler) error {
 			assert.Equal(t, oldModel, request.Model)
@@ -319,8 +319,8 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
 	calls := []model.ToolCall{
-		{ID: "failed", Name: "first", Arguments: map[string]any{}},
-		{ID: "succeeded", Name: "second", Arguments: map[string]any{}},
+		{ID: "failed", Name: "first", Arguments: testToolCallArguments(`{}`)},
+		{ID: "succeeded", Name: "second", Arguments: testToolCallArguments(`{}`)},
 	}
 	toolUse := model.Response{
 		Content: []model.Content{testCallItem(calls[0]), testCallItem(calls[1])},
@@ -399,7 +399,7 @@ func TestServiceRunToolProgressDeliveryFailure(t *testing.T) {
 	provider := NewMockModelProvider(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
-	call := model.ToolCall{ID: "delivery", Name: "bash", Arguments: map[string]any{}}
+	call := model.ToolCall{ID: "delivery", Name: "bash", Arguments: testToolCallArguments(`{}`)}
 	response := model.Response{
 		Content: []model.Content{testCallItem(call)},
 		Outcome: mo.Some(

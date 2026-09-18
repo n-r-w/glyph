@@ -36,15 +36,14 @@ func TestSerializeBranchSummaryConversationIncludesExtensionMessage(t *testing.T
 	}
 
 	// Act by serializing abandoned model-visible context.
-	serialized, err := serializeBranchSummaryConversation([]session.Entry{entry})
+	serialized := serializeBranchSummaryConversation([]session.Entry{entry})
 
 	// Assert the exact message enters the same user block independent of client visibility.
-	require.NoError(t, err)
 	assert.Equal(t, "[User]\n| exact\n| message", serialized)
 }
 
 // TestSerializeBranchSummaryConversationPreservesSupportedContent verifies ordered source values are escaped,
-// line-framed, deterministic, and limited to approved model-visible content.
+// line-framed, byte-preserving, and limited to approved model-visible content.
 func TestSerializeBranchSummaryConversationPreservesSupportedContent(t *testing.T) {
 	t.Parallel()
 
@@ -127,7 +126,7 @@ func TestSerializeBranchSummaryConversationPreservesSupportedContent(t *testing.
 							model.ToolCall{
 								ID:        "call<&>",
 								Name:      "tool>name",
-								Arguments: map[string]any{"z": []any{2.0, "<&>"}, "a": map[string]any{"b": true}},
+								Arguments: testToolCallArguments(`{"z":[2.0,"<&>"],"a":{"b":true}}`),
 							},
 						),
 					},
@@ -136,15 +135,12 @@ func TestSerializeBranchSummaryConversationPreservesSupportedContent(t *testing.
 						Text:            mo.None[string](),
 						Final:           true,
 						ProviderContext: mo.None[model.ProviderContext](),
-						ToolCall:        mo.Some(model.ToolCall{ID: "nil", Name: "nil arguments", Arguments: nil}),
-					},
-					{
-						Kind:            model.ContentToolCall,
-						Text:            mo.None[string](),
-						Final:           true,
-						ProviderContext: mo.None[model.ProviderContext](),
 						ToolCall: mo.Some(
-							model.ToolCall{ID: "empty", Name: "empty arguments", Arguments: map[string]any{}},
+							model.ToolCall{
+								ID:        "empty",
+								Name:      "empty arguments",
+								Arguments: testToolCallArguments(`{}`),
+							},
 						),
 					},
 				},
@@ -234,17 +230,15 @@ func TestSerializeBranchSummaryConversationPreservesSupportedContent(t *testing.
 		},
 	}
 
-	// Act by serializing the complete ordered entry list twice with different semantic map insertion order.
-	serialized, err := serializeBranchSummaryConversation(entries)
-	require.NoError(t, err)
+	// Act by serializing the complete ordered entry list and a variant with different exact argument JSON.
+	serialized := serializeBranchSummaryConversation(entries)
 	reordered := append([]session.Entry(nil), entries...)
 	response := reordered[1].Model.OrEmpty()
 	call := response.Content[3].ToolCall.OrEmpty()
-	call.Arguments = map[string]any{"a": map[string]any{"b": true}, "z": []any{2.0, "<&>"}}
+	call.Arguments = testToolCallArguments(`{"a":{"b":true},"z":[2.0,"<&>"]}`)
 	response.Content[3].ToolCall = mo.Some(call)
 	reordered[1].Model = mo.Some(response)
-	serializedReordered, err := serializeBranchSummaryConversation(reordered)
-	require.NoError(t, err)
+	serializedReordered := serializeBranchSummaryConversation(reordered)
 
 	// Assert transformed dynamic values remain ordered without checking serializer-authored text.
 	orderedValues := []string{
@@ -255,10 +249,7 @@ func TestSerializeBranchSummaryConversationPreservesSupportedContent(t *testing.
 		"| refusal &gt; reason",
 		"| call&lt;&amp;&gt;",
 		"| tool&gt;name",
-		"| {\"a\":{\"b\":true},\"z\":[2,\"&lt;&amp;&gt;\"]}",
-		"| nil\n",
-		"| nil arguments",
-		"| {}",
+		"| {\"z\":[2.0,\"&lt;&amp;&gt;\"],\"a\":{\"b\":true}}",
 		"| empty\n",
 		"| empty arguments",
 		"| {}",
@@ -275,28 +266,8 @@ func TestSerializeBranchSummaryConversationPreservesSupportedContent(t *testing.
 		require.NotEqual(t, -1, position, "missing transformed dynamic value %q", value)
 		searchFrom += position + len(value)
 	}
-	assert.Equal(t, serialized, serializedReordered)
+	assert.NotEqual(t, serialized, serializedReordered)
 	assert.NotContains(t, serialized, "excluded")
-}
-
-// TestSerializeBranchSummaryConversationRejectsInvalidArguments verifies JSON failure rejects the complete transcript.
-func TestSerializeBranchSummaryConversationRejectsInvalidArguments(t *testing.T) {
-	t.Parallel()
-
-	// Arrange a valid block before a tool call with a value that JSON cannot encode.
-	entries := []session.Entry{
-		branchSummaryUserEntry("valid before failure"),
-		branchSummaryModelEntry(
-			model.ToolCall{ID: "call", Name: "tool", Arguments: map[string]any{"invalid": func() {}}},
-		),
-	}
-
-	// Act by serializing the entries.
-	serialized, err := serializeBranchSummaryConversation(entries)
-
-	// Assert no successful partial transcript is returned.
-	require.Error(t, err)
-	assert.Empty(t, serialized)
 }
 
 // branchSummaryUserEntry creates one fully initialized user entry for serializer tests.

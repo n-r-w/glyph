@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 // TestProtectContextCommitAcquiresSessionBeforeRuntime verifies guard order, callback coverage, and release.
@@ -19,7 +19,7 @@ func TestProtectContextCommitAcquiresSessionBeforeRuntime(t *testing.T) {
 
 	// Arrange: install one active incarnation and observe lock and runtime protection during commit.
 	service := New(nil, nil, nil, nil, "/project")
-	expected := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	expected := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	service.contextIdentity.Store(&expected)
 	runtimeProtected := false
 	guard := func() (func(), error) {
@@ -59,8 +59,8 @@ func TestProtectContextCommitRejectsReactivatedDurableID(t *testing.T) {
 
 	// Arrange: retain old A identity while current identity is a later A incarnation.
 	service := New(nil, nil, nil, nil, "/project")
-	oldA := extensioncontext.SessionIdentity{ID: "session-a", WorkingDirectory: "/project", Incarnation: 1}
-	newA := extensioncontext.SessionIdentity{ID: "session-a", WorkingDirectory: "/project", Incarnation: 3}
+	oldA := contextcompaction.SessionIdentity{ID: "session-a", WorkingDirectory: "/project", Incarnation: 1}
+	newA := contextcompaction.SessionIdentity{ID: "session-a", WorkingDirectory: "/project", Incarnation: 3}
 	service.contextIdentity.Store(&newA)
 	guardCalled := false
 	commitCalled := false
@@ -88,7 +88,7 @@ func TestProtectContextCommitPreservesRuntimeGuardFailure(t *testing.T) {
 
 	// Arrange: keep session current and fail runtime protection with a detailed cause.
 	service := New(nil, nil, nil, nil, "/project")
-	expected := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	expected := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	service.contextIdentity.Store(&expected)
 	runtimeErr := errors.New("runtime instance was replaced")
 

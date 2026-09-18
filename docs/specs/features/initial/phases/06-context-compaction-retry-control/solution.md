@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06 Context compaction and retry control
 
-Status: Approved technical solution; independent dry run completed with no unresolved blocker. Ready for separately authorized implementation.
+Status: Approved technical solution; implementation in progress. Units 0, 0.1, and 1 are implemented; see [implementation evidence](#implementation-evidence).
 
 ## Problem Statement
 
@@ -37,7 +37,21 @@ Split the extension controller's consumed operation interfaces into model operat
 
 The assertion import graph is `extensioncontext -> contextcompaction -> modelexecution -> extensionmodels`, with `extensioncontext -> extensionmodels` for context validation. Catalogue and raw model-execution implementations assert the new consumer contracts. `extensionmodels` imports domain values and controller contracts, not the concrete `extensioncontext` package or its `ContextError` implementation. It uses the controller-owned failure interface and owns its model-operation errors. This moves the real model-access responsibility rather than moving an interface alone to hide a cycle.
 
-This proposed graph was checked against the existing package graph with issuer, validator, catalogue, sessions, and runtime assertions included. The implementation still needs a complete import check after extraction. The bundled plugin imports public contracts and SDK packages, never `host/internal`. These [consumer-owned boundaries](../../architecture.md#programming-interfaces) preserve direct Core model execution without a compaction wrapper.
+The implemented graph was checked with issuer, validator, catalogue, sessions, and runtime assertions included. The bundled plugin imports public contracts and SDK packages, never `host/internal`. These [consumer-owned boundaries](../../architecture.md#programming-interfaces) preserve direct Core model execution without a compaction wrapper.
+
+### Tool-call argument representation
+
+Replace `model.ToolCall.Arguments` as `map[string]any` with one dedicated value type that retains the exact validated JSON. Do not retain a parallel parsed map or add an `ArgumentsJSON` field beside the old representation.
+
+- Provider adapters validate finalized argument JSON before constructing the value. The accepted top-level shape remains a JSON object or `null`, matching decoding into `map[string]any`; top-level arrays and non-null scalars fail with the complete JSON decoder cause. Persistence and public input adapters enforce the same shape at their boundaries. Internal consumers use the validated value without repeating JSON validation or converting it through a map.
+- Validation preserves the accepted byte sequence, including whitespace, escapes, and number spelling. It does not canonicalize JSON. Incremental tool-call previews remain separate from finalized arguments.
+- Tool execution retains its tool-schema validation before invoking the tool. A consumer that needs individual argument values parses them locally. Codex grammar-tool conversion is one such consumer; its parsed values do not become shared Core state.
+- Provider adapters that construct arguments from structured tool input serialize once when creating the value. Function-call replay, tool dispatch, persistence, public projections, and summary source serialization preserve the retained argument bytes rather than rebuilding JSON from a map. Encoding an outer transport or storage envelope must preserve those bytes after decoding.
+- Context sizing measures the retained JSON byte length directly. This keeps the [fallback estimate](#deterministic-fallback-estimate) independent of argument parsing and provider wire formats.
+
+Migrate the producers and consumers together, then remove map-based argument APIs, redundant serialization, and argument-map cloning. Keep no compatibility aliases, dual representations, or forwarding APIs. The change belongs before completion of context sizing, not in a later cleanup phase.
+
+Verify byte preservation through real provider input, session persistence and restart, tool dispatch, and provider replay. Use literal JSON fixtures with whitespace, escaped strings, and number spellings that a parse-and-marshal round trip would change. Test invalid finalized JSON at the input boundary, schema-invalid arguments at tool execution, and grammar-tool field extraction. Assert the retained bytes and resulting size against literal expected values, not output from the serializer under test.
 
 ### Active-branch projection and persistence
 
@@ -50,7 +64,9 @@ Keep two different projections:
 
 For the first compaction, the summarized span starts at the beginning of the active model-visible branch. For later compactions, it starts at the previous `first_kept_entry_id`. The preceding summary is a separate input to summary generation. Messages retained by an earlier compaction can therefore enter a later summary without reopening the already summarized original prefix.
 
-The preserved suffix includes the complete model response and all associated tool results at its first tool boundary. Boundaries are entry-based, not byte offsets. A pending tool batch is not a compaction boundary. Model-hidden extension entries and opaque provider reasoning bytes are not exposed to compaction extensions. The preceding compaction result retains its optional extension details for subsequent compaction handlers.
+The preserved suffix includes each complete model-visible tool group produced by Core history projection. A tool result belongs to the model response that declared its call ID; the next model response delimits that ownership, while model-visible messages appended during tool execution do not. Core projection emits the owning response, its actual results in declared call order, and then intervening messages in their original relative order. It synthesizes a skipped result only when that response has no actual result before the next model response.
+
+Persisted boundaries are entry-based, not byte offsets, and must not retain an existing tool result while discarding its owning model call, including when model-hidden or model-visible extension entries separate them. Missing persisted results do not identify runtime activity: failed and aborted responses are excluded from model-visible history, while interrupted batches receive synthetic skipped results from the shared Core projection. Preventing compaction during an actually pending tool batch therefore belongs to operation admission in unit 4, where the Host operation gate and compaction entry points have runtime execution state; its runtime test remains in that unit. Model-hidden extension entries and opaque provider reasoning bytes are not exposed to compaction extensions. The preceding compaction result retains its optional extension details for subsequent compaction handlers.
 
 Add a sessions commit operation that checks the expected session incarnation and active leaf, validates the boundary, and appends one compaction entry atomically. It updates the model-context projection only after persistence succeeds. Client publication occurs through the existing ordered commit/publication boundary. A publication error exposes the committed outcome and its error; it does not claim that persistence was rolled back.
 
@@ -232,7 +248,8 @@ Each behavior change starts with a compiling, uncached failing behavioral test, 
 | Unit | Change and behavioral evidence |
 |---|---|
 | 0. Extension model-access ownership | Extract the real model operations and update controller wiring and implementation assertions. Reuse the existing catalogue revalidation, exact configured-input, stale-completion, and failure-classification tests. This is behavior-preserving refactoring; it does not need an artificial failing test for a missing feature. Validate the complete import graph with the compaction and retry-context interfaces included. |
-| 1. Compacted context | Implement the deterministic sizing records, reported-usage baseline, and invalidation conditions with the numeric cases defined above. Add the entry and separate context projection. Inputs include two compactions, original entries, a preserved tool batch, navigation before/after compaction, fork/clone, and restart. Expect the latest summary plus exact retained suffix, unchanged original records, and accounting counted once. Extend session history and persistence suites. |
+| 0.1. Single JSON argument representation | Implement the [argument representation and migration](#tool-call-argument-representation) before completing unit 1. Extend provider, persistence, tool-execution, and public-projection tests to prove byte preservation through the actual consumers. Remove the old map representation in the same migration. |
+| 1. Compacted context | After unit 0.1, implement the deterministic sizing records, reported-usage baseline, and invalidation conditions with the numeric cases defined above. Add the entry and separate context projection. Inputs include two compactions, original entries, a preserved tool batch, navigation before/after compaction, fork/clone, and restart. Expect the latest summary plus exact retained suffix, unchanged original records, and accounting counted once. Extend session history and persistence suites. |
 | 2. Raw failures | Add source classification and provider delay extraction. Inputs include the fixed retryable statuses, authorization failure, timeout, interrupted stream, context overflow, and consumer callback error. Expect typed provider failures, complete causes, and exactly one adapter attempt. Extend both provider families' failure tests. |
 | 3. Retry execution and reset | Extend `modelexecution/service_test.go`, Core stream tests, and TUI projection tests. Inputs include failure after partial text, later success, exhaustion, a provider timeout with a still-active caller context, handler cancellation/failure, changed retry counts/delays, excessive `Retry-After`, and user abort during waiting. Expect ordered reset/progress, no concatenation, one persisted terminal outcome, no repeated tools, and no retry after delivery/extension failure. Use the production timing path inside `testing/synctest` instead of wall-clock sleeps or a production interface added only for tests. |
 | 4. Compaction orchestration | Test manual, threshold, and overflow entry points, request/result composition, result clearing, extension-provided summaries, missing or ambiguous generation registration, invalid boundaries, source accounting, cancellation, handler failure, and persistence failure. Expect one commit only after complete validation, generation bypass for a ready result, no fallback after extension failure, and one overflow recovery that consumes the existing retry allowance. |
@@ -240,7 +257,72 @@ Each behavior change starts with a compiling, uncached failing behavioral test, 
 
 The main existing test references are `modelexecution/service_test.go`, Core `provider_failure_test.go` and `history_test.go`, session-tree `handler_composition_test.go`, sessions `summary_history_test.go` and `history_projection_integration_test.go`, provider failure suites, and TUI `state.go` projection tests.
 
-Before implementation closure, run `task generate` twice for contract/mock changes with no second-run diff, then `task fmt`, `task fix_dry_run`, analyze and apply justified fixes, `task lint`, `task test`, `task itest`, and `task test-coverage`. Record skipped platform-dependent tests as missing evidence, not passes. The independent dry run ran focused uncached baseline tests for model execution, extension context, sessions, session tree, Agent Core, TUI presentation, and both OpenAI adapter families; all eight packages passed. These baseline tests do not verify unimplemented PHS-06 behavior. Generation and the full implementation checks listed above remain pending.
+Before implementation closure, run `task generate` twice for contract/mock changes with no second-run diff, then `task fmt`, `task fix_dry_run`, analyze and apply justified fixes, `task lint`, `task test`, `task itest`, and `task test-coverage`. Record skipped platform-dependent tests as missing evidence, not passes. The independent dry run ran focused uncached baseline tests for model execution, extension context, sessions, session tree, Agent Core, TUI presentation, and both OpenAI adapter families; all eight packages passed. These baseline tests do not verify unimplemented PHS-06 behavior.
+
+## Implementation Evidence
+
+Units 0, 0.1, and 1 are implemented. Units 2 through 5 remain pending.
+
+Unit 0.1 replaces the argument map with immutable `model.ToolCallArguments`. Provider finalization and persisted-session decoding validate JSON. Provider replay, tool dispatch, persistence, public `arguments_json` projections, branch-summary serialization, and context sizing use the retained byte sequence. Codex grammar-tool replay parses the retained value only while extracting its configured string field, and tool execution parses it only for schema validation.
+
+The compiling behavioral RED run `go test -count=1 ./host/internal/domain/model -run 'TestNewToolCallArguments'` failed because malformed JSON was accepted and retained bytes and length were absent. The same uncached command passed after the value implementation. During the full migration, `go test -count=1 -tags=integration -p 1 -parallel 1 ./...` produced assertion failures for persisted argument restoration, Codex repeated-output reconciliation, and provider parser-error text. The implementation then preserved the retained bytes while restoring semantic reconciliation and the complete provider parser cause.
+
+The correction review found that validation through `any` admitted top-level arrays and non-null scalars that the former `map[string]any` provider decoders rejected. Compiling uncached RED runs of `go test -count=1 ./host/internal/domain/model -run 'TestNewToolCallArguments'`, the persistence and TUI boundary packages, and the OpenAI-compatible, Codex, and UI SDK integration packages failed on real assertions because those shapes reached finalized calls. Validation now decodes only for the established object-or-null shape and discards that parsed value, retaining only the exact JSON bytes. The same focused commands pass. Constructor tests also mutate the caller input and returned byte projection to prove detached ownership.
+
+The final foundation review found the same shape gap in Extension SDK Execute validation. The compiling uncached RED command `go test -count=1 ./sdk/plugins/extension/v1 -run 'TestServer(EmitsExactRejectionCategoriesAndKeepsStreamOpen|ExecutePreservesAcceptedArgumentBytes)'` showed top-level arrays and scalars reaching `PrepareExecute`. Extension SDK validation now rejects malformed JSON, arrays, and non-null scalars before operation preparation with the complete decoder cause. The same command passes and also proves that object and `null` arguments reach the Execute operation with their exact accepted bytes.
+
+The following uncached unit 0.1 checks passed:
+
+- `go test -count=1 ./host/internal/domain/model ./host/internal/infra/persistence/sessions ./host/internal/usecase/host/tools ./host/internal/controller/programmatic ./host/internal/usecase/host/sessiontree ./host/internal/usecase/host/contextcompaction ./plugins/ui/tui/internal/controller/plugin ./sdk/plugins/ui/v1`
+- `go test -count=1 -tags=integration -p 1 -parallel 1 ./host/internal/infra/providers/openai/compatible ./host/internal/infra/providers/openai/codex ./host/internal/usecase/host/sessions ./host/internal/infra/plugins/ui/runtime ./sdk/plugins/ui/v1`
+
+Fixtures with whitespace, escaped strings, and `1.00` prove provider finalization and replay, persistence and restart, public projections, branch-summary serialization, and byte-based context sizing. Tool dispatch proves exact bytes after schema validation; provider and persisted-input tests reject malformed finalized JSON; Codex constrained-sampling tests cover local grammar-field extraction.
+
+Unit 1 adds the persisted `session.CompactionEntry`, the independent compacted model-context projection, `contextcompaction.Service` sizing and reported-usage baseline ownership, the completed-conversation observation boundary in `modelexecution.Service`, and compaction variants across UI Plugin, Programmatic Control, Extension session-tree, SDK validation, and standard TUI projections.
+
+The following uncached focused commands produced compiling behavioral RED failures before the corresponding production behavior and passed after implementation:
+
+- `go test -count=1 ./host/internal/usecase/host/contextcompaction`
+- `go test -count=1 ./host/internal/usecase/host/modelexecution`
+- `go test -count=1 ./host/internal/usecase/host/sessions -run 'TestCompactedHistory|TestCommitCompaction'`
+- `go test -count=1 ./host/internal/infra/persistence/sessions -run TestCompactionEntryCodecRoundTripPreservesCompletePayload`
+- `go test -count=1 ./host/internal/controller/ui ./host/internal/controller/programmatic -run TestProjectSessionCompaction`
+- `go test -count=1 ./host/internal/infra/plugins/ui/runtime -run TestMapCompactionEntry`
+- `go test -count=1 ./host/internal/usecase/host/extensionruntime -run TestProjectTreeEntryPreservesPublicCompactionPayload`
+- `go test -count=1 ./host/internal/infra/plugins/extension/runtime -run TestMapSessionEntryMapsCompactionVariant`
+- `go test -count=1 ./sdk/plugins/ui/v1 -run TestValidateSessionCompaction`
+- `go test -count=1 ./plugins/ui/tui/internal/controller/plugin -run 'TestMap(SessionTreeEntry|RestoredTranscript).*Compaction'`
+- `go test -count=1 ./plugins/ui/tui/internal/infra/terminal -run TestModelRendersCompactionSummary`
+
+The unit 1 correction RED runs produced these compiling behavioral failures:
+
+- `go test -count=1 ./host/internal/usecase/host/contextcompaction` reported 8,608 instead of the literal normalized-usage estimate 10,108, selected fallback for a nil tool catalogue, and reused negative, inconsistent, and over-reasoning usage.
+- `go test -count=1 ./host/internal/usecase/host/sessions -run 'TestCommitCompactionRejectsBoundaryInsideToolGroup'` accepted a hidden-entry boundary that retained a result while discarding its call.
+- `go test -count=1 ./host/internal/domain/session -run 'TestTreeRestoreRejectsCompactionBoundaryInsideHiddenToolGroup'` restored the same invalid boundary.
+
+The same commands passed after `ObserveCompletedConversation` retained only already normalized usage, invalid usage was excluded, request cloning preserved nil slices, and `session.Tree.ValidateCompactionBoundary` became the single commit-and-restore boundary algorithm. The `extensioncontext.SessionIdentity` forwarding alias was removed, and callers now use `contextcompaction.SessionIdentity` directly.
+
+The repeated-compaction correction RED runs `go test -count=1 ./host/internal/domain/session -run 'TestTreeRestore(RejectsBoundaryBeforeLatestCompaction|AcceptsSameAndForwardRepeatedCompactionBoundaries)'` and `go test -count=1 ./host/internal/usecase/host/sessions -run 'TestCommitCompactionRejectsBoundaryBeforeLatestCompaction'` failed because restore and commit accepted a later `FirstKeptEntryID` before the latest preceding compaction boundary. Both commands passed after the Tree-owned validator enforced monotonic repeated-compaction boundaries. The focused sessions run also passed `TestCompactedHistoryUsesLatestSummaryAndExactRetainedSuffix` and `TestNavigationRebuildsCompactedContextForSelectedBranch`, covering forward repeated compaction and navigation to a branch before its compaction marker.
+
+A full actor census then showed that absent persisted results cannot identify a pending batch. `run.finalizeProviderError` persists failed or aborted responses with calls that `run.ProjectHistory` excludes, and interrupted execution persists only the active result while `run.ProjectHistory` supplies synthetic skipped results. The compiling uncached RED commands `go test -count=1 ./host/internal/domain/session -run 'TestTreeRestoreAllowsCompactionAfter(FailedOrAbortedCalls|InterruptedToolBatch)'` and `go test -count=1 ./host/internal/usecase/host/sessions -run 'TestCommitCompactionAllowsLaterBoundaryAfter(FailedOrAbortedCalls|InterruptedBatch)'` failed because both restore and commit inferred pending execution from missing results. Both commands passed after Tree validation was limited to actual persisted call/result separation. `go test -count=1 ./host/internal/usecase/agent/run -run 'TestServiceRunCancellationPersistsOnlyActiveToolResult|TestProjectHistory'` and the complete domain-session and Host-sessions unit packages passed without a second projection algorithm or a domain import of Core.
+
+The response-local tool-ID correction RED runs `go test -count=1 ./host/internal/domain/session -run 'TestTreeRestoreAssociatesRepeatedToolIDsWithTheirModelResponses'` and `go test -count=1 ./host/internal/usecase/host/sessions -run 'TestCommitCompactionAssociatesRepeatedToolIDsWithTheirModelResponses'` failed because a retained result ID was compared with calls from every earlier response. Both commands passed after Tree validation associated results only with the preceding model response in model-visible history order. The commit test checks the exact summary, second model response, and second result projection when both complete turns use call ID `same`; the hidden-entry split, failed and aborted response, interrupted batch, and repeated-compaction tests remained green.
+
+A later correction removed the remaining adjacency assumption from Core projection and Tree validation. The compiling uncached RED runs `go test -count=1 ./host/internal/usecase/agent/run -run 'TestProjectHistory(CollectsResponseResultsAcrossInterveningMessages|ScopesRepeatedCallIDsToTheirModelResponse)'` produced synthetic results beside actual results, and `go test -count=1 ./host/internal/domain/session -run TestTreeRestoreRejectsCompactionBoundaryInsideVisibleToolGroup` accepted a boundary that discarded the call while retaining its result. Both commands passed after result collection continued through intervening messages until the next model response and model-visible extension entries stopped terminating Tree-owned result ownership. Reapplying projection preserves the first projection, actual results retain call order, absent results still synthesize skipped results, and repeated call IDs remain response-local.
+
+The assembled uncached integration RED run `go test -count=1 -tags=integration ./host/internal/app -run 'TestPublicExtensionMessagesAcrossApplicationModes/headless$'` found both a synthetic result and the actual result in the second provider request after the real external tool appended a model-visible message during execution. The same command passed with one actual result ordered after its call and before the appended message. `go test -count=1 -tags=integration ./host/internal/app -run TestPublicExtensionMessagesAcrossApplicationModes` then passed for headless, UI Plugin, and Programmatic Control assemblies. The correction changes only pure model-history projection and compaction-boundary validation; persisted entry order and client publication paths are not modified.
+
+No generated input changed in the ownership correction, so generation was not rerun. The preceding two `task generate` runs produced the identical tracked-and-untracked checksum `48f7189ddef8ab3ca355d2e56bcf71ccffa161d301bc92306d64708d70634734`. Final checks after the ownership correction produced these results:
+
+- `task fmt`: completed.
+- `task fix_dry_run`: no proposed changes.
+- `task lint`: zero lint issues, zero ifaceguard errors, and no reported vulnerabilities.
+- `task test`: all unit packages passed.
+- `task itest`: integration packages passed on Linux. The command reported no platform skips; it does not close the accepted [standard TUI PTY verification gap](../07-extension-context-lifecycle/technical-debt.md).
+- `task test-coverage`: 84.5% combined coverage against the 80.0% minimum.
+- `task build`: Host and standard plugins built successfully.
+
+After unit 0.1, two consecutive `task generate` runs produced the same API and generated-package diff checksum. `task fmt` completed, `task fix_dry_run` proposed no changes, `task lint` reported zero lint issues, zero ifaceguard errors, and no vulnerabilities, `task test` and `task itest` passed, `task test-coverage` reported 84.5% against the 80.0% minimum, and `task build` completed. Integration checks ran on Linux; the accepted [standard TUI PTY verification gap](../07-extension-context-lifecycle/technical-debt.md) remains outside unit 0.1.
 
 ## Overengineering and Overspecification Considerations
 

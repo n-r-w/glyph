@@ -24,6 +24,7 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 		entry.Extension.IsSome(),
 		entry.ExtensionMessage.IsSome(),
 		entry.BranchSummary.IsSome(),
+		entry.Compaction.IsSome(),
 	}
 	selected := 0
 	for _, present := range variants {
@@ -45,6 +46,9 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 	}
 	if summary, ok := entry.BranchSummary.Get(); ok {
 		return encodeBranchSummaryEntry(entry, summary)
+	}
+	if compaction, ok := entry.Compaction.Get(); ok {
+		return encodeCompactionEntry(entry, compaction)
 	}
 	if user, ok := entry.User.Get(); ok {
 		message, err := encodeUserMessage(user)
@@ -118,6 +122,34 @@ func encodeBranchSummaryEntry(entry session.Entry, summary session.BranchSummary
 		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Summary: summary.Summary,
 		FirstEntryID: summary.FirstEntryID, LastEntryID: summary.LastEntryID,
 		Source: encodeBranchSummarySource(summary.Source), EstimatedCost: estimatedCost,
+	})
+}
+
+// encodeCompactionEntry validates and encodes one complete compaction payload.
+func encodeCompactionEntry(entry session.Entry, compaction session.CompactionEntry) ([]byte, error) {
+	if compaction.Summary == "" || compaction.FirstKeptEntryID == "" {
+		return nil, errors.New("invalid compaction entry")
+	}
+	if err := compaction.ValidateAccounting(); err != nil {
+		return nil, err
+	}
+	var estimatedCost *estimatedCostRecord
+	if cost, present := compaction.EstimatedCost.Get(); present {
+		estimatedCost = &estimatedCostRecord{
+			Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
+			CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
+		}
+	}
+	var details *[]byte
+	if value, present := compaction.Details.Get(); present {
+		owned := bytes.Clone(value)
+		details = &owned
+	}
+	return encodeLine(compactionRecord{
+		Type: recordTypeCompaction, ID: entry.ID, ParentID: entry.ParentID,
+		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Summary: compaction.Summary,
+		FirstKeptEntryID: compaction.FirstKeptEntryID, Source: encodeBranchSummarySource(compaction.Source),
+		EstimatedCost: estimatedCost, Details: details,
 	})
 }
 
@@ -305,7 +337,7 @@ func encodeModelContent(item *model.Content) (modelContentRecord, error) {
 		if call.ID == "" || call.Name == "" {
 			return modelContentRecord{}, errors.New("invalid model tool call content")
 		}
-		record.ToolCall = &toolCallRecord{ID: call.ID, Name: call.Name, Arguments: call.Arguments}
+		record.ToolCall = &toolCallRecord{ID: call.ID, Name: call.Name, Arguments: call.Arguments.Bytes()}
 	}
 	return record, nil
 }

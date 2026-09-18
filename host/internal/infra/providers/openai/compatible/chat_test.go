@@ -3,6 +3,7 @@
 package compatible
 
 import (
+	"bytes"
 	"encoding/json/v2"
 	"net/http"
 	"net/http/httptest"
@@ -34,13 +35,12 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":""}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"reasoning":"think ","content":"hello "}}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"refusal":"no"}}]}`,
-			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,`+
-				`"delta":{"tool_calls":[{"index":0,"id":"call-new",`+
-				`"type":"function","function":{"name":"read",`+
-				`"arguments":"{\"path\":\"fi"}}]}}]}`,
-			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,`+
-				`"delta":{"tool_calls":[{"index":0,"function":{"arguments":"le\"}`+
-				`"}}]},"finish_reason":"tool_calls"}]}`,
+			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"tool_calls":`+
+				`[{"index":0,"function":{"arguments":"{ \"path\":\"\\u0066ile\",","name":"read"},`+
+				`"id":"call-new","type":"function"}]}}]}`,
+			`{"id":"chat-1","model":"actual-model","choices":[{"index":0,"delta":{"tool_calls":`+
+				`[{"index":0,"function":{"arguments":" \"number\":1.00 }"}}]},`+
+				`"finish_reason":"tool_calls"}]}`,
 			`{"id":"chat-1","model":"actual-model","choices":[],`+
 				`"usage":{"prompt_tokens":12,"completion_tokens":7,`+
 				`"total_tokens":99,"prompt_tokens_details":{"cached_tokens":3},`+
@@ -85,6 +85,15 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 	assert.Equal(t, "system", messages[0].(map[string]any)["role"])
 	assert.Equal(t, "user", messages[1].(map[string]any)["role"])
 	assert.Equal(t, "assistant", messages[2].(map[string]any)["role"])
+	replayedCalls := messages[2].(map[string]any)["tool_calls"].([]any)
+	replayedFunction := replayedCalls[0].(map[string]any)["function"].(map[string]any)
+	assert.True(
+		t,
+		bytes.Equal(
+			[]byte(`{ "path":"\u006fld", "number":1.00 }`),
+			[]byte(replayedFunction["arguments"].(string)),
+		),
+	)
 	assert.Equal(t, "tool", messages[3].(map[string]any)["role"])
 	assert.Len(t, body["tools"], 1)
 	assert.Contains(t, eventKinds(events), modelexecution.StreamEventTextDelta)
@@ -130,7 +139,10 @@ func (s *serviceSuite) TestChatCompletionsMapsRequestAndStream() {
 			Kind:  model.ContentToolCall,
 			Final: true,
 			ToolCall: mo.Some(
-				model.ToolCall{ID: "call-new", Name: "read", Arguments: map[string]any{"path": "file"}},
+				model.ToolCall{
+					ID: "call-new", Name: "read",
+					Arguments: testToolCallArguments(`{ "path":"\u0066ile", "number":1.00 }`),
+				},
 			),
 			Text:            mo.None[string](),
 			ProviderContext: mo.None[model.ProviderContext](),

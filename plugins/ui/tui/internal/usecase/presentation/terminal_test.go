@@ -113,7 +113,7 @@ func TestStateClearsUnconfirmedModelOnlyOnPersistenceFailure(t *testing.T) {
 			state.ActiveToolCalls = map[string]ToolCallState{
 				"call-1": {
 					CallID: "call-1", Name: "bash", Position: 0, Provisional: true,
-					Fields: nil, Arguments: nil,
+					Fields: nil, ArgumentsJSON: nil,
 				},
 			}
 			state.ActiveTools = map[string]string{"call-1": "running"}

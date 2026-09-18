@@ -150,7 +150,7 @@ func (s *Service) History() []agent.HistoryEntry {
 
 // ProjectHistory returns provider-visible history with temporary skipped results.
 func (s *Service) ProjectHistory() []agent.HistoryEntry {
-	return projectHistory(s.historyStore.Snapshot())
+	return ProjectHistory(s.historyStore.Snapshot())
 }
 
 // begin reserves the only run slot before the user entry ownership transfer.

@@ -293,8 +293,8 @@ func modelResponse(
 			}
 		case responseItemTypeFunctionCall:
 			call := output.AsFunctionCall()
-			var arguments map[string]any
-			if err := json.Unmarshal([]byte(call.Arguments), &arguments); err != nil {
+			arguments, err := model.NewToolCallArguments([]byte(call.Arguments))
+			if err != nil {
 				conversionErr := fmt.Errorf("decode OpenAI Codex tool-call arguments: %w", err)
 				return terminalModelResponse(conversionErr.Error(), model.OutcomeFailed), conversionErr
 			}
@@ -318,6 +318,18 @@ func modelResponse(
 					"OpenAI Codex returned an undeclared custom tool call",
 				)
 			}
+			encoded, err := json.Marshal(map[string]string{property: call.Input})
+			if err != nil {
+				return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), fmt.Errorf(
+					"encode OpenAI Codex custom tool-call arguments: %w", err,
+				)
+			}
+			arguments, err := model.NewToolCallArguments(encoded)
+			if err != nil {
+				return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), fmt.Errorf(
+					"validate OpenAI Codex custom tool-call arguments: %w", err,
+				)
+			}
 			items = append(items, model.Content{
 				Kind:            model.ContentToolCall,
 				Text:            mo.None[string](),
@@ -326,7 +338,7 @@ func modelResponse(
 				ToolCall: mo.Some(model.ToolCall{
 					ID:        call.CallID,
 					Name:      call.Name,
-					Arguments: map[string]any{property: call.Input},
+					Arguments: arguments,
 				}),
 			})
 			hasToolCall = true

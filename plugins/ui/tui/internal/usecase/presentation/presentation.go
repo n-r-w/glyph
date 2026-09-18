@@ -367,6 +367,8 @@ const (
 	LineReasoning
 	// LineBranchSummary renders one abandoned-branch summary.
 	LineBranchSummary
+	// LineCompaction renders one active-context compaction summary.
+	LineCompaction
 	// LineToolStatus renders tool status text.
 	LineToolStatus
 	// LineToolStdout renders standard tool output.
@@ -415,8 +417,8 @@ type ToolCallState struct {
 	Provisional bool
 	// Fields contains ordered provisional argument fields.
 	Fields []ToolCallField
-	// Arguments contains finalized tool input.
-	Arguments map[string]any
+	// ArgumentsJSON contains exact finalized tool-input JSON.
+	ArgumentsJSON []byte
 }
 
 // projection is the TUI-owned projection of provider-neutral Host frames.

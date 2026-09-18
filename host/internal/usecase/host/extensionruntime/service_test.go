@@ -21,6 +21,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
@@ -101,7 +102,7 @@ func TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit(t *testing.T) {
 		reportingStopped: false, reporting: sync.WaitGroup{}, reportErrors: nil,
 	}
 	sessions := extensioncontext.NewMockSessionState(controller)
-	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	commitStarted := make(chan struct{})
 	allowPersistence := make(chan struct{})
@@ -123,7 +124,7 @@ func TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit(t *testing.T) {
 	sessions.EXPECT().AppendExtension(gomock.Any(), identity, stored.Extension.MustGet(), gomock.Any()).DoAndReturn(
 		func(
 			_ context.Context,
-			_ extensioncontext.SessionIdentity,
+			_ contextcompaction.SessionIdentity,
 			_ session.ExtensionEnvelope,
 			guard extensioncontext.ContextCommitGuard,
 		) (session.Entry, error) {
@@ -205,14 +206,14 @@ func TestRuntimeReplacementBeforeFinalAppendValidationRejectsCommit(t *testing.T
 		reportingStopped: false, reporting: sync.WaitGroup{}, reportErrors: nil,
 	}
 	sessions := extensioncontext.NewMockSessionState(controller)
-	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	appendAdmitted := make(chan struct{})
 	var persisted atomic.Bool
 	sessions.EXPECT().AppendExtension(gomock.Any(), identity, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(
 			_ context.Context,
-			_ extensioncontext.SessionIdentity,
+			_ contextcompaction.SessionIdentity,
 			_ session.ExtensionEnvelope,
 			guard extensioncontext.ContextCommitGuard,
 		) (session.Entry, error) {
@@ -283,7 +284,7 @@ func TestRuntimeReplacementBeforeMessageCommitPreservesStaleCategory(t *testing.
 		reportingStopped: false, reporting: sync.WaitGroup{}, reportErrors: nil,
 	}
 	sessions := extensioncontext.NewMockSessionState(controller)
-	identity := extensioncontext.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	appendAdmitted := make(chan struct{})
 	var persisted atomic.Bool
@@ -291,7 +292,7 @@ func TestRuntimeReplacementBeforeMessageCommitPreservesStaleCategory(t *testing.
 		gomock.Any(), identity, gomock.Any(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		_ extensioncontext.SessionIdentity,
+		_ contextcompaction.SessionIdentity,
 		_ session.ExtensionMessage,
 		guard extensioncontext.ContextCommitGuard,
 	) (session.Entry, error) {

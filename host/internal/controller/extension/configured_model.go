@@ -1,7 +1,6 @@
 package extension
 
 import (
-	"encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -164,12 +163,8 @@ func mapConfiguredContent(item model.Content) (*extensionpb.ConfiguredModelConte
 		if !present {
 			return nil, false, errors.New("tool call is missing")
 		}
-		arguments, err := json.Marshal(call.Arguments)
-		if err != nil {
-			return nil, false, fmt.Errorf("encode tool call arguments: %w", err)
-		}
 		mapped.SetToolCall(extensionpb.ConfiguredModelToolCall_builder{
-			Id: new(call.ID), Name: new(call.Name), ArgumentsJson: arguments,
+			Id: new(call.ID), Name: new(call.Name), ArgumentsJson: call.Arguments.Bytes(),
 		}.Build())
 	default:
 		return nil, false, fmt.Errorf("unknown content kind %d", item.Kind)

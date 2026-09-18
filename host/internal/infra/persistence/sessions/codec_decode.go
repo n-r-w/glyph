@@ -51,6 +51,7 @@ func decodeEntry(data []byte) (session.Entry, error) {
 			Extension:        mo.None[session.ExtensionEnvelope](),
 			EstimatedCost:    mo.None[session.EstimatedCost](),
 			BranchSummary:    mo.None[session.BranchSummaryEntry](),
+			Compaction:       mo.None[session.CompactionEntry](),
 			ExtensionMessage: mo.None[session.ExtensionMessage](),
 		}, nil
 	case recordTypeUser:
@@ -65,6 +66,8 @@ func decodeEntry(data []byte) (session.Entry, error) {
 		return decodeExtensionMessage(data)
 	case recordTypeBranchSummary:
 		return decodeBranchSummary(data)
+	case recordTypeCompaction:
+		return decodeCompaction(data)
 	default:
 		return session.Entry{}, errors.New("invalid session entry")
 	}
@@ -107,6 +110,7 @@ func decodeUser(data []byte) (session.Entry, error) {
 		Extension:        mo.None[session.ExtensionEnvelope](),
 		EstimatedCost:    mo.None[session.EstimatedCost](),
 		BranchSummary:    mo.None[session.BranchSummaryEntry](),
+		Compaction:       mo.None[session.CompactionEntry](),
 		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}, nil
 }
@@ -169,7 +173,7 @@ func decodeExtension(data []byte) (session.Entry, error) {
 			ExtensionID: record.ExtensionID, EntryType: record.EntryType, Data: bytes.Clone(payload),
 		}),
 		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-		ExtensionMessage: mo.None[session.ExtensionMessage](),
+		Compaction: mo.None[session.CompactionEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}, nil
 }
 
@@ -196,6 +200,7 @@ func decodeExtensionMessage(data []byte) (session.Entry, error) {
 		ExtensionMessage: mo.Some(session.ExtensionMessage{
 			ExtensionID: record.ExtensionID, EntryType: record.EntryType, Text: record.Text, Visibility: visibility,
 		}), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		Compaction: mo.None[session.CompactionEntry](),
 	}, nil
 }
 
@@ -224,7 +229,8 @@ func decodeModel(data []byte) (session.Entry, error) {
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.Some(response), ToolResult: mo.None[session.ToolResult](),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: estimatedCost,
-		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}, nil
 }
 
@@ -259,7 +265,8 @@ func decodeToolResult(data []byte) (session.Entry, error) {
 			Contents: contents, IsError: record.Result.IsError,
 		}),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
-		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		BranchSummary: mo.None[session.BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}, nil
 }
 
@@ -293,7 +300,46 @@ func decodeBranchSummary(data []byte) (session.Entry, error) {
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
 		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
 		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		BranchSummary: mo.Some(summary), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		BranchSummary: mo.Some(summary), Compaction: mo.None[session.CompactionEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
+	}, nil
+}
+
+// decodeCompaction validates one persisted compaction marker and preserves optional fields.
+func decodeCompaction(data []byte) (session.Entry, error) {
+	var record compactionRecord
+	if err := decodeRecord(data, &record); err != nil {
+		return session.Entry{}, err
+	}
+	entryTime, err := time.Parse(time.RFC3339Nano, record.CreatedAt)
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("parse compaction timestamp: %w", err)
+	}
+	if record.ID == "" || record.Summary == "" || record.FirstKeptEntryID == "" {
+		return session.Entry{}, errors.New("invalid compaction entry")
+	}
+	cost, err := decodeEstimatedCost(record.EstimatedCost)
+	if err != nil {
+		return session.Entry{}, err
+	}
+	details := mo.None[[]byte]()
+	if record.Details != nil {
+		details = mo.Some(bytes.Clone(*record.Details))
+	}
+	compaction := session.CompactionEntry{
+		Summary: record.Summary, FirstKeptEntryID: record.FirstKeptEntryID,
+		Source: decodeBranchSummarySource(record.Source), EstimatedCost: cost, Details: details,
+	}
+	if validationErr := compaction.ValidateAccounting(); validationErr != nil {
+		return session.Entry{}, validationErr
+	}
+	return session.Entry{
+		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
+		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		Compaction: mo.Some(compaction),
 	}, nil
 }
 
@@ -410,8 +456,12 @@ func decodeModelContent(item *modelContentRecord) (model.Content, error) {
 		if item.ToolCall.ID == "" || item.ToolCall.Name == "" {
 			return model.Content{}, errors.New("invalid model tool call content")
 		}
+		arguments, err := model.NewToolCallArguments(item.ToolCall.Arguments)
+		if err != nil {
+			return model.Content{}, fmt.Errorf("decode tool call %q arguments: %w", item.ToolCall.ID, err)
+		}
 		value.ToolCall = mo.Some(model.ToolCall{
-			ID: item.ToolCall.ID, Name: item.ToolCall.Name, Arguments: item.ToolCall.Arguments,
+			ID: item.ToolCall.ID, Name: item.ToolCall.Name, Arguments: arguments,
 		})
 	}
 	return value, nil

@@ -125,7 +125,10 @@ func richRequest(provider model.ProviderID, modelID model.ID) modelexecution.Pro
 							Kind:  model.ContentToolCall,
 							Final: true,
 							ToolCall: mo.Some(
-								model.ToolCall{ID: "call-old", Name: "read", Arguments: map[string]any{"path": "old"}},
+								model.ToolCall{
+									ID: "call-old", Name: "read",
+									Arguments: testToolCallArguments(`{ "path":"\u006fld", "number":1.00 }`),
+								},
 							),
 							Text:            mo.None[string](),
 							ProviderContext: mo.None[model.ProviderContext](),

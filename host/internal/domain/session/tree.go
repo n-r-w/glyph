@@ -92,6 +92,11 @@ func (tree *Tree) add(entry Entry, advance bool) error {
 	if err := validateTreeEntryPayload(entry); err != nil {
 		return err
 	}
+	if compaction, present := entry.Compaction.Get(); present {
+		if err := tree.validateCompactionEntry(entry, compaction); err != nil {
+			return err
+		}
+	}
 	owned := entry.Clone()
 	tree.index[owned.ID] = len(tree.entries)
 	tree.entries = append(tree.entries, owned)
@@ -101,12 +106,98 @@ func (tree *Tree) add(entry Entry, advance bool) error {
 	return nil
 }
 
+// validateCompactionEntry checks payload accounting and a retained boundary on the marker's own branch.
+func (tree Tree) validateCompactionEntry(entry Entry, compaction CompactionEntry) error {
+	if compaction.Summary == "" || compaction.FirstKeptEntryID == "" {
+		return errors.New("invalid compaction entry")
+	}
+	if err := compaction.ValidateAccounting(); err != nil {
+		return err
+	}
+	parentID, parentPresent := entry.ParentID.Get()
+	if !parentPresent {
+		return errors.New("compaction entry requires a parent")
+	}
+	return tree.ValidateCompactionBoundary(compaction.FirstKeptEntryID, mo.Some(parentID))
+}
+
+// ValidateCompactionBoundary checks membership, monotonic repeated compaction, and complete tool-call groups.
+func (tree Tree) ValidateCompactionBoundary(firstKeptEntryID string, branchLeafID mo.Option[string]) error {
+	if leafID, present := branchLeafID.Get(); present {
+		if _, exists := tree.index[leafID]; !exists {
+			return errors.New("compaction branch leaf does not exist")
+		}
+	}
+	branch := tree.pathTo(branchLeafID)
+	boundaryIndex := branchEntryIndex(branch, firstKeptEntryID)
+	if boundaryIndex < 0 {
+		return errors.New("compaction boundary is outside its branch")
+	}
+	for index := range slices.Backward(branch) {
+		preceding, present := branch[index].Compaction.Get()
+		if !present {
+			continue
+		}
+		precedingBoundaryIndex := branchEntryIndex(branch, preceding.FirstKeptEntryID)
+		if precedingBoundaryIndex < 0 {
+			return errors.New("preceding compaction boundary is outside its branch")
+		}
+		if boundaryIndex < precedingBoundaryIndex {
+			return errors.New("compaction boundary cannot precede the latest preceding compaction boundary")
+		}
+		break
+	}
+	// activeModelIndex and activeCallIDs associate results only with their preceding model-visible response.
+	activeModelIndex := -1
+	var activeCallIDs map[string]struct{}
+	for index := range branch {
+		entry := branch[index]
+		if entry.Model.IsSome() {
+			activeModelIndex = index
+			activeCallIDs = entryToolCallIDs(entry)
+			continue
+		}
+		if result, present := entry.ToolResult.Get(); present {
+			_, owned := activeCallIDs[result.CallID]
+			if owned && activeModelIndex < boundaryIndex && index >= boundaryIndex {
+				return errors.New("compaction boundary cannot separate a tool call from its result")
+			}
+		}
+	}
+	return nil
+}
+
+// branchEntryIndex returns one entry's root-first position or minus one when it is outside the branch.
+func branchEntryIndex(branch []Entry, entryID string) int {
+	for index := range branch {
+		if branch[index].ID == entryID {
+			return index
+		}
+	}
+	return -1
+}
+
+// entryToolCallIDs returns the tool calls owned by one model-response entry.
+func entryToolCallIDs(entry Entry) map[string]struct{} {
+	response, present := entry.Model.Get()
+	if !present {
+		return nil
+	}
+	callIDs := make(map[string]struct{})
+	for index := range response.Content {
+		if call, callPresent := response.Content[index].ToolCall.Get(); callPresent {
+			callIDs[call.ID] = struct{}{}
+		}
+	}
+	return callIDs
+}
+
 // validateTreeEntryPayload enforces the closed tree payload union and message fields.
 func validateTreeEntryPayload(entry Entry) error {
 	payloads := 0
 	for _, present := range []bool{
 		entry.User.IsSome(), entry.Model.IsSome(), entry.ToolResult.IsSome(),
-		entry.Extension.IsSome(), entry.ExtensionMessage.IsSome(), entry.BranchSummary.IsSome(),
+		entry.Extension.IsSome(), entry.ExtensionMessage.IsSome(), entry.BranchSummary.IsSome(), entry.Compaction.IsSome(),
 	} {
 		if present {
 			payloads++
@@ -275,6 +366,7 @@ func (entry Entry) Clone() Entry {
 	entry.Model = entry.Model.MapValue(model.Response.Clone)
 	entry.ToolResult = entry.ToolResult.MapValue(agent.ToolResult.Clone)
 	entry.Extension = entry.Extension.MapValue(ExtensionEnvelope.Clone)
+	entry.Compaction = entry.Compaction.MapValue(CompactionEntry.Clone)
 	return entry
 }
 

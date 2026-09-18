@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/samber/mo"
@@ -53,6 +54,43 @@ func historyFromEntries(entries []session.Entry) []agent.HistoryEntry {
 				Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 			})
 		}
+	}
+	return history
+}
+
+// compactedHistoryFromEntries projects the active branch after applying its latest compaction marker.
+func compactedHistoryFromEntries(entries []session.Entry) []agent.HistoryEntry {
+	latestIndex := -1
+	for index := range slices.Backward(entries) {
+		if entries[index].Compaction.IsSome() {
+			latestIndex = index
+			break
+		}
+	}
+	if latestIndex < 0 {
+		return historyFromEntries(entries)
+	}
+	compaction := entries[latestIndex].Compaction.MustGet()
+	boundaryIndex := -1
+	for index := range entries {
+		if entries[index].ID == compaction.FirstKeptEntryID {
+			boundaryIndex = index
+			break
+		}
+	}
+	if boundaryIndex < 0 {
+		return nil
+	}
+	history := []agent.HistoryEntry{{
+		Kind:  agent.HistoryEntryUser,
+		User:  mo.Some(model.TextMessage(renderBranchSummaryContext(compaction.Summary))),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+	}}
+	for index := boundaryIndex; index < len(entries); index++ {
+		if entries[index].Compaction.IsSome() {
+			continue
+		}
+		history = append(history, historyFromEntries(entries[index:index+1])...)
 	}
 	return history
 }

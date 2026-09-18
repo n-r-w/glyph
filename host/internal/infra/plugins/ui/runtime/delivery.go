@@ -160,7 +160,7 @@ func mapUIToolEvent(event agent.Event, lifecycle *controllerui.Lifecycle) error 
 			return errors.New("deliver UI agent event: tool call end event requires tool call and position")
 		}
 		lifecycle.FinalToolCall = mo.Some(controllerui.FinalToolCall{
-			CallID: call.ID, Name: call.Name, Position: position, Arguments: call.Clone().Arguments,
+			CallID: call.ID, Name: call.Name, Position: position, ArgumentsJSON: call.Arguments.Bytes(),
 		})
 	case agent.EventToolExecutionStart:
 		call, present := event.ToolCall.Get()

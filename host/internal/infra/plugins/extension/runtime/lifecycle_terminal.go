@@ -1,7 +1,6 @@
 package runtime
 
 import (
-	"encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -87,12 +86,8 @@ func mapLifecycleContent(content extensionruntime.Content) (*extensionpb.Configu
 		if !present {
 			return nil, errors.New("lifecycle tool call is missing")
 		}
-		arguments, err := json.Marshal(call.Arguments)
-		if err != nil {
-			return nil, fmt.Errorf("encode lifecycle tool call arguments: %w", err)
-		}
 		mapped.SetToolCall(extensionpb.ConfiguredModelToolCall_builder{
-			Id: new(call.ID), Name: new(call.Name), ArgumentsJson: arguments,
+			Id: new(call.ID), Name: new(call.Name), ArgumentsJson: call.Arguments.Bytes(),
 		}.Build())
 	default:
 		return nil, fmt.Errorf("unknown lifecycle content kind %d", content.Kind)

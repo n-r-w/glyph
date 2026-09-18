@@ -2,7 +2,6 @@ package compatible
 
 import (
 	"context"
-	"encoding/json/v2"
 	"errors"
 	"fmt"
 	"strings"
@@ -309,8 +308,8 @@ func (state *chatAccumulator) finish(handle modelexecution.StreamHandler) error 
 		if !ok || !toolState.started {
 			return errors.New("chat Completions returned an incomplete tool call")
 		}
-		var arguments map[string]any
-		if err := json.Unmarshal([]byte(toolState.arguments.String()), &arguments); err != nil {
+		arguments, err := model.NewToolCallArguments([]byte(toolState.arguments.String()))
+		if err != nil {
 			return fmt.Errorf("decode chat Completions tool-call arguments: %w", err)
 		}
 		call := model.ToolCall{
@@ -325,8 +324,8 @@ func (state *chatAccumulator) finish(handle modelexecution.StreamHandler) error 
 			ProviderContext: mo.None[model.ProviderContext](),
 			ToolCall:        mo.Some(call),
 		}
-		if err := handle(toolCallEndStreamEvent(toolState.position, call)); err != nil {
-			return err
+		if handleErr := handle(toolCallEndStreamEvent(toolState.position, call)); handleErr != nil {
+			return handleErr
 		}
 	}
 	return nil

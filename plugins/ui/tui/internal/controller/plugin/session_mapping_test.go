@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"github.com/samber/mo"
@@ -123,9 +122,7 @@ func TestSessionChangedMapsOrderedRestoredTranscript(t *testing.T) {
 								Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_UNSPECIFIED), Text: nil,
 								ToolCall: uiv1.FinalToolCall_builder{
 									CallId: &callID, Name: &toolName, Position: new(int64(1)),
-									Arguments: &structpb.Struct{Fields: map[string]*structpb.Value{
-										"path": structpb.NewStringValue("input.txt"),
-									}},
+									ArgumentsJson: []byte(`{ "path": "input.txt" }`),
 								}.Build(),
 							}.Build(),
 						},

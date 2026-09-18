@@ -35,7 +35,7 @@ func TestCloneMessageClonesImageBytesInsideOption(t *testing.T) {
 	assert.Equal(t, "image/png", cloned.Content[0].MediaType.OrEmpty())
 }
 
-// TestCloneModelResponseClonesMutableOptionValues verifies output snapshots isolate provider bytes and tool arguments.
+// TestCloneModelResponseClonesMutableOptionValues verifies output snapshots isolate mutable provider and argument bytes.
 func TestCloneModelResponseClonesMutableOptionValues(t *testing.T) {
 	t.Parallel()
 
@@ -59,7 +59,7 @@ func TestCloneModelResponseClonesMutableOptionValues(t *testing.T) {
 				ToolCall: mo.Some(model.ToolCall{
 					ID:        "",
 					Name:      "",
-					Arguments: map[string]any{"items": []any{"first"}},
+					Arguments: testToolCallArguments(`{"items":["first"]}`),
 				}),
 			},
 		},
@@ -77,10 +77,11 @@ func TestCloneModelResponseClonesMutableOptionValues(t *testing.T) {
 	clonedContext := cloned.Content[0].ProviderContext.OrEmpty()
 	clonedContext.Payload[0] = 9
 	clonedCall := cloned.Content[1].ToolCall.OrEmpty()
-	clonedCall.Arguments["items"].([]any)[0] = "changed"
+	clonedArguments := clonedCall.Arguments.Bytes()
+	clonedArguments[0] = '['
 
 	assert.Equal(t, byte(1), original.Content[0].ProviderContext.OrEmpty().Payload[0])
-	assert.Equal(t, "first", original.Content[1].ToolCall.OrEmpty().Arguments["items"].([]any)[0])
+	assert.Equal(t, `{"items":["first"]}`, original.Content[1].ToolCall.OrEmpty().Arguments.String())
 	assert.True(t, cloned.Content[0].ToolCall.IsNone())
 	assert.True(t, cloned.Content[1].ProviderContext.IsNone())
 }
@@ -92,9 +93,9 @@ func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.
 
 	// Arrange ordered model calls and stored-result combinations that include missing and unexpected results.
 	calls := []model.ToolCall{
-		{ID: "call-a", Name: "tool-a", Arguments: map[string]any{}},
-		{ID: "call-b", Name: "tool-b", Arguments: map[string]any{}},
-		{ID: "call-c", Name: "tool-c", Arguments: map[string]any{}},
+		{ID: "call-a", Name: "tool-a", Arguments: testToolCallArguments(`{}`)},
+		{ID: "call-b", Name: "tool-b", Arguments: testToolCallArguments(`{}`)},
+		{ID: "call-c", Name: "tool-c", Arguments: testToolCallArguments(`{}`)},
 	}
 	modelContent := make([]model.Content, 0, len(calls))
 	for _, call := range calls {
@@ -142,7 +143,7 @@ func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.
 			}
 
 			// Act by projecting stored history into provider-visible call order.
-			projected := projectHistory(history)
+			projected := ProjectHistory(history)
 
 			// Assert stored results keep their values, missing results become skipped, and unexpected results are omitted.
 			require.Len(t, projected, len(calls)+1)
@@ -176,11 +177,70 @@ func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.
 	}
 }
 
+// TestProjectHistoryCollectsResponseResultsAcrossInterveningMessages verifies tool-result ownership does not depend
+// on storage adjacency and projection remains stable when applied repeatedly.
+func TestProjectHistoryCollectsResponseResultsAcrossInterveningMessages(t *testing.T) {
+	t.Parallel()
+
+	// Arrange two calls whose persisted results surround model-visible extension messages and arrive out of call order.
+	history := []agent.HistoryEntry{
+		testHistoryModelEntry("call-a", "call-b"),
+		testHistoryUserEntry("extension first"),
+		testHistoryResultEntry("call-b", "stored-b"),
+		testHistoryUserEntry("extension second"),
+		testHistoryResultEntry("call-a", "stored-a"),
+	}
+
+	// Act by projecting persisted history twice.
+	projected := ProjectHistory(history)
+	reprojected := ProjectHistory(projected)
+
+	// Assert actual results follow call order before the intervening messages, with no synthetic duplicate.
+	require.Len(t, projected, 5)
+	assert.Equal(t, agent.HistoryEntryModel, projected[0].Kind)
+	assert.Equal(t, "call-a", projected[1].ToolResult.MustGet().CallID)
+	assert.Equal(t, "stored-a", projected[1].ToolResult.MustGet().Contents[0].Text.MustGet())
+	assert.Equal(t, "call-b", projected[2].ToolResult.MustGet().CallID)
+	assert.Equal(t, "stored-b", projected[2].ToolResult.MustGet().Contents[0].Text.MustGet())
+	assert.Equal(t, "extension first", projected[3].User.MustGet().Text(""))
+	assert.Equal(t, "extension second", projected[4].User.MustGet().Text(""))
+	assert.Equal(t, projected, reprojected)
+}
+
+// TestProjectHistoryScopesRepeatedCallIDsToTheirModelResponse verifies a later response delimits result ownership.
+func TestProjectHistoryScopesRepeatedCallIDsToTheirModelResponse(t *testing.T) {
+	t.Parallel()
+
+	// Arrange two responses that reuse one call ID while only the later response owns an actual result.
+	history := []agent.HistoryEntry{
+		testHistoryModelEntry("same"),
+		testHistoryUserEntry("between responses"),
+		testHistoryModelEntry("same"),
+		testHistoryResultEntry("same", "second actual"),
+	}
+
+	// Act by projecting response-local tool ownership.
+	projected := ProjectHistory(history)
+
+	// Assert the first response gets a skipped result and the later response retains its own actual result.
+	require.Len(t, projected, 5)
+	first := projected[1].ToolResult.MustGet()
+	assert.Equal(t, "same", first.CallID)
+	assert.True(t, first.IsError)
+	assert.Contains(t, first.Contents[0].Text.MustGet(), "skipped")
+	assert.Equal(t, "between responses", projected[2].User.MustGet().Text(""))
+	assert.Equal(t, agent.HistoryEntryModel, projected[3].Kind)
+	second := projected[4].ToolResult.MustGet()
+	assert.Equal(t, "same", second.CallID)
+	assert.False(t, second.IsError)
+	assert.Equal(t, "second actual", second.Contents[0].Text.MustGet())
+}
+
 // TestProjectHistorySkipsMissingSelectedPayload verifies malformed history variants do not become zero entries.
 func TestProjectHistorySkipsMissingSelectedPayload(t *testing.T) {
 	t.Parallel()
 
-	projected := projectHistory([]agent.HistoryEntry{{
+	projected := ProjectHistory([]agent.HistoryEntry{{
 		Kind:       agent.HistoryEntryModel,
 		User:       mo.None[model.Message](),
 		Model:      mo.None[model.Response](),
@@ -188,4 +248,46 @@ func TestProjectHistorySkipsMissingSelectedPayload(t *testing.T) {
 	}})
 
 	assert.Empty(t, projected)
+}
+
+// testHistoryModelEntry creates one finalized tool-use response for history projection tests.
+func testHistoryModelEntry(callIDs ...string) agent.HistoryEntry {
+	content := make([]model.Content, 0, len(callIDs))
+	for _, callID := range callIDs {
+		content = append(content, model.Content{
+			Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
+			ProviderContext: mo.None[model.ProviderContext](),
+			ToolCall: mo.Some(model.ToolCall{
+				ID: callID, Name: "tool-" + callID, Arguments: testToolCallArguments(`{}`),
+			}),
+		})
+	}
+	return agent.HistoryEntry{
+		Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
+		Model: mo.Some(model.Response{
+			Content: content, Outcome: mo.Some(model.OutcomeToolUse), ErrorMessage: mo.None[string](),
+			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
+			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+			Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}),
+		ToolResult: mo.None[agent.ToolResult](),
+	}
+}
+
+// testHistoryUserEntry creates one model-visible intervening message for history projection tests.
+func testHistoryUserEntry(text string) agent.HistoryEntry {
+	return agent.HistoryEntry{
+		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(text)),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+	}
+}
+
+// testHistoryResultEntry creates one persisted actual tool result for history projection tests.
+func testHistoryResultEntry(callID, text string) agent.HistoryEntry {
+	return agent.HistoryEntry{
+		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
+		ToolResult: mo.Some(agent.ToolResult{
+			CallID: callID, ToolName: "tool-" + callID, Contents: tool.TextContents(text), IsError: false,
+		}),
+	}
 }

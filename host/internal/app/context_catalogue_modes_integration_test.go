@@ -131,9 +131,55 @@ func TestPublicExtensionMessagesAcrossApplicationModes(t *testing.T) {
 			// Act through the selected application composition.
 			runPublicExtensionMode(t, scenario.mode, paths, directory, "messages", "store extension messages")
 
-			// Assert both public recovery variants completed and preserved exact message data.
+			// Assert the next real provider request contains one actual result before the message appended during execution.
 			require.Equal(t, int32(2), count.Load())
-			report := decodeSessionStateReport(t, externalToolOutput(t, body.Load().([]byte)))
+			var request struct {
+				// Input contains the exact provider-visible history projection.
+				Input []struct {
+					// Type identifies the provider input item variant.
+					Type string `json:"type"`
+					// Role identifies user messages.
+					Role string `json:"role"`
+					// Content contains model-visible message blocks.
+					Content []struct {
+						// Text contains one message block's exact text.
+						Text string `json:"text"`
+					} `json:"content"`
+					// Output contains model-visible tool result blocks.
+					Output []struct {
+						// Text contains one result block's exact text.
+						Text string `json:"text"`
+					} `json:"output"`
+				} `json:"input"`
+			}
+			require.NoError(t, json.Unmarshal(body.Load().([]byte), &request))
+			callIndex := -1
+			resultIndex := -1
+			messageIndex := -1
+			var resultTexts []string
+			for index, item := range request.Input {
+				switch item.Type {
+				case "function_call":
+					callIndex = index
+				case "function_call_output":
+					resultIndex = index
+					for _, output := range item.Output {
+						resultTexts = append(resultTexts, output.Text)
+					}
+				case "message":
+					for _, content := range item.Content {
+						if item.Role == "user" && content.Text == "exact\nrestart message" {
+							messageIndex = index
+						}
+					}
+				}
+			}
+			require.Len(t, resultTexts, 1)
+			require.Less(t, callIndex, resultIndex)
+			require.Less(t, resultIndex, messageIndex)
+
+			// Assert public recovery preserved the exact durable extension message data.
+			report := decodeSessionStateReport(t, resultTexts[0])
 			require.Equal(t, 2, report.EntryCount)
 			require.Equal(t, "exact\nrestart message", report.MessageText)
 			require.Equal(t, "CLIENT_VISIBILITY_HIDDEN", report.MessageVisibility)

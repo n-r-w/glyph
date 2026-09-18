@@ -12,6 +12,8 @@ import (
 )
 
 const (
+	// fieldSummary identifies summary text in JSON records.
+	fieldSummary = "summary"
 	// fieldInputTokens identifies normalized input usage in JSON records.
 	fieldInputTokens = "inputTokens"
 	// fieldOutputTokens identifies normalized output usage in JSON records.
@@ -91,7 +93,20 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 		}
 		return entry.requireNonNullFields(fields...)
 	case recordTypeBranchSummary:
-		fields := []string{"summary", "firstEntryId", "lastEntryId", fieldSummarySource}
+		fields := []string{fieldSummary, "firstEntryId", "lastEntryId", fieldSummarySource}
+		if validationErr := entry.requireFields(fields...); validationErr != nil {
+			return validationErr
+		}
+		if validationErr := entry.requireNonNullFields(fields...); validationErr != nil {
+			return validationErr
+		}
+		if validationErr := entry.validateSummarySourceRequiredFields(); validationErr != nil {
+			return validationErr
+		}
+		costFields := []string{fieldInput, fieldOutput, fieldCacheRead, fieldCacheWrite, fieldTotal}
+		return entry.validateOptionalRequiredObject("estimatedCost", costFields, costFields)
+	case recordTypeCompaction:
+		fields := []string{fieldSummary, "firstKeptEntryId", fieldSummarySource}
 		if validationErr := entry.requireFields(fields...); validationErr != nil {
 			return validationErr
 		}

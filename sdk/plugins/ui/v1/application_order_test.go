@@ -307,7 +307,7 @@ func orderedNavigationProgressEvent() *uiv1.HostEvent {
 func orderedSessionEntryAddedEvent() *uiv1.HostConnectionEvent {
 	entry := uiv1.SessionTreeEntry_builder{
 		Id: new("appended"), ParentId: new("navigation-leaf"), CreatedTime: timestamppb.Now(), Label: new(""),
-		User: nil, Model: nil, ToolResult: nil, Extension: nil, BranchSummary: nil,
+		User: nil, Model: nil, ToolResult: nil, Extension: nil, BranchSummary: nil, Compaction: nil,
 		ExtensionMessage: uiv1.ExtensionMessage_builder{
 			ExtensionId: new("extension"), EntryType: new("note"), Text: new("observer appended"),
 			Visibility: new(uiv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE),

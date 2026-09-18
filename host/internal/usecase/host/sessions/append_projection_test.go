@@ -142,7 +142,7 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 
-	call := model.ToolCall{ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"}}
+	call := model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{"path":"input.txt"}`)}
 	providerContext := model.ProviderContext{
 		Source: model.ProviderContextSource{
 			ProviderID: "provider", API: "responses", Model: "model", CompatibilityKey: mo.Some("key"),
@@ -211,11 +211,15 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 	s.Require().Len(history, 2)
 	escapedResponse := history[0].Model.MustGet()
 	escapedResponse.Content[0].ProviderContext.MustGet().Payload[0] = 9
-	escapedResponse.Content[0].ToolCall.MustGet().Arguments["path"] = "mutated"
+	escapedArguments := escapedResponse.Content[0].ToolCall.MustGet().Arguments.Bytes()
+	escapedArguments[0] = '['
 	escapedResult := history[1].ToolResult.MustGet()
 	escapedResult.Contents[0].Text = mo.Some("mutated")
 	s.Equal([]byte{1, 2, 3}, active.Snapshot()[0].Model.MustGet().Content[0].ProviderContext.MustGet().Payload)
-	s.Equal("input.txt", active.Snapshot()[0].Model.MustGet().Content[0].ToolCall.MustGet().Arguments["path"])
+	s.Equal(
+		`{"path":"input.txt"}`,
+		active.Snapshot()[0].Model.MustGet().Content[0].ToolCall.MustGet().Arguments.String(),
+	)
 	s.Equal("result", active.Snapshot()[1].ToolResult.MustGet().Contents[0].Text.MustGet())
 }
 
@@ -249,7 +253,7 @@ func (s *ServiceSuite) TestTerminalModelProjectionPreservesContentSliceStateAndO
 		{
 			Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
 			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.Some(model.ToolCall{
-				ID: "call", Name: "read", Arguments: map[string]any{"path": "input.txt"},
+				ID: "call", Name: "read", Arguments: testToolCallArguments(`{"path":"input.txt"}`),
 			}),
 		},
 	}

@@ -1,7 +1,6 @@
 package presentation
 
 import (
-	"encoding/json/v2"
 	"slices"
 	"strings"
 
@@ -249,10 +248,9 @@ func (state *projection) applyToolStarted(event event) {
 	}
 	if callIDPresent {
 		if call, found := state.ActiveToolCalls[callID]; found && !call.Provisional {
-			arguments, _ := json.Marshal(call.Arguments)
 			state.Transcript = append(state.Transcript, Line{
 				Kind: LineToolStatus, ToolName: mo.Some(call.Name), Status: mo.Some("arguments"),
-				Text: mo.Some(string(arguments)), Contents: mo.None[[]Content](),
+				Text: mo.Some(string(call.ArgumentsJSON)), Contents: mo.None[[]Content](),
 			})
 			delete(state.ActiveToolCalls, callID)
 		}

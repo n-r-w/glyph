@@ -1,6 +1,7 @@
 package presentation
 
 import (
+	"bytes"
 	"slices"
 
 	"github.com/samber/lo"
@@ -173,7 +174,7 @@ func decodeToolCallState(input plugininput.ToolCallState) ToolCallState {
 			input.Fields,
 			func(value plugininput.ToolCallField, _ int) ToolCallField { return decodeToolCallField(value) },
 		),
-		Arguments: cloneJSONMap(input.Arguments),
+		ArgumentsJSON: bytes.Clone(input.ArgumentsJSON),
 	}
 }
 

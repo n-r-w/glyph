@@ -105,6 +105,8 @@ const (
 	treeEntryExtensionText = "extension"
 	// treeEntryBranchSummaryText labels a branch-summary entry.
 	treeEntryBranchSummaryText = "branch summary"
+	// treeEntryCompactionText labels an active-context compaction marker.
+	treeEntryCompactionText = "compaction"
 )
 
 const (
@@ -278,6 +280,8 @@ func treeEntryKindText(kind presentation.TreeEntryKind) string {
 		return treeEntryExtensionText
 	case presentation.TreeEntryBranchSummary:
 		return treeEntryBranchSummaryText
+	case presentation.TreeEntryCompaction:
+		return treeEntryCompactionText
 	case presentation.TreeEntryUnspecified:
 		return unknownTreeText
 	default:

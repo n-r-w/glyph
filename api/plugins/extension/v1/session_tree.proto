@@ -196,6 +196,7 @@ message SessionTreeEntry {
     SessionTreeBranchSummary branch_summary = 5;
     SessionTreeExtensionEntry extension = 6;
     SessionTreeExtensionMessage extension_message = 7;
+    SessionTreeCompaction compaction = 8;
   }
 }
 
@@ -290,6 +291,20 @@ message SessionTreeToolResult {
 message SessionTreeBranchSummary {
   // The persisted summary text.
   string summary = 1;
+}
+
+// SessionTreeCompaction contains one persisted active-context compaction marker.
+message SessionTreeCompaction {
+  // The summary text included in model context.
+  string summary = 1;
+  // The first original entry retained after the summary.
+  string first_kept_entry_id = 2;
+  // The actual producer and its optional model usage.
+  BranchSummarySource source = 3;
+  // Persisted estimated cost when available for a model source.
+  EstimatedCost estimated_cost = 4;
+  // Opaque extension-owned result details when present.
+  bytes details = 5;
 }
 
 // SessionTreeExtensionEntry identifies one model-hidden extension entry without exposing its payload.

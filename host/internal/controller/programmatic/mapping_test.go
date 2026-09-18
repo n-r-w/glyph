@@ -39,10 +39,10 @@ func maximalToolCallPreview() ToolCallPreview {
 
 func maximalFinalToolCall() FinalToolCall {
 	return FinalToolCall{
-		CallID:    "call",
-		Name:      "tool",
-		Position:  4,
-		Arguments: map[string]any{"null": nil, "array": []any{"value", float64(2)}},
+		CallID:        "call",
+		Name:          "tool",
+		Position:      4,
+		ArgumentsJSON: []byte(`{ "null": null, "array": ["value", 2.0] }`),
 	}
 }
 
@@ -164,10 +164,7 @@ func assertFinalToolCall(t *testing.T, call *programmaticv1.FinalToolCall) {
 	assert.Equal(t, "call", call.GetCallId())
 	assert.Equal(t, "tool", call.GetName())
 	assert.Equal(t, int64(4), call.GetPosition())
-	arguments := call.GetArguments().AsMap()
-	assert.Contains(t, arguments, "null")
-	assert.Nil(t, arguments["null"])
-	assert.Equal(t, []any{"value", float64(2)}, arguments["array"])
+	assert.Equal(t, []byte(`{ "null": null, "array": ["value", 2.0] }`), call.GetArgumentsJson())
 }
 
 func assertToolResult(t *testing.T, result *programmaticv1.ToolResult) {

@@ -1,6 +1,7 @@
 package uiv1
 
 import (
+	"encoding/json/v2"
 	"errors"
 	"fmt"
 
@@ -108,8 +109,11 @@ func validateToolCallPreview(preview *uiv1.ToolCallPreview) error {
 
 // validateFinalToolCall validates one finalized tool call.
 func validateFinalToolCall(call *uiv1.FinalToolCall) error {
-	if call == nil || !call.HasCallId() || !call.HasName() || !call.HasPosition() || call.GetArguments() == nil {
+	if call == nil || !call.HasCallId() || !call.HasName() || !call.HasPosition() || !call.HasArgumentsJson() {
 		return errors.New("Host final tool call fields are required")
+	}
+	if err := json.Unmarshal(call.GetArgumentsJson(), new(map[string]any)); err != nil {
+		return fmt.Errorf("Host final tool call arguments must contain a JSON object or null: %w", err)
 	}
 	return nil
 }
