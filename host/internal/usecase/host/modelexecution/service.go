@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -12,6 +13,24 @@ import (
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
+)
+
+const (
+	// modelStreamMissingTerminalMessage describes a logical stream without provider terminal output.
+	modelStreamMissingTerminalMessage = "model stream ended without a terminal response"
+	// modelStreamTerminalMissingResponseMessage describes malformed logical-stream terminal output.
+	modelStreamTerminalMissingResponseMessage = "model stream terminal event has no response"
+	// modelRequestMissingTerminalMessage describes a configured request without provider terminal output.
+	modelRequestMissingTerminalMessage = "model request ended without a terminal response"
+	// modelTerminalMissingResponseMessage describes malformed configured-request terminal output.
+	modelTerminalMissingResponseMessage = "model request terminal event has no response"
+)
+
+var (
+	// errModelStreamTerminalMissingResponse identifies malformed logical-stream terminal output.
+	errModelStreamTerminalMissingResponse = errors.New(modelStreamTerminalMissingResponseMessage)
+	// errModelTerminalMissingResponse identifies malformed configured-request terminal output.
+	errModelTerminalMissingResponse = errors.New(modelTerminalMissingResponseMessage)
 )
 
 // Service owns one-attempt logical model execution for Host consumers.
@@ -67,26 +86,41 @@ func (s *Service) Stream(
 	if err != nil {
 		return err
 	}
-	return binding.Provider.Stream(ctx, ProviderRequest{
+	terminalDelivered := false
+	streamErr := binding.Provider.Stream(ctx, ProviderRequest{
 		Instructions:    request.Instructions,
 		Model:           binding.Model,
 		ReasoningChoice: binding.ReasoningChoice,
 		History:         ownedHistory,
 		Tools:           request.Tools,
 	}, func(event StreamEvent) error {
+		response, responsePresent := event.Response.Get()
+		terminal := event.Kind == StreamEventDone || event.Kind == StreamEventError
+		if terminal && !responsePresent {
+			return errModelStreamTerminalMissingResponse
+		}
 		if handleErr := handle(logicalStreamEvent(event)); handleErr != nil {
 			return handleErr
 		}
-		if event.Kind == StreamEventDone || event.Kind == StreamEventError {
-			if response, present := event.Response.Get(); present {
-				s.conversationContext.ObserveCompletedConversation(ProviderRequest{
-					Instructions: request.Instructions, Model: binding.Model,
-					ReasoningChoice: binding.ReasoningChoice, History: ownedHistory, Tools: request.Tools,
-				}, response)
-			}
+		if terminal {
+			terminalDelivered = true
+			s.conversationContext.ObserveCompletedConversation(ProviderRequest{
+				Instructions: request.Instructions, Model: binding.Model,
+				ReasoningChoice: binding.ReasoningChoice, History: ownedHistory, Tools: request.Tools,
+			}, response)
 		}
 		return nil
 	})
+	if streamErr != nil {
+		if errors.Is(streamErr, errModelStreamTerminalMissingResponse) {
+			return missingTerminalFailure(streamErr.Error())
+		}
+		return streamErr
+	}
+	if !terminalDelivered {
+		return missingTerminalFailure(modelStreamMissingTerminalMessage)
+	}
+	return nil
 }
 
 // Request executes one configured request and returns its detached terminal response.
@@ -119,21 +153,33 @@ func (s *Service) Request(
 		if event.Kind == StreamEventDone || event.Kind == StreamEventError {
 			response, present := event.Response.Get()
 			if !present {
-				return errors.New("model request terminal event has no response")
+				return errModelTerminalMissingResponse
 			}
 			terminal = mo.Some(response.Clone())
 		}
 		return nil
 	})
 	if streamErr != nil {
+		if errors.Is(streamErr, errModelTerminalMissingResponse) {
+			return model.Response{}, fmt.Errorf("execute model request: %w", missingTerminalFailure(streamErr.Error()))
+		}
 		return model.Response{}, fmt.Errorf("execute model request: %w", streamErr)
 	}
 	// response is present only after one valid terminal event.
 	response, present := terminal.Get()
 	if !present {
-		return model.Response{}, errors.New("model request ended without a terminal response")
+		return model.Response{}, missingTerminalFailure(modelRequestMissingTerminalMessage)
 	}
 	return response, nil
+}
+
+// missingTerminalFailure classifies one incomplete raw provider attempt without selecting retry policy.
+func missingTerminalFailure(message string) error {
+	return &ProviderFailureError{
+		Classification: ProviderFailureTransient,
+		RetryDelay:     mo.None[time.Duration](),
+		Cause:          errors.New(message),
+	}
 }
 
 // cloneHistory validates and transfers immutable history ownership to one raw attempt.

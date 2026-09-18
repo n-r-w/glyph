@@ -45,7 +45,7 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 			assert.Equal(t, history, request.History)
 			assert.Equal(t, tools, request.Tools)
 			request.History[0].User.MustGet().Content[0].Text = mo.Some("changed")
-			return handle(StreamEvent{
+			if err := handle(StreamEvent{
 				Kind: StreamEventTextDelta, Position: mo.Some(0),
 				Content: mo.Some(model.Content{
 					Kind: model.ContentText, Text: mo.Some("delta"), Final: false,
@@ -53,10 +53,24 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 				}),
 				Delta: mo.Some("delta"), Preview: mo.None[model.ToolCallPreview](),
 				ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+			}); err != nil {
+				return err
+			}
+			return handle(StreamEvent{
+				Kind: StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](),
+				Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](), Response: mo.Some(model.Response{
+					Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
+					Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
+					ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+					Usage: mo.None[model.Usage](), Diagnostics: nil,
+				}),
 			})
 		},
 	)
-	service := newTestService(t, catalog)
+	conversationContext := NewMockConversationContext(controller)
+	conversationContext.EXPECT().ObserveCompletedConversation(gomock.Any(), gomock.Any())
+	service := New(catalog, conversationContext)
 	var received agentrun.StreamEvent
 
 	// Act through the Agent Core logical provider contract.
@@ -64,7 +78,9 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
 		History: history, Tools: tools,
 	}, func(event agentrun.StreamEvent) error {
-		received = event
+		if event.Kind == agentrun.StreamEventTextDelta {
+			received = event
+		}
 		return nil
 	})
 
@@ -262,6 +278,76 @@ func TestServiceConfiguredRequestReturnsDetachedTerminal(t *testing.T) {
 	assert.Equal(t, "answer", response.Content[0].Text.MustGet())
 }
 
+// TestServiceStreamRejectsMissingTerminalResponse verifies an incomplete raw stream cannot report logical success.
+func TestServiceStreamRejectsMissingTerminalResponse(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one binding whose raw provider returns without a terminal event.
+	controller := gomock.NewController(t)
+	catalog := NewMockCatalogResolver(controller)
+	provider := NewMockProviderAttempt(controller)
+	selection := model.Selection{
+		Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff,
+	}
+	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
+	}, nil)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
+	service := newTestService(t, catalog)
+
+	// Act through the logical stream boundary.
+	err := service.Stream(t.Context(), agentrun.ModelRequest{
+		Instructions: "instructions", Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice,
+		History: nil, Tools: nil,
+	}, func(agentrun.StreamEvent) error { return nil })
+
+	// Assert missing terminal provider output is a transient failed attempt.
+	require.Error(t, err)
+	var providerFailure *ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, ProviderFailureTransient, providerFailure.Classification)
+	assert.Contains(t, err.Error(), "model stream ended without a terminal response")
+}
+
+// TestServiceStreamRejectsTerminalWithoutResponse verifies malformed terminal output cannot report logical success.
+func TestServiceStreamRejectsTerminalWithoutResponse(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one binding whose raw provider emits a terminal event without its response.
+	controller := gomock.NewController(t)
+	catalog := NewMockCatalogResolver(controller)
+	provider := NewMockProviderAttempt(controller)
+	selection := model.Selection{
+		Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff,
+	}
+	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
+	}, nil)
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ ProviderRequest, handle StreamHandler) error {
+			return handle(StreamEvent{
+				Kind: StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](),
+				Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
+				ToolCall: mo.None[model.ToolCall](), Response: mo.None[model.Response](),
+			})
+		},
+	)
+	service := newTestService(t, catalog)
+
+	// Act through the logical stream boundary.
+	err := service.Stream(t.Context(), agentrun.ModelRequest{
+		Instructions: "instructions", Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice,
+		History: nil, Tools: nil,
+	}, func(agentrun.StreamEvent) error { return nil })
+
+	// Assert the malformed terminal event is one transient failed attempt.
+	require.Error(t, err)
+	var providerFailure *ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, ProviderFailureTransient, providerFailure.Classification)
+	assert.Contains(t, err.Error(), "model stream terminal event has no response")
+}
+
 // TestServiceConfiguredRequestRejectsMissingTerminal verifies both incomplete terminal shapes return zero responses.
 func TestServiceConfiguredRequestRejectsMissingTerminal(t *testing.T) {
 	t.Parallel()
@@ -317,6 +403,9 @@ func TestServiceConfiguredRequestRejectsMissingTerminal(t *testing.T) {
 			// Assert the incomplete stream is rejected with a zero response.
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), test.errorText)
+			var providerFailure *ProviderFailureError
+			require.ErrorAs(t, err, &providerFailure)
+			assert.Equal(t, ProviderFailureTransient, providerFailure.Classification)
 			assert.Equal(t, model.Response{}, response)
 		})
 	}

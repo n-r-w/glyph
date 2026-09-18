@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -75,6 +76,8 @@ func TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures(t *testing.T) {
 	// Assert both exact causes occur once and no second terminal callback is attempted.
 	require.ErrorIs(t, err, providerErr)
 	require.ErrorIs(t, err, handlerErr)
+	var providerFailure *modelexecution.ProviderFailureError
+	assert.NotErrorAs(t, err, &providerFailure)
 	assert.Equal(t, 1, strings.Count(err.Error(), providerErr.Error()))
 	assert.Equal(t, 1, strings.Count(err.Error(), handlerErr.Error()))
 	assert.Equal(t, 1, callbacks)
@@ -135,6 +138,38 @@ func TestDriverStreamJoinsSDKAndContentEndFailures(t *testing.T) {
 	assert.NotContains(t, events, modelexecution.StreamEventError)
 }
 
+// TestDriverStreamRequestPreparationFailureRemainsPredispatch verifies local request mapping is not a provider failure.
+func TestDriverStreamRequestPreparationFailureRemainsPredispatch(t *testing.T) {
+	t.Parallel()
+
+	// Arrange valid credentials and a request rejected before model dispatch.
+	accountID := "request-preparation-account"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	service := newDriver(
+		testConfig(), credentials, NewMockInteraction(gomock.NewController(t)), defaultDriverOptions(),
+	)
+
+	// Act with missing instructions so request preparation fails before HTTP dispatch.
+	_, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "",
+		Model:           testModelDescriptor("gpt-test"),
+		History:         nil,
+		Tools:           nil,
+	}, nil)
+
+	// Assert local request failure remains outside provider classification.
+	require.ErrorContains(t, err, "request instructions are required")
+	var providerFailure *modelexecution.ProviderFailureError
+	assert.NotErrorAs(t, err, &providerFailure)
+}
+
 // TestDriverStreamPreservesTransportFailure verifies a transport cause reaches the returned error and terminal
 // response.
 func TestDriverStreamPreservesTransportFailure(t *testing.T) {
@@ -150,7 +185,7 @@ func TestDriverStreamPreservesTransportFailure(t *testing.T) {
 		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
 	)
 	interaction := NewMockInteraction(gomock.NewController(t))
-	transportErr := errors.New("unique Codex transport failure")
+	transportErr := fmt.Errorf("unique Codex transport failure: %w", syscall.ECONNRESET)
 	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
 	transport.EXPECT().RoundTrip(gomock.Any()).Return(nil, transportErr)
 	options := defaultDriverOptions()
@@ -178,7 +213,54 @@ func TestDriverStreamPreservesTransportFailure(t *testing.T) {
 	require.ErrorIs(t, err, transportErr)
 	assert.Contains(t, err.Error(), transportErr.Error())
 	assert.Contains(t, response.ErrorMessage.OrEmpty(), transportErr.Error())
-	assert.NotErrorIs(t, err, ErrSignInRequired)
+	require.NotErrorIs(t, err, ErrSignInRequired)
+	var providerFailure *modelexecution.ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
+}
+
+// TestDriverStreamClassifiesPrematureClosure verifies a cleanly closed stream without terminal output is transient.
+func TestDriverStreamClassifiesPrematureClosure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange authenticated credentials and one real SSE endpoint with no terminal event.
+	accountID := "premature-close-account"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	var requests atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+		requests.Add(1)
+		writer.Header().Set("Content-Type", "text/event-stream")
+	}))
+	t.Cleanup(server.Close)
+	service := newDriver(testConfig(), credentials, interaction, testProviderOptions(server))
+
+	// Act through one raw adapter invocation.
+	events, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
+		ReasoningChoice: model.ReasoningChoiceOn,
+		Instructions:    "instructions",
+		Model:           testModelDescriptor("gpt-test"),
+		History:         nil,
+		Tools:           nil,
+	}, nil)
+
+	// Assert the explicit source, transient classification, and no hidden SDK retry.
+	require.ErrorContains(t, err, "OpenAI Codex stream ended without a terminal response")
+	assert.Contains(
+		t,
+		terminalResponse(events).ErrorMessage.OrEmpty(),
+		"OpenAI Codex stream ended without a terminal response",
+	)
+	var providerFailure *modelexecution.ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
+	assert.Equal(t, int32(1), requests.Load())
 }
 
 // TestDriverStreamFailureEventsPreserveSourceWhenContentEndFails verifies each provider failure source survives
@@ -314,18 +396,22 @@ func TestDriverStreamMixedCancellationPreservesAcquiredProviderFailure(t *testin
 	t.Parallel()
 
 	// Arrange an acquired typed transport failure before cancellation becomes visible to the driver.
-	providerCause := errors.New("unique acquired Codex transport source")
+	providerCause := fmt.Errorf("unique acquired Codex transport source: %w", syscall.ECONNRESET)
 	typedProviderErr := &url.Error{Op: "POST", URL: "https://mixed-cancel.invalid", Err: providerCause}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 	service := &Driver{}
 
 	// Act once through the stream error mapper used after the provider attempt ends.
-	response, err := service.streamError(ctx, typedProviderErr, newErrorCaptureTransport(http.DefaultTransport))
+	response, sourceErr := service.streamError(ctx, typedProviderErr, newErrorCaptureTransport(http.DefaultTransport))
+	err := classifyCodexFailure(ctx, sourceErr)
 
-	// Assert aborted presentation and both internal causes survive the mapping.
+	// Assert aborted presentation, transient classification, and both internal causes survive the mapping.
 	require.ErrorIs(t, err, context.Canceled)
 	require.ErrorIs(t, err, providerCause)
+	var providerFailure *modelexecution.ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
 	var acquired *url.Error
 	require.ErrorAs(t, err, &acquired)
 	assert.Same(t, typedProviderErr, acquired)
@@ -454,6 +540,12 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 		expectedSourceText string
 		// signInRequired specifies whether authentication recovery is required.
 		signInRequired bool
+		// retryAfter is the optional provider delay header.
+		retryAfter string
+		// classification is the expected source failure class.
+		classification modelexecution.ProviderFailureClassification
+		// delay is the expected source delay.
+		delay mo.Option[time.Duration]
 	}{
 		"unauthorized": {
 			status:             http.StatusUnauthorized,
@@ -461,6 +553,9 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			expectedText:       signInRequiredMessage,
 			expectedSourceText: "expired token",
 			signInRequired:     true,
+			retryAfter:         "",
+			classification:     modelexecution.ProviderFailureNonRetryable,
+			delay:              mo.None[time.Duration](),
 		},
 		"server error": {
 			status:             http.StatusInternalServerError,
@@ -468,6 +563,45 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			expectedText:       "backend unavailable",
 			expectedSourceText: "backend unavailable",
 			signInRequired:     false,
+			retryAfter:         "9",
+			classification:     modelexecution.ProviderFailureTransient,
+			delay:              mo.Some(9 * time.Second),
+		},
+		"request timeout": {
+			status: http.StatusRequestTimeout, body: `{"error":{"message":"timed out"}}`,
+			expectedText: "timed out", expectedSourceText: "timed out", signInRequired: false,
+			retryAfter: "", classification: modelexecution.ProviderFailureTransient, delay: mo.None[time.Duration](),
+		},
+		"rate limited": {
+			status: http.StatusTooManyRequests, body: `{"error":{"message":"slow down"}}`,
+			expectedText: "slow down", expectedSourceText: "slow down", signInRequired: false,
+			retryAfter: "", classification: modelexecution.ProviderFailureTransient, delay: mo.None[time.Duration](),
+		},
+		"bad gateway": {
+			status: http.StatusBadGateway, body: `{"error":{"message":"gateway"}}`,
+			expectedText: "gateway", expectedSourceText: "gateway", signInRequired: false,
+			retryAfter: "", classification: modelexecution.ProviderFailureTransient, delay: mo.None[time.Duration](),
+		},
+		"service unavailable": {
+			status: http.StatusServiceUnavailable, body: `{"error":{"message":"unavailable"}}`,
+			expectedText: "unavailable", expectedSourceText: "unavailable", signInRequired: false,
+			retryAfter: "", classification: modelexecution.ProviderFailureTransient, delay: mo.None[time.Duration](),
+		},
+		"gateway timeout": {
+			status: http.StatusGatewayTimeout, body: `{"error":{"message":"gateway timeout"}}`,
+			expectedText: "gateway timeout", expectedSourceText: "gateway timeout", signInRequired: false,
+			retryAfter: "", classification: modelexecution.ProviderFailureTransient, delay: mo.None[time.Duration](),
+		},
+		"context overflow": {
+			status: http.StatusBadRequest,
+			body: `{"error":{"code":"context_length_exceeded",` +
+				`"message":"too many tokens","type":"invalid_request_error"}}`,
+			expectedText:       "too many tokens",
+			expectedSourceText: "too many tokens",
+			signInRequired:     false,
+			retryAfter:         "",
+			classification:     modelexecution.ProviderFailureContextOverflow,
+			delay:              mo.None[time.Duration](),
 		},
 		"large unauthorized": {
 			status:             http.StatusUnauthorized,
@@ -475,6 +609,9 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			expectedText:       signInRequiredMessage,
 			expectedSourceText: longSource,
 			signInRequired:     true,
+			retryAfter:         "",
+			classification:     modelexecution.ProviderFailureNonRetryable,
+			delay:              mo.None[time.Duration](),
 		},
 		"large server error": {
 			status:             http.StatusInternalServerError,
@@ -482,6 +619,9 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			expectedText:       "complete HTTP diagnostic suffix",
 			expectedSourceText: longSource,
 			signInRequired:     false,
+			retryAfter:         "",
+			classification:     modelexecution.ProviderFailureTransient,
+			delay:              mo.None[time.Duration](),
 		},
 	}
 	for name, testCase := range testCases {
@@ -504,6 +644,9 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 				http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 					requests.Add(1)
 					writer.Header().Set("Content-Type", "application/json")
+					if testCase.retryAfter != "" {
+						writer.Header().Set("Retry-After", testCase.retryAfter)
+					}
 					writer.WriteHeader(testCase.status)
 					_, _ = writer.Write([]byte(testCase.body))
 				}),
@@ -546,6 +689,10 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 			require.ErrorAs(t, err, &apiError)
 			assert.Equal(t, testCase.status, apiError.StatusCode)
 			assert.Equal(t, testCase.signInRequired, errors.Is(err, ErrSignInRequired))
+			var providerFailure *modelexecution.ProviderFailureError
+			require.ErrorAs(t, err, &providerFailure)
+			assert.Equal(t, testCase.classification, providerFailure.Classification)
+			assert.Equal(t, testCase.delay, providerFailure.RetryDelay)
 			assert.Equal(t, int32(1), requests.Load())
 		})
 	}
@@ -561,6 +708,7 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 		event           string
 		expectedOutcome model.Outcome
 		expectsError    bool
+		classification  mo.Option[modelexecution.ProviderFailureClassification]
 	}{
 		"length": {
 			event: `{"type":"response.incomplete","response":{"id":"resp",` +
@@ -568,12 +716,21 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 				`"incomplete_details":{"reason":"max_output_tokens"},"output":[]}}`,
 			expectedOutcome: model.OutcomeLength,
 			expectsError:    false,
+			classification:  mo.None[modelexecution.ProviderFailureClassification](),
 		},
 		"failure": {
 			event: fmt.Sprintf(`{"type":"response.failed","response":{"id":"resp",`+
 				`"status":"failed","error":{"code":"server_error","message":%q},"output":[]}}`, source),
 			expectedOutcome: model.OutcomeFailed,
 			expectsError:    true,
+			classification:  mo.Some(modelexecution.ProviderFailureTransient),
+		},
+		"context overflow": {
+			event: fmt.Sprintf(`{"type":"response.failed","response":{"id":"resp",`+
+				`"status":"failed","error":{"code":"context_length_exceeded","message":%q},"output":[]}}`, source),
+			expectedOutcome: model.OutcomeFailed,
+			expectsError:    true,
+			classification:  mo.Some(modelexecution.ProviderFailureContextOverflow),
 		},
 		"incomplete failure": {
 			event: fmt.Sprintf(`{"type":"response.incomplete","response":{"id":"resp",`+
@@ -581,11 +738,13 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 				`"error":{"code":"server_error","message":%q},"output":[]}}`, source),
 			expectedOutcome: model.OutcomeFailed,
 			expectsError:    true,
+			classification:  mo.Some(modelexecution.ProviderFailureTransient),
 		},
 		"error": {
 			event:           fmt.Sprintf(`{"type":"error","code":"server_error","message":%q}`, source),
 			expectedOutcome: model.OutcomeFailed,
 			expectsError:    true,
+			classification:  mo.Some(modelexecution.ProviderFailureTransient),
 		},
 	}
 	for name, testCase := range testCases {
@@ -642,6 +801,9 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), source)
 				assert.Contains(t, response.ErrorMessage.OrEmpty(), source)
+				var providerFailure *modelexecution.ProviderFailureError
+				require.ErrorAs(t, err, &providerFailure)
+				assert.Equal(t, testCase.classification.MustGet(), providerFailure.Classification)
 			} else {
 				require.NoError(t, err)
 			}

@@ -6,13 +6,16 @@ import (
 	"context"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
 	"strings"
 	"sync/atomic"
+	"syscall"
 	"testing"
+	"time"
 
 	"github.com/openai/openai-go/v3"
 	"github.com/samber/mo"
@@ -45,7 +48,9 @@ func (s *serviceSuite) TestChatCompletionsRequiresFinishReason() {
 	assert.Equal(t, model.OutcomeFailed, events[len(events)-1].Response.OrEmpty().Outcome.OrEmpty())
 }
 
+// TestHandlerFailureStopsWithoutTerminalEvent keeps a failed client sink outside provider classification.
 func (s *serviceSuite) TestHandlerFailureStopsWithoutTerminalEvent() {
+	// Arrange a text stream and a sink whose failure wraps a transport-like cause.
 	t := s.T()
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/event-stream")
@@ -64,8 +69,9 @@ func (s *serviceSuite) TestHandlerFailureStopsWithoutTerminalEvent() {
 		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
-	handlerErr := errors.New("sink stopped")
+	handlerErr := fmt.Errorf("sink stopped: %w", syscall.ECONNRESET)
 	var events []modelexecution.StreamEvent
+	// Act by failing delivery of the first text delta.
 	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		if event.Kind == modelexecution.StreamEventTextDelta {
@@ -73,7 +79,10 @@ func (s *serviceSuite) TestHandlerFailureStopsWithoutTerminalEvent() {
 		}
 		return nil
 	})
+	// Assert the original sink failure stops delivery without a provider failure or terminal event.
 	require.ErrorIs(t, err, handlerErr)
+	var providerFailure *modelexecution.ProviderFailureError
+	assert.NotErrorAs(t, err, &providerFailure)
 	for _, event := range events {
 		assert.NotContains(
 			t,
@@ -201,7 +210,7 @@ func (s *serviceSuite) TestResolverFailurePreservesCause() {
 		APIKey: expectAPIKey(
 			t,
 			"",
-			errors.New("credential store checksum mismatch"),
+			fmt.Errorf("credential store checksum mismatch: %w", syscall.ECONNRESET),
 			1,
 		),
 		ReasoningFormats:           nil,
@@ -219,6 +228,8 @@ func (s *serviceSuite) TestResolverFailurePreservesCause() {
 	// Assert the resolver cause and adapter context are returned and delivered.
 	require.ErrorContains(t, err, "resolve OpenAI-compatible API key: credential store checksum mismatch")
 	assert.Zero(t, calls.Load())
+	var providerFailure *modelexecution.ProviderFailureError
+	assert.NotErrorAs(t, err, &providerFailure)
 	require.Len(t, events, 1)
 	terminal := events[0]
 	assert.Equal(t, modelexecution.StreamEventError, terminal.Kind)
@@ -227,6 +238,62 @@ func (s *serviceSuite) TestResolverFailurePreservesCause() {
 		terminal.Response.OrEmpty().ErrorMessage.OrEmpty(),
 		"resolve OpenAI-compatible API key: credential store checksum mismatch",
 	)
+}
+
+// TestPreDispatchFailureJoinsTerminalDelivery preserves local and delivery causes without provider classification.
+func (s *serviceSuite) TestPreDispatchFailureJoinsTerminalDelivery() {
+	t := s.T()
+
+	testCases := []struct {
+		// name identifies the pre-dispatch origin.
+		name string
+		// request is the provider request rejected before HTTP dispatch.
+		request modelexecution.ProviderRequest
+		// apiKey is the configured credential resolver.
+		apiKey APIKeyResolver
+		// sourceText identifies the original local cause.
+		sourceText string
+	}{
+		{
+			name:       "model selection",
+			request:    richRequest("other", "demo"),
+			apiKey:     expectAPIKey(t, "", nil, 0),
+			sourceText: "configured provider does not match request",
+		},
+		{
+			name:    "credential resolution",
+			request: richRequest("local", "demo"),
+			apiKey: expectAPIKey(
+				t, "", fmt.Errorf("credential resolver reset: %w", syscall.ECONNRESET), 1,
+			),
+			sourceText: "resolve OpenAI-compatible API key: credential resolver reset",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// Arrange one valid adapter and a terminal consumer failure with a nested network cause.
+			service, err := New(Config{
+				ProviderID: "local", BaseURL: "https://unused.invalid", API: APIResponses,
+				Models: map[model.ID]API{"demo": ""}, APIKey: testCase.apiKey,
+				ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+			})
+			require.NoError(t, err)
+			deliveryErr := fmt.Errorf("terminal delivery reset: %w", syscall.ECONNRESET)
+
+			// Act by rejecting the terminal local-failure event.
+			err = service.Stream(t.Context(), testCase.request, func(modelexecution.StreamEvent) error {
+				return deliveryErr
+			})
+
+			// Assert both origins survive, delivery remains tagged, and provider classification is absent.
+			require.ErrorContains(t, err, testCase.sourceText)
+			require.ErrorIs(t, err, deliveryErr)
+			var taggedDelivery streamHandlerError
+			require.ErrorAs(t, err, &taggedDelivery)
+			var providerFailure *modelexecution.ProviderFailureError
+			assert.NotErrorAs(t, err, &providerFailure)
+		})
+	}
 }
 
 // TestResponsesFailedEventPreservesProviderMessage verifies a failed event keeps provider diagnostics.
@@ -273,6 +340,9 @@ func (s *serviceSuite) TestResponsesFailedEventPreservesProviderMessage() {
 	} {
 		require.ErrorContains(t, err, detail)
 	}
+	var providerFailure *modelexecution.ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
 	require.Len(t, events, 1)
 	terminal := events[0]
 	assert.Equal(t, modelexecution.StreamEventError, terminal.Kind)
@@ -283,6 +353,79 @@ func (s *serviceSuite) TestResponsesFailedEventPreservesProviderMessage() {
 		"provider capacity shard unavailable",
 	} {
 		assert.Contains(t, terminal.Response.OrEmpty().ErrorMessage.OrEmpty(), detail)
+	}
+}
+
+// TestResponsesIncompleteReasonControlsOutcome verifies only output-token exhaustion is a successful length outcome.
+func (s *serviceSuite) TestResponsesIncompleteReasonControlsOutcome() {
+	t := s.T()
+
+	testCases := []struct {
+		// name identifies the provider incomplete reason.
+		name string
+		// event is the real provider SSE payload.
+		event string
+		// outcome is the expected terminal model outcome.
+		outcome model.Outcome
+		// errorText is empty only for max-output-token completion.
+		errorText string
+	}{
+		{
+			name: "max output tokens",
+			event: `{"type":"response.incomplete","response":{"id":"resp-length",` +
+				`"status":"incomplete","incomplete_details":{"reason":"max_output_tokens"},"output":[]}}`,
+			outcome:   model.OutcomeLength,
+			errorText: "",
+		},
+		{
+			name: "content filter",
+			event: `{"type":"response.incomplete","response":{"id":"resp-filter",` +
+				`"status":"incomplete","incomplete_details":{"reason":"content_filter"},` +
+				`"error":{"code":"invalid_prompt","message":"blocked source detail"},"output":[]}}`,
+			outcome:   model.OutcomeFailed,
+			errorText: "content_filter: blocked source detail",
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// Arrange one real SSE incomplete response.
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+				writer.Header().Set("Content-Type", "text/event-stream")
+				writeSSE(t, writer, testCase.event)
+			}))
+			t.Cleanup(server.Close)
+			service, err := New(Config{
+				ProviderID: "local", BaseURL: server.URL, API: APIResponses,
+				Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1),
+				ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+			})
+			require.NoError(t, err)
+			var terminal model.Response
+
+			// Act through the Responses adapter.
+			err = service.Stream(
+				t.Context(),
+				richRequest("local", "demo"),
+				func(event modelexecution.StreamEvent) error {
+					if event.Kind == modelexecution.StreamEventDone || event.Kind == modelexecution.StreamEventError {
+						terminal = event.Response.OrEmpty()
+					}
+					return nil
+				},
+			)
+
+			// Assert only max-output-token completion succeeds; other reasons preserve source failure details.
+			assert.Equal(t, testCase.outcome, terminal.Outcome.OrEmpty())
+			if testCase.errorText == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, testCase.errorText)
+			assert.Contains(t, terminal.ErrorMessage.OrEmpty(), testCase.errorText)
+			var providerFailure *modelexecution.ProviderFailureError
+			require.ErrorAs(t, err, &providerFailure)
+			assert.Equal(t, modelexecution.ProviderFailureNonRetryable, providerFailure.Classification)
+		})
 	}
 }
 
@@ -417,6 +560,8 @@ func (s *serviceSuite) TestMalformedProviderContextPreservesParserCause() {
 
 	// Assert parser detail and adapter context are returned and delivered before HTTP dispatch.
 	require.ErrorContains(t, err, "decode OpenAI-compatible provider context: jsontext: invalid character")
+	var providerFailure *modelexecution.ProviderFailureError
+	assert.NotErrorAs(t, err, &providerFailure)
 	assert.Zero(t, calls.Load())
 	require.Len(t, events, 1)
 	assert.Equal(t, modelexecution.StreamEventError, events[0].Kind)
@@ -425,6 +570,84 @@ func (s *serviceSuite) TestMalformedProviderContextPreservesParserCause() {
 		events[0].Response.OrEmpty().ErrorMessage.OrEmpty(),
 		"decode OpenAI-compatible provider context: jsontext: invalid character",
 	)
+}
+
+// TestLocalPreparationFailuresRemainOutsideProviderClassification verifies both wire families stop
+// before HTTP dispatch.
+func (s *serviceSuite) TestLocalPreparationFailuresRemainOutsideProviderClassification() {
+	t := s.T()
+
+	testCases := []struct {
+		// name identifies the local preparation failure.
+		name string
+		// mutate makes one otherwise valid provider request fail locally.
+		mutate func(*modelexecution.ProviderRequest, API)
+	}{
+		{
+			name: "malformed provider context",
+			mutate: func(request *modelexecution.ProviderRequest, api API) {
+				appendHistoryModelContent(request, model.Content{
+					Kind: model.ContentReasoning, Text: mo.Some("visible reasoning"), Final: true,
+					ProviderContext: mo.Some(model.ProviderContext{
+						Source: model.ProviderContextSource{
+							ProviderID: "local", API: string(api), Model: "demo",
+							CompatibilityKey: mo.None[string](),
+						},
+						Payload: []byte(`{"id":}`),
+					}),
+					ToolCall: mo.None[model.ToolCall](),
+				})
+			},
+		},
+		{
+			name: "invalid reasoning mapping",
+			mutate: func(request *modelexecution.ProviderRequest, _ API) {
+				request.Model.ReasoningCapabilities = model.ReasoningCapabilities{
+					Supported: true, Choices: nil, Default: "",
+				}
+				request.ReasoningChoice = model.ReasoningChoice("invalid")
+			},
+		},
+		{
+			name: "malformed tool schema",
+			mutate: func(request *modelexecution.ProviderRequest, _ API) {
+				request.Tools[0].InputSchemaJSON = []byte(`{"type":}`)
+			},
+		},
+	}
+	for _, api := range []API{APIChatCompletions, APIResponses} {
+		for _, testCase := range testCases {
+			t.Run(string(api)+"/"+testCase.name, func(t *testing.T) {
+				// Arrange one local preparation failure and an endpoint that must remain unused.
+				var calls atomic.Int64
+				server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+					calls.Add(1)
+				}))
+				t.Cleanup(server.Close)
+				reasoningFormats := map[model.ID]string(nil)
+				if api == APIChatCompletions {
+					reasoningFormats = map[model.ID]string{"demo": string(reasoningFormatOpenRouter)}
+				}
+				service, err := New(Config{
+					ProviderID: "local", BaseURL: server.URL, API: api,
+					Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1),
+					ReasoningFormats: reasoningFormats, ReasoningCompatibilityKeys: nil,
+				})
+				require.NoError(t, err)
+				request := richRequest("local", "demo")
+				testCase.mutate(&request, api)
+
+				// Act through one adapter invocation.
+				err = service.Stream(t.Context(), request, func(modelexecution.StreamEvent) error { return nil })
+
+				// Assert the complete local cause remains outside provider classification and HTTP dispatch.
+				require.Error(t, err)
+				var providerFailure *modelexecution.ProviderFailureError
+				assert.NotErrorAs(t, err, &providerFailure)
+				assert.Zero(t, calls.Load())
+			})
+		}
+	}
 }
 
 // TestRemoteContextRejectionIsTerminalAndPreservesSelection verifies one replay attempt through the active runtime
@@ -500,7 +723,9 @@ func (s *serviceSuite) TestRemoteContextRejectionIsTerminalAndPreservesSelection
 	assert.Equal(t, selection, catalog.ActiveSelection())
 }
 
+// TestInterruptedStreamClosesActiveContentBeforeFailure classifies premature closure after partial output.
 func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {
+	// Arrange a response stream that closes after a text delta without a terminal response.
 	t := s.T()
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
 		writer.Header().Set("Content-Type", "text/event-stream")
@@ -524,10 +749,19 @@ func (s *serviceSuite) TestInterruptedStreamClosesActiveContentBeforeFailure() {
 		ReasoningCompatibilityKeys: nil,
 	})
 	require.NoError(t, err)
-	events := streamEvents(t, service, richRequest("local", "demo"))
+	var events []modelexecution.StreamEvent
+	// Act by consuming the incomplete provider response.
+	err = service.Stream(t.Context(), richRequest("local", "demo"), func(event modelexecution.StreamEvent) error {
+		events = append(events, event)
+		return nil
+	})
+	// Assert partial content closes before the classified terminal failure.
 	kinds := eventKinds(events)
 	assert.Contains(t, kinds, modelexecution.StreamEventContentEnd)
 	assert.Equal(t, modelexecution.StreamEventError, kinds[len(kinds)-1])
+	var providerFailure *modelexecution.ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
 }
 
 // TestMixedCancellationPreservesAcquiredProviderFailure verifies cancellation does not replace an independently
@@ -578,12 +812,215 @@ func (s *serviceSuite) TestMixedCancellationPreservesAcquiredProviderFailure() {
 
 	// Assert aborted presentation and both internal causes survive one attempt and one callback.
 	require.ErrorIs(t, err, context.Canceled)
+	var providerFailure *modelexecution.ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
 	var acquired *openai.Error
 	require.ErrorAs(t, err, &acquired)
 	require.Contains(t, acquired.Error(), providerDetail)
 	require.Equal(t, model.OutcomeAborted, terminal.Outcome.OrEmpty())
 	require.Contains(t, terminal.ErrorMessage.OrEmpty(), providerDetail)
 	require.Equal(t, 1, callbacks)
+}
+
+// TestTransportFailuresExposeTransientClassification verifies active-request timeout and connection loss
+// at the real HTTP boundary.
+func (s *serviceSuite) TestTransportFailuresExposeTransientClassification() {
+	t := s.T()
+
+	testCases := []struct {
+		// name identifies the transport failure.
+		name string
+		// handler produces the transport failure.
+		handler http.HandlerFunc
+		// timeout configures the adapter client timeout.
+		timeout time.Duration
+	}{
+		{
+			name: "timeout",
+			handler: func(_ http.ResponseWriter, _ *http.Request) {
+				time.Sleep(100 * time.Millisecond)
+			},
+			timeout: 20 * time.Millisecond,
+		},
+		{
+			name: "connection reset",
+			handler: func(writer http.ResponseWriter, _ *http.Request) {
+				hijacker, ok := writer.(http.Hijacker)
+				if !assert.True(t, ok) {
+					return
+				}
+				connection, _, hijackErr := hijacker.Hijack()
+				if !assert.NoError(t, hijackErr) {
+					return
+				}
+				assert.NoError(t, connection.Close())
+			},
+			timeout: 0,
+		},
+	}
+	for _, testCase := range testCases {
+		t.Run(testCase.name, func(t *testing.T) {
+			// Arrange one real HTTP endpoint and active caller context.
+			var requests atomic.Int64
+			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+				requests.Add(1)
+				testCase.handler(writer, request)
+			}))
+			t.Cleanup(server.Close)
+			service, err := New(Config{
+				ProviderID: "local", BaseURL: server.URL, API: APIResponses,
+				Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1),
+				ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+			})
+			require.NoError(t, err)
+			service.httpClient.Timeout = testCase.timeout
+
+			// Act through one raw provider attempt.
+			err = service.Stream(
+				t.Context(),
+				richRequest("local", "demo"),
+				func(modelexecution.StreamEvent) error { return nil },
+			)
+
+			// Assert active transport failure classification and no hidden retry.
+			require.Error(t, err)
+			require.NoError(t, t.Context().Err())
+			var providerFailure *modelexecution.ProviderFailureError
+			require.ErrorAs(t, err, &providerFailure)
+			assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
+			assert.Equal(t, int64(1), requests.Load())
+		})
+	}
+}
+
+// TestProviderFailuresExposeSourceClassificationAndDelay verifies HTTP source metadata for both compatible APIs.
+func (s *serviceSuite) TestProviderFailuresExposeSourceClassificationAndDelay() {
+	t := s.T()
+
+	testCases := []struct {
+		// name identifies the provider response.
+		name string
+		// status is the returned HTTP status.
+		status int
+		// body is the provider response body.
+		body string
+		// retryAfter is the optional Retry-After value.
+		retryAfter string
+		// classification is the expected provider-owned failure class.
+		classification modelexecution.ProviderFailureClassification
+		// delay is the expected provider-requested delay.
+		delay mo.Option[time.Duration]
+	}{
+		{
+			name:           "request timeout",
+			status:         http.StatusRequestTimeout,
+			body:           `{"error":{"message":"timed out"}}`,
+			retryAfter:     "",
+			classification: modelexecution.ProviderFailureTransient,
+			delay:          mo.None[time.Duration](),
+		},
+		{
+			name:           "rate limited",
+			status:         http.StatusTooManyRequests,
+			body:           `{"error":{"message":"slow down"}}`,
+			retryAfter:     "0.25",
+			classification: modelexecution.ProviderFailureTransient,
+			delay:          mo.Some(250 * time.Millisecond),
+		},
+		{
+			name:           "internal server error",
+			status:         http.StatusInternalServerError,
+			body:           `{"error":{"message":"internal"}}`,
+			retryAfter:     "",
+			classification: modelexecution.ProviderFailureTransient,
+			delay:          mo.None[time.Duration](),
+		},
+		{
+			name:           "bad gateway",
+			status:         http.StatusBadGateway,
+			body:           `{"error":{"message":"gateway"}}`,
+			retryAfter:     "",
+			classification: modelexecution.ProviderFailureTransient,
+			delay:          mo.None[time.Duration](),
+		},
+		{
+			name:           "service unavailable",
+			status:         http.StatusServiceUnavailable,
+			body:           `{"error":{"message":"unavailable"}}`,
+			retryAfter:     "",
+			classification: modelexecution.ProviderFailureTransient,
+			delay:          mo.None[time.Duration](),
+		},
+		{
+			name:           "gateway timeout",
+			status:         http.StatusGatewayTimeout,
+			body:           `{"error":{"message":"gateway timeout"}}`,
+			retryAfter:     "",
+			classification: modelexecution.ProviderFailureTransient,
+			delay:          mo.None[time.Duration](),
+		},
+		{
+			name:           "authorization",
+			status:         http.StatusUnauthorized,
+			body:           `{"error":{"message":"denied"}}`,
+			retryAfter:     "",
+			classification: modelexecution.ProviderFailureNonRetryable,
+			delay:          mo.None[time.Duration](),
+		},
+		{
+			name:   "context overflow",
+			status: http.StatusBadRequest,
+			body: `{"error":{"code":"context_length_exceeded",` +
+				`"message":"too many tokens","type":"invalid_request_error"}}`,
+			retryAfter:     "",
+			classification: modelexecution.ProviderFailureContextOverflow,
+			delay:          mo.None[time.Duration](),
+		},
+	}
+	for _, api := range []API{APIChatCompletions, APIResponses} {
+		for _, testCase := range testCases {
+			t.Run(string(api)+"/"+testCase.name, func(t *testing.T) {
+				// Arrange one real HTTP endpoint and count raw adapter requests.
+				var requests atomic.Int64
+				server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+					requests.Add(1)
+					writer.Header().Set("Content-Type", "application/json")
+					if testCase.retryAfter != "" {
+						writer.Header().Set("Retry-After", testCase.retryAfter)
+					}
+					writer.WriteHeader(testCase.status)
+					_, _ = writer.Write([]byte(testCase.body))
+				}))
+				t.Cleanup(server.Close)
+				service, err := New(Config{
+					ProviderID: "local", BaseURL: server.URL, API: api,
+					Models: map[model.ID]API{"demo": ""}, APIKey: expectAPIKey(t, "", nil, 1),
+					ReasoningFormats: nil, ReasoningCompatibilityKeys: nil,
+				})
+				require.NoError(t, err)
+
+				// Act through one adapter invocation.
+				err = service.Stream(
+					t.Context(),
+					richRequest("local", "demo"),
+					func(modelexecution.StreamEvent) error { return nil },
+				)
+
+				// Assert source classification, delay, cause text, and the absence of hidden retries.
+				require.Error(t, err)
+				var failure *modelexecution.ProviderFailureError
+				require.ErrorAs(t, err, &failure)
+				assert.Equal(t, testCase.classification, failure.Classification)
+				assert.Equal(t, testCase.delay, failure.RetryDelay)
+				assert.Equal(t, failure.Cause.Error(), err.Error())
+				var apiError *openai.Error
+				require.ErrorAs(t, err, &apiError)
+				assert.Equal(t, testCase.status, apiError.StatusCode)
+				assert.Equal(t, int64(1), requests.Load())
+			})
+		}
+	}
 }
 
 // TestCancellationAndHTTPFailureMapTerminalErrors verifies cancellation remains canonical and HTTP detail remains
@@ -621,6 +1058,8 @@ func (s *serviceSuite) TestCancellationAndHTTPFailureMapTerminalErrors() {
 		return nil
 	})
 	require.ErrorIs(t, err, context.Canceled)
+	var canceledProviderFailure *modelexecution.ProviderFailureError
+	assert.NotErrorAs(t, err, &canceledProviderFailure)
 	require.Len(t, canceled, 1)
 	assert.Equal(t, model.OutcomeAborted, canceled[0].Response.OrEmpty().Outcome.OrEmpty())
 	assert.Zero(t, calls.Load())

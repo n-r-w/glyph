@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/errtree"
 	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
+	openaifailure "github.com/n-r-w/glyph/host/internal/infra/providers/openai"
 
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
@@ -29,6 +31,8 @@ const (
 	// requestFailedMessage adds display punctuation to the local fallback only.
 	requestFailedMessage   = requestFailedCause + "."
 	requestCanceledMessage = "OpenAI Codex request was canceled."
+	// missingTerminalResponseMessage describes a clean provider stream closure without terminal output.
+	missingTerminalResponseMessage = "OpenAI Codex stream ended without a terminal response"
 	// responseItemTypeReasoning identifies provider reasoning output.
 	responseItemTypeReasoning = "reasoning"
 	// responseItemTypeFunctionCall identifies a standard provider tool call.
@@ -37,20 +41,33 @@ const (
 	responseItemTypeCustomToolCall = "custom_tool_call"
 )
 
+// errMissingTerminalResponse identifies a cleanly closed provider stream without a terminal response.
+var errMissingTerminalResponse = errors.New(missingTerminalResponseMessage)
+
 // Stream emits one provider response as provider-neutral semantic events.
 func (s *Driver) Stream(
 	ctx context.Context,
 	request modelexecution.ProviderRequest,
 	handle modelexecution.StreamHandler,
 ) error {
+	credentials, params, err := s.prepareRequest(ctx, request)
+	if err != nil {
+		return s.deliverPreDispatchFailure(request, handle, requestErrorMessage(err), err)
+	}
 	var handlerErr error
-	response, streamErr := s.executeRequest(ctx, request, func(event modelexecution.StreamEvent) error {
-		if err := handle(event); err != nil {
-			handlerErr = err
-			return err
-		}
-		return nil
-	})
+	response, streamErr := s.executeRequest(
+		ctx,
+		request,
+		credentials,
+		params,
+		func(event modelexecution.StreamEvent) error {
+			if deliveryErr := handle(event); deliveryErr != nil {
+				handlerErr = deliveryErr
+				return deliveryErr
+			}
+			return nil
+		},
+	)
 	if handlerErr != nil {
 		return combineHandlerError(streamErr, handlerErr)
 	}
@@ -63,52 +80,85 @@ func (s *Driver) Stream(
 		}
 		response.ErrorMessage = mo.Some(errorMessage)
 	}
-	response.Provider = mo.Some(request.Model.Provider)
-	response.Model = mo.Some(request.Model.Model)
-	if configured, ok := s.models[request.Model.Model]; ok {
-		source := model.ProviderContextSource{
-			ProviderID:       request.Model.Provider,
-			API:              configured.api,
-			Model:            request.Model.Model,
-			CompatibilityKey: configured.reasoningCompatibilityKey,
-		}
-		for index := range response.Content {
-			content := &response.Content[index]
-			providerContext, hasProviderContext := content.ProviderContext.Get()
-			if content.Kind == model.ContentReasoning && hasProviderContext && len(providerContext.Payload) != 0 {
-				providerContext.Source = source
-				content.ProviderContext = mo.Some(providerContext)
-			}
-		}
-	}
+	s.attachProviderContext(&response, request)
 	terminalKind := modelexecution.StreamEventDone
 	if streamErr != nil {
 		terminalKind = modelexecution.StreamEventError
 	}
 	terminalEvent := semanticStreamEvent(terminalKind, 0, 0, "")
 	terminalEvent.Response = mo.Some(response)
-	if err := handle(terminalEvent); err != nil {
-		return combineHandlerError(streamErr, err)
+	if terminalErr := handle(terminalEvent); terminalErr != nil {
+		return combineHandlerError(streamErr, terminalErr)
 	}
-	return streamErr
+	return classifyCodexFailure(ctx, streamErr)
 }
 
-// executeRequest decodes one Codex stream and returns its terminal response.
-func (s *Driver) executeRequest(
+// prepareRequest resolves local credentials and parameters before model dispatch starts.
+func (s *Driver) prepareRequest(
 	ctx context.Context,
 	request modelexecution.ProviderRequest,
-	handle modelexecution.StreamHandler,
-) (model.Response, error) {
+) (oauthCredentials, responses.ResponseNewParams, error) {
 	credentials, err := s.resolveCredentials(ctx)
 	if err != nil {
-		return terminalModelResponse(requestErrorMessage(err), model.OutcomeFailed), err
+		return oauthCredentials{}, responses.ResponseNewParams{}, err
 	}
 	params, err := s.requestParams(request)
 	if err != nil {
-		message := requestErrorMessage(err)
-		return terminalModelResponse(message, model.OutcomeFailed), errors.New(message)
+		return oauthCredentials{}, responses.ResponseNewParams{}, err
 	}
+	return credentials, params, nil
+}
 
+// attachProviderContext completes response identity after model dispatch.
+func (s *Driver) attachProviderContext(response *model.Response, request modelexecution.ProviderRequest) {
+	response.Provider = mo.Some(request.Model.Provider)
+	response.Model = mo.Some(request.Model.Model)
+	configured, ok := s.models[request.Model.Model]
+	if !ok {
+		return
+	}
+	source := model.ProviderContextSource{
+		ProviderID:       request.Model.Provider,
+		API:              configured.api,
+		Model:            request.Model.Model,
+		CompatibilityKey: configured.reasoningCompatibilityKey,
+	}
+	for index := range response.Content {
+		content := &response.Content[index]
+		providerContext, hasProviderContext := content.ProviderContext.Get()
+		if content.Kind == model.ContentReasoning && hasProviderContext && len(providerContext.Payload) != 0 {
+			providerContext.Source = source
+			content.ProviderContext = mo.Some(providerContext)
+		}
+	}
+}
+
+// deliverPreDispatchFailure emits one local failure without provider-attempt classification.
+func (s *Driver) deliverPreDispatchFailure(
+	request modelexecution.ProviderRequest,
+	handle modelexecution.StreamHandler,
+	message string,
+	cause error,
+) error {
+	response := terminalModelResponse(message, model.OutcomeFailed)
+	response.Provider = mo.Some(request.Model.Provider)
+	response.Model = mo.Some(request.Model.Model)
+	terminalEvent := semanticStreamEvent(modelexecution.StreamEventError, 0, 0, "")
+	terminalEvent.Response = mo.Some(response)
+	if err := handle(terminalEvent); err != nil {
+		return combineHandlerError(cause, err)
+	}
+	return cause
+}
+
+// executeRequest dispatches and decodes one Codex stream after local preparation succeeds.
+func (s *Driver) executeRequest(
+	ctx context.Context,
+	request modelexecution.ProviderRequest,
+	credentials oauthCredentials,
+	params responses.ResponseNewParams,
+	handle modelexecution.StreamHandler,
+) (model.Response, error) {
 	baseTransport := s.options.httpClient.Transport
 	if baseTransport == nil {
 		baseTransport = http.DefaultTransport
@@ -154,7 +204,7 @@ func (s *Driver) executeRequest(
 	if streamErr != nil {
 		return s.streamError(ctx, streamErr, errorTransport)
 	}
-	return terminalModelResponse(requestFailedMessage, model.OutcomeFailed), errors.New(requestFailedCause)
+	return terminalModelResponse(missingTerminalResponseMessage, model.OutcomeFailed), errMissingTerminalResponse
 }
 
 // requestParams maps one raw provider request to an ordered Codex Responses request.
@@ -469,6 +519,47 @@ func (s *Driver) providerStreamFailure(
 	}
 	failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
 	return terminalModelResponse(failure.Error(), model.OutcomeFailed), failure
+}
+
+// classifyCodexFailure attaches source metadata only after terminal delivery succeeds.
+func classifyCodexFailure(ctx context.Context, err error) error {
+	if err == nil || (ctx.Err() != nil && isPureCancellation(err)) {
+		return err
+	}
+	if _, classified := errors.AsType[*modelexecution.ProviderFailureError](err); classified {
+		return err
+	}
+	var classification modelexecution.ProviderFailureClassification
+	retryDelay := mo.None[time.Duration]()
+	if apiError, hasAPIError := errors.AsType[*openai.Error](err); hasAPIError {
+		classification = openaifailure.FailureClassification(apiError.Code, apiError.StatusCode, false)
+		retryDelay = openaifailure.RetryAfterDelay(apiError.Response)
+	} else if responseError, hasResponseError := errors.AsType[*providerResponseError](err); hasResponseError {
+		classification = openaifailure.FailureClassification(responseError.code, 0, false)
+	} else {
+		incomplete := errors.Is(err, errMissingTerminalResponse)
+		classification = openaifailure.FailureClassification(
+			"", 0, incomplete || openaifailure.IsTransientTransportFailure(err),
+		)
+	}
+	return &modelexecution.ProviderFailureError{
+		Classification: classification,
+		RetryDelay:     retryDelay,
+		Cause:          err,
+	}
+}
+
+// providerResponseError preserves one structured failure from the provider SSE protocol.
+type providerResponseError struct {
+	// code is the provider-owned machine-readable failure identity.
+	code string
+	// message is the complete source-derived failure text.
+	message string
+}
+
+// Error returns the complete source-derived provider message.
+func (failure *providerResponseError) Error() string {
+	return failure.message
 }
 
 // isPureCancellation reports whether every leaf is a cancellation marker recognized by the driver.

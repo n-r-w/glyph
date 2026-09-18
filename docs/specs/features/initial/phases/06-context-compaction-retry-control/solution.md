@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06 Context compaction and retry control
 
-Status: Approved technical solution; implementation in progress. Units 0, 0.1, and 1 are implemented; see [implementation evidence](#implementation-evidence).
+Status: Approved technical solution; implementation in progress. Units 0, 0.1, 1, and 2 are implemented; see [implementation evidence](#implementation-evidence).
 
 ## Problem Statement
 
@@ -261,7 +261,7 @@ Before implementation closure, run `task generate` twice for contract/mock chang
 
 ## Implementation Evidence
 
-Units 0, 0.1, and 1 are implemented. Units 2 through 5 remain pending.
+Units 0, 0.1, 1, and 2 are implemented. Units 3 through 5 remain pending.
 
 Unit 0.1 replaces the argument map with immutable `model.ToolCallArguments`. Provider finalization and persisted-session decoding validate JSON. Provider replay, tool dispatch, persistence, public `arguments_json` projections, branch-summary serialization, and context sizing use the retained byte sequence. Codex grammar-tool replay parses the retained value only while extracting its configured string field, and tool execution parses it only for schema validation.
 
@@ -323,6 +323,40 @@ No generated input changed in the ownership correction, so generation was not re
 - `task build`: Host and standard plugins built successfully.
 
 After unit 0.1, two consecutive `task generate` runs produced the same API and generated-package diff checksum. `task fmt` completed, `task fix_dry_run` proposed no changes, `task lint` reported zero lint issues, zero ifaceguard errors, and no vulnerabilities, `task test` and `task itest` passed, `task test-coverage` reported 84.5% against the 80.0% minimum, and `task build` completed. Integration checks ran on Linux; the accepted [standard TUI PTY verification gap](../07-extension-context-lifecycle/technical-debt.md) remains outside unit 0.1.
+
+Unit 2 adds `modelexecution.ProviderFailureError` as the provider-neutral raw-attempt source contract. Its closed classification is transient, non-retryable, or context overflow; `RetryDelay` carries an optional provider-supplied delay independently from policy, and `Cause` remains in the error chain. The OpenAI-compatible and OpenAI Codex adapters classify the fixed HTTP statuses, structured HTTP and SSE context-overflow codes, active-request timeouts and connection loss, and terminal-less stream closure. Both SDK clients retain `WithMaxRetries(0)`. Callback delivery, credential resolution, and caller cancellation remain outside transient provider classification.
+
+The compiling uncached RED runs failed on behavioral assertions before classification was implemented:
+
+- `go test -count=1 ./host/internal/usecase/host/modelexecution` accepted a logical stream without a terminal response and returned untyped configured-request terminal omissions.
+- `go test -count=1 -tags=integration ./host/internal/infra/providers/openai/compatible` returned untyped HTTP failures for both compatible APIs.
+- `go test -count=1 -tags=integration ./host/internal/infra/providers/openai/codex` returned untyped HTTP failures for Codex.
+
+A correction review found that a terminal logical-stream event without its required response was counted as delivered. The compiling uncached RED run `go test -count=1 ./host/internal/usecase/host/modelexecution -run 'TestServiceStreamRejectsTerminalWithoutResponse'` returned nil. The same command passes after terminal shape validation runs before client delivery and returns transient source classification.
+
+OpenAI-compatible providers also use fractional `Retry-After` seconds. The compiling uncached RED run `go test -count=1 -tags=integration ./host/internal/infra/providers/openai/compatible -run 'TestDriverSuite/TestProviderFailuresExposeSourceClassificationAndDelay/.*/rate_limited'` returned no delay for `Retry-After: 0.25`. The same command passes with a 250-millisecond source delay.
+
+The unit 2 review produced four compiling uncached correction failures:
+
+- `go test -count=1 -tags=integration ./host/internal/infra/providers/openai/codex -run 'TestDriverStream(CredentialFailuresRemainPredispatch|RequestPreparationFailureRemainsPredispatch|MixedCancellationPreservesAcquiredProviderFailure|ClassifiesPrematureClosure)'` classified credential-load, OAuth-refresh, and request-preparation errors as provider failures; omitted classification from a mixed cancellation and acquired transport failure; and returned the generic request-failed text for terminal-less closure.
+- `go test -count=1 -tags=integration ./host/internal/infra/providers/openai/compatible -run 'TestDriverSuite/Test(MixedCancellationPreservesAcquiredProviderFailure|ResponsesIncompleteReasonControlsOutcome)'` omitted transient classification after an acquired HTTP 502 joined caller cancellation and treated `response.incomplete` with `content_filter` as a successful length outcome.
+
+Both commands pass after Codex preparation moved before the model-dispatch boundary, mixed failures retained provider classification around all independent causes, compatible Responses limited length to `max_output_tokens`, and Codex terminal-less closure gained an explicit source cause. The complete uncached Codex and compatible integration packages and the `modelexecution` unit package also pass.
+
+The full unit 2 re-review found the corresponding compatible-family preparation boundary and terminal-delivery cause handling incomplete. The compiling uncached RED command `go test -count=1 -tags=integration ./host/internal/infra/providers/openai/compatible -run 'TestDriverSuite/Test(MalformedProviderContextPreservesParserCause|LocalPreparationFailuresRemainOutsideProviderClassification|PreDispatchFailureJoinsTerminalDelivery)'` produced provider classifications for malformed replay context, invalid local reasoning mapping, and malformed tool schemas before HTTP dispatch. It also returned only the terminal callback error after model-selection or credential failure. The same command passes after Chat Completions and Responses parameter preparation moved before their dispatch functions and `emitFailure` joined the tagged delivery error with the original pre-dispatch cause. Both wire families now cover malformed restored provider context, local reasoning mapping, and tool preparation with zero HTTP requests and no `ProviderFailureError`.
+
+The same uncached commands pass after implementation. The provider suites use real HTTP and SSE endpoints for all six transient statuses, authorization rejection, structured context overflow, `Retry-After`, premature stream closure, and compatible-family timeout and connection reset. Request counters remain one for every invocation. Existing delivery-failure tests now include a nested connection-reset cause and assert that no `ProviderFailureError` is created; credential-resolution and caller-cancellation tests assert the same origin preservation.
+
+Unit 2 final checks produced these results:
+
+- Two consecutive `task generate` runs produced the same tracked diff checksum `b996a5e66c067cc61b1f139a18fc9d3471be8cb9d7728dbeb05720a4b78b2466` and status checksum `9905d0260325b74be50c7b812824513087ea0760fdcea00017f631e071851085`.
+- `task fmt`: completed.
+- `task fix_dry_run`: no proposed changes after applying its `max` simplification.
+- `task lint`: zero lint issues, zero ifaceguard errors, and no reported vulnerabilities.
+- `task test`: all unit packages passed.
+- `task itest`: integration packages passed on Linux with no reported platform skips.
+- `task test-coverage`: 84.6% combined coverage against the 80.0% minimum.
+- `task build`: Host and standard plugins built successfully.
 
 ## Overengineering and Overspecification Considerations
 

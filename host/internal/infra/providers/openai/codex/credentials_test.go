@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"sync/atomic"
+	"syscall"
 	"testing"
 	"time"
 
@@ -23,6 +24,82 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
+
+// TestDriverStreamCredentialFailuresRemainPredispatch verifies credential I/O never becomes provider-attempt metadata.
+func TestDriverStreamCredentialFailuresRemainPredispatch(t *testing.T) {
+	t.Parallel()
+
+	t.Run("credential load", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange one credential store connection reset before model dispatch.
+		loadErr := fmt.Errorf("credential store reset: %w", syscall.ECONNRESET)
+		credentials := NewMockCredentials(gomock.NewController(t))
+		credentials.EXPECT().Load().Return(nil, false, loadErr)
+		service := New(testConfig(), credentials, NewMockInteraction(gomock.NewController(t)))
+
+		// Act through one adapter invocation.
+		_, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
+			ReasoningChoice: model.ReasoningChoiceOn,
+			Instructions:    "instructions",
+			Model:           testModelDescriptor("gpt-test"),
+			History:         nil,
+			Tools:           nil,
+		}, nil)
+
+		// Assert the original pre-dispatch cause remains outside provider classification.
+		require.ErrorIs(t, err, syscall.ECONNRESET)
+		var providerFailure *modelexecution.ProviderFailureError
+		assert.NotErrorAs(t, err, &providerFailure)
+	})
+
+	t.Run("OAuth refresh", func(t *testing.T) {
+		t.Parallel()
+
+		// Arrange expiring credentials and one real refresh connection reset.
+		now := time.Date(2026, time.August, 3, 12, 0, 0, 0, time.UTC)
+		accountID := "refresh-reset-account"
+		accessToken := testJWT(t, map[string]any{
+			"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+		})
+		credentials := NewMockCredentials(gomock.NewController(t))
+		credentials.EXPECT().Load().Return(
+			testCredentialPayload(t, accessToken, "refresh", accountID, now.Add(time.Minute)), true, nil,
+		)
+		server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) {
+			hijacker, ok := writer.(http.Hijacker)
+			if !assert.True(t, ok) {
+				return
+			}
+			connection, _, err := hijacker.Hijack()
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.NoError(t, connection.Close())
+		}))
+		t.Cleanup(server.Close)
+		options := testProviderOptions(server)
+		options.tokenURL = server.URL + "/token"
+		options.now = func() time.Time { return now }
+		service := newDriver(
+			testConfig(), credentials, NewMockInteraction(gomock.NewController(t)), options,
+		)
+
+		// Act through one adapter invocation.
+		_, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
+			ReasoningChoice: model.ReasoningChoiceOn,
+			Instructions:    "instructions",
+			Model:           testModelDescriptor("gpt-test"),
+			History:         nil,
+			Tools:           nil,
+		}, nil)
+
+		// Assert refresh transport failure remains outside provider classification.
+		require.Error(t, err)
+		var providerFailure *modelexecution.ProviderFailureError
+		assert.NotErrorAs(t, err, &providerFailure)
+	})
+}
 
 // TestDriverStreamRefreshesAtThresholdAndPersistsRotation verifies fresh request authorization.
 func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {

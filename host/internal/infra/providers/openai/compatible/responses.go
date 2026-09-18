@@ -18,8 +18,12 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
-// responsesErrorEventType identifies an explicit terminal Responses failure.
-const responsesErrorEventType = "error"
+const (
+	// responsesErrorEventType identifies an explicit terminal Responses failure.
+	responsesErrorEventType = "error"
+	// responsesIncompleteMessageFormat formats a non-success provider incomplete reason.
+	responsesIncompleteMessageFormat = "responses request incomplete: %s"
+)
 
 type responseContext struct {
 	// ID identifies the provider reasoning item.
@@ -60,36 +64,29 @@ type responsesAccumulator struct {
 	next int
 	// terminal contains the authoritative terminal response.
 	terminal *model.Response
+	// terminalErr retains structured provider failure identity from a terminal SSE event.
+	terminalErr error
 }
 
 func newResponsesAccumulator(handle modelexecution.StreamHandler) *responsesAccumulator {
 	return &responsesAccumulator{
-		handle:    handle,
-		positions: make(map[string]int),
-		active:    make(map[int]model.ContentKind),
-		tools:     make(map[string]*responsesToolState),
-		next:      0,
-		terminal:  nil,
+		handle:      handle,
+		positions:   make(map[string]int),
+		active:      make(map[int]model.ContentKind),
+		tools:       make(map[string]*responsesToolState),
+		next:        0,
+		terminal:    nil,
+		terminalErr: nil,
 	}
 }
 
 func (s *Driver) streamResponses(
 	ctx context.Context,
-	request modelexecution.ProviderRequest,
 	key string,
+	params responses.ResponseNewParams,
+	target model.ProviderContextSource,
 	handle modelexecution.StreamHandler,
 ) (model.Response, error) {
-	configured := s.models[request.Model.Model]
-	target := model.ProviderContextSource{
-		ProviderID:       s.providerID,
-		API:              string(configured.api),
-		Model:            request.Model.Model,
-		CompatibilityKey: configured.reasoningCompatibilityKey,
-	}
-	params, err := responsesParams(request, target)
-	if err != nil {
-		return model.Response{}, err
-	}
 	opts := s.requestOptions(key)
 	service := responses.NewResponseService(opts...)
 	stream := service.NewStreaming(ctx, params)
@@ -115,10 +112,11 @@ func (s *Driver) streamResponses(
 		if closeErr := state.finishContent(); closeErr != nil {
 			return model.Response{}, closeErr
 		}
-		return model.Response{}, errors.New("responses stream ended without a terminal response")
+		return model.Response{}, errResponsesMissingTerminal
 	}
+	terminalErr := state.terminalFailure()
 	if finishErr := state.finish(); finishErr != nil {
-		return model.Response{}, errors.Join(responsesTerminalError(*state.terminal), finishErr)
+		return model.Response{}, errors.Join(terminalErr, finishErr)
 	}
 	for index := range state.terminal.Content {
 		content := &state.terminal.Content[index]
@@ -128,10 +126,18 @@ func (s *Driver) streamResponses(
 			content.ProviderContext = mo.Some(providerContext)
 		}
 	}
-	if terminalErr := responsesTerminalError(*state.terminal); terminalErr != nil {
+	if terminalErr != nil {
 		return *state.terminal, terminalErr
 	}
 	return *state.terminal, nil
+}
+
+// terminalFailure returns structured SSE identity before the generic response fallback.
+func (state *responsesAccumulator) terminalFailure() error {
+	if state.terminalErr != nil {
+		return state.terminalErr
+	}
+	return responsesTerminalError(*state.terminal)
 }
 
 //nolint:gocyclo // The branches map the closed Responses stream union.
@@ -141,12 +147,14 @@ func (state *responsesAccumulator) consume(
 ) error {
 	switch event.Type {
 	case responsesErrorEventType:
-		message := event.AsError().Message
+		providerEvent := event.AsError()
+		message := providerEvent.Message
 		if message == "" {
 			message = requestFailedMessage
 		}
 		response := failureResponse(model.OutcomeFailed, message)
 		state.terminal = &response
+		state.terminalErr = &providerResponseError{code: providerEvent.Code, message: message}
 	case "response.output_text.delta":
 		delta := event.AsResponseOutputTextDelta()
 		key := responseContentKey("text", delta.OutputIndex, delta.ContentIndex)
@@ -232,11 +240,7 @@ func (state *responsesAccumulator) consume(
 		}
 		state.terminal = &response
 	case "response.incomplete":
-		response, err := responsesModelResponse(event.AsResponseIncomplete().Response, providerID, model.OutcomeLength)
-		if err != nil {
-			return err
-		}
-		state.terminal = &response
+		return state.consumeIncomplete(event.AsResponseIncomplete().Response, providerID)
 	case "response.failed":
 		failed := event.AsResponseFailed().Response
 		message := requestFailedMessage
@@ -245,8 +249,46 @@ func (state *responsesAccumulator) consume(
 		}
 		response := failureResponse(model.OutcomeFailed, message)
 		state.terminal = &response
+		state.terminalErr = &providerResponseError{code: string(failed.Error.Code), message: message}
 	}
 	return nil
+}
+
+// consumeIncomplete maps only output-token exhaustion to length and retains every other reason as failure.
+func (state *responsesAccumulator) consumeIncomplete(response responses.Response, providerID model.ProviderID) error {
+	if response.IncompleteDetails.Reason == "max_output_tokens" {
+		converted, err := responsesModelResponse(response, providerID, model.OutcomeLength)
+		if err != nil {
+			return err
+		}
+		state.terminal = &converted
+		return nil
+	}
+	converted, err := responsesModelResponse(response, providerID, model.OutcomeFailed)
+	if err != nil {
+		return err
+	}
+	message := fmt.Sprintf(responsesIncompleteMessageFormat, response.IncompleteDetails.Reason)
+	if detail := strings.TrimSpace(response.Error.Message); detail != "" {
+		message += ": " + detail
+	}
+	converted.ErrorMessage = mo.Some(message)
+	state.terminal = &converted
+	state.terminalErr = &providerResponseError{code: "", message: message}
+	return nil
+}
+
+// providerResponseError preserves one structured failure from the provider SSE protocol.
+type providerResponseError struct {
+	// code is the provider-owned machine-readable failure identity.
+	code string
+	// message is the complete source-derived failure text.
+	message string
+}
+
+// Error returns the complete source-derived provider message.
+func (failure *providerResponseError) Error() string {
+	return failure.message
 }
 
 func (state *responsesAccumulator) contentDelta(key string, kind model.ContentKind, delta string) error {

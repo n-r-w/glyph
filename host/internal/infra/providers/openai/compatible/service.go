@@ -8,7 +8,9 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
+	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -16,12 +18,24 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/errtree"
 	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
+	openaifailure "github.com/n-r-w/glyph/host/internal/infra/providers/openai"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 const (
 	requestFailedMessage   = "OpenAI-compatible request failed."
 	requestCanceledMessage = "OpenAI-compatible request was canceled."
+	// chatMissingTerminalMessage identifies a cleanly closed Chat Completions stream.
+	chatMissingTerminalMessage = "chat completions stream ended without a finish reason"
+	// responsesMissingTerminalMessage identifies a cleanly closed Responses stream.
+	responsesMissingTerminalMessage = "responses stream ended without a terminal response"
+)
+
+var (
+	// errChatMissingTerminal identifies a cleanly closed Chat Completions stream without a terminal outcome.
+	errChatMissingTerminal = errors.New(chatMissingTerminalMessage)
+	// errResponsesMissingTerminal identifies a cleanly closed Responses stream without a terminal outcome.
+	errResponsesMissingTerminal = errors.New(responsesMissingTerminalMessage)
 )
 
 // API identifies one supported OpenAI-compatible wire API.
@@ -177,8 +191,6 @@ func (api API) Validate() error {
 }
 
 // Stream emits one provider response as provider-neutral events.
-//
-//nolint:nestif // Error classification must preserve handler, cancellation, and provider outcomes.
 func (s *Driver) Stream(
 	ctx context.Context,
 	request modelexecution.ProviderRequest,
@@ -186,50 +198,31 @@ func (s *Driver) Stream(
 ) error {
 	configuredModel, err := s.modelConfigForRequest(request)
 	if err != nil {
-		return s.emitFailure(handle, request, model.OutcomeFailed, err.Error(), err)
+		return s.emitFailure(handle, request, err.Error(), err)
 	}
 	key, err := s.apiKey.ResolveAPIKey(ctx)
 	if err != nil {
 		credentialErr := fmt.Errorf("resolve OpenAI-compatible API key: %w", err)
-		return s.emitFailure(handle, request, model.OutcomeFailed, credentialErr.Error(), credentialErr)
+		return s.emitFailure(handle, request, credentialErr.Error(), credentialErr)
 	}
+	target := s.providerContextTarget(request, configuredModel)
 	var response model.Response
 	switch configuredModel.api {
 	case APIChatCompletions:
-		response, err = s.streamChatCompletions(ctx, request, configuredModel, key, handle)
+		params, prepareErr := chatParams(request, configuredModel.reasoningFormat, target)
+		if prepareErr != nil {
+			return s.emitFailure(handle, request, prepareErr.Error(), prepareErr)
+		}
+		response, err = s.streamChatCompletions(ctx, configuredModel, key, params, target, handle)
 	case APIResponses:
-		response, err = s.streamResponses(ctx, request, key, handle)
+		params, prepareErr := responsesParams(request, target)
+		if prepareErr != nil {
+			return s.emitFailure(handle, request, prepareErr.Error(), prepareErr)
+		}
+		response, err = s.streamResponses(ctx, key, params, target, handle)
 	}
 	if err != nil {
-		if _, ok := errors.AsType[streamHandlerError](err); ok {
-			return err
-		}
-		outcome := model.OutcomeFailed
-		providerErr := fmt.Errorf("OpenAI-compatible request failed: %w", err)
-		message := providerErr.Error()
-		if ctx.Err() != nil {
-			outcome = model.OutcomeAborted
-			if isPureCancellation(err) {
-				message = requestCanceledMessage
-				err = ctx.Err()
-			} else {
-				err = errors.Join(ctx.Err(), providerErr)
-			}
-		} else {
-			err = providerErr
-		}
-		if responseOutcome, present := response.Outcome.Get(); !present || responseOutcome == 0 {
-			response = failureResponse(outcome, message)
-		} else {
-			response.Outcome = mo.Some(outcome)
-			response.ErrorMessage = mo.Some(message)
-		}
-		response.Provider = mo.Some(s.providerID)
-		response.Model = mo.Some(request.Model.Model)
-		if handleErr := handle(terminalStreamEvent(modelexecution.StreamEventError, response)); handleErr != nil {
-			return combineFinalHandlerError(err, handleErr)
-		}
-		return err
+		return s.completeProviderFailure(ctx, request, response, err, handle)
 	}
 	response.Provider = mo.Some(s.providerID)
 	response.Model = mo.Some(request.Model.Model)
@@ -237,6 +230,62 @@ func (s *Driver) Stream(
 		return handleErr
 	}
 	return nil
+}
+
+// completeProviderFailure delivers one model-dispatch failure and attaches provider source metadata.
+func (s *Driver) completeProviderFailure(
+	ctx context.Context,
+	request modelexecution.ProviderRequest,
+	response model.Response,
+	sourceErr error,
+	handle modelexecution.StreamHandler,
+) error {
+	if _, deliveryFailure := errors.AsType[streamHandlerError](sourceErr); deliveryFailure {
+		return sourceErr
+	}
+	outcome := model.OutcomeFailed
+	providerErr := fmt.Errorf("OpenAI-compatible request failed: %w", sourceErr)
+	message := providerErr.Error()
+	var resultErr error
+	if ctx.Err() != nil {
+		outcome = model.OutcomeAborted
+		if isPureCancellation(sourceErr) {
+			message = requestCanceledMessage
+			resultErr = ctx.Err()
+		} else {
+			resultErr = errors.Join(ctx.Err(), providerErr)
+		}
+	} else {
+		resultErr = providerErr
+	}
+	if responseOutcome, present := response.Outcome.Get(); !present || responseOutcome == 0 {
+		response = failureResponse(outcome, message)
+	} else {
+		response.Outcome = mo.Some(outcome)
+		response.ErrorMessage = mo.Some(message)
+	}
+	response.Provider = mo.Some(s.providerID)
+	response.Model = mo.Some(request.Model.Model)
+	if handleErr := handle(terminalStreamEvent(modelexecution.StreamEventError, response)); handleErr != nil {
+		return combineFinalHandlerError(resultErr, handleErr)
+	}
+	if ctx.Err() != nil && isPureCancellation(sourceErr) {
+		return resultErr
+	}
+	return classifyProviderFailure(sourceErr, resultErr)
+}
+
+// providerContextTarget returns the exact replay identity for one prepared request.
+func (s *Driver) providerContextTarget(
+	request modelexecution.ProviderRequest,
+	configured modelConfig,
+) model.ProviderContextSource {
+	return model.ProviderContextSource{
+		ProviderID:       s.providerID,
+		API:              string(configured.api),
+		Model:            request.Model.Model,
+		CompatibilityKey: configured.reasoningCompatibilityKey,
+	}
 }
 
 // modelConfigForRequest returns provider wire settings for the selected model.
@@ -251,20 +300,43 @@ func (s *Driver) modelConfigForRequest(request modelexecution.ProviderRequest) (
 	return configuredModel, nil
 }
 
+// emitFailure reports a pre-dispatch failure and retains any terminal-delivery cause.
 func (s *Driver) emitFailure(
 	handle modelexecution.StreamHandler,
 	request modelexecution.ProviderRequest,
-	outcome model.Outcome,
 	message string,
 	err error,
 ) error {
-	response := failureResponse(outcome, message)
+	response := failureResponse(model.OutcomeFailed, message)
 	response.Provider = mo.Some(s.providerID)
 	response.Model = mo.Some(request.Model.Model)
 	if handleErr := handle(terminalStreamEvent(modelexecution.StreamEventError, response)); handleErr != nil {
-		return handleErr
+		return combineFinalHandlerError(err, handleErr)
 	}
 	return err
+}
+
+// classifyProviderFailure attaches source-owned metadata after successful terminal delivery.
+func classifyProviderFailure(sourceErr, cause error) error {
+	var classification modelexecution.ProviderFailureClassification
+	retryDelay := mo.None[time.Duration]()
+	if apiError, hasAPIError := errors.AsType[*openai.Error](sourceErr); hasAPIError {
+		classification = openaifailure.FailureClassification(apiError.Code, apiError.StatusCode, false)
+		retryDelay = openaifailure.RetryAfterDelay(apiError.Response)
+	} else if responseError, hasResponseError := errors.AsType[*providerResponseError](sourceErr); hasResponseError {
+		classification = openaifailure.FailureClassification(responseError.code, 0, false)
+	} else {
+		incomplete := errors.Is(sourceErr, errChatMissingTerminal) ||
+			errors.Is(sourceErr, errResponsesMissingTerminal)
+		classification = openaifailure.FailureClassification(
+			"", 0, incomplete || openaifailure.IsTransientTransportFailure(sourceErr),
+		)
+	}
+	return &modelexecution.ProviderFailureError{
+		Classification: classification,
+		RetryDelay:     retryDelay,
+		Cause:          cause,
+	}
 }
 
 func failureResponse(outcome model.Outcome, message string) model.Response {
@@ -300,12 +372,12 @@ func (failure streamHandlerError) Unwrap() error { return failure.err }
 
 func handlerError(err error) error { return streamHandlerError{err: err} }
 
-// combineFinalHandlerError retains provider failure and tags the final handler cause once.
-func combineFinalHandlerError(providerErr, handleErr error) error {
-	if errors.Is(providerErr, handleErr) {
-		return providerErr
+// combineFinalHandlerError retains the terminal source error and tags the delivery cause once.
+func combineFinalHandlerError(sourceErr, handleErr error) error {
+	if errors.Is(sourceErr, handleErr) {
+		return sourceErr
 	}
-	return errors.Join(providerErr, handlerError(handleErr))
+	return errors.Join(sourceErr, handlerError(handleErr))
 }
 
 // tagHandlerErrors distinguishes delivery failures from provider adapter failures.

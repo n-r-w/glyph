@@ -193,7 +193,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 			return a.complete(incomplete, model.OutcomeLength)
 		}
 		message := providerFailureMessage(incomplete.Error.Message)
-		sourceErr := errors.New(message)
+		sourceErr := &providerResponseError{code: string(incomplete.Error.Code), message: message}
 		if err := a.finish(); err != nil {
 			return terminalModelResponse(message, model.OutcomeFailed), true, errors.Join(sourceErr, err)
 		}
@@ -209,7 +209,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 	case "response.failed":
 		failed := event.AsResponseFailed().Response
 		message := providerFailureMessage(failed.Error.Message)
-		sourceErr := errors.New(message)
+		sourceErr := &providerResponseError{code: string(failed.Error.Code), message: message}
 		if err := a.finish(); err != nil {
 			return terminalModelResponse(message, model.OutcomeFailed), true, errors.Join(sourceErr, err)
 		}
@@ -225,7 +225,7 @@ func (a *semanticAssembler) consume(event responses.ResponseStreamEventUnion) (m
 	case "error":
 		providerEvent := event.AsError()
 		message := providerFailureMessage(providerEvent.Message)
-		sourceErr := errors.New(message)
+		sourceErr := &providerResponseError{code: providerEvent.Code, message: message}
 		if err := a.finish(); err != nil {
 			return terminalModelResponse(message, model.OutcomeFailed), true, errors.Join(sourceErr, err)
 		}

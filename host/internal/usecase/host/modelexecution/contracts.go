@@ -3,6 +3,7 @@ package modelexecution
 
 import (
 	"context"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -69,6 +70,38 @@ type StreamEvent struct {
 
 // StreamHandler consumes raw provider stream transitions in provider order.
 type StreamHandler func(event StreamEvent) error
+
+// ProviderFailureClassification identifies why one provider-owned attempt failed.
+type ProviderFailureClassification uint8
+
+const (
+	// ProviderFailureTransient identifies a provider failure that may succeed unchanged later.
+	ProviderFailureTransient ProviderFailureClassification = iota + 1
+	// ProviderFailureNonRetryable identifies a provider rejection that must not be retried unchanged.
+	ProviderFailureNonRetryable
+	// ProviderFailureContextOverflow identifies provider rejection because the input exceeded its context limit.
+	ProviderFailureContextOverflow
+)
+
+// ProviderFailureError preserves one source-owned provider failure and its retry metadata.
+type ProviderFailureError struct {
+	// Classification identifies the provider's source failure class.
+	Classification ProviderFailureClassification
+	// RetryDelay contains the provider-requested minimum delay when supplied.
+	RetryDelay mo.Option[time.Duration]
+	// Cause preserves the complete source error.
+	Cause error
+}
+
+// Error returns the complete source error text.
+func (failure *ProviderFailureError) Error() string {
+	return failure.Cause.Error()
+}
+
+// Unwrap exposes the original source error without replacing its classification.
+func (failure *ProviderFailureError) Unwrap() error {
+	return failure.Cause
+}
 
 // ProviderAttempt executes exactly one raw provider request.
 type ProviderAttempt interface {

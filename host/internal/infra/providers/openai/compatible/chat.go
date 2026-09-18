@@ -78,21 +78,12 @@ func newChatAccumulator(format reasoningFormat, target model.ProviderContextSour
 // streamChatCompletions maps one Chat Completions stream into provider-neutral events.
 func (s *Driver) streamChatCompletions(
 	ctx context.Context,
-	request modelexecution.ProviderRequest,
 	configuredModel modelConfig,
 	key string,
+	params openai.ChatCompletionNewParams,
+	target model.ProviderContextSource,
 	handle modelexecution.StreamHandler,
 ) (model.Response, error) {
-	target := model.ProviderContextSource{
-		ProviderID:       s.providerID,
-		API:              string(configuredModel.api),
-		Model:            request.Model.Model,
-		CompatibilityKey: configuredModel.reasoningCompatibilityKey,
-	}
-	params, err := chatParams(request, configuredModel.reasoningFormat, target)
-	if err != nil {
-		return model.Response{}, err
-	}
 	opts := s.requestOptions(key)
 	service := openai.NewChatCompletionService(opts...)
 	stream := service.NewStreaming(ctx, params)
@@ -115,7 +106,7 @@ func (s *Driver) streamChatCompletions(
 		if closeErr := state.finishContent(handleEvent); closeErr != nil {
 			return model.Response{}, closeErr
 		}
-		return model.Response{}, errors.New("chat completions stream ended without a finish reason")
+		return model.Response{}, errChatMissingTerminal
 	}
 	if finishErr := state.finish(handleEvent); finishErr != nil {
 		return model.Response{}, finishErr
