@@ -31,5 +31,9 @@ func validInitialization() *uiv1.Initialization {
 		SelectedUiId: new("glyph-tui"), StartupContent: nil, Extensions: nil,
 		Availability: new(uiv1.Availability_AVAILABILITY_IDLE), Models: []*uiv1.ConfiguredModel{model},
 		ModelSelection: selection, SessionInfo: session,
+		RetryPolicy: uiv1.RetryPolicy_builder{
+			Enabled: new(true), MaxRetries: new(int64(3)), DelayMilliseconds: []int64{1000, 2000, 4000},
+			MaxProviderDelayMilliseconds: new(int64(30000)),
+		}.Build(),
 	}.Build()
 }

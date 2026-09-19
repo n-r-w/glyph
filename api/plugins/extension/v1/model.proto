@@ -125,6 +125,18 @@ enum ConfiguredModelRole {
   CONFIGURED_MODEL_ROLE_ASSISTANT = 2;
 }
 
+// ConfiguredModelRetryProgress reports one accepted configured-model replacement attempt.
+message ConfiguredModelRetryProgress {
+  // The number of completed provider attempts.
+  int64 completed_attempts = 1;
+  // The effective total attempt limit.
+  int64 attempt_limit = 2;
+  // The pending delay in milliseconds.
+  int64 delay_milliseconds = 3;
+  // The complete failed-attempt text.
+  string error = 4;
+}
+
 // ConfiguredModelResult contains one provider-neutral terminal response.
 message ConfiguredModelResult {
   // The ordered public terminal content.

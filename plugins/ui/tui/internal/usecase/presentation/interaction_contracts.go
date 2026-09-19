@@ -42,6 +42,8 @@ const (
 	CommandCloneSession
 	// CommandSetEntryLabel requests one persistent entry-label mutation.
 	CommandSetEntryLabel
+	// CommandSetRetryEnabled changes process-local model retry enablement.
+	CommandSetRetryEnabled
 )
 
 // AuthenticationMethod identifies a user-selected sign-in flow.
@@ -76,6 +78,8 @@ type Command struct {
 	SessionName mo.Option[string]
 	// TreeCommand contains session-tree command data when present.
 	TreeCommand mo.Option[TreeCommand]
+	// RetryEnabled contains runtime retry enablement for the retry command.
+	RetryEnabled mo.Option[bool]
 }
 
 // TreeCommand contains one tree command payload.

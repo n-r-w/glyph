@@ -12,6 +12,7 @@ package programmatic
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	programmatic "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -20,6 +21,59 @@ import (
 	operation "github.com/n-r-w/glyph/internal/operation"
 	gomock "go.uber.org/mock/gomock"
 )
+
+// MockRetryControl is a mock of RetryControl interface.
+type MockRetryControl struct {
+	ctrl     *gomock.Controller
+	recorder *MockRetryControlMockRecorder
+	isgomock struct{}
+}
+
+// MockRetryControlMockRecorder is the mock recorder for MockRetryControl.
+type MockRetryControlMockRecorder struct {
+	mock *MockRetryControl
+}
+
+// NewMockRetryControl creates a new mock instance.
+func NewMockRetryControl(ctrl *gomock.Controller) *MockRetryControl {
+	mock := &MockRetryControl{ctrl: ctrl}
+	mock.recorder = &MockRetryControlMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRetryControl) EXPECT() *MockRetryControlMockRecorder {
+	return m.recorder
+}
+
+// RetryPolicy mocks base method.
+func (m *MockRetryControl) RetryPolicy() (bool, int64, []time.Duration, time.Duration) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RetryPolicy")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].([]time.Duration)
+	ret3, _ := ret[3].(time.Duration)
+	return ret0, ret1, ret2, ret3
+}
+
+// RetryPolicy indicates an expected call of RetryPolicy.
+func (mr *MockRetryControlMockRecorder) RetryPolicy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RetryPolicy", reflect.TypeOf((*MockRetryControl)(nil).RetryPolicy))
+}
+
+// SetRetryEnabled mocks base method.
+func (m *MockRetryControl) SetRetryEnabled(enabled bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetRetryEnabled", enabled)
+}
+
+// SetRetryEnabled indicates an expected call of SetRetryEnabled.
+func (mr *MockRetryControlMockRecorder) SetRetryEnabled(enabled any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRetryEnabled", reflect.TypeOf((*MockRetryControl)(nil).SetRetryEnabled), enabled)
+}
 
 // MockStateQuery is a mock of StateQuery interface.
 type MockStateQuery struct {

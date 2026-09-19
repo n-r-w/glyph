@@ -25,6 +25,16 @@ const (
 	FailureCodeReasoning = "REASONING_UNSUPPORTED"
 	// FailureCodeModelFailed reports failed model execution.
 	FailureCodeModelFailed = "MODEL_FAILED"
+	// FailureCodeRetryExhausted reports a retryable failure after all attempts.
+	FailureCodeRetryExhausted = "RETRY_EXHAUSTED"
+	// FailureCodeRetryCanceled reports explicit retry-handler cancellation.
+	FailureCodeRetryCanceled = "RETRY_CANCELED"
+	// FailureCodeExtensionFailed reports a retry-handler failure or invalid action.
+	FailureCodeExtensionFailed = "EXTENSION_FAILED"
+	// FailureCodeRetryDelayExceeded reports a provider delay above the configured maximum.
+	FailureCodeRetryDelayExceeded = "RETRY_DELAY_EXCEEDED"
+	// FailureCodeContextLimit reports terminal provider context overflow.
+	FailureCodeContextLimit = "CONTEXT_LIMIT"
 	// FailureCodeExtensionInvalid reports an invalid extension result.
 	FailureCodeExtensionInvalid = "EXTENSION_INVALID_RESULT"
 	// FailureCodeExtension reports an unavailable extension.

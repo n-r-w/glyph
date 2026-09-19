@@ -12,6 +12,7 @@ package programmatic
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	gomock "go.uber.org/mock/gomock"
@@ -42,18 +43,18 @@ func (m *MockNavigator) EXPECT() *MockNavigatorMockRecorder {
 }
 
 // NavigateProgrammatic mocks base method.
-func (m *MockNavigator) NavigateProgrammatic(arg0 context.Context, arg1 NavigationIntent, arg2 func(session.Tree) error) (NavigationCompletion, error) {
+func (m *MockNavigator) NavigateProgrammatic(arg0 context.Context, arg1 NavigationIntent, arg2 func(session.Tree) error, arg3 func(int64, int64, time.Duration, string) error) (NavigationCompletion, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "NavigateProgrammatic", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "NavigateProgrammatic", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(NavigationCompletion)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // NavigateProgrammatic indicates an expected call of NavigateProgrammatic.
-func (mr *MockNavigatorMockRecorder) NavigateProgrammatic(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockNavigatorMockRecorder) NavigateProgrammatic(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NavigateProgrammatic", reflect.TypeOf((*MockNavigator)(nil).NavigateProgrammatic), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NavigateProgrammatic", reflect.TypeOf((*MockNavigator)(nil).NavigateProgrammatic), arg0, arg1, arg2, arg3)
 }
 
 // MockNavigationFailure is a mock of NavigationFailure interface.

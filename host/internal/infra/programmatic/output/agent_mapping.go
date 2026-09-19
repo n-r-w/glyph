@@ -20,6 +20,7 @@ func mapAgentEvent(event agent.Event) (controller.AgentEvent, error) {
 		ModelContent:    mo.None[controller.ModelContent](),
 		ToolCallPreview: mo.None[controller.ToolCallPreview](),
 		FinalToolCall:   mo.None[controller.FinalToolCall](),
+		Retry:           mo.None[controller.RetryProgress](),
 		ToolExecution:   mo.None[controller.ToolExecution](),
 		ToolProgress:    mo.None[controller.ToolProgress](),
 		ToolResult:      mo.None[controller.ToolResult](),
@@ -29,7 +30,7 @@ func mapAgentEvent(event agent.Event) (controller.AgentEvent, error) {
 	}
 	var err error
 	switch event.Type {
-	case agent.EventAgentStart, agent.EventTurnStart, agent.EventMessageStart:
+	case agent.EventAgentStart, agent.EventTurnStart, agent.EventMessageStart, agent.EventResponseReset:
 	case agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd, agent.EventMessageEnd:
 		err = mapProgrammaticModelEvent(event, &mapped)
 	case agent.EventToolCallStart, agent.EventToolCallDelta, agent.EventToolCallEnd,
@@ -46,6 +47,7 @@ func mapAgentEvent(event agent.Event) (controller.AgentEvent, error) {
 
 // mapProgrammaticModelEvent maps selected model payloads to Programmatic Control.
 func mapProgrammaticModelEvent(event agent.Event, mapped *controller.AgentEvent) error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd:
 		content, hasContent := event.Content.Get()
@@ -85,6 +87,7 @@ func mapProgrammaticModelEvent(event agent.Event, mapped *controller.AgentEvent)
 
 // mapProgrammaticToolEvent maps selected tool payloads to Programmatic Control.
 func mapProgrammaticToolEvent(event agent.Event, mapped *controller.AgentEvent) error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case agent.EventToolCallStart, agent.EventToolCallDelta:
 		preview, present := event.Preview.Get()
@@ -131,6 +134,7 @@ func mapProgrammaticToolEvent(event agent.Event, mapped *controller.AgentEvent) 
 
 // mapProgrammaticTerminalEvent maps selected terminal summaries to Programmatic Control.
 func mapProgrammaticTerminalEvent(event agent.Event, mapped *controller.AgentEvent) error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case agent.EventTurnEnd:
 		turn, present := event.Turn.Get()
@@ -181,6 +185,8 @@ func mapAgentEventType(eventType agent.EventType) controller.AgentEventType {
 		return controller.AgentEventToolCallStart
 	case agent.EventToolCallDelta:
 		return controller.AgentEventToolCallDelta
+	case agent.EventResponseReset:
+		return controller.AgentEventResponseReset
 	case agent.EventToolCallEnd,
 		agent.EventMessageEnd,
 		agent.EventToolExecutionStart,
@@ -197,6 +203,7 @@ func mapAgentEventType(eventType agent.EventType) controller.AgentEventType {
 
 // mapTerminalAgentEventType maps terminal Agent Core event types.
 func mapTerminalAgentEventType(eventType agent.EventType) controller.AgentEventType {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch eventType {
 	case agent.EventToolCallEnd:
 		return controller.AgentEventToolCallEnd

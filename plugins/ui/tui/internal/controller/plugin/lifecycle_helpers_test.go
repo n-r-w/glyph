@@ -58,6 +58,8 @@ func buildModelContentLifecycle(
 	text *string,
 ) *uiv1.AgentEvent {
 	return uiv1.AgentEvent_builder{
+		RetryProgress:   nil,
+		ResponseReset:   nil,
 		Type:            new(outer),
 		RunId:           new("run"),
 		Text:            nil,
@@ -85,7 +87,9 @@ func buildModelContentLifecycle(
 func messageEndLifecycle(t *testing.T, content []*uiv1.ModelResponseContent) *uiv1.AgentEvent {
 	t.Helper()
 	return roundTripLifecycle(t, uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END), RunId: new("run"), Text: nil,
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END), RunId: new("run"), Text: nil,
 		ToolCallId: nil, ToolName: nil, ProgressChannel: nil, IsError: nil, Outcome: nil,
 		ErrorMessage: nil, Availability: nil, ModelContent: nil,
 		ModelResponse: uiv1.ModelResponse_builder{
@@ -140,6 +144,10 @@ func initializationRequest() *uiv1.OpenRequest {
 			ReasoningChoice: new(uiv1.ReasoningChoice_REASONING_CHOICE_HIGH),
 		}.Build(),
 		SelectedUiId: new("glyph-tui"), SessionInfo: testSessionInfo(),
+		RetryPolicy: uiv1.RetryPolicy_builder{
+			Enabled: new(true), MaxRetries: new(int64(3)), DelayMilliseconds: []int64{1000, 2000, 4000},
+			MaxProviderDelayMilliseconds: new(int64(30000)),
+		}.Build(),
 	}.Build()
 	request := new(uiv1.HostRequest)
 	request.SetInitialize(initialization)

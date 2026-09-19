@@ -10,6 +10,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
 //go:generate go tool mockgen -source=contracts.go -destination=contracts_mock.go -package=modelexecution
@@ -70,6 +71,144 @@ type StreamEvent struct {
 
 // StreamHandler consumes raw provider stream transitions in provider order.
 type StreamHandler func(event StreamEvent) error
+
+// RetryPolicy is one immutable logical-execution retry configuration.
+type RetryPolicy struct {
+	// Enabled reports whether provider failures can be repeated.
+	Enabled bool
+	// MaxRetries is the maximum number of repeats after the initial attempt.
+	MaxRetries int64
+	// Delays contains the ordered delay before each repeat attempt.
+	Delays []time.Duration
+	// MaxProviderDelay is the largest accepted provider-requested minimum delay.
+	MaxProviderDelay time.Duration
+}
+
+// RetryDecision is the complete retry state composed for one failed attempt.
+type RetryDecision struct {
+	// Retryable reports whether the source can be repeated unchanged.
+	Retryable bool
+	// Retry reports whether another attempt is requested.
+	Retry bool
+	// Delay is the pending delay before another attempt.
+	Delay time.Duration
+	// AttemptLimit is the effective total attempt limit including the initial attempt.
+	AttemptLimit int64
+}
+
+// RetryHandler identifies one snapshotted extension retry handler.
+type RetryHandler struct {
+	// ExtensionID identifies the extension that owns the handler.
+	ExtensionID string
+	// RuntimeID identifies the exact registered runtime instance.
+	RuntimeID string
+	// HandlerID identifies the extension-local handler.
+	HandlerID string
+}
+
+// RetryInvocation contains immutable original and composed current retry decisions.
+type RetryInvocation struct {
+	// SourceError contains the complete failed-attempt error text.
+	SourceError string
+	// Classification identifies the source-owned provider failure class.
+	Classification ProviderFailureClassification
+	// Original is the immutable Host-produced retry decision.
+	Original RetryDecision
+	// Current is the retry decision left by preceding handlers.
+	Current RetryDecision
+	// CompletedAttempts is the number of completed provider attempts.
+	CompletedAttempts int64
+	// ProviderDelay contains the provider-requested minimum delay when supplied.
+	ProviderDelay mo.Option[time.Duration]
+}
+
+// RetryActionKind identifies one explicit retry-handler result.
+type RetryActionKind uint8
+
+const (
+	// RetryActionPreserve keeps the current retry decision.
+	RetryActionPreserve RetryActionKind = iota + 1
+	// RetryActionReplace replaces the complete current retry decision.
+	RetryActionReplace
+	// RetryActionCancel terminates retry coordination without another attempt.
+	RetryActionCancel
+)
+
+// RetryAction contains one retry-handler result.
+type RetryAction struct {
+	// Kind identifies the active action variant.
+	Kind RetryActionKind
+	// Decision contains the replacement decision only for RetryActionReplace.
+	Decision mo.Option[RetryDecision]
+}
+
+// RetryProgress reports one accepted retry before its replacement attempt.
+type RetryProgress struct {
+	// CompletedAttempts is the number of completed provider attempts.
+	CompletedAttempts int64
+	// AttemptLimit is the effective total attempt limit.
+	AttemptLimit int64
+	// Delay is the pending delay before the replacement attempt.
+	Delay time.Duration
+	// Error contains the complete failed-attempt text.
+	Error string
+}
+
+// retryProgressHandler consumes ordered retry progress for one owning Host path.
+type retryProgressHandler func(progress RetryProgress) error
+
+// RetryOutput delivers agent-request retry progress through the active Host mode.
+type RetryOutput interface {
+	// DeliverRetry publishes one accepted retry with mode-owned client correlation.
+	DeliverRetry(context.Context, RetryProgress) error
+}
+
+// RetryHandlers snapshots and invokes public extension retry handlers.
+type RetryHandlers interface {
+	// SnapshotRetryHandlers returns registration-order handler identities for one logical execution.
+	SnapshotRetryHandlers() []RetryHandler
+	// HandleRetry invokes one handler from the captured runtime snapshot.
+	HandleRetry(ctx context.Context, handler RetryHandler, invocation RetryInvocation) (RetryAction, error)
+}
+
+// FailureCategory identifies one terminal logical model-execution outcome.
+type FailureCategory string
+
+const (
+	// FailureModelFailed identifies a non-retryable provider failure.
+	FailureModelFailed FailureCategory = "MODEL_FAILED"
+	// FailureRetryExhausted identifies a retryable failure with no attempts left.
+	FailureRetryExhausted FailureCategory = "RETRY_EXHAUSTED"
+	// FailureRetryCanceled identifies explicit retry-handler cancellation.
+	FailureRetryCanceled FailureCategory = "RETRY_CANCELED"
+	// FailureExtensionFailed identifies retry-handler invocation or action failure.
+	FailureExtensionFailed FailureCategory = "EXTENSION_FAILED"
+	// FailureRetryDelayExceeded identifies a provider delay above the accepted maximum.
+	FailureRetryDelayExceeded FailureCategory = "RETRY_DELAY_EXCEEDED"
+	// FailureContextLimit identifies provider context overflow until recovery is connected.
+	FailureContextLimit FailureCategory = "CONTEXT_LIMIT"
+	// FailureInternal identifies an acquired failure without a more specific logical category.
+	FailureInternal FailureCategory = "INTERNAL"
+)
+
+// LogicalFailureError preserves one terminal category and every contributing cause.
+type LogicalFailureError struct {
+	// Category identifies the public provider-neutral terminal outcome.
+	Category FailureCategory
+	// Cause preserves all contributing errors.
+	Cause error
+}
+
+var _ sessiontree.ModelRequestFailure = (*LogicalFailureError)(nil)
+
+// Error returns the complete contributing cause text.
+func (failure *LogicalFailureError) Error() string { return failure.Cause.Error() }
+
+// Unwrap exposes contributing causes without weakening the logical category.
+func (failure *LogicalFailureError) Unwrap() error { return failure.Cause }
+
+// FailureCode returns the stable public terminal category.
+func (failure *LogicalFailureError) FailureCode() string { return string(failure.Category) }
 
 // ProviderFailureClassification identifies why one provider-owned attempt failed.
 type ProviderFailureClassification uint8

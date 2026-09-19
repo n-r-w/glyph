@@ -51,6 +51,8 @@ func TestMapLifecycleRejectsEmptyToolResultContents(t *testing.T) {
 
 	// Act by invoking DecodeLifecycle to exercise missing terminal output fails at the UI boundary.
 	_, err := DecodeLifecycle(uiv1.AgentEvent_builder{
+		RetryProgress:      nil,
+		ResponseReset:      nil,
 		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
 		RunId:              new("run"),
 		Text:               nil,
@@ -78,7 +80,9 @@ func TestMapLifecycleRejectsMissingToolResultContent(t *testing.T) {
 
 	// Act by invoking DecodeLifecycle to exercise malformed blocks fail at the UI boundary.
 	_, err := DecodeLifecycle(uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
 		ToolResultContents: []*uiv1.ToolResultContent{
 			uiv1.ToolResultContent_builder{}.Build(),
 		},
@@ -108,7 +112,9 @@ func TestMapLifecycleRejectsEmptyToolResultImage(t *testing.T) {
 	// Assert mapping fails before the empty image reaches presentation state.
 
 	_, err := DecodeLifecycle(uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
 		ToolResultContents: []*uiv1.ToolResultContent{
 			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Image field.
 			uiv1.ToolResultContent_builder{

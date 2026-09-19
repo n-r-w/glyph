@@ -13,6 +13,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
@@ -57,6 +58,8 @@ type Service struct {
 	writer *operation.Writer[*uiv1.OpenRequest]
 	// progressReporter belongs to the active prepared application operation.
 	progressReporter operation.Reporter[controllerui.Frame]
+	// progressRunID correlates Host model progress with the active agent operation.
+	progressRunID string
 	// progressBound reports that the operation reporter is attached.
 	progressBound bool
 	// failConnection reports asynchronous output failure to the controller.
@@ -77,6 +80,7 @@ var (
 	_ modelselection.Publisher         = (*Service)(nil)
 	_ modelselection.IssueDelivery     = (*Service)(nil)
 	_ sessions.EntryPublisher          = (*Service)(nil)
+	_ modelexecution.RetryOutput       = (*Service)(nil)
 )
 
 // New creates the selected-process owner before candidate selection.
@@ -97,6 +101,7 @@ func New() *Service {
 		ready:            false,
 		writer:           nil,
 		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
 		progressBound:    false,
 		failConnection:   nil,
 	}

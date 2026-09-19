@@ -9,6 +9,7 @@ import (
 	"github.com/samber/mo"
 
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/errtree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -268,8 +269,11 @@ var _ extensionsdk.HostOperation = (*contextOperation)(nil)
 
 // Run executes the typed read and preserves every added error cause.
 //
-//nolint:gocyclo // The closed operation union requires one explicit branch for each request.
-func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted, error) {
+//nolint:gocyclo,gocognit // The closed operation union requires one explicit branch for each request.
+func (o *contextOperation) Run(
+	ctx context.Context,
+	reporter *extensionsdk.HostProgressReporter,
+) (*extensionpb.HostCompleted, error) {
 	slog.DebugContext(
 		ctx,
 		"execute extension context operation",
@@ -355,6 +359,18 @@ func (o *contextOperation) Run(ctx context.Context) (*extensionpb.HostCompleted,
 		response, err := o.service.models.Request(
 			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
 			configured.selection, configured.instructions, configured.history,
+			func(progress ConfiguredRetryProgress) error {
+				if reporter == nil {
+					return errors.New("configured-model retry reporter is unavailable")
+				}
+				value := extensionpb.ConfiguredModelRetryProgress_builder{
+					CompletedAttempts: new(progress.CompletedAttempts), AttemptLimit: new(progress.AttemptLimit),
+					DelayMilliseconds: new(progress.Delay.Milliseconds()), Error: new(progress.Error),
+				}.Build()
+				frame := new(extensionpb.HostProgress)
+				frame.SetConfiguredModelRetry(value)
+				return reporter.Report(ctx, frame)
+			},
 		)
 		if err != nil {
 			return nil, mapModelFailure("request configured model", err)
@@ -388,23 +404,19 @@ func (o *contextOperation) Release() {
 	o.release()
 }
 
-// modelFailureCode extracts the closed model-owner category without replacing the error text.
-func modelFailureCode(err error) string {
+// mapModelFailure preserves source identity before reducing pure unclassified cancellation.
+func mapModelFailure(action string, err error) error {
+	cause := fmt.Errorf("%s: %w", action, err)
 	if failure, found := errors.AsType[ModelFailure](err); found {
-		return failure.ModelCode()
+		return extensionsdk.Fail(failure.ModelCode(), cause)
 	}
 	if failure, found := errors.AsType[ContextFailure](err); found {
-		return failure.ContextCode()
+		return extensionsdk.Fail(failure.ContextCode(), cause)
 	}
-	return internalFailureCode
-}
-
-// mapModelFailure preserves cancellation as cancellation and classified model failures as complete causes.
-func mapModelFailure(action string, err error) error {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf("%s: %w", action, err)
+	if isPureCancellation(err) {
+		return cause
 	}
-	return extensionsdk.Fail(modelFailureCode(err), fmt.Errorf("%s: %w", action, err))
+	return extensionsdk.Fail(internalFailureCode, cause)
 }
 
 // contextFailureCode extracts the closed owner category without replacing the error text.
@@ -415,10 +427,21 @@ func contextFailureCode(err error) string {
 	return internalFailureCode
 }
 
-// mapContextFailure preserves cancellation as cancellation and classified failures as complete causes.
+// mapContextFailure preserves context identity before reducing pure unclassified cancellation.
 func mapContextFailure(action string, err error) error {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-		return fmt.Errorf("%s: %w", action, err)
+	cause := fmt.Errorf("%s: %w", action, err)
+	if failure, found := errors.AsType[ContextFailure](err); found {
+		return extensionsdk.Fail(failure.ContextCode(), cause)
 	}
-	return extensionsdk.Fail(contextFailureCode(err), fmt.Errorf("%s: %w", action, err))
+	if isPureCancellation(err) {
+		return cause
+	}
+	return extensionsdk.Fail(internalFailureCode, cause)
+}
+
+// isPureCancellation reports whether every acquired error leaf is a cancellation sentinel.
+func isPureCancellation(err error) bool {
+	return errtree.AllLeavesMatch(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+	})
 }

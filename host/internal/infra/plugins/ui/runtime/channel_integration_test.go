@@ -82,7 +82,10 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 		require.NoError(t, err)
 	}
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
 		browser:          nil,
 		client:           nil,
 		openOnce:         sync.Once{},
@@ -93,7 +96,10 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 		mutex:            sync.Mutex{},
 		ready:            true,
 		writer:           nil,
-		progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false, failConnection: nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	prepare := func(
 		_ context.Context,
@@ -382,8 +388,8 @@ func openInitializedIntegrationChannel(t *testing.T, service uisdk.Service) *Ser
 		mutex:            sync.Mutex{},
 		ready:            true,
 		writer:           nil,
-		progressReporter: operation.Reporter[controllerui.Frame]{},
-		progressBound:    false,
-		failConnection:   nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{}, progressRunID: "",
+		progressBound:  false,
+		failConnection: nil,
 	}
 }

@@ -39,6 +39,8 @@ const (
 	CommandCloneSession
 	// CommandSetEntryLabel requests an entry-label mutation.
 	CommandSetEntryLabel
+	// CommandSetRetryEnabled changes process-local model retry enablement.
+	CommandSetRetryEnabled
 )
 
 // Command carries exactly one UI-to-Host command.
@@ -69,4 +71,6 @@ type Command struct {
 	CustomFocus mo.Option[string]
 	// EntryLabel preserves label presence, including an explicitly empty clear value.
 	EntryLabel mo.Option[string]
+	// RetryEnabled contains runtime retry enablement for the retry command.
+	RetryEnabled mo.Option[bool]
 }

@@ -108,7 +108,13 @@ func runUIWithPaths(
 	// contextCompaction owns active-conversation sizing and completed-usage observations.
 	contextCompaction := contextcompaction.New(sessionServices.active)
 	// modelExecution owns every logical model request in the UI assembly.
-	modelExecution := modelexecution.New(providerCatalog, contextCompaction)
+	modelExecution := modelexecution.New(
+		providerCatalog,
+		contextCompaction,
+		retryPolicy(configured),
+		extensions,
+		transport,
+	)
 	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
@@ -139,6 +145,7 @@ func runUIWithPaths(
 		sessionServices.active, sessionServices.tree, sessionServices.gate,
 		extensions,
 		selectionOwner,
+		modelExecution,
 	)
 	sessionServices.active.BindEntryPublisher(transport)
 	executionErr := controller.Execute(ctx, session)

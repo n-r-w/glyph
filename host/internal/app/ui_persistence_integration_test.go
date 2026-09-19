@@ -135,7 +135,7 @@ func runPersistenceUIFixture(t *testing.T, ctx context.Context, host *uisdk.Host
 		}
 		expectedCode := "PERSISTENCE_UNAVAILABLE"
 		if scenario == "unrelated" {
-			expectedCode = "INTERNAL"
+			expectedCode = "MODEL_FAILED"
 		}
 		if failure.Code() != expectedCode {
 			return fmt.Errorf("%s expected %s, got %s: %w", scenario, expectedCode, failure.Code(), failure)

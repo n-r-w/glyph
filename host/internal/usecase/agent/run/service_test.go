@@ -18,6 +18,31 @@ import (
 
 const testInstructions = "resolved coding instructions"
 
+// categorizedCancellation is a logical failure whose contributing cause includes cancellation.
+type categorizedCancellation struct{}
+
+// Error returns the complete logical failure text.
+func (categorizedCancellation) Error() string { return "retry exhausted: context canceled" }
+
+// Unwrap exposes the contributing cancellation sentinel.
+func (categorizedCancellation) Unwrap() error { return context.Canceled }
+
+// FailureCode identifies the terminal logical category.
+func (categorizedCancellation) FailureCode() string { return "RETRY_EXHAUSTED" }
+
+// TestCategorizedFailureIsNotPureCancellation verifies logical categories take precedence over nested sentinels.
+func TestCategorizedFailureIsNotPureCancellation(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one typed logical failure that wraps the cancellation sentinel.
+	failure := categorizedCancellation{}
+
+	// Act and assert the failure remains terminal rather than becoming an expected abort.
+	if isPureCancellation(failure) {
+		t.Fatal("categorized logical failure was mistaken for pure cancellation")
+	}
+}
+
 var testModelDescriptor = model.Descriptor{
 	Provider: "openai-codex", Model: "gpt-test",
 	Input: nil, ContextWindow: 0, MaxTokens: 0,

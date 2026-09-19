@@ -13,5 +13,6 @@ func commandFixture(kind presentationdomain.CommandKind, text mo.Option[string])
 		Kind:                 kind, Text: text, ProviderID: mo.None[string](), ModelID: mo.None[string](),
 		ReasoningChoice: mo.None[presentationdomain.ReasoningChoice](), SessionID: mo.None[string](),
 		SessionName: mo.None[string](), TreeCommand: mo.None[presentationdomain.TreeCommand](),
+		RetryEnabled: mo.None[bool](),
 	}
 }

@@ -176,6 +176,7 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 	}
 	var payload proto.Message
 	var navigationProgress *uiv1.SessionTreeNavigationProgress
+	var retryProgress *uiv1.RetryProgress
 	var progressReleaseErr error
 	if os.Getenv(appUIBehaviorEnvironment) == "summary-read" {
 		request := new(uiv1.UIRequest)
@@ -191,7 +192,8 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 		return writeSummaryControlObservation(ctx, host, result.GetSessionTree().GetTree())
 	}
 	navigationIDs := []string{"navigate-first", "navigate-again"}
-	if os.Getenv(appUIBehaviorEnvironment) == "summary-blocked" {
+	if behavior := os.Getenv(appUIBehaviorEnvironment); behavior == "summary-blocked" ||
+		behavior == "summary-retry" || behavior == "summary-retry-failure" {
 		navigationIDs = navigationIDs[:1]
 	}
 	for _, id := range navigationIDs {
@@ -205,7 +207,13 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 		}
 		result, err := waitUIOperation(ctx, host, id, operation, func(notification *uisdk.Notification) {
 			progress := notification.Progress()
-			if progress == nil || !progress.HasSessionTreeNavigation() {
+			if progress == nil {
+				return
+			}
+			if progress.HasSessionTreeRetry() {
+				retryProgress = progress.GetSessionTreeRetry()
+			}
+			if !progress.HasSessionTreeNavigation() {
 				return
 			}
 			navigationProgress = progress.GetSessionTreeNavigation()
@@ -215,6 +223,26 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 				)
 			}
 		})
+		if os.Getenv(appUIBehaviorEnvironment) == "summary-retry-failure" {
+			if err == nil {
+				return errors.New("navigation retry failure was not received")
+			}
+			var failure *uisdk.FailureError
+			if !errors.As(err, &failure) {
+				return err
+			}
+			if writeErr := os.WriteFile(
+				os.Getenv(appUITraceEnvironment)+".failure-code", []byte(failure.Code()), 0o600,
+			); writeErr != nil {
+				return writeErr
+			}
+			if writeErr := os.WriteFile(
+				os.Getenv(appUITraceEnvironment)+".failure-message", []byte(failure.Error()), 0o600,
+			); writeErr != nil {
+				return writeErr
+			}
+			return host.Close(ctx)
+		}
 		if err != nil {
 			return err
 		}
@@ -225,6 +253,18 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 	}
 	if navigationProgress == nil {
 		return errors.New("navigation progress was not received")
+	}
+	if os.Getenv(appUIBehaviorEnvironment) == "summary-retry" {
+		if retryProgress == nil {
+			return errors.New("navigation retry progress was not received")
+		}
+		retryData, err := protojson.Marshal(retryProgress)
+		if err != nil {
+			return err
+		}
+		if err := os.WriteFile(os.Getenv(appUITraceEnvironment)+".retry-progress", retryData, 0o600); err != nil {
+			return err
+		}
 	}
 	progressData, err := protojson.Marshal(navigationProgress)
 	if err != nil {

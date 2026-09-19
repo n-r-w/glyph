@@ -441,6 +441,15 @@ func (x *ControllerRequest) GetSetEntryLabel() *SetEntryLabel {
 	return nil
 }
 
+func (x *ControllerRequest) GetSetRetryEnabled() *SetRetryEnabled {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*controllerRequest_SetRetryEnabled); ok {
+			return x.SetRetryEnabled
+		}
+	}
+	return nil
+}
+
 func (x *ControllerRequest) SetUserRequest(v *UserRequest) {
 	if v == nil {
 		x.xxx_hidden_Request = nil
@@ -591,6 +600,14 @@ func (x *ControllerRequest) SetSetEntryLabel(v *SetEntryLabel) {
 		return
 	}
 	x.xxx_hidden_Request = &controllerRequest_SetEntryLabel{v}
+}
+
+func (x *ControllerRequest) SetSetRetryEnabled(v *SetRetryEnabled) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &controllerRequest_SetRetryEnabled{v}
 }
 
 func (x *ControllerRequest) HasRequest() bool {
@@ -752,6 +769,14 @@ func (x *ControllerRequest) HasSetEntryLabel() bool {
 	return ok
 }
 
+func (x *ControllerRequest) HasSetRetryEnabled() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*controllerRequest_SetRetryEnabled)
+	return ok
+}
+
 func (x *ControllerRequest) ClearRequest() {
 	x.xxx_hidden_Request = nil
 }
@@ -870,6 +895,12 @@ func (x *ControllerRequest) ClearSetEntryLabel() {
 	}
 }
 
+func (x *ControllerRequest) ClearSetRetryEnabled() {
+	if _, ok := x.xxx_hidden_Request.(*controllerRequest_SetRetryEnabled); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
 const ControllerRequest_Request_not_set_case case_ControllerRequest_Request = 0
 const ControllerRequest_UserRequest_case case_ControllerRequest_Request = 1
 const ControllerRequest_Cancel_case case_ControllerRequest_Request = 2
@@ -890,6 +921,7 @@ const ControllerRequest_NavigateSessionTree_case case_ControllerRequest_Request 
 const ControllerRequest_ForkSession_case case_ControllerRequest_Request = 17
 const ControllerRequest_CloneSession_case case_ControllerRequest_Request = 18
 const ControllerRequest_SetEntryLabel_case case_ControllerRequest_Request = 19
+const ControllerRequest_SetRetryEnabled_case case_ControllerRequest_Request = 20
 
 func (x *ControllerRequest) WhichRequest() case_ControllerRequest_Request {
 	if x == nil {
@@ -934,6 +966,8 @@ func (x *ControllerRequest) WhichRequest() case_ControllerRequest_Request {
 		return ControllerRequest_CloneSession_case
 	case *controllerRequest_SetEntryLabel:
 		return ControllerRequest_SetEntryLabel_case
+	case *controllerRequest_SetRetryEnabled:
+		return ControllerRequest_SetRetryEnabled_case
 	default:
 		return ControllerRequest_Request_not_set_case
 	}
@@ -964,6 +998,7 @@ type ControllerRequest_builder struct {
 	ForkSession           *ForkSession
 	CloneSession          *CloneSession
 	SetEntryLabel         *SetEntryLabel
+	SetRetryEnabled       *SetRetryEnabled
 	// -- end of xxx_hidden_Request
 }
 
@@ -1027,6 +1062,9 @@ func (b0 ControllerRequest_builder) Build() *ControllerRequest {
 	}
 	if b.SetEntryLabel != nil {
 		x.xxx_hidden_Request = &controllerRequest_SetEntryLabel{b.SetEntryLabel}
+	}
+	if b.SetRetryEnabled != nil {
+		x.xxx_hidden_Request = &controllerRequest_SetRetryEnabled{b.SetRetryEnabled}
 	}
 	return m0
 }
@@ -1121,6 +1159,10 @@ type controllerRequest_SetEntryLabel struct {
 	SetEntryLabel *SetEntryLabel `protobuf:"bytes,19,opt,name=set_entry_label,json=setEntryLabel,oneof"`
 }
 
+type controllerRequest_SetRetryEnabled struct {
+	SetRetryEnabled *SetRetryEnabled `protobuf:"bytes,20,opt,name=set_retry_enabled,json=setRetryEnabled,oneof"`
+}
+
 func (*controllerRequest_UserRequest) isControllerRequest_Request() {}
 
 func (*controllerRequest_Cancel) isControllerRequest_Request() {}
@@ -1158,6 +1200,8 @@ func (*controllerRequest_ForkSession) isControllerRequest_Request() {}
 func (*controllerRequest_CloneSession) isControllerRequest_Request() {}
 
 func (*controllerRequest_SetEntryLabel) isControllerRequest_Request() {}
+
+func (*controllerRequest_SetRetryEnabled) isControllerRequest_Request() {}
 
 // UserRequest starts an agent run for user text.
 type UserRequest struct {
@@ -2386,6 +2430,15 @@ func (x *HostProgress) GetSessionTreeNavigation() *SessionTreeNavigationProgress
 	return nil
 }
 
+func (x *HostProgress) GetSessionTreeRetry() *RetryProgress {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Progress.(*hostProgress_SessionTreeRetry); ok {
+			return x.SessionTreeRetry
+		}
+	}
+	return nil
+}
+
 func (x *HostProgress) SetAgentEvent(v *AgentEvent) {
 	if v == nil {
 		x.xxx_hidden_Progress = nil
@@ -2400,6 +2453,14 @@ func (x *HostProgress) SetSessionTreeNavigation(v *SessionTreeNavigationProgress
 		return
 	}
 	x.xxx_hidden_Progress = &hostProgress_SessionTreeNavigation{v}
+}
+
+func (x *HostProgress) SetSessionTreeRetry(v *RetryProgress) {
+	if v == nil {
+		x.xxx_hidden_Progress = nil
+		return
+	}
+	x.xxx_hidden_Progress = &hostProgress_SessionTreeRetry{v}
 }
 
 func (x *HostProgress) HasProgress() bool {
@@ -2425,6 +2486,14 @@ func (x *HostProgress) HasSessionTreeNavigation() bool {
 	return ok
 }
 
+func (x *HostProgress) HasSessionTreeRetry() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Progress.(*hostProgress_SessionTreeRetry)
+	return ok
+}
+
 func (x *HostProgress) ClearProgress() {
 	x.xxx_hidden_Progress = nil
 }
@@ -2441,9 +2510,16 @@ func (x *HostProgress) ClearSessionTreeNavigation() {
 	}
 }
 
+func (x *HostProgress) ClearSessionTreeRetry() {
+	if _, ok := x.xxx_hidden_Progress.(*hostProgress_SessionTreeRetry); ok {
+		x.xxx_hidden_Progress = nil
+	}
+}
+
 const HostProgress_Progress_not_set_case case_HostProgress_Progress = 0
 const HostProgress_AgentEvent_case case_HostProgress_Progress = 1
 const HostProgress_SessionTreeNavigation_case case_HostProgress_Progress = 2
+const HostProgress_SessionTreeRetry_case case_HostProgress_Progress = 3
 
 func (x *HostProgress) WhichProgress() case_HostProgress_Progress {
 	if x == nil {
@@ -2454,6 +2530,8 @@ func (x *HostProgress) WhichProgress() case_HostProgress_Progress {
 		return HostProgress_AgentEvent_case
 	case *hostProgress_SessionTreeNavigation:
 		return HostProgress_SessionTreeNavigation_case
+	case *hostProgress_SessionTreeRetry:
+		return HostProgress_SessionTreeRetry_case
 	default:
 		return HostProgress_Progress_not_set_case
 	}
@@ -2467,6 +2545,8 @@ type HostProgress_builder struct {
 	// Fields of oneof xxx_hidden_Progress:
 	AgentEvent            *AgentEvent
 	SessionTreeNavigation *SessionTreeNavigationProgress
+	// Retry progress for a branch-summary model request owned by this navigation operation.
+	SessionTreeRetry *RetryProgress
 	// -- end of xxx_hidden_Progress
 }
 
@@ -2479,6 +2559,9 @@ func (b0 HostProgress_builder) Build() *HostProgress {
 	}
 	if b.SessionTreeNavigation != nil {
 		x.xxx_hidden_Progress = &hostProgress_SessionTreeNavigation{b.SessionTreeNavigation}
+	}
+	if b.SessionTreeRetry != nil {
+		x.xxx_hidden_Progress = &hostProgress_SessionTreeRetry{b.SessionTreeRetry}
 	}
 	return m0
 }
@@ -2505,9 +2588,16 @@ type hostProgress_SessionTreeNavigation struct {
 	SessionTreeNavigation *SessionTreeNavigationProgress `protobuf:"bytes,2,opt,name=session_tree_navigation,json=sessionTreeNavigation,oneof"`
 }
 
+type hostProgress_SessionTreeRetry struct {
+	// Retry progress for a branch-summary model request owned by this navigation operation.
+	SessionTreeRetry *RetryProgress `protobuf:"bytes,3,opt,name=session_tree_retry,json=sessionTreeRetry,oneof"`
+}
+
 func (*hostProgress_AgentEvent) isHostProgress_Progress() {}
 
 func (*hostProgress_SessionTreeNavigation) isHostProgress_Progress() {}
+
+func (*hostProgress_SessionTreeRetry) isHostProgress_Progress() {}
 
 // HostCompleted carries one operation-specific completed payload.
 type HostCompleted struct {
@@ -2677,6 +2767,15 @@ func (x *HostCompleted) GetSetEntryLabel() *SetEntryLabelResult {
 	return nil
 }
 
+func (x *HostCompleted) GetRetryEnabled() *RetryEnabledResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_RetryEnabled); ok {
+			return x.RetryEnabled
+		}
+	}
+	return nil
+}
+
 func (x *HostCompleted) SetUserRequest(v *UserRequestCompleted) {
 	if v == nil {
 		x.xxx_hidden_Completed = nil
@@ -2795,6 +2894,14 @@ func (x *HostCompleted) SetSetEntryLabel(v *SetEntryLabelResult) {
 		return
 	}
 	x.xxx_hidden_Completed = &hostCompleted_SetEntryLabel{v}
+}
+
+func (x *HostCompleted) SetRetryEnabled(v *RetryEnabledResult) {
+	if v == nil {
+		x.xxx_hidden_Completed = nil
+		return
+	}
+	x.xxx_hidden_Completed = &hostCompleted_RetryEnabled{v}
 }
 
 func (x *HostCompleted) HasCompleted() bool {
@@ -2924,6 +3031,14 @@ func (x *HostCompleted) HasSetEntryLabel() bool {
 	return ok
 }
 
+func (x *HostCompleted) HasRetryEnabled() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_RetryEnabled)
+	return ok
+}
+
 func (x *HostCompleted) ClearCompleted() {
 	x.xxx_hidden_Completed = nil
 }
@@ -3018,6 +3133,12 @@ func (x *HostCompleted) ClearSetEntryLabel() {
 	}
 }
 
+func (x *HostCompleted) ClearRetryEnabled() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_RetryEnabled); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
 const HostCompleted_Completed_not_set_case case_HostCompleted_Completed = 0
 const HostCompleted_UserRequest_case case_HostCompleted_Completed = 1
 const HostCompleted_Cancel_case case_HostCompleted_Completed = 2
@@ -3034,6 +3155,7 @@ const HostCompleted_SessionTreeNavigation_case case_HostCompleted_Completed = 12
 const HostCompleted_ForkSession_case case_HostCompleted_Completed = 13
 const HostCompleted_CloneSession_case case_HostCompleted_Completed = 14
 const HostCompleted_SetEntryLabel_case case_HostCompleted_Completed = 15
+const HostCompleted_RetryEnabled_case case_HostCompleted_Completed = 16
 
 func (x *HostCompleted) WhichCompleted() case_HostCompleted_Completed {
 	if x == nil {
@@ -3070,6 +3192,8 @@ func (x *HostCompleted) WhichCompleted() case_HostCompleted_Completed {
 		return HostCompleted_CloneSession_case
 	case *hostCompleted_SetEntryLabel:
 		return HostCompleted_SetEntryLabel_case
+	case *hostCompleted_RetryEnabled:
+		return HostCompleted_RetryEnabled_case
 	default:
 		return HostCompleted_Completed_not_set_case
 	}
@@ -3096,6 +3220,7 @@ type HostCompleted_builder struct {
 	ForkSession           *ForkSessionResult
 	CloneSession          *CloneSessionResult
 	SetEntryLabel         *SetEntryLabelResult
+	RetryEnabled          *RetryEnabledResult
 	// -- end of xxx_hidden_Completed
 }
 
@@ -3147,6 +3272,9 @@ func (b0 HostCompleted_builder) Build() *HostCompleted {
 	}
 	if b.SetEntryLabel != nil {
 		x.xxx_hidden_Completed = &hostCompleted_SetEntryLabel{b.SetEntryLabel}
+	}
+	if b.RetryEnabled != nil {
+		x.xxx_hidden_Completed = &hostCompleted_RetryEnabled{b.RetryEnabled}
 	}
 	return m0
 }
@@ -3225,6 +3353,10 @@ type hostCompleted_SetEntryLabel struct {
 	SetEntryLabel *SetEntryLabelResult `protobuf:"bytes,15,opt,name=set_entry_label,json=setEntryLabel,oneof"`
 }
 
+type hostCompleted_RetryEnabled struct {
+	RetryEnabled *RetryEnabledResult `protobuf:"bytes,16,opt,name=retry_enabled,json=retryEnabled,oneof"`
+}
+
 func (*hostCompleted_UserRequest) isHostCompleted_Completed() {}
 
 func (*hostCompleted_Cancel) isHostCompleted_Completed() {}
@@ -3254,6 +3386,8 @@ func (*hostCompleted_ForkSession) isHostCompleted_Completed() {}
 func (*hostCompleted_CloneSession) isHostCompleted_Completed() {}
 
 func (*hostCompleted_SetEntryLabel) isHostCompleted_Completed() {}
+
+func (*hostCompleted_RetryEnabled) isHostCompleted_Completed() {}
 
 // UserRequestCompleted acknowledges a settled agent run.
 type UserRequestCompleted struct {
@@ -3304,6 +3438,7 @@ type RunStateResult struct {
 	state                        protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_State             RunState               `protobuf:"varint,1,opt,name=state,enum=glyph.programmatic.v1.RunState"`
 	xxx_hidden_ActiveOperationId *string                `protobuf:"bytes,2,opt,name=active_operation_id,json=activeOperationId"`
+	xxx_hidden_RetryPolicy       *RetryPolicy           `protobuf:"bytes,3,opt,name=retry_policy,json=retryPolicy"`
 	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
 	XXX_presence                 [1]uint32
 	unknownFields                protoimpl.UnknownFields
@@ -3354,14 +3489,25 @@ func (x *RunStateResult) GetActiveOperationId() string {
 	return ""
 }
 
+func (x *RunStateResult) GetRetryPolicy() *RetryPolicy {
+	if x != nil {
+		return x.xxx_hidden_RetryPolicy
+	}
+	return nil
+}
+
 func (x *RunStateResult) SetState(v RunState) {
 	x.xxx_hidden_State = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
 func (x *RunStateResult) SetActiveOperationId(v string) {
 	x.xxx_hidden_ActiveOperationId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *RunStateResult) SetRetryPolicy(v *RetryPolicy) {
+	x.xxx_hidden_RetryPolicy = v
 }
 
 func (x *RunStateResult) HasState() bool {
@@ -3378,6 +3524,13 @@ func (x *RunStateResult) HasActiveOperationId() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
+func (x *RunStateResult) HasRetryPolicy() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_RetryPolicy != nil
+}
+
 func (x *RunStateResult) ClearState() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_State = RunState_RUN_STATE_UNSPECIFIED
@@ -3388,6 +3541,10 @@ func (x *RunStateResult) ClearActiveOperationId() {
 	x.xxx_hidden_ActiveOperationId = nil
 }
 
+func (x *RunStateResult) ClearRetryPolicy() {
+	x.xxx_hidden_RetryPolicy = nil
+}
+
 type RunStateResult_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -3395,6 +3552,8 @@ type RunStateResult_builder struct {
 	State *RunState
 	// The operation identifier of the active user request.
 	ActiveOperationId *string
+	// The effective retry policy and current runtime enablement.
+	RetryPolicy *RetryPolicy
 }
 
 func (b0 RunStateResult_builder) Build() *RunStateResult {
@@ -3402,13 +3561,14 @@ func (b0 RunStateResult_builder) Build() *RunStateResult {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.State != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_State = *b.State
 	}
 	if b.ActiveOperationId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_ActiveOperationId = b.ActiveOperationId
 	}
+	x.xxx_hidden_RetryPolicy = b.RetryPolicy
 	return m0
 }
 
@@ -3416,11 +3576,11 @@ var File_api_programmatic_v1_programmatic_proto protoreflect.FileDescriptor
 
 const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\n" +
-	"&api/programmatic/v1/programmatic.proto\x12\x15glyph.programmatic.v1\x1a api/operation/v1/operation.proto\x1a\x1fapi/programmatic/v1/agent.proto\x1a\x1fapi/programmatic/v1/model.proto\x1a!api/programmatic/v1/session.proto\"\x81\x01\n" +
+	"&api/programmatic/v1/programmatic.proto\x12\x15glyph.programmatic.v1\x1a api/operation/v1/operation.proto\x1a\x1fapi/programmatic/v1/agent.proto\x1a\x1fapi/programmatic/v1/model.proto\x1a\x1fapi/programmatic/v1/retry.proto\x1a!api/programmatic/v1/session.proto\"\x81\x01\n" +
 	"\vOpenRequest\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12D\n" +
 	"\arequest\x18\x02 \x01(\v2(.glyph.programmatic.v1.ControllerRequestH\x00R\arequestB\t\n" +
-	"\acontent\"\x89\f\n" +
+	"\acontent\"\xdf\f\n" +
 	"\x11ControllerRequest\x12G\n" +
 	"\fuser_request\x18\x01 \x01(\v2\".glyph.programmatic.v1.UserRequestH\x00R\vuserRequest\x12=\n" +
 	"\x06cancel\x18\x02 \x01(\v2#.glyph.operation.v1.CancelOperationH\x00R\x06cancel\x12H\n" +
@@ -3442,7 +3602,8 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x15navigate_session_tree\x18\x10 \x01(\v2*.glyph.programmatic.v1.NavigateSessionTreeH\x00R\x13navigateSessionTree\x12G\n" +
 	"\ffork_session\x18\x11 \x01(\v2\".glyph.programmatic.v1.ForkSessionH\x00R\vforkSession\x12J\n" +
 	"\rclone_session\x18\x12 \x01(\v2#.glyph.programmatic.v1.CloneSessionH\x00R\fcloneSession\x12N\n" +
-	"\x0fset_entry_label\x18\x13 \x01(\v2$.glyph.programmatic.v1.SetEntryLabelH\x00R\rsetEntryLabelB\t\n" +
+	"\x0fset_entry_label\x18\x13 \x01(\v2$.glyph.programmatic.v1.SetEntryLabelH\x00R\rsetEntryLabel\x12T\n" +
+	"\x11set_retry_enabled\x18\x14 \x01(\v2&.glyph.programmatic.v1.SetRetryEnabledH\x00R\x0fsetRetryEnabledB\t\n" +
 	"\arequest\"!\n" +
 	"\vUserRequest\x12\x12\n" +
 	"\x04text\x18\x01 \x01(\tR\x04text\"\r\n" +
@@ -3472,13 +3633,15 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\bcanceled\x18\x05 \x01(\v2\x1c.glyph.operation.v1.CanceledH\x00R\bcanceled\x124\n" +
 	"\x06failed\x18\x06 \x01(\v2\x1a.glyph.operation.v1.FailedH\x00R\x06failed\x12:\n" +
 	"\brejected\x18\a \x01(\v2\x1c.glyph.operation.v1.RejectedH\x00R\brejectedB\a\n" +
-	"\x05event\"\xd0\x01\n" +
+	"\x05event\"\xa6\x02\n" +
 	"\fHostProgress\x12D\n" +
 	"\vagent_event\x18\x01 \x01(\v2!.glyph.programmatic.v1.AgentEventH\x00R\n" +
 	"agentEvent\x12n\n" +
-	"\x17session_tree_navigation\x18\x02 \x01(\v24.glyph.programmatic.v1.SessionTreeNavigationProgressH\x00R\x15sessionTreeNavigationB\n" +
+	"\x17session_tree_navigation\x18\x02 \x01(\v24.glyph.programmatic.v1.SessionTreeNavigationProgressH\x00R\x15sessionTreeNavigation\x12T\n" +
+	"\x12session_tree_retry\x18\x03 \x01(\v2$.glyph.programmatic.v1.RetryProgressH\x00R\x10sessionTreeRetryB\n" +
 	"\n" +
-	"\bprogress\"\xc1\t\n" +
+	"\bprogress\"\x93\n" +
+	"\n" +
 	"\rHostCompleted\x12P\n" +
 	"\fuser_request\x18\x01 \x01(\v2+.glyph.programmatic.v1.UserRequestCompletedH\x00R\vuserRequest\x12=\n" +
 	"\x06cancel\x18\x02 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancel\x12D\n" +
@@ -3495,12 +3658,14 @@ const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\x17session_tree_navigation\x18\f \x01(\v22.glyph.programmatic.v1.SessionTreeNavigationResultH\x00R\x15sessionTreeNavigation\x12M\n" +
 	"\ffork_session\x18\r \x01(\v2(.glyph.programmatic.v1.ForkSessionResultH\x00R\vforkSession\x12P\n" +
 	"\rclone_session\x18\x0e \x01(\v2).glyph.programmatic.v1.CloneSessionResultH\x00R\fcloneSession\x12T\n" +
-	"\x0fset_entry_label\x18\x0f \x01(\v2*.glyph.programmatic.v1.SetEntryLabelResultH\x00R\rsetEntryLabelB\v\n" +
+	"\x0fset_entry_label\x18\x0f \x01(\v2*.glyph.programmatic.v1.SetEntryLabelResultH\x00R\rsetEntryLabel\x12P\n" +
+	"\rretry_enabled\x18\x10 \x01(\v2).glyph.programmatic.v1.RetryEnabledResultH\x00R\fretryEnabledB\v\n" +
 	"\tcompleted\"\x16\n" +
-	"\x14UserRequestCompleted\"w\n" +
+	"\x14UserRequestCompleted\"\xbe\x01\n" +
 	"\x0eRunStateResult\x125\n" +
 	"\x05state\x18\x01 \x01(\x0e2\x1f.glyph.programmatic.v1.RunStateR\x05state\x12.\n" +
-	"\x13active_operation_id\x18\x02 \x01(\tR\x11activeOperationId*P\n" +
+	"\x13active_operation_id\x18\x02 \x01(\tR\x11activeOperationId\x12E\n" +
+	"\fretry_policy\x18\x03 \x01(\v2\".glyph.programmatic.v1.RetryPolicyR\vretryPolicy*P\n" +
 	"\bRunState\x12\x19\n" +
 	"\x15RUN_STATE_UNSPECIFIED\x10\x00\x12\x12\n" +
 	"\x0eRUN_STATE_IDLE\x10\x01\x12\x15\n" +
@@ -3541,29 +3706,33 @@ var file_api_programmatic_v1_programmatic_proto_goTypes = []any{
 	(*ForkSession)(nil),                   // 27: glyph.programmatic.v1.ForkSession
 	(*CloneSession)(nil),                  // 28: glyph.programmatic.v1.CloneSession
 	(*SetEntryLabel)(nil),                 // 29: glyph.programmatic.v1.SetEntryLabel
-	(*v1.CloseConnection)(nil),            // 30: glyph.operation.v1.CloseConnection
-	(*SessionEntryAdded)(nil),             // 31: glyph.programmatic.v1.SessionEntryAdded
-	(*ModelSelectionChanged)(nil),         // 32: glyph.programmatic.v1.ModelSelectionChanged
-	(*v1.Accepted)(nil),                   // 33: glyph.operation.v1.Accepted
-	(*v1.Running)(nil),                    // 34: glyph.operation.v1.Running
-	(*v1.Canceled)(nil),                   // 35: glyph.operation.v1.Canceled
-	(*v1.Failed)(nil),                     // 36: glyph.operation.v1.Failed
-	(*v1.Rejected)(nil),                   // 37: glyph.operation.v1.Rejected
-	(*AgentEvent)(nil),                    // 38: glyph.programmatic.v1.AgentEvent
-	(*SessionTreeNavigationProgress)(nil), // 39: glyph.programmatic.v1.SessionTreeNavigationProgress
-	(*v1.CancelCompleted)(nil),            // 40: glyph.operation.v1.CancelCompleted
-	(*MessagesResult)(nil),                // 41: glyph.programmatic.v1.MessagesResult
-	(*ModelsResult)(nil),                  // 42: glyph.programmatic.v1.ModelsResult
-	(*ModelSelectionResult)(nil),          // 43: glyph.programmatic.v1.ModelSelectionResult
-	(*SessionInfoResult)(nil),             // 44: glyph.programmatic.v1.SessionInfoResult
-	(*SessionsResult)(nil),                // 45: glyph.programmatic.v1.SessionsResult
-	(*SessionEntriesResult)(nil),          // 46: glyph.programmatic.v1.SessionEntriesResult
-	(*SessionStatsResult)(nil),            // 47: glyph.programmatic.v1.SessionStatsResult
-	(*SessionTreeResult)(nil),             // 48: glyph.programmatic.v1.SessionTreeResult
-	(*SessionTreeNavigationResult)(nil),   // 49: glyph.programmatic.v1.SessionTreeNavigationResult
-	(*ForkSessionResult)(nil),             // 50: glyph.programmatic.v1.ForkSessionResult
-	(*CloneSessionResult)(nil),            // 51: glyph.programmatic.v1.CloneSessionResult
-	(*SetEntryLabelResult)(nil),           // 52: glyph.programmatic.v1.SetEntryLabelResult
+	(*SetRetryEnabled)(nil),               // 30: glyph.programmatic.v1.SetRetryEnabled
+	(*v1.CloseConnection)(nil),            // 31: glyph.operation.v1.CloseConnection
+	(*SessionEntryAdded)(nil),             // 32: glyph.programmatic.v1.SessionEntryAdded
+	(*ModelSelectionChanged)(nil),         // 33: glyph.programmatic.v1.ModelSelectionChanged
+	(*v1.Accepted)(nil),                   // 34: glyph.operation.v1.Accepted
+	(*v1.Running)(nil),                    // 35: glyph.operation.v1.Running
+	(*v1.Canceled)(nil),                   // 36: glyph.operation.v1.Canceled
+	(*v1.Failed)(nil),                     // 37: glyph.operation.v1.Failed
+	(*v1.Rejected)(nil),                   // 38: glyph.operation.v1.Rejected
+	(*AgentEvent)(nil),                    // 39: glyph.programmatic.v1.AgentEvent
+	(*SessionTreeNavigationProgress)(nil), // 40: glyph.programmatic.v1.SessionTreeNavigationProgress
+	(*RetryProgress)(nil),                 // 41: glyph.programmatic.v1.RetryProgress
+	(*v1.CancelCompleted)(nil),            // 42: glyph.operation.v1.CancelCompleted
+	(*MessagesResult)(nil),                // 43: glyph.programmatic.v1.MessagesResult
+	(*ModelsResult)(nil),                  // 44: glyph.programmatic.v1.ModelsResult
+	(*ModelSelectionResult)(nil),          // 45: glyph.programmatic.v1.ModelSelectionResult
+	(*SessionInfoResult)(nil),             // 46: glyph.programmatic.v1.SessionInfoResult
+	(*SessionsResult)(nil),                // 47: glyph.programmatic.v1.SessionsResult
+	(*SessionEntriesResult)(nil),          // 48: glyph.programmatic.v1.SessionEntriesResult
+	(*SessionStatsResult)(nil),            // 49: glyph.programmatic.v1.SessionStatsResult
+	(*SessionTreeResult)(nil),             // 50: glyph.programmatic.v1.SessionTreeResult
+	(*SessionTreeNavigationResult)(nil),   // 51: glyph.programmatic.v1.SessionTreeNavigationResult
+	(*ForkSessionResult)(nil),             // 52: glyph.programmatic.v1.ForkSessionResult
+	(*CloneSessionResult)(nil),            // 53: glyph.programmatic.v1.CloneSessionResult
+	(*SetEntryLabelResult)(nil),           // 54: glyph.programmatic.v1.SetEntryLabelResult
+	(*RetryEnabledResult)(nil),            // 55: glyph.programmatic.v1.RetryEnabledResult
+	(*RetryPolicy)(nil),                   // 56: glyph.programmatic.v1.RetryPolicy
 }
 var file_api_programmatic_v1_programmatic_proto_depIdxs = []int32{
 	2,  // 0: glyph.programmatic.v1.OpenRequest.request:type_name -> glyph.programmatic.v1.ControllerRequest
@@ -3586,44 +3755,48 @@ var file_api_programmatic_v1_programmatic_proto_depIdxs = []int32{
 	27, // 17: glyph.programmatic.v1.ControllerRequest.fork_session:type_name -> glyph.programmatic.v1.ForkSession
 	28, // 18: glyph.programmatic.v1.ControllerRequest.clone_session:type_name -> glyph.programmatic.v1.CloneSession
 	29, // 19: glyph.programmatic.v1.ControllerRequest.set_entry_label:type_name -> glyph.programmatic.v1.SetEntryLabel
-	8,  // 20: glyph.programmatic.v1.OpenResponse.event:type_name -> glyph.programmatic.v1.HostEvent
-	30, // 21: glyph.programmatic.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
-	6,  // 22: glyph.programmatic.v1.OpenResponse.connection_event:type_name -> glyph.programmatic.v1.HostConnectionEvent
-	31, // 23: glyph.programmatic.v1.HostConnectionEvent.session_entry_added:type_name -> glyph.programmatic.v1.SessionEntryAdded
-	7,  // 24: glyph.programmatic.v1.HostConnectionEvent.extension_issue:type_name -> glyph.programmatic.v1.ExtensionIssue
-	32, // 25: glyph.programmatic.v1.HostConnectionEvent.model_selection_changed:type_name -> glyph.programmatic.v1.ModelSelectionChanged
-	33, // 26: glyph.programmatic.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
-	34, // 27: glyph.programmatic.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
-	9,  // 28: glyph.programmatic.v1.HostEvent.progress:type_name -> glyph.programmatic.v1.HostProgress
-	10, // 29: glyph.programmatic.v1.HostEvent.completed:type_name -> glyph.programmatic.v1.HostCompleted
-	35, // 30: glyph.programmatic.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
-	36, // 31: glyph.programmatic.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
-	37, // 32: glyph.programmatic.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
-	38, // 33: glyph.programmatic.v1.HostProgress.agent_event:type_name -> glyph.programmatic.v1.AgentEvent
-	39, // 34: glyph.programmatic.v1.HostProgress.session_tree_navigation:type_name -> glyph.programmatic.v1.SessionTreeNavigationProgress
-	11, // 35: glyph.programmatic.v1.HostCompleted.user_request:type_name -> glyph.programmatic.v1.UserRequestCompleted
-	40, // 36: glyph.programmatic.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	12, // 37: glyph.programmatic.v1.HostCompleted.run_state:type_name -> glyph.programmatic.v1.RunStateResult
-	41, // 38: glyph.programmatic.v1.HostCompleted.messages:type_name -> glyph.programmatic.v1.MessagesResult
-	42, // 39: glyph.programmatic.v1.HostCompleted.models:type_name -> glyph.programmatic.v1.ModelsResult
-	43, // 40: glyph.programmatic.v1.HostCompleted.model_selection:type_name -> glyph.programmatic.v1.ModelSelectionResult
-	44, // 41: glyph.programmatic.v1.HostCompleted.session_info:type_name -> glyph.programmatic.v1.SessionInfoResult
-	45, // 42: glyph.programmatic.v1.HostCompleted.sessions:type_name -> glyph.programmatic.v1.SessionsResult
-	46, // 43: glyph.programmatic.v1.HostCompleted.session_entries:type_name -> glyph.programmatic.v1.SessionEntriesResult
-	47, // 44: glyph.programmatic.v1.HostCompleted.session_stats:type_name -> glyph.programmatic.v1.SessionStatsResult
-	48, // 45: glyph.programmatic.v1.HostCompleted.session_tree:type_name -> glyph.programmatic.v1.SessionTreeResult
-	49, // 46: glyph.programmatic.v1.HostCompleted.session_tree_navigation:type_name -> glyph.programmatic.v1.SessionTreeNavigationResult
-	50, // 47: glyph.programmatic.v1.HostCompleted.fork_session:type_name -> glyph.programmatic.v1.ForkSessionResult
-	51, // 48: glyph.programmatic.v1.HostCompleted.clone_session:type_name -> glyph.programmatic.v1.CloneSessionResult
-	52, // 49: glyph.programmatic.v1.HostCompleted.set_entry_label:type_name -> glyph.programmatic.v1.SetEntryLabelResult
-	0,  // 50: glyph.programmatic.v1.RunStateResult.state:type_name -> glyph.programmatic.v1.RunState
-	1,  // 51: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
-	5,  // 52: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
-	52, // [52:53] is the sub-list for method output_type
-	51, // [51:52] is the sub-list for method input_type
-	51, // [51:51] is the sub-list for extension type_name
-	51, // [51:51] is the sub-list for extension extendee
-	0,  // [0:51] is the sub-list for field type_name
+	30, // 20: glyph.programmatic.v1.ControllerRequest.set_retry_enabled:type_name -> glyph.programmatic.v1.SetRetryEnabled
+	8,  // 21: glyph.programmatic.v1.OpenResponse.event:type_name -> glyph.programmatic.v1.HostEvent
+	31, // 22: glyph.programmatic.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
+	6,  // 23: glyph.programmatic.v1.OpenResponse.connection_event:type_name -> glyph.programmatic.v1.HostConnectionEvent
+	32, // 24: glyph.programmatic.v1.HostConnectionEvent.session_entry_added:type_name -> glyph.programmatic.v1.SessionEntryAdded
+	7,  // 25: glyph.programmatic.v1.HostConnectionEvent.extension_issue:type_name -> glyph.programmatic.v1.ExtensionIssue
+	33, // 26: glyph.programmatic.v1.HostConnectionEvent.model_selection_changed:type_name -> glyph.programmatic.v1.ModelSelectionChanged
+	34, // 27: glyph.programmatic.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	35, // 28: glyph.programmatic.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
+	9,  // 29: glyph.programmatic.v1.HostEvent.progress:type_name -> glyph.programmatic.v1.HostProgress
+	10, // 30: glyph.programmatic.v1.HostEvent.completed:type_name -> glyph.programmatic.v1.HostCompleted
+	36, // 31: glyph.programmatic.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	37, // 32: glyph.programmatic.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
+	38, // 33: glyph.programmatic.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	39, // 34: glyph.programmatic.v1.HostProgress.agent_event:type_name -> glyph.programmatic.v1.AgentEvent
+	40, // 35: glyph.programmatic.v1.HostProgress.session_tree_navigation:type_name -> glyph.programmatic.v1.SessionTreeNavigationProgress
+	41, // 36: glyph.programmatic.v1.HostProgress.session_tree_retry:type_name -> glyph.programmatic.v1.RetryProgress
+	11, // 37: glyph.programmatic.v1.HostCompleted.user_request:type_name -> glyph.programmatic.v1.UserRequestCompleted
+	42, // 38: glyph.programmatic.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	12, // 39: glyph.programmatic.v1.HostCompleted.run_state:type_name -> glyph.programmatic.v1.RunStateResult
+	43, // 40: glyph.programmatic.v1.HostCompleted.messages:type_name -> glyph.programmatic.v1.MessagesResult
+	44, // 41: glyph.programmatic.v1.HostCompleted.models:type_name -> glyph.programmatic.v1.ModelsResult
+	45, // 42: glyph.programmatic.v1.HostCompleted.model_selection:type_name -> glyph.programmatic.v1.ModelSelectionResult
+	46, // 43: glyph.programmatic.v1.HostCompleted.session_info:type_name -> glyph.programmatic.v1.SessionInfoResult
+	47, // 44: glyph.programmatic.v1.HostCompleted.sessions:type_name -> glyph.programmatic.v1.SessionsResult
+	48, // 45: glyph.programmatic.v1.HostCompleted.session_entries:type_name -> glyph.programmatic.v1.SessionEntriesResult
+	49, // 46: glyph.programmatic.v1.HostCompleted.session_stats:type_name -> glyph.programmatic.v1.SessionStatsResult
+	50, // 47: glyph.programmatic.v1.HostCompleted.session_tree:type_name -> glyph.programmatic.v1.SessionTreeResult
+	51, // 48: glyph.programmatic.v1.HostCompleted.session_tree_navigation:type_name -> glyph.programmatic.v1.SessionTreeNavigationResult
+	52, // 49: glyph.programmatic.v1.HostCompleted.fork_session:type_name -> glyph.programmatic.v1.ForkSessionResult
+	53, // 50: glyph.programmatic.v1.HostCompleted.clone_session:type_name -> glyph.programmatic.v1.CloneSessionResult
+	54, // 51: glyph.programmatic.v1.HostCompleted.set_entry_label:type_name -> glyph.programmatic.v1.SetEntryLabelResult
+	55, // 52: glyph.programmatic.v1.HostCompleted.retry_enabled:type_name -> glyph.programmatic.v1.RetryEnabledResult
+	0,  // 53: glyph.programmatic.v1.RunStateResult.state:type_name -> glyph.programmatic.v1.RunState
+	56, // 54: glyph.programmatic.v1.RunStateResult.retry_policy:type_name -> glyph.programmatic.v1.RetryPolicy
+	1,  // 55: glyph.programmatic.v1.ProgrammaticControlService.Open:input_type -> glyph.programmatic.v1.OpenRequest
+	5,  // 56: glyph.programmatic.v1.ProgrammaticControlService.Open:output_type -> glyph.programmatic.v1.OpenResponse
+	56, // [56:57] is the sub-list for method output_type
+	55, // [55:56] is the sub-list for method input_type
+	55, // [55:55] is the sub-list for extension type_name
+	55, // [55:55] is the sub-list for extension extendee
+	0,  // [0:55] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_programmatic_proto_init() }
@@ -3633,6 +3806,7 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 	}
 	file_api_programmatic_v1_agent_proto_init()
 	file_api_programmatic_v1_model_proto_init()
+	file_api_programmatic_v1_retry_proto_init()
 	file_api_programmatic_v1_session_proto_init()
 	file_api_programmatic_v1_programmatic_proto_msgTypes[0].OneofWrappers = []any{
 		(*openRequest_Request)(nil),
@@ -3657,6 +3831,7 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*controllerRequest_ForkSession)(nil),
 		(*controllerRequest_CloneSession)(nil),
 		(*controllerRequest_SetEntryLabel)(nil),
+		(*controllerRequest_SetRetryEnabled)(nil),
 	}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[4].OneofWrappers = []any{
 		(*openResponse_Event)(nil),
@@ -3680,6 +3855,7 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 	file_api_programmatic_v1_programmatic_proto_msgTypes[8].OneofWrappers = []any{
 		(*hostProgress_AgentEvent)(nil),
 		(*hostProgress_SessionTreeNavigation)(nil),
+		(*hostProgress_SessionTreeRetry)(nil),
 	}
 	file_api_programmatic_v1_programmatic_proto_msgTypes[9].OneofWrappers = []any{
 		(*hostCompleted_UserRequest)(nil),
@@ -3697,6 +3873,7 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 		(*hostCompleted_ForkSession)(nil),
 		(*hostCompleted_CloneSession)(nil),
 		(*hostCompleted_SetEntryLabel)(nil),
+		(*hostCompleted_RetryEnabled)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

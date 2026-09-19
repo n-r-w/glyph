@@ -41,6 +41,8 @@ const (
 	requestCloneSession
 	// requestSetEntryLabel identifies entry label mutation.
 	requestSetEntryLabel
+	// requestSetRetryEnabled identifies runtime retry enablement.
+	requestSetRetryEnabled
 )
 
 // classifyUIRequest returns the exact request payload kind.
@@ -59,6 +61,8 @@ func classifyUIRequest(request *uiv1.UIRequest) (requestKind, error) {
 		return requestSelectModel, nil
 	case uiv1.UIRequest_SelectReasoningChoice_case:
 		return requestSelectReasoning, nil
+	case uiv1.UIRequest_SetRetryEnabled_case:
+		return requestSetRetryEnabled, nil
 	case uiv1.UIRequest_CreateSession_case:
 		return requestCreateSession, nil
 	case uiv1.UIRequest_ListSessions_case:
@@ -98,7 +102,7 @@ func classifySessionUIRequest(request *uiv1.UIRequest) (requestKind, error) {
 	case uiv1.UIRequest_Submit_case, uiv1.UIRequest_Cancel_case,
 		uiv1.UIRequest_RetryAuthentication_case, uiv1.UIRequest_SelectModel_case,
 		uiv1.UIRequest_SelectReasoningChoice_case, uiv1.UIRequest_CreateSession_case,
-		uiv1.UIRequest_ListSessions_case:
+		uiv1.UIRequest_ListSessions_case, uiv1.UIRequest_SetRetryEnabled_case:
 		return 0, errors.New("UI operation request payload is not a session request")
 	default:
 		return 0, errors.New("UI operation request payload is unknown")
@@ -113,7 +117,8 @@ func validateHostPayload(kind requestKind, event *uiv1.HostEvent) error {
 	if progress := event.GetProgress(); progress != nil {
 		valid := kind == requestSubmit && progress.GetAgentEvent() != nil ||
 			kind == requestAuthentication && progress.GetAuthorization() != nil ||
-			kind == requestNavigateSessionTree && progress.GetSessionTreeNavigation() != nil
+			kind == requestNavigateSessionTree && (progress.GetSessionTreeNavigation() != nil ||
+				progress.GetSessionTreeRetry() != nil)
 		if !valid {
 			return fmt.Errorf("Host progress payload does not match UI request kind %d", kind)
 		}
@@ -159,6 +164,8 @@ func completedMatches(kind requestKind, completed *uiv1.HostCompleted) bool {
 		return completed.GetSessionCloned() != nil
 	case requestSetEntryLabel:
 		return completed.GetEntryLabelSet() != nil
+	case requestSetRetryEnabled:
+		return completed.GetRetryEnabled() != nil
 	default:
 		return false
 	}

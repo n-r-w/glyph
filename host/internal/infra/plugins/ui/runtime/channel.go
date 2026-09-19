@@ -40,14 +40,16 @@ func (c *Service) sendFrame(frame controllerui.Frame) error {
 }
 
 // BindProgress associates asynchronous Host progress with one operation reporter.
-func (c *Service) BindProgress(reporter operation.Reporter[controllerui.Frame]) func() {
+func (c *Service) BindProgress(runID string, reporter operation.Reporter[controllerui.Frame]) func() {
 	c.mutex.Lock()
 	c.progressReporter = reporter
+	c.progressRunID = runID
 	c.progressBound = true
 	c.mutex.Unlock()
 	return func() {
 		c.mutex.Lock()
 		c.progressReporter = operation.Reporter[controllerui.Frame]{}
+		c.progressRunID = ""
 		c.progressBound = false
 		c.mutex.Unlock()
 	}
@@ -65,7 +67,9 @@ func (c *Service) reportDeliveryFailure(err error) {
 
 // isOperationProgress reports whether one frame belongs to a running operation.
 func isOperationProgress(frame controllerui.Frame) bool {
-	if frame.Kind == controllerui.FrameAuthorization || frame.Kind == controllerui.FrameSessionTreeNavigationProgress {
+	if frame.Kind == controllerui.FrameAuthorization ||
+		frame.Kind == controllerui.FrameSessionTreeNavigationProgress ||
+		frame.Kind == controllerui.FrameSessionTreeRetryProgress {
 		return true
 	}
 	if frame.Kind != controllerui.FrameLifecycle {

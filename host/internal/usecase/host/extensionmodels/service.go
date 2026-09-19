@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/errtree"
 )
 
 const (
@@ -18,8 +20,6 @@ const (
 	modelUnavailableCode = "MODEL_UNAVAILABLE"
 	// credentialUnavailableCode identifies provider credentials that cannot authorize a request.
 	credentialUnavailableCode = "CREDENTIAL_UNAVAILABLE" //nolint:gosec // This is a public error category.
-	// modelFailedCode identifies provider execution failure after selection validation.
-	modelFailedCode = "MODEL_FAILED"
 	// selectionCodeNotFound identifies a provider selection that is not configured.
 	selectionCodeNotFound = "not_found"
 	// selectionCodeReasoningUnsupported identifies a reasoning choice unsupported by the selected model.
@@ -122,16 +122,33 @@ func (s *Service) Request(
 	selection model.Selection,
 	instructions string,
 	history []agent.HistoryEntry,
+	progress func(extensioncontroller.ConfiguredRetryProgress) error,
 ) (model.Response, error) {
 	if err := s.validateResult(ctx, extensionID, runtimeID, reference); err != nil {
 		return model.Response{}, err
 	}
-	response, err := s.modelRequester.Request(ctx, selection, instructions, history)
+	response, err := s.modelRequester.RequestConfigured(
+		ctx, selection, instructions, history,
+		func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error {
+			if progress == nil {
+				return nil
+			}
+			return progress(extensioncontroller.ConfiguredRetryProgress{
+				CompletedAttempts: completedAttempts, AttemptLimit: attemptLimit,
+				Delay: delay, Error: failure,
+			})
+		},
+	)
 	if err != nil {
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		code := internalCode
+		if failure, found := errors.AsType[interface {
+			error
+			FailureCode() string
+		}](err); found {
+			code = failure.FailureCode()
+		} else if ctx.Err() != nil && isPureCancellation(err) {
 			return model.Response{}, fmt.Errorf("request configured model: %w", err)
 		}
-		code := modelFailedCode
 		if failure, found := errors.AsType[RequestFailure](err); found {
 			switch failure.SelectionCode() {
 			case selectionCodeNotFound, selectionCodeReasoningUnsupported:
@@ -148,6 +165,13 @@ func (s *Service) Request(
 		return model.Response{}, validationErr
 	}
 	return response, nil
+}
+
+// isPureCancellation reports whether every configured-request failure leaf is caller cancellation.
+func isPureCancellation(err error) bool {
+	return errtree.AllLeavesMatch(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+	})
 }
 
 // validateResult checks cancellation and binding before work starts or a result leaves the owner.

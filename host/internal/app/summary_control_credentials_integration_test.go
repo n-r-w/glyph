@@ -81,7 +81,15 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 			service := sessiontree.New(
 				active,
 				models,
-				modelexecution.New(models, modelexecution.NewMockConversationContext(controller)),
+				modelexecution.New(
+					models,
+					modelexecution.NewMockConversationContext(controller),
+					modelexecution.RetryPolicy{
+						Enabled: false, MaxRetries: 0, Delays: nil, MaxProviderDelay: 0,
+					},
+					nil,
+					nil,
+				),
 				extensions,
 			)
 			contexts := sessiontree.NewMockContextIssuer(controller)
@@ -141,7 +149,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				TargetEntryID: "user",
 				SummaryMode:   controllerui.SummaryModeSummarize,
 				CustomFocus:   mo.None[string](),
-			}, publisher)
+			}, publisher, nil)
 
 			// Assert replacement avoids credential checks, while clearing performs one check before any commit.
 			if mode == summaryControlClearMode {

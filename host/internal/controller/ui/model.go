@@ -33,6 +33,10 @@ const (
 	LifecycleToolCallDelta
 	// LifecycleToolCallEnd carries exact final function-call arguments.
 	LifecycleToolCallEnd
+	// LifecycleResponseReset discards one unfinished response before replacement.
+	LifecycleResponseReset
+	// LifecycleRetryProgress reports one accepted replacement attempt.
+	LifecycleRetryProgress
 	// LifecycleMessageEnd finalizes one model message.
 	LifecycleMessageEnd
 	// LifecycleToolExecutionStart starts one tool call.
@@ -193,6 +197,30 @@ type FinalToolCall struct {
 	ArgumentsJSON []byte
 }
 
+// RetryPolicy is the effective retry policy projected to UI clients.
+type RetryPolicy struct {
+	// Enabled reports current process-local runtime enablement.
+	Enabled bool
+	// MaxRetries is the maximum number of repeats after the initial attempt.
+	MaxRetries int64
+	// Delays contains the ordered delay before each repeat.
+	Delays []time.Duration
+	// MaxProviderDelay is the largest accepted provider-requested delay.
+	MaxProviderDelay time.Duration
+}
+
+// RetryProgress reports one accepted replacement model attempt.
+type RetryProgress struct {
+	// CompletedAttempts is the number of completed provider attempts.
+	CompletedAttempts int64
+	// AttemptLimit is the effective total attempt limit.
+	AttemptLimit int64
+	// Delay is the pending delay before replacement.
+	Delay time.Duration
+	// Error contains the complete failed-attempt text.
+	Error string
+}
+
 // Lifecycle carries one explicit provider-neutral lifecycle event.
 type Lifecycle struct {
 	// Type identifies the lifecycle transition and active payload.
@@ -211,6 +239,8 @@ type Lifecycle struct {
 	ToolCallPreview mo.Option[ToolCallPreview]
 	// FinalToolCall contains exact terminal tool call arguments.
 	FinalToolCall mo.Option[FinalToolCall]
+	// Retry contains retry progress when another attempt is pending.
+	Retry mo.Option[RetryProgress]
 	// ToolCallID identifies the active tool call.
 	ToolCallID mo.Option[string]
 	// ToolName identifies the active tool.
@@ -245,6 +275,8 @@ const (
 	FrameSessionTree
 	// FrameSessionTreeNavigationProgress carries committed navigation state before observers.
 	FrameSessionTreeNavigationProgress
+	// FrameSessionTreeRetryProgress carries branch-summary retry progress.
+	FrameSessionTreeRetryProgress
 	// FrameSessionTreeNavigation carries committed or canceled navigation metadata.
 	FrameSessionTreeNavigation
 	// FrameSessionForked carries a durable fork replacement and exact next input.
@@ -257,6 +289,8 @@ const (
 	FrameSubmitCompleted
 	// FrameAuthenticationCompleted acknowledges completed authentication.
 	FrameAuthenticationCompleted
+	// FrameRetryEnabled confirms runtime retry enablement.
+	FrameRetryEnabled
 )
 
 // Frame carries one operation progress or completion payload.
@@ -287,8 +321,12 @@ type Frame struct {
 	SessionTree mo.Option[SessionTree]
 	// TreeNavigationProgress is present only on a navigation progress frame.
 	TreeNavigationProgress mo.Option[TreeNavigationProgress]
+	// TreeNavigationRetry is present only on a branch-summary retry frame.
+	TreeNavigationRetry mo.Option[RetryProgress]
 	// TreeNavigation is present only on a navigation result frame.
 	TreeNavigation mo.Option[TreeNavigationResult]
+	// RetryPolicy is present only on a retry-enablement completion frame.
+	RetryPolicy mo.Option[RetryPolicy]
 }
 
 // SessionEntry carries one restored public terminal item.

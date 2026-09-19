@@ -3,6 +3,7 @@ package plugin
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -11,6 +12,8 @@ import (
 )
 
 // mapInitialization validates the complete first frame before the TUI takes terminal ownership.
+//
+//nolint:gocyclo // Required initialization fields are validated independently.
 func mapInitialization(initialization *uiv1.Initialization) (Initialization, error) {
 	if !initialization.HasSelectedUiId() {
 		return Initialization{}, errors.New("selected UI ID is required")
@@ -41,9 +44,27 @@ func mapInitialization(initialization *uiv1.Initialization) (Initialization, err
 	if err != nil {
 		return Initialization{}, err
 	}
+	retryPolicy := initialization.GetRetryPolicy()
+	if retryPolicy == nil || !retryPolicy.HasEnabled() || !retryPolicy.HasMaxRetries() ||
+		!retryPolicy.HasMaxProviderDelayMilliseconds() || retryPolicy.GetMaxRetries() < 0 ||
+		retryPolicy.GetMaxProviderDelayMilliseconds() < 0 {
+		return Initialization{}, errors.New("retry policy is incomplete or invalid")
+	}
+	delays := lo.Map(retryPolicy.GetDelayMilliseconds(), func(delay int64, _ int) time.Duration {
+		return time.Duration(delay) * time.Millisecond
+	})
+	for _, delay := range delays {
+		if delay < 0 {
+			return Initialization{}, errors.New("retry policy delay is negative")
+		}
+	}
 	return Initialization{
 		Availability: availability, Startup: startup,
 		Models: models, Selection: selection, Session: sessionInfo,
+		RetryPolicy: RetryPolicy{
+			Enabled: retryPolicy.GetEnabled(), MaxRetries: retryPolicy.GetMaxRetries(), Delays: delays,
+			MaxProviderDelay: time.Duration(retryPolicy.GetMaxProviderDelayMilliseconds()) * time.Millisecond,
+		},
 	}, nil
 }
 

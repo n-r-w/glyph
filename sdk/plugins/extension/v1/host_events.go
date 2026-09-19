@@ -40,6 +40,16 @@ const (
 	hostFailureCodeCredentialUnavailable = "CREDENTIAL_UNAVAILABLE" //nolint:gosec // This is a protocol error code.
 	// hostFailureCodeModelFailed identifies provider request failure.
 	hostFailureCodeModelFailed = "MODEL_FAILED"
+	// hostFailureCodeRetryExhausted identifies exhausted provider retries.
+	hostFailureCodeRetryExhausted = "RETRY_EXHAUSTED"
+	// hostFailureCodeRetryCanceled identifies explicit retry-handler cancellation.
+	hostFailureCodeRetryCanceled = "RETRY_CANCELED"
+	// hostFailureCodeExtensionFailed identifies retry-handler failure.
+	hostFailureCodeExtensionFailed = "EXTENSION_FAILED"
+	// hostFailureCodeRetryDelayExceeded identifies a provider delay above the configured maximum.
+	hostFailureCodeRetryDelayExceeded = "RETRY_DELAY_EXCEEDED"
+	// hostFailureCodeContextLimit identifies terminal provider context overflow.
+	hostFailureCodeContextLimit = "CONTEXT_LIMIT"
 	// hostFailureCodeSessionUnavailable identifies unavailable active session state.
 	hostFailureCodeSessionUnavailable = "SESSION_UNAVAILABLE"
 	// hostFailureCodePersistenceUnavailable identifies a durable append failure.
@@ -121,7 +131,9 @@ func validateHostFailureCode(kind hostRequestKind, code string) error {
 	}
 	if kind == hostRequestConfiguredModel {
 		switch code {
-		case hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable, hostFailureCodeModelFailed:
+		case hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable, hostFailureCodeModelFailed,
+			hostFailureCodeRetryExhausted, hostFailureCodeRetryCanceled, hostFailureCodeExtensionFailed,
+			hostFailureCodeRetryDelayExceeded, hostFailureCodeContextLimit:
 			return nil
 		}
 	}
@@ -243,11 +255,11 @@ func mapHostEvent(
 	id string,
 	kind hostRequestKind,
 	payload *extensionpb.HostEvent,
-) (operation.Event[struct{}, *extensionpb.HostCompleted], bool, error) {
-	event := operation.Event[struct{}, *extensionpb.HostCompleted]{
+) (operation.Event[*extensionpb.HostProgress, *extensionpb.HostCompleted], bool, error) {
+	event := operation.Event[*extensionpb.HostProgress, *extensionpb.HostCompleted]{
 		ID:       id,
 		Kind:     0,
-		Progress: struct{}{},
+		Progress: nil,
 		Result:   nil,
 		Code:     "",
 		Message:  "",
@@ -260,6 +272,11 @@ func mapHostEvent(
 		event.Kind = operation.EventAccepted
 	case extensionpb.HostEvent_Running_case:
 		event.Kind = operation.EventRunning
+	case extensionpb.HostEvent_Progress_case:
+		if kind != hostRequestConfiguredModel || payload.GetProgress().GetConfiguredModelRetry() == nil {
+			return event, false, errors.New("host progress does not match configured-model request")
+		}
+		event.Kind, event.Progress = operation.EventProgress, payload.GetProgress()
 	case extensionpb.HostEvent_Completed_case:
 		event.Kind, event.Result = operation.EventCompleted, payload.GetCompleted()
 		if err := validateHostCompleted(kind, event.Result); err != nil {

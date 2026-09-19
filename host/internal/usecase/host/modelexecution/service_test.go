@@ -70,7 +70,7 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 	)
 	conversationContext := NewMockConversationContext(controller)
 	conversationContext.EXPECT().ObserveCompletedConversation(gomock.Any(), gomock.Any())
-	service := New(catalog, conversationContext)
+	service := New(catalog, conversationContext, disabledRetryPolicy(), nil, nil)
 	var received agentrun.StreamEvent
 
 	// Act through the Agent Core logical provider contract.
@@ -128,7 +128,7 @@ func TestServiceObservesTerminalConversationOnlyAfterDelivery(t *testing.T) {
 	observer.EXPECT().ObserveCompletedConversation(gomock.Any(), terminal).Do(
 		func(_ ProviderRequest, _ model.Response) { require.True(t, delivered) },
 	)
-	service := New(catalog, observer)
+	service := New(catalog, observer, disabledRetryPolicy(), nil, nil)
 
 	// Act by delivering the terminal response to Agent Core.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -173,7 +173,7 @@ func TestServiceDoesNotObserveTerminalResponseRejectedByDelivery(t *testing.T) {
 		},
 	)
 	deliveryErr := errors.New("deliver terminal response")
-	service := New(catalog, observer)
+	service := New(catalog, observer, disabledRetryPolicy(), nil, nil)
 
 	// Act by rejecting the terminal event at the conversation delivery boundary.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -271,7 +271,7 @@ func TestServiceConfiguredRequestReturnsDetachedTerminal(t *testing.T) {
 	service := newTestService(t, catalog)
 
 	// Act through the configured-request contract.
-	response, err := service.Request(t.Context(), selection, "instructions", history)
+	response, err := service.RequestConfigured(t.Context(), selection, "instructions", history, nil)
 
 	// Assert the response is detached and configured requests expose no tools.
 	require.NoError(t, err)
@@ -398,7 +398,7 @@ func TestServiceConfiguredRequestRejectsMissingTerminal(t *testing.T) {
 			service := newTestService(t, catalog)
 
 			// Act through terminal reduction.
-			response, err := service.Request(t.Context(), selection, "instructions", nil)
+			response, err := service.RequestConfigured(t.Context(), selection, "instructions", nil, nil)
 
 			// Assert the incomplete stream is rejected with a zero response.
 			require.Error(t, err)
@@ -411,35 +411,29 @@ func TestServiceConfiguredRequestRejectsMissingTerminal(t *testing.T) {
 	}
 }
 
-// TestServiceConfiguredRequestPreservesProviderFailure verifies one raw failure is returned with a zero response.
-func TestServiceConfiguredRequestPreservesProviderFailure(t *testing.T) {
-	t.Parallel()
-
-	// Arrange one resolved binding whose single raw attempt fails.
-	controller := gomock.NewController(t)
-	catalog := NewMockCatalogResolver(controller)
-	provider := NewMockProviderAttempt(controller)
-	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	catalog.EXPECT().ResolveConfiguredBinding(gomock.Any(), selection).Return(CatalogBinding{
-		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
-	providerErr := errors.New("complete provider failure")
-	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(providerErr)
-	service := newTestService(t, catalog)
-
-	// Act through one configured request.
-	response, err := service.Request(t.Context(), selection, "instructions", nil)
-
-	// Assert complete provider semantics and the zero response are preserved.
-	require.ErrorIs(t, err, providerErr)
-	assert.Contains(t, err.Error(), providerErr.Error())
-	assert.Equal(t, model.Response{}, response)
-}
-
 // newTestService creates a service with a strict no-call conversation-context mock.
 func newTestService(t *testing.T, catalog CatalogResolver) *Service {
 	t.Helper()
-	return New(catalog, NewMockConversationContext(gomock.NewController(t)))
+	return New(catalog, NewMockConversationContext(gomock.NewController(t)), disabledRetryPolicy(), nil, nil)
+}
+
+// successTerminalEvent returns one complete successful raw provider terminal event.
+func successTerminalEvent(selection model.Selection) StreamEvent {
+	return StreamEvent{
+		Kind: StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](),
+		Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](),
+		Response: mo.Some(model.Response{
+			Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
+			Provider: mo.Some(selection.Provider), Model: mo.Some(selection.Model),
+			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+			Usage: mo.None[model.Usage](), Diagnostics: nil,
+		}),
+	}
+}
+
+// disabledRetryPolicy returns a complete policy that preserves one-attempt test behavior.
+func disabledRetryPolicy() RetryPolicy {
+	return RetryPolicy{Enabled: false, MaxRetries: 0, Delays: nil, MaxProviderDelay: 0}
 }
 
 // modelDescriptor returns one complete descriptor for service tests.

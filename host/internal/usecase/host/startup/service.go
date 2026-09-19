@@ -160,7 +160,10 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 			rejected[registration.ID] = struct{}{}
 			continue
 		}
-		registration.Handlers = mergeHandlers(raw.Handlers, sessionHandlers, lifecycleHandlers, selectionHandlers)
+		retryHandlers := partitionHandlers(raw, RawHandlerKind.isRetry).acceptHandlers()
+		registration.Handlers = mergeHandlers(
+			raw.Handlers, sessionHandlers, lifecycleHandlers, selectionHandlers, retryHandlers,
+		)
 		handlerAccepted = append(handlerAccepted, registration)
 	}
 	accepted = handlerAccepted
@@ -217,7 +220,8 @@ func validateHandlerIdentities(handlers []RawHandlerDescriptor) error {
 		if !handler.Present || strings.TrimSpace(handler.ID) == "" {
 			return errors.New("handler ID is empty")
 		}
-		if !isSessionTreeKind(handler.Kind) && !isLifecycleKind(handler.Kind) && !isSelectionKind(handler.Kind) {
+		if !isSessionTreeKind(handler.Kind) && !isLifecycleKind(handler.Kind) && !isSelectionKind(handler.Kind) &&
+			!handler.Kind.isRetry() {
 			return fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
 		}
 		if _, exists := ids[handler.ID]; exists {
@@ -268,6 +272,18 @@ func isLifecycleKind(kind RawHandlerKind) bool {
 // isSelectionKind reports whether active-selection policy owns one kind.
 func isSelectionKind(kind RawHandlerKind) bool {
 	return kind == RawHandlerKindModelSelection || kind == RawHandlerKindReasoningSelection
+}
+
+// isRetry reports whether model execution owns this retry handler kind.
+func (kind RawHandlerKind) isRetry() bool { return kind == RawHandlerKindRetry }
+
+// acceptHandlers maps this identity-validated registration's handlers owned by model execution.
+func (registration PendingRegistration) acceptHandlers() []AcceptedHandler {
+	handlers := make([]AcceptedHandler, len(registration.Handlers))
+	for index, handler := range registration.Handlers {
+		handlers[index] = AcceptedHandler{ID: handler.ID, Kind: handler.Kind}
+	}
+	return handlers
 }
 
 // findPending returns the raw registration retained for one locally accepted extension.

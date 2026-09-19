@@ -305,6 +305,7 @@ func (s *Service) observe(ctx context.Context, kind Kind, event Event) error {
 
 // lifecycleKind maps one accepted startup kind to lifecycle policy.
 func lifecycleKind(kind startup.RawHandlerKind) (Kind, bool) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case startup.RawHandlerKindAgentStart:
 		return KindAgentStart, true
@@ -346,6 +347,7 @@ func lifecycleKind(kind startup.RawHandlerKind) (Kind, bool) {
 
 // eventKind maps source events to the approved lifecycle groups.
 func eventKind(eventType agent.EventType) (Kind, bool) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch eventType {
 	case agent.EventAgentStart:
 		return KindAgentStart, true

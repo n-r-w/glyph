@@ -9,6 +9,8 @@ import (
 )
 
 // validateHostProgressFields validates required fields inside one correlated progress payload.
+//
+//nolint:gocyclo // The flat branches validate the closed operation-progress union.
 func validateHostProgressFields(progress *uiv1.HostProgress) error {
 	if progress == nil {
 		return errors.New("Host progress payload is required")
@@ -18,6 +20,9 @@ func validateHostProgressFields(progress *uiv1.HostProgress) error {
 			return errors.New("Host authorization URL is required")
 		}
 		return nil
+	}
+	if retry := progress.GetSessionTreeRetry(); retry != nil {
+		return validateRetryProgress(retry)
 	}
 	if navigation := progress.GetSessionTreeNavigation(); navigation != nil {
 		if err := validateSessionTree(navigation.GetTree()); err != nil {
@@ -53,6 +58,13 @@ func validateAgentEventTypeFields(event *uiv1.AgentEvent) error {
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START:
 		return nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_RESPONSE_RESET:
+		if event.GetResponseReset() == nil {
+			return errors.New("Host response reset is required")
+		}
+		return nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_RETRY_PROGRESS:
+		return validateRetryProgress(event.GetRetryProgress())
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
@@ -126,7 +138,9 @@ func validateToolAgentEvent(event *uiv1.AgentEvent) error {
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END, uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
-		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END:
+		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_RESPONSE_RESET,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_RETRY_PROGRESS:
 		return errors.New("Host tool event type is required")
 	default:
 		return errors.New("Host tool event type is unknown")
@@ -199,6 +213,8 @@ func validateTerminalAgentEvent(event *uiv1.AgentEvent) error {
 }
 
 // validateHostCompletedFields validates required fields inside one correlated completion payload.
+//
+//nolint:gocyclo // The flat switch validates the closed completion union.
 func validateHostCompletedFields(completed *uiv1.HostCompleted) error {
 	if completed == nil {
 		return errors.New("Host completed payload is required")
@@ -226,6 +242,12 @@ func validateHostCompletedFields(completed *uiv1.HostCompleted) error {
 		if completed.GetAuthentication() == nil {
 			return errors.New("Host authentication acknowledgement is required")
 		}
+	case uiv1.HostCompleted_RetryEnabled_case:
+		result := completed.GetRetryEnabled()
+		if result == nil {
+			return errors.New("Host retry enablement result is required")
+		}
+		return validateRetryPolicy(result.GetPolicy())
 	case uiv1.HostCompleted_ModelSelection_case:
 		changed := completed.GetModelSelection()
 		if changed == nil {
@@ -245,8 +267,37 @@ func validateHostCompletedFields(completed *uiv1.HostCompleted) error {
 	return nil
 }
 
+// validateRetryProgress checks complete accepted-attempt accounting.
+func validateRetryProgress(progress *uiv1.RetryProgress) error {
+	if progress == nil || !progress.HasCompletedAttempts() || !progress.HasAttemptLimit() ||
+		!progress.HasDelayMilliseconds() || !progress.HasError() || progress.GetCompletedAttempts() < 1 ||
+		progress.GetAttemptLimit() <= progress.GetCompletedAttempts() || progress.GetDelayMilliseconds() < 0 {
+		return errors.New("Host retry progress is incomplete or invalid")
+	}
+	return nil
+}
+
+// validateRetryPolicy checks complete retry policy projection values.
+func validateRetryPolicy(policy *uiv1.RetryPolicy) error {
+	if policy == nil || !policy.HasEnabled() || !policy.HasMaxRetries() ||
+		!policy.HasMaxProviderDelayMilliseconds() || policy.GetMaxRetries() < 0 ||
+		policy.GetMaxProviderDelayMilliseconds() < 0 {
+		return errors.New("Host retry policy is incomplete or invalid")
+	}
+	if policy.GetMaxRetries() > 0 && len(policy.GetDelayMilliseconds()) == 0 {
+		return errors.New("Host retry policy delays are required")
+	}
+	for _, delay := range policy.GetDelayMilliseconds() {
+		if delay < 0 {
+			return errors.New("Host retry policy delay is negative")
+		}
+	}
+	return nil
+}
+
 // validateHostSessionCompletedFields validates session completion variants.
 func validateHostSessionCompletedFields(completed *uiv1.HostCompleted) error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch completed.WhichCompleted() {
 	case uiv1.HostCompleted_SessionChanged_case:
 		return validateSessionChanged(completed.GetSessionChanged())
@@ -285,6 +336,7 @@ func validateHostSessionCompletedFields(completed *uiv1.HostCompleted) error {
 
 // validateHostTreeCompletedFields validates tree and replacement completion variants.
 func validateHostTreeCompletedFields(completed *uiv1.HostCompleted) error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch completed.WhichCompleted() {
 	case uiv1.HostCompleted_SessionTree_case:
 		result := completed.GetSessionTree()

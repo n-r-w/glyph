@@ -27,6 +27,7 @@ func testLifecycleFrame() controllerui.Frame {
 			ModelResponse:      mo.None[controllerui.ModelResponse](),
 			ToolCallPreview:    mo.None[controllerui.ToolCallPreview](),
 			FinalToolCall:      mo.None[controllerui.FinalToolCall](),
+			Retry:              mo.None[controllerui.RetryProgress](),
 			ToolCallID:         mo.None[string](),
 			ToolName:           mo.None[string](),
 			ProgressChannel:    mo.Some(controllerui.ProgressChannelStdout),
@@ -44,5 +45,7 @@ func testLifecycleFrame() controllerui.Frame {
 		SessionTree:            mo.None[controllerui.SessionTree](),
 		TreeNavigation:         mo.None[controllerui.TreeNavigationResult](),
 		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		TreeNavigationRetry:    mo.None[controllerui.RetryProgress](),
+		RetryPolicy:            mo.None[controllerui.RetryPolicy](),
 	}
 }

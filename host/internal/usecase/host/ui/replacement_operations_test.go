@@ -170,7 +170,7 @@ func TestForkFailurePreservesSessionCause(t *testing.T) {
 func replacementService(controller *gomock.Controller, control *MockActiveSessions, gate *MockGate) *Session {
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, nil, nil)
+		NewMockModelCatalog(controller), control, nil, gate, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 	return service

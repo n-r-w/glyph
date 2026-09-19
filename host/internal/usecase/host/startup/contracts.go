@@ -130,6 +130,8 @@ const (
 	RawHandlerKindModelSelectionObserver RawHandlerKind = 17
 	// RawHandlerKindReasoningSelectionObserver identifies a committed reasoning-selection observer.
 	RawHandlerKindReasoningSelectionObserver RawHandlerKind = 18
+	// RawHandlerKindRetry identifies one retry-decision handler.
+	RawHandlerKindRetry RawHandlerKind = 19
 )
 
 // RawHandlerDescriptor contains transport-mapped handler registration data.

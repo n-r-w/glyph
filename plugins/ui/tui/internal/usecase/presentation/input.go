@@ -71,6 +71,8 @@ func (service *Service) applyInput(input mo.Option[plugininput.Payload]) error {
 }
 
 // agentEvent applies model/tool input without importing transport state into the reducer.
+//
+//nolint:gocyclo // The flat switch maps the closed plugin input union.
 func agentEvent(input plugininput.AgentUpdate) event {
 	kind := eventUnspecified
 	switch input.Kind {
@@ -80,6 +82,10 @@ func agentEvent(input plugininput.AgentUpdate) event {
 		kind = eventModelDelta
 	case plugininput.AgentModelEnd:
 		kind = eventModelEnd
+	case plugininput.AgentResponseReset:
+		kind = eventResponseReset
+	case plugininput.AgentRetryProgress:
+		kind = eventRetryProgress
 	case plugininput.AgentToolCallPreview:
 		kind = eventToolCallPreview
 	case plugininput.AgentToolCallFinal:
@@ -119,6 +125,11 @@ func agentEvent(input plugininput.AgentUpdate) event {
 		return lo.Map(contents, func(content plugininput.Content, _ int) Content { return decodeContent(content) })
 	})(input.Contents)
 	update.ToolCall = option.Map(decodeToolCallState)(input.ToolCall)
+	if retry, present := input.Retry.Get(); present {
+		update.Status = mo.Some(fmt.Sprintf(
+			"Retry %d/%d in %s", retry.CompletedAttempts+1, retry.AttemptLimit, retry.Delay,
+		))
+	}
 	return update
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
 
@@ -26,6 +27,7 @@ func (s *Service) projectHandler(request sessiontree.HandlerRequest) (HandlerInv
 		Commit:            mo.None[TreeCommit](),
 		OriginalSelection: model.Selection{},
 		CurrentSelection:  model.Selection{},
+		Retry:             mo.None[modelexecution.RetryInvocation](),
 	}
 	if value, ok := request.Request.Get(); ok {
 		result.Original = projectPreparation(value.Original)
@@ -172,6 +174,7 @@ func (s *Service) capabilityAction(action HandlerAction) sessiontree.HandlerResp
 		Result:   mo.None[sessiontree.ResultHandlerAction](),
 		Observer: mo.None[sessiontree.ObserverAction](),
 	}
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch action.Kind {
 	case InvocationRequest:
 		result.Request = mo.Some(

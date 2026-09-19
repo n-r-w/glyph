@@ -16,6 +16,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // ReportRuntimeFailure sends one classified post-start extension failure.
@@ -28,6 +29,33 @@ func (d *Service) ReportRuntimeFailure(_ context.Context, failure extension.Runt
 		return fmt.Errorf("send extension runtime failure: %w", sendErr)
 	}
 	return nil
+}
+
+// DeliverRetry maps one Host retry into operation progress with output-owned run correlation.
+func (d *Service) DeliverRetry(ctx context.Context, progress modelexecution.RetryProgress) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("deliver UI retry progress: %w", err)
+	}
+	d.mutex.Lock()
+	runID := d.progressRunID
+	bound := d.progressBound
+	d.mutex.Unlock()
+	if !bound || runID == "" {
+		return errors.New("deliver UI retry progress: active agent operation is not bound")
+	}
+	return d.sendFrame(lifecycleFrame(controllerui.Lifecycle{
+		Type: controllerui.LifecycleRetryProgress, RunID: mo.Some(runID),
+		Text: mo.None[string](), ToolResultContents: mo.None[[]tool.ResultContent](),
+		ModelContent: mo.None[controllerui.ModelContent](), ModelResponse: mo.None[controllerui.ModelResponse](),
+		ToolCallPreview: mo.None[controllerui.ToolCallPreview](), FinalToolCall: mo.None[controllerui.FinalToolCall](),
+		Retry: mo.Some(controllerui.RetryProgress{
+			CompletedAttempts: progress.CompletedAttempts, AttemptLimit: progress.AttemptLimit,
+			Delay: progress.Delay, Error: progress.Error,
+		}),
+		ToolCallID: mo.None[string](), ToolName: mo.None[string](),
+		ProgressChannel: mo.None[controllerui.ProgressChannel](), IsError: mo.None[bool](),
+		Outcome: mo.None[string](), ErrorMessage: mo.None[string](),
+	}))
 }
 
 // DeliverAgent filters one Agent Core event into an explicit UI-safe lifecycle frame.
@@ -44,6 +72,7 @@ func (d *Service) DeliverAgent(ctx context.Context, event agent.Event) error {
 		ModelResponse:      mo.None[controllerui.ModelResponse](),
 		ToolCallPreview:    mo.None[controllerui.ToolCallPreview](),
 		FinalToolCall:      mo.None[controllerui.FinalToolCall](),
+		Retry:              mo.None[controllerui.RetryProgress](),
 		ToolCallID:         mo.None[string](),
 		ToolName:           mo.None[string](),
 		ProgressChannel:    mo.None[controllerui.ProgressChannel](),
@@ -56,6 +85,7 @@ func (d *Service) DeliverAgent(ctx context.Context, event agent.Event) error {
 	case agent.EventAgentStart, agent.EventTurnStart, agent.EventMessageStart:
 	case agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd, agent.EventMessageEnd:
 		mapErr = mapUIModelEvent(event, &lifecycle)
+	case agent.EventResponseReset:
 	case agent.EventToolCallStart, agent.EventToolCallDelta, agent.EventToolCallEnd,
 		agent.EventToolExecutionStart, agent.EventToolExecutionUpdate, agent.EventToolExecutionEnd, agent.EventToolResult:
 		mapErr = mapUIToolEvent(event, &lifecycle)
@@ -94,6 +124,7 @@ func (d *Service) PresentAuthorization(ctx context.Context, challenge authentica
 
 // mapUIModelEvent maps selected model payloads to the UI lifecycle contract.
 func mapUIModelEvent(event agent.Event, lifecycle *controllerui.Lifecycle) error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd:
 		return mapContentLifecycle(event, lifecycle)
@@ -146,6 +177,7 @@ func mapContentLifecycle(event agent.Event, lifecycle *controllerui.Lifecycle) e
 
 // mapUIToolEvent maps selected tool payloads to the UI lifecycle contract.
 func mapUIToolEvent(event agent.Event, lifecycle *controllerui.Lifecycle) error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case agent.EventToolCallStart, agent.EventToolCallDelta:
 		preview, present := event.Preview.Get()
@@ -195,6 +227,7 @@ func mapUIToolEvent(event agent.Event, lifecycle *controllerui.Lifecycle) error 
 
 // mapUITerminalEvent maps selected summaries to the UI lifecycle contract.
 func mapUITerminalEvent(event agent.Event, lifecycle *controllerui.Lifecycle) error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case agent.EventTurnEnd:
 		turn, present := event.Turn.Get()
@@ -252,6 +285,8 @@ func mapEventType(eventType agent.EventType) controllerui.LifecycleType {
 		return controllerui.LifecycleToolCallDelta
 	case agent.EventToolCallEnd:
 		return controllerui.LifecycleToolCallEnd
+	case agent.EventResponseReset:
+		return controllerui.LifecycleResponseReset
 	case agent.EventMessageEnd:
 		return controllerui.LifecycleMessageEnd
 	case agent.EventToolExecutionStart:

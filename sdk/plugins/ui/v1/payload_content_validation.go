@@ -27,6 +27,8 @@ func expectedModelContentType(lifecycleType uiv1.LifecycleType) (uiv1.ModelConte
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_RESPONSE_RESET,
+		uiv1.LifecycleType_LIFECYCLE_TYPE_RETRY_PROGRESS,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TURN_END, uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END:
 		return uiv1.ModelContentType_MODEL_CONTENT_TYPE_UNSPECIFIED,
 			fmt.Errorf("Host lifecycle type %d does not support model content", lifecycleType)

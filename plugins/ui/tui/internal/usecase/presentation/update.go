@@ -17,6 +17,8 @@ const (
 	slashCommandValuePlaceholder = "<value>"
 	// slashCommandNameUsage describes the name command argument.
 	slashCommandNameUsage = "Usage: " + slashCommandName + slashCommandArgumentSeparator + slashCommandValuePlaceholder
+	// slashCommandRetryUsage describes accepted retry enablement values.
+	slashCommandRetryUsage = "Usage: /retry on|off"
 )
 
 const (
@@ -41,6 +43,8 @@ const (
 	slashCommandClone = "/clone"
 	// slashCommandName reads or changes the active session name.
 	slashCommandName = "/name"
+	// slashCommandRetry changes process-local model retry enablement.
+	slashCommandRetry = "/retry"
 )
 
 // applyEvent updates presentation state and the editor after one Host event.
@@ -53,6 +57,7 @@ func (model interaction) applyEvent(event event) interaction {
 	if treeUpdate, present := event.treeEvent.Get(); present {
 		model = model.applyTreeEvent(event.Kind, treeUpdate)
 	}
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Kind {
 	case eventSessionList:
 		// The list refreshes selection data, while confirmation or cancellation still owns the draft.
@@ -142,6 +147,7 @@ func (model interaction) applyEmissionResult(message emissionResultMsg) (interac
 		return model, false
 	}
 
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch message.command.Kind {
 	case CommandSubmit:
 		if message.command.Text.IsNone() {
@@ -289,6 +295,8 @@ func (model interaction) updateTranscriptDisplayKey(key inputcontroller.Key) (in
 }
 
 // updateEnter interprets session commands before treating input as an agent request.
+//
+//nolint:gocyclo // Slash-command dispatch is intentionally flat and explicit.
 func (model interaction) updateEnter(availability Availability) (interaction, *commandIntent) {
 	text := strings.TrimSpace(string(model.input))
 	if text == "" {
@@ -321,6 +329,26 @@ func (model interaction) updateEnter(availability Availability) (interaction, *c
 		model.cursor = 0
 		return model, nil
 	}
+	if after, ok := strings.CutPrefix(text, slashCommandRetry+slashCommandArgumentSeparator); ok {
+		enabled := mo.None[bool]()
+		switch after {
+		case "on":
+			enabled = mo.Some(true)
+		case "off":
+			enabled = mo.Some(false)
+		}
+		if enabled.IsNone() {
+			model.applyProjection(sessionInformationEvent(slashCommandRetryUsage))
+			return model, nil
+		}
+		command := emptyCommand(CommandSetRetryEnabled)
+		command.RetryEnabled = enabled
+		return model.emitCommand(command)
+	}
+	if text == slashCommandRetry {
+		model.applyProjection(sessionInformationEvent(slashCommandRetryUsage))
+		return model, nil
+	}
 	if after, ok := strings.CutPrefix(text, slashCommandName+slashCommandArgumentSeparator); ok {
 		name := after
 		return model.emitSessionCommand(CommandSetSessionName, "", name)
@@ -338,6 +366,7 @@ func (model interaction) updateEnter(availability Availability) (interaction, *c
 		SessionID:            mo.None[string](),
 		SessionName:          mo.None[string](),
 		TreeCommand:          mo.None[TreeCommand](),
+		RetryEnabled:         mo.None[bool](),
 	})
 }
 
@@ -360,6 +389,7 @@ func emptyCommand(kind CommandKind) Command {
 		SessionID:            mo.None[string](),
 		SessionName:          mo.None[string](),
 		TreeCommand:          mo.None[TreeCommand](),
+		RetryEnabled:         mo.None[bool](),
 	}
 }
 

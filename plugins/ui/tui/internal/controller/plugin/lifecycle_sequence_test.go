@@ -19,7 +19,9 @@ func TestMapLifecyclePreservesRefusalKind(t *testing.T) {
 
 	// Act by invoking DecodeLifecycle to exercise refusal deltas stay distinct from ordinary model text.
 	event, err := DecodeLifecycle(uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 		ModelContent: uiv1.ModelContent_builder{
 			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 			Kind:     new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_REFUSAL),
@@ -55,7 +57,9 @@ func TestMapLifecyclePreservesFinalizedVisibleBlocks(t *testing.T) {
 
 	// Act by invoking DecodeLifecycle to exercise mixed visible content reaches presentation state.
 	event, err := DecodeLifecycle(uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
 		ModelResponse: uiv1.ModelResponse_builder{
 			Content: []*uiv1.ModelResponseContent{
 				uiv1.ModelResponseContent_builder{

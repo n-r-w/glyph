@@ -62,7 +62,7 @@ func TestSelectionRequestUsesDirectSelectionPort(t *testing.T) {
 	// Act: prepare and execute the public extension request.
 	operation, err := service.Prepare(t.Context(), "selection-operation", request)
 	require.NoError(t, err)
-	result, err := operation.Run(t.Context())
+	result, err := operation.Run(t.Context(), nil)
 	operation.Release()
 
 	// Assert: the direct port result maps to one complete typed selection result with ordered issues.

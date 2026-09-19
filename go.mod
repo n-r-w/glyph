@@ -17,6 +17,7 @@ require (
 	charm.land/bubbletea/v2 v2.0.8
 	github.com/bmatcuk/doublestar/v4 v4.10.0
 	github.com/camilbenameur/go-llm-stream v1.3.0
+	github.com/cenkalti/backoff/v7 v7.0.0
 	github.com/charmbracelet/x/ansi v0.11.8
 	github.com/hashicorp/go-hclog v1.6.3
 	github.com/hashicorp/go-plugin v1.8.0

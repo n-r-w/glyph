@@ -3,6 +3,7 @@ package settings
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/samber/mo"
 	"go.yaml.in/yaml/v3"
@@ -18,6 +19,20 @@ type settingsFile struct {
 	Providers map[string]providerFile `yaml:"providers"`
 	// ActiveUI contains the raw preferred UI plugin identifier.
 	ActiveUI mo.Option[string] `yaml:"activeUI"`
+	// Retry contains raw Host retry policy overrides.
+	Retry mo.Option[retryFile] `yaml:"retry"`
+}
+
+// retryFile contains optional retry policy overrides.
+type retryFile struct {
+	// Enabled contains optional startup enablement.
+	Enabled mo.Option[bool]
+	// MaxRetries contains the optional repeat count after the initial attempt.
+	MaxRetries mo.Option[int64]
+	// Delays contains optional ordered repeat delays.
+	Delays mo.Option[[]time.Duration]
+	// MaxProviderDelay contains the optional accepted provider-delay maximum.
+	MaxProviderDelay mo.Option[time.Duration]
 }
 
 type providerFile struct {
@@ -119,7 +134,7 @@ type reasoningFile struct {
 
 // The YAML methods preserve scalar presence before validation because mo.Option does not decode plain YAML scalars.
 func (configured *settingsFile) UnmarshalYAML(node *yaml.Node) error {
-	fields, err := decodeYAMLMapping(node, "defaultProvider", "defaultModel", "providers", "activeUI")
+	fields, err := decodeYAMLMapping(node, "defaultProvider", "defaultModel", "providers", "activeUI", "retry")
 	if err != nil {
 		return err
 	}
@@ -138,6 +153,38 @@ func (configured *settingsFile) UnmarshalYAML(node *yaml.Node) error {
 		return decodeErr
 	}
 	decoded.ActiveUI = activeUI
+	retry, decodeErr := decodeYAMLOption[retryFile](fields, "retry")
+	if decodeErr != nil {
+		return decodeErr
+	}
+	decoded.Retry = retry
+	*configured = decoded
+	return nil
+}
+
+// UnmarshalYAML decodes strict retry policy overrides while retaining scalar presence.
+func (configured *retryFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "enabled", "maxRetries", "delays", "maxProviderDelay")
+	if err != nil {
+		return err
+	}
+	var decoded retryFile
+	var decodeErr error
+	if decoded.Enabled, decodeErr = decodeYAMLOption[bool](fields, "enabled"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.MaxRetries, decodeErr = decodeYAMLOption[int64](fields, "maxRetries"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.Delays, decodeErr = decodeYAMLOption[[]time.Duration](fields, "delays"); decodeErr != nil {
+		return decodeErr
+	}
+	if decoded.MaxProviderDelay, decodeErr = decodeYAMLOption[time.Duration](
+		fields,
+		"maxProviderDelay",
+	); decodeErr != nil {
+		return decodeErr
+	}
 	*configured = decoded
 	return nil
 }

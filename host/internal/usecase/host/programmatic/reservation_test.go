@@ -6,6 +6,7 @@ import (
 	"errors"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -59,7 +60,7 @@ func (s *ServiceSuite) TestSessionMutationOwnsGate() {
 				testStateQuery(s.T(), false),
 				control, nil,
 				gate,
-				testRunOutput(s.T()), nil)
+				testRunOutput(s.T()), nil, nil)
 
 			// Act through Programmatic preparation and operation execution.
 			prepared, err := service.Prepare(
@@ -91,7 +92,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 	ctrl := gomock.NewController(s.T())
 	coordinator := NewMockCoordinator(ctrl)
 	coordinator.EXPECT().CancelPrepared(gomock.Any()).AnyTimes()
-	service := New(coordinator, nil, testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), nil)
+	service := New(coordinator, nil, testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), nil, nil)
 	var prepareBarrier sync.WaitGroup
 	prepareBarrier.Add(2)
 	var runNumber atomic.Int64
@@ -183,12 +184,14 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	var history []agent.HistoryEntry
 	active := NewMockActiveSessions(ctrl)
 	active.EXPECT().ClientSnapshot().DoAndReturn(func() []agent.HistoryEntry { return history }).AnyTimes()
+	retry := NewMockRetryControl(ctrl)
+	retry.EXPECT().RetryPolicy().Return(false, int64(0), nil, time.Duration(0)).AnyTimes()
 	service := New(
 		coordinator,
 		nil,
 		testStateQuery(s.T(), true),
 		active, nil,
-		nil, delivery, nil)
+		nil, delivery, nil, retry)
 
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 

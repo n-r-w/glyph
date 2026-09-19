@@ -336,6 +336,15 @@ func (x *HandleRequest) GetReasoningSelection() *SelectionHandlerInvocation {
 	return nil
 }
 
+func (x *HandleRequest) GetRetry() *RetryHandlerInvocation {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*handleRequest_Retry); ok {
+			return x.Retry
+		}
+	}
+	return nil
+}
+
 func (x *HandleRequest) SetHandlerId(v string) {
 	x.xxx_hidden_HandlerId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
@@ -391,6 +400,14 @@ func (x *HandleRequest) SetReasoningSelection(v *SelectionHandlerInvocation) {
 		return
 	}
 	x.xxx_hidden_Payload = &handleRequest_ReasoningSelection{v}
+}
+
+func (x *HandleRequest) SetRetry(v *RetryHandlerInvocation) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &handleRequest_Retry{v}
 }
 
 func (x *HandleRequest) HasHandlerId() bool {
@@ -462,6 +479,14 @@ func (x *HandleRequest) HasReasoningSelection() bool {
 	return ok
 }
 
+func (x *HandleRequest) HasRetry() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*handleRequest_Retry)
+	return ok
+}
+
 func (x *HandleRequest) ClearHandlerId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_HandlerId = nil
@@ -511,6 +536,12 @@ func (x *HandleRequest) ClearReasoningSelection() {
 	}
 }
 
+func (x *HandleRequest) ClearRetry() {
+	if _, ok := x.xxx_hidden_Payload.(*handleRequest_Retry); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
 const HandleRequest_Payload_not_set_case case_HandleRequest_Payload = 0
 const HandleRequest_SessionBeforeTreeRequest_case case_HandleRequest_Payload = 2
 const HandleRequest_SessionBeforeTreeResult_case case_HandleRequest_Payload = 3
@@ -518,6 +549,7 @@ const HandleRequest_SessionTree_case case_HandleRequest_Payload = 4
 const HandleRequest_Lifecycle_case case_HandleRequest_Payload = 6
 const HandleRequest_ModelSelection_case case_HandleRequest_Payload = 7
 const HandleRequest_ReasoningSelection_case case_HandleRequest_Payload = 8
+const HandleRequest_Retry_case case_HandleRequest_Payload = 9
 
 func (x *HandleRequest) WhichPayload() case_HandleRequest_Payload {
 	if x == nil {
@@ -536,6 +568,8 @@ func (x *HandleRequest) WhichPayload() case_HandleRequest_Payload {
 		return HandleRequest_ModelSelection_case
 	case *handleRequest_ReasoningSelection:
 		return HandleRequest_ReasoningSelection_case
+	case *handleRequest_Retry:
+		return HandleRequest_Retry_case
 	default:
 		return HandleRequest_Payload_not_set_case
 	}
@@ -559,6 +593,8 @@ type HandleRequest_builder struct {
 	ModelSelection *SelectionHandlerInvocation
 	// A reasoning-selection request with immutable original and current targets.
 	ReasoningSelection *SelectionHandlerInvocation
+	// A retry request with immutable original and composed current decisions.
+	Retry *RetryHandlerInvocation
 	// -- end of xxx_hidden_Payload
 }
 
@@ -588,6 +624,9 @@ func (b0 HandleRequest_builder) Build() *HandleRequest {
 	}
 	if b.ReasoningSelection != nil {
 		x.xxx_hidden_Payload = &handleRequest_ReasoningSelection{b.ReasoningSelection}
+	}
+	if b.Retry != nil {
+		x.xxx_hidden_Payload = &handleRequest_Retry{b.Retry}
 	}
 	return m0
 }
@@ -632,6 +671,11 @@ type handleRequest_ReasoningSelection struct {
 	ReasoningSelection *SelectionHandlerInvocation `protobuf:"bytes,8,opt,name=reasoning_selection,json=reasoningSelection,oneof"`
 }
 
+type handleRequest_Retry struct {
+	// A retry request with immutable original and composed current decisions.
+	Retry *RetryHandlerInvocation `protobuf:"bytes,9,opt,name=retry,oneof"`
+}
+
 func (*handleRequest_SessionBeforeTreeRequest) isHandleRequest_Payload() {}
 
 func (*handleRequest_SessionBeforeTreeResult) isHandleRequest_Payload() {}
@@ -643,6 +687,8 @@ func (*handleRequest_Lifecycle) isHandleRequest_Payload() {}
 func (*handleRequest_ModelSelection) isHandleRequest_Payload() {}
 
 func (*handleRequest_ReasoningSelection) isHandleRequest_Payload() {}
+
+func (*handleRequest_Retry) isHandleRequest_Payload() {}
 
 // HandleResponse returns one typed action or ordinary handler error.
 type HandleResponse struct {
@@ -740,6 +786,15 @@ func (x *HandleResponse) GetReasoningSelection() *SelectionHandlerAction {
 	return nil
 }
 
+func (x *HandleResponse) GetRetry() *RetryHandlerAction {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*handleResponse_Retry); ok {
+			return x.Retry
+		}
+	}
+	return nil
+}
+
 func (x *HandleResponse) SetSessionBeforeTreeRequest(v *SessionBeforeTreeRequestAction) {
 	if v == nil {
 		x.xxx_hidden_Outcome = nil
@@ -794,6 +849,14 @@ func (x *HandleResponse) SetReasoningSelection(v *SelectionHandlerAction) {
 		return
 	}
 	x.xxx_hidden_Outcome = &handleResponse_ReasoningSelection{v}
+}
+
+func (x *HandleResponse) SetRetry(v *RetryHandlerAction) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &handleResponse_Retry{v}
 }
 
 func (x *HandleResponse) HasOutcome() bool {
@@ -859,6 +922,14 @@ func (x *HandleResponse) HasReasoningSelection() bool {
 	return ok
 }
 
+func (x *HandleResponse) HasRetry() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*handleResponse_Retry)
+	return ok
+}
+
 func (x *HandleResponse) ClearOutcome() {
 	x.xxx_hidden_Outcome = nil
 }
@@ -905,6 +976,12 @@ func (x *HandleResponse) ClearReasoningSelection() {
 	}
 }
 
+func (x *HandleResponse) ClearRetry() {
+	if _, ok := x.xxx_hidden_Outcome.(*handleResponse_Retry); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
 const HandleResponse_Outcome_not_set_case case_HandleResponse_Outcome = 0
 const HandleResponse_SessionBeforeTreeRequest_case case_HandleResponse_Outcome = 1
 const HandleResponse_SessionBeforeTreeResult_case case_HandleResponse_Outcome = 2
@@ -913,6 +990,7 @@ const HandleResponse_Error_case case_HandleResponse_Outcome = 4
 const HandleResponse_Lifecycle_case case_HandleResponse_Outcome = 5
 const HandleResponse_ModelSelection_case case_HandleResponse_Outcome = 6
 const HandleResponse_ReasoningSelection_case case_HandleResponse_Outcome = 7
+const HandleResponse_Retry_case case_HandleResponse_Outcome = 8
 
 func (x *HandleResponse) WhichOutcome() case_HandleResponse_Outcome {
 	if x == nil {
@@ -933,6 +1011,8 @@ func (x *HandleResponse) WhichOutcome() case_HandleResponse_Outcome {
 		return HandleResponse_ModelSelection_case
 	case *handleResponse_ReasoningSelection:
 		return HandleResponse_ReasoningSelection_case
+	case *handleResponse_Retry:
+		return HandleResponse_Retry_case
 	default:
 		return HandleResponse_Outcome_not_set_case
 	}
@@ -953,6 +1033,8 @@ type HandleResponse_builder struct {
 	ModelSelection *SelectionHandlerAction
 	// The reasoning-selection decision.
 	ReasoningSelection *SelectionHandlerAction
+	// The retry decision action.
+	Retry *RetryHandlerAction
 	// -- end of xxx_hidden_Outcome
 }
 
@@ -980,6 +1062,9 @@ func (b0 HandleResponse_builder) Build() *HandleResponse {
 	}
 	if b.ReasoningSelection != nil {
 		x.xxx_hidden_Outcome = &handleResponse_ReasoningSelection{b.ReasoningSelection}
+	}
+	if b.Retry != nil {
+		x.xxx_hidden_Outcome = &handleResponse_Retry{b.Retry}
 	}
 	return m0
 }
@@ -1028,6 +1113,11 @@ type handleResponse_ReasoningSelection struct {
 	ReasoningSelection *SelectionHandlerAction `protobuf:"bytes,7,opt,name=reasoning_selection,json=reasoningSelection,oneof"`
 }
 
+type handleResponse_Retry struct {
+	// The retry decision action.
+	Retry *RetryHandlerAction `protobuf:"bytes,8,opt,name=retry,oneof"`
+}
+
 func (*handleResponse_SessionBeforeTreeRequest) isHandleResponse_Outcome() {}
 
 func (*handleResponse_SessionBeforeTreeResult) isHandleResponse_Outcome() {}
@@ -1041,6 +1131,8 @@ func (*handleResponse_Lifecycle) isHandleResponse_Outcome() {}
 func (*handleResponse_ModelSelection) isHandleResponse_Outcome() {}
 
 func (*handleResponse_ReasoningSelection) isHandleResponse_Outcome() {}
+
+func (*handleResponse_Retry) isHandleResponse_Outcome() {}
 
 // HandlerError reports one ordinary handler failure without invalidating the extension runtime.
 type HandlerError struct {
@@ -5392,7 +5484,7 @@ var File_api_plugins_extension_v1_session_tree_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\n" +
-	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a&api/plugins/extension/v1/session.proto\x1a#api/plugins/extension/v1/tool.proto\"\xf7\x05\n" +
+	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a$api/plugins/extension/v1/retry.proto\x1a&api/plugins/extension/v1/session.proto\x1a#api/plugins/extension/v1/tool.proto\"\xc3\x06\n" +
 	"\rHandleRequest\x12\x1d\n" +
 	"\n" +
 	"handler_id\x18\x01 \x01(\tR\thandlerId\x12F\n" +
@@ -5402,8 +5494,9 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\fsession_tree\x18\x04 \x01(\v21.glyph.plugins.extension.v1.SessionTreeInvocationH\x00R\vsessionTree\x12O\n" +
 	"\tlifecycle\x18\x06 \x01(\v2/.glyph.plugins.extension.v1.LifecycleInvocationH\x00R\tlifecycle\x12a\n" +
 	"\x0fmodel_selection\x18\a \x01(\v26.glyph.plugins.extension.v1.SelectionHandlerInvocationH\x00R\x0emodelSelection\x12i\n" +
-	"\x13reasoning_selection\x18\b \x01(\v26.glyph.plugins.extension.v1.SelectionHandlerInvocationH\x00R\x12reasoningSelectionB\t\n" +
-	"\apayload\"\xbb\x05\n" +
+	"\x13reasoning_selection\x18\b \x01(\v26.glyph.plugins.extension.v1.SelectionHandlerInvocationH\x00R\x12reasoningSelection\x12J\n" +
+	"\x05retry\x18\t \x01(\v22.glyph.plugins.extension.v1.RetryHandlerInvocationH\x00R\x05retryB\t\n" +
+	"\apayload\"\x83\x06\n" +
 	"\x0eHandleResponse\x12{\n" +
 	"\x1bsession_before_tree_request\x18\x01 \x01(\v2:.glyph.plugins.extension.v1.SessionBeforeTreeRequestActionH\x00R\x18sessionBeforeTreeRequest\x12x\n" +
 	"\x1asession_before_tree_result\x18\x02 \x01(\v29.glyph.plugins.extension.v1.SessionBeforeTreeResultActionH\x00R\x17sessionBeforeTreeResult\x12R\n" +
@@ -5411,7 +5504,8 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\x05error\x18\x04 \x01(\v2(.glyph.plugins.extension.v1.HandlerErrorH\x00R\x05error\x12K\n" +
 	"\tlifecycle\x18\x05 \x01(\v2+.glyph.plugins.extension.v1.LifecycleActionH\x00R\tlifecycle\x12]\n" +
 	"\x0fmodel_selection\x18\x06 \x01(\v22.glyph.plugins.extension.v1.SelectionHandlerActionH\x00R\x0emodelSelection\x12e\n" +
-	"\x13reasoning_selection\x18\a \x01(\v22.glyph.plugins.extension.v1.SelectionHandlerActionH\x00R\x12reasoningSelectionB\t\n" +
+	"\x13reasoning_selection\x18\a \x01(\v22.glyph.plugins.extension.v1.SelectionHandlerActionH\x00R\x12reasoningSelection\x12F\n" +
+	"\x05retry\x18\b \x01(\v2..glyph.plugins.extension.v1.RetryHandlerActionH\x00R\x05retryB\t\n" +
 	"\aoutcome\"(\n" +
 	"\fHandlerError\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\x90\x04\n" +
@@ -5610,11 +5704,13 @@ var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
 	(*ExtensionContext)(nil),                   // 33: glyph.plugins.extension.v1.ExtensionContext
 	(*LifecycleInvocation)(nil),                // 34: glyph.plugins.extension.v1.LifecycleInvocation
 	(*SelectionHandlerInvocation)(nil),         // 35: glyph.plugins.extension.v1.SelectionHandlerInvocation
-	(*LifecycleAction)(nil),                    // 36: glyph.plugins.extension.v1.LifecycleAction
-	(*SelectionHandlerAction)(nil),             // 37: glyph.plugins.extension.v1.SelectionHandlerAction
-	(*ModelSelection)(nil),                     // 38: glyph.plugins.extension.v1.ModelSelection
-	(ClientVisibility)(0),                      // 39: glyph.plugins.extension.v1.ClientVisibility
-	(*ToolResultContent)(nil),                  // 40: glyph.plugins.extension.v1.ToolResultContent
+	(*RetryHandlerInvocation)(nil),             // 36: glyph.plugins.extension.v1.RetryHandlerInvocation
+	(*LifecycleAction)(nil),                    // 37: glyph.plugins.extension.v1.LifecycleAction
+	(*SelectionHandlerAction)(nil),             // 38: glyph.plugins.extension.v1.SelectionHandlerAction
+	(*RetryHandlerAction)(nil),                 // 39: glyph.plugins.extension.v1.RetryHandlerAction
+	(*ModelSelection)(nil),                     // 40: glyph.plugins.extension.v1.ModelSelection
+	(ClientVisibility)(0),                      // 41: glyph.plugins.extension.v1.ClientVisibility
+	(*ToolResultContent)(nil),                  // 42: glyph.plugins.extension.v1.ToolResultContent
 }
 var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	33, // 0: glyph.plugins.extension.v1.HandleRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
@@ -5624,61 +5720,63 @@ var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	34, // 4: glyph.plugins.extension.v1.HandleRequest.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleInvocation
 	35, // 5: glyph.plugins.extension.v1.HandleRequest.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
 	35, // 6: glyph.plugins.extension.v1.HandleRequest.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
-	10, // 7: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
-	11, // 8: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
-	12, // 9: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
-	6,  // 10: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
-	36, // 11: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
-	37, // 12: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	37, // 13: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	13, // 14: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	14, // 15: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	13, // 16: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	14, // 17: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	27, // 18: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	13, // 19: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	14, // 20: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	13, // 21: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	14, // 22: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	27, // 23: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	27, // 24: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	31, // 25: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
-	0,  // 26: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
-	13, // 27: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	1,  // 28: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	27, // 29: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	1,  // 30: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	27, // 31: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	2,  // 32: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
-	38, // 33: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
-	15, // 34: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
-	17, // 35: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
-	20, // 36: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
-	23, // 37: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
-	24, // 38: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
-	26, // 39: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	16, // 40: glyph.plugins.extension.v1.SessionTreeEntry.extension_message:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionMessage
-	25, // 41: glyph.plugins.extension.v1.SessionTreeEntry.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
-	39, // 42: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
-	18, // 43: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
-	19, // 44: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
-	21, // 45: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
-	3,  // 46: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
-	22, // 47: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
-	40, // 48: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	28, // 49: glyph.plugins.extension.v1.SessionTreeCompaction.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	32, // 50: glyph.plugins.extension.v1.SessionTreeCompaction.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	28, // 51: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	29, // 52: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
-	38, // 53: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	30, // 54: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	28, // 55: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	32, // 56: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	57, // [57:57] is the sub-list for method output_type
-	57, // [57:57] is the sub-list for method input_type
-	57, // [57:57] is the sub-list for extension type_name
-	57, // [57:57] is the sub-list for extension extendee
-	0,  // [0:57] is the sub-list for field type_name
+	36, // 7: glyph.plugins.extension.v1.HandleRequest.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerInvocation
+	10, // 8: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
+	11, // 9: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
+	12, // 10: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
+	6,  // 11: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
+	37, // 12: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
+	38, // 13: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	38, // 14: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	39, // 15: glyph.plugins.extension.v1.HandleResponse.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerAction
+	13, // 16: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	14, // 17: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	13, // 18: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	14, // 19: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	27, // 20: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	13, // 21: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	14, // 22: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	13, // 23: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	14, // 24: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	27, // 25: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	27, // 26: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	31, // 27: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
+	0,  // 28: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
+	13, // 29: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	1,  // 30: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	27, // 31: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	1,  // 32: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	27, // 33: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	2,  // 34: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
+	40, // 35: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
+	15, // 36: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
+	17, // 37: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	20, // 38: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
+	23, // 39: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
+	24, // 40: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
+	26, // 41: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	16, // 42: glyph.plugins.extension.v1.SessionTreeEntry.extension_message:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionMessage
+	25, // 43: glyph.plugins.extension.v1.SessionTreeEntry.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
+	41, // 44: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
+	18, // 45: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
+	19, // 46: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
+	21, // 47: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
+	3,  // 48: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
+	22, // 49: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
+	42, // 50: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	28, // 51: glyph.plugins.extension.v1.SessionTreeCompaction.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	32, // 52: glyph.plugins.extension.v1.SessionTreeCompaction.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	28, // 53: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	29, // 54: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
+	40, // 55: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	30, // 56: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
+	28, // 57: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	32, // 58: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	59, // [59:59] is the sub-list for method output_type
+	59, // [59:59] is the sub-list for method input_type
+	59, // [59:59] is the sub-list for extension type_name
+	59, // [59:59] is the sub-list for extension extendee
+	0,  // [0:59] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_tree_proto_init() }
@@ -5689,6 +5787,7 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 	file_api_plugins_extension_v1_context_proto_init()
 	file_api_plugins_extension_v1_lifecycle_proto_init()
 	file_api_plugins_extension_v1_model_proto_init()
+	file_api_plugins_extension_v1_retry_proto_init()
 	file_api_plugins_extension_v1_session_proto_init()
 	file_api_plugins_extension_v1_tool_proto_init()
 	file_api_plugins_extension_v1_session_tree_proto_msgTypes[0].OneofWrappers = []any{
@@ -5698,6 +5797,7 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*handleRequest_Lifecycle)(nil),
 		(*handleRequest_ModelSelection)(nil),
 		(*handleRequest_ReasoningSelection)(nil),
+		(*handleRequest_Retry)(nil),
 	}
 	file_api_plugins_extension_v1_session_tree_proto_msgTypes[1].OneofWrappers = []any{
 		(*handleResponse_SessionBeforeTreeRequest)(nil),
@@ -5707,6 +5807,7 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*handleResponse_Lifecycle)(nil),
 		(*handleResponse_ModelSelection)(nil),
 		(*handleResponse_ReasoningSelection)(nil),
+		(*handleResponse_Retry)(nil),
 	}
 	file_api_plugins_extension_v1_session_tree_proto_msgTypes[11].OneofWrappers = []any{
 		(*sessionTreeEntry_User)(nil),

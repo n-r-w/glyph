@@ -55,7 +55,7 @@ func TestAuthenticationCheckClassifiesFailure(t *testing.T) {
 			)
 			service := NewSession(
 				channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-				nil, nil, nil)
+				nil, nil, nil, nil)
 
 			// Act through startup authentication classification without starting sign-in.
 			service.checkOperationAuthentication(t.Context())
@@ -92,12 +92,12 @@ func TestAuthenticationRetryTransitionsToIdle(t *testing.T) {
 	controller := gomock.NewController(t)
 	channel := NewMockOutput(controller)
 	authenticator := NewMockAuthenticator(controller)
-	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
+	channel.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
 	authenticator.EXPECT().SignIn(gomock.Any(), authentication.MethodDeviceCode).Return(nil)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, nil, nil)
+		nil, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityAuthenticationFailed)
 	command := newCommandForPreparedTest(controllerui.CommandRetryAuthentication)
@@ -124,12 +124,12 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 	channel := NewMockOutput(controller)
 	authenticator := NewMockAuthenticator(controller)
 	source := errors.New("browser authentication failed")
-	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
+	channel.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
 	authenticator.EXPECT().SignIn(gomock.Any(), authentication.MethodBrowser).Return(source)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, nil, nil)
+		nil, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityAuthenticationFailed)
 	command := newCommandForPreparedTest(controllerui.CommandRetryAuthentication)
@@ -153,5 +153,5 @@ func TestAuthenticationRetryFailurePreservesCause(t *testing.T) {
 func authenticationService(controller *gomock.Controller) *Session {
 	return NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, nil, nil, nil, nil)
+		NewMockModelCatalog(controller), nil, nil, nil, nil, nil, nil)
 }

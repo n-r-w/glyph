@@ -10,6 +10,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
@@ -55,6 +56,7 @@ var (
 	_ modelselection.Publisher         = (*Service)(nil)
 	_ modelselection.IssueDelivery     = (*Service)(nil)
 	_ sessions.EntryPublisher          = (*Service)(nil)
+	_ modelexecution.RetryOutput       = (*Service)(nil)
 )
 
 // New creates an output owner before the connection is opened.
@@ -111,6 +113,54 @@ func (s *Service) CancelPrepared(runID string) {
 	}
 }
 
+// DeliverRetry reports one Host retry through the active Programmatic operation.
+func (s *Service) DeliverRetry(ctx context.Context, progress modelexecution.RetryProgress) error {
+	s.mutex.Lock()
+	active := s.active
+	if active == nil {
+		s.mutex.Unlock()
+		return errors.New("deliver Programmatic Control retry progress: active Host run is absent")
+	}
+	if active.failed {
+		s.mutex.Unlock()
+		return nil
+	}
+	reporter, present := active.reporter.Get()
+	operationID := active.operationID
+	runID := active.runID
+	s.mutex.Unlock()
+	if !present {
+		return errors.New("deliver Programmatic Control retry progress: operation reporter is not bound")
+	}
+	if err := ctx.Err(); err != nil {
+		return context.Cause(ctx)
+	}
+	event := controller.AgentEvent{
+		OperationID: operationID, Type: controller.AgentEventRetryProgress, RunID: runID,
+		ModelContent: mo.None[controller.ModelContent](), ToolCallPreview: mo.None[controller.ToolCallPreview](),
+		FinalToolCall: mo.None[controller.FinalToolCall](),
+		Retry: mo.Some(controller.RetryProgress{
+			CompletedAttempts: progress.CompletedAttempts, AttemptLimit: progress.AttemptLimit,
+			Delay: progress.Delay, Error: progress.Error,
+		}),
+		ToolExecution: mo.None[controller.ToolExecution](), ToolProgress: mo.None[controller.ToolProgress](),
+		ToolResult: mo.None[controller.ToolResult](), ModelResponse: mo.None[controller.ModelResponse](),
+		Turn: mo.None[controller.TurnSummary](), Agent: mo.None[controller.AgentSummary](),
+	}
+	if err := reporter.Report(controller.OperationProgress{
+		AgentEvent: mo.Some(event), TreeNavigation: mo.None[controller.TreeNavigationProgress](),
+		TreeNavigationRetry: mo.None[controller.RetryProgress](),
+	}); err != nil {
+		s.mutex.Lock()
+		if s.active == active {
+			active.failed = true
+		}
+		s.mutex.Unlock()
+		return fmt.Errorf("deliver Programmatic Control retry progress: %w", err)
+	}
+	return nil
+}
+
 // DeliverAgent maps one agent fact and delivers it through the bound operation reporter.
 func (s *Service) DeliverAgent(ctx context.Context, event agent.Event) error {
 	s.mutex.Lock()
@@ -139,6 +189,7 @@ func (s *Service) DeliverAgent(ctx context.Context, event agent.Event) error {
 	}
 	if err = reporter.Report(controller.OperationProgress{
 		AgentEvent: mo.Some(mapped), TreeNavigation: mo.None[controller.TreeNavigationProgress](),
+		TreeNavigationRetry: mo.None[controller.RetryProgress](),
 	}); err != nil {
 		s.mutex.Lock()
 		if s.active == active {

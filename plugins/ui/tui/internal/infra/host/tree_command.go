@@ -18,6 +18,7 @@ func mapTreeCommand(command presentation.Command) (*uiv1.UIRequest, bool, error)
 	if !present {
 		return nil, true, errors.New("UI tree command payload is missing")
 	}
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch command.Kind {
 	case presentation.CommandGetSessionTree:
 		//nolint:exhaustruct_v5 // The protobuf builder sets only the active GetSessionTree field.

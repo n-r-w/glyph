@@ -122,6 +122,7 @@ func TestCanceledServerSendUsesActualConfirmationAtCollection(t *testing.T) {
 				newHandleRequest := func(id string) *extensionpb.OpenRequest {
 					payload := new(extensionpb.HostRequest)
 					payload.SetHandle(extensionpb.HandleRequest_builder{
+						Retry:          nil,
 						ModelSelection: nil, ReasoningSelection: nil,
 						Context: testInvocationIdentity(), HandlerId: new("handler"),
 						SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, Lifecycle: nil,

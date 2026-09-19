@@ -37,6 +37,14 @@ func mapUIRequest(command *uiv1.UIRequest) (Command, error) {
 			return Command{}, errors.New("receive UI command: submit text is required")
 		}
 		return newCommand(CommandSubmit, mo.Some(submit.GetText())), nil
+	case command.GetSetRetryEnabled() != nil:
+		retry := command.GetSetRetryEnabled()
+		if !retry.HasEnabled() {
+			return Command{}, errors.New("receive UI command: retry enablement is required")
+		}
+		mapped := newCommand(CommandSetRetryEnabled, mo.None[string]())
+		mapped.RetryEnabled = mo.Some(retry.GetEnabled())
+		return mapped, nil
 	case command.GetRetryAuthentication() != nil:
 		mapped := newCommand(CommandRetryAuthentication, mo.None[string]())
 		switch command.GetRetryAuthentication().GetMethod() {
@@ -89,6 +97,7 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 			SummaryMode:          SummaryModeNoSummary,
 			CustomFocus:          mo.None[string](),
 			EntryLabel:           mo.None[string](),
+			RetryEnabled:         mo.None[bool](),
 		}, true, nil
 	case command.GetSelectReasoningChoice() != nil:
 		selected := command.GetSelectReasoningChoice()
@@ -113,6 +122,7 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 			SummaryMode:          SummaryModeNoSummary,
 			CustomFocus:          mo.None[string](),
 			EntryLabel:           mo.None[string](),
+			RetryEnabled:         mo.None[bool](),
 		}, true, nil
 	default:
 		return Command{}, false, nil
@@ -199,6 +209,7 @@ func newCommand(kind CommandKind, text mo.Option[string]) Command {
 		SummaryMode:          SummaryModeNoSummary,
 		CustomFocus:          mo.None[string](),
 		EntryLabel:           mo.None[string](),
+		RetryEnabled:         mo.None[bool](),
 	}
 }
 

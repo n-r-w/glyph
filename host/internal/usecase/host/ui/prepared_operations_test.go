@@ -40,9 +40,11 @@ func TestInitializeFailurePreservesCause(t *testing.T) {
 	active := NewMockActiveSessions(controller)
 	active.EXPECT().ActiveInformation().Return(session.Info{}, session.Statistics{})
 	activation := NewMockRuntimeActivation(controller)
+	retry := NewMockRetryControl(controller)
+	retry.EXPECT().RetryPolicy().Return(false, int64(0), nil, time.Duration(0))
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		catalog, active, nil, nil, activation, nil)
+		catalog, active, nil, nil, activation, nil, retry)
 
 	// Act through Host startup.
 	err := service.Initialize(t.Context())
@@ -77,7 +79,7 @@ func TestActivationCleanupCancelsAndJoinsAuthenticationCheck(t *testing.T) {
 	authenticator.EXPECT().IsSignInRequired(gomock.Any()).AnyTimes().Return(false)
 	service := NewSession(
 		channel, NewMockAgentRunner(controller), authenticator, NewMockModelCatalog(controller), nil, nil,
-		nil, activation, nil)
+		nil, activation, nil, nil)
 
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
@@ -103,7 +105,7 @@ func TestPrepareRejectsOrdinaryOperationBeforeAuthenticationReadiness(t *testing
 	controller := gomock.NewController(t)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), NewMockActiveSessions(controller), nil, nil, nil, nil)
+		NewMockModelCatalog(controller), NewMockActiveSessions(controller), nil, nil, nil, nil, nil)
 
 	command := newCommandForPreparedTest(controllerui.CommandGetSessionInfo)
 
@@ -134,7 +136,7 @@ func TestPrepareReservesSessionMutationBeforeRun(t *testing.T) {
 	}, nil, nil)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, nil, nil)
+		NewMockModelCatalog(controller), control, nil, gate, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandCreateSession)
@@ -212,7 +214,7 @@ func TestPreparedFailurePreservesCategoryTextAndCause(t *testing.T) {
 	control.EXPECT().CreateActive().Return(session.Info{}, nil, source)
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, nil, nil)
+		NewMockModelCatalog(controller), control, nil, gate, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 	prepared, err := service.Prepare(t.Context(), newCommandForPreparedTest(controllerui.CommandCreateSession))

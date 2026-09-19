@@ -152,5 +152,6 @@ func (s *Service) buildInitialization(state hostui.Initialization) Initializatio
 		Models:         state.Models,
 		ModelSelection: state.ModelSelection,
 		SessionInfo:    state.SessionInfo,
+		RetryPolicy:    state.RetryPolicy,
 	}
 }

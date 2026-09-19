@@ -1594,6 +1594,179 @@ func (b0 ConfiguredModelMessage_builder) Build() *ConfiguredModelMessage {
 	return m0
 }
 
+// ConfiguredModelRetryProgress reports one accepted configured-model replacement attempt.
+type ConfiguredModelRetryProgress struct {
+	state                        protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_CompletedAttempts int64                  `protobuf:"varint,1,opt,name=completed_attempts,json=completedAttempts"`
+	xxx_hidden_AttemptLimit      int64                  `protobuf:"varint,2,opt,name=attempt_limit,json=attemptLimit"`
+	xxx_hidden_DelayMilliseconds int64                  `protobuf:"varint,3,opt,name=delay_milliseconds,json=delayMilliseconds"`
+	xxx_hidden_Error             *string                `protobuf:"bytes,4,opt,name=error"`
+	XXX_raceDetectHookData       protoimpl.RaceDetectHookData
+	XXX_presence                 [1]uint32
+	unknownFields                protoimpl.UnknownFields
+	sizeCache                    protoimpl.SizeCache
+}
+
+func (x *ConfiguredModelRetryProgress) Reset() {
+	*x = ConfiguredModelRetryProgress{}
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfiguredModelRetryProgress) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfiguredModelRetryProgress) ProtoMessage() {}
+
+func (x *ConfiguredModelRetryProgress) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ConfiguredModelRetryProgress) GetCompletedAttempts() int64 {
+	if x != nil {
+		return x.xxx_hidden_CompletedAttempts
+	}
+	return 0
+}
+
+func (x *ConfiguredModelRetryProgress) GetAttemptLimit() int64 {
+	if x != nil {
+		return x.xxx_hidden_AttemptLimit
+	}
+	return 0
+}
+
+func (x *ConfiguredModelRetryProgress) GetDelayMilliseconds() int64 {
+	if x != nil {
+		return x.xxx_hidden_DelayMilliseconds
+	}
+	return 0
+}
+
+func (x *ConfiguredModelRetryProgress) GetError() string {
+	if x != nil {
+		if x.xxx_hidden_Error != nil {
+			return *x.xxx_hidden_Error
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ConfiguredModelRetryProgress) SetCompletedAttempts(v int64) {
+	x.xxx_hidden_CompletedAttempts = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+}
+
+func (x *ConfiguredModelRetryProgress) SetAttemptLimit(v int64) {
+	x.xxx_hidden_AttemptLimit = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+}
+
+func (x *ConfiguredModelRetryProgress) SetDelayMilliseconds(v int64) {
+	x.xxx_hidden_DelayMilliseconds = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+}
+
+func (x *ConfiguredModelRetryProgress) SetError(v string) {
+	x.xxx_hidden_Error = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+}
+
+func (x *ConfiguredModelRetryProgress) HasCompletedAttempts() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ConfiguredModelRetryProgress) HasAttemptLimit() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ConfiguredModelRetryProgress) HasDelayMilliseconds() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *ConfiguredModelRetryProgress) HasError() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *ConfiguredModelRetryProgress) ClearCompletedAttempts() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_CompletedAttempts = 0
+}
+
+func (x *ConfiguredModelRetryProgress) ClearAttemptLimit() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_AttemptLimit = 0
+}
+
+func (x *ConfiguredModelRetryProgress) ClearDelayMilliseconds() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_DelayMilliseconds = 0
+}
+
+func (x *ConfiguredModelRetryProgress) ClearError() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_Error = nil
+}
+
+type ConfiguredModelRetryProgress_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The number of completed provider attempts.
+	CompletedAttempts *int64
+	// The effective total attempt limit.
+	AttemptLimit *int64
+	// The pending delay in milliseconds.
+	DelayMilliseconds *int64
+	// The complete failed-attempt text.
+	Error *string
+}
+
+func (b0 ConfiguredModelRetryProgress_builder) Build() *ConfiguredModelRetryProgress {
+	m0 := &ConfiguredModelRetryProgress{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.CompletedAttempts != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		x.xxx_hidden_CompletedAttempts = *b.CompletedAttempts
+	}
+	if b.AttemptLimit != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		x.xxx_hidden_AttemptLimit = *b.AttemptLimit
+	}
+	if b.DelayMilliseconds != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_DelayMilliseconds = *b.DelayMilliseconds
+	}
+	if b.Error != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		x.xxx_hidden_Error = b.Error
+	}
+	return m0
+}
+
 // ConfiguredModelResult contains one provider-neutral terminal response.
 type ConfiguredModelResult struct {
 	state                      protoimpl.MessageState        `protogen:"opaque.v1"`
@@ -1614,7 +1787,7 @@ type ConfiguredModelResult struct {
 
 func (x *ConfiguredModelResult) Reset() {
 	*x = ConfiguredModelResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1626,7 +1799,7 @@ func (x *ConfiguredModelResult) String() string {
 func (*ConfiguredModelResult) ProtoMessage() {}
 
 func (x *ConfiguredModelResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1913,7 +2086,7 @@ type ConfiguredModelContent struct {
 
 func (x *ConfiguredModelContent) Reset() {
 	*x = ConfiguredModelContent{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1925,7 +2098,7 @@ func (x *ConfiguredModelContent) String() string {
 func (*ConfiguredModelContent) ProtoMessage() {}
 
 func (x *ConfiguredModelContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2130,7 +2303,7 @@ func (b0 ConfiguredModelContent_builder) Build() *ConfiguredModelContent {
 type case_ConfiguredModelContent_Content protoreflect.FieldNumber
 
 func (x case_ConfiguredModelContent_Content) String() string {
-	md := file_api_plugins_extension_v1_model_proto_msgTypes[12].Descriptor()
+	md := file_api_plugins_extension_v1_model_proto_msgTypes[13].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2177,7 +2350,7 @@ type ConfiguredModelText struct {
 
 func (x *ConfiguredModelText) Reset() {
 	*x = ConfiguredModelText{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2189,7 +2362,7 @@ func (x *ConfiguredModelText) String() string {
 func (*ConfiguredModelText) ProtoMessage() {}
 
 func (x *ConfiguredModelText) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2259,7 +2432,7 @@ type ConfiguredModelToolCall struct {
 
 func (x *ConfiguredModelToolCall) Reset() {
 	*x = ConfiguredModelToolCall{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2271,7 +2444,7 @@ func (x *ConfiguredModelToolCall) String() string {
 func (*ConfiguredModelToolCall) ProtoMessage() {}
 
 func (x *ConfiguredModelToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2410,7 +2583,7 @@ type ConfiguredModelUsage struct {
 
 func (x *ConfiguredModelUsage) Reset() {
 	*x = ConfiguredModelUsage{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2422,7 +2595,7 @@ func (x *ConfiguredModelUsage) String() string {
 func (*ConfiguredModelUsage) ProtoMessage() {}
 
 func (x *ConfiguredModelUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2638,7 +2811,7 @@ type ConfiguredModelDiagnostic struct {
 
 func (x *ConfiguredModelDiagnostic) Reset() {
 	*x = ConfiguredModelDiagnostic{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2650,7 +2823,7 @@ func (x *ConfiguredModelDiagnostic) String() string {
 func (*ConfiguredModelDiagnostic) ProtoMessage() {}
 
 func (x *ConfiguredModelDiagnostic) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2749,7 +2922,7 @@ type GetModelsRequest struct {
 
 func (x *GetModelsRequest) Reset() {
 	*x = GetModelsRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2761,7 +2934,7 @@ func (x *GetModelsRequest) String() string {
 func (*GetModelsRequest) ProtoMessage() {}
 
 func (x *GetModelsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2820,7 +2993,7 @@ type GetModelsResult struct {
 
 func (x *GetModelsResult) Reset() {
 	*x = GetModelsResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2832,7 +3005,7 @@ func (x *GetModelsResult) String() string {
 func (*GetModelsResult) ProtoMessage() {}
 
 func (x *GetModelsResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[18]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2906,7 +3079,7 @@ type GetProvidersRequest struct {
 
 func (x *GetProvidersRequest) Reset() {
 	*x = GetProvidersRequest{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2918,7 +3091,7 @@ func (x *GetProvidersRequest) String() string {
 func (*GetProvidersRequest) ProtoMessage() {}
 
 func (x *GetProvidersRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[19]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2976,7 +3149,7 @@ type GetProvidersResult struct {
 
 func (x *GetProvidersResult) Reset() {
 	*x = GetProvidersResult{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2988,7 +3161,7 @@ func (x *GetProvidersResult) String() string {
 func (*GetProvidersResult) ProtoMessage() {}
 
 func (x *GetProvidersResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[20]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3040,7 +3213,7 @@ type ProviderDescriptor struct {
 
 func (x *ProviderDescriptor) Reset() {
 	*x = ProviderDescriptor{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3052,7 +3225,7 @@ func (x *ProviderDescriptor) String() string {
 func (*ProviderDescriptor) ProtoMessage() {}
 
 func (x *ProviderDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[21]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3141,7 +3314,7 @@ type ModelDescriptor struct {
 
 func (x *ModelDescriptor) Reset() {
 	*x = ModelDescriptor{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3153,7 +3326,7 @@ func (x *ModelDescriptor) String() string {
 func (*ModelDescriptor) ProtoMessage() {}
 
 func (x *ModelDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[22]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3405,7 +3578,7 @@ type ReasoningCapabilities struct {
 
 func (x *ReasoningCapabilities) Reset() {
 	*x = ReasoningCapabilities{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[23]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3417,7 +3590,7 @@ func (x *ReasoningCapabilities) String() string {
 func (*ReasoningCapabilities) ProtoMessage() {}
 
 func (x *ReasoningCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[23]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3531,7 +3704,7 @@ type ToolCapabilities struct {
 
 func (x *ToolCapabilities) Reset() {
 	*x = ToolCapabilities{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[24]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3543,7 +3716,7 @@ func (x *ToolCapabilities) String() string {
 func (*ToolCapabilities) ProtoMessage() {}
 
 func (x *ToolCapabilities) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[24]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3672,7 +3845,7 @@ type ModelPricing struct {
 
 func (x *ModelPricing) Reset() {
 	*x = ModelPricing{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[25]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3684,7 +3857,7 @@ func (x *ModelPricing) String() string {
 func (*ModelPricing) ProtoMessage() {}
 
 func (x *ModelPricing) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[25]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3859,7 +4032,7 @@ type PricingTier struct {
 
 func (x *PricingTier) Reset() {
 	*x = PricingTier{}
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[26]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3871,7 +4044,7 @@ func (x *PricingTier) String() string {
 func (*PricingTier) ProtoMessage() {}
 
 func (x *PricingTier) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[26]
+	mi := &file_api_plugins_extension_v1_model_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4089,7 +4262,12 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\bmessages\x18\x04 \x03(\v22.glyph.plugins.extension.v1.ConfiguredModelMessageR\bmessages\"q\n" +
 	"\x16ConfiguredModelMessage\x12C\n" +
 	"\x04role\x18\x01 \x01(\x0e2/.glyph.plugins.extension.v1.ConfiguredModelRoleR\x04role\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text\"\x82\x04\n" +
+	"\x04text\x18\x02 \x01(\tR\x04text\"\xb7\x01\n" +
+	"\x1cConfiguredModelRetryProgress\x12-\n" +
+	"\x12completed_attempts\x18\x01 \x01(\x03R\x11completedAttempts\x12#\n" +
+	"\rattempt_limit\x18\x02 \x01(\x03R\fattemptLimit\x12-\n" +
+	"\x12delay_milliseconds\x18\x03 \x01(\x03R\x11delayMilliseconds\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\x82\x04\n" +
 	"\x15ConfiguredModelResult\x12L\n" +
 	"\acontent\x18\x01 \x03(\v22.glyph.plugins.extension.v1.ConfiguredModelContentR\acontent\x12L\n" +
 	"\aoutcome\x18\x02 \x01(\x0e22.glyph.plugins.extension.v1.ConfiguredModelOutcomeR\aoutcome\x12#\n" +
@@ -4195,44 +4373,45 @@ const file_api_plugins_extension_v1_model_proto_rawDesc = "" +
 	"\x14INPUT_MODALITY_IMAGE\x10\x02B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_model_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_api_plugins_extension_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 27)
+var file_api_plugins_extension_v1_model_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_api_plugins_extension_v1_model_proto_goTypes = []any{
-	(SelectionIssueCode)(0),            // 0: glyph.plugins.extension.v1.SelectionIssueCode
-	(ConfiguredModelRole)(0),           // 1: glyph.plugins.extension.v1.ConfiguredModelRole
-	(ConfiguredModelOutcome)(0),        // 2: glyph.plugins.extension.v1.ConfiguredModelOutcome
-	(InputModality)(0),                 // 3: glyph.plugins.extension.v1.InputModality
-	(*ModelSelection)(nil),             // 4: glyph.plugins.extension.v1.ModelSelection
-	(*SelectModelRequest)(nil),         // 5: glyph.plugins.extension.v1.SelectModelRequest
-	(*SelectReasoningRequest)(nil),     // 6: glyph.plugins.extension.v1.SelectReasoningRequest
-	(*SelectionResult)(nil),            // 7: glyph.plugins.extension.v1.SelectionResult
-	(*SelectionIssue)(nil),             // 8: glyph.plugins.extension.v1.SelectionIssue
-	(*SelectionHandlerInvocation)(nil), // 9: glyph.plugins.extension.v1.SelectionHandlerInvocation
-	(*SelectionHandlerAction)(nil),     // 10: glyph.plugins.extension.v1.SelectionHandlerAction
-	(*PreserveSelection)(nil),          // 11: glyph.plugins.extension.v1.PreserveSelection
-	(*RejectSelection)(nil),            // 12: glyph.plugins.extension.v1.RejectSelection
-	(*ConfiguredModelRequest)(nil),     // 13: glyph.plugins.extension.v1.ConfiguredModelRequest
-	(*ConfiguredModelMessage)(nil),     // 14: glyph.plugins.extension.v1.ConfiguredModelMessage
-	(*ConfiguredModelResult)(nil),      // 15: glyph.plugins.extension.v1.ConfiguredModelResult
-	(*ConfiguredModelContent)(nil),     // 16: glyph.plugins.extension.v1.ConfiguredModelContent
-	(*ConfiguredModelText)(nil),        // 17: glyph.plugins.extension.v1.ConfiguredModelText
-	(*ConfiguredModelToolCall)(nil),    // 18: glyph.plugins.extension.v1.ConfiguredModelToolCall
-	(*ConfiguredModelUsage)(nil),       // 19: glyph.plugins.extension.v1.ConfiguredModelUsage
-	(*ConfiguredModelDiagnostic)(nil),  // 20: glyph.plugins.extension.v1.ConfiguredModelDiagnostic
-	(*GetModelsRequest)(nil),           // 21: glyph.plugins.extension.v1.GetModelsRequest
-	(*GetModelsResult)(nil),            // 22: glyph.plugins.extension.v1.GetModelsResult
-	(*GetProvidersRequest)(nil),        // 23: glyph.plugins.extension.v1.GetProvidersRequest
-	(*GetProvidersResult)(nil),         // 24: glyph.plugins.extension.v1.GetProvidersResult
-	(*ProviderDescriptor)(nil),         // 25: glyph.plugins.extension.v1.ProviderDescriptor
-	(*ModelDescriptor)(nil),            // 26: glyph.plugins.extension.v1.ModelDescriptor
-	(*ReasoningCapabilities)(nil),      // 27: glyph.plugins.extension.v1.ReasoningCapabilities
-	(*ToolCapabilities)(nil),           // 28: glyph.plugins.extension.v1.ToolCapabilities
-	(*ModelPricing)(nil),               // 29: glyph.plugins.extension.v1.ModelPricing
-	(*PricingTier)(nil),                // 30: glyph.plugins.extension.v1.PricingTier
-	(*ExtensionContextRef)(nil),        // 31: glyph.plugins.extension.v1.ExtensionContextRef
+	(SelectionIssueCode)(0),              // 0: glyph.plugins.extension.v1.SelectionIssueCode
+	(ConfiguredModelRole)(0),             // 1: glyph.plugins.extension.v1.ConfiguredModelRole
+	(ConfiguredModelOutcome)(0),          // 2: glyph.plugins.extension.v1.ConfiguredModelOutcome
+	(InputModality)(0),                   // 3: glyph.plugins.extension.v1.InputModality
+	(*ModelSelection)(nil),               // 4: glyph.plugins.extension.v1.ModelSelection
+	(*SelectModelRequest)(nil),           // 5: glyph.plugins.extension.v1.SelectModelRequest
+	(*SelectReasoningRequest)(nil),       // 6: glyph.plugins.extension.v1.SelectReasoningRequest
+	(*SelectionResult)(nil),              // 7: glyph.plugins.extension.v1.SelectionResult
+	(*SelectionIssue)(nil),               // 8: glyph.plugins.extension.v1.SelectionIssue
+	(*SelectionHandlerInvocation)(nil),   // 9: glyph.plugins.extension.v1.SelectionHandlerInvocation
+	(*SelectionHandlerAction)(nil),       // 10: glyph.plugins.extension.v1.SelectionHandlerAction
+	(*PreserveSelection)(nil),            // 11: glyph.plugins.extension.v1.PreserveSelection
+	(*RejectSelection)(nil),              // 12: glyph.plugins.extension.v1.RejectSelection
+	(*ConfiguredModelRequest)(nil),       // 13: glyph.plugins.extension.v1.ConfiguredModelRequest
+	(*ConfiguredModelMessage)(nil),       // 14: glyph.plugins.extension.v1.ConfiguredModelMessage
+	(*ConfiguredModelRetryProgress)(nil), // 15: glyph.plugins.extension.v1.ConfiguredModelRetryProgress
+	(*ConfiguredModelResult)(nil),        // 16: glyph.plugins.extension.v1.ConfiguredModelResult
+	(*ConfiguredModelContent)(nil),       // 17: glyph.plugins.extension.v1.ConfiguredModelContent
+	(*ConfiguredModelText)(nil),          // 18: glyph.plugins.extension.v1.ConfiguredModelText
+	(*ConfiguredModelToolCall)(nil),      // 19: glyph.plugins.extension.v1.ConfiguredModelToolCall
+	(*ConfiguredModelUsage)(nil),         // 20: glyph.plugins.extension.v1.ConfiguredModelUsage
+	(*ConfiguredModelDiagnostic)(nil),    // 21: glyph.plugins.extension.v1.ConfiguredModelDiagnostic
+	(*GetModelsRequest)(nil),             // 22: glyph.plugins.extension.v1.GetModelsRequest
+	(*GetModelsResult)(nil),              // 23: glyph.plugins.extension.v1.GetModelsResult
+	(*GetProvidersRequest)(nil),          // 24: glyph.plugins.extension.v1.GetProvidersRequest
+	(*GetProvidersResult)(nil),           // 25: glyph.plugins.extension.v1.GetProvidersResult
+	(*ProviderDescriptor)(nil),           // 26: glyph.plugins.extension.v1.ProviderDescriptor
+	(*ModelDescriptor)(nil),              // 27: glyph.plugins.extension.v1.ModelDescriptor
+	(*ReasoningCapabilities)(nil),        // 28: glyph.plugins.extension.v1.ReasoningCapabilities
+	(*ToolCapabilities)(nil),             // 29: glyph.plugins.extension.v1.ToolCapabilities
+	(*ModelPricing)(nil),                 // 30: glyph.plugins.extension.v1.ModelPricing
+	(*PricingTier)(nil),                  // 31: glyph.plugins.extension.v1.PricingTier
+	(*ExtensionContextRef)(nil),          // 32: glyph.plugins.extension.v1.ExtensionContextRef
 }
 var file_api_plugins_extension_v1_model_proto_depIdxs = []int32{
-	31, // 0: glyph.plugins.extension.v1.SelectModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	31, // 1: glyph.plugins.extension.v1.SelectReasoningRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	32, // 0: glyph.plugins.extension.v1.SelectModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	32, // 1: glyph.plugins.extension.v1.SelectReasoningRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
 	4,  // 2: glyph.plugins.extension.v1.SelectionResult.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
 	8,  // 3: glyph.plugins.extension.v1.SelectionResult.issues:type_name -> glyph.plugins.extension.v1.SelectionIssue
 	0,  // 4: glyph.plugins.extension.v1.SelectionIssue.code:type_name -> glyph.plugins.extension.v1.SelectionIssueCode
@@ -4241,28 +4420,28 @@ var file_api_plugins_extension_v1_model_proto_depIdxs = []int32{
 	11, // 7: glyph.plugins.extension.v1.SelectionHandlerAction.preserve:type_name -> glyph.plugins.extension.v1.PreserveSelection
 	4,  // 8: glyph.plugins.extension.v1.SelectionHandlerAction.replace:type_name -> glyph.plugins.extension.v1.ModelSelection
 	12, // 9: glyph.plugins.extension.v1.SelectionHandlerAction.reject:type_name -> glyph.plugins.extension.v1.RejectSelection
-	31, // 10: glyph.plugins.extension.v1.ConfiguredModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	32, // 10: glyph.plugins.extension.v1.ConfiguredModelRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
 	4,  // 11: glyph.plugins.extension.v1.ConfiguredModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
 	14, // 12: glyph.plugins.extension.v1.ConfiguredModelRequest.messages:type_name -> glyph.plugins.extension.v1.ConfiguredModelMessage
 	1,  // 13: glyph.plugins.extension.v1.ConfiguredModelMessage.role:type_name -> glyph.plugins.extension.v1.ConfiguredModelRole
-	16, // 14: glyph.plugins.extension.v1.ConfiguredModelResult.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
+	17, // 14: glyph.plugins.extension.v1.ConfiguredModelResult.content:type_name -> glyph.plugins.extension.v1.ConfiguredModelContent
 	2,  // 15: glyph.plugins.extension.v1.ConfiguredModelResult.outcome:type_name -> glyph.plugins.extension.v1.ConfiguredModelOutcome
-	19, // 16: glyph.plugins.extension.v1.ConfiguredModelResult.usage:type_name -> glyph.plugins.extension.v1.ConfiguredModelUsage
-	20, // 17: glyph.plugins.extension.v1.ConfiguredModelResult.diagnostics:type_name -> glyph.plugins.extension.v1.ConfiguredModelDiagnostic
-	17, // 18: glyph.plugins.extension.v1.ConfiguredModelContent.text:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	17, // 19: glyph.plugins.extension.v1.ConfiguredModelContent.refusal:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	17, // 20: glyph.plugins.extension.v1.ConfiguredModelContent.reasoning:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
-	18, // 21: glyph.plugins.extension.v1.ConfiguredModelContent.tool_call:type_name -> glyph.plugins.extension.v1.ConfiguredModelToolCall
-	31, // 22: glyph.plugins.extension.v1.GetModelsRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	26, // 23: glyph.plugins.extension.v1.GetModelsResult.models:type_name -> glyph.plugins.extension.v1.ModelDescriptor
+	20, // 16: glyph.plugins.extension.v1.ConfiguredModelResult.usage:type_name -> glyph.plugins.extension.v1.ConfiguredModelUsage
+	21, // 17: glyph.plugins.extension.v1.ConfiguredModelResult.diagnostics:type_name -> glyph.plugins.extension.v1.ConfiguredModelDiagnostic
+	18, // 18: glyph.plugins.extension.v1.ConfiguredModelContent.text:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	18, // 19: glyph.plugins.extension.v1.ConfiguredModelContent.refusal:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	18, // 20: glyph.plugins.extension.v1.ConfiguredModelContent.reasoning:type_name -> glyph.plugins.extension.v1.ConfiguredModelText
+	19, // 21: glyph.plugins.extension.v1.ConfiguredModelContent.tool_call:type_name -> glyph.plugins.extension.v1.ConfiguredModelToolCall
+	32, // 22: glyph.plugins.extension.v1.GetModelsRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	27, // 23: glyph.plugins.extension.v1.GetModelsResult.models:type_name -> glyph.plugins.extension.v1.ModelDescriptor
 	4,  // 24: glyph.plugins.extension.v1.GetModelsResult.active_selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	31, // 25: glyph.plugins.extension.v1.GetProvidersRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	25, // 26: glyph.plugins.extension.v1.GetProvidersResult.providers:type_name -> glyph.plugins.extension.v1.ProviderDescriptor
+	32, // 25: glyph.plugins.extension.v1.GetProvidersRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	26, // 26: glyph.plugins.extension.v1.GetProvidersResult.providers:type_name -> glyph.plugins.extension.v1.ProviderDescriptor
 	3,  // 27: glyph.plugins.extension.v1.ModelDescriptor.input_modalities:type_name -> glyph.plugins.extension.v1.InputModality
-	27, // 28: glyph.plugins.extension.v1.ModelDescriptor.reasoning:type_name -> glyph.plugins.extension.v1.ReasoningCapabilities
-	28, // 29: glyph.plugins.extension.v1.ModelDescriptor.tools:type_name -> glyph.plugins.extension.v1.ToolCapabilities
-	29, // 30: glyph.plugins.extension.v1.ModelDescriptor.pricing:type_name -> glyph.plugins.extension.v1.ModelPricing
-	30, // 31: glyph.plugins.extension.v1.ModelPricing.tiers:type_name -> glyph.plugins.extension.v1.PricingTier
+	28, // 28: glyph.plugins.extension.v1.ModelDescriptor.reasoning:type_name -> glyph.plugins.extension.v1.ReasoningCapabilities
+	29, // 29: glyph.plugins.extension.v1.ModelDescriptor.tools:type_name -> glyph.plugins.extension.v1.ToolCapabilities
+	30, // 30: glyph.plugins.extension.v1.ModelDescriptor.pricing:type_name -> glyph.plugins.extension.v1.ModelPricing
+	31, // 31: glyph.plugins.extension.v1.ModelPricing.tiers:type_name -> glyph.plugins.extension.v1.PricingTier
 	32, // [32:32] is the sub-list for method output_type
 	32, // [32:32] is the sub-list for method input_type
 	32, // [32:32] is the sub-list for extension type_name
@@ -4281,7 +4460,7 @@ func file_api_plugins_extension_v1_model_proto_init() {
 		(*selectionHandlerAction_Replace)(nil),
 		(*selectionHandlerAction_Reject)(nil),
 	}
-	file_api_plugins_extension_v1_model_proto_msgTypes[12].OneofWrappers = []any{
+	file_api_plugins_extension_v1_model_proto_msgTypes[13].OneofWrappers = []any{
 		(*configuredModelContent_Text)(nil),
 		(*configuredModelContent_Refusal)(nil),
 		(*configuredModelContent_Reasoning)(nil),
@@ -4293,7 +4472,7 @@ func file_api_plugins_extension_v1_model_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_model_proto_rawDesc), len(file_api_plugins_extension_v1_model_proto_rawDesc)),
 			NumEnums:      4,
-			NumMessages:   27,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

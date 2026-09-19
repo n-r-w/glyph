@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -23,8 +24,13 @@ type NavigationIntent struct {
 
 // Navigator owns handler policy and atomically commits client navigation.
 type Navigator interface {
-	// NavigateUI publishes the committed tree before post-commit observers.
-	NavigateUI(context.Context, NavigationIntent, func(session.Tree) error) (NavigationCompletion, error)
+	// NavigateUI publishes retry and committed-tree progress before completion.
+	NavigateUI(
+		context.Context,
+		NavigationIntent,
+		func(session.Tree) error,
+		func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
+	) (NavigationCompletion, error)
 }
 
 // NavigationFailure supplies the source-owned category without replacing its text.

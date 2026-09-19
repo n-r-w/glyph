@@ -73,7 +73,7 @@ func testProgressOutput(
 			_ context.Context,
 			reporter operation.Reporter[controllerui.Frame],
 		) operation.Outcome[controllerui.Frame] {
-			unbind := service.BindProgress(reporter)
+			unbind := service.BindProgress("run", reporter)
 			defer unbind()
 			close(bound)
 			<-stop

@@ -5,6 +5,7 @@ import (
 	"encoding/json/v2"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -34,6 +35,7 @@ func DecodeLifecycle(lifecycle *uiv1.AgentEvent) (AgentUpdate, error) {
 		ExitCode:             mo.None[int](),
 		Failure:              mo.None[bool](),
 		ToolCall:             mo.None[ToolCallState](),
+		Retry:                mo.None[RetryProgress](),
 	}
 
 	var err error
@@ -43,6 +45,18 @@ func DecodeLifecycle(lifecycle *uiv1.AgentEvent) (AgentUpdate, error) {
 		event.Kind = AgentTurnStarted
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START:
 		event.Kind = AgentModelDelta
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_RESPONSE_RESET:
+		event.Kind = AgentResponseReset
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_RETRY_PROGRESS:
+		progress := lifecycle.GetRetryProgress()
+		if progress == nil {
+			return AgentUpdate{}, errors.New("retry progress is missing")
+		}
+		event.Kind = AgentRetryProgress
+		event.Retry = mo.Some(RetryProgress{
+			CompletedAttempts: progress.GetCompletedAttempts(), AttemptLimit: progress.GetAttemptLimit(),
+			Delay: time.Duration(progress.GetDelayMilliseconds()) * time.Millisecond, Error: progress.GetError(),
+		})
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_CONTENT_END,
@@ -72,7 +86,7 @@ func DecodeLifecycle(lifecycle *uiv1.AgentEvent) (AgentUpdate, error) {
 }
 
 // lifecycleFields is a presence mask for optional AgentEvent payload fields.
-type lifecycleFields uint16
+type lifecycleFields uint32
 
 const (
 	// lifecycleFieldType records presence of the lifecycle discriminator.
@@ -105,6 +119,10 @@ const (
 	lifecycleFieldFinalToolCall
 	// lifecycleFieldContents records presence of the complete tool result content.
 	lifecycleFieldContents
+	// lifecycleFieldRetryProgress records presence of retry progress.
+	lifecycleFieldRetryProgress
+	// lifecycleFieldResponseReset records presence of semantic response reset.
+	lifecycleFieldResponseReset
 )
 
 // validateLifecycleEnvelope validates shared fields and rejects fields owned by inactive variants.
@@ -135,6 +153,10 @@ func allowedLifecycleFields(lifecycleType uiv1.LifecycleType) (lifecycleFields, 
 		return base, nil
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
 		return base | lifecycleFieldModelResponse, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_RESPONSE_RESET:
+		return base | lifecycleFieldResponseReset, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_RETRY_PROGRESS:
+		return base | lifecycleFieldRetryProgress, nil
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START:
 		return base | lifecycleFieldToolCallID | lifecycleFieldToolName |
 			lifecycleFieldText | lifecycleFieldErrorMessage, nil
@@ -169,6 +191,8 @@ func allowedLifecycleFields(lifecycleType uiv1.LifecycleType) (lifecycleFields, 
 }
 
 // presentLifecycleFields records Protobuf presence without collapsing valid scalar zero values.
+//
+//nolint:gocyclo // Each public optional field contributes one independent presence bit.
 func presentLifecycleFields(lifecycle *uiv1.AgentEvent) lifecycleFields {
 	fields := lifecycleFieldType
 	if lifecycle.HasRunId() {
@@ -212,6 +236,12 @@ func presentLifecycleFields(lifecycle *uiv1.AgentEvent) lifecycleFields {
 	}
 	if len(lifecycle.GetToolResultContents()) != 0 {
 		fields |= lifecycleFieldContents
+	}
+	if lifecycle.HasRetryProgress() {
+		fields |= lifecycleFieldRetryProgress
+	}
+	if lifecycle.HasResponseReset() {
+		fields |= lifecycleFieldResponseReset
 	}
 	return fields
 }

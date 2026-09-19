@@ -119,7 +119,7 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 	gate := operationgate.New()
 	service := programmatic.New(
 		nil, nil, programmatic.NewMockStateQuery(controller),
-		active, nil, gate, programmaticoutput.New(), nil,
+		active, nil, gate, programmaticoutput.New(), nil, nil,
 	)
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)
@@ -129,7 +129,8 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.Some(session.ID("stored")),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
 		SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
-		EntryLabel: mo.None[string](),
+		EntryLabel:   mo.None[string](),
+		RetryEnabled: mo.None[bool](),
 	}
 
 	// Act by preparing before and after releasing the shared gate.

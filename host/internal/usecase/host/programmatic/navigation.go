@@ -2,6 +2,7 @@ package programmatic
 
 import (
 	"context"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -23,11 +24,12 @@ type NavigationIntent struct {
 
 // Navigator owns handler policy and atomically commits client navigation.
 type Navigator interface {
-	// NavigateProgrammatic publishes the committed tree before post-commit observers.
+	// NavigateProgrammatic publishes retry and committed-tree progress before completion.
 	NavigateProgrammatic(
 		context.Context,
 		NavigationIntent,
 		func(session.Tree) error,
+		func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 	) (NavigationCompletion, error)
 }
 

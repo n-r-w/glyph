@@ -75,18 +75,18 @@ func (mr *MockModelOperationsMockRecorder) ReadProviders(ctx, extensionID, runti
 }
 
 // Request mocks base method.
-func (m *MockModelOperations) Request(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
+func (m *MockModelOperations) Request(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef, selection model.Selection, instructions string, history []agent.HistoryEntry, progress func(ConfiguredRetryProgress) error) (model.Response, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Request", ctx, extensionID, runtimeID, reference, selection, instructions, history)
+	ret := m.ctrl.Call(m, "Request", ctx, extensionID, runtimeID, reference, selection, instructions, history, progress)
 	ret0, _ := ret[0].(model.Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Request indicates an expected call of Request.
-func (mr *MockModelOperationsMockRecorder) Request(ctx, extensionID, runtimeID, reference, selection, instructions, history any) *gomock.Call {
+func (mr *MockModelOperationsMockRecorder) Request(ctx, extensionID, runtimeID, reference, selection, instructions, history, progress any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelOperations)(nil).Request), ctx, extensionID, runtimeID, reference, selection, instructions, history)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelOperations)(nil).Request), ctx, extensionID, runtimeID, reference, selection, instructions, history, progress)
 }
 
 // MockContextOperations is a mock of ContextOperations interface.

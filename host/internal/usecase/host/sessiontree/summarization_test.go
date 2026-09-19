@@ -59,12 +59,15 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 			active.EXPECT().Tree().Return(tree)
 			active.EXPECT().SessionID().Return("session")
 			modelSelection.EXPECT().ActiveSelection().Return(selection)
-			models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
+			models.EXPECT().RequestConfigured(
+				gomock.Any(), selection, gomock.Any(), gomock.Any(), gomock.Any(),
+			).DoAndReturn(
 				func(
 					_ context.Context,
 					_ model.Selection,
 					systemRules string,
 					history []agent.HistoryEntry,
+					_ func(int64, int64, time.Duration, string) error,
 				) (model.Response, error) {
 					require.NotEmpty(t, systemRules)
 					require.Len(t, history, 1)
@@ -135,9 +138,9 @@ func TestNavigateExtensionMessageCreatesSummaryAtParent(t *testing.T) {
 	active.EXPECT().Tree().Return(tree)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
-	models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).Return(
-		summaryResponse("message summary", mo.None[model.Usage]()), nil,
-	)
+	models.EXPECT().RequestConfigured(
+		gomock.Any(), selection, gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(summaryResponse("message summary", mo.None[model.Usage]()), nil)
 	summary := session.Entry{
 		ID: "summary", ParentID: mo.Some("extension"), CreatedAt: time.Unix(10, 0).UTC(),
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
@@ -196,9 +199,9 @@ func TestNavigateRejectsInvalidSummaryResponseWithoutCommit(t *testing.T) {
 	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
-	models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).Return(
-		summaryResponse("   ", mo.None[model.Usage]()), nil,
-	)
+	models.EXPECT().RequestConfigured(
+		gomock.Any(), selection, gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(summaryResponse("   ", mo.None[model.Usage]()), nil)
 
 	// Act with built-in summarization.
 	_, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{

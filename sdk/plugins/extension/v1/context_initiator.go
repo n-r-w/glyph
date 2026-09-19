@@ -21,7 +21,7 @@ type contextInitiator struct {
 	// writer shares ordered outbound delivery with extension-owned operation events.
 	writer *operation.Writer[*extensionpb.OpenResponse]
 	// tracker validates lifecycle order and bounds per-operation event buffering.
-	tracker *operation.Tracker[struct{}, *extensionpb.HostCompleted]
+	tracker *operation.Tracker[*extensionpb.HostProgress, *extensionpb.HostCompleted]
 	// fail terminates the connection on local delivery or peer protocol failure.
 	fail func(error)
 	// mutex protects pending operations, identifier allocation, and shutdown admission.
@@ -45,7 +45,7 @@ type contextOperation struct {
 	// kind identifies the required terminal payload.
 	kind hostRequestKind
 	// events contains validated lifecycle events for local waiting.
-	events <-chan operation.Event[struct{}, *extensionpb.HostCompleted]
+	events <-chan operation.Event[*extensionpb.HostProgress, *extensionpb.HostCompleted]
 	// done closes when a remote terminal event arrives.
 	done chan struct{}
 }
@@ -79,7 +79,7 @@ func newContextInitiator(
 		ctx:      owned,
 		cancel:   cancel,
 		writer:   writer,
-		tracker:  operation.NewTracker[struct{}, *extensionpb.HostCompleted](),
+		tracker:  operation.NewTracker[*extensionpb.HostProgress, *extensionpb.HostCompleted](),
 		fail:     fail,
 		mutex:    sync.Mutex{},
 		pending:  make(map[string]*contextOperation),
@@ -159,7 +159,7 @@ func (i *contextInitiator) cancelOnContext(ctx context.Context, target *contextO
 	if err != nil {
 		return
 	}
-	_, err = cancel.wait(i.ctx)
+	_, err = cancel.wait(i.ctx, nil)
 	if rejection, ok := errors.AsType[*RejectionError](err); ok && rejection.Code() == rejectionCodeTargetNotActive {
 		return
 	}
@@ -169,7 +169,10 @@ func (i *contextInitiator) cancelOnContext(ctx context.Context, target *contextO
 }
 
 // wait consumes lifecycle events without changing remote cancellation state.
-func (o *contextOperation) wait(ctx context.Context) (*extensionpb.HostCompleted, error) {
+func (o *contextOperation) wait(
+	ctx context.Context,
+	progress func(*extensionpb.HostProgress) error,
+) (*extensionpb.HostCompleted, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -200,7 +203,12 @@ func (o *contextOperation) wait(ctx context.Context) (*extensionpb.HostCompleted
 					cause: newRemoteRejection(event.Code, event.Message),
 				}
 			case operation.EventProgress:
-				return nil, fmt.Errorf("catalog operation %q returned unexpected progress", o.id)
+				if progress == nil {
+					continue
+				}
+				if err := progress(event.Progress); err != nil {
+					return nil, fmt.Errorf("handle Host operation %q progress: %w", o.id, err)
+				}
 			default:
 				return nil, fmt.Errorf("wait for Host operation %q: invalid lifecycle kind", o.id)
 			}

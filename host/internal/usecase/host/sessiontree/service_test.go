@@ -25,7 +25,7 @@ func navigateTreeForTest(
 	request NavigationRequest,
 ) (navigationResult, error) {
 	t.Helper()
-	return service.navigate(ctx, request, func(session.Tree) error { return nil })
+	return service.navigate(ctx, request, func(session.Tree) error { return nil }, nil)
 }
 
 // TestNavigateCommitsPreparedDestination verifies user and non-user targets select their defined destinations.

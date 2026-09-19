@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -71,6 +72,7 @@ func (s *Service) navigate(
 	ctx context.Context,
 	request NavigationRequest,
 	publisher func(session.Tree) error,
+	retryProgress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 ) (result navigationResult, failure error) {
 	// Keep handler sources until the navigation result or a later failure reaches its client.
 	var issues []navigationIssue
@@ -106,7 +108,7 @@ func (s *Service) navigate(
 		return canceledResult(issues), nil
 	}
 
-	currentResult, err = s.generateMissingSummary(ctx, current, currentResult)
+	currentResult, err = s.generateMissingSummary(ctx, current, currentResult, retryProgress)
 	if err != nil {
 		return navigationResult{}, err
 	}
@@ -165,6 +167,7 @@ func (s *Service) generateMissingSummary(
 	ctx context.Context,
 	current HandlerNavigationState,
 	result mo.Option[HandlerBranchSummaryResult],
+	retryProgress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 ) (mo.Option[HandlerBranchSummaryResult], error) {
 	if current.Request.Navigation.SummaryMode == SummaryModeNoSummary ||
 		len(current.Preparation.AbandonedPath) == 0 || result.IsSome() {
@@ -175,6 +178,7 @@ func (s *Service) generateMissingSummary(
 		current.Request.SummaryModel,
 		current.Preparation,
 		current.Request.Navigation.CustomFocus,
+		retryProgress,
 	)
 	if err != nil {
 		return mo.None[HandlerBranchSummaryResult](), err

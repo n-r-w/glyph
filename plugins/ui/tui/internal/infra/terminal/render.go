@@ -159,6 +159,9 @@ func (model Model) View() tea.View {
 	) + statusSeparator + selectionText(
 		model.snapshot.Body.ModelSelection,
 	)
+	if model.snapshot.Body.RetryStatus != "" {
+		status += statusSeparator + model.snapshot.Body.RetryStatus
+	}
 	if model.snapshot.TreeStatus != "" {
 		status += statusSeparator + model.snapshot.TreeStatus
 	}

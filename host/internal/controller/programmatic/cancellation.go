@@ -202,6 +202,7 @@ func cancelCompletedResponse(state operation.TerminalState) Response {
 		Replacement:       mo.None[SessionReplacement](),
 		Rejection:         mo.None[Rejection](),
 		CancelTargetState: mo.Some(state),
+		RetryPolicy:       mo.None[RetryPolicy](),
 	}
 }
 

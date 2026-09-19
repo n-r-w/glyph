@@ -19,6 +19,8 @@ const (
 	signalsEnvironment = "GLYPH_EXTERNAL_SIGNALS"
 	// lifecycleEnvironment enables the agent-start observer scenario.
 	lifecycleEnvironment = "GLYPH_EXTERNAL_LIFECYCLE"
+	// retryHandlerEnvironment enables the public retry-handler scenario.
+	retryHandlerEnvironment = "GLYPH_EXTERNAL_RETRY_HANDLER"
 	// toolName identifies the fixture's only registered tool.
 	toolName = "external"
 	// invalidArgumentCode classifies invalid fixture requests.
@@ -35,6 +37,10 @@ const (
 	staleSelectionMode = "stale-selection"
 	// configuredRequestMode executes one explicit configured-model request.
 	configuredRequestMode = "configured-request"
+	// configuredRequestProgressMode records configured-model retry progress.
+	configuredRequestProgressMode = "configured-request-progress"
+	// configuredRequestFailuresMode records SDK failures from Wait and WaitWithProgress.
+	configuredRequestFailuresMode = "configured-request-failures"
 	// sessionStateMode appends or recovers one durable hidden checkpoint.
 	sessionStateMode = "session-state"
 	// selectionMode selects active model and reasoning through the public context.
@@ -51,6 +57,8 @@ const (
 	navigationObserverID = "append-after-navigation"
 	// agentStartObserverID identifies the fixture's model-assisted lifecycle observer.
 	agentStartObserverID = "observe-agent-start"
+	// retryHandlerID identifies the fixture's public retry handler.
+	retryHandlerID = "preserve-retry"
 	// modelSelectionHandlerID identifies the fixture's model-selection handler.
 	modelSelectionHandlerID = "preserve-model-selection"
 	// reasoningSelectionHandlerID identifies the fixture's reasoning-selection handler.
@@ -81,6 +89,8 @@ type service struct {
 	savedCheckpointID string
 	// lifecycleEnabled reports whether this process registers the agent-start observer scenario.
 	lifecycleEnabled bool
+	// retryHandlerEnabled reports whether this process registers the retry-handler scenario.
+	retryHandlerEnabled bool
 	// selectionComposition enables ordered model and reasoning target transformation.
 	selectionComposition bool
 	// selectionNested enables nested context operations from a selection handler.
@@ -97,6 +107,8 @@ type service struct {
 type registerOperation struct {
 	// lifecycleEnabled adds the model-assisted agent-start observer when requested.
 	lifecycleEnabled bool
+	// retryHandlerEnabled adds the public retry handler when requested.
+	retryHandlerEnabled bool
 	// selectionComposition adds two composing handlers for each selection request kind.
 	selectionComposition bool
 	// selectionObservers adds model and reasoning selection lifecycle observers.
@@ -158,6 +170,7 @@ func main() {
 	extensionsdk.Serve(&service{
 		signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil,
 		savedMessageID: "", savedCheckpointID: "", lifecycleEnabled: os.Getenv(lifecycleEnvironment) == "1",
+		retryHandlerEnabled:     os.Getenv(retryHandlerEnvironment) == "1",
 		selectionComposition:    os.Getenv(selectionCompositionEnvironment) == "1",
 		selectionNested:         os.Getenv(selectionNestedEnvironment) == "1",
 		selectionObservers:      os.Getenv(selectionObserversEnvironment) == "1",
@@ -172,8 +185,8 @@ func (s *service) PrepareRegister(
 	*extensionv1.RegisterRequest,
 ) (extensionsdk.RegisterOperation, error) {
 	return &registerOperation{
-		lifecycleEnabled: s.lifecycleEnabled, selectionComposition: s.selectionComposition,
-		selectionObservers: s.selectionObservers,
+		lifecycleEnabled: s.lifecycleEnabled, retryHandlerEnabled: s.retryHandlerEnabled,
+		selectionComposition: s.selectionComposition, selectionObservers: s.selectionObservers,
 	}, nil
 }
 
@@ -184,12 +197,17 @@ func (s *service) PrepareHandle(
 ) (extensionsdk.HandleOperation, error) {
 	if request == nil || request.GetHandlerId() != navigationObserverID &&
 		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID &&
+		request.GetHandlerId() != retryHandlerID &&
 		!isSelectionHandlerID(request.GetHandlerId()) && !isSelectionObserverID(request.GetHandlerId()) {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture handler request is invalid"))
 	}
-	binding, err := extensionsdk.ContextFrom(ctx)
-	if err != nil {
-		return nil, err
+	var binding *extensionsdk.ExtensionContext
+	if request.GetRetry() == nil {
+		var err error
+		binding, err = extensionsdk.ContextFrom(ctx)
+		if err != nil {
+			return nil, err
+		}
 	}
 	s.contextMutex.Lock()
 	expectedMessageID := s.savedMessageID
@@ -222,6 +240,8 @@ func (s *service) PrepareExecute(
 		staleCataloguesMode,
 		staleSelectionMode,
 		configuredRequestMode,
+		configuredRequestProgressMode,
+		configuredRequestFailuresMode,
 		sessionStateMode,
 		selectionMode,
 		failureMode,
@@ -263,6 +283,11 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 			Id: new(agentStartObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_AGENT_START),
 		}.Build())
 	}
+	if operation.retryHandlerEnabled {
+		handlers = append(handlers, extensionv1.HandlerDescriptor_builder{
+			Id: new(retryHandlerID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_RETRY),
+		}.Build())
+	}
 	return extensionv1.RegisterResponse_builder{
 		Tools: []*extensionv1.ToolDescriptor{extensionv1.ToolDescriptor_builder{
 			Name: new(toolName), Description: new("Exercise the public Extension SDK."),
@@ -277,6 +302,14 @@ func (*registerOperation) Release() {}
 
 // Run appends and awaits one independent message only for the retained selected message.
 func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleResponse, error) {
+	if operation.request.GetRetry() != nil {
+		signal(operation.signals, "retry-handler-invoked")
+		action := new(extensionv1.RetryHandlerAction)
+		action.SetPreserve(new(extensionv1.PreserveRetry))
+		response := new(extensionv1.HandleResponse)
+		response.SetRetry(action)
+		return response, nil
+	}
 	if operation.lifecycle {
 		if err := observeAgentStart(ctx, operation.context, operation.request.GetLifecycle()); err != nil {
 			return nil, err
@@ -368,6 +401,10 @@ func (operation *executeOperation) Run(
 		return operation.selectWithRetainedContext(ctx)
 	case configuredRequestMode:
 		return requestConfiguredModel(ctx)
+	case configuredRequestProgressMode:
+		return requestConfiguredModelWithProgress(ctx)
+	case configuredRequestFailuresMode:
+		return requestConfiguredModelFailures(ctx)
 	case sessionStateMode:
 		return exerciseSessionState(ctx, operation.service)
 	case selectionMode:

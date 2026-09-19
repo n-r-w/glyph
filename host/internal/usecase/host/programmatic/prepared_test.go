@@ -10,6 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
@@ -31,18 +32,19 @@ func TestPreparedOwnerCancellationStopsSummaryNavigation(t *testing.T) {
 	started := make(chan struct{})
 	var committed atomic.Bool
 	gate.EXPECT().TryAcquire().Return(func() {}, true)
-	navigator.EXPECT().NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+	navigator.EXPECT().NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(
 			ctx context.Context,
 			_ NavigationIntent,
 			_ func(session.Tree) error,
+			_ func(int64, int64, time.Duration, string) error,
 		) (NavigationCompletion, error) {
 			close(started)
 			<-ctx.Done()
 			return NavigationCompletion{}, ctx.Err()
 		},
 	)
-	service := New(nil, nil, testStateQuery(t, false), nil, navigator, gate, testRunOutput(t), nil)
+	service := New(nil, nil, testStateQuery(t, false), nil, navigator, gate, testRunOutput(t), nil, nil)
 	command := treeCommand("summary-cancel", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("target")
 	command.SummaryMode = controller.SummaryModeSummarize
@@ -82,7 +84,7 @@ func TestPreparedOwnerCancellationStopsStoredSessionMutation(t *testing.T) {
 			return session.Info{}, ctx.Err()
 		},
 	)
-	service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t), nil)
+	service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t), nil, nil)
 	command := testProgrammaticCommand("name-cancel", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("new name")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -113,9 +115,9 @@ func TestPreparedDomainCanceledNavigationCompletes(t *testing.T) {
 	gate := NewMockGate(gomock.NewController(t))
 	gate.EXPECT().TryAcquire().Return(func() {}, true)
 	navigator.EXPECT().
-		NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).
+		NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(NavigationCompletion{Committed: mo.None[NavigationCommit](), Issues: nil}, nil)
-	service := New(nil, nil, testStateQuery(t, false), nil, navigator, gate, testRunOutput(t), nil)
+	service := New(nil, nil, testStateQuery(t, false), nil, navigator, gate, testRunOutput(t), nil, nil)
 	command := treeCommand("domain-cancel", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("target")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -150,7 +152,7 @@ func TestPreparedCommittedMutationWinsCancellation(t *testing.T) {
 			return session.Info{}, nil
 		},
 	)
-	service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t), nil)
+	service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t), nil, nil)
 	command := testProgrammaticCommand("name-commit", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("committed name")
 	prepared, err := service.Prepare(t.Context(), command)
@@ -192,7 +194,7 @@ func TestPreparedIndependentMutationFailureWinsCancellation(t *testing.T) {
 			)
 		},
 	)
-	service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t), nil)
+	service := New(nil, nil, testStateQuery(t, false), control, nil, gate, testRunOutput(t), nil, nil)
 	command := testProgrammaticCommand("name-failure", controller.CommandSetSessionName)
 	command.SessionName = mo.Some("failed name")
 	prepared, err := service.Prepare(t.Context(), command)

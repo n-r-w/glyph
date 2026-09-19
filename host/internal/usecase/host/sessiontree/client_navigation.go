@@ -2,6 +2,7 @@ package sessiontree
 
 import (
 	"context"
+	"time"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
@@ -13,12 +14,13 @@ func (s *Service) NavigateUI(
 	ctx context.Context,
 	intent ui.NavigationIntent,
 	publish func(session.Tree) error,
+	retryProgress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 ) (ui.NavigationCompletion, error) {
 	result, err := s.navigate(ctx, NavigationRequest{
 		TargetEntryID: intent.TargetEntryID,
 		SummaryMode:   SummaryMode(intent.SummaryMode),
 		CustomFocus:   intent.CustomFocus,
-	}, publish)
+	}, publish, retryProgress)
 	if err != nil {
 		return ui.NavigationCompletion{}, err
 	}
@@ -30,12 +32,13 @@ func (s *Service) NavigateProgrammatic(
 	ctx context.Context,
 	intent programmatic.NavigationIntent,
 	publish func(session.Tree) error,
+	retryProgress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 ) (programmatic.NavigationCompletion, error) {
 	result, err := s.navigate(ctx, NavigationRequest{
 		TargetEntryID: intent.TargetEntryID,
 		SummaryMode:   SummaryMode(intent.SummaryMode),
 		CustomFocus:   intent.CustomFocus,
-	}, publish)
+	}, publish, retryProgress)
 	if err != nil {
 		return programmatic.NavigationCompletion{}, err
 	}

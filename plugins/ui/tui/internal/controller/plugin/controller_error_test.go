@@ -16,7 +16,9 @@ func TestMapHostProgressRejectsMalformedLifecycle(t *testing.T) {
 
 	// Arrange an agent-start event with a forbidden model response.
 	malformed := uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: new("run"), Text: nil,
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: new("run"), Text: nil,
 		ToolCallId: nil, ToolName: nil, ProgressChannel: nil, IsError: nil, Outcome: nil,
 		ErrorMessage: nil, Availability: nil, ModelContent: nil,
 		ModelResponse: uiv1.ModelResponse_builder{

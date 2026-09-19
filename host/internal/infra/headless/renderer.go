@@ -22,6 +22,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -46,11 +47,16 @@ var (
 	_ lifecycle.IssueDelivery          = (*Renderer)(nil)
 	_ modelselection.Publisher         = (*Renderer)(nil)
 	_ modelselection.IssueDelivery     = (*Renderer)(nil)
+	_ modelexecution.RetryOutput       = (*Renderer)(nil)
 )
 
 const (
 	// extensionIssueFormat keeps headless observer diagnostics stable and identifiable.
 	extensionIssueFormat = "[extension:issue] extension=%s handler=%s code=%s %s"
+	// retryProgressFormat identifies one pending replacement model attempt.
+	retryProgressFormat = "[model:retry] attempt=%d/%d delay=%s error=%s\n"
+	// responseResetText identifies discarded partial model output.
+	responseResetText = "[model:response-reset]\n"
 )
 
 // NewRenderer creates the headless output recipient.
@@ -105,11 +111,25 @@ func (r *Renderer) DeliverSelectionIssue(_ context.Context, issue modelselection
 	)+"\n")
 }
 
+// DeliverRetry renders one Host-owned pending replacement attempt.
+func (r *Renderer) DeliverRetry(_ context.Context, progress modelexecution.RetryProgress) error {
+	return writeText(r.stderr, fmt.Sprintf(
+		retryProgressFormat, progress.CompletedAttempts+1, progress.AttemptLimit, progress.Delay, progress.Error,
+	))
+}
+
 // DeliverAgent renders one Agent Core lifecycle event synchronously.
 func (r *Renderer) DeliverAgent(_ context.Context, event agent.Event) error {
 	switch event.Type {
 	case agent.EventTextDelta:
 		return r.renderTextDelta(event)
+	case agent.EventResponseReset:
+		var newlineErr error
+		if r.modelLineOpen {
+			newlineErr = writeText(r.stdout, "\n")
+		}
+		r.modelLineOpen = false
+		return errors.Join(newlineErr, writeText(r.stderr, responseResetText))
 	case agent.EventMessageEnd:
 		if !r.modelLineOpen {
 			return nil

@@ -98,11 +98,12 @@ func TestTreeNavigationPreservesSummaryModeAndCustomFocus(t *testing.T) {
 			navigator := NewMockNavigator(controller)
 			gate := NewMockGate(controller)
 			expectSessionMutationGate(gate, 1)
-			navigator.EXPECT().NavigateUI(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			navigator.EXPECT().NavigateUI(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(
 					_ context.Context,
 					request NavigationIntent,
 					_ func(session.Tree) error,
+					_ func(int64, int64, time.Duration, string) error,
 				) (NavigationCompletion, error) {
 					assert.Equal(t, "target", request.TargetEntryID)
 					assert.Equal(t, test.internalMode, request.SummaryMode)
@@ -144,7 +145,7 @@ func TestCanceledTreeNavigationReturnsStateFreeData(t *testing.T) {
 	gate := NewMockGate(controller)
 	expectSessionMutationGate(gate, 1)
 	navigator.EXPECT().
-		NavigateUI(gomock.Any(), gomock.Any(), gomock.Any()).
+		NavigateUI(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(NavigationCompletion{Committed: mo.None[NavigationCommit](), Issues: []NavigationIssue{{
 			Kind: NavigationObserverError, ExtensionID: "extension",
 			HandlerID: "handler", Text: "observer failed",
@@ -223,7 +224,7 @@ func TestTreeNavigationFailureCategoriesPreserveCauses(t *testing.T) {
 			expectSessionMutationGate(gate, 1)
 			source := fmt.Errorf("navigate target: %w", test.sentinel)
 			navigator.EXPECT().
-				NavigateUI(gomock.Any(), gomock.Any(), gomock.Any()).
+				NavigateUI(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 				Return(NavigationCompletion{}, source)
 			command := newCommandForPreparedTest(controllerui.CommandNavigateSessionTree)
 			command.TargetEntryID = mo.Some("target")
@@ -278,7 +279,7 @@ func treeOperationService(
 ) *Session {
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, navigator, gate, nil, nil)
+		NewMockModelCatalog(controller), control, navigator, gate, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 	return service

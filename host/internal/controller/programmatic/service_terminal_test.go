@@ -30,10 +30,10 @@ func TestFailureCodeForCommandEnforcesClosedSets(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "run rejects model category",
+			name:     "run accepts model category",
 			command:  CommandUserRequest,
 			proposed: FailureCodeModelFailed,
-			expected: FailureCodeInternal,
+			expected: FailureCodeModelFailed,
 		},
 		{
 			name:     "internal query rejects model category",
@@ -156,6 +156,30 @@ func TestErrorMappingsPreserveStatusTextAndCause(t *testing.T) {
 			require.Equal(t, test.expectedCode, status.Code(mapped))
 			require.Equal(t, test.expectedText, status.Convert(mapped).Message())
 			require.ErrorIs(t, mapped, test.cause)
+		})
+	}
+}
+
+// TestNavigationFailureCodesKeepClosedLogicalCategories verifies transport admission for summary-model failures.
+func TestNavigationFailureCodesKeepClosedLogicalCategories(t *testing.T) {
+	t.Parallel()
+
+	for _, code := range []string{
+		FailureCodeRetryExhausted,
+		FailureCodeRetryCanceled,
+		FailureCodeExtensionFailed,
+		FailureCodeRetryDelayExceeded,
+		FailureCodeContextLimit,
+		FailureCodeInternal,
+	} {
+		t.Run(code, func(t *testing.T) {
+			t.Parallel()
+
+			// Act at the closed command mapping because a broken stream cannot receive its own terminal event.
+			actual := failureCodeForCommand(CommandNavigateSessionTree, code)
+
+			// Assert navigation accepts every provider-neutral configured-request category.
+			require.Equal(t, code, actual)
 		})
 	}
 }

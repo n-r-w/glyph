@@ -93,16 +93,16 @@ func (mr *MockHostOperationMockRecorder) Release() *gomock.Call {
 }
 
 // Run mocks base method.
-func (m *MockHostOperation) Run(arg0 context.Context) (*extensionv1.HostCompleted, error) {
+func (m *MockHostOperation) Run(arg0 context.Context, arg1 *HostProgressReporter) (*extensionv1.HostCompleted, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run", arg0)
+	ret := m.ctrl.Call(m, "Run", arg0, arg1)
 	ret0, _ := ret[0].(*extensionv1.HostCompleted)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Run indicates an expected call of Run.
-func (mr *MockHostOperationMockRecorder) Run(arg0 any) *gomock.Call {
+func (mr *MockHostOperationMockRecorder) Run(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockHostOperation)(nil).Run), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockHostOperation)(nil).Run), arg0, arg1)
 }

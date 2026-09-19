@@ -12,6 +12,7 @@ package extensionmodels
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
@@ -95,19 +96,19 @@ func (m *MockModelRequester) EXPECT() *MockModelRequesterMockRecorder {
 	return m.recorder
 }
 
-// Request mocks base method.
-func (m *MockModelRequester) Request(ctx context.Context, selection model.Selection, instructions string, history []agent.HistoryEntry) (model.Response, error) {
+// RequestConfigured mocks base method.
+func (m *MockModelRequester) RequestConfigured(ctx context.Context, selection model.Selection, instructions string, history []agent.HistoryEntry, progress func(int64, int64, time.Duration, string) error) (model.Response, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Request", ctx, selection, instructions, history)
+	ret := m.ctrl.Call(m, "RequestConfigured", ctx, selection, instructions, history, progress)
 	ret0, _ := ret[0].(model.Response)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// Request indicates an expected call of Request.
-func (mr *MockModelRequesterMockRecorder) Request(ctx, selection, instructions, history any) *gomock.Call {
+// RequestConfigured indicates an expected call of RequestConfigured.
+func (mr *MockModelRequesterMockRecorder) RequestConfigured(ctx, selection, instructions, history, progress any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelRequester)(nil).Request), ctx, selection, instructions, history)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RequestConfigured", reflect.TypeOf((*MockModelRequester)(nil).RequestConfigured), ctx, selection, instructions, history, progress)
 }
 
 // MockRequestFailure is a mock of RequestFailure interface.

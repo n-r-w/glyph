@@ -105,6 +105,7 @@ func TestConnectAndServe(t *testing.T) {
 	handleRequest := new(extensionpb.HostRequest)
 	//nolint:exhaustruct_v5 // The request builder sets only the active observer payload.
 	handleRequest.SetHandle(extensionpb.HandleRequest_builder{
+		Retry:   nil,
 		Context: testInvocationIdentity(),
 
 		HandlerId: new("observer"),
@@ -238,6 +239,7 @@ func newContractService(t *testing.T) Service {
 		func(context.Context) (*extensionpb.HandleResponse, error) {
 			if handlerCalls.Add(1) == 1 {
 				return extensionpb.HandleResponse_builder{
+					Retry:          nil,
 					ModelSelection: nil, ReasoningSelection: nil,
 					Lifecycle:                nil,
 					SessionBeforeTreeRequest: nil,
@@ -247,6 +249,7 @@ func newContractService(t *testing.T) Service {
 				}.Build(), nil
 			}
 			return extensionpb.HandleResponse_builder{
+				Retry:          nil,
 				ModelSelection: nil, ReasoningSelection: nil,
 				Lifecycle:                nil,
 				SessionBeforeTreeRequest: nil,

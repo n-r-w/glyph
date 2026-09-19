@@ -29,7 +29,9 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		{
 			name: "model delta",
 			lifecycle: uiv1.AgentEvent_builder{
-				Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+				RetryProgress: nil,
+				ResponseReset: nil,
+				Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 				ModelContent: uiv1.ModelContent_builder{
 					Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 					Position: new(int64(2)),
@@ -70,6 +72,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		{
 			name: "tool start",
 			lifecycle: uiv1.AgentEvent_builder{
+				RetryProgress:      nil,
+				ResponseReset:      nil,
 				Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START),
 				ToolCallId:         new("call-1"),
 				ToolName:           new("read"),
@@ -106,6 +110,8 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		{
 			name: "tool stderr",
 			lifecycle: uiv1.AgentEvent_builder{
+				RetryProgress:      nil,
+				ResponseReset:      nil,
 				Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
 				ToolCallId:         new("call-1"),
 				ProgressChannel:    new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR),
@@ -142,10 +148,12 @@ func TestMapLifecycleProjectsModelToolSettlementAndAvailability(t *testing.T) {
 		{
 			name: "failed tool result",
 			lifecycle: uiv1.AgentEvent_builder{
-				Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
-				ToolCallId: new("call-1"),
-				ToolName:   new("read"),
-				IsError:    new(true),
+				RetryProgress: nil,
+				ResponseReset: nil,
+				Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+				ToolCallId:    new("call-1"),
+				ToolName:      new("read"),
+				IsError:       new(true),
 				ToolResultContents: []*uiv1.ToolResultContent{
 					//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
 					uiv1.ToolResultContent_builder{

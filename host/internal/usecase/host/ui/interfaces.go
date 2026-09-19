@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"time"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
@@ -31,7 +32,15 @@ type Output interface {
 	Initialize(context.Context, Initialization) error
 	SetAvailability(Availability) error
 	ReportError(code string, cause error) error
-	BindProgress(reporter operation.Reporter[controllerui.Frame]) func()
+	BindProgress(runID string, reporter operation.Reporter[controllerui.Frame]) func()
+}
+
+// RetryControl owns runtime retry enablement and one atomic policy projection.
+type RetryControl interface {
+	// SetRetryEnabled changes enablement for logical executions that start later.
+	SetRetryEnabled(enabled bool)
+	// RetryPolicy returns one detached effective policy snapshot.
+	RetryPolicy() (enabled bool, maxRetries int64, delays []time.Duration, maxProviderDelay time.Duration)
 }
 
 // AgentRunner starts one user request against the retained Agent Core history.

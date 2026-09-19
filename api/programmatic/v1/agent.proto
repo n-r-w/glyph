@@ -3,6 +3,7 @@ edition = "2023";
 package glyph.programmatic.v1;
 
 import "google/protobuf/struct.proto";
+import "api/programmatic/v1/retry.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
 
@@ -23,6 +24,8 @@ message AgentEvent {
     ModelResponse model_response = 9;
     TurnSummary turn = 10;
     AgentSummary agent = 11;
+    RetryProgress retry_progress = 12;
+    ResponseReset response_reset = 13;
   }
 }
 // ModelContent carries one typed model content transition.
@@ -218,6 +221,10 @@ enum AgentEventType {
   AGENT_EVENT_TYPE_TURN_END = 15;
   // The agent run ended.
   AGENT_EVENT_TYPE_AGENT_END = 16;
+  // The unfinished model response was discarded before replacement.
+  AGENT_EVENT_TYPE_RESPONSE_RESET = 17;
+  // Another model attempt is pending.
+  AGENT_EVENT_TYPE_RETRY_PROGRESS = 18;
 }
 // ModelContentKind identifies model content semantics.
 enum ModelContentKind {

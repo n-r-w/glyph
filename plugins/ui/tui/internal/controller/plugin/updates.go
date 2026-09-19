@@ -1,6 +1,10 @@
 package plugin
 
-import "github.com/samber/mo"
+import (
+	"time"
+
+	"github.com/samber/mo"
+)
 
 // AgentKind identifies a model or tool lifecycle update.
 type AgentKind uint8
@@ -14,6 +18,10 @@ const (
 	AgentModelDelta
 	// AgentModelEnd carries complete model content.
 	AgentModelEnd
+	// AgentResponseReset discards one unfinished model response.
+	AgentResponseReset
+	// AgentRetryProgress reports one pending replacement attempt.
+	AgentRetryProgress
 	// AgentToolCallPreview carries provisional tool arguments.
 	AgentToolCallPreview
 	// AgentToolCallFinal carries complete tool arguments.
@@ -31,6 +39,18 @@ const (
 	// AgentTurnEnded records turn completion.
 	AgentTurnEnded
 )
+
+// RetryProgress reports one accepted replacement model attempt.
+type RetryProgress struct {
+	// CompletedAttempts is the number of completed provider attempts.
+	CompletedAttempts int64
+	// AttemptLimit is the effective total attempt limit.
+	AttemptLimit int64
+	// Delay is the pending delay before replacement.
+	Delay time.Duration
+	// Error contains the complete failed-attempt text.
+	Error string
+}
 
 // AgentUpdate carries validated lifecycle data without session or initialization payloads.
 type AgentUpdate struct {
@@ -62,6 +82,8 @@ type AgentUpdate struct {
 	Failure mo.Option[bool]
 	// ToolCall contains validated tool arguments and identity.
 	ToolCall mo.Option[ToolCallState]
+	// Retry contains retry progress when another attempt is pending.
+	Retry mo.Option[RetryProgress]
 }
 
 // TextKind identifies the source meaning of a text update.

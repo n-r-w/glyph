@@ -12,6 +12,7 @@ package ui
 import (
 	context "context"
 	reflect "reflect"
+	time "time"
 
 	ui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -138,17 +139,17 @@ func (m *MockOutput) EXPECT() *MockOutputMockRecorder {
 }
 
 // BindProgress mocks base method.
-func (m *MockOutput) BindProgress(reporter operation.Reporter[ui.Frame]) func() {
+func (m *MockOutput) BindProgress(runID string, reporter operation.Reporter[ui.Frame]) func() {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "BindProgress", reporter)
+	ret := m.ctrl.Call(m, "BindProgress", runID, reporter)
 	ret0, _ := ret[0].(func())
 	return ret0
 }
 
 // BindProgress indicates an expected call of BindProgress.
-func (mr *MockOutputMockRecorder) BindProgress(reporter any) *gomock.Call {
+func (mr *MockOutputMockRecorder) BindProgress(runID, reporter any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BindProgress", reflect.TypeOf((*MockOutput)(nil).BindProgress), reporter)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BindProgress", reflect.TypeOf((*MockOutput)(nil).BindProgress), runID, reporter)
 }
 
 // Initialize mocks base method.
@@ -191,6 +192,59 @@ func (m *MockOutput) SetAvailability(arg0 Availability) error {
 func (mr *MockOutputMockRecorder) SetAvailability(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetAvailability", reflect.TypeOf((*MockOutput)(nil).SetAvailability), arg0)
+}
+
+// MockRetryControl is a mock of RetryControl interface.
+type MockRetryControl struct {
+	ctrl     *gomock.Controller
+	recorder *MockRetryControlMockRecorder
+	isgomock struct{}
+}
+
+// MockRetryControlMockRecorder is the mock recorder for MockRetryControl.
+type MockRetryControlMockRecorder struct {
+	mock *MockRetryControl
+}
+
+// NewMockRetryControl creates a new mock instance.
+func NewMockRetryControl(ctrl *gomock.Controller) *MockRetryControl {
+	mock := &MockRetryControl{ctrl: ctrl}
+	mock.recorder = &MockRetryControlMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRetryControl) EXPECT() *MockRetryControlMockRecorder {
+	return m.recorder
+}
+
+// RetryPolicy mocks base method.
+func (m *MockRetryControl) RetryPolicy() (bool, int64, []time.Duration, time.Duration) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RetryPolicy")
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(int64)
+	ret2, _ := ret[2].([]time.Duration)
+	ret3, _ := ret[3].(time.Duration)
+	return ret0, ret1, ret2, ret3
+}
+
+// RetryPolicy indicates an expected call of RetryPolicy.
+func (mr *MockRetryControlMockRecorder) RetryPolicy() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RetryPolicy", reflect.TypeOf((*MockRetryControl)(nil).RetryPolicy))
+}
+
+// SetRetryEnabled mocks base method.
+func (m *MockRetryControl) SetRetryEnabled(enabled bool) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetRetryEnabled", enabled)
+}
+
+// SetRetryEnabled indicates an expected call of SetRetryEnabled.
+func (mr *MockRetryControlMockRecorder) SetRetryEnabled(enabled any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRetryEnabled", reflect.TypeOf((*MockRetryControl)(nil).SetRetryEnabled), enabled)
 }
 
 // MockAgentRunner is a mock of AgentRunner interface.

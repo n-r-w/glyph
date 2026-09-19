@@ -59,6 +59,10 @@ const (
 	AgentEventType_AGENT_EVENT_TYPE_TURN_END AgentEventType = 15
 	// The agent run ended.
 	AgentEventType_AGENT_EVENT_TYPE_AGENT_END AgentEventType = 16
+	// The unfinished model response was discarded before replacement.
+	AgentEventType_AGENT_EVENT_TYPE_RESPONSE_RESET AgentEventType = 17
+	// Another model attempt is pending.
+	AgentEventType_AGENT_EVENT_TYPE_RETRY_PROGRESS AgentEventType = 18
 )
 
 // Enum value maps for AgentEventType.
@@ -81,6 +85,8 @@ var (
 		14: "AGENT_EVENT_TYPE_TOOL_RESULT",
 		15: "AGENT_EVENT_TYPE_TURN_END",
 		16: "AGENT_EVENT_TYPE_AGENT_END",
+		17: "AGENT_EVENT_TYPE_RESPONSE_RESET",
+		18: "AGENT_EVENT_TYPE_RETRY_PROGRESS",
 	}
 	AgentEventType_value = map[string]int32{
 		"AGENT_EVENT_TYPE_UNSPECIFIED":           0,
@@ -100,6 +106,8 @@ var (
 		"AGENT_EVENT_TYPE_TOOL_RESULT":           14,
 		"AGENT_EVENT_TYPE_TURN_END":              15,
 		"AGENT_EVENT_TYPE_AGENT_END":             16,
+		"AGENT_EVENT_TYPE_RESPONSE_RESET":        17,
+		"AGENT_EVENT_TYPE_RETRY_PROGRESS":        18,
 	}
 )
 
@@ -478,6 +486,24 @@ func (x *AgentEvent) GetAgent() *AgentSummary {
 	return nil
 }
 
+func (x *AgentEvent) GetRetryProgress() *RetryProgress {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*agentEvent_RetryProgress); ok {
+			return x.RetryProgress
+		}
+	}
+	return nil
+}
+
+func (x *AgentEvent) GetResponseReset() *ResponseReset {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*agentEvent_ResponseReset); ok {
+			return x.ResponseReset
+		}
+	}
+	return nil
+}
+
 func (x *AgentEvent) SetType(v AgentEventType) {
 	x.xxx_hidden_Type = v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
@@ -558,6 +584,22 @@ func (x *AgentEvent) SetAgent(v *AgentSummary) {
 		return
 	}
 	x.xxx_hidden_Payload = &agentEvent_Agent{v}
+}
+
+func (x *AgentEvent) SetRetryProgress(v *RetryProgress) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &agentEvent_RetryProgress{v}
+}
+
+func (x *AgentEvent) SetResponseReset(v *ResponseReset) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &agentEvent_ResponseReset{v}
 }
 
 func (x *AgentEvent) HasType() bool {
@@ -653,6 +695,22 @@ func (x *AgentEvent) HasAgent() bool {
 	return ok
 }
 
+func (x *AgentEvent) HasRetryProgress() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*agentEvent_RetryProgress)
+	return ok
+}
+
+func (x *AgentEvent) HasResponseReset() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*agentEvent_ResponseReset)
+	return ok
+}
+
 func (x *AgentEvent) ClearType() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Type = AgentEventType_AGENT_EVENT_TYPE_UNSPECIFIED
@@ -721,6 +779,18 @@ func (x *AgentEvent) ClearAgent() {
 	}
 }
 
+func (x *AgentEvent) ClearRetryProgress() {
+	if _, ok := x.xxx_hidden_Payload.(*agentEvent_RetryProgress); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *AgentEvent) ClearResponseReset() {
+	if _, ok := x.xxx_hidden_Payload.(*agentEvent_ResponseReset); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
 const AgentEvent_Payload_not_set_case case_AgentEvent_Payload = 0
 const AgentEvent_ModelContent_case case_AgentEvent_Payload = 3
 const AgentEvent_ToolCallPreview_case case_AgentEvent_Payload = 4
@@ -731,6 +801,8 @@ const AgentEvent_ToolResult_case case_AgentEvent_Payload = 8
 const AgentEvent_ModelResponse_case case_AgentEvent_Payload = 9
 const AgentEvent_Turn_case case_AgentEvent_Payload = 10
 const AgentEvent_Agent_case case_AgentEvent_Payload = 11
+const AgentEvent_RetryProgress_case case_AgentEvent_Payload = 12
+const AgentEvent_ResponseReset_case case_AgentEvent_Payload = 13
 
 func (x *AgentEvent) WhichPayload() case_AgentEvent_Payload {
 	if x == nil {
@@ -755,6 +827,10 @@ func (x *AgentEvent) WhichPayload() case_AgentEvent_Payload {
 		return AgentEvent_Turn_case
 	case *agentEvent_Agent:
 		return AgentEvent_Agent_case
+	case *agentEvent_RetryProgress:
+		return AgentEvent_RetryProgress_case
+	case *agentEvent_ResponseReset:
+		return AgentEvent_ResponseReset_case
 	default:
 		return AgentEvent_Payload_not_set_case
 	}
@@ -779,6 +855,8 @@ type AgentEvent_builder struct {
 	ModelResponse   *ModelResponse
 	Turn            *TurnSummary
 	Agent           *AgentSummary
+	RetryProgress   *RetryProgress
+	ResponseReset   *ResponseReset
 	// -- end of xxx_hidden_Payload
 }
 
@@ -820,6 +898,12 @@ func (b0 AgentEvent_builder) Build() *AgentEvent {
 	}
 	if b.Agent != nil {
 		x.xxx_hidden_Payload = &agentEvent_Agent{b.Agent}
+	}
+	if b.RetryProgress != nil {
+		x.xxx_hidden_Payload = &agentEvent_RetryProgress{b.RetryProgress}
+	}
+	if b.ResponseReset != nil {
+		x.xxx_hidden_Payload = &agentEvent_ResponseReset{b.ResponseReset}
 	}
 	return m0
 }
@@ -874,6 +958,14 @@ type agentEvent_Agent struct {
 	Agent *AgentSummary `protobuf:"bytes,11,opt,name=agent,oneof"`
 }
 
+type agentEvent_RetryProgress struct {
+	RetryProgress *RetryProgress `protobuf:"bytes,12,opt,name=retry_progress,json=retryProgress,oneof"`
+}
+
+type agentEvent_ResponseReset struct {
+	ResponseReset *ResponseReset `protobuf:"bytes,13,opt,name=response_reset,json=responseReset,oneof"`
+}
+
 func (*agentEvent_ModelContent) isAgentEvent_Payload() {}
 
 func (*agentEvent_ToolCallPreview) isAgentEvent_Payload() {}
@@ -891,6 +983,10 @@ func (*agentEvent_ModelResponse) isAgentEvent_Payload() {}
 func (*agentEvent_Turn) isAgentEvent_Payload() {}
 
 func (*agentEvent_Agent) isAgentEvent_Payload() {}
+
+func (*agentEvent_RetryProgress) isAgentEvent_Payload() {}
+
+func (*agentEvent_ResponseReset) isAgentEvent_Payload() {}
 
 // ModelContent carries one typed model content transition.
 type ModelContent struct {
@@ -3522,7 +3618,7 @@ var File_api_programmatic_v1_agent_proto protoreflect.FileDescriptor
 
 const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x1fapi/programmatic/v1/agent.proto\x12\x15glyph.programmatic.v1\x1a\x1cgoogle/protobuf/struct.proto\"\x82\x06\n" +
+	"\x1fapi/programmatic/v1/agent.proto\x12\x15glyph.programmatic.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fapi/programmatic/v1/retry.proto\"\xa0\a\n" +
 	"\n" +
 	"AgentEvent\x129\n" +
 	"\x04type\x18\x01 \x01(\x0e2%.glyph.programmatic.v1.AgentEventTypeR\x04type\x12\x15\n" +
@@ -3537,7 +3633,9 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\x0emodel_response\x18\t \x01(\v2$.glyph.programmatic.v1.ModelResponseH\x00R\rmodelResponse\x128\n" +
 	"\x04turn\x18\n" +
 	" \x01(\v2\".glyph.programmatic.v1.TurnSummaryH\x00R\x04turn\x12;\n" +
-	"\x05agent\x18\v \x01(\v2#.glyph.programmatic.v1.AgentSummaryH\x00R\x05agentB\t\n" +
+	"\x05agent\x18\v \x01(\v2#.glyph.programmatic.v1.AgentSummaryH\x00R\x05agent\x12M\n" +
+	"\x0eretry_progress\x18\f \x01(\v2$.glyph.programmatic.v1.RetryProgressH\x00R\rretryProgress\x12M\n" +
+	"\x0eresponse_reset\x18\r \x01(\v2$.glyph.programmatic.v1.ResponseResetH\x00R\rresponseResetB\t\n" +
 	"\apayload\"{\n" +
 	"\fModelContent\x12;\n" +
 	"\x04kind\x18\x01 \x01(\x0e2'.glyph.programmatic.v1.ModelContentKindR\x04kind\x12\x1a\n" +
@@ -3616,7 +3714,7 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\ftool_results\x18\x02 \x03(\v2!.glyph.programmatic.v1.ToolResultR\vtoolResults\"p\n" +
 	"\fAgentSummary\x12;\n" +
 	"\aoutcome\x18\x01 \x01(\x0e2!.glyph.programmatic.v1.RunOutcomeR\aoutcome\x12#\n" +
-	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage*\x85\x05\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage*\xcf\x05\n" +
 	"\x0eAgentEventType\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_AGENT_START\x10\x01\x12\x1f\n" +
@@ -3635,7 +3733,9 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"#AGENT_EVENT_TYPE_TOOL_EXECUTION_END\x10\r\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_TOOL_RESULT\x10\x0e\x12\x1d\n" +
 	"\x19AGENT_EVENT_TYPE_TURN_END\x10\x0f\x12\x1e\n" +
-	"\x1aAGENT_EVENT_TYPE_AGENT_END\x10\x10*\x95\x01\n" +
+	"\x1aAGENT_EVENT_TYPE_AGENT_END\x10\x10\x12#\n" +
+	"\x1fAGENT_EVENT_TYPE_RESPONSE_RESET\x10\x11\x12#\n" +
+	"\x1fAGENT_EVENT_TYPE_RETRY_PROGRESS\x10\x12*\x95\x01\n" +
 	"\x10ModelContentKind\x12\"\n" +
 	"\x1eMODEL_CONTENT_KIND_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17MODEL_CONTENT_KIND_TEXT\x10\x01\x12 \n" +
@@ -3685,7 +3785,9 @@ var file_api_programmatic_v1_agent_proto_goTypes = []any{
 	(*ModelDiagnostic)(nil),      // 19: glyph.programmatic.v1.ModelDiagnostic
 	(*TurnSummary)(nil),          // 20: glyph.programmatic.v1.TurnSummary
 	(*AgentSummary)(nil),         // 21: glyph.programmatic.v1.AgentSummary
-	(*structpb.Value)(nil),       // 22: google.protobuf.Value
+	(*RetryProgress)(nil),        // 22: glyph.programmatic.v1.RetryProgress
+	(*ResponseReset)(nil),        // 23: glyph.programmatic.v1.ResponseReset
+	(*structpb.Value)(nil),       // 24: google.protobuf.Value
 }
 var file_api_programmatic_v1_agent_proto_depIdxs = []int32{
 	0,  // 0: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
@@ -3698,28 +3800,30 @@ var file_api_programmatic_v1_agent_proto_depIdxs = []int32{
 	15, // 7: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
 	20, // 8: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
 	21, // 9: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
-	1,  // 10: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
-	8,  // 11: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
-	22, // 12: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	2,  // 13: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
-	13, // 14: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
-	14, // 15: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
-	3,  // 16: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
-	18, // 17: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
-	19, // 18: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
-	16, // 19: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
-	17, // 20: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
-	17, // 21: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
-	17, // 22: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
-	9,  // 23: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	15, // 24: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
-	12, // 25: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
-	4,  // 26: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	22, // 10: glyph.programmatic.v1.AgentEvent.retry_progress:type_name -> glyph.programmatic.v1.RetryProgress
+	23, // 11: glyph.programmatic.v1.AgentEvent.response_reset:type_name -> glyph.programmatic.v1.ResponseReset
+	1,  // 12: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
+	8,  // 13: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
+	24, // 14: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	2,  // 15: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
+	13, // 16: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
+	14, // 17: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
+	3,  // 18: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
+	18, // 19: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
+	19, // 20: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
+	16, // 21: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
+	17, // 22: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
+	17, // 23: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
+	17, // 24: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
+	9,  // 25: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	15, // 26: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
+	12, // 27: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
+	4,  // 28: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
+	29, // [29:29] is the sub-list for method output_type
+	29, // [29:29] is the sub-list for method input_type
+	29, // [29:29] is the sub-list for extension type_name
+	29, // [29:29] is the sub-list for extension extendee
+	0,  // [0:29] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_agent_proto_init() }
@@ -3727,6 +3831,7 @@ func file_api_programmatic_v1_agent_proto_init() {
 	if File_api_programmatic_v1_agent_proto != nil {
 		return
 	}
+	file_api_programmatic_v1_retry_proto_init()
 	file_api_programmatic_v1_agent_proto_msgTypes[0].OneofWrappers = []any{
 		(*agentEvent_ModelContent)(nil),
 		(*agentEvent_ToolCallPreview)(nil),
@@ -3737,6 +3842,8 @@ func file_api_programmatic_v1_agent_proto_init() {
 		(*agentEvent_ModelResponse)(nil),
 		(*agentEvent_Turn)(nil),
 		(*agentEvent_Agent)(nil),
+		(*agentEvent_RetryProgress)(nil),
+		(*agentEvent_ResponseReset)(nil),
 	}
 	file_api_programmatic_v1_agent_proto_msgTypes[3].OneofWrappers = []any{
 		(*toolCallPreviewField_Value)(nil),

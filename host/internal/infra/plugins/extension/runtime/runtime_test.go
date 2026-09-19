@@ -26,6 +26,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -808,26 +809,7 @@ func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
 			return err
 		},
 		"mismatched Handle action": func(t *testing.T, runtime *Runtime) error {
-			request := extensionruntime.HandlerInvocation{
-				Context: runtimeTestContext(),
-
-				Kind:           extensionruntime.InvocationObserver,
-				Original:       extensionruntime.Preparation{},
-				Current:        extensionruntime.Preparation{},
-				OriginalResult: mo.None[extensionruntime.Summary](),
-				CurrentResult:  mo.None[extensionruntime.Summary](),
-				Commit: mo.Some(extensionruntime.TreeCommit{
-					SessionID:               "session",
-					TargetEntryID:           "target",
-					PrecedingActiveLeafID:   mo.None[string](),
-					NavigationDestinationID: mo.None[string](),
-					CommittedActiveLeafID:   mo.None[string](),
-					CreatedSummary:          mo.None[extensionruntime.CommittedSummary](),
-				}),
-				OriginalSelection: model.Selection{},
-				CurrentSelection:  model.Selection{},
-			}
-			_, err := runtime.Handle(t.Context(), "observer", request)
+			_, err := runtime.Handle(t.Context(), "observer", runtimeObserverInvocation())
 			return err
 		},
 	}
@@ -1157,6 +1139,7 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 		Commit:            mo.Some(invocation),
 		OriginalSelection: model.Selection{},
 		CurrentSelection:  model.Selection{},
+		Retry:             mo.None[modelexecution.RetryInvocation](),
 	}
 
 	// Act: invoke the registered handler operation.
@@ -1176,6 +1159,7 @@ func TestRuntimeHandleInvokesSessionTreeObserverOperation(t *testing.T) {
 			SelectionAction:      0,
 			SelectionReplacement: mo.None[model.Selection](),
 			SelectionRejection:   mo.None[string](),
+			Retry:                mo.None[modelexecution.RetryAction](),
 		},
 		response,
 	)
@@ -1282,6 +1266,7 @@ func (operation *protocolHandleOperation) Run(
 			message = ""
 		}
 		return extensionpb.HandleResponse_builder{
+			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil,
@@ -1290,6 +1275,7 @@ func (operation *protocolHandleOperation) Run(
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	return extensionpb.HandleResponse_builder{
+		Retry:          nil,
 		ModelSelection: nil, ReasoningSelection: nil,
 		Lifecycle:   nil,
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
@@ -1460,6 +1446,7 @@ func runtimeObserverInvocation() extensionruntime.HandlerInvocation {
 			CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[extensionruntime.CommittedSummary](),
 		}),
 		OriginalSelection: model.Selection{}, CurrentSelection: model.Selection{},
+		Retry: mo.None[modelexecution.RetryInvocation](),
 	}
 }
 

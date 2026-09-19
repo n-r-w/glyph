@@ -19,6 +19,7 @@ func (s *Service) ValidateSessionTreeHandlers(
 		if !handler.Present || strings.TrimSpace(handler.ID) == "" {
 			return nil, errors.New("handler ID is empty")
 		}
+		//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 		switch handler.Kind {
 		case startup.RawHandlerKindSessionBeforeTreeRequest,
 			startup.RawHandlerKindSessionBeforeTreeResult,
@@ -64,6 +65,7 @@ func (s *Service) CommitSessionTreeHandlers(registrations []startup.AcceptedRegi
 
 // acceptedHandlerKind maps one previously validated startup handler kind.
 func acceptedHandlerKind(kind startup.RawHandlerKind) HandlerKind {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case startup.RawHandlerKindSessionBeforeTreeRequest:
 		return HandlerKindRequest

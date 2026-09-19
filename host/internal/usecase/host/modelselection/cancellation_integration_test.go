@@ -58,7 +58,7 @@ func TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission(t *tes
 		service.BindObserver(observer)
 		runOutput := hostprogrammatic.NewMockRunOutput(gomockController)
 		runOutput.EXPECT().ActiveOperation().Return("")
-		initiator := hostprogrammatic.New(nil, nil, nil, nil, nil, nil, runOutput, service)
+		initiator := hostprogrammatic.New(nil, nil, nil, nil, nil, nil, runOutput, service, nil)
 		prepared, err := initiator.Prepare(
 			t.Context(), reasoningSelectionCommand("selection", committed.ReasoningChoice),
 		)
@@ -149,5 +149,6 @@ func reasoningSelectionCommand(operationID string, choice model.ReasoningChoice)
 		ReasoningChoice: mo.Some(choice), SessionID: mo.None[session.ID](), SessionName: mo.None[string](),
 		TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary,
 		CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		RetryEnabled: mo.None[bool](),
 	}
 }

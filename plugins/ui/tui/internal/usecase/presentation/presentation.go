@@ -97,6 +97,10 @@ const (
 	eventModelDelta
 	// eventModelEnd settles one model text position.
 	eventModelEnd
+	// eventResponseReset discards the unfinished model response.
+	eventResponseReset
+	// eventRetryProgress reports one pending replacement attempt.
+	eventRetryProgress
 	// eventToolCallPreview replaces one provisional function-call preview.
 	eventToolCallPreview
 	// eventToolCallFinal replaces one preview with exact final arguments.
@@ -433,6 +437,8 @@ type projection struct {
 	ActiveToolCalls map[string]ToolCallState
 	// ActiveTools contains active tool names by call ID.
 	ActiveTools map[string]string
+	// RetryStatus contains the active model retry status text.
+	RetryStatus string
 	// Availability controls accepted user commands.
 	Availability mo.Option[Availability]
 	// AuthorizationURL contains the pending browser OAuth URL.

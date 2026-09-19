@@ -13,6 +13,12 @@ defaultProvider: openrouter
 defaultModel: z-ai/glm-5.3-flash
 activeUI: glyph-tui
 
+retry:
+  enabled: true
+  maxRetries: 3
+  delays: [1s, 2s, 4s]
+  maxProviderDelay: 30s
+
 providers:
   openai-codex:
     type: openai-codex
@@ -60,8 +66,20 @@ Model limits and capabilities are configuration data. Check them against the pro
 | `defaultModel` | Yes | Model ID selected at startup. It must belong to `defaultProvider`. |
 | `providers` | Yes | Nonempty map of provider IDs to provider configurations. |
 | `activeUI` | No | Persisted UI plugin ID. Glyph converts it to lowercase, normalizes runs of whitespace, `_`, and `-` to one `-`, and rejects an empty result. |
+| `retry` | No | Model retry policy. Omitted fields use the defaults described below. |
 
 `defaultProvider`, `defaultModel`, provider IDs, model IDs, API-key references, and compatibility keys must be nonempty and must not contain surrounding whitespace.
+
+## Retry policy
+
+| Field | Default | Validation |
+|---|---:|---|
+| `enabled` | `true` | Boolean startup state. `/retry on` and `/retry off` change process-local state without rewriting `settings.yaml`. |
+| `maxRetries` | `3` | Nonnegative repeat count after the initial request. |
+| `delays` | `[1s, 2s, 4s]` | Nonnegative durations. A positive `maxRetries` requires at least one delay. The final value is reused when the repeat count is longer than the sequence; extra values are ignored when it is shorter. |
+| `maxProviderDelay` | `30s` | Nonnegative maximum accepted provider-requested delay. A larger requested delay fails explicitly. |
+
+Each logical model execution snapshots these values and the runtime enabled state before its initial request.
 
 ## Extensions and tools
 

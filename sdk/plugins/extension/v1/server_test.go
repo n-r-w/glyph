@@ -753,6 +753,7 @@ func TestExternalErrorIngressPreservesEveryOutcome(t *testing.T) {
 	text := strings.Repeat("界", 22000) + " final peer cause"
 	completed := new(extensionpb.ExtensionCompleted)
 	completed.SetHandle(extensionpb.HandleResponse_builder{
+		Retry: nil,
 		Error: extensionpb.HandlerError_builder{Message: new(text)}.Build(),
 	}.Build())
 	handlerEvent := new(extensionpb.ExtensionEvent)
@@ -1221,6 +1222,7 @@ func openExecuteRequestWith(id string, toolName string, arguments []byte) *exten
 func openHandleRequest(id string, handlerID string) *extensionpb.OpenRequest {
 	request := new(extensionpb.HostRequest)
 	request.SetHandle(extensionpb.HandleRequest_builder{
+		Retry:   nil,
 		Context: testInvocationIdentity(),
 
 		HandlerId: new(handlerID), SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,

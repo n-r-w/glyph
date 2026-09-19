@@ -85,12 +85,13 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 			// Assert the original error tree and outcome remain while public text follows cancellation purity.
 			require.ErrorIs(t, err, providerErr)
 			require.ErrorIs(t, err, context.Canceled)
-			assert.Equal(t, agent.RunOutcomeAborted, result.Outcome)
 			if !test.mixed {
+				assert.Equal(t, agent.RunOutcomeAborted, result.Outcome)
 				assert.Equal(t, abortedModelMessage, messageEnd.ErrorMessage.OrEmpty())
 				assert.Equal(t, abortedModelMessage, agentEnd.ErrorMessage.OrEmpty())
 				return
 			}
+			assert.Equal(t, agent.RunOutcomeFailed, result.Outcome)
 			require.ErrorIs(t, err, providerCause)
 			for _, text := range []string{
 				messageEnd.ErrorMessage.OrEmpty(), agentEnd.ErrorMessage.OrEmpty(),

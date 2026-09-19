@@ -24,7 +24,7 @@ func TestSessionInformationOperationReturnsCoherentStatistics(t *testing.T) {
 	control.EXPECT().ActiveInformation().Return(session.Info{}, session.Statistics{})
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), control, nil, gate, nil, nil)
+		NewMockModelCatalog(controller), control, nil, gate, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 

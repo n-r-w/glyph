@@ -320,6 +320,19 @@ func (s *server) prepareInvocation(
 	request *extensionpb.HostRequest,
 	initiator *contextInitiator,
 ) (operation.Prepared[*extensionpb.ToolProgress, extensionResult], error) {
+	if handle := request.GetHandle(); handle != nil && handle.GetRetry() != nil {
+		if err := s.validateHandle(handle); err != nil {
+			return nil, err
+		}
+		admitted, err := s.service.PrepareHandle(ctx, handle)
+		if err != nil {
+			return nil, err
+		}
+		if admitted == nil {
+			return nil, errors.New("prepare handler: operation is required")
+		}
+		return &handlePrepared{operation: admitted, binding: nil}, nil
+	}
 	identity := request.GetHandle().GetContext()
 	if request.GetHandle() != nil {
 		if err := s.validateHandle(request.GetHandle()); err != nil {
@@ -436,6 +449,8 @@ func handlerKindMatches(kind extensionpb.HandlerKind, request *extensionpb.Handl
 		return request.GetModelSelection() != nil
 	case extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION:
 		return request.GetReasoningSelection() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_RETRY:
+		return request.GetRetry() != nil
 	case extensionpb.HandlerKind_HANDLER_KIND_AGENT_START,
 		extensionpb.HandlerKind_HANDLER_KIND_AGENT_END,
 		extensionpb.HandlerKind_HANDLER_KIND_AGENT_SETTLED,
@@ -478,6 +493,7 @@ func boundaryLifecycleKindMatches(
 	kind extensionpb.HandlerKind,
 	invocation *extensionpb.LifecycleInvocation,
 ) bool {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case extensionpb.HandlerKind_HANDLER_KIND_AGENT_START:
 		return invocation.GetAgentStart() != nil
@@ -514,6 +530,7 @@ func transitionLifecycleKindMatches(
 	kind extensionpb.HandlerKind,
 	invocation *extensionpb.LifecycleInvocation,
 ) bool {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case extensionpb.HandlerKind_HANDLER_KIND_MESSAGE_START:
 		return invocation.GetMessageStart() != nil
@@ -551,6 +568,7 @@ func selectionLifecycleKindMatches(
 	kind extensionpb.HandlerKind,
 	invocation *extensionpb.LifecycleInvocation,
 ) bool {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case extensionpb.HandlerKind_HANDLER_KIND_MODEL_SELECTION_OBSERVER:
 		return invocation.GetModelSelection() != nil

@@ -212,7 +212,7 @@ func (c *ExtensionContext) StartReasoningSelection(
 
 // Wait waits for a model selection terminal result without changing remote cancellation ownership.
 func (o *ModelSelectionOperation) Wait(ctx context.Context) (*extensionpb.SelectionResult, error) {
-	result, err := o.operation.wait(ctx)
+	result, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -221,7 +221,7 @@ func (o *ModelSelectionOperation) Wait(ctx context.Context) (*extensionpb.Select
 
 // Wait waits for a reasoning selection terminal result without changing remote cancellation ownership.
 func (o *ReasoningSelectionOperation) Wait(ctx context.Context) (*extensionpb.SelectionResult, error) {
-	result, err := o.operation.wait(ctx)
+	result, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -230,7 +230,7 @@ func (o *ReasoningSelectionOperation) Wait(ctx context.Context) (*extensionpb.Se
 
 // Wait waits locally for the committed hidden entry without canceling remote work.
 func (o *AppendExtensionOperation) Wait(ctx context.Context) (*extensionpb.AppendExtensionResult, error) {
-	result, err := o.operation.wait(ctx)
+	result, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -239,7 +239,7 @@ func (o *AppendExtensionOperation) Wait(ctx context.Context) (*extensionpb.Appen
 
 // Wait waits locally for the committed message and delivery issues without canceling remote work.
 func (o *AppendExtensionMessageOperation) Wait(ctx context.Context) (*extensionpb.AppendExtensionMessageResult, error) {
-	result, err := o.operation.wait(ctx)
+	result, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -248,7 +248,7 @@ func (o *AppendExtensionMessageOperation) Wait(ctx context.Context) (*extensionp
 
 // Wait waits locally for the typed active-branch snapshot without canceling remote work.
 func (o *SessionStateOperation) Wait(ctx context.Context) (*extensionpb.GetSessionStateResult, error) {
-	result, err := o.operation.wait(ctx)
+	result, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -257,7 +257,24 @@ func (o *SessionStateOperation) Wait(ctx context.Context) (*extensionpb.GetSessi
 
 // Wait waits locally for the typed configured-model result without canceling remote work.
 func (o *ConfiguredModelOperation) Wait(ctx context.Context) (*extensionpb.ConfiguredModelResult, error) {
-	result, err := o.operation.wait(ctx)
+	result, err := o.operation.wait(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.GetConfiguredModel(), nil
+}
+
+// WaitWithProgress waits for a configured-model result and delivers ordered retry progress.
+func (o *ConfiguredModelOperation) WaitWithProgress(
+	ctx context.Context,
+	handle func(*extensionpb.ConfiguredModelRetryProgress) error,
+) (*extensionpb.ConfiguredModelResult, error) {
+	result, err := o.operation.wait(ctx, func(progress *extensionpb.HostProgress) error {
+		if handle == nil {
+			return nil
+		}
+		return handle(progress.GetConfiguredModelRetry())
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -266,7 +283,7 @@ func (o *ConfiguredModelOperation) Wait(ctx context.Context) (*extensionpb.Confi
 
 // Wait waits locally for the typed model-catalog result without canceling remote work.
 func (o *ModelsOperation) Wait(ctx context.Context) (*extensionpb.GetModelsResult, error) {
-	result, err := o.operation.wait(ctx)
+	result, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -275,7 +292,7 @@ func (o *ModelsOperation) Wait(ctx context.Context) (*extensionpb.GetModelsResul
 
 // Wait waits locally for the typed provider-catalog result without canceling remote work.
 func (o *ProvidersOperation) Wait(ctx context.Context) (*extensionpb.GetProvidersResult, error) {
-	result, err := o.operation.wait(ctx)
+	result, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
 	}

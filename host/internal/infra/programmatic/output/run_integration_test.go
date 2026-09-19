@@ -29,6 +29,7 @@ func runCommand(id string) controller.Command {
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
 		SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
+		RetryEnabled: mo.None[bool](),
 	}
 }
 
@@ -57,7 +58,7 @@ func TestAcceptedOperationStartsExplicitlyAndBackpressures(t *testing.T) {
 		ctrl := gomock.NewController(t)
 		output := New()
 		coordinator := host.NewMockCoordinator(ctrl)
-		service := host.New(coordinator, nil, nil, nil, nil, nil, output, nil)
+		service := host.New(coordinator, nil, nil, nil, nil, nil, output, nil, nil)
 		started := make(chan struct{})
 		delivered := make(chan struct{})
 		accept := make(chan struct{})
@@ -153,7 +154,7 @@ func TestSequentialRunsKeepPreparedRunIDs(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	output := New()
 	coordinator := host.NewMockCoordinator(ctrl)
-	service := host.New(coordinator, nil, nil, nil, nil, nil, output, nil)
+	service := host.New(coordinator, nil, nil, nil, nil, nil, output, nil, nil)
 	for _, id := range []string{"first", "second"} {
 		coordinator.EXPECT().PrepareRun().Return(id, nil)
 		coordinator.EXPECT().

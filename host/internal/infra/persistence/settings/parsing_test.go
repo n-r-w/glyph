@@ -3,6 +3,8 @@
 package settings
 
 import (
+	"time"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -129,6 +131,28 @@ providers:
 		Supported: false, Choices: []ReasoningChoice{ReasoningChoiceOff}, Default: ReasoningChoiceOff,
 		CompatibilityKey: mo.None[string](), Format: "",
 	}, models[5].Reasoning)
+}
+
+// TestLoadParsesRetryPolicy verifies configured count and delay values replace the defaults.
+func (s *SettingsSuite) TestLoadParsesRetryPolicy() {
+	// Arrange valid settings with one explicit retry mapping.
+	path := writeSettings(s.T(), validSettings(`retry:
+  enabled: false
+  maxRetries: 5
+  delays: [250ms, 3s]
+  maxProviderDelay: 45s
+`))
+
+	// Act by loading the strict settings document.
+	loaded, err := New(path).Load()
+
+	// Assert every retry value retains its independent configured meaning.
+	s.Require().NoError(err)
+	s.Equal(Retry{
+		Enabled: false, MaxRetries: 5,
+		Delays:           []time.Duration{250 * time.Millisecond, 3 * time.Second},
+		MaxProviderDelay: 45 * time.Second,
+	}, loaded.Retry)
 }
 
 // TestLoadParsesToolCapabilities verifies exact declarative capability mapping for an arbitrary model ID.

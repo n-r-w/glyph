@@ -377,6 +377,8 @@ const (
 	operationKindSetEntryLabel = "set_entry_label"
 	// operationKindSetSessionName identifies set session name operations.
 	operationKindSetSessionName = "set_session_name"
+	// operationKindSetRetryEnabled identifies runtime retry-control operations.
+	operationKindSetRetryEnabled = "set_retry_enabled"
 	// operationKindSubmit identifies submit operations.
 	operationKindSubmit = "submit"
 )
@@ -392,6 +394,8 @@ func hostRequestKind(request *uiv1.UIRequest) string {
 		return operationKindSelectModel
 	case uiv1.UIRequest_SelectReasoningChoice_case:
 		return operationKindSelectReasoningChoice
+	case uiv1.UIRequest_SetRetryEnabled_case:
+		return operationKindSetRetryEnabled
 	case uiv1.UIRequest_CreateSession_case, uiv1.UIRequest_ListSessions_case,
 		uiv1.UIRequest_ResumeSession_case, uiv1.UIRequest_SetSessionName_case,
 		uiv1.UIRequest_GetSessionInfo_case, uiv1.UIRequest_GetSessionTree_case,
@@ -406,6 +410,7 @@ func hostRequestKind(request *uiv1.UIRequest) string {
 
 // hostSessionRequestKind returns one session or cancellation operation kind.
 func hostSessionRequestKind(request *uiv1.UIRequest) string {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch request.WhichRequest() {
 	case uiv1.UIRequest_CreateSession_case:
 		return operationKindCreateSession

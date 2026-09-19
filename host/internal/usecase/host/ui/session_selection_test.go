@@ -32,7 +32,7 @@ func TestSelectionOperationCommitsAndReturnsSelection(t *testing.T) {
 	}, ModelSelectionResult{Selection: selection, Committed: true, Issues: nil, Source: nil})
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil, nil,
-		nil, nil, selectionOwner,
+		nil, nil, selectionOwner, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSelectModel)
@@ -72,7 +72,7 @@ func TestSelectionPublicationFailureCompletesWithCommittedState(t *testing.T) {
 	})
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, nil, nil, nil, selectionOwner,
+		NewMockModelCatalog(controller), nil, nil, nil, nil, selectionOwner, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSelectModel)
@@ -130,7 +130,7 @@ func TestSelectionHandlerDiagnosticsRemainOrdered(t *testing.T) {
 	}, ModelSelectionResult{Selection: selection, Committed: true, Issues: resultIssues, Source: source})
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, nil, nil, nil, selectionOwner,
+		NewMockModelCatalog(controller), nil, nil, nil, nil, selectionOwner, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSelectModel)
@@ -162,7 +162,7 @@ func TestCommittedSelectionCancellationCompletes(t *testing.T) {
 	}, ModelSelectionResult{Selection: selection, Committed: true, Issues: nil, Source: context.Canceled})
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller),
-		NewMockModelCatalog(controller), nil, nil, nil, nil, selectionOwner,
+		NewMockModelCatalog(controller), nil, nil, nil, nil, selectionOwner, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSelectModel)
@@ -222,7 +222,7 @@ func TestSelectionReadinessAndActiveRunIndependence(t *testing.T) {
 				NewMockAuthenticator(controller),
 				catalog,
 				nil, nil,
-				nil, nil, selectionOwner,
+				nil, nil, selectionOwner, nil,
 			)
 			service.setOperationAvailability(test.availability)
 			command := newCommandForPreparedTest(controllerui.CommandSelectModel)
@@ -265,7 +265,7 @@ func TestSelectionPreparationRejectsConcurrentCommit(t *testing.T) {
 	selectionOwner.EXPECT().PrepareUISelection(selectionCommand).Return(nil, selectionCodeTestError("busy"))
 	service := NewSession(
 		NewMockOutput(controller), NewMockAgentRunner(controller), NewMockAuthenticator(controller), catalog, nil, nil,
-		nil, nil, selectionOwner,
+		nil, nil, selectionOwner, nil,
 	)
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSelectModel)

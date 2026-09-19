@@ -2,6 +2,7 @@
 package openai
 
 import (
+	"context"
 	"errors"
 	"io"
 	"net"
@@ -43,7 +44,7 @@ func FailureClassification(
 
 // IsTransientTransportFailure identifies active-request transport failures that can succeed unchanged.
 func IsTransientTransportFailure(err error) bool {
-	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
 		errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNABORTED) {
 		return true
 	}

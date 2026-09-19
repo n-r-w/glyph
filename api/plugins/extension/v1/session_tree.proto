@@ -5,6 +5,7 @@ package glyph.plugins.extension.v1;
 import "api/plugins/extension/v1/context.proto";
 import "api/plugins/extension/v1/lifecycle.proto";
 import "api/plugins/extension/v1/model.proto";
+import "api/plugins/extension/v1/retry.proto";
 import "api/plugins/extension/v1/session.proto";
 import "api/plugins/extension/v1/tool.proto";
 
@@ -26,6 +27,8 @@ message HandleRequest {
     SelectionHandlerInvocation model_selection = 7;
     // A reasoning-selection request with immutable original and current targets.
     SelectionHandlerInvocation reasoning_selection = 8;
+    // A retry request with immutable original and composed current decisions.
+    RetryHandlerInvocation retry = 9;
   }
 }
 
@@ -42,6 +45,8 @@ message HandleResponse {
     SelectionHandlerAction model_selection = 6;
     // The reasoning-selection decision.
     SelectionHandlerAction reasoning_selection = 7;
+    // The retry decision action.
+    RetryHandlerAction retry = 8;
   }
 }
 

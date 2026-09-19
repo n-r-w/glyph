@@ -1,0 +1,44 @@
+edition = "2023";
+
+package glyph.plugins.ui.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1";
+
+// RetryPolicy is the current runtime state and persistent retry schedule.
+message RetryPolicy {
+  // Whether retries are enabled for later logical executions.
+  bool enabled = 1;
+  // The maximum repeats after the initial attempt.
+  int64 max_retries = 2;
+  // The ordered repeat delays in milliseconds.
+  repeated int64 delay_milliseconds = 3;
+  // The maximum accepted provider-requested delay in milliseconds.
+  int64 max_provider_delay_milliseconds = 4;
+}
+
+// SetRetryEnabledCommand changes process-local retry enablement.
+message SetRetryEnabledCommand {
+  // The requested runtime enablement.
+  bool enabled = 1;
+}
+
+// RetryEnabledResult contains the updated policy projection.
+message RetryEnabledResult {
+  // The updated runtime policy.
+  RetryPolicy policy = 1;
+}
+
+// RetryProgress reports one accepted replacement model attempt.
+message RetryProgress {
+  // The number of completed provider attempts.
+  int64 completed_attempts = 1;
+  // The effective total attempt limit.
+  int64 attempt_limit = 2;
+  // The pending delay in milliseconds.
+  int64 delay_milliseconds = 3;
+  // The complete failed-attempt text.
+  string error = 4;
+}
+
+// ResponseReset discards the unfinished active model response.
+message ResponseReset {}

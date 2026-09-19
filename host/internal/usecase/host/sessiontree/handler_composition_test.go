@@ -267,8 +267,16 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 		Cancel: false, RequestAction: RequestActionPreserve, Request: mo.None[HandlerNavigationRequest](),
 		ResultAction: ResultActionClear, Result: mo.None[HandlerBranchSummaryResult](),
 	}, nil)
-	models.EXPECT().Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ model.Selection, _ string, _ []agent.HistoryEntry) (model.Response, error) {
+	models.EXPECT().RequestConfigured(
+		gomock.Any(), selection, gomock.Any(), gomock.Any(), gomock.Any(),
+	).DoAndReturn(
+		func(
+			_ context.Context,
+			_ model.Selection,
+			_ string,
+			_ []agent.HistoryEntry,
+			_ func(int64, int64, time.Duration, string) error,
+		) (model.Response, error) {
 			return summaryResponse(generated.Summary, mo.None[model.Usage]()), nil
 		},
 	)

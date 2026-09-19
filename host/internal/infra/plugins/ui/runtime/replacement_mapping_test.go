@@ -63,6 +63,7 @@ func replacementFrame(
 		AuthorizationCode:      mo.None[string](),
 		SelectionIssues:        nil,
 		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		TreeNavigationRetry:    mo.None[controllerui.RetryProgress](),
 		Kind:                   kind,
 		NextInput:              nextInput,
 

@@ -43,8 +43,14 @@ func (state *projection) applyLifecycleEvent(event event) bool {
 		}
 	case eventTurnStarted:
 		state.Settled = mo.Some(false)
+	case eventResponseReset:
+		clear(state.ActiveModel)
+		clear(state.ActiveToolCalls)
+	case eventRetryProgress:
+		state.RetryStatus = event.Status.OrEmpty()
 	case eventAgentSettled:
 		state.Settled = mo.Some(true)
+		state.RetryStatus = ""
 	case eventModelSelectionChanged:
 		if event.ModelSelection.IsSome() {
 			state.ModelSelection = event.ModelSelection
@@ -63,6 +69,7 @@ func (state *projection) applyLifecycleEvent(event event) bool {
 
 // applyTextEvent applies user, authorization, information, and error text.
 func (state *projection) applyTextEvent(event event) bool {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Kind {
 	case eventUserSubmitted:
 		if event.Text.IsSome() {
@@ -94,14 +101,17 @@ func (state *projection) applyTextEvent(event event) bool {
 func (state *projection) applyModelEvent(event event) bool {
 	switch event.Kind {
 	case eventModelDelta:
+		state.RetryStatus = ""
 		state.applyModelDelta(event)
 	case eventModelEnd:
 		state.applyModelEnd(event)
 	case eventToolCallPreview, eventToolCallFinal:
+		state.RetryStatus = ""
 		if call, present := event.ToolCall.Get(); present && call.CallID != "" {
 			state.ActiveToolCalls[call.CallID] = call.Clone()
 		}
 	case eventUnspecified, eventInitialization, eventUserSubmitted, eventAvailability, eventTurnStarted,
+		eventResponseReset, eventRetryProgress,
 		eventToolStarted, eventToolProgress, eventToolOutput, eventToolEnded, eventToolResult, eventTurnEnded,
 		eventAgentSettled, eventAuthorization, eventInformation, eventError, eventModelSelectionChanged,
 		eventSessionList, eventSessionChanged, eventSessionInformation,
@@ -126,7 +136,8 @@ func (state *projection) applyToolEvent(event event) bool {
 	case eventToolResult:
 		state.applyToolResult(event)
 	case eventUnspecified, eventInitialization, eventUserSubmitted, eventAvailability, eventTurnStarted,
-		eventModelDelta, eventModelEnd, eventToolCallPreview, eventToolCallFinal, eventTurnEnded,
+		eventModelDelta, eventModelEnd, eventResponseReset, eventRetryProgress,
+		eventToolCallPreview, eventToolCallFinal, eventTurnEnded,
 		eventAgentSettled, eventAuthorization, eventInformation, eventError, eventModelSelectionChanged,
 		eventSessionList, eventSessionChanged, eventSessionInformation,
 		eventSessionTree, eventSessionTreeNavigationProgress, eventSessionTreeNavigation, eventTreeOperationFailed,
@@ -169,6 +180,7 @@ func (state *projection) applyError(event event) {
 
 // applySessionEvent applies session-owned state and reports whether the event was handled.
 func (state *projection) applySessionEvent(event event) bool {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Kind {
 	case eventSessionList:
 		state.Sessions = slices.Clone(event.Sessions)

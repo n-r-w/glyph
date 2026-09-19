@@ -34,7 +34,7 @@ func TestSessionStatisticsQueryReturnsSnapshotDuringActiveRun(t *testing.T) {
 		}},
 	}
 	control.EXPECT().ActiveStatistics().Return(statistics)
-	service := New(nil, nil, nil, control, nil, gate, nil, nil)
+	service := New(nil, nil, nil, control, nil, gate, nil, nil, nil)
 	command := testProgrammaticCommand("stats", controller.CommandGetSessionStats)
 
 	// Act by handling the query while an active run marker is present.

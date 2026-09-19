@@ -19,6 +19,7 @@ import (
 // mapTreeFrame maps tree query, navigation, and label completion frames.
 func mapTreeFrame(frame controllerui.Frame) (*uiv1.HostCompleted, bool, error) {
 	request := new(uiv1.HostCompleted)
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch frame.Kind {
 	case controllerui.FrameSessionTree:
 		tree, present := frame.SessionTree.Get()
@@ -60,7 +61,7 @@ func mapTreeFrame(frame controllerui.Frame) (*uiv1.HostCompleted, bool, error) {
 	case controllerui.FrameLifecycle, controllerui.FrameAuthorization,
 		controllerui.FrameModelSelectionChanged,
 		controllerui.FrameSessionList, controllerui.FrameSessionChanged, controllerui.FrameSessionInformation,
-		controllerui.FrameSessionTreeNavigationProgress,
+		controllerui.FrameSessionTreeNavigationProgress, controllerui.FrameSessionTreeRetryProgress,
 		controllerui.FrameSessionForked, controllerui.FrameSessionCloned, controllerui.FrameSubmitCompleted,
 		controllerui.FrameAuthenticationCompleted:
 		return nil, false, nil

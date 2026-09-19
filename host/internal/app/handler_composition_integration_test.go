@@ -158,7 +158,7 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 	result, err := service.NavigateUI(t.Context(), hostui.NavigationIntent{
 		TargetEntryID: "user", SummaryMode: controllerui.SummaryModeSummarize,
 		CustomFocus: mo.None[string](),
-	}, publisher)
+	}, publisher, nil)
 
 	// Assert: the refined result committed before the real observer recorded the event.
 	require.NoError(t, err)
@@ -264,6 +264,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 	switch request.GetHandlerId() {
 	case "supply":
 		return extensionpb.HandleResponse_builder{
+			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle: nil,
 			SessionBeforeTreeRequest: extensionpb.SessionBeforeTreeRequestAction_builder{
@@ -280,6 +281,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 		}.Build(), nil
 	case "refine":
 		return extensionpb.HandleResponse_builder{
+			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil,
@@ -307,6 +309,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			return nil, err
 		}
 		return extensionpb.HandleResponse_builder{
+			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,

@@ -32,7 +32,9 @@ func sessionListFrame(listed []StoredSession) controllerui.Frame {
 		SessionStatistics:      mo.None[session.Statistics](),
 		SessionTree:            mo.None[controllerui.SessionTree](),
 		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		TreeNavigationRetry:    mo.None[controllerui.RetryProgress](),
 		TreeNavigation:         mo.None[controllerui.TreeNavigationResult](),
+		RetryPolicy:            mo.None[controllerui.RetryPolicy](),
 	}
 }
 
@@ -74,7 +76,9 @@ func sessionInfoFrame(
 		SessionStatistics:      statistics,
 		SessionTree:            mo.None[controllerui.SessionTree](),
 		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		TreeNavigationRetry:    mo.None[controllerui.RetryProgress](),
 		TreeNavigation:         mo.None[controllerui.TreeNavigationResult](),
+		RetryPolicy:            mo.None[controllerui.RetryPolicy](),
 	}
 }
 

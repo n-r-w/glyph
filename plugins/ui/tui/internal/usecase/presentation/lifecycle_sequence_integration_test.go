@@ -122,7 +122,9 @@ func semanticLifecycle(frame semanticFrame) *uiv1.AgentEvent {
 		typeValue = uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_END
 	}
 	lifecycle := uiv1.AgentEvent_builder{
-		Type: new(typeValue), ToolName: nil, Text: nil, Outcome: nil, RunId: new("run"),
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(typeValue), ToolName: nil, Text: nil, Outcome: nil, RunId: new("run"),
 		ToolCallId: nil, ProgressChannel: nil, IsError: nil, ErrorMessage: nil, Availability: nil,
 		ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,
 		ToolResultContents: nil,

@@ -16,6 +16,8 @@ type DisplayBody struct {
 	ActiveModel map[int]ActiveModelContent
 	// ActiveToolCalls contains active tool-call display data by identifier.
 	ActiveToolCalls map[string]ToolCallState
+	// RetryStatus contains the active model retry status.
+	RetryStatus string
 	// Models contains configured model display choices.
 	Models []ConfiguredModel
 	// Sessions contains stored-session display choices.
@@ -91,6 +93,7 @@ func (service *Service) publish() {
 			Transcript:        state.Transcript,
 			ActiveModel:       state.ActiveModel,
 			ActiveToolCalls:   state.ActiveToolCalls,
+			RetryStatus:       state.RetryStatus,
 			Models:            state.Models,
 			Sessions:          state.Sessions,
 			Availability:      state.Availability,

@@ -3,6 +3,7 @@ package sessiontree
 
 import (
 	"context"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -273,6 +274,13 @@ type SelectionFailure interface {
 	SelectionCode() string
 }
 
+// ModelRequestFailure supplies provider-neutral logical failure identity without its implementation.
+type ModelRequestFailure interface {
+	error
+	// FailureCode returns the stable logical model-request failure code.
+	FailureCode() string
+}
+
 // ModelSelection supplies the active model selection for navigation preparation.
 type ModelSelection interface {
 	// ActiveSelection returns the active provider, model, and reasoning choice.
@@ -281,11 +289,12 @@ type ModelSelection interface {
 
 // ModelRequester executes configured model requests for branch summarization.
 type ModelRequester interface {
-	// Request executes one model request without changing the active selection.
-	Request(
+	// RequestConfigured executes one model request and reports accepted replacement attempts.
+	RequestConfigured(
 		ctx context.Context,
 		selection model.Selection,
 		instructions string,
 		history []agent.HistoryEntry,
+		progress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 	) (model.Response, error)
 }

@@ -1,0 +1,61 @@
+edition = "2023";
+
+package glyph.plugins.extension.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// RetryFailureClassification identifies the source-owned provider failure class.
+enum RetryFailureClassification {
+  // No source classification was supplied.
+  RETRY_FAILURE_CLASSIFICATION_UNSPECIFIED = 0;
+  // The provider failure can be repeated unchanged.
+  RETRY_FAILURE_CLASSIFICATION_TRANSIENT = 1;
+  // The provider failure must not be repeated unchanged.
+  RETRY_FAILURE_CLASSIFICATION_NON_RETRYABLE = 2;
+  // The request exceeded the provider context limit.
+  RETRY_FAILURE_CLASSIFICATION_CONTEXT_OVERFLOW = 3;
+}
+
+// RetryDecision is one complete composed retry decision.
+message RetryDecision {
+  // Whether the source can be repeated unchanged.
+  bool retryable = 1;
+  // Whether another attempt is requested.
+  bool retry = 2;
+  // The pending delay in milliseconds.
+  int64 delay_milliseconds = 3;
+  // The total attempt limit including the initial attempt.
+  int64 attempt_limit = 4;
+}
+
+// RetryHandlerInvocation carries immutable original and composed current decisions.
+message RetryHandlerInvocation {
+  // The complete failed-attempt error text.
+  string source_error = 1;
+  // The provider-owned source classification.
+  RetryFailureClassification classification = 2;
+  // The immutable Host-produced decision.
+  RetryDecision original = 3;
+  // The decision left by preceding handlers.
+  RetryDecision current = 4;
+  // The number of completed provider attempts.
+  int64 completed_attempts = 5;
+  // The provider-requested minimum delay in milliseconds when present.
+  int64 provider_delay_milliseconds = 6;
+}
+
+// PreserveRetry keeps the current retry decision.
+message PreserveRetry {}
+
+// CancelRetry stops retry coordination without another provider attempt.
+message CancelRetry {}
+
+// RetryHandlerAction contains exactly one retry decision action.
+message RetryHandlerAction {
+  // The retry action.
+  oneof action {
+    PreserveRetry preserve = 1;
+    RetryDecision replace = 2;
+    CancelRetry cancel = 3;
+  }
+}

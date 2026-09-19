@@ -3,6 +3,7 @@ package runtime
 import (
 	"github.com/samber/mo"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -54,4 +55,6 @@ type Initialization struct {
 	ModelSelection mo.Option[model.Selection]
 	// SessionInfo identifies the empty active session created before UI startup.
 	SessionInfo session.Info
+	// RetryPolicy contains current runtime enablement and the persistent schedule.
+	RetryPolicy controllerui.RetryPolicy
 }

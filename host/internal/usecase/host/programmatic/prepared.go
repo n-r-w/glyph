@@ -87,6 +87,7 @@ func (p *commandPrepared) Run(
 			ctx,
 			p.command,
 			programmaticNavigationCallback(reporter),
+			programmaticNavigationRetryCallback(reporter),
 		)
 	} else {
 		response, active, err = p.service.handle(ctx, p.command)
@@ -262,6 +263,7 @@ func mapSelectionPreparationError(err error) error {
 
 // isSessionMutation reports operation kinds that reserve the shared session gate.
 func isSessionMutation(kind controller.CommandKind) bool {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case controller.CommandCreateSession, controller.CommandResumeSession, controller.CommandSetSessionName,
 		controller.CommandNavigateSessionTree, controller.CommandForkSession, controller.CommandCloneSession,
@@ -313,7 +315,30 @@ func failureCode(err error) string {
 	if errors.Is(err, agent.ErrPersistenceUnavailable) {
 		return controller.FailureCodePersistenceUnavailable
 	}
+	if code, found := modelExecutionFailureCode(err); found {
+		return code
+	}
 	return controller.FailureCodeInternal
+}
+
+// modelExecutionFailureCode reads the closed provider-neutral category without replacing its cause.
+func modelExecutionFailureCode(err error) (string, bool) {
+	failure, found := errors.AsType[interface {
+		error
+		FailureCode() string
+	}](err)
+	if !found {
+		return "", false
+	}
+	switch failure.FailureCode() {
+	case controller.FailureCodeModelFailed, controller.FailureCodeRetryExhausted,
+		controller.FailureCodeRetryCanceled, controller.FailureCodeExtensionFailed,
+		controller.FailureCodeRetryDelayExceeded, controller.FailureCodeContextLimit,
+		controller.FailureCodeInternal:
+		return failure.FailureCode(), true
+	default:
+		return "", false
+	}
 }
 
 // failureCodeForRejection converts domain-work failures into operation failure codes.

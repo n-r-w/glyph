@@ -38,6 +38,15 @@ func mapCommand(command presentationdomain.Command) (*uiv1.UIRequest, error) {
 		return mapModelSelectionCommand(command)
 	case presentationdomain.CommandSelectReasoningChoice:
 		return mapReasoningSelectionCommand(command)
+	case presentationdomain.CommandSetRetryEnabled:
+		enabled, present := command.RetryEnabled.Get()
+		if !present {
+			return nil, errors.New("UI retry enablement is missing")
+		}
+		//nolint:exhaustruct_v5 // uiv1.UIRequest_builder sets only the active SetRetryEnabled field.
+		return uiv1.UIRequest_builder{SetRetryEnabled: uiv1.SetRetryEnabledCommand_builder{
+			Enabled: new(enabled),
+		}.Build()}.Build(), nil
 	case presentationdomain.CommandCreateSession, presentationdomain.CommandListSessions,
 		presentationdomain.CommandResumeSession, presentationdomain.CommandSetSessionName,
 		presentationdomain.CommandGetSessionInfo, presentationdomain.CommandGetSessionTree,
@@ -118,7 +127,7 @@ func mapSessionCommand(command presentationdomain.Command) (*uiv1.UIRequest, boo
 		presentationdomain.CommandSelectReasoningChoice,
 		presentationdomain.CommandGetSessionTree, presentationdomain.CommandNavigateSessionTree,
 		presentationdomain.CommandForkSession, presentationdomain.CommandCloneSession,
-		presentationdomain.CommandSetEntryLabel:
+		presentationdomain.CommandSetEntryLabel, presentationdomain.CommandSetRetryEnabled:
 		return nil, false, nil
 	default:
 		return nil, false, nil

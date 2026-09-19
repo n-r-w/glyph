@@ -5,11 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -113,7 +115,9 @@ func mapHandleRequest(
 	request extensionruntime.HandlerInvocation,
 ) (*extensionpb.HandleRequest, error) {
 	//nolint:exhaustruct_v5 // The builder sets only the active operation payload.
-	builder := extensionpb.HandleRequest_builder{HandlerId: new(handlerID), Context: mapContext(request.Context)}
+	builder := extensionpb.HandleRequest_builder{
+		Retry: nil, HandlerId: new(handlerID), Context: mapContext(request.Context),
+	}
 	switch request.Kind {
 	case extensionruntime.InvocationRequest, extensionruntime.InvocationResult:
 		original, err := mapPreparation(request.Original)
@@ -158,6 +162,12 @@ func mapHandleRequest(
 		} else {
 			builder.ReasoningSelection = invocation
 		}
+	case extensionruntime.InvocationRetry:
+		invocation, present := request.Retry.Get()
+		if !present {
+			return nil, fmt.Errorf("handler %q request has no single payload", handlerID)
+		}
+		builder.Retry = mapRetryInvocation(invocation)
 	default:
 		return nil, fmt.Errorf("handler %q has unsupported request kind %d", handlerID, request.Kind)
 	}
@@ -165,6 +175,8 @@ func mapHandleRequest(
 }
 
 // mapHandleResponse validates transport correlation and returns raw process actions without capability policy.
+//
+//nolint:gocyclo // The flat switch maps the closed public handler union.
 func mapHandleResponse(
 	request extensionruntime.HandlerInvocation,
 	response *extensionpb.HandleResponse,
@@ -185,6 +197,7 @@ func mapHandleResponse(
 		SelectionAction:      0,
 		SelectionReplacement: mo.None[model.Selection](),
 		SelectionRejection:   mo.None[string](),
+		Retry:                mo.None[modelexecution.RetryAction](),
 	}
 	switch request.Kind {
 	case extensionruntime.InvocationRequest:
@@ -227,8 +240,74 @@ func mapHandleResponse(
 		if rejection := action.GetReject(); rejection != nil {
 			result.SelectionRejection = mo.Some(rejection.GetMessage())
 		}
+	case extensionruntime.InvocationRetry:
+		action := response.GetRetry()
+		if action == nil {
+			return extensionruntime.HandlerAction{}, errors.New("retry handler returned another action kind")
+		}
+		mapped, err := mapRetryAction(action)
+		if err != nil {
+			return extensionruntime.HandlerAction{}, err
+		}
+		result.Retry = mo.Some(mapped)
 	default:
 		return extensionruntime.HandlerAction{}, fmt.Errorf("unsupported request kind %d", request.Kind)
 	}
 	return result, nil
+}
+
+// mapRetryInvocation projects one transport-neutral retry invocation to the public contract.
+func mapRetryInvocation(invocation modelexecution.RetryInvocation) *extensionpb.RetryHandlerInvocation {
+	classification := extensionpb.RetryFailureClassification_RETRY_FAILURE_CLASSIFICATION_UNSPECIFIED
+	switch invocation.Classification {
+	case modelexecution.ProviderFailureTransient:
+		classification = extensionpb.RetryFailureClassification_RETRY_FAILURE_CLASSIFICATION_TRANSIENT
+	case modelexecution.ProviderFailureNonRetryable:
+		classification = extensionpb.RetryFailureClassification_RETRY_FAILURE_CLASSIFICATION_NON_RETRYABLE
+	case modelexecution.ProviderFailureContextOverflow:
+		classification = extensionpb.RetryFailureClassification_RETRY_FAILURE_CLASSIFICATION_CONTEXT_OVERFLOW
+	}
+	providerDelay := (*int64)(nil)
+	if delay, present := invocation.ProviderDelay.Get(); present {
+		providerDelay = new(delay.Milliseconds())
+	}
+	return extensionpb.RetryHandlerInvocation_builder{
+		SourceError: new(invocation.SourceError), Classification: new(classification),
+		Original: mapRetryDecision(invocation.Original), Current: mapRetryDecision(invocation.Current),
+		CompletedAttempts: new(invocation.CompletedAttempts), ProviderDelayMilliseconds: providerDelay,
+	}.Build()
+}
+
+// mapRetryDecision projects one complete retry decision.
+func mapRetryDecision(decision modelexecution.RetryDecision) *extensionpb.RetryDecision {
+	return extensionpb.RetryDecision_builder{
+		Retryable: new(decision.Retryable), Retry: new(decision.Retry),
+		DelayMilliseconds: new(decision.Delay.Milliseconds()), AttemptLimit: new(decision.AttemptLimit),
+	}.Build()
+}
+
+// mapRetryAction maps one public action without applying Host retry policy.
+func mapRetryAction(action *extensionpb.RetryHandlerAction) (modelexecution.RetryAction, error) {
+	switch {
+	case action.GetPreserve() != nil:
+		return modelexecution.RetryAction{
+			Kind: modelexecution.RetryActionPreserve, Decision: mo.None[modelexecution.RetryDecision](),
+		}, nil
+	case action.GetReplace() != nil:
+		replacement := action.GetReplace()
+		return modelexecution.RetryAction{
+			Kind: modelexecution.RetryActionReplace,
+			Decision: mo.Some(modelexecution.RetryDecision{
+				Retryable: replacement.GetRetryable(), Retry: replacement.GetRetry(),
+				Delay:        time.Duration(replacement.GetDelayMilliseconds()) * time.Millisecond,
+				AttemptLimit: replacement.GetAttemptLimit(),
+			}),
+		}, nil
+	case action.GetCancel() != nil:
+		return modelexecution.RetryAction{
+			Kind: modelexecution.RetryActionCancel, Decision: mo.None[modelexecution.RetryDecision](),
+		}, nil
+	default:
+		return modelexecution.RetryAction{}, errors.New("retry handler action is required")
+	}
 }

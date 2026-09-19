@@ -13,7 +13,11 @@ func (command Command) Valid() bool {
 	case CommandUserRequest:
 		return !command.invalidUserRequest()
 	case CommandCancel, CommandGetRunState, CommandGetMessages, CommandGetModels:
-		return command.UserText.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments()
+		return command.UserText.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
+			command.RetryEnabled.IsNone()
+	case CommandSetRetryEnabled:
+		return command.RetryEnabled.IsSome() && command.UserText.IsNone() && !command.hasModelArguments() &&
+			!command.hasSessionArguments()
 	case CommandSelectModel:
 		return !command.invalidModelSelection()
 	case CommandSelectReasoningChoice:
@@ -46,7 +50,7 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 	case CommandSetEntryLabel:
 		return command.invalidSetEntryLabel(), true
 	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
-		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice:
+		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice, CommandSetRetryEnabled:
 		return false, false
 	default:
 		return false, false

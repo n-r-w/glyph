@@ -7,12 +7,25 @@ import (
 	"net/url"
 	"slices"
 	"strings"
+	"time"
 
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/pluginid"
 )
+
+const (
+	// defaultMaxRetries is the approved repeat count after the initial attempt.
+	defaultMaxRetries int64 = 3
+	// defaultMaxProviderDelay is the approved maximum accepted Retry-After value.
+	defaultMaxProviderDelay = 30 * time.Second
+)
+
+// defaultRetryDelays returns the approved ordered retry schedule.
+func defaultRetryDelays() []time.Duration {
+	return []time.Duration{time.Second, 2 * time.Second, 4 * time.Second}
+}
 
 // validate applies the closed provider and startup selection rules.
 func (decoded settingsFile) validate() (Settings, error) {
@@ -37,11 +50,16 @@ func (decoded settingsFile) validate() (Settings, error) {
 	if err != nil {
 		return Settings{}, err
 	}
+	retry, err := validateRetry(decoded.Retry)
+	if err != nil {
+		return Settings{}, err
+	}
 	return Settings{
 		DefaultProvider: decoded.DefaultProvider,
 		DefaultModel:    decoded.DefaultModel,
 		Providers:       providers,
 		ActiveUI:        activeUI,
+		Retry:           retry,
 	}, nil
 }
 
@@ -57,6 +75,45 @@ func (decoded settingsFile) validateDefaults() error {
 		return errors.New("providers must contain configured provider instances")
 	}
 	return nil
+}
+
+// validateRetry applies defaults and rejects unusable retry schedules.
+func validateRetry(configured mo.Option[retryFile]) (Retry, error) {
+	retry := Retry{
+		Enabled: true, MaxRetries: defaultMaxRetries,
+		Delays:           defaultRetryDelays(),
+		MaxProviderDelay: defaultMaxProviderDelay,
+	}
+	overrides, present := configured.Get()
+	if present {
+		if value, exists := overrides.Enabled.Get(); exists {
+			retry.Enabled = value
+		}
+		if value, exists := overrides.MaxRetries.Get(); exists {
+			retry.MaxRetries = value
+		}
+		if value, exists := overrides.Delays.Get(); exists {
+			retry.Delays = append([]time.Duration(nil), value...)
+		}
+		if value, exists := overrides.MaxProviderDelay.Get(); exists {
+			retry.MaxProviderDelay = value
+		}
+	}
+	if retry.MaxRetries < 0 {
+		return Retry{}, errors.New("retry.maxRetries must be nonnegative")
+	}
+	if retry.MaxRetries > 0 && len(retry.Delays) == 0 {
+		return Retry{}, errors.New("retry.delays must not be empty when maxRetries is positive")
+	}
+	for _, delay := range retry.Delays {
+		if delay < 0 {
+			return Retry{}, errors.New("retry.delays must contain only nonnegative durations")
+		}
+	}
+	if retry.MaxProviderDelay < 0 {
+		return Retry{}, errors.New("retry.maxProviderDelay must be nonnegative")
+	}
+	return retry, nil
 }
 
 func validateProviders(configured map[string]providerFile) (map[string]Provider, error) {

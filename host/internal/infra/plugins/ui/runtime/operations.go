@@ -153,6 +153,7 @@ func (c *Service) ClearOutput() {
 	defer c.mutex.Unlock()
 	c.writer = nil
 	c.progressReporter = operation.Reporter[controllerui.Frame]{}
+	c.progressRunID = ""
 	c.progressBound = false
 	c.failConnection = nil
 }

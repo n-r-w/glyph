@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 
 	"github.com/samber/mo"
@@ -231,6 +232,8 @@ func (s *Service) runTurn(ctx context.Context, runID string) (turnResult, bool, 
 		case StreamEventToolCallEnd:
 			event.Type = agent.EventToolCallEnd
 			event.ToolCall = streamEvent.ToolCall
+		case StreamEventResponseReset:
+			event.Type = agent.EventResponseReset
 		case StreamEventDone, StreamEventError:
 			return errors.New("terminal model stream event reached lifecycle delivery")
 		default:
@@ -338,15 +341,25 @@ func (s *Service) finalizeProviderError(
 		finalizeRetainedStreamedContent(response.Content)
 	}
 	outcome := model.OutcomeFailed
-	if errors.Is(providerErr, context.Canceled) || errors.Is(providerErr, context.DeadlineExceeded) ||
-		ctx.Err() != nil {
+	_, categorized := errors.AsType[interface {
+		error
+		FailureCode() string
+	}](providerErr)
+	if !categorized && isPureCancellation(providerErr) {
 		outcome = model.OutcomeAborted
 	}
 	errorMessage, hasErrorMessage := response.ErrorMessage.Get()
-	if outcome == model.OutcomeAborted {
+	if outcome == model.OutcomeAborted || errors.Is(providerErr, context.Canceled) ||
+		errors.Is(providerErr, context.DeadlineExceeded) {
 		errorMessage = visibleErrorMessage(providerErr)
-	} else if !hasErrorMessage || errorMessage == "" {
-		errorMessage = providerErr.Error()
+	} else {
+		// causeMessage keeps the complete logical failure when retained provider text is narrower.
+		causeMessage := providerErr.Error()
+		if hasErrorMessage && errorMessage != "" && !strings.Contains(causeMessage, errorMessage) {
+			errorMessage += "\n" + causeMessage
+		} else {
+			errorMessage = causeMessage
+		}
 	}
 	response.Outcome = mo.Some(outcome)
 	response.ErrorMessage = mo.Some(errorMessage)
@@ -398,6 +411,12 @@ func visibleErrorMessage(err error) string {
 
 // isPureCancellation reports whether every leaf is a cancellation marker recognized by Agent Core.
 func isPureCancellation(err error) bool {
+	if _, categorized := errors.AsType[interface {
+		error
+		FailureCode() string
+	}](err); categorized {
+		return false
+	}
 	return errtree.AllLeavesMatch(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
 	})
@@ -654,6 +673,11 @@ func (s *Service) finish(
 func (s *Service) applyStreamEvent(event StreamEvent) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
+	if event.Kind == StreamEventResponseReset {
+		s.state.PartialResponse = mo.None[model.Response]()
+		clear(s.state.ToolPreviews)
+		return nil
+	}
 	if event.Kind == StreamEventToolCallStart || event.Kind == StreamEventToolCallDelta ||
 		event.Kind == StreamEventToolCallEnd {
 		return event.applyToolCallTo(s.state.ToolPreviews)

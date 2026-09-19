@@ -5,6 +5,7 @@ package headless
 import (
 	"bytes"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,11 +15,66 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 
 	"github.com/samber/mo"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
+
+// TestRendererResponseResetSeparatesPartialAndReplacementOutput verifies reset terminates the open stdout line.
+func TestRendererResponseResetSeparatesPartialAndReplacementOutput(t *testing.T) {
+	t.Parallel()
+
+	// Arrange separate model and diagnostic buffers with one open partial model line.
+	stdout := new(bytes.Buffer)
+	stderr := new(bytes.Buffer)
+	stdout.WriteString("partial")
+	renderer := NewRenderer(stdout, stderr)
+	renderer.modelLineOpen = true
+
+	// Act by delivering the semantic reset before replacement output.
+	err := renderer.DeliverAgent(t.Context(), responseResetEvent())
+
+	// Assert stdout is terminated before the reset diagnostic is written separately.
+	require.NoError(t, err)
+	require.Equal(t, "partial\n", stdout.String())
+	require.Equal(t, responseResetText, stderr.String())
+	assert.False(t, renderer.modelLineOpen)
+}
+
+// TestRendererResponseResetPreservesBothWriteFailures verifies both output sinks are attempted.
+func TestRendererResponseResetPreservesBothWriteFailures(t *testing.T) {
+	t.Parallel()
+
+	// Arrange distinct standard-library failures for the open-line terminator and reset diagnostic.
+	closedStderr, err := os.Create(filepath.Join(t.TempDir(), "closed-reset-stderr"))
+	require.NoError(t, err)
+	require.NoError(t, closedStderr.Close())
+	closedPipeReader, closedPipeWriter := io.Pipe()
+	require.NoError(t, closedPipeReader.Close())
+	t.Cleanup(func() { require.NoError(t, closedPipeWriter.Close()) })
+	renderer := NewRenderer(closedPipeWriter, closedStderr)
+	renderer.modelLineOpen = true
+
+	// Act by delivering the semantic reset.
+	err = renderer.DeliverAgent(t.Context(), responseResetEvent())
+
+	// Assert both independent write causes remain inspectable.
+	require.ErrorIs(t, err, io.ErrClosedPipe)
+	require.ErrorIs(t, err, os.ErrClosed)
+	assert.False(t, renderer.modelLineOpen)
+}
+
+// responseResetEvent creates one complete semantic reset fixture.
+func responseResetEvent() agent.Event {
+	return agent.Event{
+		Type: agent.EventResponseReset, RunID: "run", Position: mo.None[int](), Content: mo.None[model.Content](),
+		Message: mo.None[model.Response](), Preview: mo.None[model.ToolCallPreview](),
+		ToolCall: mo.None[model.ToolCall](), Progress: mo.None[tool.Progress](),
+		ToolResult: mo.None[agent.ToolResult](), Turn: mo.None[agent.TurnSummary](), Agent: mo.None[agent.RunSummary](),
+	}
+}
 
 // TestRendererRuntimeFailurePreservesSource verifies synchronous runtime reporting returns source and writer errors.
 func TestRendererRuntimeFailurePreservesSource(t *testing.T) {

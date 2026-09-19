@@ -29,6 +29,7 @@ func TestFrameworkEmitsCompleteHyperlink(t *testing.T) {
 				Transcript:        nil,
 				ActiveModel:       nil,
 				ActiveToolCalls:   nil,
+				RetryStatus:       "",
 				Models:            nil,
 				Sessions:          nil,
 				Availability:      mo.Some(presentation.AvailabilityAuthenticating),

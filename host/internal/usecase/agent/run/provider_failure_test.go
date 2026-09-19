@@ -195,7 +195,7 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	require.True(t, result.SettlementRequired)
 	history := service.History()
 	require.Len(t, history, 2)
-	assert.Equal(t, safeMessage, history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
+	assert.Equal(t, providerErr.Error(), history[1].Model.OrEmpty().ErrorMessage.OrEmpty())
 	assert.Equal(t, model.OutcomeFailed, history[1].Model.OrEmpty().Outcome.OrEmpty())
 	assert.Equal(t, "resp-failed", history[1].Model.OrEmpty().ResponseID.OrEmpty())
 	assert.Equal(t, model.ID("gpt-actual"), history[1].Model.OrEmpty().ResponseModel.OrEmpty())
@@ -222,8 +222,8 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 			agentEnd = event
 		}
 	}
-	assert.Equal(t, safeMessage, messageEnd.Message.OrEmpty().ErrorMessage.OrEmpty())
-	assert.Equal(t, safeMessage, agentEnd.Agent.OrEmpty().ErrorMessage.OrEmpty())
+	assert.Equal(t, providerErr.Error(), messageEnd.Message.OrEmpty().ErrorMessage.OrEmpty())
+	assert.Equal(t, providerErr.Error(), agentEnd.Agent.OrEmpty().ErrorMessage.OrEmpty())
 }
 
 // TestServiceRunProviderAndContentEndFailurePreservesBothCauses verifies combined stream failures reach Agent

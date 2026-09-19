@@ -78,7 +78,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 				return result.Outcome, err
 			},
 		)
-		service := host.New(coordinator, nil, agentCore, nil, nil, nil, delivery, nil)
+		service := host.New(coordinator, nil, agentCore, nil, nil, nil, delivery, nil, nil)
 		command := controller.Command{
 			OperationID:     "progress-failure",
 			Kind:            controller.CommandUserRequest,
@@ -92,6 +92,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 			SummaryMode:     controller.SummaryModeNoSummary,
 			CustomFocus:     mo.None[string](),
 			EntryLabel:      mo.None[string](),
+			RetryEnabled:    mo.None[bool](),
 		}
 		command.UserText = mo.Some("request")
 		prepared, err := service.Prepare(t.Context(), command)

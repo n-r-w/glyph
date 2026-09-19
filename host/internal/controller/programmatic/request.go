@@ -44,6 +44,7 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		SummaryMode:     SummaryModeNoSummary,
 		CustomFocus:     mo.None[string](),
 		EntryLabel:      mo.None[string](),
+		RetryEnabled:    mo.None[bool](),
 	}
 	if mapSessionRequest(payload, &command) {
 		if !command.Valid() {
@@ -75,6 +76,13 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 		command.Kind = CommandGetMessages
 	case programmaticv1.ControllerRequest_GetModels_case:
 		command.Kind = CommandGetModels
+	case programmaticv1.ControllerRequest_SetRetryEnabled_case:
+		retry := request.GetSetRetryEnabled()
+		if !retry.HasEnabled() {
+			return Command{}, Reject(RejectionCodeInvalidArgument, errors.New("retry enablement is required"))
+		}
+		command.Kind = CommandSetRetryEnabled
+		command.RetryEnabled = mo.Some(retry.GetEnabled())
 	case programmaticv1.ControllerRequest_SelectModel_case:
 		selection := request.GetSelectModel()
 		if !selection.HasProviderId() || selection.GetProviderId() == "" ||
@@ -125,6 +133,7 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 //
 //nolint:gocyclo // The switch maps every closed session operation kind explicitly.
 func mapSessionRequest(request *programmaticv1.ControllerRequest, command *Command) bool {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch request.WhichRequest() {
 	case programmaticv1.ControllerRequest_CreateSession_case:
 		command.Kind = CommandCreateSession

@@ -97,6 +97,7 @@ func modelSelectionCommand(selected ConfiguredModel) Command {
 		SessionID:            mo.None[string](),
 		SessionName:          mo.None[string](),
 		TreeCommand:          mo.None[TreeCommand](),
+		RetryEnabled:         mo.None[bool](),
 	}
 }
 
@@ -127,6 +128,7 @@ func (model interaction) cycleReasoning() (interaction, *commandIntent) {
 		SessionID:            mo.None[string](),
 		SessionName:          mo.None[string](),
 		TreeCommand:          mo.None[TreeCommand](),
+		RetryEnabled:         mo.None[bool](),
 	})
 }
 

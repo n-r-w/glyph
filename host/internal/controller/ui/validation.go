@@ -20,6 +20,7 @@ func (command Command) SubmittedText() (string, error) {
 //
 //nolint:gocyclo // The closed request union has distinct required fields.
 func (command Command) ValidateSession() error {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch command.Kind {
 	case CommandCreateSession, CommandListSessions, CommandGetSessionInfo,
 		CommandGetSessionTree, CommandCloneSession:

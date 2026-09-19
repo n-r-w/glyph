@@ -115,6 +115,7 @@ func (model interaction) emitNavigation(mode SummaryMode, focus mo.Option[string
 //
 //nolint:gocyclo // The closed tree-event union has distinct state transitions.
 func (model interaction) applyTreeEvent(kind eventKind, event treeEvent) interaction {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case eventSessionTree:
 		tree, present := event.Tree.Get()
@@ -264,5 +265,6 @@ func treeCommand(
 		Kind:                 kind, Text: mo.None[string](), ProviderID: mo.None[string](), ModelID: mo.None[string](),
 		ReasoningChoice: mo.None[ReasoningChoice](), SessionID: mo.None[string](),
 		SessionName: mo.None[string](), TreeCommand: mo.Some(payload),
+		RetryEnabled: mo.None[bool](),
 	}
 }

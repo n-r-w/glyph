@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -44,6 +45,17 @@ func mapHostProgress(progress *uiv1.HostProgress) (Payload, error) {
 		}), nil
 	case uiv1.HostProgress_SessionTreeNavigation_case:
 		return mapTreeNavigationProgress(progress.GetSessionTreeNavigation())
+	case uiv1.HostProgress_SessionTreeRetry_case:
+		retry := progress.GetSessionTreeRetry()
+		return TextPayload(TextUpdate{
+			Kind: TextInformation,
+			Text: fmt.Sprintf(
+				navigationRetryProgressFormat,
+				retry.GetCompletedAttempts(), retry.GetAttemptLimit(),
+				time.Duration(retry.GetDelayMilliseconds())*time.Millisecond, retry.GetError(),
+			),
+			AuthorizationCode: mo.None[string](), FailureCode: "",
+		}), nil
 	case uiv1.HostProgress_Progress_not_set_case:
 		return Payload{}, errors.New("host progress payload is required")
 	default:
@@ -68,7 +80,8 @@ func DecodeCompleted(completed *uiv1.HostCompleted) (Payload, bool, error) {
 	switch completed.WhichCompleted() {
 	case uiv1.HostCompleted_Submit_case:
 		return NewPayload(PayloadSettled), true, nil
-	case uiv1.HostCompleted_Authentication_case, uiv1.HostCompleted_Cancel_case:
+	case uiv1.HostCompleted_Authentication_case, uiv1.HostCompleted_Cancel_case,
+		uiv1.HostCompleted_RetryEnabled_case:
 		return Payload{}, false, nil
 	case uiv1.HostCompleted_ModelSelection_case, uiv1.HostCompleted_SessionChanged_case,
 		uiv1.HostCompleted_SessionList_case, uiv1.HostCompleted_SessionInformation_case,
@@ -110,6 +123,8 @@ func mapModelSelectionCompletion(changed *uiv1.ModelSelectionChanged) (Payload, 
 const (
 	// extensionIssueFormat identifies the source of one nonterminal observer issue.
 	extensionIssueFormat = "extension %s handler %s [%s]: %s"
+	// navigationRetryProgressFormat reports one accepted branch-summary replacement attempt.
+	navigationRetryProgressFormat = "Branch summary retry %d/%d in %s: %s"
 	// selectionDeliveryFailureCode identifies a committed selection publication failure.
 	selectionDeliveryFailureCode = "DELIVERY_FAILED"
 )

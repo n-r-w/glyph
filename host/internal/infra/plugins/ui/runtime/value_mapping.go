@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"time"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
@@ -41,6 +42,10 @@ func mapLifecycleType(value controllerui.LifecycleType) uiv1.LifecycleType {
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA
 	case controllerui.LifecycleToolCallEnd:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END
+	case controllerui.LifecycleResponseReset:
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_RESPONSE_RESET
+	case controllerui.LifecycleRetryProgress:
+		return uiv1.LifecycleType_LIFECYCLE_TYPE_RETRY_PROGRESS
 	case controllerui.LifecycleMessageEnd:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END
 	case controllerui.LifecycleToolExecutionStart:
@@ -58,6 +63,17 @@ func mapLifecycleType(value controllerui.LifecycleType) uiv1.LifecycleType {
 	default:
 		return uiv1.LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
 	}
+}
+
+// mapRetryPolicy projects one detached effective retry policy.
+func mapRetryPolicy(policy controllerui.RetryPolicy) *uiv1.RetryPolicy {
+	return uiv1.RetryPolicy_builder{
+		Enabled: new(policy.Enabled), MaxRetries: new(policy.MaxRetries),
+		DelayMilliseconds: lo.Map(policy.Delays, func(delay time.Duration, _ int) int64 {
+			return delay.Milliseconds()
+		}),
+		MaxProviderDelayMilliseconds: new(policy.MaxProviderDelay.Milliseconds()),
+	}.Build()
 }
 
 // mapToolResultContents copies ordered domain blocks into the public UI contract.

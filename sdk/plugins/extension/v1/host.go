@@ -70,7 +70,7 @@ type Connection struct {
 	// tracker validates extension lifecycle events.
 	tracker *operation.Tracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted]
 	// hostOwner owns extension-initiated work in a separate identifier namespace.
-	hostOwner *operation.Owner[struct{}, *extensionpb.HostCompleted]
+	hostOwner *operation.Owner[*extensionpb.HostProgress, *extensionpb.HostCompleted]
 	// hostService admits catalog requests for the connected runtime.
 	hostService HostService
 	// mutex protects request kinds and terminal connection state.
@@ -151,7 +151,7 @@ func (c *Client) Open(ctx context.Context) (*Connection, error) {
 		}
 		return nil
 	})
-	connection.hostOwner = operation.NewOwner[struct{}, *extensionpb.HostCompleted](
+	connection.hostOwner = operation.NewOwner[*extensionpb.HostProgress, *extensionpb.HostCompleted](
 		streamContext,
 		&hostDelivery{connection: connection},
 	)

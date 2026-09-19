@@ -6,6 +6,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // InvocationKind identifies one process handler operation variant.
@@ -22,6 +23,8 @@ const (
 	InvocationModelSelection
 	// InvocationReasoningSelection invokes a reasoning-selection request handler.
 	InvocationReasoningSelection
+	// InvocationRetry invokes one model retry handler.
+	InvocationRetry
 )
 
 // Navigation contains the process-visible navigation request, before capability validation.
@@ -142,6 +145,8 @@ type HandlerInvocation struct {
 	OriginalSelection model.Selection
 	// CurrentSelection contains the target left by preceding selection handlers.
 	CurrentSelection model.Selection
+	// Retry contains one retry-handler invocation when Kind is InvocationRetry.
+	Retry mo.Option[modelexecution.RetryInvocation]
 }
 
 // HandlerAction contains decoded process action values before capability policy.
@@ -164,4 +169,6 @@ type HandlerAction struct {
 	SelectionReplacement mo.Option[model.Selection]
 	// SelectionRejection preserves rejection text when present.
 	SelectionRejection mo.Option[string]
+	// Retry contains one retry-handler action when Kind is InvocationRetry.
+	Retry mo.Option[modelexecution.RetryAction]
 }

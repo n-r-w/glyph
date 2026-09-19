@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"sync"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -98,8 +99,22 @@ func (prepared *preparedUIOperation) Run(
 	return operation.CompletedWithSource(result, errors.Join(sources...))
 }
 
+// retryPolicy projects one atomic runtime-control snapshot into the UI contract.
+func retryPolicy(control RetryControl) controllerui.RetryPolicy {
+	enabled, maxRetries, delays, maxProviderDelay := control.RetryPolicy()
+	return controllerui.RetryPolicy{
+		Enabled: enabled, MaxRetries: maxRetries, Delays: slices.Clone(delays), MaxProviderDelay: maxProviderDelay,
+	}
+}
+
 // isPureCancellation reports whether every leaf is a cancellation marker recognized by Host UI.
 func isPureCancellation(err error) bool {
+	if _, categorized := errors.AsType[interface {
+		error
+		FailureCode() string
+	}](err); categorized {
+		return false
+	}
 	return errtree.AllLeavesMatch(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
 	})
@@ -116,6 +131,7 @@ func (s *Session) Initialize(ctx context.Context) error {
 		Models:         s.modelCatalog.Models(),
 		ModelSelection: mo.Some(s.modelCatalog.ActiveSelection()),
 		SessionInfo:    info,
+		RetryPolicy:    retryPolicy(s.retryControl),
 	}
 	if err := s.output.Initialize(ctx, initialization); err != nil {
 		return fmt.Errorf("send UI initialization: %w", err)
@@ -179,6 +195,24 @@ func (s *Session) Prepare(
 	if command.Kind == controllerui.CommandRetryAuthentication {
 		return s.prepareAuthentication(command.AuthenticationMethod)
 	}
+	if command.Kind == controllerui.CommandSetRetryEnabled {
+		enabled, present := command.RetryEnabled.Get()
+		if !present {
+			return nil, rejectOperation(
+				controllerui.RejectionCodeInvalidArgument, errors.New("retry enablement is required"),
+			)
+		}
+		return &preparedUIOperation{
+			run: func(context.Context, operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
+				s.retryControl.SetRetryEnabled(enabled)
+				frame := controllerui.NewFrame(controllerui.FrameRetryEnabled)
+				frame.RetryPolicy = mo.Some(retryPolicy(s.retryControl))
+				return frame, nil
+			},
+			failureCode: func(error) string { return controllerui.FailureCodeInternal },
+			release:     func() {}, releaseOnce: sync.Once{},
+		}, nil
+	}
 	if command.Kind == controllerui.CommandSelectModel || command.Kind == controllerui.CommandSelectReasoningChoice {
 		return s.prepareSelection(command)
 	}
@@ -210,7 +244,7 @@ func (s *Session) prepareSubmit(
 	var terminalRunErr error
 	return &preparedUIOperation{
 		run: func(ctx context.Context, reporter operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
-			releaseProgress := s.output.BindProgress(reporter)
+			releaseProgress := s.output.BindProgress(runID, reporter)
 			defer releaseProgress()
 			if deliveryErr := s.output.SetAvailability(AvailabilityRunning); deliveryErr != nil {
 				return controllerui.Frame{}, fmt.Errorf("report running availability: %w", deliveryErr)
@@ -240,7 +274,30 @@ func runFailureCode(err error) string {
 	if errors.Is(err, agent.ErrPersistenceUnavailable) {
 		return controllerui.FailureCodePersistence
 	}
+	if code, found := modelExecutionFailureCode(err); found {
+		return code
+	}
 	return controllerui.FailureCodeInternal
+}
+
+// modelExecutionFailureCode reads the closed provider-neutral category without replacing its cause.
+func modelExecutionFailureCode(err error) (string, bool) {
+	failure, found := errors.AsType[interface {
+		error
+		FailureCode() string
+	}](err)
+	if !found {
+		return "", false
+	}
+	switch failure.FailureCode() {
+	case controllerui.FailureCodeModelFailed, controllerui.FailureCodeRetryExhausted,
+		controllerui.FailureCodeRetryCanceled, controllerui.FailureCodeExtensionFailed,
+		controllerui.FailureCodeRetryDelayExceeded, controllerui.FailureCodeContextLimit,
+		controllerui.FailureCodeInternal:
+		return failure.FailureCode(), true
+	default:
+		return "", false
+	}
 }
 
 // prepareAuthentication reserves one interactive authentication attempt.
@@ -257,7 +314,7 @@ func (s *Session) prepareAuthentication(
 	authenticationSucceeded := false
 	return &preparedUIOperation{
 		run: func(ctx context.Context, reporter operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
-			releaseProgress := s.output.BindProgress(reporter)
+			releaseProgress := s.output.BindProgress("", reporter)
 			defer releaseProgress()
 			if deliveryErr := s.output.SetAvailability(AvailabilityAuthenticating); deliveryErr != nil {
 				return controllerui.Frame{}, fmt.Errorf("report authentication availability: %w", deliveryErr)
@@ -415,6 +472,7 @@ func (s *Session) prepareSessionOperation(
 
 // isUISessionMutation reports operation kinds that reserve the shared mutation gate.
 func isUISessionMutation(kind controllerui.CommandKind) bool {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case controllerui.CommandCreateSession, controllerui.CommandResumeSession, controllerui.CommandSetSessionName,
 		controllerui.CommandNavigateSessionTree, controllerui.CommandForkSession, controllerui.CommandCloneSession,
@@ -437,6 +495,7 @@ func (s *Session) runSessionOperation(
 	command controllerui.Command,
 	reporter operation.Reporter[controllerui.Frame],
 ) (controllerui.Frame, error) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch command.Kind {
 	case controllerui.CommandCreateSession:
 		info, entries, err := s.activeSessions.CreateActive()
@@ -469,7 +528,7 @@ func (s *Session) runSessionOperation(
 			TargetEntryID: command.TargetEntryID.MustGet(),
 			SummaryMode:   command.SummaryMode,
 			CustomFocus:   command.CustomFocus,
-		}, navigationProgressCallback(reporter))
+		}, navigationProgressCallback(reporter), navigationRetryProgressCallback(reporter))
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
@@ -510,9 +569,13 @@ func (s *Session) runSessionOperation(
 
 // sessionOperationFailureCode classifies accepted session operation errors.
 func sessionOperationFailureCode(err error) string {
-	switch {
-	case errors.Is(err, session.ErrPersistenceUnavailable):
+	if errors.Is(err, session.ErrPersistenceUnavailable) {
 		return controllerui.FailureCodePersistence
+	}
+	if code, found := modelExecutionFailureCode(err); found {
+		return code
+	}
+	switch {
 	case navigationFailureCode(err) == controllerui.FailureCodeModelUnavailable:
 		return controllerui.FailureCodeModelUnavailable
 	case navigationFailureCode(err) == controllerui.FailureCodeProviderAuth:

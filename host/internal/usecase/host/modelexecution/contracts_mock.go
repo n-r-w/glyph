@@ -17,6 +17,97 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockRetryOutput is a mock of RetryOutput interface.
+type MockRetryOutput struct {
+	ctrl     *gomock.Controller
+	recorder *MockRetryOutputMockRecorder
+	isgomock struct{}
+}
+
+// MockRetryOutputMockRecorder is the mock recorder for MockRetryOutput.
+type MockRetryOutputMockRecorder struct {
+	mock *MockRetryOutput
+}
+
+// NewMockRetryOutput creates a new mock instance.
+func NewMockRetryOutput(ctrl *gomock.Controller) *MockRetryOutput {
+	mock := &MockRetryOutput{ctrl: ctrl}
+	mock.recorder = &MockRetryOutputMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRetryOutput) EXPECT() *MockRetryOutputMockRecorder {
+	return m.recorder
+}
+
+// DeliverRetry mocks base method.
+func (m *MockRetryOutput) DeliverRetry(arg0 context.Context, arg1 RetryProgress) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeliverRetry", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeliverRetry indicates an expected call of DeliverRetry.
+func (mr *MockRetryOutputMockRecorder) DeliverRetry(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeliverRetry", reflect.TypeOf((*MockRetryOutput)(nil).DeliverRetry), arg0, arg1)
+}
+
+// MockRetryHandlers is a mock of RetryHandlers interface.
+type MockRetryHandlers struct {
+	ctrl     *gomock.Controller
+	recorder *MockRetryHandlersMockRecorder
+	isgomock struct{}
+}
+
+// MockRetryHandlersMockRecorder is the mock recorder for MockRetryHandlers.
+type MockRetryHandlersMockRecorder struct {
+	mock *MockRetryHandlers
+}
+
+// NewMockRetryHandlers creates a new mock instance.
+func NewMockRetryHandlers(ctrl *gomock.Controller) *MockRetryHandlers {
+	mock := &MockRetryHandlers{ctrl: ctrl}
+	mock.recorder = &MockRetryHandlersMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockRetryHandlers) EXPECT() *MockRetryHandlersMockRecorder {
+	return m.recorder
+}
+
+// HandleRetry mocks base method.
+func (m *MockRetryHandlers) HandleRetry(ctx context.Context, handler RetryHandler, invocation RetryInvocation) (RetryAction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleRetry", ctx, handler, invocation)
+	ret0, _ := ret[0].(RetryAction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleRetry indicates an expected call of HandleRetry.
+func (mr *MockRetryHandlersMockRecorder) HandleRetry(ctx, handler, invocation any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleRetry", reflect.TypeOf((*MockRetryHandlers)(nil).HandleRetry), ctx, handler, invocation)
+}
+
+// SnapshotRetryHandlers mocks base method.
+func (m *MockRetryHandlers) SnapshotRetryHandlers() []RetryHandler {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SnapshotRetryHandlers")
+	ret0, _ := ret[0].([]RetryHandler)
+	return ret0
+}
+
+// SnapshotRetryHandlers indicates an expected call of SnapshotRetryHandlers.
+func (mr *MockRetryHandlersMockRecorder) SnapshotRetryHandlers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnapshotRetryHandlers", reflect.TypeOf((*MockRetryHandlers)(nil).SnapshotRetryHandlers))
+}
+
 // MockProviderAttempt is a mock of ProviderAttempt interface.
 type MockProviderAttempt struct {
 	ctrl     *gomock.Controller

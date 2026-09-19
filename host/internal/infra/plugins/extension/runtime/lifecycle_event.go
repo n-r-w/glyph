@@ -33,6 +33,7 @@ func mapLifecycleEvent(event extensionruntime.LifecycleInvocation) (*extensionpb
 		mapped.SetAgentSettled(extensionpb.AgentSettled_builder{RunId: new(event.RunID)}.Build())
 		return mapped, nil
 	}
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case agent.EventAgentStart, agent.EventAgentEnd, agent.EventTurnStart, agent.EventTurnEnd:
 		return mapLifecycleBoundary(event)
@@ -52,6 +53,7 @@ func mapLifecycleEvent(event extensionruntime.LifecycleInvocation) (*extensionpb
 // mapLifecycleBoundary maps agent and turn boundary events.
 func mapLifecycleBoundary(source extensionruntime.LifecycleInvocation) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch source.Type {
 	case agent.EventAgentStart:
 		mapped.SetAgentStart(extensionpb.AgentStart_builder{RunId: new(source.RunID)}.Build())
@@ -82,6 +84,7 @@ func mapLifecycleBoundary(source extensionruntime.LifecycleInvocation) (*extensi
 // mapLifecycleMessage maps message boundaries and content transitions.
 func mapLifecycleMessage(source extensionruntime.LifecycleInvocation) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch source.Type {
 	case agent.EventMessageStart:
 		mapped.SetMessageStart(extensionpb.MessageStart_builder{RunId: new(source.RunID)}.Build())
@@ -111,6 +114,7 @@ func mapLifecycleMessage(source extensionruntime.LifecycleInvocation) (*extensio
 // mapLifecycleTool maps tool execution lifecycle events.
 func mapLifecycleTool(source extensionruntime.LifecycleInvocation) (*extensionpb.LifecycleInvocation, error) {
 	mapped := new(extensionpb.LifecycleInvocation)
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch source.Type {
 	case agent.EventToolExecutionStart:
 		payload, err := mapLifecycleToolStart(source)
@@ -320,6 +324,7 @@ func mapLifecyclePreviewFields(fields []model.ToolCallPreviewField) ([]*extensio
 
 // lifecycleMessageUpdateKind maps one source transition to its public message-update kind.
 func lifecycleMessageUpdateKind(eventType agent.EventType) (extensionpb.MessageUpdateKind, error) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch eventType {
 	case agent.EventContentStart:
 		return extensionpb.MessageUpdateKind_MESSAGE_UPDATE_KIND_CONTENT_START, nil

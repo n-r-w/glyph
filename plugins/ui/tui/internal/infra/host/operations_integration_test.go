@@ -73,7 +73,9 @@ func TestSDKMapsOperationProgressAndCompletion(t *testing.T) {
 	sendHostEvent(t, stream, id, running)
 	progress := new(uiv1.HostProgress)
 	progress.SetAgentEvent(uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: new("run"), Text: nil,
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: new("run"), Text: nil,
 		ToolCallId: nil, ToolName: nil, ProgressChannel: nil, IsError: nil, Outcome: nil,
 		ErrorMessage: nil, Availability: nil, ModelContent: nil, ModelResponse: nil,
 		ToolCallPreview: nil, FinalToolCall: nil, ToolResultContents: nil,

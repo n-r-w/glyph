@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"time"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
@@ -38,6 +39,19 @@ func navigationProgressCallback(
 		}
 		frame := controllerui.NewFrame(controllerui.FrameSessionTreeNavigationProgress)
 		frame.TreeNavigationProgress = mo.Some(controllerui.TreeNavigationProgress{Tree: tree, ActiveBranch: branch})
+		return reporter.Report(frame)
+	}
+}
+
+// navigationRetryProgressCallback maps branch-summary retries to operation-scoped UI progress.
+func navigationRetryProgressCallback(
+	reporter operation.Reporter[controllerui.Frame],
+) func(int64, int64, time.Duration, string) error {
+	return func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error {
+		frame := controllerui.NewFrame(controllerui.FrameSessionTreeRetryProgress)
+		frame.TreeNavigationRetry = mo.Some(controllerui.RetryProgress{
+			CompletedAttempts: completedAttempts, AttemptLimit: attemptLimit, Delay: delay, Error: failure,
+		})
 		return reporter.Report(frame)
 	}
 }

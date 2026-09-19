@@ -5,6 +5,7 @@ package glyph.programmatic.v1;
 import "api/operation/v1/operation.proto";
 import "api/programmatic/v1/agent.proto";
 import "api/programmatic/v1/model.proto";
+import "api/programmatic/v1/retry.proto";
 import "api/programmatic/v1/session.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
@@ -47,6 +48,7 @@ message ControllerRequest {
     ForkSession fork_session = 17;
     CloneSession clone_session = 18;
     SetEntryLabel set_entry_label = 19;
+    SetRetryEnabled set_retry_enabled = 20;
   }
 }
 // UserRequest starts an agent run for user text.
@@ -109,6 +111,8 @@ message HostProgress {
   oneof progress {
     AgentEvent agent_event = 1;
     SessionTreeNavigationProgress session_tree_navigation = 2;
+    // Retry progress for a branch-summary model request owned by this navigation operation.
+    RetryProgress session_tree_retry = 3;
   }
 }
 // HostCompleted carries one operation-specific completed payload.
@@ -130,6 +134,7 @@ message HostCompleted {
     ForkSessionResult fork_session = 13;
     CloneSessionResult clone_session = 14;
     SetEntryLabelResult set_entry_label = 15;
+    RetryEnabledResult retry_enabled = 16;
   }
 }
 // UserRequestCompleted acknowledges a settled agent run.
@@ -140,6 +145,8 @@ message RunStateResult {
   RunState state = 1;
   // The operation identifier of the active user request.
   string active_operation_id = 2;
+  // The effective retry policy and current runtime enablement.
+  RetryPolicy retry_policy = 3;
 }
 // RunState identifies whether an agent run is active.
 enum RunState {

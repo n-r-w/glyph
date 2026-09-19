@@ -52,6 +52,8 @@ const (
 	CommandCloneSession
 	// CommandSetEntryLabel identifies an entry-label mutation.
 	CommandSetEntryLabel
+	// CommandSetRetryEnabled changes process-local model retry enablement.
+	CommandSetRetryEnabled
 )
 
 // Command is one transport-independent controller operation.
@@ -80,4 +82,6 @@ type Command struct {
 	CustomFocus mo.Option[string]
 	// EntryLabel preserves label presence, including an explicitly empty clear value.
 	EntryLabel mo.Option[string]
+	// RetryEnabled contains runtime retry enablement for the retry command.
+	RetryEnabled mo.Option[bool]
 }

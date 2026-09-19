@@ -8,7 +8,7 @@ import (
 )
 
 // agentEventFields identifies scalar and nested fields present in one lifecycle payload.
-type agentEventFields uint16
+type agentEventFields uint32
 
 const (
 	// agentEventFieldType identifies the lifecycle type field.
@@ -41,6 +41,10 @@ const (
 	agentEventFieldFinalToolCall
 	// agentEventFieldToolResultContents identifies the tool result content field.
 	agentEventFieldToolResultContents
+	// agentEventFieldRetryProgress identifies retry progress.
+	agentEventFieldRetryProgress
+	// agentEventFieldResponseReset identifies semantic response reset.
+	agentEventFieldResponseReset
 )
 
 // validateAgentEventFields rejects fields that are inactive for the lifecycle type.
@@ -69,6 +73,10 @@ func allowedAgentEventFields(lifecycleType uiv1.LifecycleType) (agentEventFields
 		return base | agentEventFieldModelContent, nil
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END:
 		return base | agentEventFieldModelResponse, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_RESPONSE_RESET:
+		return base | agentEventFieldResponseReset, nil
+	case uiv1.LifecycleType_LIFECYCLE_TYPE_RETRY_PROGRESS:
+		return base | agentEventFieldRetryProgress, nil
 	case uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_START,
 		uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA:
 		return base | agentEventFieldToolCallPreview, nil
@@ -156,6 +164,12 @@ func presentAgentEventPayloadFields(event *uiv1.AgentEvent) agentEventFields {
 	}
 	if len(event.GetToolResultContents()) > 0 {
 		fields |= agentEventFieldToolResultContents
+	}
+	if event.HasRetryProgress() {
+		fields |= agentEventFieldRetryProgress
+	}
+	if event.HasResponseReset() {
+		fields |= agentEventFieldResponseReset
 	}
 	return fields
 }

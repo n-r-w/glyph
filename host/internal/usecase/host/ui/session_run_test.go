@@ -29,12 +29,12 @@ func TestSubmitPreparationReservesRunnerBeforeAcceptance(t *testing.T) {
 	runner := NewMockAgentRunner(controller)
 	authenticator := NewMockAuthenticator(controller)
 	runner.EXPECT().PrepareRun().Return("run", nil)
-	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
+	channel.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
 	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, nil)
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
-		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil, nil)
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
@@ -65,13 +65,13 @@ func TestSubmitAvailabilityDeliveryFailureStopsRun(t *testing.T) {
 	runner := NewMockAgentRunner(controller)
 	source := errors.New("deliver running availability failed")
 	runner.EXPECT().PrepareRun().Return("run", nil)
-	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
+	channel.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Return(source)
 	channel.EXPECT().SetAvailability(gomock.Any()).Return(nil)
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
 		channel, runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil, nil,
-		nil, nil, nil)
+		nil, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
@@ -98,7 +98,7 @@ func TestSubmitPreparationRejectsBusyRunner(t *testing.T) {
 	runner.EXPECT().PrepareRun().Return("", session.ErrBusy)
 	service := NewSession(
 		NewMockOutput(controller), runner, NewMockAuthenticator(controller), NewMockModelCatalog(controller), nil, nil,
-		nil, nil, nil)
+		nil, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
@@ -125,13 +125,13 @@ func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) 
 	authenticator := NewMockAuthenticator(controller)
 	source := errors.New(strings.Repeat("界", 4001) + " complete credentials failure suffix...")
 	runner.EXPECT().PrepareRun().Return("run", nil)
-	channel.EXPECT().BindProgress(gomock.Any()).Return(func() {})
+	channel.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
 	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, source)
 	runner.EXPECT().CancelPrepared("run")
 	authenticator.EXPECT().IsSignInRequired(source).Return(true)
 	service := NewSession(
-		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil, nil)
+		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil, nil, nil)
 
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)

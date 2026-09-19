@@ -17,7 +17,18 @@ import (
 )
 
 // mapFrame converts one provider-neutral frame without exposing internal objects.
+//
+//nolint:gocyclo // The flat switch maps the closed UI frame union.
 func mapFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
+	if frame.Kind == controllerui.FrameSessionTreeRetryProgress {
+		progress, present := frame.TreeNavigationRetry.Get()
+		if !present {
+			return nil, errors.New("map UI tree retry progress: payload is required")
+		}
+		payload := new(uiv1.HostProgress)
+		payload.SetSessionTreeRetry(mapRetryProgress(progress))
+		return progressRequest(payload), nil
+	}
 	if frame.Kind == controllerui.FrameSessionTreeNavigationProgress {
 		progress, present := frame.TreeNavigationProgress.Get()
 		if !present {
@@ -62,6 +73,14 @@ func mapFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
 		completed := new(uiv1.HostCompleted)
 		completed.SetAuthentication(new(uiv1.AuthenticationCompleted))
 		return completedRequest(completed), nil
+	case controllerui.FrameRetryEnabled:
+		policy, present := frame.RetryPolicy.Get()
+		if !present {
+			return nil, errors.New("map UI frame: retry policy is required")
+		}
+		completed := new(uiv1.HostCompleted)
+		completed.SetRetryEnabled(uiv1.RetryEnabledResult_builder{Policy: mapRetryPolicy(policy)}.Build())
+		return completedRequest(completed), nil
 	case controllerui.FrameModelSelectionChanged:
 		selection, present := frame.ModelSelection.Get()
 		if !present {
@@ -74,6 +93,7 @@ func mapFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
 		return completedRequest(completed), nil
 	case controllerui.FrameSessionList, controllerui.FrameSessionChanged, controllerui.FrameSessionInformation,
 		controllerui.FrameSessionTree, controllerui.FrameSessionTreeNavigationProgress,
+		controllerui.FrameSessionTreeRetryProgress,
 		controllerui.FrameSessionTreeNavigation, controllerui.FrameSessionForked,
 		controllerui.FrameSessionCloned, controllerui.FrameEntryLabelSet:
 		return nil, errors.New("map UI frame: completed payload was not mapped")
@@ -135,8 +155,9 @@ func mapSessionFrame(frame controllerui.Frame) (*uiv1.HostCompleted, bool, error
 	case controllerui.FrameLifecycle, controllerui.FrameAuthorization,
 		controllerui.FrameModelSelectionChanged,
 		controllerui.FrameSessionTree, controllerui.FrameSessionTreeNavigationProgress,
-		controllerui.FrameSessionTreeNavigation,
-		controllerui.FrameEntryLabelSet, controllerui.FrameSubmitCompleted, controllerui.FrameAuthenticationCompleted:
+		controllerui.FrameSessionTreeRetryProgress, controllerui.FrameSessionTreeNavigation,
+		controllerui.FrameEntryLabelSet, controllerui.FrameSubmitCompleted, controllerui.FrameAuthenticationCompleted,
+		controllerui.FrameRetryEnabled:
 		return nil, false, nil
 	default:
 		return nil, false, nil

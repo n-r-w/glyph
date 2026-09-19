@@ -5,6 +5,7 @@ package programmatic
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
@@ -55,11 +56,12 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 			control := NewMockActiveSessions(mockController)
 			navigator := NewMockNavigator(mockController)
 			gate := NewMockGate(mockController)
-			navigator.EXPECT().NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+			navigator.EXPECT().NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(
 					_ context.Context,
 					request NavigationIntent,
 					_ func(session.Tree) error,
+					_ func(int64, int64, time.Duration, string) error,
 				) (NavigationCompletion, error) {
 					require.Equal(t, "target", request.TargetEntryID)
 					require.Equal(t, test.internalMode, request.SummaryMode)
@@ -82,7 +84,7 @@ func TestSummaryNavigationModesForwardEquivalentInternalRequests(t *testing.T) {
 				catalog,
 				testStateQuery(t, false),
 				control, navigator,
-				gate, testRunOutput(t), nil)
+				gate, testRunOutput(t), nil, nil)
 
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
 			command.TargetEntryID = mo.Some("target")

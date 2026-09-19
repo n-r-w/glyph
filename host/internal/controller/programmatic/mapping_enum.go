@@ -46,6 +46,10 @@ func mapAgentEventType(eventType AgentEventType) (programmaticv1.AgentEventType,
 		return programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_CALL_DELTA, nil
 	case AgentEventToolCallEnd:
 		return programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_CALL_END, nil
+	case AgentEventResponseReset:
+		return programmaticv1.AgentEventType_AGENT_EVENT_TYPE_RESPONSE_RESET, nil
+	case AgentEventRetryProgress:
+		return programmaticv1.AgentEventType_AGENT_EVENT_TYPE_RETRY_PROGRESS, nil
 	case AgentEventMessageEnd:
 		return programmaticv1.AgentEventType_AGENT_EVENT_TYPE_MESSAGE_END, nil
 	case AgentEventToolExecutionStart:

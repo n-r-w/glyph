@@ -219,6 +219,42 @@ func TestDriverStreamPreservesTransportFailure(t *testing.T) {
 	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
 }
 
+// TestDriverStreamClassifiesDeadlineTransportFailure verifies timeout identity remains transient and inspectable.
+func TestDriverStreamClassifiesDeadlineTransportFailure(t *testing.T) {
+	t.Parallel()
+
+	// Arrange authenticated credentials and a transport returning a wrapped deadline sentinel.
+	accountID := "deadline-account"
+	accessToken := testJWT(t, map[string]any{
+		"https://api.openai.com/auth": map[string]any{"chatgpt_account_id": accountID},
+	})
+	credentials := NewMockCredentials(gomock.NewController(t))
+	credentials.EXPECT().Load().Return(
+		testCredentialPayload(t, accessToken, "refresh", accountID, time.Now().Add(time.Hour)), true, nil,
+	)
+	interaction := NewMockInteraction(gomock.NewController(t))
+	transportErr := fmt.Errorf("configured timeout: %w", context.DeadlineExceeded)
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).Return(nil, transportErr)
+	options := defaultDriverOptions()
+	options.modelBaseURL = "https://timeout.invalid"
+	options.httpClient = &http.Client{Transport: transport, CheckRedirect: nil, Jar: nil, Timeout: 0}
+	service := newDriver(testConfig(), credentials, interaction, options)
+
+	// Act through one raw provider attempt.
+	_, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
+		ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions",
+		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil,
+	}, nil)
+
+	// Assert the typed provider boundary retains both transient classification and timeout identity.
+	var providerFailure *modelexecution.ProviderFailureError
+	require.ErrorAs(t, err, &providerFailure)
+	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.ErrorContains(t, err, "configured timeout")
+}
+
 // TestDriverStreamClassifiesPrematureClosure verifies a cleanly closed stream without terminal output is transient.
 func TestDriverStreamClassifiesPrematureClosure(t *testing.T) {
 	t.Parallel()

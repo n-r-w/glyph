@@ -1,6 +1,8 @@
 package settings
 
 import (
+	"time"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -106,6 +108,18 @@ type Provider struct {
 	Models []Model
 }
 
+// Retry contains one validated Host retry policy.
+type Retry struct {
+	// Enabled is the process startup retry state.
+	Enabled bool
+	// MaxRetries is the maximum repeat count after the initial attempt.
+	MaxRetries int64
+	// Delays contains the ordered delay before each repeat.
+	Delays []time.Duration
+	// MaxProviderDelay is the largest accepted provider-requested delay.
+	MaxProviderDelay time.Duration
+}
+
 // Settings contains the validated startup model and UI selection.
 type Settings struct {
 	// DefaultProvider identifies the provider selected at startup.
@@ -116,4 +130,6 @@ type Settings struct {
 	Providers map[string]Provider
 	// ActiveUI identifies the preferred UI plugin when configured.
 	ActiveUI mo.Option[string]
+	// Retry contains the persistent retry policy and startup enablement.
+	Retry Retry
 }

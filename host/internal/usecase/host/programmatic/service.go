@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -33,6 +35,8 @@ type Service struct {
 	modelSelection ModelSelection
 	// stateQuery reports Core activity without exposing its state.
 	stateQuery StateQuery
+	// retryControl owns runtime retry enablement and policy projection.
+	retryControl RetryControl
 	// activeSessions owns active-session lifecycle operations.
 	activeSessions ActiveSessions
 	// navigator owns handler policy and navigation commit orchestration.
@@ -55,9 +59,11 @@ func New(
 	gate Gate,
 	output RunOutput,
 	modelSelection ModelSelection,
+	retryControl RetryControl,
 ) *Service {
 	return &Service{
 		coordinator: coordinator, modelCatalog: modelCatalog, modelSelection: modelSelection, stateQuery: stateQuery,
+		retryControl:   retryControl,
 		gate:           gate,
 		activeSessions: activeSessions, navigator: navigator, output: output,
 	}
@@ -118,6 +124,17 @@ func (s *Service) handleImmediate(
 		return response, true, err
 	case controller.CommandGetModels:
 		return s.models(command.OperationID), true, nil
+	case controller.CommandSetRetryEnabled:
+		enabled, present := command.RetryEnabled.Get()
+		if !present {
+			return s.rejection(
+				command, controller.RejectionInvalidArgument, errors.New("retry enablement is required"),
+			), true, nil
+		}
+		s.retryControl.SetRetryEnabled(enabled)
+		response := emptyResponse(command.OperationID, controller.ResponseRetryEnabled)
+		response.RetryPolicy = mo.Some(retryPolicy(s.retryControl))
+		return response, true, nil
 	case controller.CommandUnspecified, controller.CommandCancel,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
 		return s.rejection(
@@ -146,6 +163,7 @@ func (s *Service) handleSessionImmediate(
 	ctx context.Context,
 	command controller.Command,
 ) (controller.Response, bool, error) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch command.Kind {
 	case controller.CommandCreateSession:
 		response, err := s.createSession(ctx, command)
@@ -199,8 +217,8 @@ func (s *Service) runState(operationID, active string) controller.Response {
 	}
 	response := emptyResponse(operationID, controller.ResponseRunState)
 	response.State = mo.Some(controller.RunStateResult{
-		State:             publicState,
-		ActiveOperationID: activeOperationID,
+		State: publicState, ActiveOperationID: activeOperationID,
+		RetryPolicy: retryPolicy(s.retryControl),
 	})
 	return response
 }
@@ -385,6 +403,7 @@ func (s *Service) navigateSessionTree(
 	ctx context.Context,
 	command controller.Command,
 	publisher func(session.Tree) error,
+	retryProgress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 ) (controller.Response, error) {
 	targetID, present := command.TargetEntryID.Get()
 	if !present || targetID == "" {
@@ -404,9 +423,12 @@ func (s *Service) navigateSessionTree(
 	}
 	result, err := s.navigator.NavigateProgrammatic(ctx, NavigationIntent{
 		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
-	}, publisher)
+	}, publisher, retryProgress)
 	if err != nil {
 		if isOperationCancellation(ctx, err) {
+			return controller.Response{}, err
+		}
+		if _, classified := modelExecutionFailureCode(err); classified {
 			return controller.Response{}, err
 		}
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
@@ -509,6 +531,14 @@ func sessionInfoResponse(operationID string, info session.Info) controller.Respo
 	return response
 }
 
+// retryPolicy projects one atomic runtime-control snapshot into the Programmatic contract.
+func retryPolicy(control RetryControl) controller.RetryPolicy {
+	enabled, maxRetries, delays, maxProviderDelay := control.RetryPolicy()
+	return controller.RetryPolicy{
+		Enabled: enabled, MaxRetries: maxRetries, Delays: slices.Clone(delays), MaxProviderDelay: maxProviderDelay,
+	}
+}
+
 // sessionStatisticsResponse initializes the complete statistics response variant.
 func sessionStatisticsResponse(operationID string, statistics session.Statistics) controller.Response {
 	return controller.Response{
@@ -528,6 +558,7 @@ func sessionStatisticsResponse(operationID string, statistics session.Statistics
 		Rejection:         mo.None[controller.Rejection](),
 		Replacement:       mo.None[controller.SessionReplacement](),
 		CancelTargetState: mo.None[operation.TerminalState](),
+		RetryPolicy:       mo.None[controller.RetryPolicy](),
 	}
 }
 
@@ -569,6 +600,12 @@ func isOperationCancellation(ctx context.Context, err error) bool {
 
 // isPureCancellation reports whether every leaf is context.Canceled under Programmatic Control policy.
 func isPureCancellation(err error) bool {
+	if _, categorized := errors.AsType[interface {
+		error
+		FailureCode() string
+	}](err); categorized {
+		return false
+	}
 	return errtree.AllLeavesMatch(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled)
 	})
@@ -593,6 +630,7 @@ func emptyResponse(operationID string, kind controller.ResponseKind) controller.
 		Replacement:       mo.None[controller.SessionReplacement](),
 		Rejection:         mo.None[controller.Rejection](),
 		CancelTargetState: mo.None[operation.TerminalState](),
+		RetryPolicy:       mo.None[controller.RetryPolicy](),
 	}
 }
 

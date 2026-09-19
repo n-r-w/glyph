@@ -133,7 +133,11 @@ func (prepared *handlePrepared) Run(
 	ctx context.Context,
 	_ operation.Reporter[*extensionpb.ToolProgress],
 ) operation.Outcome[extensionResult] {
-	response, err := prepared.operation.Run(context.WithValue(ctx, invocationContextKey{}, prepared.binding))
+	operationContext := ctx
+	if prepared.binding != nil {
+		operationContext = context.WithValue(ctx, invocationContextKey{}, prepared.binding)
+	}
+	response, err := prepared.operation.Run(operationContext)
 	if err != nil {
 		return operationOutcome[extensionResult](err)
 	}

@@ -125,7 +125,8 @@ func initializedRuntime(
 	runtime.BindInput(tuiinput.New(application), plugininput.New(application), source)
 	work, err := application.PrepareInitialize(plugininput.Initialization{
 		Availability: availability, Startup: nil, Models: nil,
-		Selection: plugininput.ModelSelection{}, Session: plugininput.SessionInfo{},
+		RetryPolicy: plugininput.RetryPolicy{},
+		Selection:   plugininput.ModelSelection{}, Session: plugininput.SessionInfo{},
 	})
 	require.NoError(t, err)
 	require.NoError(t, work.Run(t.Context()))

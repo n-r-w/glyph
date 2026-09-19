@@ -94,7 +94,7 @@ func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
 	released := false
 	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() { released = true }, nil)
-	models.EXPECT().Request(gomock.Any(), "extension", "runtime", reference, selection, "", history).
+	models.EXPECT().Request(gomock.Any(), "extension", "runtime", reference, selection, "", history, gomock.Any()).
 		Return(response, nil)
 	service := New(models, contexts, runtime, "extension", "runtime")
 	request := new(extensionpb.ExtensionRequest)
@@ -119,7 +119,7 @@ func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
 	// Act through the production extension request controller.
 	prepared, err := service.Prepare(t.Context(), "operation", request)
 	require.NoError(t, err)
-	completed, err := prepared.Run(t.Context())
+	completed, err := prepared.Run(t.Context(), nil)
 	require.NoError(t, err)
 	prepared.Release()
 
@@ -197,12 +197,12 @@ func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
 	// Act through both admitted controller operations.
 	appendOperation, err := service.Prepare(t.Context(), "append", appendEnvelope)
 	require.NoError(t, err)
-	appendResult, err := appendOperation.Run(t.Context())
+	appendResult, err := appendOperation.Run(t.Context(), nil)
 	require.NoError(t, err)
 	appendOperation.Release()
 	stateOperation, err := service.Prepare(t.Context(), "state", stateEnvelope)
 	require.NoError(t, err)
-	stateResult, err := stateOperation.Run(t.Context())
+	stateResult, err := stateOperation.Run(t.Context(), nil)
 	require.NoError(t, err)
 	stateOperation.Release()
 
@@ -261,7 +261,7 @@ func TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue(t *testing.
 	// Act through the production extension request controller.
 	prepared, err := service.Prepare(t.Context(), "append-message", request)
 	require.NoError(t, err)
-	completed, err := prepared.Run(t.Context())
+	completed, err := prepared.Run(t.Context(), nil)
 
 	// Assert exact committed metadata, message content, visibility, and complete delivery cause.
 	require.NoError(t, err)
@@ -308,7 +308,7 @@ func TestConfiguredModelRequestPreservesClosedFailures(t *testing.T) {
 			contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
 			runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil)
 			models.EXPECT().Request(
-				gomock.Any(), "extension", "runtime", reference, gomock.Any(), "", gomock.Any(),
+				gomock.Any(), "extension", "runtime", reference, gomock.Any(), "", gomock.Any(), gomock.Any(),
 			).Return(model.Response{}, failure)
 			service := New(models, contexts, runtime, "extension", "runtime")
 			request := new(extensionpb.ExtensionRequest)
@@ -323,7 +323,7 @@ func TestConfiguredModelRequestPreservesClosedFailures(t *testing.T) {
 			defer prepared.Release()
 
 			// Act through the admitted controller operation.
-			_, err = prepared.Run(t.Context())
+			_, err = prepared.Run(t.Context(), nil)
 
 			// Assert the public code supplements rather than replaces the complete owner error text.
 			publicFailure, present := errors.AsType[*extensionsdk.FailureError](err)
@@ -350,7 +350,7 @@ func TestConfiguredModelRequestPreservesStaleContext(t *testing.T) {
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
 	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil)
 	models.EXPECT().Request(
-		gomock.Any(), "extension", "runtime", reference, gomock.Any(), "", gomock.Any(),
+		gomock.Any(), "extension", "runtime", reference, gomock.Any(), "", gomock.Any(), gomock.Any(),
 	).Return(model.Response{}, failure)
 	service := New(models, contexts, runtime, "extension", "runtime")
 	request := new(extensionpb.ExtensionRequest)
@@ -365,7 +365,7 @@ func TestConfiguredModelRequestPreservesStaleContext(t *testing.T) {
 	defer prepared.Release()
 
 	// Act through the admitted controller operation.
-	_, err = prepared.Run(t.Context())
+	_, err = prepared.Run(t.Context(), nil)
 
 	// Assert the validator category and complete cause cross the model-operation boundary unchanged.
 	publicFailure, present := errors.AsType[*extensionsdk.FailureError](err)
@@ -509,7 +509,7 @@ func TestModelCatalogueMapsCompleteDescriptor(t *testing.T) {
 	// Act: admit, run, and release one catalog read.
 	prepared, err := service.Prepare(t.Context(), "operation", request)
 	require.NoError(t, err)
-	result, err := prepared.Run(t.Context())
+	result, err := prepared.Run(t.Context(), nil)
 	require.NoError(t, err)
 	prepared.Release()
 

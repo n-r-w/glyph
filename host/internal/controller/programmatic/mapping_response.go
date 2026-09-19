@@ -3,6 +3,7 @@ package programmatic
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -64,6 +65,12 @@ func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
 		if err := mapModelSelectionCompleted(wire, response.Selection, response.SelectionIssues); err != nil {
 			return nil, err
 		}
+	case ResponseRetryEnabled:
+		policy, present := response.RetryPolicy.Get()
+		if !present {
+			return nil, errors.New("map retry enablement: retry policy is absent")
+		}
+		wire.SetRetryEnabled(programmaticv1.RetryEnabledResult_builder{Policy: mapRetryPolicy(policy)}.Build())
 	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
 		ResponseSessionTree, ResponseSessionTreeNavigation, ResponseForkSession, ResponseCloneSession,
 		ResponseSetEntryLabel:
@@ -82,6 +89,7 @@ func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
 //
 //nolint:gocyclo // The switch maps every closed session response kind explicitly.
 func mapSessionResponse(wire *programmaticv1.HostCompleted, response Response) (bool, error) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch response.Kind {
 	case ResponseSessionInfo:
 		info, present := response.SessionInfo.Get()
@@ -308,11 +316,23 @@ func mapRunStateCompleted(
 	}
 	result := new(programmaticv1.RunStateResult)
 	result.SetState(state)
+	result.SetRetryPolicy(mapRetryPolicy(stateResult.RetryPolicy))
 	if activeOperationID, present := stateResult.ActiveOperationID.Get(); present {
 		result.SetActiveOperationId(activeOperationID)
 	}
 	wire.SetRunState(result)
 	return nil
+}
+
+// mapRetryPolicy projects one detached effective retry policy.
+func mapRetryPolicy(policy RetryPolicy) *programmaticv1.RetryPolicy {
+	return programmaticv1.RetryPolicy_builder{
+		Enabled: new(policy.Enabled), MaxRetries: new(policy.MaxRetries),
+		DelayMilliseconds: lo.Map(policy.Delays, func(delay time.Duration, _ int) int64 {
+			return delay.Milliseconds()
+		}),
+		MaxProviderDelayMilliseconds: new(policy.MaxProviderDelay.Milliseconds()),
+	}.Build()
 }
 
 // mapModelsCompleted maps the catalog and confirmed selection after response-kind dispatch.

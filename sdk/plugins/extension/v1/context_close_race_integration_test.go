@@ -122,11 +122,13 @@ func TestCloseBeforeAutomaticCancellationRunsStaysClean(t *testing.T) {
 				return nil, err
 			})
 		host.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).Return(read, nil)
-		read.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-			close(readRunning)
-			<-ctx.Done()
-			return nil, ctx.Err()
-		})
+		read.EXPECT().
+			Run(gomock.Any(), gomock.Any()).
+			DoAndReturn(func(ctx context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
+				close(readRunning)
+				<-ctx.Done()
+				return nil, ctx.Err()
+			})
 		read.EXPECT().Release().Do(func() { close(releaseStarted); <-releaseGate })
 		client := &Client{
 			process:   nil,

@@ -141,6 +141,8 @@ func TestMapLifecycleAcceptsPresentZeroPositionAndEmptyText(t *testing.T) {
 
 	// Act by invoking DecodeLifecycle to exercise present zero values survive mapping.
 	event, err := DecodeLifecycle(uiv1.AgentEvent_builder{
+		RetryProgress:   nil,
+		ResponseReset:   nil,
 		Type:            new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 		RunId:           new("run"),
 		Text:            nil,
@@ -188,7 +190,9 @@ func TestMapLifecycleRequiresToolFailurePresence(t *testing.T) {
 					}.Build()}
 				}
 				return roundTripLifecycle(t, uiv1.AgentEvent_builder{
-					Type: new(lifecycleType), RunId: new("run"), Text: nil,
+					RetryProgress: nil,
+					ResponseReset: nil,
+					Type:          new(lifecycleType), RunId: new("run"), Text: nil,
 					ToolCallId: new("call"), ToolName: new("tool"), ProgressChannel: nil,
 					IsError: isError, Outcome: nil, ErrorMessage: nil, Availability: nil,
 					ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,

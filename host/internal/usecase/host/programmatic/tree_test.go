@@ -29,7 +29,7 @@ func handleTreeCommandForTest(
 		return service.handle(ctx, command)
 	}
 	response, err := service.navigateSessionTree(
-		ctx, command, func(session.Tree) error { return nil },
+		ctx, command, func(session.Tree) error { return nil }, nil,
 	)
 	return response, nil, err
 }
@@ -52,7 +52,7 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 		testStateQuery(t, false),
 		control, nil,
 		gate,
-		testRunOutput(t), nil)
+		testRunOutput(t), nil, nil)
 
 	command := treeCommand("tree", controller.CommandGetSessionTree)
 
@@ -97,14 +97,16 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 		Kind: NavigationHandlerError, ExtensionID: "extension",
 		HandlerID: "handler", Text: "safe message",
 	}}}
-	navigator.EXPECT().NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).Return(committed, nil)
+	navigator.EXPECT().
+		NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(committed, nil)
 	service := New(
 		coordinator,
 		catalog,
 		testStateQuery(t, false),
 		control, navigator,
 		gate,
-		testRunOutput(t), nil)
+		testRunOutput(t), nil, nil)
 
 	command := treeCommand("navigate", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
@@ -144,7 +146,7 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 	navigator := NewMockNavigator(mockController)
 	gate := NewMockGate(mockController)
 	navigator.EXPECT().
-		NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).
+		NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 		Return(NavigationCompletion{Committed: mo.None[NavigationCommit](), Issues: []NavigationIssue{{
 			Kind: NavigationInvalidHandlerAction, ExtensionID: "extension",
 			HandlerID: "handler", Text: "safe message",
@@ -155,7 +157,7 @@ func TestCanceledNavigationReturnsCanceledWithoutState(t *testing.T) {
 		testStateQuery(t, false),
 		control, navigator,
 		gate,
-		testRunOutput(t), nil)
+		testRunOutput(t), nil, nil)
 
 	command := treeCommand("canceled", controller.CommandNavigateSessionTree)
 	command.TargetEntryID = mo.Some("user")
@@ -264,7 +266,7 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 			gate := NewMockGate(mockController)
 			if _, present := test.target.Get(); present {
 				navigator.EXPECT().
-					NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any()).
+					NavigateProgrammatic(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					Return(NavigationCompletion{}, test.navigationErr)
 			}
 			service := New(
@@ -272,7 +274,7 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 				catalog,
 				testStateQuery(t, false),
 				control, navigator,
-				gate, testRunOutput(t), nil)
+				gate, testRunOutput(t), nil, nil)
 
 			command := treeCommand(test.name, controller.CommandNavigateSessionTree)
 			command.TargetEntryID = test.target

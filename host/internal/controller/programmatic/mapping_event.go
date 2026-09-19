@@ -19,6 +19,14 @@ func mapEvent(event AgentEvent) (*programmaticv1.AgentEvent, error) {
 
 	switch event.Type {
 	case AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart:
+	case AgentEventResponseReset:
+		wire.SetResponseReset(new(programmaticv1.ResponseReset))
+	case AgentEventRetryProgress:
+		progress, present := event.Retry.Get()
+		if !present {
+			return nil, errors.New("map retry progress: retry data is missing")
+		}
+		wire.SetRetryProgress(mapRetryProgress(progress))
 	case AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd, AgentEventMessageEnd:
 		err = mapModelEvent(event, wire)
 	case AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd:
@@ -36,6 +44,14 @@ func mapEvent(event AgentEvent) (*programmaticv1.AgentEvent, error) {
 		return nil, err
 	}
 	return wire, nil
+}
+
+// mapRetryProgress maps retry accounting shared by agent and navigation operations.
+func mapRetryProgress(progress RetryProgress) *programmaticv1.RetryProgress {
+	return programmaticv1.RetryProgress_builder{
+		CompletedAttempts: new(progress.CompletedAttempts), AttemptLimit: new(progress.AttemptLimit),
+		DelayMilliseconds: new(progress.Delay.Milliseconds()), Error: new(progress.Error),
+	}.Build()
 }
 
 // mapModelEvent maps model progress and terminal model data.
@@ -61,7 +77,8 @@ func mapModelEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 			return err
 		}
 		wire.SetModelResponse(response)
-	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
+	case AgentEventResponseReset, AgentEventRetryProgress,
+		AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
 		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd,
 		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,
 		AgentEventToolResult, AgentEventTurnEnd, AgentEventAgentEnd:
@@ -91,7 +108,8 @@ func mapToolCallEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 			return errors.New("map tool call end event: final tool call is missing")
 		}
 		wire.SetFinalToolCall(mapFinalToolCall(callValue))
-	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
+	case AgentEventResponseReset, AgentEventRetryProgress,
+		AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
 		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd, AgentEventMessageEnd,
 		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,
 		AgentEventToolResult, AgentEventTurnEnd, AgentEventAgentEnd:
@@ -134,7 +152,8 @@ func mapToolExecutionEvent(event AgentEvent, wire *programmaticv1.AgentEvent) er
 			return err
 		}
 		wire.SetToolResult(result)
-	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
+	case AgentEventResponseReset, AgentEventRetryProgress,
+		AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
 		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd,
 		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd, AgentEventMessageEnd,
 		AgentEventTurnEnd, AgentEventAgentEnd:
@@ -168,7 +187,8 @@ func mapTerminalEvent(event AgentEvent, wire *programmaticv1.AgentEvent) error {
 			return err
 		}
 		wire.SetAgent(agent)
-	case AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
+	case AgentEventResponseReset, AgentEventRetryProgress,
+		AgentEventUnspecified, AgentEventAgentStart, AgentEventTurnStart, AgentEventMessageStart,
 		AgentEventModelContentStart, AgentEventModelTextDelta, AgentEventModelContentEnd,
 		AgentEventToolCallStart, AgentEventToolCallDelta, AgentEventToolCallEnd, AgentEventMessageEnd,
 		AgentEventToolExecutionStart, AgentEventToolExecutionUpdate, AgentEventToolExecutionEnd,

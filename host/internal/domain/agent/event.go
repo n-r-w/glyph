@@ -29,6 +29,8 @@ const (
 	EventToolCallDelta
 	// EventToolCallEnd carries exact final function-call arguments.
 	EventToolCallEnd
+	// EventResponseReset discards one unfinished model response before replacement.
+	EventResponseReset
 	// EventMessageEnd carries the complete terminal model response.
 	EventMessageEnd
 	// EventToolExecutionStart starts one tool call.

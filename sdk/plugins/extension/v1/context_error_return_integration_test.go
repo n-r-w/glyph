@@ -52,7 +52,7 @@ func TestReturnedContextFailureDoesNotInvalidateExtension(t *testing.T) {
 	first.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).Return(read, nil)
 	read.EXPECT().
-		Run(gomock.Any()).
+		Run(gomock.Any(), gomock.Any()).
 		Return(nil, Fail("STALE_CONTEXT", errors.New("session incarnation changed during catalog read")))
 	read.EXPECT().Release()
 	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(second, nil)

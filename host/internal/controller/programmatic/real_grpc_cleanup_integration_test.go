@@ -165,12 +165,14 @@ func grpcCleanupProgress() OperationProgress {
 			Type:         AgentEventAgentStart,
 			RunID:        "queue-item",
 			ModelContent: mo.None[ModelContent](), ToolCallPreview: mo.None[ToolCallPreview](),
-			FinalToolCall: mo.None[FinalToolCall](), ToolExecution: mo.None[ToolExecution](),
-			ToolProgress: mo.None[ToolProgress](), ToolResult: mo.None[ToolResult](),
+			FinalToolCall: mo.None[FinalToolCall](), Retry: mo.None[RetryProgress](),
+			ToolExecution: mo.None[ToolExecution](),
+			ToolProgress:  mo.None[ToolProgress](), ToolResult: mo.None[ToolResult](),
 			ModelResponse: mo.None[ModelResponse](), Turn: mo.None[TurnSummary](),
 			Agent: mo.None[AgentSummary](),
 		}),
-		TreeNavigation: mo.None[TreeNavigationProgress](),
+		TreeNavigation:      mo.None[TreeNavigationProgress](),
+		TreeNavigationRetry: mo.None[RetryProgress](),
 	}
 }
 

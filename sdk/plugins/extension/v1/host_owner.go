@@ -18,7 +18,7 @@ type hostDelivery struct {
 	connection *Connection
 }
 
-var _ operation.Delivery[struct{}, *extensionpb.HostCompleted] = (*hostDelivery)(nil)
+var _ operation.Delivery[*extensionpb.HostProgress, *extensionpb.HostCompleted] = (*hostDelivery)(nil)
 
 // Accepted queues the acceptance acknowledgement before execution starts.
 func (d *hostDelivery) Accepted(id string) (*operation.Acknowledgement, error) {
@@ -38,9 +38,18 @@ func (d *hostDelivery) Running(id string) error {
 	return err
 }
 
-// Progress rejects progress because context operations have no progress contract.
-func (d *hostDelivery) Progress(_ string, _ struct{}) error {
-	return errors.New("extension context operations cannot emit progress")
+// Progress publishes one configured-model retry progress event.
+func (d *hostDelivery) Progress(id string, progress *extensionpb.HostProgress) error {
+	if progress == nil || progress.GetConfiguredModelRetry() == nil {
+		return errors.New("extension Host progress is invalid")
+	}
+	event := new(extensionpb.HostEvent)
+	event.SetProgress(progress)
+	err := d.connection.writer.Enqueue(hostEventEnvelope(id, event), nil)
+	if err != nil {
+		d.connection.fail(mapDeliveryError(err))
+	}
+	return err
 }
 
 // Terminal publishes the result or complete closed-category failure.
@@ -99,7 +108,7 @@ func (c *Connection) handleHostRequest(id string, request *extensionpb.Extension
 			errors.New("extension-initiated operation identifier and implemented request payload are required"),
 		)
 	}
-	prepare := func() (operation.Prepared[struct{}, *extensionpb.HostCompleted], error) {
+	prepare := func() (operation.Prepared[*extensionpb.HostProgress, *extensionpb.HostCompleted], error) {
 		if kind == hostRequestCancel {
 			target := request.GetCancel().GetTargetOperationId()
 			if target == "" {
@@ -159,14 +168,14 @@ type hostPrepared struct {
 	kind hostRequestKind
 }
 
-var _ operation.Prepared[struct{}, *extensionpb.HostCompleted] = (*hostPrepared)(nil)
+var _ operation.Prepared[*extensionpb.HostProgress, *extensionpb.HostCompleted] = (*hostPrepared)(nil)
 
 // Run executes the admitted read and validates its terminal payload.
 func (p *hostPrepared) Run(
 	ctx context.Context,
-	_ operation.Reporter[struct{}],
+	reporter operation.Reporter[*extensionpb.HostProgress],
 ) operation.Outcome[*extensionpb.HostCompleted] {
-	result, err := p.operation.Run(ctx)
+	result, err := p.operation.Run(ctx, &HostProgressReporter{reporter: reporter})
 	if err != nil {
 		return operationOutcome[*extensionpb.HostCompleted](err)
 	}
@@ -207,12 +216,12 @@ type hostCancellationPrepared struct {
 	cancel func(context.Context) (operation.TerminalState, error)
 }
 
-var _ operation.Prepared[struct{}, *extensionpb.HostCompleted] = (*hostCancellationPrepared)(nil)
+var _ operation.Prepared[*extensionpb.HostProgress, *extensionpb.HostCompleted] = (*hostCancellationPrepared)(nil)
 
 // Run cancels and joins the target through the shared operation lifecycle.
 func (p *hostCancellationPrepared) Run(
 	ctx context.Context,
-	_ operation.Reporter[struct{}],
+	_ operation.Reporter[*extensionpb.HostProgress],
 ) operation.Outcome[*extensionpb.HostCompleted] {
 	state, err := p.cancel(ctx)
 	if err != nil {

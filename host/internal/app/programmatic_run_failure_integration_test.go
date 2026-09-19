@@ -56,8 +56,8 @@ func (testSuite *ProgrammaticAppSuite) TestProgrammaticJoinedPersistenceFailure(
 			}
 			failure := event.GetFailed()
 
-			// Assert a source-classified joined failure wins INTERNAL without losing either diagnostic.
-			expectedCode := "INTERNAL"
+			// Assert the terminal model category is retained unless persistence contributes independently.
+			expectedCode := "MODEL_FAILED"
 			if persistenceFails {
 				expectedCode = "PERSISTENCE_UNAVAILABLE"
 				require.Contains(t, strings.ToLower(failure.GetMessage()), "permission")

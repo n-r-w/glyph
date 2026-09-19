@@ -3,6 +3,7 @@ package extensionmodels
 
 import (
 	"context"
+	"time"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
@@ -22,11 +23,12 @@ type Catalog interface {
 // ModelRequester executes explicit configured model requests.
 type ModelRequester interface {
 	// Request executes one explicit configured selection without changing active selection.
-	Request(
+	RequestConfigured(
 		ctx context.Context,
 		selection model.Selection,
 		instructions string,
 		history []agent.HistoryEntry,
+		progress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 	) (model.Response, error)
 }
 

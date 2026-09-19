@@ -44,6 +44,7 @@ func testModelSelectionFrame() controllerui.Frame {
 		SessionTree:            mo.None[controllerui.SessionTree](),
 		TreeNavigation:         mo.None[controllerui.TreeNavigationResult](),
 		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		TreeNavigationRetry:    mo.None[controllerui.RetryProgress](),
 	}
 }
 

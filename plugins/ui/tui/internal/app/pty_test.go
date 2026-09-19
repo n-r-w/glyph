@@ -149,6 +149,10 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	stream, err := client.Service().Open(t.Context())
 	require.NoError(t, err)
 	initialization := uiv1.Initialization_builder{
+		RetryPolicy: uiv1.RetryPolicy_builder{
+			Enabled: new(true), MaxRetries: new(int64(3)), DelayMilliseconds: []int64{1000, 2000, 4000},
+			MaxProviderDelayMilliseconds: new(int64(30000)),
+		}.Build(),
 		SelectedUiId: new("glyph-tui"),
 		StartupContent: []*uiv1.StartupContent{uiv1.StartupContent_builder{
 			Severity: new(uiv1.ContentSeverity_CONTENT_SEVERITY_INFORMATION), Text: new("Glyph session initialized."),
@@ -190,7 +194,9 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	beginHostOperation(t, stream, firstID)
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_RUNNING)
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 		ModelContent: uiv1.ModelContent_builder{
 			Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 			Position: new(int64(0)),
@@ -218,6 +224,8 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	assert.Equal(t, firstID, response.GetRequest().GetCancel().GetTargetOperationId())
 	beginHostOperation(t, stream, cancelID)
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
+		RetryProgress:      nil,
+		ResponseReset:      nil,
 		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_START),
 		ToolCallId:         new("call-1"),
 		ToolName:           new("read"),
@@ -235,6 +243,8 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
+		RetryProgress:      nil,
+		ResponseReset:      nil,
 		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
 		ProgressChannel:    new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STATUS),
 		Text:               new("working"),
@@ -252,6 +262,8 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
+		RetryProgress:      nil,
+		ResponseReset:      nil,
 		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
 		ProgressChannel:    new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDOUT),
 		Text:               new("content"),
@@ -269,6 +281,8 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
+		RetryProgress:      nil,
+		ResponseReset:      nil,
 		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_UPDATE),
 		ProgressChannel:    new(uiv1.ProgressChannel_PROGRESS_CHANNEL_STDERR),
 		Text:               new("warning"),
@@ -286,6 +300,8 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
+		RetryProgress:      nil,
+		ResponseReset:      nil,
 		Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_EXECUTION_END),
 		ToolCallId:         new("call-1"),
 		ToolName:           new("read"),
@@ -303,9 +319,11 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		ToolResultContents: nil,
 	}.Build())
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
-		Type:       new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
-		ToolCallId: new("call-1"),
-		ToolName:   new("read"),
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_TOOL_RESULT),
+		ToolCallId:    new("call-1"),
+		ToolName:      new("read"),
 		ToolResultContents: []*uiv1.ToolResultContent{
 			//nolint:exhaustruct_v5 // uiv1.ToolResultContent_builder sets only the active Text field.
 			uiv1.ToolResultContent_builder{
@@ -325,7 +343,9 @@ func TestStandardTUIPTYInner(t *testing.T) {
 		FinalToolCall:   nil,
 	}.Build())
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
 		ModelResponse: uiv1.ModelResponse_builder{
 			Content: []*uiv1.ModelResponseContent{uiv1.ModelResponseContent_builder{
 				Kind: new(uiv1.ModelContentKind_MODEL_CONTENT_KIND_TEXT),

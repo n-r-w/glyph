@@ -110,6 +110,15 @@ message HostEvent {
     glyph.operation.v1.Canceled canceled = 4;
     glyph.operation.v1.Failed failed = 5;
     glyph.operation.v1.Rejected rejected = 6;
+    HostProgress progress = 7;
+  }
+}
+
+// HostProgress carries one extension-initiated operation progress payload.
+message HostProgress {
+  // The progress payload.
+  oneof progress {
+    ConfiguredModelRetryProgress configured_model_retry = 1;
   }
 }
 
@@ -176,6 +185,8 @@ enum HandlerKind {
   HANDLER_KIND_MODEL_SELECTION_OBSERVER = 17;
   // The handler observes a committed reasoning selection change.
   HANDLER_KIND_REASONING_SELECTION_OBSERVER = 18;
+  // The handler composes one model retry decision.
+  HANDLER_KIND_RETRY = 19;
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.

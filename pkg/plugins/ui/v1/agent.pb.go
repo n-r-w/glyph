@@ -223,6 +223,10 @@ const (
 	LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_DELTA LifecycleType = 15
 	// Tool call generation ended.
 	LifecycleType_LIFECYCLE_TYPE_TOOL_CALL_END LifecycleType = 16
+	// The unfinished model response was discarded before replacement.
+	LifecycleType_LIFECYCLE_TYPE_RESPONSE_RESET LifecycleType = 17
+	// Another model attempt is pending.
+	LifecycleType_LIFECYCLE_TYPE_RETRY_PROGRESS LifecycleType = 18
 )
 
 // Enum value maps for LifecycleType.
@@ -245,6 +249,8 @@ var (
 		14: "LIFECYCLE_TYPE_TOOL_CALL_START",
 		15: "LIFECYCLE_TYPE_TOOL_CALL_DELTA",
 		16: "LIFECYCLE_TYPE_TOOL_CALL_END",
+		17: "LIFECYCLE_TYPE_RESPONSE_RESET",
+		18: "LIFECYCLE_TYPE_RETRY_PROGRESS",
 	}
 	LifecycleType_value = map[string]int32{
 		"LIFECYCLE_TYPE_UNSPECIFIED":           0,
@@ -264,6 +270,8 @@ var (
 		"LIFECYCLE_TYPE_TOOL_CALL_START":       14,
 		"LIFECYCLE_TYPE_TOOL_CALL_DELTA":       15,
 		"LIFECYCLE_TYPE_TOOL_CALL_END":         16,
+		"LIFECYCLE_TYPE_RESPONSE_RESET":        17,
+		"LIFECYCLE_TYPE_RETRY_PROGRESS":        18,
 	}
 )
 
@@ -488,6 +496,8 @@ type AgentEvent struct {
 	xxx_hidden_ToolCallPreview    *ToolCallPreview       `protobuf:"bytes,13,opt,name=tool_call_preview,json=toolCallPreview"`
 	xxx_hidden_FinalToolCall      *FinalToolCall         `protobuf:"bytes,14,opt,name=final_tool_call,json=finalToolCall"`
 	xxx_hidden_ToolResultContents *[]*ToolResultContent  `protobuf:"bytes,15,rep,name=tool_result_contents,json=toolResultContents"`
+	xxx_hidden_RetryProgress      *RetryProgress         `protobuf:"bytes,16,opt,name=retry_progress,json=retryProgress"`
+	xxx_hidden_ResponseReset      *ResponseReset         `protobuf:"bytes,17,opt,name=response_reset,json=responseReset"`
 	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
 	XXX_presence                  [1]uint32
 	unknownFields                 protoimpl.UnknownFields
@@ -650,54 +660,68 @@ func (x *AgentEvent) GetToolResultContents() []*ToolResultContent {
 	return nil
 }
 
+func (x *AgentEvent) GetRetryProgress() *RetryProgress {
+	if x != nil {
+		return x.xxx_hidden_RetryProgress
+	}
+	return nil
+}
+
+func (x *AgentEvent) GetResponseReset() *ResponseReset {
+	if x != nil {
+		return x.xxx_hidden_ResponseReset
+	}
+	return nil
+}
+
 func (x *AgentEvent) SetType(v LifecycleType) {
 	x.xxx_hidden_Type = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 17)
 }
 
 func (x *AgentEvent) SetRunId(v string) {
 	x.xxx_hidden_RunId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 17)
 }
 
 func (x *AgentEvent) SetText(v string) {
 	x.xxx_hidden_Text = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 17)
 }
 
 func (x *AgentEvent) SetToolCallId(v string) {
 	x.xxx_hidden_ToolCallId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 17)
 }
 
 func (x *AgentEvent) SetToolName(v string) {
 	x.xxx_hidden_ToolName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 17)
 }
 
 func (x *AgentEvent) SetProgressChannel(v ProgressChannel) {
 	x.xxx_hidden_ProgressChannel = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 17)
 }
 
 func (x *AgentEvent) SetIsError(v bool) {
 	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 6, 17)
 }
 
 func (x *AgentEvent) SetOutcome(v string) {
 	x.xxx_hidden_Outcome = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 7, 17)
 }
 
 func (x *AgentEvent) SetErrorMessage(v string) {
 	x.xxx_hidden_ErrorMessage = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 17)
 }
 
 func (x *AgentEvent) SetAvailability(v Availability) {
 	x.xxx_hidden_Availability = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 15)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 17)
 }
 
 func (x *AgentEvent) SetModelContent(v *ModelContent) {
@@ -718,6 +742,14 @@ func (x *AgentEvent) SetFinalToolCall(v *FinalToolCall) {
 
 func (x *AgentEvent) SetToolResultContents(v []*ToolResultContent) {
 	x.xxx_hidden_ToolResultContents = &v
+}
+
+func (x *AgentEvent) SetRetryProgress(v *RetryProgress) {
+	x.xxx_hidden_RetryProgress = v
+}
+
+func (x *AgentEvent) SetResponseReset(v *ResponseReset) {
+	x.xxx_hidden_ResponseReset = v
 }
 
 func (x *AgentEvent) HasType() bool {
@@ -818,6 +850,20 @@ func (x *AgentEvent) HasFinalToolCall() bool {
 	return x.xxx_hidden_FinalToolCall != nil
 }
 
+func (x *AgentEvent) HasRetryProgress() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_RetryProgress != nil
+}
+
+func (x *AgentEvent) HasResponseReset() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_ResponseReset != nil
+}
+
 func (x *AgentEvent) ClearType() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Type = LifecycleType_LIFECYCLE_TYPE_UNSPECIFIED
@@ -884,6 +930,14 @@ func (x *AgentEvent) ClearFinalToolCall() {
 	x.xxx_hidden_FinalToolCall = nil
 }
 
+func (x *AgentEvent) ClearRetryProgress() {
+	x.xxx_hidden_RetryProgress = nil
+}
+
+func (x *AgentEvent) ClearResponseReset() {
+	x.xxx_hidden_ResponseReset = nil
+}
+
 type AgentEvent_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -917,6 +971,10 @@ type AgentEvent_builder struct {
 	FinalToolCall *FinalToolCall
 	// The ordered typed terminal tool result blocks.
 	ToolResultContents []*ToolResultContent
+	// Retry progress when another model attempt is pending.
+	RetryProgress *RetryProgress
+	// The semantic reset before replacement response content.
+	ResponseReset *ResponseReset
 }
 
 func (b0 AgentEvent_builder) Build() *AgentEvent {
@@ -924,43 +982,43 @@ func (b0 AgentEvent_builder) Build() *AgentEvent {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Type != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 17)
 		x.xxx_hidden_Type = *b.Type
 	}
 	if b.RunId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 17)
 		x.xxx_hidden_RunId = b.RunId
 	}
 	if b.Text != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 17)
 		x.xxx_hidden_Text = b.Text
 	}
 	if b.ToolCallId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 17)
 		x.xxx_hidden_ToolCallId = b.ToolCallId
 	}
 	if b.ToolName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 17)
 		x.xxx_hidden_ToolName = b.ToolName
 	}
 	if b.ProgressChannel != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 17)
 		x.xxx_hidden_ProgressChannel = *b.ProgressChannel
 	}
 	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 6, 17)
 		x.xxx_hidden_IsError = *b.IsError
 	}
 	if b.Outcome != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 7, 17)
 		x.xxx_hidden_Outcome = b.Outcome
 	}
 	if b.ErrorMessage != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 17)
 		x.xxx_hidden_ErrorMessage = b.ErrorMessage
 	}
 	if b.Availability != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 15)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 17)
 		x.xxx_hidden_Availability = *b.Availability
 	}
 	x.xxx_hidden_ModelContent = b.ModelContent
@@ -968,6 +1026,8 @@ func (b0 AgentEvent_builder) Build() *AgentEvent {
 	x.xxx_hidden_ToolCallPreview = b.ToolCallPreview
 	x.xxx_hidden_FinalToolCall = b.FinalToolCall
 	x.xxx_hidden_ToolResultContents = &b.ToolResultContents
+	x.xxx_hidden_RetryProgress = b.RetryProgress
+	x.xxx_hidden_ResponseReset = b.ResponseReset
 	return m0
 }
 
@@ -2847,11 +2907,11 @@ var File_api_plugins_ui_v1_agent_proto protoreflect.FileDescriptor
 
 const file_api_plugins_ui_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x1dapi/plugins/ui/v1/agent.proto\x12\x13glyph.plugins.ui.v1\x1a\x1cgoogle/protobuf/struct.proto\"^\n" +
+	"\x1dapi/plugins/ui/v1/agent.proto\x12\x13glyph.plugins.ui.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1dapi/plugins/ui/v1/retry.proto\"^\n" +
 	"\x15ExtensionAvailability\x12\x1b\n" +
 	"\tplugin_id\x18\x01 \x01(\tR\bpluginId\x12\x14\n" +
 	"\x05tools\x18\x02 \x03(\tR\x05tools\x12\x12\n" +
-	"\x04path\x18\x03 \x01(\tR\x04path\"\xab\x06\n" +
+	"\x04path\x18\x03 \x01(\tR\x04path\"\xc1\a\n" +
 	"\n" +
 	"AgentEvent\x126\n" +
 	"\x04type\x18\x01 \x01(\x0e2\".glyph.plugins.ui.v1.LifecycleTypeR\x04type\x12\x15\n" +
@@ -2870,7 +2930,9 @@ const file_api_plugins_ui_v1_agent_proto_rawDesc = "" +
 	"\x0emodel_response\x18\f \x01(\v2\".glyph.plugins.ui.v1.ModelResponseR\rmodelResponse\x12P\n" +
 	"\x11tool_call_preview\x18\r \x01(\v2$.glyph.plugins.ui.v1.ToolCallPreviewR\x0ftoolCallPreview\x12J\n" +
 	"\x0ffinal_tool_call\x18\x0e \x01(\v2\".glyph.plugins.ui.v1.FinalToolCallR\rfinalToolCall\x12X\n" +
-	"\x14tool_result_contents\x18\x0f \x03(\v2&.glyph.plugins.ui.v1.ToolResultContentR\x12toolResultContents\"r\n" +
+	"\x14tool_result_contents\x18\x0f \x03(\v2&.glyph.plugins.ui.v1.ToolResultContentR\x12toolResultContents\x12I\n" +
+	"\x0eretry_progress\x18\x10 \x01(\v2\".glyph.plugins.ui.v1.RetryProgressR\rretryProgress\x12I\n" +
+	"\x0eresponse_reset\x18\x11 \x01(\v2\".glyph.plugins.ui.v1.ResponseResetR\rresponseReset\"r\n" +
 	"\x11ToolResultContent\x12\x14\n" +
 	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12<\n" +
 	"\x05image\x18\x02 \x01(\v2$.glyph.plugins.ui.v1.ToolResultImageH\x00R\x05imageB\t\n" +
@@ -2944,7 +3006,7 @@ const file_api_plugins_ui_v1_agent_proto_rawDesc = "" +
 	"\x1eMODEL_CONTENT_TYPE_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18MODEL_CONTENT_TYPE_START\x10\x01\x12!\n" +
 	"\x1dMODEL_CONTENT_TYPE_TEXT_DELTA\x10\x02\x12\x1a\n" +
-	"\x16MODEL_CONTENT_TYPE_END\x10\x03*\xe2\x04\n" +
+	"\x16MODEL_CONTENT_TYPE_END\x10\x03*\xa8\x05\n" +
 	"\rLifecycleType\x12\x1e\n" +
 	"\x1aLIFECYCLE_TYPE_UNSPECIFIED\x10\x00\x12\x1e\n" +
 	"\x1aLIFECYCLE_TYPE_AGENT_START\x10\x01\x12\x1d\n" +
@@ -2963,7 +3025,9 @@ const file_api_plugins_ui_v1_agent_proto_rawDesc = "" +
 	" LIFECYCLE_TYPE_MODEL_CONTENT_END\x10\r\x12\"\n" +
 	"\x1eLIFECYCLE_TYPE_TOOL_CALL_START\x10\x0e\x12\"\n" +
 	"\x1eLIFECYCLE_TYPE_TOOL_CALL_DELTA\x10\x0f\x12 \n" +
-	"\x1cLIFECYCLE_TYPE_TOOL_CALL_END\x10\x10*\x8a\x01\n" +
+	"\x1cLIFECYCLE_TYPE_TOOL_CALL_END\x10\x10\x12!\n" +
+	"\x1dLIFECYCLE_TYPE_RESPONSE_RESET\x10\x11\x12!\n" +
+	"\x1dLIFECYCLE_TYPE_RETRY_PROGRESS\x10\x12*\x8a\x01\n" +
 	"\x0fProgressChannel\x12 \n" +
 	"\x1cPROGRESS_CHANNEL_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17PROGRESS_CHANNEL_STATUS\x10\x01\x12\x1b\n" +
@@ -2990,7 +3054,9 @@ var file_api_plugins_ui_v1_agent_proto_goTypes = []any{
 	(*ModelResponseContent)(nil),  // 14: glyph.plugins.ui.v1.ModelResponseContent
 	(*ModelUsage)(nil),            // 15: glyph.plugins.ui.v1.ModelUsage
 	(*ModelDiagnostic)(nil),       // 16: glyph.plugins.ui.v1.ModelDiagnostic
-	(*structpb.Value)(nil),        // 17: google.protobuf.Value
+	(*RetryProgress)(nil),         // 17: glyph.plugins.ui.v1.RetryProgress
+	(*ResponseReset)(nil),         // 18: glyph.plugins.ui.v1.ResponseReset
+	(*structpb.Value)(nil),        // 19: google.protobuf.Value
 }
 var file_api_plugins_ui_v1_agent_proto_depIdxs = []int32{
 	3,  // 0: glyph.plugins.ui.v1.AgentEvent.type:type_name -> glyph.plugins.ui.v1.LifecycleType
@@ -3001,21 +3067,23 @@ var file_api_plugins_ui_v1_agent_proto_depIdxs = []int32{
 	9,  // 5: glyph.plugins.ui.v1.AgentEvent.tool_call_preview:type_name -> glyph.plugins.ui.v1.ToolCallPreview
 	11, // 6: glyph.plugins.ui.v1.AgentEvent.final_tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
 	7,  // 7: glyph.plugins.ui.v1.AgentEvent.tool_result_contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
-	8,  // 8: glyph.plugins.ui.v1.ToolResultContent.image:type_name -> glyph.plugins.ui.v1.ToolResultImage
-	10, // 9: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
-	17, // 10: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	2,  // 11: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
-	1,  // 12: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	15, // 13: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
-	16, // 14: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
-	14, // 15: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
-	1,  // 16: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
-	11, // 17: glyph.plugins.ui.v1.ModelResponseContent.tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	17, // 8: glyph.plugins.ui.v1.AgentEvent.retry_progress:type_name -> glyph.plugins.ui.v1.RetryProgress
+	18, // 9: glyph.plugins.ui.v1.AgentEvent.response_reset:type_name -> glyph.plugins.ui.v1.ResponseReset
+	8,  // 10: glyph.plugins.ui.v1.ToolResultContent.image:type_name -> glyph.plugins.ui.v1.ToolResultImage
+	10, // 11: glyph.plugins.ui.v1.ToolCallPreview.fields:type_name -> glyph.plugins.ui.v1.ToolCallPreviewField
+	19, // 12: glyph.plugins.ui.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	2,  // 13: glyph.plugins.ui.v1.ModelContent.type:type_name -> glyph.plugins.ui.v1.ModelContentType
+	1,  // 14: glyph.plugins.ui.v1.ModelContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	15, // 15: glyph.plugins.ui.v1.ModelResponse.usage:type_name -> glyph.plugins.ui.v1.ModelUsage
+	16, // 16: glyph.plugins.ui.v1.ModelResponse.diagnostics:type_name -> glyph.plugins.ui.v1.ModelDiagnostic
+	14, // 17: glyph.plugins.ui.v1.ModelResponse.content:type_name -> glyph.plugins.ui.v1.ModelResponseContent
+	1,  // 18: glyph.plugins.ui.v1.ModelResponseContent.kind:type_name -> glyph.plugins.ui.v1.ModelContentKind
+	11, // 19: glyph.plugins.ui.v1.ModelResponseContent.tool_call:type_name -> glyph.plugins.ui.v1.FinalToolCall
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_agent_proto_init() }
@@ -3023,6 +3091,7 @@ func file_api_plugins_ui_v1_agent_proto_init() {
 	if File_api_plugins_ui_v1_agent_proto != nil {
 		return
 	}
+	file_api_plugins_ui_v1_retry_proto_init()
 	file_api_plugins_ui_v1_agent_proto_msgTypes[2].OneofWrappers = []any{
 		(*toolResultContent_Text)(nil),
 		(*toolResultContent_Image)(nil),

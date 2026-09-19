@@ -1,6 +1,7 @@
 package ui
 
 import (
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/samber/mo"
@@ -66,4 +67,6 @@ type Initialization struct {
 	ModelSelection mo.Option[model.Selection]
 	// SessionInfo identifies the active session initialized before provider work.
 	SessionInfo session.Info
+	// RetryPolicy contains current runtime enablement and the persistent schedule.
+	RetryPolicy controllerui.RetryPolicy
 }

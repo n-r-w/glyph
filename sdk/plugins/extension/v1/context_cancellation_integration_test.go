@@ -52,23 +52,27 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 			<-admissionGate
 			return first, nil
 		})
-	first.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-		close(firstRunning)
-		select {
-		case <-ctx.Done():
-			close(firstCanceled)
-			return nil, ctx.Err()
-		case <-firstGate:
-			return emptyConfiguredModelResult(), nil
-		}
-	})
+	first.EXPECT().
+		Run(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
+			close(firstRunning)
+			select {
+			case <-ctx.Done():
+				close(firstCanceled)
+				return nil, ctx.Err()
+			case <-firstGate:
+				return emptyConfiguredModelResult(), nil
+			}
+		})
 	first.EXPECT().Release()
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).Return(second, nil)
-	second.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-		close(secondRunning)
-		<-ctx.Done()
-		return nil, ctx.Err()
-	})
+	second.EXPECT().
+		Run(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
+			close(secondRunning)
+			<-ctx.Done()
+			return nil, ctx.Err()
+		})
 	second.EXPECT().Release().Do(func() { close(secondReleased) })
 	execution.EXPECT().
 		Run(gomock.Any(), gomock.Any()).

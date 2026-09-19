@@ -143,7 +143,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			assert.Equal(t, "binding", request.GetGetModels().GetContext().GetContextId())
 			return models, nil
 		})
-	models.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
+	models.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetProviders: nil, ConfiguredModel: nil,
 		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
 
@@ -158,7 +158,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			assert.Equal(t, "binding", request.GetGetProviders().GetContext().GetContextId())
 			return providers, nil
 		})
-	providers.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
+	providers.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetModels: nil, ConfiguredModel: nil,
 		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
 
@@ -174,7 +174,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			assert.Equal(t, "question", request.GetConfiguredModel().GetMessages()[0].GetText())
 			return configured, nil
 		})
-	configured.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
+	configured.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel: nil, GetModels: nil, GetProviders: nil, AppendExtension: nil, GetSessionState: nil,
 		AppendExtensionMessage: nil, Selection: nil, ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
 			Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
@@ -194,7 +194,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			assert.Equal(t, "exact text", request.GetAppendExtensionMessage().GetText())
 			return message, nil
 		})
-	message.EXPECT().Run(gomock.Any()).Return(extensionpb.HostCompleted_builder{
+	message.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
 		Cancel:          nil,
 		GetModels:       nil,
 		GetProviders:    nil,
@@ -219,20 +219,26 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			assert.Equal(t, "binding", request.GetGetSessionState().GetContext().GetContextId())
 			return recovery, nil
 		})
-	recovery.EXPECT().Run(gomock.Any()).DoAndReturn(func(context.Context) (*extensionpb.HostCompleted, error) {
-		close(recoveryEntered)
-		<-recoveryRelease
-		entry := extensionpb.SessionStateEntry_builder{
-			Id: new("entry"), ParentId: new("parent"), CreatedTime: nil,
-			ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload, Message: nil,
-		}.Build()
-		return extensionpb.HostCompleted_builder{
-			Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
-			AppendExtensionMessage: nil, Selection: nil, GetSessionState: extensionpb.GetSessionStateResult_builder{
-				SessionId: new("session"), ActiveLeafId: new("entry"), Entries: []*extensionpb.SessionStateEntry{entry},
-			}.Build(),
-		}.Build(), nil
-	})
+	recovery.EXPECT().
+		Run(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
+			close(recoveryEntered)
+			<-recoveryRelease
+			entry := extensionpb.SessionStateEntry_builder{
+				Id: new("entry"), ParentId: new("parent"), CreatedTime: nil,
+				ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload, Message: nil,
+			}.Build()
+			return extensionpb.HostCompleted_builder{
+				Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
+				AppendExtensionMessage: nil, Selection: nil, GetSessionState: extensionpb.GetSessionStateResult_builder{
+					SessionId: new(
+						"session",
+					),
+					ActiveLeafId: new("entry"),
+					Entries:      []*extensionpb.SessionStateEntry{entry},
+				}.Build(),
+			}.Build(), nil
+		})
 	recovery.EXPECT().Release()
 	connection := openContextTestConnection(t, service, host)
 	register, err := connection.Start(t.Context(), "register", extensionpb.HostRequest_builder{

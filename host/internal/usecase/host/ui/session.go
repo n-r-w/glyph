@@ -18,6 +18,8 @@ type Session struct {
 	modelCatalog ModelCatalog
 	// modelSelection owns shared selection admission and commit.
 	modelSelection ModelSelection
+	// retryControl owns runtime retry enablement and policy projection.
+	retryControl RetryControl
 	// activeSessions owns active-session lifecycle operations.
 	activeSessions ActiveSessions
 	// navigator owns handler policy and navigation commit orchestration.
@@ -45,6 +47,7 @@ func NewSession(
 	gate Gate,
 	runtime RuntimeActivation,
 	modelSelection ModelSelection,
+	retryControl RetryControl,
 ) *Session {
 	return &Session{
 		output:         output,
@@ -52,6 +55,7 @@ func NewSession(
 		authenticator:  authenticator,
 		modelCatalog:   modelCatalog,
 		modelSelection: modelSelection,
+		retryControl:   retryControl,
 		gate:           gate,
 		activeSessions: activeSessions, navigator: navigator,
 		runtime:               runtime,

@@ -23,6 +23,16 @@ const (
 	FailureCodeModelUnavailable = "MODEL_UNAVAILABLE"
 	// FailureCodeModelFailed reports model execution failure.
 	FailureCodeModelFailed = "MODEL_FAILED"
+	// FailureCodeRetryExhausted reports a retryable failure after all attempts.
+	FailureCodeRetryExhausted = "RETRY_EXHAUSTED"
+	// FailureCodeRetryCanceled reports explicit retry-handler cancellation.
+	FailureCodeRetryCanceled = "RETRY_CANCELED"
+	// FailureCodeExtensionFailed reports a retry-handler failure or invalid action.
+	FailureCodeExtensionFailed = "EXTENSION_FAILED"
+	// FailureCodeRetryDelayExceeded reports a provider delay above the configured maximum.
+	FailureCodeRetryDelayExceeded = "RETRY_DELAY_EXCEEDED"
+	// FailureCodeContextLimit reports terminal provider context overflow.
+	FailureCodeContextLimit = "CONTEXT_LIMIT"
 	// FailureCodeExtensionInvalidResult reports invalid extension output.
 	FailureCodeExtensionInvalidResult = "EXTENSION_INVALID_RESULT"
 	// FailureCodeExtensionUnavailable reports extension transport or protocol failure.

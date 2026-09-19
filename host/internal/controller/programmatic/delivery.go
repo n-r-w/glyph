@@ -45,19 +45,22 @@ func (d *streamDelivery) Running(id string) error {
 // Progress maps and queues one agent-run progress event.
 func (d *streamDelivery) Progress(id string, progress OperationProgress) error {
 	payload := new(programmaticv1.HostProgress)
-	if agentEvent, present := progress.AgentEvent.Get(); present {
-		mapped, err := mapEvent(agentEvent)
+	switch {
+	case progress.AgentEvent.IsSome():
+		mapped, err := mapEvent(progress.AgentEvent.MustGet())
 		if err != nil {
 			return d.failed(fmt.Errorf("map Programmatic progress: %w", err))
 		}
 		payload.SetAgentEvent(mapped)
-	} else if navigation, navigationPresent := progress.TreeNavigation.Get(); navigationPresent {
-		mapped, err := mapTreeNavigationProgress(navigation)
+	case progress.TreeNavigation.IsSome():
+		mapped, err := mapTreeNavigationProgress(progress.TreeNavigation.MustGet())
 		if err != nil {
 			return d.failed(fmt.Errorf("map Programmatic navigation progress: %w", err))
 		}
 		payload.SetSessionTreeNavigation(mapped)
-	} else {
+	case progress.TreeNavigationRetry.IsSome():
+		payload.SetSessionTreeRetry(mapRetryProgress(progress.TreeNavigationRetry.MustGet()))
+	default:
 		return d.failed(errors.New("map Programmatic progress: payload is required"))
 	}
 	event := new(programmaticv1.HostEvent)
@@ -121,7 +124,10 @@ func (d *streamDelivery) Terminal(id string, outcome operation.Outcome[Response]
 func failureCodeForCommand(command CommandKind, proposed string) string {
 	switch command {
 	case CommandUserRequest:
-		if proposed == FailureCodePersistenceUnavailable {
+		switch proposed {
+		case FailureCodePersistenceUnavailable, FailureCodeModelFailed, FailureCodeRetryExhausted,
+			FailureCodeRetryCanceled, FailureCodeExtensionFailed, FailureCodeRetryDelayExceeded,
+			FailureCodeContextLimit:
 			return proposed
 		}
 	case CommandSelectModel, CommandSelectReasoningChoice:
@@ -140,14 +146,16 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 	case CommandNavigateSessionTree:
 		switch proposed {
 		case FailureCodeSessionUnavailable, FailureCodePersistenceUnavailable, FailureCodeModelUnavailable,
-			FailureCodeCredentialUnavailable, FailureCodeModelFailed, FailureCodeExtensionInvalidResult,
-			FailureCodeExtensionUnavailable, FailureCodeInternal:
+			FailureCodeCredentialUnavailable, FailureCodeModelFailed, FailureCodeRetryExhausted,
+			FailureCodeRetryCanceled, FailureCodeExtensionFailed, FailureCodeRetryDelayExceeded,
+			FailureCodeContextLimit, FailureCodeExtensionInvalidResult, FailureCodeExtensionUnavailable,
+			FailureCodeInternal:
 			return proposed
 		default:
 			return FailureCodeInternal
 		}
 	case CommandUnspecified, CommandCancel, CommandGetRunState, CommandGetMessages,
-		CommandGetModels, CommandGetSessionInfo, CommandGetSessionEntries, CommandGetSessionStats,
+		CommandGetModels, CommandSetRetryEnabled, CommandGetSessionInfo, CommandGetSessionEntries, CommandGetSessionStats,
 		CommandGetSessionTree:
 		return FailureCodeInternal
 	default:
@@ -191,6 +199,8 @@ func completionMatches(command CommandKind, response ResponseKind) bool {
 		return response == ResponseCloneSession
 	case CommandSetEntryLabel:
 		return response == ResponseSetEntryLabel
+	case CommandSetRetryEnabled:
+		return response == ResponseRetryEnabled
 	case CommandUnspecified:
 		return false
 	default:

@@ -60,7 +60,10 @@ func TestChannelRejectsOrdinaryRequestBeforeReadiness(t *testing.T) {
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
 		browser:          nil,
 		client:           nil,
 		openOnce:         sync.Once{},
@@ -71,7 +74,10 @@ func TestChannelRejectsOrdinaryRequestBeforeReadiness(t *testing.T) {
 		mutex:            sync.Mutex{},
 		ready:            false,
 		writer:           nil,
-		progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false, failConnection: nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	request := new(uiv1.HostRequest)
 	request.SetInitialize(new(uiv1.Initialization))
@@ -109,8 +115,8 @@ func TestChannelSendAfterWriterCloseDoesNotFailConnection(t *testing.T) {
 		mutex:            sync.Mutex{},
 		ready:            true,
 		writer:           writer,
-		progressReporter: operation.Reporter[controllerui.Frame]{},
-		progressBound:    false,
+		progressReporter: operation.Reporter[controllerui.Frame]{}, progressRunID: "",
+		progressBound: false,
 		failConnection: func(err error) {
 			deliveryFailures <- err
 		},
@@ -197,14 +203,24 @@ func TestStartupCancellationRejectionCategories(t *testing.T) {
 			)
 			_, cancel := context.WithCancel(t.Context())
 			transport := &Service{
-				selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-				browser:  nil,
-				client:   nil,
-				openOnce: sync.Once{},
-				openErr:  nil,
-				stream:   stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
-				writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-				failConnection: nil,
+				selectedUIID:     "",
+				selectionIssues:  nil,
+				warningWriter:    nil,
+				startupReport:    startup.LoadReport{},
+				browser:          nil,
+				client:           nil,
+				openOnce:         sync.Once{},
+				openErr:          nil,
+				stream:           stream,
+				cancel:           cancel,
+				closed:           atomic.Bool{},
+				mutex:            sync.Mutex{},
+				ready:            false,
+				writer:           nil,
+				progressReporter: operation.Reporter[controllerui.Frame]{},
+				progressRunID:    "",
+				progressBound:    false,
+				failConnection:   nil,
 			}
 			request := new(uiv1.HostRequest)
 			request.SetInitialize(new(uiv1.Initialization))
@@ -258,9 +274,9 @@ func TestInitializationRejectsMismatchedCompletedPayload(t *testing.T) {
 		mutex:            sync.Mutex{},
 		ready:            false,
 		writer:           nil,
-		progressReporter: operation.Reporter[controllerui.Frame]{},
-		progressBound:    false,
-		failConnection:   nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{}, progressRunID: "",
+		progressBound:  false,
+		failConnection: nil,
 	}
 	request := new(uiv1.HostRequest)
 	request.SetInitialize(new(uiv1.Initialization))
@@ -319,14 +335,24 @@ func TestInitializationCancellationUsesSeparateOperation(t *testing.T) {
 	stream.EXPECT().Recv().Return(uiCancellationLifecycleResponse(completed), nil)
 	_, cancelStream := context.WithCancel(t.Context())
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-		browser:  nil,
-		client:   nil,
-		openOnce: sync.Once{},
-		openErr:  nil,
-		stream:   stream, cancel: cancelStream, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
-		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-		failConnection: nil,
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
+		browser:          nil,
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancelStream,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            false,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -376,14 +402,24 @@ func TestUnsuccessfulInitializationClosesTransportAfterTerminalDrain(t *testing.
 	stream.EXPECT().CloseSend().Return(nil)
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-		browser:  nil,
-		client:   nil,
-		openOnce: sync.Once{},
-		openErr:  nil,
-		stream:   stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: false,
-		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-		failConnection: nil,
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
+		browser:          nil,
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            false,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 
 	// Act through public initialization failure handling.
@@ -432,9 +468,9 @@ func TestInitializationFailurePreservesCategoryTextAndCause(t *testing.T) {
 		mutex:            sync.Mutex{},
 		ready:            false,
 		writer:           nil,
-		progressReporter: operation.Reporter[controllerui.Frame]{},
-		progressBound:    false,
-		failConnection:   nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{}, progressRunID: "",
+		progressBound:  false,
+		failConnection: nil,
 	}
 	request := new(uiv1.HostRequest)
 	request.SetInitialize(new(uiv1.Initialization))

@@ -90,7 +90,9 @@ func TestNestedPayloadValidationRejectsMissingRequiredFields(t *testing.T) {
 		{name: "agent run ID", validate: func() error {
 			progress := new(uiv1.HostProgress)
 			progress.SetAgentEvent(uiv1.AgentEvent_builder{
-				Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: nil, Text: nil,
+				RetryProgress: nil,
+				ResponseReset: nil,
+				Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: nil, Text: nil,
 				ToolCallId: nil, ToolName: nil, ProgressChannel: nil, IsError: nil, Outcome: nil,
 				ErrorMessage: nil, Availability: nil, ModelContent: nil, ModelResponse: nil,
 				ToolCallPreview: nil, FinalToolCall: nil, ToolResultContents: nil,

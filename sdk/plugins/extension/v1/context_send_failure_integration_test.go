@@ -92,49 +92,57 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 			}).AnyTimes()
 			stream.EXPECT().CloseSend().Return(closeCause)
 			host.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).Return(read, nil)
-			read.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-				close(running)
-				<-ctx.Done()
-				if selection {
-					response := new(extensionpb.HostCompleted)
-					response.SetSelection(extensionpb.SelectionResult_builder{
-						Selection: extensionpb.ModelSelection_builder{
-							ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("high"),
-						}.Build(),
-						Issues: []*extensionpb.SelectionIssue{extensionpb.SelectionIssue_builder{
-							Code:        new(extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED),
-							ExtensionId: new(""), HandlerId: new(""), Message: new(workCause.Error()),
-						}.Build()},
-					}.Build())
-					return response, nil
-				}
-				if appendMessage {
-					response := new(extensionpb.HostCompleted)
-					response.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageResult_builder{
-						Entry: nil,
-						Issues: []*extensionpb.AppendExtensionMessageIssue{
-							extensionpb.AppendExtensionMessageIssue_builder{
-								Code: new(
-									extensionpb.AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED,
-								),
-								Message:     new(workCause.Error()),
-								ExtensionId: new("extension"),
+			read.EXPECT().
+				Run(gomock.Any(), gomock.Any()).
+				DoAndReturn(func(ctx context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
+					close(running)
+					<-ctx.Done()
+					if selection {
+						response := new(extensionpb.HostCompleted)
+						response.SetSelection(extensionpb.SelectionResult_builder{
+							Selection: extensionpb.ModelSelection_builder{
+								ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("high"),
 							}.Build(),
-						},
-					}.Build())
-					return response, nil
-				}
-				if completed {
-					response := new(extensionpb.HostCompleted)
-					response.SetConfiguredModel(extensionpb.ConfiguredModelResult_builder{
-						Content: nil, Outcome: new(extensionpb.ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_FAILED),
-						ErrorMessage: new(workCause.Error()), ProviderId: nil, ModelId: nil,
-						ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
-					}.Build())
-					return response, nil
-				}
-				return nil, Fail(failureCodeInternal, workCause)
-			})
+							Issues: []*extensionpb.SelectionIssue{extensionpb.SelectionIssue_builder{
+								Code:        new(extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_DELIVERY_FAILED),
+								ExtensionId: new(""), HandlerId: new(""), Message: new(workCause.Error()),
+							}.Build()},
+						}.Build())
+						return response, nil
+					}
+					if appendMessage {
+						response := new(extensionpb.HostCompleted)
+						response.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageResult_builder{
+							Entry: nil,
+							Issues: []*extensionpb.AppendExtensionMessageIssue{
+								extensionpb.AppendExtensionMessageIssue_builder{
+									Code: new(
+										extensionpb.AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED,
+									),
+									Message:     new(workCause.Error()),
+									ExtensionId: new("extension"),
+								}.Build(),
+							},
+						}.Build())
+						return response, nil
+					}
+					if completed {
+						response := new(extensionpb.HostCompleted)
+						response.SetConfiguredModel(extensionpb.ConfiguredModelResult_builder{
+							Content:         nil,
+							Outcome:         new(extensionpb.ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_FAILED),
+							ErrorMessage:    new(workCause.Error()),
+							ProviderId:      nil,
+							ModelId:         nil,
+							ResponseModelId: nil,
+							ResponseId:      nil,
+							Usage:           nil,
+							Diagnostics:     nil,
+						}.Build())
+						return response, nil
+					}
+					return nil, Fail(failureCodeInternal, workCause)
+				})
 			read.EXPECT().Release().Do(func() { close(released) })
 			client := &Client{
 				process:   nil,

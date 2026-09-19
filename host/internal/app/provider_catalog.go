@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"time"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -17,8 +18,18 @@ import (
 	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/codex"
 	"github.com/n-r-w/glyph/host/internal/infra/providers/openai/compatible"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 )
+
+// retryPolicy maps validated persistent settings into one detached execution policy.
+func retryPolicy(configured settingstore.Settings) modelexecution.RetryPolicy {
+	return modelexecution.RetryPolicy{
+		Enabled: configured.Retry.Enabled, MaxRetries: configured.Retry.MaxRetries,
+		Delays:           append([]time.Duration(nil), configured.Retry.Delays...),
+		MaxProviderDelay: configured.Retry.MaxProviderDelay,
+	}
+}
 
 // newProviderCatalog maps validated startup settings into the runtime catalog.
 func newProviderCatalog(

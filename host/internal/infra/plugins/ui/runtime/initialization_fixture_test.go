@@ -5,6 +5,7 @@ package runtime
 import (
 	"github.com/samber/mo"
 
+	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -17,5 +18,6 @@ func testInitialization() hostui.Initialization {
 		Models:         nil,
 		ModelSelection: mo.Some(model.Selection{}),
 		SessionInfo:    session.Info{},
+		RetryPolicy:    controllerui.RetryPolicy{},
 	}
 }

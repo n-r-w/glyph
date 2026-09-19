@@ -69,7 +69,7 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runPersistenceUIFixture(t, ctx, host)
 		case observerCancellationBehavior:
 			return runObserverCancellationUIFixture(t, ctx, host)
-		case "summary-control", "summary-read", "summary-blocked":
+		case "summary-control", "summary-read", "summary-blocked", "summary-retry", "summary-retry-failure":
 			return runSummaryControlUIFixture(t, ctx, host)
 		case "extension-message-navigation":
 			return runExtensionMessageNavigationUIFixture(ctx, host)
@@ -147,12 +147,15 @@ func runSemanticFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 		if lifecycle == nil || progressWriteErr != nil {
 			return
 		}
+		retry := lifecycle.GetRetryProgress()
 		progressWriteErr = writeSemanticObservation(file, map[string]any{
 			"type": lifecycle.GetType(), "text": lifecycle.GetText(),
 			"model_text": lifecycle.GetModelResponse().GetText(), "tool_name": lifecycle.GetToolName(),
 			"tool_status": !lifecycle.GetIsError(), "outcome": lifecycle.GetOutcome(), "settled": false,
-			"availability":         uiv1.Availability_AVAILABILITY_UNSPECIFIED,
-			"tool_result_contents": semanticToolResultContents(lifecycle.GetToolResultContents()),
+			"availability":             uiv1.Availability_AVAILABILITY_UNSPECIFIED,
+			"tool_result_contents":     semanticToolResultContents(lifecycle.GetToolResultContents()),
+			"retry_completed_attempts": retry.GetCompletedAttempts(),
+			"retry_attempt_limit":      retry.GetAttemptLimit(),
 		})
 	})
 	if err != nil {

@@ -17,6 +17,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -48,6 +49,8 @@ type Service struct {
 	reporting sync.WaitGroup
 	// reportErrors retains unreported conditions, reporting errors and runtime completion failures.
 	reportErrors []error
+	// retryHandlers contains accepted retry handlers in registration order.
+	retryHandlers []modelexecution.RetryHandler
 }
 
 var (
@@ -57,6 +60,7 @@ var (
 	_ sessiontree.Runtime                   = (*Service)(nil)
 	_ lifecycle.Runtime                     = (*Service)(nil)
 	_ modelselection.Runtime                = (*Service)(nil)
+	_ modelexecution.RetryHandlers          = (*Service)(nil)
 	_ extensioncontext.RuntimeState         = (*Service)(nil)
 	_ extensioncontroller.RuntimeOperations = (*Service)(nil)
 )
@@ -115,6 +119,7 @@ func New(
 		reportingStopped: false,
 		reporting:        sync.WaitGroup{},
 		reportErrors:     nil,
+		retryHandlers:    nil,
 	}
 }
 
@@ -248,15 +253,24 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 		return
 	}
 	observed := make(map[string]*runtimeState)
+	retryHandlers := make([]modelexecution.RetryHandler, 0)
 	for _, registration := range registrations {
 		if state, exists := s.runtimes[registration.ID]; exists && !state.isInvalidated() {
 			state.available = true
+			for _, handler := range registration.Handlers {
+				if handler.Kind == startup.RawHandlerKindRetry {
+					retryHandlers = append(retryHandlers, modelexecution.RetryHandler{
+						ExtensionID: registration.ID, RuntimeID: state.instanceID, HandlerID: handler.ID,
+					})
+				}
+			}
 			if s.monitoring && !state.observed {
 				state.observed = true
 				observed[registration.ID] = state
 			}
 		}
 	}
+	s.retryHandlers = retryHandlers
 	ctx := s.monitorContext
 	s.mutex.Unlock()
 	for extensionID, state := range observed {
@@ -333,6 +347,43 @@ func (s *Service) HandleHandler(
 	return s.capabilityAction(response), nil
 }
 
+// SnapshotRetryHandlers returns a detached registration-order runtime snapshot.
+func (s *Service) SnapshotRetryHandlers() []modelexecution.RetryHandler {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return append([]modelexecution.RetryHandler(nil), s.retryHandlers...)
+}
+
+// HandleRetry invokes one retry handler through the runtime instance captured at execution start.
+func (s *Service) HandleRetry(
+	ctx context.Context,
+	handler modelexecution.RetryHandler,
+	invocation modelexecution.RetryInvocation,
+) (modelexecution.RetryAction, error) {
+	owner, available := s.beginOperation(handler.ExtensionID, handler.RuntimeID)
+	if !available {
+		return modelexecution.RetryAction{}, fmt.Errorf(
+			"%w: extension handler %q is unavailable", ErrExtensionUnavailable, handler.HandlerID,
+		)
+	}
+	response, handleErr := owner.state.runtime.Handle(ctx, handler.HandlerID, HandlerInvocation{
+		Context: extension.Context{}, Kind: InvocationRetry,
+		Original: Preparation{}, Current: Preparation{},
+		OriginalResult: mo.None[Summary](), CurrentResult: mo.None[Summary](),
+		Commit: mo.None[TreeCommit](), OriginalSelection: model.Selection{}, CurrentSelection: model.Selection{},
+		Retry: mo.Some(invocation),
+	})
+	s.finishAndReport(ctx, owner, handleErr)
+	if handleErr != nil {
+		return modelexecution.RetryAction{}, handleErr
+	}
+	action, present := response.Retry.Get()
+	if !present || response.Kind != InvocationRetry {
+		return modelexecution.RetryAction{}, errors.New("retry handler returned another action kind")
+	}
+	return action, nil
+}
+
 // HandleSelection invokes one selection handler through its selected runtime instance.
 func (s *Service) HandleSelection(
 	ctx context.Context,
@@ -354,6 +405,7 @@ func (s *Service) HandleSelection(
 		Original: Preparation{}, Current: Preparation{},
 		OriginalResult: mo.None[Summary](), CurrentResult: mo.None[Summary](), Commit: mo.None[TreeCommit](),
 		OriginalSelection: request.Original, CurrentSelection: request.Current,
+		Retry: mo.None[modelexecution.RetryInvocation](),
 	}
 	response, handleErr := owner.state.runtime.Handle(ctx, handlerID, payload)
 	s.finishAndReport(ctx, owner, handleErr)

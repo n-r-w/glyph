@@ -47,8 +47,8 @@ func TestContextSelectionStartAndWait(t *testing.T) {
 			return modelOperation, nil
 		},
 	)
-	modelOperation.EXPECT().Run(gomock.Any()).DoAndReturn(
-		func(context.Context) (*extensionpb.HostCompleted, error) {
+	modelOperation.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
 			close(modelRunning)
 			return selectionCompleted("provider", "model", "low", true), nil
 		},
@@ -61,7 +61,9 @@ func TestContextSelectionStartAndWait(t *testing.T) {
 			return reasoningOperation, nil
 		},
 	)
-	reasoningOperation.EXPECT().Run(gomock.Any()).Return(selectionCompleted("provider", "model", "high", false), nil)
+	reasoningOperation.EXPECT().
+		Run(gomock.Any(), gomock.Any()).
+		Return(selectionCompleted("provider", "model", "high", false), nil)
 	reasoningOperation.EXPECT().Release()
 	execution.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ *ProgressReporter) (*extensionpb.ToolResult, error) {

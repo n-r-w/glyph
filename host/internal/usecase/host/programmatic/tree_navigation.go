@@ -1,6 +1,8 @@
 package programmatic
 
 import (
+	"time"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/controller/programmatic"
@@ -18,8 +20,23 @@ func programmaticNavigationCallback(
 			return err
 		}
 		return reporter.Report(programmatic.OperationProgress{
+			AgentEvent: mo.None[programmatic.AgentEvent](), TreeNavigation: mo.Some(mapped),
+			TreeNavigationRetry: mo.None[programmatic.RetryProgress](),
+		})
+	}
+}
+
+// programmaticNavigationRetryCallback reports branch-summary retries on the owning operation.
+func programmaticNavigationRetryCallback(
+	reporter operation.Reporter[programmatic.OperationProgress],
+) func(int64, int64, time.Duration, string) error {
+	return func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error {
+		return reporter.Report(programmatic.OperationProgress{
 			AgentEvent:     mo.None[programmatic.AgentEvent](),
-			TreeNavigation: mo.Some(mapped),
+			TreeNavigation: mo.None[programmatic.TreeNavigationProgress](),
+			TreeNavigationRetry: mo.Some(programmatic.RetryProgress{
+				CompletedAttempts: completedAttempts, AttemptLimit: attemptLimit, Delay: delay, Error: failure,
+			}),
 		})
 	}
 }

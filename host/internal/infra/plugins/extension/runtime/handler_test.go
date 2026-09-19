@@ -4,6 +4,7 @@ package runtime
 
 import (
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -13,6 +14,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -107,12 +109,14 @@ func TestMapSelectionHandlerRoundTripPreservesTargetsAndReplacement(t *testing.T
 	// Act by encoding the invocation and decoding a complete replacement action.
 	mapped, err := mapHandleRequest("selection", invocation)
 	require.NoError(t, err)
-	response := extensionpb.HandleResponse_builder{ModelSelection: extensionpb.SelectionHandlerAction_builder{
-		Replace: extensionpb.ModelSelection_builder{
-			ProviderId: new(string(replacement.Provider)), ModelId: new(string(replacement.Model)),
-			ReasoningChoice: new(string(replacement.ReasoningChoice)),
+	response := extensionpb.HandleResponse_builder{
+		Retry: nil, ModelSelection: extensionpb.SelectionHandlerAction_builder{
+			Replace: extensionpb.ModelSelection_builder{
+				ProviderId: new(string(replacement.Provider)), ModelId: new(string(replacement.Model)),
+				ReasoningChoice: new(string(replacement.ReasoningChoice)),
+			}.Build(),
 		}.Build(),
-	}.Build()}.Build()
+	}.Build()
 	action, err := mapHandleResponse(invocation, response)
 
 	// Assert every complete target field and the selected action survive the transport mapping.
@@ -131,6 +135,7 @@ func TestMapSelectionResponseDefersInvalidActionToCapability(t *testing.T) {
 	// Arrange a model-selection invocation and an action for another handler kind.
 	invocation := handlerInvocation(extensionruntime.InvocationModelSelection)
 	response := extensionpb.HandleResponse_builder{
+		Retry:       nil,
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 	}.Build()
 
@@ -163,6 +168,7 @@ func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 			// Arrange one typed ordinary handler failure with exact source text.
 			//nolint:exhaustruct_v5 // The response builder sets only the ordinary error outcome.
 			response := extensionpb.HandleResponse_builder{
+				Retry: nil,
 				Error: extensionpb.HandlerError_builder{Message: new(test.message)}.Build(),
 			}.Build()
 
@@ -183,6 +189,7 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 	// Arrange a request-handler invocation and an observer-only response.
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	response := extensionpb.HandleResponse_builder{
+		Retry:       nil,
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 	}.Build()
 
@@ -192,6 +199,54 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 	// Assert the protocol mismatch is rejected without an action.
 	assert.Empty(t, mapped)
 	require.ErrorContains(t, err, "another action kind")
+}
+
+// TestRetryHandlerMappingPreservesDecisionsAndReplacement verifies the public retry extension contract.
+func TestRetryHandlerMappingPreservesDecisionsAndReplacement(t *testing.T) {
+	t.Parallel()
+
+	// Arrange one retry invocation with distinct immutable original and current decisions.
+	invocation := modelexecution.RetryInvocation{
+		SourceError: "complete source failure", Classification: modelexecution.ProviderFailureTransient,
+		Original: modelexecution.RetryDecision{
+			Retryable: true, Retry: true, Delay: time.Second, AttemptLimit: 4,
+		},
+		Current: modelexecution.RetryDecision{
+			Retryable: true, Retry: true, Delay: 2 * time.Second, AttemptLimit: 5,
+		},
+		CompletedAttempts: 1, ProviderDelay: mo.Some(1500 * time.Millisecond),
+	}
+	request := extensionruntime.HandlerInvocation{
+		Context: extension.Context{}, Kind: extensionruntime.InvocationRetry,
+		Original: extensionruntime.Preparation{}, Current: extensionruntime.Preparation{},
+		OriginalResult: mo.None[extensionruntime.Summary](), CurrentResult: mo.None[extensionruntime.Summary](),
+		Commit: mo.None[extensionruntime.TreeCommit](), OriginalSelection: model.Selection{},
+		CurrentSelection: model.Selection{}, Retry: mo.Some(invocation),
+	}
+
+	// Act across both public request and response mappings.
+	mappedRequest, err := mapHandleRequest("retry", request)
+	require.NoError(t, err)
+	replacement := extensionpb.RetryDecision_builder{
+		Retryable: new(true), Retry: new(true), DelayMilliseconds: new(int64(3000)), AttemptLimit: new(int64(6)),
+	}.Build()
+	action := new(extensionpb.RetryHandlerAction)
+	action.SetReplace(replacement)
+	response := new(extensionpb.HandleResponse)
+	response.SetRetry(action)
+	mappedAction, err := mapHandleResponse(request, response)
+
+	// Assert immutable decisions and the complete replacement survive transport projection.
+	require.NoError(t, err)
+	assert.Equal(t, int64(1000), mappedRequest.GetRetry().GetOriginal().GetDelayMilliseconds())
+	assert.Equal(t, int64(2000), mappedRequest.GetRetry().GetCurrent().GetDelayMilliseconds())
+	assert.Equal(t, int64(1500), mappedRequest.GetRetry().GetProviderDelayMilliseconds())
+	assert.Equal(t, mo.Some(modelexecution.RetryAction{
+		Kind: modelexecution.RetryActionReplace,
+		Decision: mo.Some(modelexecution.RetryDecision{
+			Retryable: true, Retry: true, Delay: 3 * time.Second, AttemptLimit: 6,
+		}),
+	}), mappedAction.Retry)
 }
 
 // handlerInvocation constructs an empty typed process payload for transport variant tests.
@@ -206,5 +261,6 @@ func handlerInvocation(kind extensionruntime.InvocationKind) extensionruntime.Ha
 		Commit:            mo.None[extensionruntime.TreeCommit](),
 		OriginalSelection: model.Selection{},
 		CurrentSelection:  model.Selection{},
+		Retry:             mo.None[modelexecution.RetryInvocation](),
 	}
 }

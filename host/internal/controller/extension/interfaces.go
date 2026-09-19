@@ -3,6 +3,7 @@ package extension
 
 import (
 	"context"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -13,6 +14,18 @@ import (
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock_test.go -package=extension
+
+// ConfiguredRetryProgress reports one accepted configured-model replacement attempt.
+type ConfiguredRetryProgress struct {
+	// CompletedAttempts is the number of completed provider attempts.
+	CompletedAttempts int64
+	// AttemptLimit is the effective total attempt limit.
+	AttemptLimit int64
+	// Delay is the pending delay before replacement.
+	Delay time.Duration
+	// Error contains the complete failed-attempt text.
+	Error string
+}
 
 // ModelOperations supplies extension-facing catalog reads and configured model requests.
 type ModelOperations interface {
@@ -36,6 +49,7 @@ type ModelOperations interface {
 		selection model.Selection,
 		instructions string,
 		history []agent.HistoryEntry,
+		progress func(ConfiguredRetryProgress) error,
 	) (model.Response, error)
 }
 

@@ -2,6 +2,7 @@ package programmatic
 
 import (
 	"context"
+	"time"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -12,6 +13,14 @@ import (
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=programmatic
+
+// RetryControl owns runtime retry enablement and one atomic policy projection.
+type RetryControl interface {
+	// SetRetryEnabled changes enablement for logical executions that start later.
+	SetRetryEnabled(enabled bool)
+	// RetryPolicy returns one detached effective policy snapshot.
+	RetryPolicy() (enabled bool, maxRetries int64, delays []time.Duration, maxProviderDelay time.Duration)
+}
 
 // StateQuery supplies only the Core activity needed by the public run-state query.
 type StateQuery interface {

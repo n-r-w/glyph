@@ -43,6 +43,7 @@ func TestMapFramePreservesSessionInformationAndStatistics(t *testing.T) {
 		AuthorizationCode:      mo.None[string](),
 		SelectionIssues:        nil,
 		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
+		TreeNavigationRetry:    mo.None[controllerui.RetryProgress](),
 		NextInput:              mo.None[string](),
 		Kind:                   controllerui.FrameSessionInformation,
 

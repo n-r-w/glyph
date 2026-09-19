@@ -68,6 +68,8 @@ const (
 	StreamEventToolCallDelta
 	// StreamEventToolCallEnd carries exact final function-call arguments.
 	StreamEventToolCallEnd
+	// StreamEventResponseReset discards one unfinished response before replacement.
+	StreamEventResponseReset
 	// StreamEventDone carries one successful terminal response.
 	StreamEventDone
 	// StreamEventError carries one failed or aborted terminal response.
@@ -145,6 +147,8 @@ func (kind StreamEventKind) fieldContract() (
 	case StreamEventToolCallEnd:
 		fields := streamEventFieldPosition | streamEventFieldToolCall
 		return fields, fields, "tool-call end requires tool call and position", nil
+	case StreamEventResponseReset:
+		return 0, 0, "", nil
 	case StreamEventDone, StreamEventError:
 		return streamEventFieldResponse, streamEventFieldResponse,
 			"terminal model stream event requires an outcome", nil
@@ -185,6 +189,9 @@ func (event StreamEvent) applyTo(partial *model.Response) error {
 	if outcome, present := partial.Outcome.Get(); present && outcome != 0 {
 		return errors.New("model stream already terminated")
 	}
+	if event.Kind == StreamEventResponseReset {
+		return nil
+	}
 	if event.Kind == StreamEventDone || event.Kind == StreamEventError {
 		return event.applyTerminalTo(partial)
 	}
@@ -199,6 +206,8 @@ func (event StreamEvent) applyTo(partial *model.Response) error {
 		return event.applyContentUpdate(partial, position)
 	case StreamEventDone, StreamEventError:
 		return errors.New("terminal model stream event reached content handling")
+	case StreamEventResponseReset:
+		return errors.New("response reset stream event reached content handling")
 	case StreamEventToolCallStart, StreamEventToolCallDelta, StreamEventToolCallEnd:
 		return errors.New("tool-call stream event reached content handling")
 	}
@@ -303,7 +312,7 @@ func (event StreamEvent) applyToolCallTo(previews map[string]model.ToolCallPrevi
 	case StreamEventToolCallEnd:
 		return event.applyToolCallEnd(previews)
 	case StreamEventContentStart, StreamEventTextDelta, StreamEventContentEnd,
-		StreamEventDone, StreamEventError:
+		StreamEventResponseReset, StreamEventDone, StreamEventError:
 		return fmt.Errorf("event kind %d is not a tool-call stream event", event.Kind)
 	}
 	return nil

@@ -65,7 +65,7 @@ func TestNavigationFailureRetainsEarlierHandlerIssues(t *testing.T) {
 				case "summary":
 					mode = SummaryModeSummarize
 					models.EXPECT().
-						Request(gomock.Any(), selection, gomock.Any(), gomock.Any()).
+						RequestConfigured(gomock.Any(), selection, gomock.Any(), gomock.Any(), gomock.Any()).
 						Return(model.Response{}, later)
 					expected = ErrModelFailed
 				case "precommit":
@@ -118,13 +118,13 @@ func TestNavigationFailureRetainsEarlierHandlerIssues(t *testing.T) {
 						TargetEntryID: "user",
 						SummaryMode:   uicontroller.SummaryMode(mode),
 						CustomFocus:   mo.None[string](),
-					}, publish)
+					}, publish, nil)
 				} else {
 					_, err = service.NavigateProgrammatic(ctx, programmatic.NavigationIntent{
 						TargetEntryID: "user",
 						SummaryMode:   programmaticcontroller.SummaryMode(mode),
 						CustomFocus:   mo.None[string](),
-					}, publish)
+					}, publish, nil)
 				}
 
 				// Assert the primary failure and every prior diagnostic survive without commit or publication.

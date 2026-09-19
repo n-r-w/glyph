@@ -66,6 +66,7 @@ func mapInitialization(initialization Initialization) (*uiv1.Initialization, err
 		Models:         models,
 		ModelSelection: mapModelSelection(selection),
 		SessionInfo:    mapSessionInfo(initialization.SessionInfo),
+		RetryPolicy:    mapRetryPolicy(initialization.RetryPolicy),
 	}.Build(), nil
 }
 
@@ -87,6 +88,16 @@ func mapLifecycle(event controllerui.Lifecycle) (*uiv1.AgentEvent, error) {
 	switch event.Type {
 	case controllerui.LifecycleAgentStart, controllerui.LifecycleTurnStart, controllerui.LifecycleMessageStart:
 		return mapped, nil
+	case controllerui.LifecycleResponseReset:
+		mapped.SetResponseReset(new(uiv1.ResponseReset))
+		return mapped, nil
+	case controllerui.LifecycleRetryProgress:
+		progress, present := event.Retry.Get()
+		if !present {
+			return nil, errors.New("map UI lifecycle: retry progress is required")
+		}
+		mapped.SetRetryProgress(mapRetryProgress(progress))
+		return mapped, nil
 	case controllerui.LifecycleModelContentStart, controllerui.LifecycleModelTextDelta,
 		controllerui.LifecycleModelContentEnd, controllerui.LifecycleMessageEnd:
 		return mapModelLifecycle(event, mapped)
@@ -99,6 +110,14 @@ func mapLifecycle(event controllerui.Lifecycle) (*uiv1.AgentEvent, error) {
 		return mapTerminalLifecycle(event, mapped)
 	}
 	return mapped, nil
+}
+
+// mapRetryProgress maps retry accounting shared by agent and navigation operations.
+func mapRetryProgress(progress controllerui.RetryProgress) *uiv1.RetryProgress {
+	return uiv1.RetryProgress_builder{
+		CompletedAttempts: new(progress.CompletedAttempts), AttemptLimit: new(progress.AttemptLimit),
+		DelayMilliseconds: new(progress.Delay.Milliseconds()), Error: new(progress.Error),
+	}.Build()
 }
 
 // mapLifecycleScalars maps scalar Options at the generated Protobuf boundary.
@@ -151,6 +170,8 @@ func mapLifecycleScalars(event controllerui.Lifecycle) *uiv1.AgentEvent {
 		ToolCallPreview:    nil,
 		FinalToolCall:      nil,
 		ToolResultContents: nil,
+		RetryProgress:      nil,
+		ResponseReset:      nil,
 	}.Build()
 }
 
@@ -217,6 +238,7 @@ func mapToolCallLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentEvent)
 
 // mapToolExecutionLifecycle validates and maps selected tool-execution payloads.
 func mapToolExecutionLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case controllerui.LifecycleToolExecutionStart:
 		if event.ToolCallID.IsNone() || event.ToolName.IsNone() {
@@ -246,6 +268,7 @@ func mapToolExecutionLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentE
 
 // mapTerminalLifecycle validates selected turn and agent summaries.
 func mapTerminalLifecycle(event controllerui.Lifecycle, mapped *uiv1.AgentEvent) (*uiv1.AgentEvent, error) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch event.Type {
 	case controllerui.LifecycleTurnEnd:
 		if event.Text.IsNone() {

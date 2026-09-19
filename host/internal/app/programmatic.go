@@ -81,7 +81,13 @@ func runProgrammaticWithPaths(
 	// contextCompaction owns active-conversation sizing and completed-usage observations.
 	contextCompaction := contextcompaction.New(sessionServices.active)
 	// modelExecution owns every logical model request in the programmatic assembly.
-	modelExecution := modelexecution.New(providerCatalog, contextCompaction)
+	modelExecution := modelexecution.New(
+		providerCatalog,
+		contextCompaction,
+		retryPolicy(configured),
+		extensions,
+		delivery,
+	)
 	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
@@ -110,6 +116,7 @@ func runProgrammaticWithPaths(
 		sessionServices.active, sessionServices.tree, sessionServices.gate,
 		delivery,
 		selectionOwner,
+		modelExecution,
 	)
 	controller := controllerprogrammatic.New(ctx, session, delivery)
 	lifecycleObservers.BindIssueDelivery(delivery)

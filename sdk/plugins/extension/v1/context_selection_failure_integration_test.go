@@ -71,19 +71,19 @@ func TestSelectionFailuresRemainRequestLocal(t *testing.T) {
 			},
 		),
 	)
-	modelSelection.EXPECT().Run(gomock.Any()).Return(
+	modelSelection.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
 		nil,
 		Fail(selectionRejectedFailureCode, errors.New(modelSelectionFailureText)),
 	)
 	modelSelection.EXPECT().Release()
-	firstCatalog.EXPECT().Run(gomock.Any()).Return(emptyModelCatalogue(), nil)
+	firstCatalog.EXPECT().Run(gomock.Any(), gomock.Any()).Return(emptyModelCatalogue(), nil)
 	firstCatalog.EXPECT().Release()
-	reasoningSelection.EXPECT().Run(gomock.Any()).Return(
+	reasoningSelection.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
 		nil,
 		Fail(selectionUnavailableFailureCode, errors.New(reasoningSelectionFailureText)),
 	)
 	reasoningSelection.EXPECT().Release()
-	secondCatalog.EXPECT().Run(gomock.Any()).Return(emptyModelCatalogue(), nil)
+	secondCatalog.EXPECT().Run(gomock.Any(), gomock.Any()).Return(emptyModelCatalogue(), nil)
 	secondCatalog.EXPECT().Release()
 	failedTerminals := 0
 	execution.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(

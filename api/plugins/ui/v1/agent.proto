@@ -3,6 +3,7 @@ edition = "2023";
 package glyph.plugins.ui.v1;
 
 import "google/protobuf/struct.proto";
+import "api/plugins/ui/v1/retry.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1";
 
@@ -64,6 +65,10 @@ message AgentEvent {
   FinalToolCall final_tool_call = 14;
   // The ordered typed terminal tool result blocks.
   repeated ToolResultContent tool_result_contents = 15;
+  // Retry progress when another model attempt is pending.
+  RetryProgress retry_progress = 16;
+  // The semantic reset before replacement response content.
+  ResponseReset response_reset = 17;
 }
 
 // ToolResultContent carries one ordered terminal tool result block.
@@ -252,6 +257,10 @@ enum LifecycleType {
   LIFECYCLE_TYPE_TOOL_CALL_DELTA = 15;
   // Tool call generation ended.
   LIFECYCLE_TYPE_TOOL_CALL_END = 16;
+  // The unfinished model response was discarded before replacement.
+  LIFECYCLE_TYPE_RESPONSE_RESET = 17;
+  // Another model attempt is pending.
+  LIFECYCLE_TYPE_RETRY_PROGRESS = 18;
 }
 
 // ProgressChannel identifies the meaning of one tool progress fragment.

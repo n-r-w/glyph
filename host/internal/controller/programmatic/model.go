@@ -49,6 +49,8 @@ const (
 	ResponseCloneSession
 	// ResponseSetEntryLabel contains the committed labeled tree.
 	ResponseSetEntryLabel
+	// ResponseRetryEnabled contains updated runtime retry policy.
+	ResponseRetryEnabled
 )
 
 // RejectionCode identifies why an operation was not executed.
@@ -122,6 +124,8 @@ type Response struct {
 	Rejection mo.Option[Rejection]
 	// CancelTargetState contains the terminal state observed by cancellation.
 	CancelTargetState mo.Option[operation.TerminalState]
+	// RetryPolicy is present for run-state and retry-enablement results.
+	RetryPolicy mo.Option[RetryPolicy]
 }
 
 // SessionReplacement contains public active-session state after fork or clone.
@@ -192,6 +196,8 @@ type RunStateResult struct {
 	State RunState
 	// ActiveOperationID identifies the running operation.
 	ActiveOperationID mo.Option[string]
+	// RetryPolicy contains current runtime enablement and persistent schedule.
+	RetryPolicy RetryPolicy
 }
 
 // HistoryEntryKind identifies one public history entry.
@@ -247,7 +253,33 @@ const (
 	AgentEventToolResult
 	AgentEventTurnEnd
 	AgentEventAgentEnd
+	AgentEventResponseReset
+	AgentEventRetryProgress
 )
+
+// RetryPolicy is the effective retry policy projected to Programmatic clients.
+type RetryPolicy struct {
+	// Enabled reports current process-local runtime enablement.
+	Enabled bool
+	// MaxRetries is the maximum number of repeats after the initial attempt.
+	MaxRetries int64
+	// Delays contains the ordered delay before each repeat.
+	Delays []time.Duration
+	// MaxProviderDelay is the largest accepted provider-requested delay.
+	MaxProviderDelay time.Duration
+}
+
+// RetryProgress reports one accepted replacement model attempt.
+type RetryProgress struct {
+	// CompletedAttempts is the number of completed provider attempts.
+	CompletedAttempts int64
+	// AttemptLimit is the effective total attempt limit.
+	AttemptLimit int64
+	// Delay is the pending delay before replacement.
+	Delay time.Duration
+	// Error contains the complete failed-attempt text.
+	Error string
+}
 
 // OperationProgress contains exactly one typed operation progress payload.
 type OperationProgress struct {
@@ -255,6 +287,8 @@ type OperationProgress struct {
 	AgentEvent mo.Option[AgentEvent]
 	// TreeNavigation contains committed navigation state when present.
 	TreeNavigation mo.Option[TreeNavigationProgress]
+	// TreeNavigationRetry contains branch-summary retry progress when present.
+	TreeNavigationRetry mo.Option[RetryProgress]
 }
 
 // AgentEvent is one progress event from an active user operation.
@@ -271,6 +305,8 @@ type AgentEvent struct {
 	ToolCallPreview mo.Option[ToolCallPreview]
 	// FinalToolCall contains exact terminal tool call arguments.
 	FinalToolCall mo.Option[FinalToolCall]
+	// Retry contains retry progress when another attempt is pending.
+	Retry mo.Option[RetryProgress]
 	// ToolExecution identifies an active tool invocation.
 	ToolExecution mo.Option[ToolExecution]
 	// ToolProgress contains one tool execution update.

@@ -21,6 +21,8 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 	service := newProjectionService(t)
 	frames := []*uiv1.AgentEvent{
 		uiv1.AgentEvent_builder{
+			RetryProgress:      nil,
+			ResponseReset:      nil,
 			Type:               new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_START),
 			RunId:              new("run"),
 			Text:               nil,
@@ -38,7 +40,9 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			ToolResultContents: nil,
 		}.Build(),
 		uiv1.AgentEvent_builder{
-			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
+			RetryProgress: nil,
+			ResponseReset: nil,
+			Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_MODEL_TEXT_DELTA),
 			ModelContent: uiv1.ModelContent_builder{
 				Type:     new(uiv1.ModelContentType_MODEL_CONTENT_TYPE_TEXT_DELTA),
 				Position: new(int64(1)),
@@ -60,7 +64,9 @@ func TestHostMessageEndFinalizesTextStreamAtDifferentPosition(t *testing.T) {
 			ToolResultContents: nil,
 		}.Build(),
 		uiv1.AgentEvent_builder{
-			Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
+			RetryProgress: nil,
+			ResponseReset: nil,
+			Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END),
 			ModelResponse: uiv1.ModelResponse_builder{
 				Text:       new("complete answer"),
 				Provider:   new("openai-codex"),

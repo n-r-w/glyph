@@ -5,6 +5,7 @@ package glyph.plugins.ui.v1;
 import "api/operation/v1/operation.proto";
 import "api/plugins/ui/v1/agent.proto";
 import "api/plugins/ui/v1/model.proto";
+import "api/plugins/ui/v1/retry.proto";
 import "api/plugins/ui/v1/session.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1";
@@ -58,6 +59,8 @@ message HostProgress {
     AgentEvent agent_event = 1;
     AuthorizationRequest authorization = 2;
     SessionTreeNavigationProgress session_tree_navigation = 3;
+    // Retry progress for a branch-summary model request owned by this navigation operation.
+    RetryProgress session_tree_retry = 4;
   }
 }
 
@@ -77,6 +80,7 @@ message HostCompleted {
     SessionForked session_forked = 10;
     SessionCloned session_cloned = 11;
     EntryLabelSet entry_label_set = 12;
+    RetryEnabledResult retry_enabled = 13;
   }
 }
 
@@ -99,6 +103,8 @@ message Initialization {
   ModelSelection model_selection = 6;
   // The empty process-active session.
   SessionInfo session_info = 7;
+  // The effective retry policy and current runtime enablement.
+  RetryPolicy retry_policy = 8;
 }
 
 // StartupContent carries one informational, warning, or error startup item.
@@ -197,6 +203,7 @@ message UIRequest {
     ForkSessionCommand fork_session = 13;
     CloneSessionCommand clone_session = 14;
     SetEntryLabelCommand set_entry_label = 15;
+    SetRetryEnabledCommand set_retry_enabled = 16;
   }
 }
 

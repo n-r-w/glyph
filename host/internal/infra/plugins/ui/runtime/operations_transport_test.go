@@ -107,14 +107,24 @@ func TestRunOperationsTransportFailurePreservesCauseAndJoinsWork(t *testing.T) {
 			})
 			_, cancelChannel := context.WithCancel(t.Context())
 			transport := &Service{
-				selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-				browser:  nil,
-				client:   nil,
-				openOnce: sync.Once{},
-				openErr:  nil,
-				stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-				writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-				failConnection: nil,
+				selectedUIID:     "",
+				selectionIssues:  nil,
+				warningWriter:    nil,
+				startupReport:    startup.LoadReport{},
+				browser:          nil,
+				client:           nil,
+				openOnce:         sync.Once{},
+				openErr:          nil,
+				stream:           stream,
+				cancel:           cancelChannel,
+				closed:           atomic.Bool{},
+				mutex:            sync.Mutex{},
+				ready:            true,
+				writer:           nil,
+				progressReporter: operation.Reporter[controllerui.Frame]{},
+				progressRunID:    "",
+				progressBound:    false,
+				failConnection:   nil,
 			}
 
 			// Act through the complete adapter coordinator.
@@ -195,14 +205,24 @@ func TestRunOperationsJoinsOperationAndTerminalTransportFailures(t *testing.T) {
 				})
 				_, cancelChannel := context.WithCancel(t.Context())
 				transport := &Service{
-					selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-					browser:  nil,
-					client:   nil,
-					openOnce: sync.Once{},
-					openErr:  nil,
-					stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-					writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-					failConnection: nil,
+					selectedUIID:     "",
+					selectionIssues:  nil,
+					warningWriter:    nil,
+					startupReport:    startup.LoadReport{},
+					browser:          nil,
+					client:           nil,
+					openOnce:         sync.Once{},
+					openErr:          nil,
+					stream:           stream,
+					cancel:           cancelChannel,
+					closed:           atomic.Bool{},
+					mutex:            sync.Mutex{},
+					ready:            true,
+					writer:           nil,
+					progressReporter: operation.Reporter[controllerui.Frame]{},
+					progressRunID:    "",
+					progressBound:    false,
+					failConnection:   nil,
 				}
 
 				// Act after the queued terminal or unfinished work is blocked behind Running transport.
@@ -287,14 +307,24 @@ func TestRunOperationsRealQueueOverflowClosesTransportAndJoinsWork(t *testing.T)
 		return nil
 	})
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-		browser:  nil,
-		client:   nil,
-		openOnce: sync.Once{},
-		openErr:  nil,
-		stream:   stream, cancel: cancelStream, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-		failConnection: nil,
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
+		browser:          nil,
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancelStream,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            true,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	result := make(chan error, 1)
 
@@ -349,14 +379,24 @@ func TestRunOperationsRequestedClosePreservesCloseSendFailure(t *testing.T) {
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-		browser:  nil,
-		client:   nil,
-		openOnce: sync.Once{},
-		openErr:  nil,
-		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-		failConnection: nil,
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
+		browser:          nil,
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancelChannel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            true,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -399,14 +439,24 @@ func TestRunOperationsWriterFailureDuringCloseStillHalfClosesAndJoinsReceive(t *
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-		browser:  nil,
-		client:   nil,
-		openOnce: sync.Once{},
-		openErr:  nil,
-		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-		failConnection: nil,
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
+		browser:          nil,
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancelChannel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            true,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -458,14 +508,24 @@ func TestRunOperationsLocalCloseFailsNewRequestsBeforePeerClose(t *testing.T) {
 	})
 	_, cancelChannel := context.WithCancel(t.Context())
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-		browser:  nil,
-		client:   nil,
-		openOnce: sync.Once{},
-		openErr:  nil,
-		stream:   stream, cancel: cancelChannel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-		failConnection: nil,
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
+		browser:          nil,
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancelChannel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            true,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -506,14 +566,24 @@ func TestRunOperationsPeerCloseFailsNewRequests(t *testing.T) {
 	stream.EXPECT().CloseSend().Return(nil)
 	_, cancel := context.WithCancel(t.Context())
 	transport := &Service{
-		selectedUIID: "", selectionIssues: nil, warningWriter: nil, startupReport: startup.LoadReport{},
-		browser:  nil,
-		client:   nil,
-		openOnce: sync.Once{},
-		openErr:  nil,
-		stream:   stream, cancel: cancel, closed: atomic.Bool{}, mutex: sync.Mutex{}, ready: true,
-		writer: nil, progressReporter: operation.Reporter[controllerui.Frame]{}, progressBound: false,
-		failConnection: nil,
+		selectedUIID:     "",
+		selectionIssues:  nil,
+		warningWriter:    nil,
+		startupReport:    startup.LoadReport{},
+		browser:          nil,
+		client:           nil,
+		openOnce:         sync.Once{},
+		openErr:          nil,
+		stream:           stream,
+		cancel:           cancel,
+		closed:           atomic.Bool{},
+		mutex:            sync.Mutex{},
+		ready:            true,
+		writer:           nil,
+		progressReporter: operation.Reporter[controllerui.Frame]{},
+		progressRunID:    "",
+		progressBound:    false,
+		failConnection:   nil,
 	}
 
 	// Act through peer-requested closure.

@@ -5,6 +5,7 @@ package ui
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -60,7 +61,9 @@ func TestBuildInitializationUsesSharedModelCatalog(t *testing.T) {
 	output.EXPECT().
 		Initialize(t.Context(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, state Initialization) error { initialization = state; return nil })
-	service := NewSession(output, nil, nil, catalog, active, nil, nil, nil, nil)
+	retry := NewMockRetryControl(gomock.NewController(t))
+	retry.EXPECT().RetryPolicy().Return(false, int64(0), nil, time.Duration(0))
+	service := NewSession(output, nil, nil, catalog, active, nil, nil, nil, nil, retry)
 	require.NoError(t, service.Initialize(t.Context()))
 
 	// Assert all catalog models and the active selection are mapped exactly.

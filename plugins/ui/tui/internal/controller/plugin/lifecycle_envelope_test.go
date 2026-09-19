@@ -31,7 +31,9 @@ func TestMapLifecycleValidatesActiveAndInactiveFieldsForEveryType(t *testing.T) 
 
 	validLifecycle := func(lifecycleType uiv1.LifecycleType) *uiv1.AgentEvent {
 		lifecycle := uiv1.AgentEvent_builder{
-			Type: new(lifecycleType), RunId: new("run"), Text: nil, ToolCallId: nil, ToolName: nil,
+			RetryProgress: nil,
+			ResponseReset: nil,
+			Type:          new(lifecycleType), RunId: new("run"), Text: nil, ToolCallId: nil, ToolName: nil,
 			ProgressChannel: nil, IsError: nil, Outcome: nil, ErrorMessage: nil, Availability: nil,
 			ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,
 			ToolResultContents: nil,
@@ -145,6 +147,8 @@ func TestMapLifecycleRejectsMissingSelectedModelAndPreviewPayloads(t *testing.T)
 		preview *uiv1.ToolCallPreview,
 	) *uiv1.AgentEvent {
 		return uiv1.AgentEvent_builder{
+			RetryProgress:      nil,
+			ResponseReset:      nil,
 			Type:               new(lifecycleType),
 			RunId:              new("run"),
 			Text:               nil,
@@ -244,14 +248,18 @@ func TestMapLifecycleRejectsMissingRequiredScalarFields(t *testing.T) {
 
 	lifecycle := func(lifecycleType uiv1.LifecycleType) *uiv1.AgentEvent {
 		return uiv1.AgentEvent_builder{
-			Type: new(lifecycleType), RunId: new("run"), Text: nil, ToolCallId: nil, ToolName: nil,
+			RetryProgress: nil,
+			ResponseReset: nil,
+			Type:          new(lifecycleType), RunId: new("run"), Text: nil, ToolCallId: nil, ToolName: nil,
 			ProgressChannel: nil, IsError: nil, Outcome: nil, ErrorMessage: nil, Availability: nil,
 			ModelContent: nil, ModelResponse: nil, ToolCallPreview: nil, FinalToolCall: nil,
 			ToolResultContents: nil,
 		}.Build()
 	}
 	missingRunID := uiv1.AgentEvent_builder{
-		Type: new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: nil, Text: nil,
+		RetryProgress: nil,
+		ResponseReset: nil,
+		Type:          new(uiv1.LifecycleType_LIFECYCLE_TYPE_AGENT_START), RunId: nil, Text: nil,
 		ToolCallId: nil, ToolName: nil, ProgressChannel: nil, IsError: nil, Outcome: nil,
 		ErrorMessage: nil, Availability: nil, ModelContent: nil, ModelResponse: nil,
 		ToolCallPreview: nil, FinalToolCall: nil, ToolResultContents: nil,

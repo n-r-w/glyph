@@ -50,7 +50,7 @@ func (s *ServiceSuite) TestSelectionHandlerDiagnosticsRemainOrdered() {
 	}, ModelSelectionResult{Selection: selection, Committed: true, Issues: resultIssues, Source: source})
 	service := New(
 		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl), testStateQuery(s.T(), false),
-		nil, nil, nil, testRunOutput(s.T()), selectionOwner,
+		nil, nil, nil, testRunOutput(s.T()), selectionOwner, nil,
 	)
 	command := testProgrammaticCommand("selection", controller.CommandSelectModel)
 	command.ProviderID = mo.Some(selection.Provider)
@@ -150,7 +150,7 @@ func (s *ServiceSuite) TestCommandRejectionPrecedence() {
 				nil,
 				testStateQuery(s.T(), false),
 				nil, nil,
-				nil, testRunOutput(s.T()), nil)
+				nil, testRunOutput(s.T()), nil, nil)
 
 			if test.active {
 				coordinator.EXPECT().PrepareRun().Return("run-active", nil)
@@ -203,7 +203,7 @@ func (s *ServiceSuite) TestModelCommandsUseCatalogDuringActiveRun() {
 		nil, nil,
 		nil,
 		testRunOutput(s.T()),
-		selectionOwner,
+		selectionOwner, nil,
 	)
 	coordinator.EXPECT().PrepareRun().Return("run-active", nil)
 	activeOperation, err := service.Prepare(s.T().Context(), controller.Command{
@@ -361,7 +361,7 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	ctrl := gomock.NewController(s.T())
 	service := New(
 		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl),
-		testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), nil)
+		testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), nil, nil)
 
 	commands := []controller.Command{
 		{
@@ -434,7 +434,7 @@ func (s *ServiceSuite) TestSelectionPublicationFailureCompletesWithCommittedStat
 	})
 	service := New(
 		NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl), testStateQuery(s.T(), false),
-		nil, nil, nil, testRunOutput(s.T()), selectionOwner,
+		nil, nil, nil, testRunOutput(s.T()), selectionOwner, nil,
 	)
 	command := testProgrammaticCommand("selection", controller.CommandSelectModel)
 	command.ProviderID = mo.Some(selection.Provider)
@@ -502,7 +502,7 @@ func (s *ServiceSuite) TestSelectionErrorsPreservePublicCodesAndCauses() {
 			selectionOwner := NewMockModelSelection(ctrl)
 			service := New(
 				NewMockCoordinator(ctrl), NewMockModelCatalog(ctrl),
-				testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), selectionOwner,
+				testStateQuery(s.T(), false), nil, nil, nil, testRunOutput(s.T()), selectionOwner, nil,
 			)
 			selectionCommand := ModelSelectionCommand{
 				Kind: ModelSelectionCommandModel, Provider: "provider", Model: "model", ReasoningChoice: "",

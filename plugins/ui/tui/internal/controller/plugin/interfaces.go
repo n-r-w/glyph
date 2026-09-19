@@ -2,6 +2,7 @@ package plugin
 
 import (
 	"context"
+	"time"
 
 	"github.com/samber/mo"
 )
@@ -22,6 +23,18 @@ type InitializationOperation interface {
 	Release()
 }
 
+// RetryPolicy is the effective runtime retry configuration.
+type RetryPolicy struct {
+	// Enabled reports current runtime enablement.
+	Enabled bool
+	// MaxRetries is the maximum repeat count after the initial attempt.
+	MaxRetries int64
+	// Delays contains ordered repeat delays.
+	Delays []time.Duration
+	// MaxProviderDelay is the largest accepted provider-requested delay.
+	MaxProviderDelay time.Duration
+}
+
 // Initialization contains validated startup facts without operation or rendering state.
 type Initialization struct {
 	// Availability is the initial Host admission state.
@@ -34,6 +47,8 @@ type Initialization struct {
 	Selection ModelSelection
 	// Session identifies the active session.
 	Session SessionInfo
+	// RetryPolicy contains current runtime enablement and persistent schedule.
+	RetryPolicy RetryPolicy
 }
 
 // NotificationKind identifies an operation stage or unsolicited update.

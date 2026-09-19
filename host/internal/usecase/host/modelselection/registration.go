@@ -46,6 +46,7 @@ func (s *Service) CommitSelectionHandlers(registrations []startup.AcceptedRegist
 
 // selectionHandlerKind maps one startup declaration to selection policy.
 func selectionHandlerKind(kind startup.RawHandlerKind) (HandlerKind, bool) {
+	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case startup.RawHandlerKindModelSelection:
 		return HandlerKindModel, true

@@ -79,8 +79,11 @@ func TestHostDuplicateIDsAndInactiveCancellation(t *testing.T) {
 	t.Cleanup(release)
 	host.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).Return(read, nil)
 	read.EXPECT().
-		Run(gomock.Any()).
-		DoAndReturn(func(context.Context) (*extensionpb.HostCompleted, error) { <-gate; return emptyModelCatalogue(), nil })
+		Run(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
+			<-gate
+			return emptyModelCatalogue(), nil
+		})
 	read.EXPECT().Release()
 	request := new(extensionpb.ExtensionRequest)
 	request.SetGetModels(extensionpb.GetModelsRequest_builder{Context: nil}.Build())
@@ -135,7 +138,7 @@ func isolatedHostDelivery(t *testing.T) (*Connection, *hostDelivery, <-chan *ext
 		closeOnce:   sync.Once{},
 	}
 	delivery := &hostDelivery{connection: connection}
-	connection.hostOwner = operation.NewOwner[struct{}, *extensionpb.HostCompleted](ctx, delivery)
+	connection.hostOwner = operation.NewOwner[*extensionpb.HostProgress, *extensionpb.HostCompleted](ctx, delivery)
 	t.Cleanup(func() { cancel(context.Canceled); connection.hostOwner.Close(); connection.writer.Close() })
 	return connection, delivery, frames
 }

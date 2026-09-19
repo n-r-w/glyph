@@ -76,6 +76,7 @@ func (model interaction) emitSessionCommand(kind CommandKind, id, name string) (
 		SessionID:            mo.EmptyableToOption(id),
 		SessionName:          mo.EmptyableToOption(name),
 		TreeCommand:          mo.None[TreeCommand](),
+		RetryEnabled:         mo.None[bool](),
 	}
 	if kind == CommandSetSessionName {
 		command.SessionName = mo.Some(name)
