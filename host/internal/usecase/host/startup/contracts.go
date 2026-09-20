@@ -132,6 +132,16 @@ const (
 	RawHandlerKindReasoningSelectionObserver RawHandlerKind = 18
 	// RawHandlerKindRetry identifies one retry-decision handler.
 	RawHandlerKindRetry RawHandlerKind = 19
+	// RawHandlerKindCompactionRequest identifies one compaction request handler.
+	RawHandlerKindCompactionRequest RawHandlerKind = 20
+	// RawHandlerKindCompactionGenerate identifies one compaction generation capability.
+	RawHandlerKindCompactionGenerate RawHandlerKind = 21
+	// RawHandlerKindCompactionResult identifies one compaction result handler.
+	RawHandlerKindCompactionResult RawHandlerKind = 22
+	// RawHandlerKindCompactionSuccess identifies one committed-compaction observer.
+	RawHandlerKindCompactionSuccess RawHandlerKind = 23
+	// RawHandlerKindCompactionFailure identifies one failed-compaction observer.
+	RawHandlerKindCompactionFailure RawHandlerKind = 24
 )
 
 // RawHandlerDescriptor contains transport-mapped handler registration data.
@@ -214,6 +224,12 @@ type SessionTreeRegistrar interface {
 	ValidateSessionTreeHandlers(registration PendingRegistration) ([]AcceptedHandler, error)
 	// CommitSessionTreeHandlers publishes accepted session-tree registrations.
 	CommitSessionTreeHandlers(registrations []AcceptedRegistration)
+}
+
+// CompactionRegistrar owns compaction capability registration validation.
+type CompactionRegistrar interface {
+	// ValidateCompactionHandlers validates one extension's compaction registrations.
+	ValidateCompactionHandlers(registration PendingRegistration) ([]AcceptedHandler, error)
 }
 
 // LifecycleRegistrar owns lifecycle observer validation and publication.

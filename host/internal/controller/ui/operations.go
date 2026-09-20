@@ -379,6 +379,8 @@ const (
 	operationKindSetSessionName = "set_session_name"
 	// operationKindSetRetryEnabled identifies runtime retry-control operations.
 	operationKindSetRetryEnabled = "set_retry_enabled"
+	// operationKindCompact identifies manual context compaction operations.
+	operationKindCompact = "compact"
 	// operationKindSubmit identifies submit operations.
 	operationKindSubmit = "submit"
 )
@@ -396,6 +398,8 @@ func hostRequestKind(request *uiv1.UIRequest) string {
 		return operationKindSelectReasoningChoice
 	case uiv1.UIRequest_SetRetryEnabled_case:
 		return operationKindSetRetryEnabled
+	case uiv1.UIRequest_Compact_case:
+		return operationKindCompact
 	case uiv1.UIRequest_CreateSession_case, uiv1.UIRequest_ListSessions_case,
 		uiv1.UIRequest_ResumeSession_case, uiv1.UIRequest_SetSessionName_case,
 		uiv1.UIRequest_GetSessionInfo_case, uiv1.UIRequest_GetSessionTree_case,

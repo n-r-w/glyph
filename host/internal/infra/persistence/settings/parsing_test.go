@@ -155,6 +155,21 @@ func (s *SettingsSuite) TestLoadParsesRetryPolicy() {
 	}, loaded.Retry)
 }
 
+// TestLoadParsesCompactionPolicy verifies the retained-context target replaces its default.
+func (s *SettingsSuite) TestLoadParsesCompactionPolicy() {
+	// Arrange valid settings with one explicit compaction mapping.
+	path := writeSettings(s.T(), validSettings(`compaction:
+  retainedContextTokens: 1234
+`))
+
+	// Act by loading the strict settings document.
+	loaded, err := New(path).Load()
+
+	// Assert the independent retained-context target is preserved.
+	s.Require().NoError(err)
+	s.Equal(Compaction{RetainedContextTokens: 1234}, loaded.Compaction)
+}
+
 // TestLoadParsesToolCapabilities verifies exact declarative capability mapping for an arbitrary model ID.
 func (s *SettingsSuite) TestLoadParsesToolCapabilities() {
 	// Arrange settings with all capabilities enabled for an arbitrary OpenAI-compatible model.

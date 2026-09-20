@@ -291,6 +291,10 @@ const (
 	FrameAuthenticationCompleted
 	// FrameRetryEnabled confirms runtime retry enablement.
 	FrameRetryEnabled
+	// FrameCompactionProgress reports one Host-owned manual compaction stage.
+	FrameCompactionProgress
+	// FrameCompaction reports one terminal manual compaction outcome.
+	FrameCompaction
 )
 
 // Frame carries one operation progress or completion payload.
@@ -299,6 +303,10 @@ type Frame struct {
 	Kind FrameKind
 	// NextInput contains fork completion's restored user text.
 	NextInput mo.Option[string]
+	// CompactionStage contains the stable stage for compaction progress.
+	CompactionStage mo.Option[string]
+	// CompactionCanceled reports explicit handler cancellation for compaction completion.
+	CompactionCanceled mo.Option[bool]
 	// Lifecycle contains one lifecycle transition.
 	Lifecycle mo.Option[Lifecycle]
 	// AuthorizationURL contains the browser OAuth URL.
@@ -327,6 +335,10 @@ type Frame struct {
 	TreeNavigation mo.Option[TreeNavigationResult]
 	// RetryPolicy is present only on a retry-enablement completion frame.
 	RetryPolicy mo.Option[RetryPolicy]
+	// CompactionError contains a post-commit manual compaction failure when present.
+	CompactionError mo.Option[string]
+	// CompactionFailureCode contains its stable category when CompactionError is present.
+	CompactionFailureCode mo.Option[string]
 }
 
 // SessionEntry carries one restored public terminal item.

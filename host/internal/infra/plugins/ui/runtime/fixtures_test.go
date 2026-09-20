@@ -14,9 +14,11 @@ import (
 // testLifecycleFrame creates one complete lifecycle mapping fixture.
 func testLifecycleFrame() controllerui.Frame {
 	return controllerui.Frame{
-		NextInput:      mo.None[string](),
-		SessionEntries: nil,
-		Kind:           controllerui.FrameLifecycle,
+		NextInput:          mo.None[string](),
+		CompactionStage:    mo.None[string](),
+		CompactionCanceled: mo.None[bool](),
+		SessionEntries:     nil,
+		Kind:               controllerui.FrameLifecycle,
 
 		Lifecycle: mo.Some(controllerui.Lifecycle{
 			Type:               controllerui.LifecycleToolExecutionUpdate,
@@ -47,5 +49,7 @@ func testLifecycleFrame() controllerui.Frame {
 		TreeNavigationProgress: mo.None[controllerui.TreeNavigationProgress](),
 		TreeNavigationRetry:    mo.None[controllerui.RetryProgress](),
 		RetryPolicy:            mo.None[controllerui.RetryPolicy](),
+		CompactionError:        mo.None[string](),
+		CompactionFailureCode:  mo.None[string](),
 	}
 }

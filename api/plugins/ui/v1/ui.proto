@@ -4,6 +4,7 @@ package glyph.plugins.ui.v1;
 
 import "api/operation/v1/operation.proto";
 import "api/plugins/ui/v1/agent.proto";
+import "api/plugins/ui/v1/compaction.proto";
 import "api/plugins/ui/v1/model.proto";
 import "api/plugins/ui/v1/retry.proto";
 import "api/plugins/ui/v1/session.proto";
@@ -61,6 +62,8 @@ message HostProgress {
     SessionTreeNavigationProgress session_tree_navigation = 3;
     // Retry progress for a branch-summary model request owned by this navigation operation.
     RetryProgress session_tree_retry = 4;
+    // Host-owned manual compaction progress.
+    CompactionProgress compaction = 5;
   }
 }
 
@@ -81,6 +84,8 @@ message HostCompleted {
     SessionCloned session_cloned = 11;
     EntryLabelSet entry_label_set = 12;
     RetryEnabledResult retry_enabled = 13;
+    // The terminal manual compaction outcome.
+    CompactionResult compaction = 14;
   }
 }
 
@@ -204,6 +209,8 @@ message UIRequest {
     CloneSessionCommand clone_session = 14;
     SetEntryLabelCommand set_entry_label = 15;
     SetRetryEnabledCommand set_retry_enabled = 16;
+    // A manual active-conversation compaction request.
+    CompactCommand compact = 17;
   }
 }
 

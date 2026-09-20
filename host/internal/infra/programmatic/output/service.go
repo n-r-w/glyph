@@ -149,7 +149,7 @@ func (s *Service) DeliverRetry(ctx context.Context, progress modelexecution.Retr
 	}
 	if err := reporter.Report(controller.OperationProgress{
 		AgentEvent: mo.Some(event), TreeNavigation: mo.None[controller.TreeNavigationProgress](),
-		TreeNavigationRetry: mo.None[controller.RetryProgress](),
+		TreeNavigationRetry: mo.None[controller.RetryProgress](), CompactionStage: mo.None[string](),
 	}); err != nil {
 		s.mutex.Lock()
 		if s.active == active {
@@ -189,7 +189,7 @@ func (s *Service) DeliverAgent(ctx context.Context, event agent.Event) error {
 	}
 	if err = reporter.Report(controller.OperationProgress{
 		AgentEvent: mo.Some(mapped), TreeNavigation: mo.None[controller.TreeNavigationProgress](),
-		TreeNavigationRetry: mo.None[controller.RetryProgress](),
+		TreeNavigationRetry: mo.None[controller.RetryProgress](), CompactionStage: mo.None[string](),
 	}); err != nil {
 		s.mutex.Lock()
 		if s.active == active {

@@ -41,6 +41,8 @@ const (
 	CommandSetEntryLabel
 	// CommandSetRetryEnabled changes process-local model retry enablement.
 	CommandSetRetryEnabled
+	// CommandCompact requests manual active-conversation compaction.
+	CommandCompact
 )
 
 // Command carries exactly one UI-to-Host command.
@@ -73,4 +75,6 @@ type Command struct {
 	EntryLabel mo.Option[string]
 	// RetryEnabled contains runtime retry enablement for the retry command.
 	RetryEnabled mo.Option[bool]
+	// CompactionInstructions contains optional manual compaction guidance.
+	CompactionInstructions mo.Option[string]
 }

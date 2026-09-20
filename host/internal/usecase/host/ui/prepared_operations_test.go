@@ -24,6 +24,107 @@ import (
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
+// TestCompactionFailureCategoryRemainsPublic verifies UI failure mapping keeps orchestration identity.
+func TestCompactionFailureCategoryRemainsPublic(t *testing.T) {
+	t.Parallel()
+	// Arrange one typed compaction failure.
+	err := uiCompactionCategoryError{code: "COMPACTION_FAILED"}
+
+	// Act through the direct manual-compaction failure mapping.
+	code := sessionOperationFailureCode(err)
+
+	// Assert the public operation category remains exact.
+	require.Equal(t, "COMPACTION_FAILED", code)
+}
+
+// uiCompactionCategoryError supplies one stable test-only orchestration category.
+type uiCompactionCategoryError struct {
+	// code is the stable public failure category.
+	code string
+}
+
+// Error returns the category as complete test failure text.
+func (e uiCompactionCategoryError) Error() string { return e.code }
+
+// CompactionFailureCode returns the orchestration-owned category.
+func (e uiCompactionCategoryError) CompactionFailureCode() string { return e.code }
+
+// TestManualCompactionPreservesCommittedFailureCategory verifies production UI operation mapping.
+func TestManualCompactionPreservesCommittedFailureCategory(t *testing.T) {
+	t.Parallel()
+	// Arrange post-commit publication, observer, and joined failures.
+	publication := errors.New("publication failed after commit")
+	observer := errors.New("observer failed after commit")
+	tests := []struct {
+		name         string
+		failure      error
+		expectedCode string
+	}{
+		{
+			name:         "publication",
+			failure:      uiPostCommitFailure{code: controllerui.FailureCodeInternal, cause: publication},
+			expectedCode: controllerui.FailureCodeInternal,
+		},
+		{
+			name:         "observer",
+			failure:      uiPostCommitFailure{code: controllerui.FailureCodeExtensionFailed, cause: observer},
+			expectedCode: controllerui.FailureCodeExtensionFailed,
+		},
+		{name: "joined", failure: errors.Join(
+			uiPostCommitFailure{code: controllerui.FailureCodeInternal, cause: publication},
+			uiPostCommitFailure{code: controllerui.FailureCodeExtensionFailed, cause: observer},
+		), expectedCode: controllerui.FailureCodeInternal},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			committed := session.Entry{
+				ID: "compaction", ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0),
+				Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+				Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+				Extension: mo.None[session.ExtensionEnvelope](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+				EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+				Compaction: mo.Some(session.CompactionEntry{
+					Summary: "summary", FirstKeptEntryID: "kept",
+					Source: session.CompactionSource{
+						ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+					},
+					EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+				}),
+			}
+			// Act through the production UI completion mapping used by the prepared operation.
+			frame, err := compactionCompletionFrame(
+				ManualCompactionResult{Committed: mo.Some(committed), Canceled: false}, testCase.failure,
+			)
+
+			// Assert committed state, complete text, and stable category survive together.
+			require.ErrorIs(t, err, testCase.failure)
+			require.Len(t, frame.SessionEntries, 1)
+			require.Equal(t, testCase.failure.Error(), frame.CompactionError.MustGet())
+			code, codePresent := frame.CompactionFailureCode.Get()
+			require.True(t, codePresent)
+			require.Equal(t, testCase.expectedCode, code)
+		})
+	}
+}
+
+// uiPostCommitFailure keeps a stable category and complete post-commit cause.
+type uiPostCommitFailure struct {
+	// code is the stable public category.
+	code string
+	// cause is the complete underlying failure.
+	cause error
+}
+
+// Error returns the complete underlying failure text.
+func (e uiPostCommitFailure) Error() string { return e.cause.Error() }
+
+// Unwrap preserves the underlying failure.
+func (e uiPostCommitFailure) Unwrap() error { return e.cause }
+
+// CompactionFailureCode returns the stable category.
+func (e uiPostCommitFailure) CompactionFailureCode() string { return e.code }
+
 // TestInitializeFailurePreservesCause verifies startup delivery ownership.
 func TestInitializeFailurePreservesCause(t *testing.T) {
 	t.Parallel()
@@ -196,6 +297,71 @@ func TestPreparedCancellationClassifiesPureAndMixedErrors(t *testing.T) {
 			assert.Equal(t, test.expectedState, outcome.State())
 			if test.mixed {
 				require.Same(t, runErr, outcome.Err())
+			}
+		})
+	}
+}
+
+// TestPreparedCompactionCancellationMatrix verifies owner cancellation and typed compaction precedence.
+func TestPreparedCompactionCancellationMatrix(t *testing.T) {
+	t.Parallel()
+	independentCause := errors.New("independent UI compaction failure")
+	for _, testCase := range []struct {
+		name          string
+		cancelOwner   bool
+		runErr        error
+		expectedState operation.TerminalState
+	}{
+		{
+			name: "active owner with handler transport cancellation", cancelOwner: false,
+			runErr:        uiPostCommitFailure{code: controllerui.FailureCodeExtensionFailed, cause: context.Canceled},
+			expectedState: operation.TerminalStateFailed,
+		},
+		{
+			name: "canceled owner with cancellation only", cancelOwner: true,
+			runErr: context.Canceled, expectedState: operation.TerminalStateCanceled,
+		},
+		{
+			name: "canceled owner with independent typed failure", cancelOwner: true,
+			runErr: uiPostCommitFailure{
+				code:  controllerui.FailureCodeExtensionFailed,
+				cause: errors.Join(context.Canceled, independentCause),
+			},
+			expectedState: operation.TerminalStateFailed,
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange the UI operation owner and one direct compaction terminal.
+			ctx, cancel := context.WithCancel(t.Context())
+			if testCase.cancelOwner {
+				cancel()
+			} else {
+				t.Cleanup(cancel)
+			}
+			prepared := &preparedUIOperation{
+				run: func(context.Context, operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
+					return controllerui.Frame{}, testCase.runErr
+				},
+				failureCode: func(err error) string {
+					code, found := directCompactionFailureCode(err)
+					require.True(t, found)
+					return code
+				},
+				release: func() {}, releaseOnce: sync.Once{},
+			}
+
+			// Act through the production UI operation terminal owner.
+			outcome := prepared.Run(ctx, operation.Reporter[controllerui.Frame]{})
+
+			// Assert pure owner abort is canceled and typed handler failure remains failed.
+			require.Equal(t, testCase.expectedState, outcome.State())
+			if testCase.expectedState == operation.TerminalStateFailed {
+				require.Equal(t, controllerui.FailureCodeExtensionFailed, outcome.Code())
+				require.ErrorIs(t, outcome.Err(), testCase.runErr)
+			}
+			if testCase.name == "canceled owner with independent typed failure" {
+				require.ErrorIs(t, outcome.Err(), independentCause)
 			}
 		})
 	}

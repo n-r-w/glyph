@@ -6,6 +6,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extensionruntime
@@ -73,6 +74,31 @@ type ExtensionRuntime interface {
 		handlerID string,
 		request HandlerInvocation,
 	) (HandlerAction, error)
+	// HandleCompactionRequest invokes one compaction request handler.
+	HandleCompactionRequest(
+		context.Context,
+		string,
+		extension.Context,
+		contextcompaction.RequestInvocation,
+	) (contextcompaction.RequestAction, error)
+	// GenerateCompaction invokes one compaction generation capability.
+	GenerateCompaction(
+		context.Context,
+		string,
+		extension.Context,
+		contextcompaction.RequestInvocation,
+	) (contextcompaction.Result, error)
+	// HandleCompactionResult invokes one compaction result handler.
+	HandleCompactionResult(
+		context.Context,
+		string,
+		extension.Context,
+		contextcompaction.ResultInvocation,
+	) (contextcompaction.ResultAction, error)
+	// ObserveCompactionSuccess invokes one committed-compaction observer.
+	ObserveCompactionSuccess(context.Context, string, extension.Context, contextcompaction.OutcomeInvocation) error
+	// ObserveCompactionFailure invokes one failed-compaction observer.
+	ObserveCompactionFailure(context.Context, string, extension.Context, contextcompaction.OutcomeInvocation) error
 	// ObserveLifecycle invokes one Agent Core lifecycle observer.
 	ObserveLifecycle(context.Context, string, LifecycleInvocation) error
 	// Execute invokes one tool operation.

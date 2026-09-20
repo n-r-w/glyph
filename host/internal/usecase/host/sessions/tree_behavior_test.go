@@ -18,7 +18,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 // TestAppendUsesCurrentActiveLeafForEverySupportedEntry verifies continuation entries follow the selected branch.
@@ -85,12 +84,12 @@ func TestAppendUsesCurrentActiveLeafForEverySupportedEntry(t *testing.T) {
 			CallID: "call", ToolName: "tool", Contents: tool.TextContents("result"), IsError: false,
 		}),
 	}))
-	service.contextIdentity.Store(&contextcompaction.SessionIdentity{
+	service.contextIdentity.Store(&session.Identity{
 		ID: "session", WorkingDirectory: "/project", Incarnation: 1,
 	})
 	_, err = service.AppendExtension(
 		t.Context(),
-		contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
+		session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
 		session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "state", Data: []byte(`{"value":true}`)},
 		treeBehaviorCommitGuard,
 	)
@@ -172,7 +171,7 @@ func TestExtensionMessageAppendCommitsBeforePublication(t *testing.T) {
 		Information:          mo.None[session.Information](),
 		InformationUpdatedAt: mo.None[time.Time](),
 	}
-	expected := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	expected := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	service.contextIdentity.Store(&expected)
 	service.history = append(storedHistoryFromEntries(tree.ActiveBranch()), storedHistoryEntry{
 		value: treeBehaviorPartialModelHistory(), clientVisible: true,
@@ -245,7 +244,7 @@ func TestExtensionMessageWithoutPublisherCommitsBeforeDeliveryFailure(t *testing
 		StoragePath: "/sessions/session.jsonl", Tree: tree,
 		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}
-	expected := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	expected := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	service.contextIdentity.Store(&expected)
 	ids.EXPECT().NewID().Return("message", nil)
 	clock.EXPECT().Now().Return(createdAt.Add(time.Second))
@@ -292,7 +291,7 @@ func TestExtensionAppendFailurePreservesPublishedState(t *testing.T) {
 		Information:          mo.None[session.Information](),
 		InformationUpdatedAt: mo.None[time.Time](),
 	}
-	expected := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	expected := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	service.contextIdentity.Store(&expected)
 	ids.EXPECT().NewID().Return("candidate", nil)
 	clock.EXPECT().Now().Return(createdAt.Add(time.Second))
@@ -318,12 +317,12 @@ func TestExtensionAppendRejectsStaleOrCanceledWork(t *testing.T) {
 		// name identifies the rejected append condition.
 		name string
 		// expected supplies the binding identity presented at commit.
-		expected contextcompaction.SessionIdentity
+		expected session.Identity
 		// canceled selects a canceled operation context.
 		canceled bool
 	}{
-		{name: "stale incarnation", expected: contextcompaction.SessionIdentity{ID: "session", Incarnation: 1}, canceled: false},
-		{name: "canceled", expected: contextcompaction.SessionIdentity{ID: "session", Incarnation: 2}, canceled: true},
+		{name: "stale incarnation", expected: session.Identity{ID: "session", Incarnation: 1}, canceled: false},
+		{name: "canceled", expected: session.Identity{ID: "session", Incarnation: 2}, canceled: true},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -337,7 +336,7 @@ func TestExtensionAppendRejectsStaleOrCanceledWork(t *testing.T) {
 				StoragePath: "", Tree: tree, Information: mo.None[session.Information](),
 				InformationUpdatedAt: mo.None[time.Time](),
 			}
-			current := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 2}
+			current := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 2}
 			service.contextIdentity.Store(&current)
 			ctx := t.Context()
 			if test.canceled {
@@ -439,7 +438,7 @@ func TestExtensionStateFiltersOneActiveBranch(t *testing.T) {
 		Information:          mo.None[session.Information](),
 		InformationUpdatedAt: mo.None[time.Time](),
 	}
-	expected := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 7}
+	expected := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 7}
 	service.contextIdentity.Store(&expected)
 
 	// Act through the state-owner snapshot operation.

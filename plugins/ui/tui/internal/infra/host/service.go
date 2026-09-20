@@ -110,7 +110,7 @@ func (service *Service) Send(identifier string, command presentation.Command, ta
 		presentation.CommandListSessions, presentation.CommandResumeSession, presentation.CommandSetSessionName,
 		presentation.CommandGetSessionInfo, presentation.CommandGetSessionTree, presentation.CommandNavigateSessionTree,
 		presentation.CommandForkSession, presentation.CommandCloneSession, presentation.CommandSetEntryLabel,
-		presentation.CommandSetRetryEnabled:
+		presentation.CommandSetRetryEnabled, presentation.CommandCompact:
 		request, err := mapCommand(command)
 		if err != nil {
 			return err

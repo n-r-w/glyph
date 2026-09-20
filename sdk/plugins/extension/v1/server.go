@@ -451,6 +451,16 @@ func handlerKindMatches(kind extensionpb.HandlerKind, request *extensionpb.Handl
 		return request.GetReasoningSelection() != nil
 	case extensionpb.HandlerKind_HANDLER_KIND_RETRY:
 		return request.GetRetry() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_REQUEST:
+		return request.GetCompactionRequest() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_GENERATE:
+		return request.GetCompactionGenerate() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_RESULT:
+		return request.GetCompactionResult() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_SUCCESS:
+		return request.GetCompactionSuccess() != nil
+	case extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_FAILURE:
+		return request.GetCompactionFailure() != nil
 	case extensionpb.HandlerKind_HANDLER_KIND_AGENT_START,
 		extensionpb.HandlerKind_HANDLER_KIND_AGENT_END,
 		extensionpb.HandlerKind_HANDLER_KIND_AGENT_SETTLED,

@@ -39,6 +39,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 	configured := NewMockHostOperation(controller)
 	message := NewMockHostOperation(controller)
 	recovery := NewMockHostOperation(controller)
+	compaction := NewMockHostOperation(controller)
 	recoveryEntered := make(chan struct{})
 	recoveryRelease := make(chan struct{})
 	largePayload := bytes.Repeat([]byte(`{"state":"exact"}`), 300000)
@@ -135,6 +136,24 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 				return nil, err
 			}
 			assert.Equal(t, largePayload, state.GetEntries()[0].GetData())
+			compact, err := bound.StartCompaction(ctx, extensionpb.CompactRequest_builder{
+				Context: nil, Instructions: new("preserve decisions"),
+			}.Build())
+			if err != nil {
+				return nil, err
+			}
+			var stages []string
+			compacted, err := compact.WaitWithProgress(ctx, func(progress *extensionpb.CompactionProgress) error {
+				stages = append(stages, progress.GetStage())
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
+			assert.Equal(t, []string{"running"}, stages)
+			assert.Equal(t, "compaction-entry", compacted.GetCommitted().GetEntryId())
+			assert.Equal(t, "observer failed after commit", compacted.GetError())
+			assert.Equal(t, "EXTENSION_FAILED", compacted.GetFailureCode())
 			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil
 		})
 	host.EXPECT().
@@ -144,7 +163,8 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return models, nil
 		})
 	models.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Cancel: nil, GetProviders: nil, ConfiguredModel: nil,
+		Compact: nil,
+		Cancel:  nil, GetProviders: nil, ConfiguredModel: nil,
 		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
 
 		GetModels: extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: extensionpb.ModelSelection_builder{
@@ -159,7 +179,8 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return providers, nil
 		})
 	providers.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Cancel: nil, GetModels: nil, ConfiguredModel: nil,
+		Compact: nil,
+		Cancel:  nil, GetModels: nil, ConfiguredModel: nil,
 		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
 
 		GetProviders: extensionpb.GetProvidersResult_builder{Providers: []*extensionpb.ProviderDescriptor{
@@ -175,7 +196,8 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return configured, nil
 		})
 	configured.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Cancel: nil, GetModels: nil, GetProviders: nil, AppendExtension: nil, GetSessionState: nil,
+		Compact: nil,
+		Cancel:  nil, GetModels: nil, GetProviders: nil, AppendExtension: nil, GetSessionState: nil,
 		AppendExtensionMessage: nil, Selection: nil, ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
 			Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
 			ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
@@ -195,6 +217,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			return message, nil
 		})
 	message.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
+		Compact:         nil,
 		Cancel:          nil,
 		GetModels:       nil,
 		GetProviders:    nil,
@@ -229,7 +252,8 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 				ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload, Message: nil,
 			}.Build()
 			return extensionpb.HostCompleted_builder{
-				Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
+				Compact: nil,
+				Cancel:  nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
 				AppendExtensionMessage: nil, Selection: nil, GetSessionState: extensionpb.GetSessionStateResult_builder{
 					SessionId: new(
 						"session",
@@ -240,6 +264,40 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 			}.Build(), nil
 		})
 	recovery.EXPECT().Release()
+	host.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
+			assert.Equal(t, "binding", request.GetCompact().GetContext().GetContextId())
+			assert.Equal(t, "preserve decisions", request.GetCompact().GetInstructions())
+			return compaction, nil
+		},
+	)
+	compaction.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, reporter *HostProgressReporter) (*extensionpb.HostCompleted, error) {
+			progress := new(extensionpb.HostProgress)
+			progress.SetCompaction(extensionpb.CompactionProgress_builder{Stage: new("running")}.Build())
+			if err := reporter.Report(ctx, progress); err != nil {
+				return nil, err
+			}
+			source := new(extensionpb.BranchSummarySource)
+			source.SetExtensionId("extension")
+			return extensionpb.HostCompleted_builder{
+				Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil,
+				AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
+				Compact: extensionpb.CompactResult_builder{
+					Committed: extensionpb.CommittedCompaction_builder{
+						EntryId: new("compaction-entry"),
+						Compaction: extensionpb.SessionTreeCompaction_builder{
+							Summary: new("summary"), FirstKeptEntryId: new("kept"), Source: source,
+							EstimatedCost: nil, Details: nil,
+						}.Build(),
+					}.Build(),
+					Canceled: new(false), Error: new("observer failed after commit"),
+					FailureCode: new("EXTENSION_FAILED"),
+				}.Build(),
+			}.Build(), nil
+		},
+	)
+	compaction.EXPECT().Release()
 	connection := openContextTestConnection(t, service, host)
 	register, err := connection.Start(t.Context(), "register", extensionpb.HostRequest_builder{
 		Cancel:   nil,

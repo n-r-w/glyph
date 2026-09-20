@@ -20,6 +20,45 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// TestUserRequestCompactionFailureReachesProgrammaticWire verifies automatic compaction identity and complete text.
+func TestUserRequestCompactionFailureReachesProgrammaticWire(t *testing.T) {
+	t.Parallel()
+	// Arrange one accepted user request and a real acknowledged output writer.
+	captured := make(chan *programmaticv1.OpenResponse, 1)
+	writer := operation.NewWriter(func(response *programmaticv1.OpenResponse) error {
+		captured <- response
+		return nil
+	})
+	writerResult := make(chan error, 1)
+	go func() { writerResult <- writer.Run(t.Context()) }()
+	t.Cleanup(func() {
+		writer.Close()
+		<-writerResult
+	})
+	registry := newTargetRegistry()
+	registry.add("request", CommandUserRequest)
+	delivery := &streamDelivery{
+		context: t.Context(), writer: writer, registry: registry, fail: func(error) {},
+	}
+	cause := errors.Join(
+		errors.New("automatic compaction failed"),
+		errors.New("compacted context still exceeds the input budget"),
+	)
+
+	// Act through the production terminal-delivery path.
+	acknowledgement, err := delivery.Terminal(
+		"request", operation.Failed[Response](FailureCodeCompactionFailed, cause),
+	)
+
+	// Assert the public wire event retains the category and every contributing error text.
+	require.NoError(t, err)
+	require.NotNil(t, acknowledgement)
+	response := <-captured
+	failed := response.GetEvent().GetFailed()
+	require.Equal(t, FailureCodeCompactionFailed, failed.GetCode())
+	require.Equal(t, cause.Error(), failed.GetMessage())
+}
+
 // TestFailedTerminalSendPreservesCompletionCauses exercises the real writer, owner, and RPC completion.
 func TestFailedTerminalSendPreservesCompletionCauses(t *testing.T) {
 	t.Parallel()

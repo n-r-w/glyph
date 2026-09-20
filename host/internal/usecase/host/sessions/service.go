@@ -44,7 +44,7 @@ type Service struct {
 	// active contains durable session records and public metadata.
 	active LoadedSession
 	// contextIdentity publishes immutable incarnation state without waiting for storage I/O locks.
-	contextIdentity atomic.Pointer[contextcompaction.SessionIdentity]
+	contextIdentity atomic.Pointer[session.Identity]
 	// history owns the unchanged provider-neutral client transcript and its visibility.
 	history []storedHistoryEntry
 	// contextHistory owns the independently compacted model-context projection.
@@ -56,11 +56,12 @@ type Service struct {
 }
 
 var (
-	_ ui.ActiveSessions             = (*Service)(nil)
-	_ programmatic.ActiveSessions   = (*Service)(nil)
-	_ sessiontree.ActiveSession     = (*Service)(nil)
-	_ agentrun.HistoryStore         = (*Service)(nil)
-	_ extensioncontext.SessionState = (*Service)(nil)
+	_ ui.ActiveSessions              = (*Service)(nil)
+	_ programmatic.ActiveSessions    = (*Service)(nil)
+	_ sessiontree.ActiveSession      = (*Service)(nil)
+	_ agentrun.HistoryStore          = (*Service)(nil)
+	_ extensioncontext.SessionState  = (*Service)(nil)
+	_ contextcompaction.SessionState = (*Service)(nil)
 )
 
 // New creates an active-session service without performing storage I/O.
@@ -79,7 +80,7 @@ func New(
 		pricing:          pricing,
 		workingDirectory: workingDirectory,
 		active:           LoadedSession{},
-		contextIdentity:  atomic.Pointer[contextcompaction.SessionIdentity]{},
+		contextIdentity:  atomic.Pointer[session.Identity]{},
 		history:          nil,
 		contextHistory:   nil,
 		writeUnavailable: false,
@@ -299,7 +300,7 @@ func (s *Service) Append(ctx context.Context, history agent.HistoryEntry) error 
 // AppendExtension persists one model-hidden entry only for the expected active-session incarnation.
 func (s *Service) AppendExtension(
 	ctx context.Context,
-	expected contextcompaction.SessionIdentity,
+	expected session.Identity,
 	extension session.ExtensionEnvelope,
 	commitGuard extensioncontext.ContextCommitGuard,
 ) (session.Entry, error) {
@@ -341,7 +342,7 @@ func (s *Service) AppendExtension(
 // AppendExtensionMessage persists and enqueues one message under the session lock, then waits without commit locks.
 func (s *Service) AppendExtensionMessage(
 	ctx context.Context,
-	expected contextcompaction.SessionIdentity,
+	expected session.Identity,
 	message session.ExtensionMessage,
 	commitGuard extensioncontext.ContextCommitGuard,
 ) (session.Entry, error) {
@@ -406,7 +407,7 @@ func (s *Service) AppendExtensionMessage(
 // ExtensionState returns the caller extension's entries from one locked active-branch snapshot.
 func (s *Service) ExtensionState(
 	ctx context.Context,
-	expected contextcompaction.SessionIdentity,
+	expected session.Identity,
 	extensionID string,
 ) (extensioncontext.SessionSnapshot, error) {
 	s.mutex.RLock()
@@ -431,7 +432,7 @@ func (s *Service) ExtensionState(
 }
 
 // validateExpectedSessionLocked rejects cancellation and every replaced active-session incarnation.
-func (s *Service) validateExpectedSessionLocked(ctx context.Context, expected contextcompaction.SessionIdentity) error {
+func (s *Service) validateExpectedSessionLocked(ctx context.Context, expected session.Identity) error {
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("access extension session state: %w", err)
 	}

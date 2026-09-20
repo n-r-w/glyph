@@ -45,6 +45,15 @@ func mapHostProgress(progress *uiv1.HostProgress) (Payload, error) {
 		}), nil
 	case uiv1.HostProgress_SessionTreeNavigation_case:
 		return mapTreeNavigationProgress(progress.GetSessionTreeNavigation())
+	case uiv1.HostProgress_Compaction_case:
+		compaction := progress.GetCompaction()
+		if compaction == nil || !compaction.HasStage() || compaction.GetStage() == "" {
+			return Payload{}, errors.New("compaction progress stage is required")
+		}
+		return TextPayload(TextUpdate{
+			Kind: TextInformation, Text: fmt.Sprintf(compactionProgressFormat, compaction.GetStage()),
+			AuthorizationCode: mo.None[string](), FailureCode: "",
+		}), nil
 	case uiv1.HostProgress_SessionTreeRetry_case:
 		retry := progress.GetSessionTreeRetry()
 		return TextPayload(TextUpdate{
@@ -79,6 +88,21 @@ func DecodeCompleted(completed *uiv1.HostCompleted) (Payload, bool, error) {
 	}
 	switch completed.WhichCompleted() {
 	case uiv1.HostCompleted_Submit_case:
+		return NewPayload(PayloadSettled), true, nil
+	case uiv1.HostCompleted_Compaction_case:
+		result := completed.GetCompaction()
+		if result.HasError() {
+			return TextPayload(TextUpdate{
+				Kind: TextError, Text: result.GetError(), FailureCode: result.GetFailureCode(),
+				AuthorizationCode: mo.None[string](),
+			}), true, nil
+		}
+		if result.GetCanceled() {
+			return TextPayload(TextUpdate{
+				Kind: TextInformation, Text: compactionCanceledMessage, FailureCode: "",
+				AuthorizationCode: mo.None[string](),
+			}), true, nil
+		}
 		return NewPayload(PayloadSettled), true, nil
 	case uiv1.HostCompleted_Authentication_case, uiv1.HostCompleted_Cancel_case,
 		uiv1.HostCompleted_RetryEnabled_case:
@@ -125,6 +149,10 @@ const (
 	extensionIssueFormat = "extension %s handler %s [%s]: %s"
 	// navigationRetryProgressFormat reports one accepted branch-summary replacement attempt.
 	navigationRetryProgressFormat = "Branch summary retry %d/%d in %s: %s"
+	// compactionProgressFormat reports one Host-owned manual compaction stage.
+	compactionProgressFormat = "Compaction: %s"
+	// compactionCanceledMessage reports explicit handler cancellation.
+	compactionCanceledMessage = "Compaction canceled."
 	// selectionDeliveryFailureCode identifies a committed selection publication failure.
 	selectionDeliveryFailureCode = "DELIVERY_FAILED"
 )

@@ -1,0 +1,192 @@
+edition = "2023";
+
+package glyph.plugins.extension.v1;
+
+import "api/plugins/extension/v1/context.proto";
+import "api/plugins/extension/v1/model.proto";
+import "api/plugins/extension/v1/session_entry.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// CompactionTrigger identifies why Host started active-conversation compaction.
+enum CompactionTrigger {
+  // No trigger was provided.
+  COMPACTION_TRIGGER_UNSPECIFIED = 0;
+  // A client or extension explicitly requested compaction.
+  COMPACTION_TRIGGER_MANUAL = 1;
+  // The estimated context exceeded the model input budget.
+  COMPACTION_TRIGGER_THRESHOLD = 2;
+  // A provider rejected the active context as oversized.
+  COMPACTION_TRIGGER_OVERFLOW = 3;
+}
+
+// CompactionInputEntry contains one projected branch entry and its Host fallback estimate.
+message CompactionInputEntry {
+  // The provider-neutral entry projection.
+  SessionTreeEntry entry = 1;
+  // The Host-computed fallback estimate for this entry.
+  int64 estimated_tokens = 2;
+}
+
+// CompactionRequest contains one complete immutable or composed request state.
+message CompactionRequest {
+  // Why Host started compaction.
+  CompactionTrigger trigger = 1;
+  // Whether success permits an overflow replacement attempt.
+  bool retry_intent = 2;
+  // Optional manual guidance.
+  string instructions = 3;
+  // The captured agent model descriptor.
+  ModelDescriptor model = 4;
+  // The captured reasoning choice.
+  string reasoning_choice = 5;
+  // The proposed newly summarized branch prefix with Host fallback estimates.
+  repeated CompactionInputEntry prefix = 6;
+  // The proposed preserved branch suffix with Host fallback estimates.
+  repeated CompactionInputEntry suffix = 7;
+  // The preceding persisted summary marker, when present.
+  SessionTreeCompaction previous = 8;
+  // The estimated current request tokens.
+  int64 context_tokens = 9;
+  // Required marker that identifies context_tokens as an estimate.
+  bool context_tokens_estimated = 10;
+  // The captured combined context capacity.
+  int64 context_window = 11;
+  // The captured generated-output reserve.
+  int64 response_budget = 12;
+  // The configured recent-context target.
+  int64 retained_budget = 13;
+}
+
+// CompactionResult contains one complete extension-supplied summary result.
+message CompactionResult {
+  // The nonempty replacement summary.
+  string summary = 1;
+  // The first original entry retained after the summary.
+  string first_kept_entry_id = 2;
+  // The actual producer and optional model usage.
+  BranchSummarySource source = 3;
+  // Optional opaque extension-owned data.
+  bytes details = 4;
+}
+
+// CompactionRequestInvocation carries immutable original and composed current state.
+message CompactionRequestInvocation {
+  // The immutable Host-produced request.
+  CompactionRequest original = 1;
+  // The request left by preceding handlers.
+  CompactionRequest current = 2;
+  // The result left by preceding handlers, when present.
+  CompactionResult current_result = 3;
+}
+
+// CompactionResultInvocation carries immutable request and result states.
+message CompactionResultInvocation {
+  // The immutable Host-produced request.
+  CompactionRequest original_request = 1;
+  // The final request-handler state.
+  CompactionRequest current_request = 2;
+  // The immutable result entering result handling.
+  CompactionResult original_result = 3;
+  // The result left by preceding handlers.
+  CompactionResult current_result = 4;
+}
+
+// CompactionRequestDisposition identifies request preservation or replacement.
+enum CompactionRequestDisposition {
+  // No request action was provided.
+  COMPACTION_REQUEST_DISPOSITION_UNSPECIFIED = 0;
+  // Preserve the current request.
+  COMPACTION_REQUEST_DISPOSITION_PRESERVE = 1;
+  // Replace the current request.
+  COMPACTION_REQUEST_DISPOSITION_REPLACE = 2;
+}
+
+// CompactionResultDisposition identifies result preservation, replacement, or clearing.
+enum CompactionResultDisposition {
+  // No result action was provided.
+  COMPACTION_RESULT_DISPOSITION_UNSPECIFIED = 0;
+  // Preserve the current result.
+  COMPACTION_RESULT_DISPOSITION_PRESERVE = 1;
+  // Replace the current result.
+  COMPACTION_RESULT_DISPOSITION_REPLACE = 2;
+  // Clear the optional current result.
+  COMPACTION_RESULT_DISPOSITION_CLEAR = 3;
+}
+
+// CompactionRequestAction changes request and optional result state or cancels compaction.
+message CompactionRequestAction {
+  // Whether compaction is canceled exclusively.
+  bool cancel = 1;
+  // Request preservation or replacement.
+  CompactionRequestDisposition request_action = 2;
+  // The replacement request when required.
+  CompactionRequest request = 3;
+  // Optional-result preservation, replacement, or clearing.
+  CompactionResultDisposition result_action = 4;
+  // The replacement result when required.
+  CompactionResult result = 5;
+}
+
+// CompactionResultAction changes an existing result or cancels compaction.
+message CompactionResultAction {
+  // Whether compaction is canceled exclusively.
+  bool cancel = 1;
+  // Result preservation or replacement. Clearing is invalid here.
+  CompactionResultDisposition result_action = 2;
+  // The replacement result when required.
+  CompactionResult result = 3;
+}
+
+// CompactionOutcome reports one terminal success or failure observation.
+message CompactionOutcome {
+  // The immutable Host-produced request.
+  CompactionRequest original_request = 1;
+  // The final valid request state.
+  CompactionRequest current_request = 2;
+  // The final result when present.
+  CompactionResult result = 3;
+  // The durable marker when commit succeeded.
+  SessionTreeEntry committed = 4;
+  // Whether an extension explicitly canceled compaction.
+  bool canceled = 5;
+  // Complete terminal failure text when present.
+  string error = 6;
+}
+
+// CompactionObserverAction acknowledges one terminal observation.
+message CompactionObserverAction {}
+
+// CompactRequest requests manual compaction through one issued session binding.
+message CompactRequest {
+  // The issued runtime-to-session binding.
+  ExtensionContextRef context = 1;
+  // Optional manual guidance.
+  string instructions = 2;
+}
+
+// CommittedCompaction contains one durable compaction marker and its Host-owned entry identity.
+message CommittedCompaction {
+  // The committed session entry identifier.
+  string entry_id = 1;
+  // The complete durable marker payload.
+  SessionTreeCompaction compaction = 2;
+}
+
+// CompactResult reports one manual compaction terminal outcome.
+message CompactResult {
+  // The committed marker.
+  CommittedCompaction committed = 1;
+  // Whether an extension explicitly canceled compaction.
+  bool canceled = 2;
+  // Complete terminal observer or publication failure after a durable commit.
+  string error = 3;
+  // Stable category for the post-commit failure.
+  string failure_code = 4;
+}
+
+// CompactionProgress reports the Host-owned operation stage.
+message CompactionProgress {
+  // The stable current stage.
+  string stage = 1;
+}

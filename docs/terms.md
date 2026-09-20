@@ -8,7 +8,7 @@
 - `agent platform`: A reusable software foundation for creating and running different agents.
 - `independent agent platform`: An agent platform that can be developed and released without using or changing the agent core of another platform.
 - `Glyph host`: The platform layer that manages extension runtimes and connects them to the agent core and Glyph clients without owning client-specific behavior.
-- `agent core`: The required part of an agent platform that provides runtime behavior shared by its agents.
+- `agent core`: The required part of an agent platform that provides runtime behavior shared by its agents. It consumes prepared history and owns no compaction policy or compaction-specific orchestration.
 - `agent loop`: The repeated sequence of requesting a model response, executing model-requested actions, and returning their results to the model until the run completes or is stopped.
 - `agent run`: One continuous agent-loop execution initiated by a message and ending when no automatic model or tool work remains or the run is stopped.
 - `coding agent`: An agent intended to work with source code and related software development tasks.
@@ -23,7 +23,7 @@
 - `bundled extension`: A compatible extension distributed and enabled by default with Glyph while retaining the ordinary extension lifecycle.
 - `bundled tools extension`: The bundled extension that registers `read`, `write`, `edit`, `bash`, `grep`, `find`, and `ls` for the standard coding agent.
 - `bundled resource extension`: The bundled extension that converts collected resource contributions into system instructions and model context and makes prompt templates available through Glyph clients.
-- `bundled compaction extension`: The bundled extension that supplies the standard context-compaction strategy through the ordinary Extension Contract.
+- `bundled compaction extension`: The bundled extension that owns the standard compaction policy and coordinates ordered compaction request, generator, and result capabilities, including triggering, sizing, retained-boundary selection, summary generation, and compaction-specific overflow handling.
 - `bundled provider extension`: A bundled extension that supplies one or more model provider implementations through the ordinary extension contract and runtime.
 - `extension contract`: A documented operation, data type, event, or registration point through which an extension interacts with Glyph.
 - `extension point`: A documented boundary at which an extension handler can observe, block, modify, or replace an operation.
@@ -31,7 +31,7 @@
 - `current extension value`: The value produced by preceding handlers of the same extension-point operation.
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
 - `extension runtime management`: Discovery, process startup, operation invocation, runtime availability, monitoring, cancellation, and shutdown for extension processes.
-- `capability orchestration`: Glyph Host policy, ordering, validation, and state for one extension capability such as tools or session handlers.
+- `capability orchestration`: Glyph Host policy, ordering, validation, and state for a Host-owned extension capability such as tools or session handlers. Extension-owned compaction policy and composition are not Host capability orchestration.
 - `contract source split`: Movement of declarations between protobuf source files without changing their protobuf package, fully qualified names, field numbers, enum values, or service behavior.
 - `extension context`: Host-provided access to one extension runtime and its active session.
 - `configured-model request`: A model request made by an extension for extension-owned behavior through one configured model rather than the active conversation selection.
@@ -40,6 +40,9 @@
 - `current target selection`: The target selection produced by preceding active-selection handlers and initialized from the original target selection.
 - `context`: The information sent to a model to produce its next response or tool request.
 - `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
+- `compaction policy`: The extension-owned decisions for when to compact, how to size context, which active-branch boundary to retain, how to generate the replacement summary, and how to respond to compaction-specific context overflow.
+- `compaction composition`: The extension-owned ordered request-handler, generator, and result-handler behavior that preserves immutable original values and composed current values and permits complete replacement.
+- `prepared history`: The provider-neutral model history projected from the active session branch before Agent Core consumes it.
 - `CompactionEntry`: A persisted session entry containing a context summary and the first entry of its preserved active-branch suffix.
 - `response reset`: A semantic event that discards an unfinished model response and its tool-call previews without changing committed session entries.
 - `branch summarization`: Creation of a summary for entries on the branch that the user leaves during session-tree navigation.

@@ -2,22 +2,30 @@ package contextcompaction
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"sync"
 
 	"github.com/samber/mo"
 
+	controllerextension "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
+
+// defaultRetainedContextBudget is the Host fallback for recent context retained after compaction.
+const defaultRetainedContextBudget int64 = 20_000
 
 // reportedUsageBaseline keeps one detached completed conversation request and response.
 type reportedUsageBaseline struct {
 	// identity identifies the active session incarnation that produced the response.
-	identity SessionIdentity
+	identity session.Identity
 	// request contains the exact provider-neutral request snapshot.
 	request modelexecution.ProviderRequest
 	// response contains the exact delivered terminal response.
@@ -32,17 +40,75 @@ type Service struct {
 	mutex sync.Mutex
 	// sessions supplies active-session identity and compaction persistence.
 	sessions SessionState
+	// runtime snapshots and invokes public compaction capabilities.
+	runtime Runtime
+	// contexts supplies session-bound contexts for compaction invocations.
+	contexts ContextIssuer
+	// retainedBudget is the configured recent-context target.
+	retainedBudget int64
+	// manualModel supplies the active model snapshot for manual operations.
+	manualModel ManualModel
+	// manualTools supplies the active tool catalog for manual operations.
+	manualTools ManualTools
+	// manualInstructions contains the resolved agent instructions used by manual operations.
+	manualInstructions string
 	// baseline contains at most one completed conversation usage observation.
 	baseline mo.Option[reportedUsageBaseline]
 }
 
-var _ modelexecution.ConversationContext = (*Service)(nil)
+var (
+	_ controllerextension.CompactionOperations = (*Service)(nil)
+	_ modelexecution.ConversationContext       = (*Service)(nil)
+	_ modelexecution.ContextPreparation        = (*Service)(nil)
+	_ programmatic.Compactor                   = (*Service)(nil)
+	_ startup.CompactionRegistrar              = (*Service)(nil)
+	_ ui.Compactor                             = (*Service)(nil)
+)
 
 // New creates the context-compaction owner.
 func New(sessions SessionState) *Service {
 	return &Service{
-		mutex: sync.Mutex{}, sessions: sessions, baseline: mo.None[reportedUsageBaseline](),
+		mutex:              sync.Mutex{},
+		sessions:           sessions,
+		runtime:            nil,
+		contexts:           nil,
+		retainedBudget:     defaultRetainedContextBudget,
+		manualModel:        nil,
+		manualTools:        nil,
+		manualInstructions: "",
+		baseline:           mo.None[reportedUsageBaseline](),
 	}
+}
+
+// BindOrchestration connects extension invocation and the configured retained-context target.
+func (s *Service) BindOrchestration(runtime Runtime, contexts ContextIssuer, retainedBudget int64) error {
+	if s.runtime != nil || s.contexts != nil {
+		return errors.New("compaction orchestration is already bound")
+	}
+	if runtime == nil || contexts == nil {
+		return errors.New("compaction runtime and context issuer are required")
+	}
+	if retainedBudget < 0 {
+		return errors.New("compaction retained-context budget must be nonnegative")
+	}
+	s.runtime = runtime
+	s.contexts = contexts
+	s.retainedBudget = retainedBudget
+	return nil
+}
+
+// BindManualRequest connects active model, tools, and resolved instructions for manual operations.
+func (s *Service) BindManualRequest(modelSource ManualModel, tools ManualTools, instructions string) error {
+	if s.manualModel != nil || s.manualTools != nil {
+		return errors.New("manual compaction request sources are already bound")
+	}
+	if modelSource == nil || tools == nil {
+		return errors.New("manual compaction model and tools are required")
+	}
+	s.manualModel = modelSource
+	s.manualTools = tools
+	s.manualInstructions = instructions
+	return nil
 }
 
 // EstimateContext estimates the exact provider-neutral request projection.
@@ -82,7 +148,7 @@ func (s *Service) ObserveCompletedConversation(request modelexecution.ProviderRe
 // CommitCompaction persists one validated marker through the session owner.
 func (s *Service) CommitCompaction(
 	ctx context.Context,
-	expected SessionIdentity,
+	expected session.Identity,
 	expectedLeafID mo.Option[string],
 	compaction session.CompactionEntry,
 ) (session.Entry, error) {
@@ -103,7 +169,7 @@ func (s *Service) InvalidateBaseline() {
 // baselineMatches checks every approved identity and exact-prefix reuse condition.
 func baselineMatches(
 	baseline reportedUsageBaseline,
-	identity SessionIdentity,
+	identity session.Identity,
 	request modelexecution.ProviderRequest,
 ) bool {
 	if baseline.identity.ID != identity.ID || baseline.identity.Incarnation != identity.Incarnation ||

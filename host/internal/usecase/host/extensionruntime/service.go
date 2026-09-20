@@ -15,6 +15,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -51,6 +52,8 @@ type Service struct {
 	reportErrors []error
 	// retryHandlers contains accepted retry handlers in registration order.
 	retryHandlers []modelexecution.RetryHandler
+	// compactionHandlers contains accepted compaction capabilities in registration order.
+	compactionHandlers contextcompaction.HandlerSet
 }
 
 var (
@@ -61,6 +64,7 @@ var (
 	_ lifecycle.Runtime                     = (*Service)(nil)
 	_ modelselection.Runtime                = (*Service)(nil)
 	_ modelexecution.RetryHandlers          = (*Service)(nil)
+	_ contextcompaction.Runtime             = (*Service)(nil)
 	_ extensioncontext.RuntimeState         = (*Service)(nil)
 	_ extensioncontroller.RuntimeOperations = (*Service)(nil)
 )
@@ -120,6 +124,9 @@ func New(
 		reporting:        sync.WaitGroup{},
 		reportErrors:     nil,
 		retryHandlers:    nil,
+		compactionHandlers: contextcompaction.HandlerSet{
+			Requests: nil, Generators: nil, Results: nil, Successes: nil, Failures: nil,
+		},
 	}
 }
 
@@ -254,6 +261,9 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 	}
 	observed := make(map[string]*runtimeState)
 	retryHandlers := make([]modelexecution.RetryHandler, 0)
+	compactionHandlers := contextcompaction.HandlerSet{
+		Requests: nil, Generators: nil, Results: nil, Successes: nil, Failures: nil,
+	}
 	for _, registration := range registrations {
 		if state, exists := s.runtimes[registration.ID]; exists && !state.isInvalidated() {
 			state.available = true
@@ -263,6 +273,9 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 						ExtensionID: registration.ID, RuntimeID: state.instanceID, HandlerID: handler.ID,
 					})
 				}
+				appendCompactionHandler(&compactionHandlers, contextcompaction.Handler{
+					ExtensionID: registration.ID, RuntimeID: state.instanceID, HandlerID: handler.ID,
+				}, handler.Kind)
 			}
 			if s.monitoring && !state.observed {
 				state.observed = true
@@ -271,6 +284,7 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 		}
 	}
 	s.retryHandlers = retryHandlers
+	s.compactionHandlers = compactionHandlers
 	ctx := s.monitorContext
 	s.mutex.Unlock()
 	for extensionID, state := range observed {

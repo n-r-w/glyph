@@ -14,7 +14,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 // TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce verifies the complete session-owned commit boundary.
@@ -25,6 +24,7 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 	ids := NewMockIDGenerator(controller)
 	clock := NewMockClock(controller)
 	publisher := NewMockEntryPublisher(controller)
+	pricing := NewMockPricingCatalog(controller)
 	entries := []session.Entry{
 		compactionUserEntry("u1", mo.None[string](), "old"),
 		compactionModelEntry("m1", "u1", "call"),
@@ -42,9 +42,18 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 		func(_ context.Context, command ApplyCommand) (ApplyResult, error) {
 			persisted := command.Mutation.Entry.MustGet()
 			require.Equal(t, "r1", persisted.ParentID.MustGet())
-			require.Equal(t, "summary", persisted.Compaction.MustGet().Summary)
+			marker := persisted.Compaction.MustGet()
+			require.Equal(t, "summary", marker.Summary)
+			require.Equal(t, session.EstimatedCost{
+				Input: 3, Output: 4, CacheRead: 0, CacheWrite: 0, Total: 7,
+			}, marker.EstimatedCost.MustGet())
 			return ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil
 		},
+	)
+	pricing.EXPECT().Pricing(model.ProviderID("summary-provider"), model.ID("summary-model")).Return(
+		mo.Some(model.Pricing{
+			Input: 1_000_000, Output: 2_000_000, CacheRead: 0, CacheWrite: 0, Tiers: nil,
+		}),
 	)
 	ids.EXPECT().NewID().Return("c1", nil)
 	clock.EXPECT().Now().Return(time.Unix(10, 0).UTC())
@@ -54,13 +63,13 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 			return func(context.Context) error { return nil }, nil
 		},
 	)
-	service := New(repository, ids, clock, nil, "/project")
+	service := New(repository, ids, clock, pricing, "/project")
 	service.active = LoadedSession{
 		Header:      session.Header{ID: "session", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project"},
 		StoragePath: "/sessions/session.jsonl", Tree: tree,
 		Information: mo.None[session.Information](), InformationUpdatedAt: mo.None[time.Time](),
 	}
-	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 2}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 2}
 	service.contextIdentity.Store(&identity)
 	service.history = storedHistoryFromEntries(entries)
 	service.contextHistory = storedCompactedHistoryFromEntries(entries)
@@ -104,6 +113,69 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 	// Assert persisted model and compaction usage are counted exactly once.
 	statistics := service.ActiveStatistics()
 	require.Equal(t, int64(15), statistics.TokenUsage.MustGet().TotalTokens)
+}
+
+// TestCompactionEstimatedCostRequiresModelUsageAndPricing verifies Host-owned optional accounting.
+func TestCompactionEstimatedCostRequiresModelUsageAndPricing(t *testing.T) {
+	t.Parallel()
+	// Arrange source variants that cannot produce a Host-derived cost.
+	modelSelection := model.Selection{
+		Provider: "summary-provider", Model: "summary-model", ReasoningChoice: model.ReasoningChoiceLow,
+	}
+	tests := []struct {
+		name          string
+		source        session.CompactionSource
+		expectPricing bool
+	}{
+		{
+			name: "model usage absent",
+			source: session.CompactionSource{
+				ExtensionID: mo.None[string](),
+				Model: mo.Some(session.BranchSummaryModelSource{
+					Selection: modelSelection, Usage: mo.None[session.TokenUsage](),
+				}),
+			},
+			expectPricing: false,
+		},
+		{
+			name: "model pricing absent",
+			source: session.CompactionSource{
+				ExtensionID: mo.None[string](),
+				Model: mo.Some(session.BranchSummaryModelSource{
+					Selection: modelSelection,
+					Usage: mo.Some(session.TokenUsage{
+						InputTokens: 1, OutputTokens: 1, CacheReadTokens: 0,
+						CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 2,
+					}),
+				}),
+			},
+			expectPricing: true,
+		},
+		{
+			name: "extension source",
+			source: session.CompactionSource{
+				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+			},
+			expectPricing: false,
+		},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			controller := gomock.NewController(t)
+			pricing := NewMockPricingCatalog(controller)
+			if testCase.expectPricing {
+				pricing.EXPECT().Pricing(modelSelection.Provider, modelSelection.Model).Return(mo.None[model.Pricing]())
+			}
+			service := New(nil, nil, nil, pricing, "/project")
+
+			// Act from the actual source rather than the active model.
+			cost := service.compactionEstimatedCost(testCase.source)
+
+			// Assert missing model usage, pricing, or model source produces no invented cost.
+			require.True(t, cost.IsNone())
+		})
+	}
 }
 
 // TestCommitCompactionRejectsBoundaryInsideToolGroup verifies a tool result cannot start the retained suffix.
@@ -292,7 +364,7 @@ func newCompactionBoundaryTestService(
 	t *testing.T,
 	entries []session.Entry,
 	leafID string,
-) (*Service, contextcompaction.SessionIdentity) {
+) (*Service, session.Identity) {
 	t.Helper()
 	controller := gomock.NewController(t)
 	repository := NewMockRepository(controller)
@@ -315,7 +387,7 @@ func newCompactionBoundaryTestService(
 		StoragePath: "/sessions/session.jsonl", Tree: tree, Information: mo.None[session.Information](),
 		InformationUpdatedAt: mo.None[time.Time](),
 	}
-	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	service.contextIdentity.Store(&identity)
 	service.BindEntryPublisher(publisher)
 	return service, identity

@@ -92,6 +92,57 @@ func TestSelectionCompletionMapsUndeliveredDiagnostic(t *testing.T) {
 	assert.Equal(t, "complete delivery cause", payload.Text.Text)
 }
 
+// TestCompactionCompletionMapsPostCommitFailure verifies the TUI displays text while terminal completion settles.
+func TestCompactionCompletionMapsPostCommitFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange one completed compaction with a durable post-commit failure.
+	completed := new(uiv1.HostCompleted)
+	source := new(uiv1.BranchSummarySource)
+	source.SetExtensionId("extension")
+	completed.SetCompaction(uiv1.CompactionResult_builder{
+		Committed: uiv1.SessionEntry_builder{
+			Id: new("compaction"), CreatedTime: timestamppb.Now(),
+			User: nil, Model: nil, ToolResult: nil, BranchSummary: nil, ExtensionMessage: nil,
+			Compaction: uiv1.Compaction_builder{
+				Summary: new("summary"), FirstKeptEntryId: new("kept"), Source: source,
+				EstimatedCost: nil, Details: nil,
+			}.Build(),
+		}.Build(),
+		Canceled: new(false), Error: new("publication failed after commit"), FailureCode: new("INTERNAL"),
+	}.Build())
+
+	// Act by decoding terminal compaction diagnostics.
+	payload, present, err := DecodeCompleted(completed)
+
+	// Assert presentation receives the complete categorized error from the settled operation.
+	require.NoError(t, err)
+	require.True(t, present)
+	assert.Equal(t, PayloadText, payload.Kind)
+	assert.Equal(t, TextError, payload.Text.Kind)
+	assert.Equal(t, "INTERNAL", payload.Text.FailureCode)
+	assert.Equal(t, "publication failed after commit", payload.Text.Text)
+}
+
+// TestCompactionCompletionMapsExplicitCancellation verifies the terminal reason reaches presentation.
+func TestCompactionCompletionMapsExplicitCancellation(t *testing.T) {
+	t.Parallel()
+	// Arrange one handler-canceled compaction completion.
+	completed := new(uiv1.HostCompleted)
+	completed.SetCompaction(uiv1.CompactionResult_builder{
+		Committed: nil, Canceled: new(true), Error: nil, FailureCode: nil,
+	}.Build())
+
+	// Act by decoding the successful terminal payload.
+	payload, present, err := DecodeCompleted(completed)
+
+	// Assert cancellation is displayed as terminal information instead of a silent settled payload.
+	require.NoError(t, err)
+	require.True(t, present)
+	require.Equal(t, PayloadText, payload.Kind)
+	require.Equal(t, TextInformation, payload.Text.Kind)
+	require.Equal(t, "Compaction canceled.", payload.Text.Text)
+}
+
 // TestMapConnectionEventRetainsAddedMessageState verifies hidden messages reach tree state without transcript lines.
 func TestMapConnectionEventRetainsAddedMessageState(t *testing.T) {
 	t.Parallel()

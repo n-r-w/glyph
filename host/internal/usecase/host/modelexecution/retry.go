@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"time"
 
@@ -13,6 +14,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/errtree"
 )
+
+// overflowRecoveryHandler rebuilds one rejected active-conversation request after compaction.
+type overflowRecoveryHandler func(context.Context, ProviderRequest) (ProviderRequest, error)
 
 // execute runs one provider request through the captured retry policy and handler snapshot.
 //
@@ -25,6 +29,7 @@ func (s *Service) execute(
 	progress retryProgressHandler,
 	terminalMissingError error,
 	missingTerminalMessage string,
+	recoverOverflow overflowRecoveryHandler,
 ) (model.Response, error) {
 	policy := s.retryPolicySnapshot()
 	var handlers []RetryHandler
@@ -34,6 +39,7 @@ func (s *Service) execute(
 	var causes []error
 	var failedResponse model.Response
 	completedAttempts := int64(0)
+	overflowRecovered := false
 	response, retryErr := backoff.Retry(ctx, func() (model.Response, error) {
 		completedAttempts++
 		terminal := mo.None[model.Response]()
@@ -75,7 +81,7 @@ func (s *Service) execute(
 					policy, acquiredFailure, completedAttempts, acquiredCauses,
 				))
 			}
-			if isPureCancellationCause(attemptErr) {
+			if isPureOwningCancellation(ctx, attemptErr) {
 				return model.Response{}, backoff.Permanent(context.Cause(ctx))
 			}
 			acquiredCauses := append(slices.Clone(causes), attemptErr, context.Cause(ctx))
@@ -86,14 +92,21 @@ func (s *Service) execute(
 		if !errors.As(attemptErr, &providerFailure) {
 			return failedResponse, backoff.Permanent(logicalFailure(FailureInternal, causes))
 		}
-		if providerFailure.Classification == ProviderFailureContextOverflow {
+		if providerFailure.Classification == ProviderFailureContextOverflow &&
+			(!policy.Enabled || recoverOverflow == nil) {
 			return failedResponse, backoff.Permanent(logicalFailure(FailureContextLimit, causes))
 		}
 		if !policy.Enabled {
 			return failedResponse, backoff.Permanent(logicalFailure(FailureModelFailed, causes))
 		}
 		providerDelay, delayPresent := providerFailure.RetryDelay.Get()
-		decision := retryDecision(policy, providerFailure.Classification, completedAttempts, providerFailure.RetryDelay)
+		decision := retryDecision(
+			policy,
+			providerFailure.Classification,
+			completedAttempts,
+			providerFailure.RetryDelay,
+			recoverOverflow != nil,
+		)
 		original := decision
 		for _, handler := range handlers {
 			action, handlerErr := s.retryHandlers.HandleRetry(ctx, handler, RetryInvocation{
@@ -102,7 +115,7 @@ func (s *Service) execute(
 				ProviderDelay: providerFailure.RetryDelay,
 			})
 			if handlerErr != nil {
-				if ctx.Err() != nil && isPureCancellationCause(handlerErr) {
+				if isPureOwningCancellation(ctx, handlerErr) {
 					return model.Response{}, backoff.Permanent(context.Cause(ctx))
 				}
 				causes = append(causes, fmt.Errorf("retry handler %q: %w", handler.HandlerID, handlerErr))
@@ -142,12 +155,21 @@ func (s *Service) execute(
 				terminalProviderFailure(decision, providerFailure.Classification, causes),
 			)
 		}
+		if providerFailure.Classification == ProviderFailureContextOverflow {
+			var recoveryErr error
+			request, overflowRecovered, recoveryErr = prepareOverflowRecovery(
+				ctx, request, overflowRecovered, recoverOverflow, causes,
+			)
+			if recoveryErr != nil {
+				return failedResponse, backoff.Permanent(recoveryErr)
+			}
+		}
 		if progress != nil {
 			if progressErr := progress(RetryProgress{
 				CompletedAttempts: completedAttempts, AttemptLimit: decision.AttemptLimit,
 				Delay: decision.Delay, Error: attemptErr.Error(),
 			}); progressErr != nil {
-				if ctx.Err() != nil && isPureCancellationCause(progressErr) {
+				if isPureOwningCancellation(ctx, progressErr) {
 					return model.Response{}, backoff.Permanent(context.Cause(ctx))
 				}
 				causes = append(causes, fmt.Errorf("deliver retry progress: %w", progressErr))
@@ -167,6 +189,32 @@ func (s *Service) execute(
 		return response, context.Cause(ctx)
 	}
 	return response, details.LastErr
+}
+
+// prepareOverflowRecovery applies the single allowed overflow recovery without masking typed failures.
+func prepareOverflowRecovery(
+	ctx context.Context,
+	request ProviderRequest,
+	alreadyRecovered bool,
+	recoverOverflow overflowRecoveryHandler,
+	causes []error,
+) (ProviderRequest, bool, error) {
+	if alreadyRecovered {
+		return ProviderRequest{}, true, logicalFailure(FailureContextLimit, causes)
+	}
+	recovered, err := recoverOverflow(ctx, request)
+	if err != nil {
+		if isPureOwningCancellation(ctx, err) {
+			return ProviderRequest{}, false, context.Cause(ctx)
+		}
+		causes = append(causes, fmt.Errorf("recover context overflow: %w", joinOwningContextCause(ctx, err)))
+		return ProviderRequest{}, false, contextPreparationLogicalFailure(errors.Join(causes...))
+	}
+	if reflect.DeepEqual(recovered, request) {
+		causes = append(causes, errors.New("overflow compaction returned an unchanged request"))
+		return ProviderRequest{}, false, logicalFailure(FailureContextLimit, causes)
+	}
+	return recovered, true, nil
 }
 
 // concurrentProviderFailure classifies a provider failure acquired with caller cancellation.
@@ -191,7 +239,7 @@ func concurrentProviderFailure(
 			))
 			return logicalFailure(FailureRetryDelayExceeded, causes)
 		}
-		decision := retryDecision(policy, failure.Classification, completedAttempts, failure.RetryDelay)
+		decision := retryDecision(policy, failure.Classification, completedAttempts, failure.RetryDelay, false)
 		if !decision.Retry {
 			return logicalFailure(FailureRetryExhausted, causes)
 		}
@@ -205,9 +253,11 @@ func retryDecision(
 	classification ProviderFailureClassification,
 	completedAttempts int64,
 	providerDelay mo.Option[time.Duration],
+	allowOverflow bool,
 ) RetryDecision {
 	limit := policy.MaxRetries + 1
-	retryable := classification == ProviderFailureTransient
+	retryable := classification == ProviderFailureTransient ||
+		(classification == ProviderFailureContextOverflow && allowOverflow)
 	delay := time.Duration(0)
 	if retryable && completedAttempts < limit {
 		index := min(int(completedAttempts-1), len(policy.Delays)-1)
@@ -269,17 +319,57 @@ func terminalProviderFailure(
 	classification ProviderFailureClassification,
 	causes []error,
 ) error {
+	if classification == ProviderFailureContextOverflow {
+		return logicalFailure(FailureContextLimit, causes)
+	}
 	if classification == ProviderFailureTransient && decision.Retryable {
 		return logicalFailure(FailureRetryExhausted, causes)
 	}
 	return logicalFailure(FailureModelFailed, causes)
 }
 
-// isPureCancellationCause reports whether every handler-error leaf is caller cancellation.
-func isPureCancellationCause(err error) bool {
+// isPureOwningCancellation reports whether every error leaf belongs to the canceled owning context.
+func isPureOwningCancellation(ctx context.Context, err error) bool {
+	if ctx.Err() == nil {
+		return false
+	}
+	if _, typed := errors.AsType[ContextPreparationFailure](err); typed {
+		return false
+	}
+	owningCause := context.Cause(ctx)
 	return errtree.AllLeavesMatch(err, func(cause error) bool {
-		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) ||
+			errors.Is(cause, owningCause)
 	})
+}
+
+// joinOwningContextCause retains concurrent owner cancellation beside an independent failure.
+func joinOwningContextCause(ctx context.Context, err error) error {
+	owningCause := context.Cause(ctx)
+	if owningCause == nil || errors.Is(err, owningCause) {
+		return err
+	}
+	return errors.Join(err, owningCause)
+}
+
+// contextPreparationLogicalFailure maps the compaction consumer contract into logical model execution.
+func contextPreparationLogicalFailure(cause error) error {
+	category := FailureCompactionFailed
+	if failure, present := errors.AsType[ContextPreparationFailure](cause); present {
+		switch failure.CompactionFailureCode() {
+		case string(FailureExtensionFailed):
+			category = FailureExtensionFailed
+		case string(FailurePersistenceUnavailable):
+			category = FailurePersistenceUnavailable
+		case string(FailureInternal):
+			category = FailureInternal
+		case string(FailureCompactionFailed):
+			category = FailureCompactionFailed
+		default:
+			category = FailureCompactionFailed
+		}
+	}
+	return logicalFailure(category, []error{cause})
 }
 
 // logicalFailure creates one categorized failure from detached contributing causes.

@@ -56,6 +56,12 @@ type SessionStateOperation struct {
 	operation *contextOperation
 }
 
+// CompactionOperation owns one asynchronous session-bound manual compaction.
+type CompactionOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
 // ModelSelectionOperation owns one asynchronous model selection.
 type ModelSelectionOperation struct {
 	// operation owns the request lifecycle and local wait state.
@@ -172,6 +178,25 @@ func (c *ExtensionContext) StartGetSessionState(ctx context.Context) (*SessionSt
 	return &SessionStateOperation{operation: started}, nil
 }
 
+// StartCompaction starts manual active-conversation compaction without waiting for Host acceptance.
+func (c *ExtensionContext) StartCompaction(
+	ctx context.Context,
+	input *extensionpb.CompactRequest,
+) (*CompactionOperation, error) {
+	if input == nil {
+		return nil, errors.New("compaction request is required")
+	}
+	requestValue := proto.CloneOf(input)
+	requestValue.SetContext(c.reference())
+	request := new(extensionpb.ExtensionRequest)
+	request.SetCompact(requestValue)
+	started, err := c.initiator.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &CompactionOperation{operation: started}, nil
+}
+
 // StartModelSelection starts one active model selection without waiting for Host acceptance.
 func (c *ExtensionContext) StartModelSelection(
 	ctx context.Context,
@@ -253,6 +278,28 @@ func (o *SessionStateOperation) Wait(ctx context.Context) (*extensionpb.GetSessi
 		return nil, err
 	}
 	return result.GetGetSessionState(), nil
+}
+
+// Wait waits locally for the typed compaction result without canceling remote work.
+func (o *CompactionOperation) Wait(ctx context.Context) (*extensionpb.CompactResult, error) {
+	return o.WaitWithProgress(ctx, nil)
+}
+
+// WaitWithProgress waits for compaction and delivers ordered Host-owned progress.
+func (o *CompactionOperation) WaitWithProgress(
+	ctx context.Context,
+	handle func(*extensionpb.CompactionProgress) error,
+) (*extensionpb.CompactResult, error) {
+	result, err := o.operation.wait(ctx, func(progress *extensionpb.HostProgress) error {
+		if handle == nil {
+			return nil
+		}
+		return handle(progress.GetCompaction())
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result.GetCompact(), nil
 }
 
 // Wait waits locally for the typed configured-model result without canceling remote work.

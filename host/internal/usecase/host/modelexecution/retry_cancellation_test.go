@@ -313,7 +313,7 @@ func TestExecuteUntypedTimeoutKeepsInternalIdentity(t *testing.T) {
 	// Act through the shared logical execution state machine.
 	_, err := service.execute(
 		t.Context(), provider, ProviderRequest{}, nil, nil, errors.New("terminal response missing"),
-		"terminal response missing",
+		"terminal response missing", nil,
 	)
 
 	// Assert the sentinel remains a cause under provider-neutral INTERNAL identity.
@@ -341,7 +341,7 @@ func TestExecuteRetryProgressTimeoutKeepsInternalIdentity(t *testing.T) {
 	_, err := service.execute(
 		t.Context(), provider, ProviderRequest{}, nil, func(RetryProgress) error {
 			return context.DeadlineExceeded
-		}, errors.New("terminal response missing"), "terminal response missing",
+		}, errors.New("terminal response missing"), "terminal response missing", nil,
 	)
 
 	// Assert INTERNAL identity retains both the provider and progress-delivery failures.

@@ -172,62 +172,6 @@ func (x SummaryMode) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// SessionTreeModelContentKind identifies provider-neutral model content.
-type SessionTreeModelContentKind int32
-
-const (
-	// No model content kind was provided.
-	SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED SessionTreeModelContentKind = 0
-	// Public model response text.
-	SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_TEXT SessionTreeModelContentKind = 1
-	// Model refusal text.
-	SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL SessionTreeModelContentKind = 2
-	// Model reasoning text.
-	SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_REASONING SessionTreeModelContentKind = 3
-	// A model-requested tool call.
-	SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL SessionTreeModelContentKind = 4
-)
-
-// Enum value maps for SessionTreeModelContentKind.
-var (
-	SessionTreeModelContentKind_name = map[int32]string{
-		0: "SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED",
-		1: "SESSION_TREE_MODEL_CONTENT_KIND_TEXT",
-		2: "SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL",
-		3: "SESSION_TREE_MODEL_CONTENT_KIND_REASONING",
-		4: "SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL",
-	}
-	SessionTreeModelContentKind_value = map[string]int32{
-		"SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED": 0,
-		"SESSION_TREE_MODEL_CONTENT_KIND_TEXT":        1,
-		"SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL":     2,
-		"SESSION_TREE_MODEL_CONTENT_KIND_REASONING":   3,
-		"SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL":   4,
-	}
-)
-
-func (x SessionTreeModelContentKind) Enum() *SessionTreeModelContentKind {
-	p := new(SessionTreeModelContentKind)
-	*p = x
-	return p
-}
-
-func (x SessionTreeModelContentKind) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (SessionTreeModelContentKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_plugins_extension_v1_session_tree_proto_enumTypes[3].Descriptor()
-}
-
-func (SessionTreeModelContentKind) Type() protoreflect.EnumType {
-	return &file_api_plugins_extension_v1_session_tree_proto_enumTypes[3]
-}
-
-func (x SessionTreeModelContentKind) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
 // HandleRequest invokes one registered handler with its typed payload.
 type HandleRequest struct {
 	state                  protoimpl.MessageState  `protogen:"opaque.v1"`
@@ -345,6 +289,51 @@ func (x *HandleRequest) GetRetry() *RetryHandlerInvocation {
 	return nil
 }
 
+func (x *HandleRequest) GetCompactionRequest() *CompactionRequestInvocation {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionRequest); ok {
+			return x.CompactionRequest
+		}
+	}
+	return nil
+}
+
+func (x *HandleRequest) GetCompactionGenerate() *CompactionRequestInvocation {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionGenerate); ok {
+			return x.CompactionGenerate
+		}
+	}
+	return nil
+}
+
+func (x *HandleRequest) GetCompactionResult() *CompactionResultInvocation {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionResult); ok {
+			return x.CompactionResult
+		}
+	}
+	return nil
+}
+
+func (x *HandleRequest) GetCompactionSuccess() *CompactionOutcome {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionSuccess); ok {
+			return x.CompactionSuccess
+		}
+	}
+	return nil
+}
+
+func (x *HandleRequest) GetCompactionFailure() *CompactionOutcome {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionFailure); ok {
+			return x.CompactionFailure
+		}
+	}
+	return nil
+}
+
 func (x *HandleRequest) SetHandlerId(v string) {
 	x.xxx_hidden_HandlerId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
@@ -408,6 +397,46 @@ func (x *HandleRequest) SetRetry(v *RetryHandlerInvocation) {
 		return
 	}
 	x.xxx_hidden_Payload = &handleRequest_Retry{v}
+}
+
+func (x *HandleRequest) SetCompactionRequest(v *CompactionRequestInvocation) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &handleRequest_CompactionRequest{v}
+}
+
+func (x *HandleRequest) SetCompactionGenerate(v *CompactionRequestInvocation) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &handleRequest_CompactionGenerate{v}
+}
+
+func (x *HandleRequest) SetCompactionResult(v *CompactionResultInvocation) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &handleRequest_CompactionResult{v}
+}
+
+func (x *HandleRequest) SetCompactionSuccess(v *CompactionOutcome) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &handleRequest_CompactionSuccess{v}
+}
+
+func (x *HandleRequest) SetCompactionFailure(v *CompactionOutcome) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &handleRequest_CompactionFailure{v}
 }
 
 func (x *HandleRequest) HasHandlerId() bool {
@@ -487,6 +516,46 @@ func (x *HandleRequest) HasRetry() bool {
 	return ok
 }
 
+func (x *HandleRequest) HasCompactionRequest() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionRequest)
+	return ok
+}
+
+func (x *HandleRequest) HasCompactionGenerate() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionGenerate)
+	return ok
+}
+
+func (x *HandleRequest) HasCompactionResult() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionResult)
+	return ok
+}
+
+func (x *HandleRequest) HasCompactionSuccess() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionSuccess)
+	return ok
+}
+
+func (x *HandleRequest) HasCompactionFailure() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionFailure)
+	return ok
+}
+
 func (x *HandleRequest) ClearHandlerId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_HandlerId = nil
@@ -542,6 +611,36 @@ func (x *HandleRequest) ClearRetry() {
 	}
 }
 
+func (x *HandleRequest) ClearCompactionRequest() {
+	if _, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionRequest); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *HandleRequest) ClearCompactionGenerate() {
+	if _, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionGenerate); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *HandleRequest) ClearCompactionResult() {
+	if _, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionResult); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *HandleRequest) ClearCompactionSuccess() {
+	if _, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionSuccess); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
+func (x *HandleRequest) ClearCompactionFailure() {
+	if _, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionFailure); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
 const HandleRequest_Payload_not_set_case case_HandleRequest_Payload = 0
 const HandleRequest_SessionBeforeTreeRequest_case case_HandleRequest_Payload = 2
 const HandleRequest_SessionBeforeTreeResult_case case_HandleRequest_Payload = 3
@@ -550,6 +649,11 @@ const HandleRequest_Lifecycle_case case_HandleRequest_Payload = 6
 const HandleRequest_ModelSelection_case case_HandleRequest_Payload = 7
 const HandleRequest_ReasoningSelection_case case_HandleRequest_Payload = 8
 const HandleRequest_Retry_case case_HandleRequest_Payload = 9
+const HandleRequest_CompactionRequest_case case_HandleRequest_Payload = 10
+const HandleRequest_CompactionGenerate_case case_HandleRequest_Payload = 11
+const HandleRequest_CompactionResult_case case_HandleRequest_Payload = 12
+const HandleRequest_CompactionSuccess_case case_HandleRequest_Payload = 13
+const HandleRequest_CompactionFailure_case case_HandleRequest_Payload = 14
 
 func (x *HandleRequest) WhichPayload() case_HandleRequest_Payload {
 	if x == nil {
@@ -570,6 +674,16 @@ func (x *HandleRequest) WhichPayload() case_HandleRequest_Payload {
 		return HandleRequest_ReasoningSelection_case
 	case *handleRequest_Retry:
 		return HandleRequest_Retry_case
+	case *handleRequest_CompactionRequest:
+		return HandleRequest_CompactionRequest_case
+	case *handleRequest_CompactionGenerate:
+		return HandleRequest_CompactionGenerate_case
+	case *handleRequest_CompactionResult:
+		return HandleRequest_CompactionResult_case
+	case *handleRequest_CompactionSuccess:
+		return HandleRequest_CompactionSuccess_case
+	case *handleRequest_CompactionFailure:
+		return HandleRequest_CompactionFailure_case
 	default:
 		return HandleRequest_Payload_not_set_case
 	}
@@ -595,6 +709,16 @@ type HandleRequest_builder struct {
 	ReasoningSelection *SelectionHandlerInvocation
 	// A retry request with immutable original and composed current decisions.
 	Retry *RetryHandlerInvocation
+	// A compaction request transformation.
+	CompactionRequest *CompactionRequestInvocation
+	// A compaction generation request.
+	CompactionGenerate *CompactionRequestInvocation
+	// A compaction result transformation.
+	CompactionResult *CompactionResultInvocation
+	// A committed compaction observation.
+	CompactionSuccess *CompactionOutcome
+	// A failed or canceled compaction observation.
+	CompactionFailure *CompactionOutcome
 	// -- end of xxx_hidden_Payload
 }
 
@@ -627,6 +751,21 @@ func (b0 HandleRequest_builder) Build() *HandleRequest {
 	}
 	if b.Retry != nil {
 		x.xxx_hidden_Payload = &handleRequest_Retry{b.Retry}
+	}
+	if b.CompactionRequest != nil {
+		x.xxx_hidden_Payload = &handleRequest_CompactionRequest{b.CompactionRequest}
+	}
+	if b.CompactionGenerate != nil {
+		x.xxx_hidden_Payload = &handleRequest_CompactionGenerate{b.CompactionGenerate}
+	}
+	if b.CompactionResult != nil {
+		x.xxx_hidden_Payload = &handleRequest_CompactionResult{b.CompactionResult}
+	}
+	if b.CompactionSuccess != nil {
+		x.xxx_hidden_Payload = &handleRequest_CompactionSuccess{b.CompactionSuccess}
+	}
+	if b.CompactionFailure != nil {
+		x.xxx_hidden_Payload = &handleRequest_CompactionFailure{b.CompactionFailure}
 	}
 	return m0
 }
@@ -676,6 +815,31 @@ type handleRequest_Retry struct {
 	Retry *RetryHandlerInvocation `protobuf:"bytes,9,opt,name=retry,oneof"`
 }
 
+type handleRequest_CompactionRequest struct {
+	// A compaction request transformation.
+	CompactionRequest *CompactionRequestInvocation `protobuf:"bytes,10,opt,name=compaction_request,json=compactionRequest,oneof"`
+}
+
+type handleRequest_CompactionGenerate struct {
+	// A compaction generation request.
+	CompactionGenerate *CompactionRequestInvocation `protobuf:"bytes,11,opt,name=compaction_generate,json=compactionGenerate,oneof"`
+}
+
+type handleRequest_CompactionResult struct {
+	// A compaction result transformation.
+	CompactionResult *CompactionResultInvocation `protobuf:"bytes,12,opt,name=compaction_result,json=compactionResult,oneof"`
+}
+
+type handleRequest_CompactionSuccess struct {
+	// A committed compaction observation.
+	CompactionSuccess *CompactionOutcome `protobuf:"bytes,13,opt,name=compaction_success,json=compactionSuccess,oneof"`
+}
+
+type handleRequest_CompactionFailure struct {
+	// A failed or canceled compaction observation.
+	CompactionFailure *CompactionOutcome `protobuf:"bytes,14,opt,name=compaction_failure,json=compactionFailure,oneof"`
+}
+
 func (*handleRequest_SessionBeforeTreeRequest) isHandleRequest_Payload() {}
 
 func (*handleRequest_SessionBeforeTreeResult) isHandleRequest_Payload() {}
@@ -689,6 +853,16 @@ func (*handleRequest_ModelSelection) isHandleRequest_Payload() {}
 func (*handleRequest_ReasoningSelection) isHandleRequest_Payload() {}
 
 func (*handleRequest_Retry) isHandleRequest_Payload() {}
+
+func (*handleRequest_CompactionRequest) isHandleRequest_Payload() {}
+
+func (*handleRequest_CompactionGenerate) isHandleRequest_Payload() {}
+
+func (*handleRequest_CompactionResult) isHandleRequest_Payload() {}
+
+func (*handleRequest_CompactionSuccess) isHandleRequest_Payload() {}
+
+func (*handleRequest_CompactionFailure) isHandleRequest_Payload() {}
 
 // HandleResponse returns one typed action or ordinary handler error.
 type HandleResponse struct {
@@ -795,6 +969,51 @@ func (x *HandleResponse) GetRetry() *RetryHandlerAction {
 	return nil
 }
 
+func (x *HandleResponse) GetCompactionRequest() *CompactionRequestAction {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionRequest); ok {
+			return x.CompactionRequest
+		}
+	}
+	return nil
+}
+
+func (x *HandleResponse) GetCompactionGenerate() *CompactionResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionGenerate); ok {
+			return x.CompactionGenerate
+		}
+	}
+	return nil
+}
+
+func (x *HandleResponse) GetCompactionResult() *CompactionResultAction {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionResult); ok {
+			return x.CompactionResult
+		}
+	}
+	return nil
+}
+
+func (x *HandleResponse) GetCompactionSuccess() *CompactionObserverAction {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionSuccess); ok {
+			return x.CompactionSuccess
+		}
+	}
+	return nil
+}
+
+func (x *HandleResponse) GetCompactionFailure() *CompactionObserverAction {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionFailure); ok {
+			return x.CompactionFailure
+		}
+	}
+	return nil
+}
+
 func (x *HandleResponse) SetSessionBeforeTreeRequest(v *SessionBeforeTreeRequestAction) {
 	if v == nil {
 		x.xxx_hidden_Outcome = nil
@@ -857,6 +1076,46 @@ func (x *HandleResponse) SetRetry(v *RetryHandlerAction) {
 		return
 	}
 	x.xxx_hidden_Outcome = &handleResponse_Retry{v}
+}
+
+func (x *HandleResponse) SetCompactionRequest(v *CompactionRequestAction) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &handleResponse_CompactionRequest{v}
+}
+
+func (x *HandleResponse) SetCompactionGenerate(v *CompactionResult) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &handleResponse_CompactionGenerate{v}
+}
+
+func (x *HandleResponse) SetCompactionResult(v *CompactionResultAction) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &handleResponse_CompactionResult{v}
+}
+
+func (x *HandleResponse) SetCompactionSuccess(v *CompactionObserverAction) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &handleResponse_CompactionSuccess{v}
+}
+
+func (x *HandleResponse) SetCompactionFailure(v *CompactionObserverAction) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &handleResponse_CompactionFailure{v}
 }
 
 func (x *HandleResponse) HasOutcome() bool {
@@ -930,6 +1189,46 @@ func (x *HandleResponse) HasRetry() bool {
 	return ok
 }
 
+func (x *HandleResponse) HasCompactionRequest() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionRequest)
+	return ok
+}
+
+func (x *HandleResponse) HasCompactionGenerate() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionGenerate)
+	return ok
+}
+
+func (x *HandleResponse) HasCompactionResult() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionResult)
+	return ok
+}
+
+func (x *HandleResponse) HasCompactionSuccess() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionSuccess)
+	return ok
+}
+
+func (x *HandleResponse) HasCompactionFailure() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionFailure)
+	return ok
+}
+
 func (x *HandleResponse) ClearOutcome() {
 	x.xxx_hidden_Outcome = nil
 }
@@ -982,6 +1281,36 @@ func (x *HandleResponse) ClearRetry() {
 	}
 }
 
+func (x *HandleResponse) ClearCompactionRequest() {
+	if _, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionRequest); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
+func (x *HandleResponse) ClearCompactionGenerate() {
+	if _, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionGenerate); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
+func (x *HandleResponse) ClearCompactionResult() {
+	if _, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionResult); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
+func (x *HandleResponse) ClearCompactionSuccess() {
+	if _, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionSuccess); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
+func (x *HandleResponse) ClearCompactionFailure() {
+	if _, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionFailure); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
 const HandleResponse_Outcome_not_set_case case_HandleResponse_Outcome = 0
 const HandleResponse_SessionBeforeTreeRequest_case case_HandleResponse_Outcome = 1
 const HandleResponse_SessionBeforeTreeResult_case case_HandleResponse_Outcome = 2
@@ -991,6 +1320,11 @@ const HandleResponse_Lifecycle_case case_HandleResponse_Outcome = 5
 const HandleResponse_ModelSelection_case case_HandleResponse_Outcome = 6
 const HandleResponse_ReasoningSelection_case case_HandleResponse_Outcome = 7
 const HandleResponse_Retry_case case_HandleResponse_Outcome = 8
+const HandleResponse_CompactionRequest_case case_HandleResponse_Outcome = 9
+const HandleResponse_CompactionGenerate_case case_HandleResponse_Outcome = 10
+const HandleResponse_CompactionResult_case case_HandleResponse_Outcome = 11
+const HandleResponse_CompactionSuccess_case case_HandleResponse_Outcome = 12
+const HandleResponse_CompactionFailure_case case_HandleResponse_Outcome = 13
 
 func (x *HandleResponse) WhichOutcome() case_HandleResponse_Outcome {
 	if x == nil {
@@ -1013,6 +1347,16 @@ func (x *HandleResponse) WhichOutcome() case_HandleResponse_Outcome {
 		return HandleResponse_ReasoningSelection_case
 	case *handleResponse_Retry:
 		return HandleResponse_Retry_case
+	case *handleResponse_CompactionRequest:
+		return HandleResponse_CompactionRequest_case
+	case *handleResponse_CompactionGenerate:
+		return HandleResponse_CompactionGenerate_case
+	case *handleResponse_CompactionResult:
+		return HandleResponse_CompactionResult_case
+	case *handleResponse_CompactionSuccess:
+		return HandleResponse_CompactionSuccess_case
+	case *handleResponse_CompactionFailure:
+		return HandleResponse_CompactionFailure_case
 	default:
 		return HandleResponse_Outcome_not_set_case
 	}
@@ -1035,6 +1379,16 @@ type HandleResponse_builder struct {
 	ReasoningSelection *SelectionHandlerAction
 	// The retry decision action.
 	Retry *RetryHandlerAction
+	// The compaction request action.
+	CompactionRequest *CompactionRequestAction
+	// The generated compaction result.
+	CompactionGenerate *CompactionResult
+	// The compaction result action.
+	CompactionResult *CompactionResultAction
+	// A committed compaction acknowledgement.
+	CompactionSuccess *CompactionObserverAction
+	// A failed compaction acknowledgement.
+	CompactionFailure *CompactionObserverAction
 	// -- end of xxx_hidden_Outcome
 }
 
@@ -1065,6 +1419,21 @@ func (b0 HandleResponse_builder) Build() *HandleResponse {
 	}
 	if b.Retry != nil {
 		x.xxx_hidden_Outcome = &handleResponse_Retry{b.Retry}
+	}
+	if b.CompactionRequest != nil {
+		x.xxx_hidden_Outcome = &handleResponse_CompactionRequest{b.CompactionRequest}
+	}
+	if b.CompactionGenerate != nil {
+		x.xxx_hidden_Outcome = &handleResponse_CompactionGenerate{b.CompactionGenerate}
+	}
+	if b.CompactionResult != nil {
+		x.xxx_hidden_Outcome = &handleResponse_CompactionResult{b.CompactionResult}
+	}
+	if b.CompactionSuccess != nil {
+		x.xxx_hidden_Outcome = &handleResponse_CompactionSuccess{b.CompactionSuccess}
+	}
+	if b.CompactionFailure != nil {
+		x.xxx_hidden_Outcome = &handleResponse_CompactionFailure{b.CompactionFailure}
 	}
 	return m0
 }
@@ -1118,6 +1487,31 @@ type handleResponse_Retry struct {
 	Retry *RetryHandlerAction `protobuf:"bytes,8,opt,name=retry,oneof"`
 }
 
+type handleResponse_CompactionRequest struct {
+	// The compaction request action.
+	CompactionRequest *CompactionRequestAction `protobuf:"bytes,9,opt,name=compaction_request,json=compactionRequest,oneof"`
+}
+
+type handleResponse_CompactionGenerate struct {
+	// The generated compaction result.
+	CompactionGenerate *CompactionResult `protobuf:"bytes,10,opt,name=compaction_generate,json=compactionGenerate,oneof"`
+}
+
+type handleResponse_CompactionResult struct {
+	// The compaction result action.
+	CompactionResult *CompactionResultAction `protobuf:"bytes,11,opt,name=compaction_result,json=compactionResult,oneof"`
+}
+
+type handleResponse_CompactionSuccess struct {
+	// A committed compaction acknowledgement.
+	CompactionSuccess *CompactionObserverAction `protobuf:"bytes,12,opt,name=compaction_success,json=compactionSuccess,oneof"`
+}
+
+type handleResponse_CompactionFailure struct {
+	// A failed compaction acknowledgement.
+	CompactionFailure *CompactionObserverAction `protobuf:"bytes,13,opt,name=compaction_failure,json=compactionFailure,oneof"`
+}
+
 func (*handleResponse_SessionBeforeTreeRequest) isHandleResponse_Outcome() {}
 
 func (*handleResponse_SessionBeforeTreeResult) isHandleResponse_Outcome() {}
@@ -1133,6 +1527,16 @@ func (*handleResponse_ModelSelection) isHandleResponse_Outcome() {}
 func (*handleResponse_ReasoningSelection) isHandleResponse_Outcome() {}
 
 func (*handleResponse_Retry) isHandleResponse_Outcome() {}
+
+func (*handleResponse_CompactionRequest) isHandleResponse_Outcome() {}
+
+func (*handleResponse_CompactionGenerate) isHandleResponse_Outcome() {}
+
+func (*handleResponse_CompactionResult) isHandleResponse_Outcome() {}
+
+func (*handleResponse_CompactionSuccess) isHandleResponse_Outcome() {}
+
+func (*handleResponse_CompactionFailure) isHandleResponse_Outcome() {}
 
 // HandlerError reports one ordinary handler failure without invalidating the extension runtime.
 type HandlerError struct {
@@ -2577,2914 +2981,12 @@ func (b0 SessionTreePreparation_builder) Build() *SessionTreePreparation {
 	return m0
 }
 
-// SessionTreeEntry contains one provider-neutral abandoned-branch entry.
-type SessionTreeEntry struct {
-	state                  protoimpl.MessageState     `protogen:"opaque.v1"`
-	xxx_hidden_Id          *string                    `protobuf:"bytes,1,opt,name=id"`
-	xxx_hidden_Content     isSessionTreeEntry_Content `protobuf_oneof:"content"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *SessionTreeEntry) Reset() {
-	*x = SessionTreeEntry{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[11]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeEntry) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeEntry) ProtoMessage() {}
-
-func (x *SessionTreeEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[11]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeEntry) GetId() string {
-	if x != nil {
-		if x.xxx_hidden_Id != nil {
-			return *x.xxx_hidden_Id
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeEntry) GetUser() *SessionTreeUserMessage {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeEntry_User); ok {
-			return x.User
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeEntry) GetModel() *SessionTreeModelResponse {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Model); ok {
-			return x.Model
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeEntry) GetToolResult() *SessionTreeToolResult {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeEntry_ToolResult); ok {
-			return x.ToolResult
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeEntry) GetBranchSummary() *SessionTreeBranchSummary {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeEntry_BranchSummary); ok {
-			return x.BranchSummary
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeEntry) GetExtension() *SessionTreeExtensionEntry {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Extension); ok {
-			return x.Extension
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeEntry) GetExtensionMessage() *SessionTreeExtensionMessage {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeEntry_ExtensionMessage); ok {
-			return x.ExtensionMessage
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeEntry) GetCompaction() *SessionTreeCompaction {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Compaction); ok {
-			return x.Compaction
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeEntry) SetId(v string) {
-	x.xxx_hidden_Id = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
-}
-
-func (x *SessionTreeEntry) SetUser(v *SessionTreeUserMessage) {
-	if v == nil {
-		x.xxx_hidden_Content = nil
-		return
-	}
-	x.xxx_hidden_Content = &sessionTreeEntry_User{v}
-}
-
-func (x *SessionTreeEntry) SetModel(v *SessionTreeModelResponse) {
-	if v == nil {
-		x.xxx_hidden_Content = nil
-		return
-	}
-	x.xxx_hidden_Content = &sessionTreeEntry_Model{v}
-}
-
-func (x *SessionTreeEntry) SetToolResult(v *SessionTreeToolResult) {
-	if v == nil {
-		x.xxx_hidden_Content = nil
-		return
-	}
-	x.xxx_hidden_Content = &sessionTreeEntry_ToolResult{v}
-}
-
-func (x *SessionTreeEntry) SetBranchSummary(v *SessionTreeBranchSummary) {
-	if v == nil {
-		x.xxx_hidden_Content = nil
-		return
-	}
-	x.xxx_hidden_Content = &sessionTreeEntry_BranchSummary{v}
-}
-
-func (x *SessionTreeEntry) SetExtension(v *SessionTreeExtensionEntry) {
-	if v == nil {
-		x.xxx_hidden_Content = nil
-		return
-	}
-	x.xxx_hidden_Content = &sessionTreeEntry_Extension{v}
-}
-
-func (x *SessionTreeEntry) SetExtensionMessage(v *SessionTreeExtensionMessage) {
-	if v == nil {
-		x.xxx_hidden_Content = nil
-		return
-	}
-	x.xxx_hidden_Content = &sessionTreeEntry_ExtensionMessage{v}
-}
-
-func (x *SessionTreeEntry) SetCompaction(v *SessionTreeCompaction) {
-	if v == nil {
-		x.xxx_hidden_Content = nil
-		return
-	}
-	x.xxx_hidden_Content = &sessionTreeEntry_Compaction{v}
-}
-
-func (x *SessionTreeEntry) HasId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeEntry) HasContent() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Content != nil
-}
-
-func (x *SessionTreeEntry) HasUser() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeEntry_User)
-	return ok
-}
-
-func (x *SessionTreeEntry) HasModel() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Model)
-	return ok
-}
-
-func (x *SessionTreeEntry) HasToolResult() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeEntry_ToolResult)
-	return ok
-}
-
-func (x *SessionTreeEntry) HasBranchSummary() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeEntry_BranchSummary)
-	return ok
-}
-
-func (x *SessionTreeEntry) HasExtension() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Extension)
-	return ok
-}
-
-func (x *SessionTreeEntry) HasExtensionMessage() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeEntry_ExtensionMessage)
-	return ok
-}
-
-func (x *SessionTreeEntry) HasCompaction() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Compaction)
-	return ok
-}
-
-func (x *SessionTreeEntry) ClearId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Id = nil
-}
-
-func (x *SessionTreeEntry) ClearContent() {
-	x.xxx_hidden_Content = nil
-}
-
-func (x *SessionTreeEntry) ClearUser() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeEntry_User); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-func (x *SessionTreeEntry) ClearModel() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Model); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-func (x *SessionTreeEntry) ClearToolResult() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeEntry_ToolResult); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-func (x *SessionTreeEntry) ClearBranchSummary() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeEntry_BranchSummary); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-func (x *SessionTreeEntry) ClearExtension() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Extension); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-func (x *SessionTreeEntry) ClearExtensionMessage() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeEntry_ExtensionMessage); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-func (x *SessionTreeEntry) ClearCompaction() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeEntry_Compaction); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-const SessionTreeEntry_Content_not_set_case case_SessionTreeEntry_Content = 0
-const SessionTreeEntry_User_case case_SessionTreeEntry_Content = 2
-const SessionTreeEntry_Model_case case_SessionTreeEntry_Content = 3
-const SessionTreeEntry_ToolResult_case case_SessionTreeEntry_Content = 4
-const SessionTreeEntry_BranchSummary_case case_SessionTreeEntry_Content = 5
-const SessionTreeEntry_Extension_case case_SessionTreeEntry_Content = 6
-const SessionTreeEntry_ExtensionMessage_case case_SessionTreeEntry_Content = 7
-const SessionTreeEntry_Compaction_case case_SessionTreeEntry_Content = 8
-
-func (x *SessionTreeEntry) WhichContent() case_SessionTreeEntry_Content {
-	if x == nil {
-		return SessionTreeEntry_Content_not_set_case
-	}
-	switch x.xxx_hidden_Content.(type) {
-	case *sessionTreeEntry_User:
-		return SessionTreeEntry_User_case
-	case *sessionTreeEntry_Model:
-		return SessionTreeEntry_Model_case
-	case *sessionTreeEntry_ToolResult:
-		return SessionTreeEntry_ToolResult_case
-	case *sessionTreeEntry_BranchSummary:
-		return SessionTreeEntry_BranchSummary_case
-	case *sessionTreeEntry_Extension:
-		return SessionTreeEntry_Extension_case
-	case *sessionTreeEntry_ExtensionMessage:
-		return SessionTreeEntry_ExtensionMessage_case
-	case *sessionTreeEntry_Compaction:
-		return SessionTreeEntry_Compaction_case
-	default:
-		return SessionTreeEntry_Content_not_set_case
-	}
-}
-
-type SessionTreeEntry_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The session entry identifier.
-	Id *string
-	// The model-visible or opaque entry projection.
-
-	// Fields of oneof xxx_hidden_Content:
-	User             *SessionTreeUserMessage
-	Model            *SessionTreeModelResponse
-	ToolResult       *SessionTreeToolResult
-	BranchSummary    *SessionTreeBranchSummary
-	Extension        *SessionTreeExtensionEntry
-	ExtensionMessage *SessionTreeExtensionMessage
-	Compaction       *SessionTreeCompaction
-	// -- end of xxx_hidden_Content
-}
-
-func (b0 SessionTreeEntry_builder) Build() *SessionTreeEntry {
-	m0 := &SessionTreeEntry{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Id != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_Id = b.Id
-	}
-	if b.User != nil {
-		x.xxx_hidden_Content = &sessionTreeEntry_User{b.User}
-	}
-	if b.Model != nil {
-		x.xxx_hidden_Content = &sessionTreeEntry_Model{b.Model}
-	}
-	if b.ToolResult != nil {
-		x.xxx_hidden_Content = &sessionTreeEntry_ToolResult{b.ToolResult}
-	}
-	if b.BranchSummary != nil {
-		x.xxx_hidden_Content = &sessionTreeEntry_BranchSummary{b.BranchSummary}
-	}
-	if b.Extension != nil {
-		x.xxx_hidden_Content = &sessionTreeEntry_Extension{b.Extension}
-	}
-	if b.ExtensionMessage != nil {
-		x.xxx_hidden_Content = &sessionTreeEntry_ExtensionMessage{b.ExtensionMessage}
-	}
-	if b.Compaction != nil {
-		x.xxx_hidden_Content = &sessionTreeEntry_Compaction{b.Compaction}
-	}
-	return m0
-}
-
-type case_SessionTreeEntry_Content protoreflect.FieldNumber
-
-func (x case_SessionTreeEntry_Content) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[11].Descriptor()
-	if x == 0 {
-		return "not set"
-	}
-	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
-}
-
-type isSessionTreeEntry_Content interface {
-	isSessionTreeEntry_Content()
-}
-
-type sessionTreeEntry_User struct {
-	User *SessionTreeUserMessage `protobuf:"bytes,2,opt,name=user,oneof"`
-}
-
-type sessionTreeEntry_Model struct {
-	Model *SessionTreeModelResponse `protobuf:"bytes,3,opt,name=model,oneof"`
-}
-
-type sessionTreeEntry_ToolResult struct {
-	ToolResult *SessionTreeToolResult `protobuf:"bytes,4,opt,name=tool_result,json=toolResult,oneof"`
-}
-
-type sessionTreeEntry_BranchSummary struct {
-	BranchSummary *SessionTreeBranchSummary `protobuf:"bytes,5,opt,name=branch_summary,json=branchSummary,oneof"`
-}
-
-type sessionTreeEntry_Extension struct {
-	Extension *SessionTreeExtensionEntry `protobuf:"bytes,6,opt,name=extension,oneof"`
-}
-
-type sessionTreeEntry_ExtensionMessage struct {
-	ExtensionMessage *SessionTreeExtensionMessage `protobuf:"bytes,7,opt,name=extension_message,json=extensionMessage,oneof"`
-}
-
-type sessionTreeEntry_Compaction struct {
-	Compaction *SessionTreeCompaction `protobuf:"bytes,8,opt,name=compaction,oneof"`
-}
-
-func (*sessionTreeEntry_User) isSessionTreeEntry_Content() {}
-
-func (*sessionTreeEntry_Model) isSessionTreeEntry_Content() {}
-
-func (*sessionTreeEntry_ToolResult) isSessionTreeEntry_Content() {}
-
-func (*sessionTreeEntry_BranchSummary) isSessionTreeEntry_Content() {}
-
-func (*sessionTreeEntry_Extension) isSessionTreeEntry_Content() {}
-
-func (*sessionTreeEntry_ExtensionMessage) isSessionTreeEntry_Content() {}
-
-func (*sessionTreeEntry_Compaction) isSessionTreeEntry_Content() {}
-
-// SessionTreeExtensionMessage contains one model-visible extension message.
-type SessionTreeExtensionMessage struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ExtensionId *string                `protobuf:"bytes,1,opt,name=extension_id,json=extensionId"`
-	xxx_hidden_EntryType   *string                `protobuf:"bytes,2,opt,name=entry_type,json=entryType"`
-	xxx_hidden_Text        *string                `protobuf:"bytes,3,opt,name=text"`
-	xxx_hidden_Visibility  ClientVisibility       `protobuf:"varint,4,opt,name=visibility,enum=glyph.plugins.extension.v1.ClientVisibility"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *SessionTreeExtensionMessage) Reset() {
-	*x = SessionTreeExtensionMessage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[12]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeExtensionMessage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeExtensionMessage) ProtoMessage() {}
-
-func (x *SessionTreeExtensionMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[12]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeExtensionMessage) GetExtensionId() string {
-	if x != nil {
-		if x.xxx_hidden_ExtensionId != nil {
-			return *x.xxx_hidden_ExtensionId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeExtensionMessage) GetEntryType() string {
-	if x != nil {
-		if x.xxx_hidden_EntryType != nil {
-			return *x.xxx_hidden_EntryType
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeExtensionMessage) GetText() string {
-	if x != nil {
-		if x.xxx_hidden_Text != nil {
-			return *x.xxx_hidden_Text
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeExtensionMessage) GetVisibility() ClientVisibility {
-	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 3) {
-			return x.xxx_hidden_Visibility
-		}
-	}
-	return ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED
-}
-
-func (x *SessionTreeExtensionMessage) SetExtensionId(v string) {
-	x.xxx_hidden_ExtensionId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
-}
-
-func (x *SessionTreeExtensionMessage) SetEntryType(v string) {
-	x.xxx_hidden_EntryType = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
-}
-
-func (x *SessionTreeExtensionMessage) SetText(v string) {
-	x.xxx_hidden_Text = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
-}
-
-func (x *SessionTreeExtensionMessage) SetVisibility(v ClientVisibility) {
-	x.xxx_hidden_Visibility = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
-}
-
-func (x *SessionTreeExtensionMessage) HasExtensionId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeExtensionMessage) HasEntryType() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *SessionTreeExtensionMessage) HasText() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *SessionTreeExtensionMessage) HasVisibility() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
-}
-
-func (x *SessionTreeExtensionMessage) ClearExtensionId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_ExtensionId = nil
-}
-
-func (x *SessionTreeExtensionMessage) ClearEntryType() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_EntryType = nil
-}
-
-func (x *SessionTreeExtensionMessage) ClearText() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_Text = nil
-}
-
-func (x *SessionTreeExtensionMessage) ClearVisibility() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_Visibility = ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED
-}
-
-type SessionTreeExtensionMessage_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The owning extension identifier.
-	ExtensionId *string
-	// The extension-defined entry kind.
-	EntryType *string
-	// The exact model-visible text.
-	Text *string
-	// The ordinary client transcript visibility.
-	Visibility *ClientVisibility
-}
-
-func (b0 SessionTreeExtensionMessage_builder) Build() *SessionTreeExtensionMessage {
-	m0 := &SessionTreeExtensionMessage{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.ExtensionId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
-		x.xxx_hidden_ExtensionId = b.ExtensionId
-	}
-	if b.EntryType != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
-		x.xxx_hidden_EntryType = b.EntryType
-	}
-	if b.Text != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
-		x.xxx_hidden_Text = b.Text
-	}
-	if b.Visibility != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
-		x.xxx_hidden_Visibility = *b.Visibility
-	}
-	return m0
-}
-
-// SessionTreeUserMessage contains one user message.
-type SessionTreeUserMessage struct {
-	state              protoimpl.MessageState     `protogen:"opaque.v1"`
-	xxx_hidden_Content *[]*SessionTreeUserContent `protobuf:"bytes,1,rep,name=content"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
-}
-
-func (x *SessionTreeUserMessage) Reset() {
-	*x = SessionTreeUserMessage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[13]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeUserMessage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeUserMessage) ProtoMessage() {}
-
-func (x *SessionTreeUserMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[13]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeUserMessage) GetContent() []*SessionTreeUserContent {
-	if x != nil {
-		if x.xxx_hidden_Content != nil {
-			return *x.xxx_hidden_Content
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeUserMessage) SetContent(v []*SessionTreeUserContent) {
-	x.xxx_hidden_Content = &v
-}
-
-type SessionTreeUserMessage_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The ordered user content blocks.
-	Content []*SessionTreeUserContent
-}
-
-func (b0 SessionTreeUserMessage_builder) Build() *SessionTreeUserMessage {
-	m0 := &SessionTreeUserMessage{}
-	b, x := &b0, m0
-	_, _ = b, x
-	x.xxx_hidden_Content = &b.Content
-	return m0
-}
-
-// SessionTreeUserContent contains one text or image input block.
-type SessionTreeUserContent struct {
-	state              protoimpl.MessageState           `protogen:"opaque.v1"`
-	xxx_hidden_Content isSessionTreeUserContent_Content `protobuf_oneof:"content"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
-}
-
-func (x *SessionTreeUserContent) Reset() {
-	*x = SessionTreeUserContent{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[14]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeUserContent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeUserContent) ProtoMessage() {}
-
-func (x *SessionTreeUserContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[14]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeUserContent) GetText() string {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeUserContent_Text); ok {
-			return x.Text
-		}
-	}
-	return ""
-}
-
-func (x *SessionTreeUserContent) GetImage() *SessionTreeImage {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Content.(*sessionTreeUserContent_Image); ok {
-			return x.Image
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeUserContent) SetText(v string) {
-	x.xxx_hidden_Content = &sessionTreeUserContent_Text{v}
-}
-
-func (x *SessionTreeUserContent) SetImage(v *SessionTreeImage) {
-	if v == nil {
-		x.xxx_hidden_Content = nil
-		return
-	}
-	x.xxx_hidden_Content = &sessionTreeUserContent_Image{v}
-}
-
-func (x *SessionTreeUserContent) HasContent() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Content != nil
-}
-
-func (x *SessionTreeUserContent) HasText() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeUserContent_Text)
-	return ok
-}
-
-func (x *SessionTreeUserContent) HasImage() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Content.(*sessionTreeUserContent_Image)
-	return ok
-}
-
-func (x *SessionTreeUserContent) ClearContent() {
-	x.xxx_hidden_Content = nil
-}
-
-func (x *SessionTreeUserContent) ClearText() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeUserContent_Text); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-func (x *SessionTreeUserContent) ClearImage() {
-	if _, ok := x.xxx_hidden_Content.(*sessionTreeUserContent_Image); ok {
-		x.xxx_hidden_Content = nil
-	}
-}
-
-const SessionTreeUserContent_Content_not_set_case case_SessionTreeUserContent_Content = 0
-const SessionTreeUserContent_Text_case case_SessionTreeUserContent_Content = 1
-const SessionTreeUserContent_Image_case case_SessionTreeUserContent_Content = 2
-
-func (x *SessionTreeUserContent) WhichContent() case_SessionTreeUserContent_Content {
-	if x == nil {
-		return SessionTreeUserContent_Content_not_set_case
-	}
-	switch x.xxx_hidden_Content.(type) {
-	case *sessionTreeUserContent_Text:
-		return SessionTreeUserContent_Text_case
-	case *sessionTreeUserContent_Image:
-		return SessionTreeUserContent_Image_case
-	default:
-		return SessionTreeUserContent_Content_not_set_case
-	}
-}
-
-type SessionTreeUserContent_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The user content payload.
-
-	// Fields of oneof xxx_hidden_Content:
-	Text  *string
-	Image *SessionTreeImage
-	// -- end of xxx_hidden_Content
-}
-
-func (b0 SessionTreeUserContent_builder) Build() *SessionTreeUserContent {
-	m0 := &SessionTreeUserContent{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Text != nil {
-		x.xxx_hidden_Content = &sessionTreeUserContent_Text{*b.Text}
-	}
-	if b.Image != nil {
-		x.xxx_hidden_Content = &sessionTreeUserContent_Image{b.Image}
-	}
-	return m0
-}
-
-type case_SessionTreeUserContent_Content protoreflect.FieldNumber
-
-func (x case_SessionTreeUserContent_Content) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[14].Descriptor()
-	if x == 0 {
-		return "not set"
-	}
-	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
-}
-
-type isSessionTreeUserContent_Content interface {
-	isSessionTreeUserContent_Content()
-}
-
-type sessionTreeUserContent_Text struct {
-	Text string `protobuf:"bytes,1,opt,name=text,oneof"`
-}
-
-type sessionTreeUserContent_Image struct {
-	Image *SessionTreeImage `protobuf:"bytes,2,opt,name=image,oneof"`
-}
-
-func (*sessionTreeUserContent_Text) isSessionTreeUserContent_Content() {}
-
-func (*sessionTreeUserContent_Image) isSessionTreeUserContent_Content() {}
-
-// SessionTreeImage contains one encoded image.
-type SessionTreeImage struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_MediaType   *string                `protobuf:"bytes,1,opt,name=media_type,json=mediaType"`
-	xxx_hidden_Data        []byte                 `protobuf:"bytes,2,opt,name=data"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *SessionTreeImage) Reset() {
-	*x = SessionTreeImage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[15]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeImage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeImage) ProtoMessage() {}
-
-func (x *SessionTreeImage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[15]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeImage) GetMediaType() string {
-	if x != nil {
-		if x.xxx_hidden_MediaType != nil {
-			return *x.xxx_hidden_MediaType
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeImage) GetData() []byte {
-	if x != nil {
-		return x.xxx_hidden_Data
-	}
-	return nil
-}
-
-func (x *SessionTreeImage) SetMediaType(v string) {
-	x.xxx_hidden_MediaType = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
-}
-
-func (x *SessionTreeImage) SetData(v []byte) {
-	if v == nil {
-		v = []byte{}
-	}
-	x.xxx_hidden_Data = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
-}
-
-func (x *SessionTreeImage) HasMediaType() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeImage) HasData() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *SessionTreeImage) ClearMediaType() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_MediaType = nil
-}
-
-func (x *SessionTreeImage) ClearData() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Data = nil
-}
-
-type SessionTreeImage_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The image media type.
-	MediaType *string
-	// The encoded image bytes.
-	Data []byte
-}
-
-func (b0 SessionTreeImage_builder) Build() *SessionTreeImage {
-	m0 := &SessionTreeImage{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.MediaType != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_MediaType = b.MediaType
-	}
-	if b.Data != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
-		x.xxx_hidden_Data = b.Data
-	}
-	return m0
-}
-
-// SessionTreeModelResponse contains provider-neutral model output.
-type SessionTreeModelResponse struct {
-	state              protoimpl.MessageState      `protogen:"opaque.v1"`
-	xxx_hidden_Content *[]*SessionTreeModelContent `protobuf:"bytes,1,rep,name=content"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
-}
-
-func (x *SessionTreeModelResponse) Reset() {
-	*x = SessionTreeModelResponse{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[16]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeModelResponse) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeModelResponse) ProtoMessage() {}
-
-func (x *SessionTreeModelResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[16]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeModelResponse) GetContent() []*SessionTreeModelContent {
-	if x != nil {
-		if x.xxx_hidden_Content != nil {
-			return *x.xxx_hidden_Content
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeModelResponse) SetContent(v []*SessionTreeModelContent) {
-	x.xxx_hidden_Content = &v
-}
-
-type SessionTreeModelResponse_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The ordered model-visible response blocks.
-	Content []*SessionTreeModelContent
-}
-
-func (b0 SessionTreeModelResponse_builder) Build() *SessionTreeModelResponse {
-	m0 := &SessionTreeModelResponse{}
-	b, x := &b0, m0
-	_, _ = b, x
-	x.xxx_hidden_Content = &b.Content
-	return m0
-}
-
-// SessionTreeModelContent contains one finalized model response block.
-type SessionTreeModelContent struct {
-	state                  protoimpl.MessageState      `protogen:"opaque.v1"`
-	xxx_hidden_Kind        SessionTreeModelContentKind `protobuf:"varint,1,opt,name=kind,enum=glyph.plugins.extension.v1.SessionTreeModelContentKind"`
-	xxx_hidden_Text        *string                     `protobuf:"bytes,2,opt,name=text"`
-	xxx_hidden_ToolCall    *SessionTreeToolCall        `protobuf:"bytes,3,opt,name=tool_call,json=toolCall"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *SessionTreeModelContent) Reset() {
-	*x = SessionTreeModelContent{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[17]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeModelContent) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeModelContent) ProtoMessage() {}
-
-func (x *SessionTreeModelContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[17]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeModelContent) GetKind() SessionTreeModelContentKind {
-	if x != nil {
-		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
-			return x.xxx_hidden_Kind
-		}
-	}
-	return SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED
-}
-
-func (x *SessionTreeModelContent) GetText() string {
-	if x != nil {
-		if x.xxx_hidden_Text != nil {
-			return *x.xxx_hidden_Text
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeModelContent) GetToolCall() *SessionTreeToolCall {
-	if x != nil {
-		return x.xxx_hidden_ToolCall
-	}
-	return nil
-}
-
-func (x *SessionTreeModelContent) SetKind(v SessionTreeModelContentKind) {
-	x.xxx_hidden_Kind = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
-}
-
-func (x *SessionTreeModelContent) SetText(v string) {
-	x.xxx_hidden_Text = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
-}
-
-func (x *SessionTreeModelContent) SetToolCall(v *SessionTreeToolCall) {
-	x.xxx_hidden_ToolCall = v
-}
-
-func (x *SessionTreeModelContent) HasKind() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeModelContent) HasText() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *SessionTreeModelContent) HasToolCall() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_ToolCall != nil
-}
-
-func (x *SessionTreeModelContent) ClearKind() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Kind = SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED
-}
-
-func (x *SessionTreeModelContent) ClearText() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Text = nil
-}
-
-func (x *SessionTreeModelContent) ClearToolCall() {
-	x.xxx_hidden_ToolCall = nil
-}
-
-type SessionTreeModelContent_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The semantic content kind.
-	Kind *SessionTreeModelContentKind
-	// The finalized text for text, refusal, or reasoning content.
-	Text *string
-	// The finalized tool call for tool-call content.
-	ToolCall *SessionTreeToolCall
-}
-
-func (b0 SessionTreeModelContent_builder) Build() *SessionTreeModelContent {
-	m0 := &SessionTreeModelContent{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Kind != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
-		x.xxx_hidden_Kind = *b.Kind
-	}
-	if b.Text != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
-		x.xxx_hidden_Text = b.Text
-	}
-	x.xxx_hidden_ToolCall = b.ToolCall
-	return m0
-}
-
-// SessionTreeToolCall contains one provider-neutral tool request.
-type SessionTreeToolCall struct {
-	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Id            *string                `protobuf:"bytes,1,opt,name=id"`
-	xxx_hidden_Name          *string                `protobuf:"bytes,2,opt,name=name"`
-	xxx_hidden_ArgumentsJson []byte                 `protobuf:"bytes,3,opt,name=arguments_json,json=argumentsJson"`
-	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
-	XXX_presence             [1]uint32
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
-}
-
-func (x *SessionTreeToolCall) Reset() {
-	*x = SessionTreeToolCall{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[18]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeToolCall) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeToolCall) ProtoMessage() {}
-
-func (x *SessionTreeToolCall) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[18]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeToolCall) GetId() string {
-	if x != nil {
-		if x.xxx_hidden_Id != nil {
-			return *x.xxx_hidden_Id
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeToolCall) GetName() string {
-	if x != nil {
-		if x.xxx_hidden_Name != nil {
-			return *x.xxx_hidden_Name
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeToolCall) GetArgumentsJson() []byte {
-	if x != nil {
-		return x.xxx_hidden_ArgumentsJson
-	}
-	return nil
-}
-
-func (x *SessionTreeToolCall) SetId(v string) {
-	x.xxx_hidden_Id = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
-}
-
-func (x *SessionTreeToolCall) SetName(v string) {
-	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
-}
-
-func (x *SessionTreeToolCall) SetArgumentsJson(v []byte) {
-	if v == nil {
-		v = []byte{}
-	}
-	x.xxx_hidden_ArgumentsJson = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
-}
-
-func (x *SessionTreeToolCall) HasId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeToolCall) HasName() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *SessionTreeToolCall) HasArgumentsJson() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *SessionTreeToolCall) ClearId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Id = nil
-}
-
-func (x *SessionTreeToolCall) ClearName() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Name = nil
-}
-
-func (x *SessionTreeToolCall) ClearArgumentsJson() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_ArgumentsJson = nil
-}
-
-type SessionTreeToolCall_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The tool call identifier.
-	Id *string
-	// The requested tool name.
-	Name *string
-	// The JSON-encoded tool arguments.
-	ArgumentsJson []byte
-}
-
-func (b0 SessionTreeToolCall_builder) Build() *SessionTreeToolCall {
-	m0 := &SessionTreeToolCall{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Id != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
-		x.xxx_hidden_Id = b.Id
-	}
-	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
-		x.xxx_hidden_Name = b.Name
-	}
-	if b.ArgumentsJson != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
-		x.xxx_hidden_ArgumentsJson = b.ArgumentsJson
-	}
-	return m0
-}
-
-// SessionTreeToolResult contains one terminal tool result.
-type SessionTreeToolResult struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
-	xxx_hidden_ToolName    *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName"`
-	xxx_hidden_Contents    *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
-	xxx_hidden_IsError     bool                   `protobuf:"varint,4,opt,name=is_error,json=isError"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *SessionTreeToolResult) Reset() {
-	*x = SessionTreeToolResult{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[19]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeToolResult) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeToolResult) ProtoMessage() {}
-
-func (x *SessionTreeToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[19]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeToolResult) GetCallId() string {
-	if x != nil {
-		if x.xxx_hidden_CallId != nil {
-			return *x.xxx_hidden_CallId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeToolResult) GetToolName() string {
-	if x != nil {
-		if x.xxx_hidden_ToolName != nil {
-			return *x.xxx_hidden_ToolName
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeToolResult) GetContents() []*ToolResultContent {
-	if x != nil {
-		if x.xxx_hidden_Contents != nil {
-			return *x.xxx_hidden_Contents
-		}
-	}
-	return nil
-}
-
-func (x *SessionTreeToolResult) GetIsError() bool {
-	if x != nil {
-		return x.xxx_hidden_IsError
-	}
-	return false
-}
-
-func (x *SessionTreeToolResult) SetCallId(v string) {
-	x.xxx_hidden_CallId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
-}
-
-func (x *SessionTreeToolResult) SetToolName(v string) {
-	x.xxx_hidden_ToolName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
-}
-
-func (x *SessionTreeToolResult) SetContents(v []*ToolResultContent) {
-	x.xxx_hidden_Contents = &v
-}
-
-func (x *SessionTreeToolResult) SetIsError(v bool) {
-	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
-}
-
-func (x *SessionTreeToolResult) HasCallId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeToolResult) HasToolName() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *SessionTreeToolResult) HasIsError() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
-}
-
-func (x *SessionTreeToolResult) ClearCallId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_CallId = nil
-}
-
-func (x *SessionTreeToolResult) ClearToolName() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_ToolName = nil
-}
-
-func (x *SessionTreeToolResult) ClearIsError() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_IsError = false
-}
-
-type SessionTreeToolResult_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The source tool call identifier.
-	CallId *string
-	// The source tool name.
-	ToolName *string
-	// The ordered terminal result blocks.
-	Contents []*ToolResultContent
-	// Whether tool execution ended with an error.
-	IsError *bool
-}
-
-func (b0 SessionTreeToolResult_builder) Build() *SessionTreeToolResult {
-	m0 := &SessionTreeToolResult{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.CallId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
-		x.xxx_hidden_CallId = b.CallId
-	}
-	if b.ToolName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
-		x.xxx_hidden_ToolName = b.ToolName
-	}
-	x.xxx_hidden_Contents = &b.Contents
-	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
-		x.xxx_hidden_IsError = *b.IsError
-	}
-	return m0
-}
-
-// SessionTreeBranchSummary contains one prior persisted summary.
-type SessionTreeBranchSummary struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Summary     *string                `protobuf:"bytes,1,opt,name=summary"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *SessionTreeBranchSummary) Reset() {
-	*x = SessionTreeBranchSummary{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[20]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeBranchSummary) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeBranchSummary) ProtoMessage() {}
-
-func (x *SessionTreeBranchSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[20]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeBranchSummary) GetSummary() string {
-	if x != nil {
-		if x.xxx_hidden_Summary != nil {
-			return *x.xxx_hidden_Summary
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeBranchSummary) SetSummary(v string) {
-	x.xxx_hidden_Summary = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
-}
-
-func (x *SessionTreeBranchSummary) HasSummary() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeBranchSummary) ClearSummary() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Summary = nil
-}
-
-type SessionTreeBranchSummary_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The persisted summary text.
-	Summary *string
-}
-
-func (b0 SessionTreeBranchSummary_builder) Build() *SessionTreeBranchSummary {
-	m0 := &SessionTreeBranchSummary{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Summary != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
-		x.xxx_hidden_Summary = b.Summary
-	}
-	return m0
-}
-
-// SessionTreeCompaction contains one persisted active-context compaction marker.
-type SessionTreeCompaction struct {
-	state                       protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Summary          *string                `protobuf:"bytes,1,opt,name=summary"`
-	xxx_hidden_FirstKeptEntryId *string                `protobuf:"bytes,2,opt,name=first_kept_entry_id,json=firstKeptEntryId"`
-	xxx_hidden_Source           *BranchSummarySource   `protobuf:"bytes,3,opt,name=source"`
-	xxx_hidden_EstimatedCost    *EstimatedCost         `protobuf:"bytes,4,opt,name=estimated_cost,json=estimatedCost"`
-	xxx_hidden_Details          []byte                 `protobuf:"bytes,5,opt,name=details"`
-	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
-	XXX_presence                [1]uint32
-	unknownFields               protoimpl.UnknownFields
-	sizeCache                   protoimpl.SizeCache
-}
-
-func (x *SessionTreeCompaction) Reset() {
-	*x = SessionTreeCompaction{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeCompaction) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeCompaction) ProtoMessage() {}
-
-func (x *SessionTreeCompaction) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[21]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeCompaction) GetSummary() string {
-	if x != nil {
-		if x.xxx_hidden_Summary != nil {
-			return *x.xxx_hidden_Summary
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeCompaction) GetFirstKeptEntryId() string {
-	if x != nil {
-		if x.xxx_hidden_FirstKeptEntryId != nil {
-			return *x.xxx_hidden_FirstKeptEntryId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeCompaction) GetSource() *BranchSummarySource {
-	if x != nil {
-		return x.xxx_hidden_Source
-	}
-	return nil
-}
-
-func (x *SessionTreeCompaction) GetEstimatedCost() *EstimatedCost {
-	if x != nil {
-		return x.xxx_hidden_EstimatedCost
-	}
-	return nil
-}
-
-func (x *SessionTreeCompaction) GetDetails() []byte {
-	if x != nil {
-		return x.xxx_hidden_Details
-	}
-	return nil
-}
-
-func (x *SessionTreeCompaction) SetSummary(v string) {
-	x.xxx_hidden_Summary = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
-}
-
-func (x *SessionTreeCompaction) SetFirstKeptEntryId(v string) {
-	x.xxx_hidden_FirstKeptEntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
-}
-
-func (x *SessionTreeCompaction) SetSource(v *BranchSummarySource) {
-	x.xxx_hidden_Source = v
-}
-
-func (x *SessionTreeCompaction) SetEstimatedCost(v *EstimatedCost) {
-	x.xxx_hidden_EstimatedCost = v
-}
-
-func (x *SessionTreeCompaction) SetDetails(v []byte) {
-	if v == nil {
-		v = []byte{}
-	}
-	x.xxx_hidden_Details = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
-}
-
-func (x *SessionTreeCompaction) HasSummary() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeCompaction) HasFirstKeptEntryId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *SessionTreeCompaction) HasSource() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Source != nil
-}
-
-func (x *SessionTreeCompaction) HasEstimatedCost() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_EstimatedCost != nil
-}
-
-func (x *SessionTreeCompaction) HasDetails() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
-}
-
-func (x *SessionTreeCompaction) ClearSummary() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Summary = nil
-}
-
-func (x *SessionTreeCompaction) ClearFirstKeptEntryId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_FirstKeptEntryId = nil
-}
-
-func (x *SessionTreeCompaction) ClearSource() {
-	x.xxx_hidden_Source = nil
-}
-
-func (x *SessionTreeCompaction) ClearEstimatedCost() {
-	x.xxx_hidden_EstimatedCost = nil
-}
-
-func (x *SessionTreeCompaction) ClearDetails() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
-	x.xxx_hidden_Details = nil
-}
-
-type SessionTreeCompaction_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The summary text included in model context.
-	Summary *string
-	// The first original entry retained after the summary.
-	FirstKeptEntryId *string
-	// The actual producer and its optional model usage.
-	Source *BranchSummarySource
-	// Persisted estimated cost when available for a model source.
-	EstimatedCost *EstimatedCost
-	// Opaque extension-owned result details when present.
-	Details []byte
-}
-
-func (b0 SessionTreeCompaction_builder) Build() *SessionTreeCompaction {
-	m0 := &SessionTreeCompaction{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Summary != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
-		x.xxx_hidden_Summary = b.Summary
-	}
-	if b.FirstKeptEntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
-		x.xxx_hidden_FirstKeptEntryId = b.FirstKeptEntryId
-	}
-	x.xxx_hidden_Source = b.Source
-	x.xxx_hidden_EstimatedCost = b.EstimatedCost
-	if b.Details != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
-		x.xxx_hidden_Details = b.Details
-	}
-	return m0
-}
-
-// SessionTreeExtensionEntry identifies one model-hidden extension entry without exposing its payload.
-type SessionTreeExtensionEntry struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_ExtensionId *string                `protobuf:"bytes,1,opt,name=extension_id,json=extensionId"`
-	xxx_hidden_EntryType   *string                `protobuf:"bytes,2,opt,name=entry_type,json=entryType"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *SessionTreeExtensionEntry) Reset() {
-	*x = SessionTreeExtensionEntry{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *SessionTreeExtensionEntry) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*SessionTreeExtensionEntry) ProtoMessage() {}
-
-func (x *SessionTreeExtensionEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[22]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *SessionTreeExtensionEntry) GetExtensionId() string {
-	if x != nil {
-		if x.xxx_hidden_ExtensionId != nil {
-			return *x.xxx_hidden_ExtensionId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeExtensionEntry) GetEntryType() string {
-	if x != nil {
-		if x.xxx_hidden_EntryType != nil {
-			return *x.xxx_hidden_EntryType
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *SessionTreeExtensionEntry) SetExtensionId(v string) {
-	x.xxx_hidden_ExtensionId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
-}
-
-func (x *SessionTreeExtensionEntry) SetEntryType(v string) {
-	x.xxx_hidden_EntryType = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
-}
-
-func (x *SessionTreeExtensionEntry) HasExtensionId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SessionTreeExtensionEntry) HasEntryType() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *SessionTreeExtensionEntry) ClearExtensionId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_ExtensionId = nil
-}
-
-func (x *SessionTreeExtensionEntry) ClearEntryType() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_EntryType = nil
-}
-
-type SessionTreeExtensionEntry_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The extension identifier.
-	ExtensionId *string
-	// The extension-owned entry type.
-	EntryType *string
-}
-
-func (b0 SessionTreeExtensionEntry_builder) Build() *SessionTreeExtensionEntry {
-	m0 := &SessionTreeExtensionEntry{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.ExtensionId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_ExtensionId = b.ExtensionId
-	}
-	if b.EntryType != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
-		x.xxx_hidden_EntryType = b.EntryType
-	}
-	return m0
-}
-
-// BranchSummaryResult contains summary output and its explicit producer.
-type BranchSummaryResult struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Summary     *string                `protobuf:"bytes,1,opt,name=summary"`
-	xxx_hidden_Source      *BranchSummarySource   `protobuf:"bytes,2,opt,name=source"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *BranchSummaryResult) Reset() {
-	*x = BranchSummaryResult{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *BranchSummaryResult) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*BranchSummaryResult) ProtoMessage() {}
-
-func (x *BranchSummaryResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[23]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *BranchSummaryResult) GetSummary() string {
-	if x != nil {
-		if x.xxx_hidden_Summary != nil {
-			return *x.xxx_hidden_Summary
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *BranchSummaryResult) GetSource() *BranchSummarySource {
-	if x != nil {
-		return x.xxx_hidden_Source
-	}
-	return nil
-}
-
-func (x *BranchSummaryResult) SetSummary(v string) {
-	x.xxx_hidden_Summary = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
-}
-
-func (x *BranchSummaryResult) SetSource(v *BranchSummarySource) {
-	x.xxx_hidden_Source = v
-}
-
-func (x *BranchSummaryResult) HasSummary() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *BranchSummaryResult) HasSource() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Source != nil
-}
-
-func (x *BranchSummaryResult) ClearSummary() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Summary = nil
-}
-
-func (x *BranchSummaryResult) ClearSource() {
-	x.xxx_hidden_Source = nil
-}
-
-type BranchSummaryResult_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The nonempty summary text.
-	Summary *string
-	// The required actual source, independent of the built-in selection.
-	Source *BranchSummarySource
-}
-
-func (b0 BranchSummaryResult_builder) Build() *BranchSummaryResult {
-	m0 := &BranchSummaryResult{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Summary != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
-		x.xxx_hidden_Summary = b.Summary
-	}
-	x.xxx_hidden_Source = b.Source
-	return m0
-}
-
-// BranchSummarySource identifies exactly one producer of the result.
-type BranchSummarySource struct {
-	state             protoimpl.MessageState       `protogen:"opaque.v1"`
-	xxx_hidden_Source isBranchSummarySource_Source `protobuf_oneof:"source"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
-}
-
-func (x *BranchSummarySource) Reset() {
-	*x = BranchSummarySource{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *BranchSummarySource) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*BranchSummarySource) ProtoMessage() {}
-
-func (x *BranchSummarySource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[24]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *BranchSummarySource) GetExtensionId() string {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Source.(*branchSummarySource_ExtensionId); ok {
-			return x.ExtensionId
-		}
-	}
-	return ""
-}
-
-func (x *BranchSummarySource) GetModel() *BranchSummaryModelSource {
-	if x != nil {
-		if x, ok := x.xxx_hidden_Source.(*branchSummarySource_Model); ok {
-			return x.Model
-		}
-	}
-	return nil
-}
-
-func (x *BranchSummarySource) SetExtensionId(v string) {
-	x.xxx_hidden_Source = &branchSummarySource_ExtensionId{v}
-}
-
-func (x *BranchSummarySource) SetModel(v *BranchSummaryModelSource) {
-	if v == nil {
-		x.xxx_hidden_Source = nil
-		return
-	}
-	x.xxx_hidden_Source = &branchSummarySource_Model{v}
-}
-
-func (x *BranchSummarySource) HasSource() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Source != nil
-}
-
-func (x *BranchSummarySource) HasExtensionId() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Source.(*branchSummarySource_ExtensionId)
-	return ok
-}
-
-func (x *BranchSummarySource) HasModel() bool {
-	if x == nil {
-		return false
-	}
-	_, ok := x.xxx_hidden_Source.(*branchSummarySource_Model)
-	return ok
-}
-
-func (x *BranchSummarySource) ClearSource() {
-	x.xxx_hidden_Source = nil
-}
-
-func (x *BranchSummarySource) ClearExtensionId() {
-	if _, ok := x.xxx_hidden_Source.(*branchSummarySource_ExtensionId); ok {
-		x.xxx_hidden_Source = nil
-	}
-}
-
-func (x *BranchSummarySource) ClearModel() {
-	if _, ok := x.xxx_hidden_Source.(*branchSummarySource_Model); ok {
-		x.xxx_hidden_Source = nil
-	}
-}
-
-const BranchSummarySource_Source_not_set_case case_BranchSummarySource_Source = 0
-const BranchSummarySource_ExtensionId_case case_BranchSummarySource_Source = 1
-const BranchSummarySource_Model_case case_BranchSummarySource_Source = 2
-
-func (x *BranchSummarySource) WhichSource() case_BranchSummarySource_Source {
-	if x == nil {
-		return BranchSummarySource_Source_not_set_case
-	}
-	switch x.xxx_hidden_Source.(type) {
-	case *branchSummarySource_ExtensionId:
-		return BranchSummarySource_ExtensionId_case
-	case *branchSummarySource_Model:
-		return BranchSummarySource_Model_case
-	default:
-		return BranchSummarySource_Source_not_set_case
-	}
-}
-
-type BranchSummarySource_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The producer and its model accounting, when applicable.
-
-	// Fields of oneof xxx_hidden_Source:
-	// The extension that produced the result without a model.
-	ExtensionId *string
-	// The actual model execution and its reported usage.
-	Model *BranchSummaryModelSource
-	// -- end of xxx_hidden_Source
-}
-
-func (b0 BranchSummarySource_builder) Build() *BranchSummarySource {
-	m0 := &BranchSummarySource{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.ExtensionId != nil {
-		x.xxx_hidden_Source = &branchSummarySource_ExtensionId{*b.ExtensionId}
-	}
-	if b.Model != nil {
-		x.xxx_hidden_Source = &branchSummarySource_Model{b.Model}
-	}
-	return m0
-}
-
-type case_BranchSummarySource_Source protoreflect.FieldNumber
-
-func (x case_BranchSummarySource_Source) String() string {
-	md := file_api_plugins_extension_v1_session_tree_proto_msgTypes[24].Descriptor()
-	if x == 0 {
-		return "not set"
-	}
-	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
-}
-
-type isBranchSummarySource_Source interface {
-	isBranchSummarySource_Source()
-}
-
-type branchSummarySource_ExtensionId struct {
-	// The extension that produced the result without a model.
-	ExtensionId string `protobuf:"bytes,1,opt,name=extension_id,json=extensionId,oneof"`
-}
-
-type branchSummarySource_Model struct {
-	// The actual model execution and its reported usage.
-	Model *BranchSummaryModelSource `protobuf:"bytes,2,opt,name=model,oneof"`
-}
-
-func (*branchSummarySource_ExtensionId) isBranchSummarySource_Source() {}
-
-func (*branchSummarySource_Model) isBranchSummarySource_Source() {}
-
-// BranchSummaryModelSource keeps model identity and reported usage together.
-type BranchSummaryModelSource struct {
-	state                protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Selection *ModelSelection        `protobuf:"bytes,1,opt,name=selection"`
-	xxx_hidden_Usage     *TokenUsage            `protobuf:"bytes,2,opt,name=usage"`
-	unknownFields        protoimpl.UnknownFields
-	sizeCache            protoimpl.SizeCache
-}
-
-func (x *BranchSummaryModelSource) Reset() {
-	*x = BranchSummaryModelSource{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *BranchSummaryModelSource) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*BranchSummaryModelSource) ProtoMessage() {}
-
-func (x *BranchSummaryModelSource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[25]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *BranchSummaryModelSource) GetSelection() *ModelSelection {
-	if x != nil {
-		return x.xxx_hidden_Selection
-	}
-	return nil
-}
-
-func (x *BranchSummaryModelSource) GetUsage() *TokenUsage {
-	if x != nil {
-		return x.xxx_hidden_Usage
-	}
-	return nil
-}
-
-func (x *BranchSummaryModelSource) SetSelection(v *ModelSelection) {
-	x.xxx_hidden_Selection = v
-}
-
-func (x *BranchSummaryModelSource) SetUsage(v *TokenUsage) {
-	x.xxx_hidden_Usage = v
-}
-
-func (x *BranchSummaryModelSource) HasSelection() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Selection != nil
-}
-
-func (x *BranchSummaryModelSource) HasUsage() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Usage != nil
-}
-
-func (x *BranchSummaryModelSource) ClearSelection() {
-	x.xxx_hidden_Selection = nil
-}
-
-func (x *BranchSummaryModelSource) ClearUsage() {
-	x.xxx_hidden_Usage = nil
-}
-
-type BranchSummaryModelSource_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The required provider, model, and reasoning choice that produced the result.
-	Selection *ModelSelection
-	// Normalized provider usage, when reported.
-	Usage *TokenUsage
-}
-
-func (b0 BranchSummaryModelSource_builder) Build() *BranchSummaryModelSource {
-	m0 := &BranchSummaryModelSource{}
-	b, x := &b0, m0
-	_, _ = b, x
-	x.xxx_hidden_Selection = b.Selection
-	x.xxx_hidden_Usage = b.Usage
-	return m0
-}
-
-// TokenUsage contains normalized token accounting.
-type TokenUsage struct {
-	state                       protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_InputTokens      int64                  `protobuf:"varint,1,opt,name=input_tokens,json=inputTokens"`
-	xxx_hidden_OutputTokens     int64                  `protobuf:"varint,2,opt,name=output_tokens,json=outputTokens"`
-	xxx_hidden_CacheReadTokens  int64                  `protobuf:"varint,3,opt,name=cache_read_tokens,json=cacheReadTokens"`
-	xxx_hidden_CacheWriteTokens int64                  `protobuf:"varint,4,opt,name=cache_write_tokens,json=cacheWriteTokens"`
-	xxx_hidden_ReasoningTokens  int64                  `protobuf:"varint,5,opt,name=reasoning_tokens,json=reasoningTokens"`
-	xxx_hidden_TotalTokens      int64                  `protobuf:"varint,6,opt,name=total_tokens,json=totalTokens"`
-	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
-	XXX_presence                [1]uint32
-	unknownFields               protoimpl.UnknownFields
-	sizeCache                   protoimpl.SizeCache
-}
-
-func (x *TokenUsage) Reset() {
-	*x = TokenUsage{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *TokenUsage) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*TokenUsage) ProtoMessage() {}
-
-func (x *TokenUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[26]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *TokenUsage) GetInputTokens() int64 {
-	if x != nil {
-		return x.xxx_hidden_InputTokens
-	}
-	return 0
-}
-
-func (x *TokenUsage) GetOutputTokens() int64 {
-	if x != nil {
-		return x.xxx_hidden_OutputTokens
-	}
-	return 0
-}
-
-func (x *TokenUsage) GetCacheReadTokens() int64 {
-	if x != nil {
-		return x.xxx_hidden_CacheReadTokens
-	}
-	return 0
-}
-
-func (x *TokenUsage) GetCacheWriteTokens() int64 {
-	if x != nil {
-		return x.xxx_hidden_CacheWriteTokens
-	}
-	return 0
-}
-
-func (x *TokenUsage) GetReasoningTokens() int64 {
-	if x != nil {
-		return x.xxx_hidden_ReasoningTokens
-	}
-	return 0
-}
-
-func (x *TokenUsage) GetTotalTokens() int64 {
-	if x != nil {
-		return x.xxx_hidden_TotalTokens
-	}
-	return 0
-}
-
-func (x *TokenUsage) SetInputTokens(v int64) {
-	x.xxx_hidden_InputTokens = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
-}
-
-func (x *TokenUsage) SetOutputTokens(v int64) {
-	x.xxx_hidden_OutputTokens = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
-}
-
-func (x *TokenUsage) SetCacheReadTokens(v int64) {
-	x.xxx_hidden_CacheReadTokens = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
-}
-
-func (x *TokenUsage) SetCacheWriteTokens(v int64) {
-	x.xxx_hidden_CacheWriteTokens = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
-}
-
-func (x *TokenUsage) SetReasoningTokens(v int64) {
-	x.xxx_hidden_ReasoningTokens = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
-}
-
-func (x *TokenUsage) SetTotalTokens(v int64) {
-	x.xxx_hidden_TotalTokens = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
-}
-
-func (x *TokenUsage) HasInputTokens() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *TokenUsage) HasOutputTokens() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *TokenUsage) HasCacheReadTokens() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *TokenUsage) HasCacheWriteTokens() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
-}
-
-func (x *TokenUsage) HasReasoningTokens() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
-}
-
-func (x *TokenUsage) HasTotalTokens() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
-}
-
-func (x *TokenUsage) ClearInputTokens() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_InputTokens = 0
-}
-
-func (x *TokenUsage) ClearOutputTokens() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_OutputTokens = 0
-}
-
-func (x *TokenUsage) ClearCacheReadTokens() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_CacheReadTokens = 0
-}
-
-func (x *TokenUsage) ClearCacheWriteTokens() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_CacheWriteTokens = 0
-}
-
-func (x *TokenUsage) ClearReasoningTokens() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
-	x.xxx_hidden_ReasoningTokens = 0
-}
-
-func (x *TokenUsage) ClearTotalTokens() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
-	x.xxx_hidden_TotalTokens = 0
-}
-
-type TokenUsage_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// Input tokens excluding cache buckets.
-	InputTokens *int64
-	// Output tokens including the reasoning subset.
-	OutputTokens *int64
-	// Cache-read input tokens.
-	CacheReadTokens *int64
-	// Cache-write input tokens.
-	CacheWriteTokens *int64
-	// Reasoning output tokens.
-	ReasoningTokens *int64
-	// Total input, output, cache-read, and cache-write tokens without recounting reasoning.
-	TotalTokens *int64
-}
-
-func (b0 TokenUsage_builder) Build() *TokenUsage {
-	m0 := &TokenUsage{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.InputTokens != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
-		x.xxx_hidden_InputTokens = *b.InputTokens
-	}
-	if b.OutputTokens != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
-		x.xxx_hidden_OutputTokens = *b.OutputTokens
-	}
-	if b.CacheReadTokens != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
-		x.xxx_hidden_CacheReadTokens = *b.CacheReadTokens
-	}
-	if b.CacheWriteTokens != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
-		x.xxx_hidden_CacheWriteTokens = *b.CacheWriteTokens
-	}
-	if b.ReasoningTokens != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
-		x.xxx_hidden_ReasoningTokens = *b.ReasoningTokens
-	}
-	if b.TotalTokens != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
-		x.xxx_hidden_TotalTokens = *b.TotalTokens
-	}
-	return m0
-}
-
-// CommittedBranchSummary contains the complete Host-committed summary entry.
-type CommittedBranchSummary struct {
-	state                    protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_EntryId       *string                `protobuf:"bytes,1,opt,name=entry_id,json=entryId"`
-	xxx_hidden_Summary       *string                `protobuf:"bytes,2,opt,name=summary"`
-	xxx_hidden_FirstEntryId  *string                `protobuf:"bytes,3,opt,name=first_entry_id,json=firstEntryId"`
-	xxx_hidden_LastEntryId   *string                `protobuf:"bytes,4,opt,name=last_entry_id,json=lastEntryId"`
-	xxx_hidden_Source        *BranchSummarySource   `protobuf:"bytes,5,opt,name=source"`
-	xxx_hidden_EstimatedCost *EstimatedCost         `protobuf:"bytes,6,opt,name=estimated_cost,json=estimatedCost"`
-	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
-	XXX_presence             [1]uint32
-	unknownFields            protoimpl.UnknownFields
-	sizeCache                protoimpl.SizeCache
-}
-
-func (x *CommittedBranchSummary) Reset() {
-	*x = CommittedBranchSummary{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *CommittedBranchSummary) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*CommittedBranchSummary) ProtoMessage() {}
-
-func (x *CommittedBranchSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[27]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *CommittedBranchSummary) GetEntryId() string {
-	if x != nil {
-		if x.xxx_hidden_EntryId != nil {
-			return *x.xxx_hidden_EntryId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *CommittedBranchSummary) GetSummary() string {
-	if x != nil {
-		if x.xxx_hidden_Summary != nil {
-			return *x.xxx_hidden_Summary
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *CommittedBranchSummary) GetFirstEntryId() string {
-	if x != nil {
-		if x.xxx_hidden_FirstEntryId != nil {
-			return *x.xxx_hidden_FirstEntryId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *CommittedBranchSummary) GetLastEntryId() string {
-	if x != nil {
-		if x.xxx_hidden_LastEntryId != nil {
-			return *x.xxx_hidden_LastEntryId
-		}
-		return ""
-	}
-	return ""
-}
-
-func (x *CommittedBranchSummary) GetSource() *BranchSummarySource {
-	if x != nil {
-		return x.xxx_hidden_Source
-	}
-	return nil
-}
-
-func (x *CommittedBranchSummary) GetEstimatedCost() *EstimatedCost {
-	if x != nil {
-		return x.xxx_hidden_EstimatedCost
-	}
-	return nil
-}
-
-func (x *CommittedBranchSummary) SetEntryId(v string) {
-	x.xxx_hidden_EntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
-}
-
-func (x *CommittedBranchSummary) SetSummary(v string) {
-	x.xxx_hidden_Summary = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
-}
-
-func (x *CommittedBranchSummary) SetFirstEntryId(v string) {
-	x.xxx_hidden_FirstEntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
-}
-
-func (x *CommittedBranchSummary) SetLastEntryId(v string) {
-	x.xxx_hidden_LastEntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
-}
-
-func (x *CommittedBranchSummary) SetSource(v *BranchSummarySource) {
-	x.xxx_hidden_Source = v
-}
-
-func (x *CommittedBranchSummary) SetEstimatedCost(v *EstimatedCost) {
-	x.xxx_hidden_EstimatedCost = v
-}
-
-func (x *CommittedBranchSummary) HasEntryId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *CommittedBranchSummary) HasSummary() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *CommittedBranchSummary) HasFirstEntryId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *CommittedBranchSummary) HasLastEntryId() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
-}
-
-func (x *CommittedBranchSummary) HasSource() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Source != nil
-}
-
-func (x *CommittedBranchSummary) HasEstimatedCost() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_EstimatedCost != nil
-}
-
-func (x *CommittedBranchSummary) ClearEntryId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_EntryId = nil
-}
-
-func (x *CommittedBranchSummary) ClearSummary() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Summary = nil
-}
-
-func (x *CommittedBranchSummary) ClearFirstEntryId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_FirstEntryId = nil
-}
-
-func (x *CommittedBranchSummary) ClearLastEntryId() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_LastEntryId = nil
-}
-
-func (x *CommittedBranchSummary) ClearSource() {
-	x.xxx_hidden_Source = nil
-}
-
-func (x *CommittedBranchSummary) ClearEstimatedCost() {
-	x.xxx_hidden_EstimatedCost = nil
-}
-
-type CommittedBranchSummary_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// The committed session entry identifier.
-	EntryId *string
-	// The persisted summary text.
-	Summary *string
-	// The first abandoned entry identifier.
-	FirstEntryId *string
-	// The last abandoned entry identifier.
-	LastEntryId *string
-	// The actual producer and its model usage.
-	Source *BranchSummarySource
-	// Persisted estimated cost, when calculable for a model source.
-	EstimatedCost *EstimatedCost
-}
-
-func (b0 CommittedBranchSummary_builder) Build() *CommittedBranchSummary {
-	m0 := &CommittedBranchSummary{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.EntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
-		x.xxx_hidden_EntryId = b.EntryId
-	}
-	if b.Summary != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
-		x.xxx_hidden_Summary = b.Summary
-	}
-	if b.FirstEntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
-		x.xxx_hidden_FirstEntryId = b.FirstEntryId
-	}
-	if b.LastEntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
-		x.xxx_hidden_LastEntryId = b.LastEntryId
-	}
-	x.xxx_hidden_Source = b.Source
-	x.xxx_hidden_EstimatedCost = b.EstimatedCost
-	return m0
-}
-
-// EstimatedCost contains persisted USD cost buckets.
-type EstimatedCost struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Input       float64                `protobuf:"fixed64,1,opt,name=input"`
-	xxx_hidden_Output      float64                `protobuf:"fixed64,2,opt,name=output"`
-	xxx_hidden_CacheRead   float64                `protobuf:"fixed64,3,opt,name=cache_read,json=cacheRead"`
-	xxx_hidden_CacheWrite  float64                `protobuf:"fixed64,4,opt,name=cache_write,json=cacheWrite"`
-	xxx_hidden_Total       float64                `protobuf:"fixed64,5,opt,name=total"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
-}
-
-func (x *EstimatedCost) Reset() {
-	*x = EstimatedCost{}
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[28]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *EstimatedCost) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*EstimatedCost) ProtoMessage() {}
-
-func (x *EstimatedCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_tree_proto_msgTypes[28]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-func (x *EstimatedCost) GetInput() float64 {
-	if x != nil {
-		return x.xxx_hidden_Input
-	}
-	return 0
-}
-
-func (x *EstimatedCost) GetOutput() float64 {
-	if x != nil {
-		return x.xxx_hidden_Output
-	}
-	return 0
-}
-
-func (x *EstimatedCost) GetCacheRead() float64 {
-	if x != nil {
-		return x.xxx_hidden_CacheRead
-	}
-	return 0
-}
-
-func (x *EstimatedCost) GetCacheWrite() float64 {
-	if x != nil {
-		return x.xxx_hidden_CacheWrite
-	}
-	return 0
-}
-
-func (x *EstimatedCost) GetTotal() float64 {
-	if x != nil {
-		return x.xxx_hidden_Total
-	}
-	return 0
-}
-
-func (x *EstimatedCost) SetInput(v float64) {
-	x.xxx_hidden_Input = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
-}
-
-func (x *EstimatedCost) SetOutput(v float64) {
-	x.xxx_hidden_Output = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
-}
-
-func (x *EstimatedCost) SetCacheRead(v float64) {
-	x.xxx_hidden_CacheRead = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
-}
-
-func (x *EstimatedCost) SetCacheWrite(v float64) {
-	x.xxx_hidden_CacheWrite = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
-}
-
-func (x *EstimatedCost) SetTotal(v float64) {
-	x.xxx_hidden_Total = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
-}
-
-func (x *EstimatedCost) HasInput() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *EstimatedCost) HasOutput() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
-}
-
-func (x *EstimatedCost) HasCacheRead() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
-}
-
-func (x *EstimatedCost) HasCacheWrite() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
-}
-
-func (x *EstimatedCost) HasTotal() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
-}
-
-func (x *EstimatedCost) ClearInput() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Input = 0
-}
-
-func (x *EstimatedCost) ClearOutput() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
-	x.xxx_hidden_Output = 0
-}
-
-func (x *EstimatedCost) ClearCacheRead() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
-	x.xxx_hidden_CacheRead = 0
-}
-
-func (x *EstimatedCost) ClearCacheWrite() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
-	x.xxx_hidden_CacheWrite = 0
-}
-
-func (x *EstimatedCost) ClearTotal() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
-	x.xxx_hidden_Total = 0
-}
-
-type EstimatedCost_builder struct {
-	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
-
-	// Uncached input-token cost.
-	Input *float64
-	// Output-token cost.
-	Output *float64
-	// Cache-read token cost.
-	CacheRead *float64
-	// Cache-write token cost.
-	CacheWrite *float64
-	// Total cost across all buckets.
-	Total *float64
-}
-
-func (b0 EstimatedCost_builder) Build() *EstimatedCost {
-	m0 := &EstimatedCost{}
-	b, x := &b0, m0
-	_, _ = b, x
-	if b.Input != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
-		x.xxx_hidden_Input = *b.Input
-	}
-	if b.Output != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
-		x.xxx_hidden_Output = *b.Output
-	}
-	if b.CacheRead != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
-		x.xxx_hidden_CacheRead = *b.CacheRead
-	}
-	if b.CacheWrite != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
-		x.xxx_hidden_CacheWrite = *b.CacheWrite
-	}
-	if b.Total != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
-		x.xxx_hidden_Total = *b.Total
-	}
-	return m0
-}
-
 var File_api_plugins_extension_v1_session_tree_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\n" +
-	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a$api/plugins/extension/v1/retry.proto\x1a&api/plugins/extension/v1/session.proto\x1a#api/plugins/extension/v1/tool.proto\"\xc3\x06\n" +
+	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a)api/plugins/extension/v1/compaction.proto\x1a&api/plugins/extension/v1/context.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a$api/plugins/extension/v1/retry.proto\x1a,api/plugins/extension/v1/session_entry.proto\"\xc0\n" +
+	"\n" +
 	"\rHandleRequest\x12\x1d\n" +
 	"\n" +
 	"handler_id\x18\x01 \x01(\tR\thandlerId\x12F\n" +
@@ -5495,8 +2997,14 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\tlifecycle\x18\x06 \x01(\v2/.glyph.plugins.extension.v1.LifecycleInvocationH\x00R\tlifecycle\x12a\n" +
 	"\x0fmodel_selection\x18\a \x01(\v26.glyph.plugins.extension.v1.SelectionHandlerInvocationH\x00R\x0emodelSelection\x12i\n" +
 	"\x13reasoning_selection\x18\b \x01(\v26.glyph.plugins.extension.v1.SelectionHandlerInvocationH\x00R\x12reasoningSelection\x12J\n" +
-	"\x05retry\x18\t \x01(\v22.glyph.plugins.extension.v1.RetryHandlerInvocationH\x00R\x05retryB\t\n" +
-	"\apayload\"\x83\x06\n" +
+	"\x05retry\x18\t \x01(\v22.glyph.plugins.extension.v1.RetryHandlerInvocationH\x00R\x05retry\x12h\n" +
+	"\x12compaction_request\x18\n" +
+	" \x01(\v27.glyph.plugins.extension.v1.CompactionRequestInvocationH\x00R\x11compactionRequest\x12j\n" +
+	"\x13compaction_generate\x18\v \x01(\v27.glyph.plugins.extension.v1.CompactionRequestInvocationH\x00R\x12compactionGenerate\x12e\n" +
+	"\x11compaction_result\x18\f \x01(\v26.glyph.plugins.extension.v1.CompactionResultInvocationH\x00R\x10compactionResult\x12^\n" +
+	"\x12compaction_success\x18\r \x01(\v2-.glyph.plugins.extension.v1.CompactionOutcomeH\x00R\x11compactionSuccess\x12^\n" +
+	"\x12compaction_failure\x18\x0e \x01(\v2-.glyph.plugins.extension.v1.CompactionOutcomeH\x00R\x11compactionFailureB\t\n" +
+	"\apayload\"\xfb\t\n" +
 	"\x0eHandleResponse\x12{\n" +
 	"\x1bsession_before_tree_request\x18\x01 \x01(\v2:.glyph.plugins.extension.v1.SessionBeforeTreeRequestActionH\x00R\x18sessionBeforeTreeRequest\x12x\n" +
 	"\x1asession_before_tree_result\x18\x02 \x01(\v29.glyph.plugins.extension.v1.SessionBeforeTreeResultActionH\x00R\x17sessionBeforeTreeResult\x12R\n" +
@@ -5505,7 +3013,13 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\tlifecycle\x18\x05 \x01(\v2+.glyph.plugins.extension.v1.LifecycleActionH\x00R\tlifecycle\x12]\n" +
 	"\x0fmodel_selection\x18\x06 \x01(\v22.glyph.plugins.extension.v1.SelectionHandlerActionH\x00R\x0emodelSelection\x12e\n" +
 	"\x13reasoning_selection\x18\a \x01(\v22.glyph.plugins.extension.v1.SelectionHandlerActionH\x00R\x12reasoningSelection\x12F\n" +
-	"\x05retry\x18\b \x01(\v2..glyph.plugins.extension.v1.RetryHandlerActionH\x00R\x05retryB\t\n" +
+	"\x05retry\x18\b \x01(\v2..glyph.plugins.extension.v1.RetryHandlerActionH\x00R\x05retry\x12d\n" +
+	"\x12compaction_request\x18\t \x01(\v23.glyph.plugins.extension.v1.CompactionRequestActionH\x00R\x11compactionRequest\x12_\n" +
+	"\x13compaction_generate\x18\n" +
+	" \x01(\v2,.glyph.plugins.extension.v1.CompactionResultH\x00R\x12compactionGenerate\x12a\n" +
+	"\x11compaction_result\x18\v \x01(\v22.glyph.plugins.extension.v1.CompactionResultActionH\x00R\x10compactionResult\x12e\n" +
+	"\x12compaction_success\x18\f \x01(\v24.glyph.plugins.extension.v1.CompactionObserverActionH\x00R\x11compactionSuccess\x12e\n" +
+	"\x12compaction_failure\x18\r \x01(\v24.glyph.plugins.extension.v1.CompactionObserverActionH\x00R\x11compactionFailureB\t\n" +
 	"\aoutcome\"(\n" +
 	"\fHandlerError\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\x90\x04\n" +
@@ -5552,98 +3066,7 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\x18preceding_active_leaf_id\x18\x02 \x01(\tR\x15precedingActiveLeafId\x12:\n" +
 	"\x19navigation_destination_id\x18\x03 \x01(\tR\x17navigationDestinationId\x12,\n" +
 	"\x12common_ancestor_id\x18\x04 \x01(\tR\x10commonAncestorId\x12Y\n" +
-	"\x11abandoned_entries\x18\x05 \x03(\v2,.glyph.plugins.extension.v1.SessionTreeEntryR\x10abandonedEntries\"\x8e\x05\n" +
-	"\x10SessionTreeEntry\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12H\n" +
-	"\x04user\x18\x02 \x01(\v22.glyph.plugins.extension.v1.SessionTreeUserMessageH\x00R\x04user\x12L\n" +
-	"\x05model\x18\x03 \x01(\v24.glyph.plugins.extension.v1.SessionTreeModelResponseH\x00R\x05model\x12T\n" +
-	"\vtool_result\x18\x04 \x01(\v21.glyph.plugins.extension.v1.SessionTreeToolResultH\x00R\n" +
-	"toolResult\x12]\n" +
-	"\x0ebranch_summary\x18\x05 \x01(\v24.glyph.plugins.extension.v1.SessionTreeBranchSummaryH\x00R\rbranchSummary\x12U\n" +
-	"\textension\x18\x06 \x01(\v25.glyph.plugins.extension.v1.SessionTreeExtensionEntryH\x00R\textension\x12f\n" +
-	"\x11extension_message\x18\a \x01(\v27.glyph.plugins.extension.v1.SessionTreeExtensionMessageH\x00R\x10extensionMessage\x12S\n" +
-	"\n" +
-	"compaction\x18\b \x01(\v21.glyph.plugins.extension.v1.SessionTreeCompactionH\x00R\n" +
-	"compactionB\t\n" +
-	"\acontent\"\xc1\x01\n" +
-	"\x1bSessionTreeExtensionMessage\x12!\n" +
-	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
-	"\n" +
-	"entry_type\x18\x02 \x01(\tR\tentryType\x12\x12\n" +
-	"\x04text\x18\x03 \x01(\tR\x04text\x12L\n" +
-	"\n" +
-	"visibility\x18\x04 \x01(\x0e2,.glyph.plugins.extension.v1.ClientVisibilityR\n" +
-	"visibility\"f\n" +
-	"\x16SessionTreeUserMessage\x12L\n" +
-	"\acontent\x18\x01 \x03(\v22.glyph.plugins.extension.v1.SessionTreeUserContentR\acontent\"\x7f\n" +
-	"\x16SessionTreeUserContent\x12\x14\n" +
-	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12D\n" +
-	"\x05image\x18\x02 \x01(\v2,.glyph.plugins.extension.v1.SessionTreeImageH\x00R\x05imageB\t\n" +
-	"\acontent\"E\n" +
-	"\x10SessionTreeImage\x12\x1d\n" +
-	"\n" +
-	"media_type\x18\x01 \x01(\tR\tmediaType\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\"i\n" +
-	"\x18SessionTreeModelResponse\x12M\n" +
-	"\acontent\x18\x01 \x03(\v23.glyph.plugins.extension.v1.SessionTreeModelContentR\acontent\"\xc8\x01\n" +
-	"\x17SessionTreeModelContent\x12K\n" +
-	"\x04kind\x18\x01 \x01(\x0e27.glyph.plugins.extension.v1.SessionTreeModelContentKindR\x04kind\x12\x12\n" +
-	"\x04text\x18\x02 \x01(\tR\x04text\x12L\n" +
-	"\ttool_call\x18\x03 \x01(\v2/.glyph.plugins.extension.v1.SessionTreeToolCallR\btoolCall\"`\n" +
-	"\x13SessionTreeToolCall\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
-	"\x0earguments_json\x18\x03 \x01(\fR\rargumentsJson\"\xb3\x01\n" +
-	"\x15SessionTreeToolResult\x12\x17\n" +
-	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
-	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12I\n" +
-	"\bcontents\x18\x03 \x03(\v2-.glyph.plugins.extension.v1.ToolResultContentR\bcontents\x12\x19\n" +
-	"\bis_error\x18\x04 \x01(\bR\aisError\"4\n" +
-	"\x18SessionTreeBranchSummary\x12\x18\n" +
-	"\asummary\x18\x01 \x01(\tR\asummary\"\x95\x02\n" +
-	"\x15SessionTreeCompaction\x12\x18\n" +
-	"\asummary\x18\x01 \x01(\tR\asummary\x12-\n" +
-	"\x13first_kept_entry_id\x18\x02 \x01(\tR\x10firstKeptEntryId\x12G\n" +
-	"\x06source\x18\x03 \x01(\v2/.glyph.plugins.extension.v1.BranchSummarySourceR\x06source\x12P\n" +
-	"\x0eestimated_cost\x18\x04 \x01(\v2).glyph.plugins.extension.v1.EstimatedCostR\restimatedCost\x12\x18\n" +
-	"\adetails\x18\x05 \x01(\fR\adetails\"]\n" +
-	"\x19SessionTreeExtensionEntry\x12!\n" +
-	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
-	"\n" +
-	"entry_type\x18\x02 \x01(\tR\tentryType\"x\n" +
-	"\x13BranchSummaryResult\x12\x18\n" +
-	"\asummary\x18\x01 \x01(\tR\asummary\x12G\n" +
-	"\x06source\x18\x02 \x01(\v2/.glyph.plugins.extension.v1.BranchSummarySourceR\x06source\"\x92\x01\n" +
-	"\x13BranchSummarySource\x12#\n" +
-	"\fextension_id\x18\x01 \x01(\tH\x00R\vextensionId\x12L\n" +
-	"\x05model\x18\x02 \x01(\v24.glyph.plugins.extension.v1.BranchSummaryModelSourceH\x00R\x05modelB\b\n" +
-	"\x06source\"\xa2\x01\n" +
-	"\x18BranchSummaryModelSource\x12H\n" +
-	"\tselection\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tselection\x12<\n" +
-	"\x05usage\x18\x02 \x01(\v2&.glyph.plugins.extension.v1.TokenUsageR\x05usage\"\xfc\x01\n" +
-	"\n" +
-	"TokenUsage\x12!\n" +
-	"\finput_tokens\x18\x01 \x01(\x03R\vinputTokens\x12#\n" +
-	"\routput_tokens\x18\x02 \x01(\x03R\foutputTokens\x12*\n" +
-	"\x11cache_read_tokens\x18\x03 \x01(\x03R\x0fcacheReadTokens\x12,\n" +
-	"\x12cache_write_tokens\x18\x04 \x01(\x03R\x10cacheWriteTokens\x12)\n" +
-	"\x10reasoning_tokens\x18\x05 \x01(\x03R\x0freasoningTokens\x12!\n" +
-	"\ftotal_tokens\x18\x06 \x01(\x03R\vtotalTokens\"\xb2\x02\n" +
-	"\x16CommittedBranchSummary\x12\x19\n" +
-	"\bentry_id\x18\x01 \x01(\tR\aentryId\x12\x18\n" +
-	"\asummary\x18\x02 \x01(\tR\asummary\x12$\n" +
-	"\x0efirst_entry_id\x18\x03 \x01(\tR\ffirstEntryId\x12\"\n" +
-	"\rlast_entry_id\x18\x04 \x01(\tR\vlastEntryId\x12G\n" +
-	"\x06source\x18\x05 \x01(\v2/.glyph.plugins.extension.v1.BranchSummarySourceR\x06source\x12P\n" +
-	"\x0eestimated_cost\x18\x06 \x01(\v2).glyph.plugins.extension.v1.EstimatedCostR\restimatedCost\"\x93\x01\n" +
-	"\rEstimatedCost\x12\x14\n" +
-	"\x05input\x18\x01 \x01(\x01R\x05input\x12\x16\n" +
-	"\x06output\x18\x02 \x01(\x01R\x06output\x12\x1d\n" +
-	"\n" +
-	"cache_read\x18\x03 \x01(\x01R\tcacheRead\x12\x1f\n" +
-	"\vcache_write\x18\x04 \x01(\x01R\n" +
-	"cacheWrite\x12\x14\n" +
-	"\x05total\x18\x05 \x01(\x01R\x05total*h\n" +
+	"\x11abandoned_entries\x18\x05 \x03(\v2,.glyph.plugins.extension.v1.SessionTreeEntryR\x10abandonedEntries*h\n" +
 	"\rRequestAction\x12\x1e\n" +
 	"\x1aREQUEST_ACTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17REQUEST_ACTION_PRESERVE\x10\x01\x12\x1a\n" +
@@ -5657,126 +3080,97 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\x18SUMMARY_MODE_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17SUMMARY_MODE_NO_SUMMARY\x10\x01\x12\x1a\n" +
 	"\x16SUMMARY_MODE_SUMMARIZE\x10\x02\x12-\n" +
-	")SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT\x10\x03*\x83\x02\n" +
-	"\x1bSessionTreeModelContentKind\x12/\n" +
-	"+SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED\x10\x00\x12(\n" +
-	"$SESSION_TREE_MODEL_CONTENT_KIND_TEXT\x10\x01\x12+\n" +
-	"'SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL\x10\x02\x12-\n" +
-	")SESSION_TREE_MODEL_CONTENT_KIND_REASONING\x10\x03\x12-\n" +
-	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
+	")SUMMARY_MODE_SUMMARIZE_WITH_CUSTOM_PROMPT\x10\x03B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_session_tree_proto_enumTypes = make([]protoimpl.EnumInfo, 4)
-var file_api_plugins_extension_v1_session_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_api_plugins_extension_v1_session_tree_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
+var file_api_plugins_extension_v1_session_tree_proto_msgTypes = make([]protoimpl.MessageInfo, 11)
 var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
 	(RequestAction)(0),                         // 0: glyph.plugins.extension.v1.RequestAction
 	(ResultAction)(0),                          // 1: glyph.plugins.extension.v1.ResultAction
 	(SummaryMode)(0),                           // 2: glyph.plugins.extension.v1.SummaryMode
-	(SessionTreeModelContentKind)(0),           // 3: glyph.plugins.extension.v1.SessionTreeModelContentKind
-	(*HandleRequest)(nil),                      // 4: glyph.plugins.extension.v1.HandleRequest
-	(*HandleResponse)(nil),                     // 5: glyph.plugins.extension.v1.HandleResponse
-	(*HandlerError)(nil),                       // 6: glyph.plugins.extension.v1.HandlerError
-	(*SessionBeforeTreeRequestInvocation)(nil), // 7: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
-	(*SessionBeforeTreeResultInvocation)(nil),  // 8: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
-	(*SessionTreeInvocation)(nil),              // 9: glyph.plugins.extension.v1.SessionTreeInvocation
-	(*SessionBeforeTreeRequestAction)(nil),     // 10: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
-	(*SessionBeforeTreeResultAction)(nil),      // 11: glyph.plugins.extension.v1.SessionBeforeTreeResultAction
-	(*SessionTreeAction)(nil),                  // 12: glyph.plugins.extension.v1.SessionTreeAction
-	(*SessionTreeNavigationRequest)(nil),       // 13: glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	(*SessionTreePreparation)(nil),             // 14: glyph.plugins.extension.v1.SessionTreePreparation
-	(*SessionTreeEntry)(nil),                   // 15: glyph.plugins.extension.v1.SessionTreeEntry
-	(*SessionTreeExtensionMessage)(nil),        // 16: glyph.plugins.extension.v1.SessionTreeExtensionMessage
-	(*SessionTreeUserMessage)(nil),             // 17: glyph.plugins.extension.v1.SessionTreeUserMessage
-	(*SessionTreeUserContent)(nil),             // 18: glyph.plugins.extension.v1.SessionTreeUserContent
-	(*SessionTreeImage)(nil),                   // 19: glyph.plugins.extension.v1.SessionTreeImage
-	(*SessionTreeModelResponse)(nil),           // 20: glyph.plugins.extension.v1.SessionTreeModelResponse
-	(*SessionTreeModelContent)(nil),            // 21: glyph.plugins.extension.v1.SessionTreeModelContent
-	(*SessionTreeToolCall)(nil),                // 22: glyph.plugins.extension.v1.SessionTreeToolCall
-	(*SessionTreeToolResult)(nil),              // 23: glyph.plugins.extension.v1.SessionTreeToolResult
-	(*SessionTreeBranchSummary)(nil),           // 24: glyph.plugins.extension.v1.SessionTreeBranchSummary
-	(*SessionTreeCompaction)(nil),              // 25: glyph.plugins.extension.v1.SessionTreeCompaction
-	(*SessionTreeExtensionEntry)(nil),          // 26: glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	(*BranchSummaryResult)(nil),                // 27: glyph.plugins.extension.v1.BranchSummaryResult
-	(*BranchSummarySource)(nil),                // 28: glyph.plugins.extension.v1.BranchSummarySource
-	(*BranchSummaryModelSource)(nil),           // 29: glyph.plugins.extension.v1.BranchSummaryModelSource
-	(*TokenUsage)(nil),                         // 30: glyph.plugins.extension.v1.TokenUsage
-	(*CommittedBranchSummary)(nil),             // 31: glyph.plugins.extension.v1.CommittedBranchSummary
-	(*EstimatedCost)(nil),                      // 32: glyph.plugins.extension.v1.EstimatedCost
-	(*ExtensionContext)(nil),                   // 33: glyph.plugins.extension.v1.ExtensionContext
-	(*LifecycleInvocation)(nil),                // 34: glyph.plugins.extension.v1.LifecycleInvocation
-	(*SelectionHandlerInvocation)(nil),         // 35: glyph.plugins.extension.v1.SelectionHandlerInvocation
-	(*RetryHandlerInvocation)(nil),             // 36: glyph.plugins.extension.v1.RetryHandlerInvocation
-	(*LifecycleAction)(nil),                    // 37: glyph.plugins.extension.v1.LifecycleAction
-	(*SelectionHandlerAction)(nil),             // 38: glyph.plugins.extension.v1.SelectionHandlerAction
-	(*RetryHandlerAction)(nil),                 // 39: glyph.plugins.extension.v1.RetryHandlerAction
-	(*ModelSelection)(nil),                     // 40: glyph.plugins.extension.v1.ModelSelection
-	(ClientVisibility)(0),                      // 41: glyph.plugins.extension.v1.ClientVisibility
-	(*ToolResultContent)(nil),                  // 42: glyph.plugins.extension.v1.ToolResultContent
+	(*HandleRequest)(nil),                      // 3: glyph.plugins.extension.v1.HandleRequest
+	(*HandleResponse)(nil),                     // 4: glyph.plugins.extension.v1.HandleResponse
+	(*HandlerError)(nil),                       // 5: glyph.plugins.extension.v1.HandlerError
+	(*SessionBeforeTreeRequestInvocation)(nil), // 6: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
+	(*SessionBeforeTreeResultInvocation)(nil),  // 7: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
+	(*SessionTreeInvocation)(nil),              // 8: glyph.plugins.extension.v1.SessionTreeInvocation
+	(*SessionBeforeTreeRequestAction)(nil),     // 9: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
+	(*SessionBeforeTreeResultAction)(nil),      // 10: glyph.plugins.extension.v1.SessionBeforeTreeResultAction
+	(*SessionTreeAction)(nil),                  // 11: glyph.plugins.extension.v1.SessionTreeAction
+	(*SessionTreeNavigationRequest)(nil),       // 12: glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	(*SessionTreePreparation)(nil),             // 13: glyph.plugins.extension.v1.SessionTreePreparation
+	(*ExtensionContext)(nil),                   // 14: glyph.plugins.extension.v1.ExtensionContext
+	(*LifecycleInvocation)(nil),                // 15: glyph.plugins.extension.v1.LifecycleInvocation
+	(*SelectionHandlerInvocation)(nil),         // 16: glyph.plugins.extension.v1.SelectionHandlerInvocation
+	(*RetryHandlerInvocation)(nil),             // 17: glyph.plugins.extension.v1.RetryHandlerInvocation
+	(*CompactionRequestInvocation)(nil),        // 18: glyph.plugins.extension.v1.CompactionRequestInvocation
+	(*CompactionResultInvocation)(nil),         // 19: glyph.plugins.extension.v1.CompactionResultInvocation
+	(*CompactionOutcome)(nil),                  // 20: glyph.plugins.extension.v1.CompactionOutcome
+	(*LifecycleAction)(nil),                    // 21: glyph.plugins.extension.v1.LifecycleAction
+	(*SelectionHandlerAction)(nil),             // 22: glyph.plugins.extension.v1.SelectionHandlerAction
+	(*RetryHandlerAction)(nil),                 // 23: glyph.plugins.extension.v1.RetryHandlerAction
+	(*CompactionRequestAction)(nil),            // 24: glyph.plugins.extension.v1.CompactionRequestAction
+	(*CompactionResult)(nil),                   // 25: glyph.plugins.extension.v1.CompactionResult
+	(*CompactionResultAction)(nil),             // 26: glyph.plugins.extension.v1.CompactionResultAction
+	(*CompactionObserverAction)(nil),           // 27: glyph.plugins.extension.v1.CompactionObserverAction
+	(*BranchSummaryResult)(nil),                // 28: glyph.plugins.extension.v1.BranchSummaryResult
+	(*CommittedBranchSummary)(nil),             // 29: glyph.plugins.extension.v1.CommittedBranchSummary
+	(*ModelSelection)(nil),                     // 30: glyph.plugins.extension.v1.ModelSelection
+	(*SessionTreeEntry)(nil),                   // 31: glyph.plugins.extension.v1.SessionTreeEntry
 }
 var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
-	33, // 0: glyph.plugins.extension.v1.HandleRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
-	7,  // 1: glyph.plugins.extension.v1.HandleRequest.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
-	8,  // 2: glyph.plugins.extension.v1.HandleRequest.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
-	9,  // 3: glyph.plugins.extension.v1.HandleRequest.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeInvocation
-	34, // 4: glyph.plugins.extension.v1.HandleRequest.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleInvocation
-	35, // 5: glyph.plugins.extension.v1.HandleRequest.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
-	35, // 6: glyph.plugins.extension.v1.HandleRequest.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
-	36, // 7: glyph.plugins.extension.v1.HandleRequest.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerInvocation
-	10, // 8: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
-	11, // 9: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
-	12, // 10: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
-	6,  // 11: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
-	37, // 12: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
-	38, // 13: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	38, // 14: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	39, // 15: glyph.plugins.extension.v1.HandleResponse.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerAction
-	13, // 16: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	14, // 17: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	13, // 18: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	14, // 19: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	27, // 20: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	13, // 21: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	14, // 22: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	13, // 23: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	14, // 24: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	27, // 25: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	27, // 26: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	31, // 27: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
-	0,  // 28: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
-	13, // 29: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	1,  // 30: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	27, // 31: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	1,  // 32: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	27, // 33: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	2,  // 34: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
-	40, // 35: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
-	15, // 36: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
-	17, // 37: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
-	20, // 38: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
-	23, // 39: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
-	24, // 40: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
-	26, // 41: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	16, // 42: glyph.plugins.extension.v1.SessionTreeEntry.extension_message:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionMessage
-	25, // 43: glyph.plugins.extension.v1.SessionTreeEntry.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
-	41, // 44: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
-	18, // 45: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
-	19, // 46: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
-	21, // 47: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
-	3,  // 48: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
-	22, // 49: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
-	42, // 50: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	28, // 51: glyph.plugins.extension.v1.SessionTreeCompaction.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	32, // 52: glyph.plugins.extension.v1.SessionTreeCompaction.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	28, // 53: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	29, // 54: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
-	40, // 55: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	30, // 56: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	28, // 57: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	32, // 58: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	59, // [59:59] is the sub-list for method output_type
-	59, // [59:59] is the sub-list for method input_type
-	59, // [59:59] is the sub-list for extension type_name
-	59, // [59:59] is the sub-list for extension extendee
-	0,  // [0:59] is the sub-list for field type_name
+	14, // 0: glyph.plugins.extension.v1.HandleRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
+	6,  // 1: glyph.plugins.extension.v1.HandleRequest.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation
+	7,  // 2: glyph.plugins.extension.v1.HandleRequest.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation
+	8,  // 3: glyph.plugins.extension.v1.HandleRequest.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeInvocation
+	15, // 4: glyph.plugins.extension.v1.HandleRequest.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleInvocation
+	16, // 5: glyph.plugins.extension.v1.HandleRequest.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
+	16, // 6: glyph.plugins.extension.v1.HandleRequest.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerInvocation
+	17, // 7: glyph.plugins.extension.v1.HandleRequest.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerInvocation
+	18, // 8: glyph.plugins.extension.v1.HandleRequest.compaction_request:type_name -> glyph.plugins.extension.v1.CompactionRequestInvocation
+	18, // 9: glyph.plugins.extension.v1.HandleRequest.compaction_generate:type_name -> glyph.plugins.extension.v1.CompactionRequestInvocation
+	19, // 10: glyph.plugins.extension.v1.HandleRequest.compaction_result:type_name -> glyph.plugins.extension.v1.CompactionResultInvocation
+	20, // 11: glyph.plugins.extension.v1.HandleRequest.compaction_success:type_name -> glyph.plugins.extension.v1.CompactionOutcome
+	20, // 12: glyph.plugins.extension.v1.HandleRequest.compaction_failure:type_name -> glyph.plugins.extension.v1.CompactionOutcome
+	9,  // 13: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
+	10, // 14: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
+	11, // 15: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
+	5,  // 16: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
+	21, // 17: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
+	22, // 18: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	22, // 19: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	23, // 20: glyph.plugins.extension.v1.HandleResponse.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerAction
+	24, // 21: glyph.plugins.extension.v1.HandleResponse.compaction_request:type_name -> glyph.plugins.extension.v1.CompactionRequestAction
+	25, // 22: glyph.plugins.extension.v1.HandleResponse.compaction_generate:type_name -> glyph.plugins.extension.v1.CompactionResult
+	26, // 23: glyph.plugins.extension.v1.HandleResponse.compaction_result:type_name -> glyph.plugins.extension.v1.CompactionResultAction
+	27, // 24: glyph.plugins.extension.v1.HandleResponse.compaction_success:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
+	27, // 25: glyph.plugins.extension.v1.HandleResponse.compaction_failure:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
+	12, // 26: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 27: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	12, // 28: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 29: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	28, // 30: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	12, // 31: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 32: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	12, // 33: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 34: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	28, // 35: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	28, // 36: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	29, // 37: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
+	0,  // 38: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
+	12, // 39: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	1,  // 40: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	28, // 41: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	1,  // 42: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	28, // 43: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	2,  // 44: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
+	30, // 45: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
+	31, // 46: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
+	47, // [47:47] is the sub-list for method output_type
+	47, // [47:47] is the sub-list for method input_type
+	47, // [47:47] is the sub-list for extension type_name
+	47, // [47:47] is the sub-list for extension extendee
+	0,  // [0:47] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_tree_proto_init() }
@@ -5784,12 +3178,12 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 	if File_api_plugins_extension_v1_session_tree_proto != nil {
 		return
 	}
+	file_api_plugins_extension_v1_compaction_proto_init()
 	file_api_plugins_extension_v1_context_proto_init()
 	file_api_plugins_extension_v1_lifecycle_proto_init()
 	file_api_plugins_extension_v1_model_proto_init()
 	file_api_plugins_extension_v1_retry_proto_init()
-	file_api_plugins_extension_v1_session_proto_init()
-	file_api_plugins_extension_v1_tool_proto_init()
+	file_api_plugins_extension_v1_session_entry_proto_init()
 	file_api_plugins_extension_v1_session_tree_proto_msgTypes[0].OneofWrappers = []any{
 		(*handleRequest_SessionBeforeTreeRequest)(nil),
 		(*handleRequest_SessionBeforeTreeResult)(nil),
@@ -5798,6 +3192,11 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*handleRequest_ModelSelection)(nil),
 		(*handleRequest_ReasoningSelection)(nil),
 		(*handleRequest_Retry)(nil),
+		(*handleRequest_CompactionRequest)(nil),
+		(*handleRequest_CompactionGenerate)(nil),
+		(*handleRequest_CompactionResult)(nil),
+		(*handleRequest_CompactionSuccess)(nil),
+		(*handleRequest_CompactionFailure)(nil),
 	}
 	file_api_plugins_extension_v1_session_tree_proto_msgTypes[1].OneofWrappers = []any{
 		(*handleResponse_SessionBeforeTreeRequest)(nil),
@@ -5808,31 +3207,19 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*handleResponse_ModelSelection)(nil),
 		(*handleResponse_ReasoningSelection)(nil),
 		(*handleResponse_Retry)(nil),
-	}
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[11].OneofWrappers = []any{
-		(*sessionTreeEntry_User)(nil),
-		(*sessionTreeEntry_Model)(nil),
-		(*sessionTreeEntry_ToolResult)(nil),
-		(*sessionTreeEntry_BranchSummary)(nil),
-		(*sessionTreeEntry_Extension)(nil),
-		(*sessionTreeEntry_ExtensionMessage)(nil),
-		(*sessionTreeEntry_Compaction)(nil),
-	}
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[14].OneofWrappers = []any{
-		(*sessionTreeUserContent_Text)(nil),
-		(*sessionTreeUserContent_Image)(nil),
-	}
-	file_api_plugins_extension_v1_session_tree_proto_msgTypes[24].OneofWrappers = []any{
-		(*branchSummarySource_ExtensionId)(nil),
-		(*branchSummarySource_Model)(nil),
+		(*handleResponse_CompactionRequest)(nil),
+		(*handleResponse_CompactionGenerate)(nil),
+		(*handleResponse_CompactionResult)(nil),
+		(*handleResponse_CompactionSuccess)(nil),
+		(*handleResponse_CompactionFailure)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_session_tree_proto_rawDesc), len(file_api_plugins_extension_v1_session_tree_proto_rawDesc)),
-			NumEnums:      4,
-			NumMessages:   29,
+			NumEnums:      3,
+			NumMessages:   11,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -33,6 +33,8 @@ const (
 	FailureCodeRetryDelayExceeded = "RETRY_DELAY_EXCEEDED"
 	// FailureCodeContextLimit reports terminal provider context overflow.
 	FailureCodeContextLimit = "CONTEXT_LIMIT"
+	// FailureCodeCompactionFailed reports terminal active-conversation compaction failure.
+	FailureCodeCompactionFailed = "COMPACTION_FAILED"
 	// FailureCodeExtensionInvalidResult reports invalid extension output.
 	FailureCodeExtensionInvalidResult = "EXTENSION_INVALID_RESULT"
 	// FailureCodeExtensionUnavailable reports extension transport or protocol failure.

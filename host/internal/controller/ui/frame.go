@@ -11,8 +11,10 @@ import (
 // NewFrame creates one frame with every optional payload absent.
 func NewFrame(kind FrameKind) Frame {
 	return Frame{
-		NextInput: mo.None[string](),
-		Kind:      kind, Lifecycle: mo.None[Lifecycle](),
+		NextInput:          mo.None[string](),
+		CompactionStage:    mo.None[string](),
+		CompactionCanceled: mo.None[bool](),
+		Kind:               kind, Lifecycle: mo.None[Lifecycle](),
 		AuthorizationURL: mo.None[string](), AuthorizationCode: mo.None[string](),
 		ModelSelection: mo.None[model.Selection](), SelectionIssues: nil,
 		SessionInfo: mo.None[session.Info](), Sessions: nil,
@@ -21,5 +23,7 @@ func NewFrame(kind FrameKind) Frame {
 		TreeNavigationRetry:    mo.None[RetryProgress](),
 		TreeNavigation:         mo.None[TreeNavigationResult](),
 		RetryPolicy:            mo.None[RetryPolicy](),
+		CompactionError:        mo.None[string](),
+		CompactionFailureCode:  mo.None[string](),
 	}
 }

@@ -9,6 +9,8 @@ import (
 )
 
 // mapCommand validates and projects one presentation command onto the public stream.
+//
+//nolint:gocyclo // The closed command union requires explicit transport mapping.
 func mapCommand(command presentationdomain.Command) (*uiv1.UIRequest, error) {
 	if response, handled, err := mapTreeCommand(command); handled {
 		return response, err
@@ -38,6 +40,13 @@ func mapCommand(command presentationdomain.Command) (*uiv1.UIRequest, error) {
 		return mapModelSelectionCommand(command)
 	case presentationdomain.CommandSelectReasoningChoice:
 		return mapReasoningSelectionCommand(command)
+	case presentationdomain.CommandCompact:
+		builder := uiv1.CompactCommand_builder{Instructions: nil}
+		if instructions, present := command.Text.Get(); present {
+			builder.Instructions = new(instructions)
+		}
+		//nolint:exhaustruct_v5 // The protobuf builder sets only the active Compact field.
+		return uiv1.UIRequest_builder{Compact: builder.Build()}.Build(), nil
 	case presentationdomain.CommandSetRetryEnabled:
 		enabled, present := command.RetryEnabled.Get()
 		if !present {
@@ -127,7 +136,8 @@ func mapSessionCommand(command presentationdomain.Command) (*uiv1.UIRequest, boo
 		presentationdomain.CommandSelectReasoningChoice,
 		presentationdomain.CommandGetSessionTree, presentationdomain.CommandNavigateSessionTree,
 		presentationdomain.CommandForkSession, presentationdomain.CommandCloneSession,
-		presentationdomain.CommandSetEntryLabel, presentationdomain.CommandSetRetryEnabled:
+		presentationdomain.CommandSetEntryLabel, presentationdomain.CommandSetRetryEnabled,
+		presentationdomain.CommandCompact:
 		return nil, false, nil
 	default:
 		return nil, false, nil

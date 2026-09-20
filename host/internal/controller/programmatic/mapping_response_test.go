@@ -18,6 +18,50 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// TestMapResponsePreservesCompactionFailure verifies public Programmatic result classification and text.
+func TestMapResponsePreservesCompactionFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange one completed compaction response with a typed post-commit failure projection.
+	entry, present, err := ProjectSessionEntry(session.Entry{
+		ID: "compaction", ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+		Extension: mo.None[session.ExtensionEnvelope](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		Compaction: mo.Some(session.CompactionEntry{
+			Summary: "summary", FirstKeptEntryID: "kept",
+			Source: session.CompactionSource{
+				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+			},
+			EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+		}),
+	}, 0)
+	require.NoError(t, err)
+	require.True(t, present)
+	response := Response{
+		OperationID: "operation", Kind: ResponseCompaction,
+		State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
+		Selection: mo.None[model.Selection](), SelectionIssues: nil,
+		SessionInfo: mo.None[session.Info](), Sessions: nil, SessionEntries: []SessionEntry{entry},
+		SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[SessionTree](),
+		TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
+		Rejection: mo.None[Rejection](), CancelTargetState: mo.None[operation.TerminalState](),
+		RetryPolicy: mo.None[RetryPolicy](), CompactionCanceled: mo.Some(false),
+		CompactionError:       mo.Some("publication failed after commit"),
+		CompactionFailureCode: mo.Some(FailureCodeInternal),
+	}
+
+	// Act through the production Programmatic protobuf mapping.
+	completed, err := mapResponse(response)
+
+	// Assert complete text and stable category survive in the completed result.
+	require.NoError(t, err)
+	result := completed.GetCompaction()
+	require.Equal(t, "compaction", result.GetCommitted().GetId())
+	require.Equal(t, "publication failed after commit", result.GetError())
+	require.Equal(t, FailureCodeInternal, result.GetFailureCode())
+}
+
 // TestMapResponsePreservesSessionPresence verifies absent optional session fields stay absent on the wire.
 func TestMapResponsePreservesSessionPresence(t *testing.T) {
 	t.Parallel()

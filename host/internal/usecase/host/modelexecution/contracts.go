@@ -185,8 +185,12 @@ const (
 	FailureExtensionFailed FailureCategory = "EXTENSION_FAILED"
 	// FailureRetryDelayExceeded identifies a provider delay above the accepted maximum.
 	FailureRetryDelayExceeded FailureCategory = "RETRY_DELAY_EXCEEDED"
-	// FailureContextLimit identifies provider context overflow until recovery is connected.
+	// FailureContextLimit identifies provider context overflow after recovery cannot continue.
 	FailureContextLimit FailureCategory = "CONTEXT_LIMIT"
+	// FailureCompactionFailed identifies active-conversation preparation or compaction failure.
+	FailureCompactionFailed FailureCategory = "COMPACTION_FAILED"
+	// FailurePersistenceUnavailable identifies an unavailable durable session store during compaction.
+	FailurePersistenceUnavailable FailureCategory = "PERSISTENCE_UNAVAILABLE"
 	// FailureInternal identifies an acquired failure without a more specific logical category.
 	FailureInternal FailureCategory = "INTERNAL"
 )
@@ -248,10 +252,25 @@ type ProviderAttempt interface {
 	Stream(ctx context.Context, request ProviderRequest, handle StreamHandler) error
 }
 
-// ConversationContext observes completed agent calls and later owns context preparation.
+// ConversationContext observes completed agent calls for later estimation.
 type ConversationContext interface {
 	// ObserveCompletedConversation records one delivered terminal conversation response.
 	ObserveCompletedConversation(request ProviderRequest, response model.Response)
+}
+
+// ContextPreparationFailure exposes a compaction-owned category to the model-execution consumer.
+type ContextPreparationFailure interface {
+	error
+	// CompactionFailureCode returns the stable compaction category.
+	CompactionFailureCode() string
+}
+
+// ContextPreparation owns active-conversation threshold and overflow compaction.
+type ContextPreparation interface {
+	// PrepareContext validates and compacts one agent request before its initial provider attempt.
+	PrepareContext(context.Context, ProviderRequest) (ProviderRequest, error)
+	// RecoverOverflow compacts one rejected agent request before its single changed replacement attempt.
+	RecoverOverflow(context.Context, ProviderRequest) (ProviderRequest, error)
 }
 
 // CatalogBinding binds one validated selection to its raw provider attempt.

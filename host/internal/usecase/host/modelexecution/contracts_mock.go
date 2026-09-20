@@ -182,6 +182,112 @@ func (mr *MockConversationContextMockRecorder) ObserveCompletedConversation(requ
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveCompletedConversation", reflect.TypeOf((*MockConversationContext)(nil).ObserveCompletedConversation), request, response)
 }
 
+// MockContextPreparationFailure is a mock of ContextPreparationFailure interface.
+type MockContextPreparationFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockContextPreparationFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockContextPreparationFailureMockRecorder is the mock recorder for MockContextPreparationFailure.
+type MockContextPreparationFailureMockRecorder struct {
+	mock *MockContextPreparationFailure
+}
+
+// NewMockContextPreparationFailure creates a new mock instance.
+func NewMockContextPreparationFailure(ctrl *gomock.Controller) *MockContextPreparationFailure {
+	mock := &MockContextPreparationFailure{ctrl: ctrl}
+	mock.recorder = &MockContextPreparationFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockContextPreparationFailure) EXPECT() *MockContextPreparationFailureMockRecorder {
+	return m.recorder
+}
+
+// CompactionFailureCode mocks base method.
+func (m *MockContextPreparationFailure) CompactionFailureCode() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompactionFailureCode")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// CompactionFailureCode indicates an expected call of CompactionFailureCode.
+func (mr *MockContextPreparationFailureMockRecorder) CompactionFailureCode() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompactionFailureCode", reflect.TypeOf((*MockContextPreparationFailure)(nil).CompactionFailureCode))
+}
+
+// Error mocks base method.
+func (m *MockContextPreparationFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockContextPreparationFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockContextPreparationFailure)(nil).Error))
+}
+
+// MockContextPreparation is a mock of ContextPreparation interface.
+type MockContextPreparation struct {
+	ctrl     *gomock.Controller
+	recorder *MockContextPreparationMockRecorder
+	isgomock struct{}
+}
+
+// MockContextPreparationMockRecorder is the mock recorder for MockContextPreparation.
+type MockContextPreparationMockRecorder struct {
+	mock *MockContextPreparation
+}
+
+// NewMockContextPreparation creates a new mock instance.
+func NewMockContextPreparation(ctrl *gomock.Controller) *MockContextPreparation {
+	mock := &MockContextPreparation{ctrl: ctrl}
+	mock.recorder = &MockContextPreparationMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockContextPreparation) EXPECT() *MockContextPreparationMockRecorder {
+	return m.recorder
+}
+
+// PrepareContext mocks base method.
+func (m *MockContextPreparation) PrepareContext(arg0 context.Context, arg1 ProviderRequest) (ProviderRequest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "PrepareContext", arg0, arg1)
+	ret0, _ := ret[0].(ProviderRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// PrepareContext indicates an expected call of PrepareContext.
+func (mr *MockContextPreparationMockRecorder) PrepareContext(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContext", reflect.TypeOf((*MockContextPreparation)(nil).PrepareContext), arg0, arg1)
+}
+
+// RecoverOverflow mocks base method.
+func (m *MockContextPreparation) RecoverOverflow(arg0 context.Context, arg1 ProviderRequest) (ProviderRequest, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecoverOverflow", arg0, arg1)
+	ret0, _ := ret[0].(ProviderRequest)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RecoverOverflow indicates an expected call of RecoverOverflow.
+func (mr *MockContextPreparationMockRecorder) RecoverOverflow(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverOverflow", reflect.TypeOf((*MockContextPreparation)(nil).RecoverOverflow), arg0, arg1)
+}
+
 // MockCatalogResolver is a mock of CatalogResolver interface.
 type MockCatalogResolver struct {
 	ctrl     *gomock.Controller

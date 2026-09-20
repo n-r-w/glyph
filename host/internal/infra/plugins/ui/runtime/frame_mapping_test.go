@@ -22,6 +22,80 @@ import (
 	uiv1 "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 )
 
+// TestMapCompactionFramePreservesPostCommitFailure verifies public UI result classification and text.
+func TestMapCompactionFramePreservesPostCommitFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange one completed compaction frame with a typed post-commit failure projection.
+	frame := controllerui.NewFrame(controllerui.FrameCompaction)
+	frame.CompactionCanceled = mo.Some(false)
+	frame.CompactionError = mo.Some("publication failed after commit")
+	frame.CompactionFailureCode = mo.Some(controllerui.FailureCodeInternal)
+	entry, present, err := controllerui.ProjectSessionEntry(session.Entry{
+		ID: "compaction", ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+		Extension: mo.None[session.ExtensionEnvelope](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		Compaction: mo.Some(session.CompactionEntry{
+			Summary: "summary", FirstKeptEntryID: "kept",
+			Source: session.CompactionSource{
+				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+			},
+			EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+		}),
+	}, 0)
+	require.NoError(t, err)
+	require.True(t, present)
+	frame.SessionEntries = []controllerui.SessionEntry{entry}
+
+	// Act through the production UI Plugin protobuf mapping.
+	request, err := mapFrame(frame)
+
+	// Assert complete text and stable category survive in the completed result.
+	require.NoError(t, err)
+	result := request.GetEvent().GetCompleted().GetCompaction()
+	require.Equal(t, "compaction", result.GetCommitted().GetId())
+	require.Equal(t, "publication failed after commit", result.GetError())
+	require.Equal(t, controllerui.FailureCodeInternal, result.GetFailureCode())
+}
+
+// TestMapCompactionFieldsRequireDedicatedTypedPayloads verifies stage and cancellation cannot use fork input.
+func TestMapCompactionFieldsRequireDedicatedTypedPayloads(t *testing.T) {
+	t.Parallel()
+	for _, testCase := range []struct {
+		name  string
+		frame controllerui.Frame
+	}{
+		{name: "missing progress stage", frame: controllerui.NewFrame(controllerui.FrameCompactionProgress)},
+		{name: "missing completion cancellation", frame: controllerui.NewFrame(controllerui.FrameCompaction)},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			// Act through the public frame mapper with the dedicated field absent.
+			_, err := mapFrame(testCase.frame)
+
+			// Assert incomplete compaction state is rejected instead of inferred from NextInput.
+			require.Error(t, err)
+		})
+	}
+
+	// Arrange complete typed compaction progress and cancellation frames.
+	progress := controllerui.NewFrame(controllerui.FrameCompactionProgress)
+	progress.CompactionStage = mo.Some("running")
+	completion := controllerui.NewFrame(controllerui.FrameCompaction)
+	completion.CompactionCanceled = mo.Some(true)
+
+	// Act through both complete frame variants.
+	progressRequest, progressErr := mapFrame(progress)
+	completionRequest, completionErr := mapFrame(completion)
+
+	// Assert exact stage and Boolean cancellation reach the public contract.
+	require.NoError(t, progressErr)
+	require.Equal(t, "running", progressRequest.GetEvent().GetProgress().GetCompaction().GetStage())
+	require.NoError(t, completionErr)
+	require.True(t, completionRequest.GetEvent().GetCompleted().GetCompaction().GetCanceled())
+}
+
 // TestMapOperationFrames verifies each operation frame maps to an operation-stream envelope.
 func TestMapOperationFrames(t *testing.T) {
 	t.Parallel()

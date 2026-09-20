@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/samber/mo"
+
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/internal/operation"
 
@@ -13,6 +15,20 @@ import (
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=programmatic
+
+// ManualCompactionResult retains durable state across terminal observer or publication failures.
+type ManualCompactionResult struct {
+	// Committed contains the durable compaction marker when persistence succeeded.
+	Committed mo.Option[session.Entry]
+	// Canceled reports explicit extension cancellation before commit.
+	Canceled bool
+}
+
+// Compactor executes one manual active-conversation compaction.
+type Compactor interface {
+	// CompactProgrammatic runs the shared chain with optional controller instructions.
+	CompactProgrammatic(context.Context, mo.Option[string]) (ManualCompactionResult, error)
+}
 
 // RetryControl owns runtime retry enablement and one atomic policy projection.
 type RetryControl interface {

@@ -53,6 +53,32 @@ type ModelOperations interface {
 	) (model.Response, error)
 }
 
+// CompactionResult retains durable state across terminal observer or publication failures.
+type CompactionResult struct {
+	// Committed contains the durable compaction marker when persistence succeeded.
+	Committed mo.Option[session.Entry]
+	// Canceled reports explicit extension cancellation before commit.
+	Canceled bool
+}
+
+// CompactionGate owns admission against active agent and session operations.
+type CompactionGate interface {
+	// TryAcquire reserves manual compaction without waiting.
+	TryAcquire() (release func(), acquired bool)
+}
+
+// CompactionOperations executes session-bound manual compaction.
+type CompactionOperations interface {
+	// CompactExtension validates the binding and runs the shared chain with optional instructions.
+	CompactExtension(
+		context.Context,
+		string,
+		string,
+		extensiondomain.ContextRef,
+		mo.Option[string],
+	) (CompactionResult, error)
+}
+
 // ContextOperations supplies binding and session operations without transport policy.
 type ContextOperations interface {
 	// ValidateContext rejects a reference not issued to the connected runtime or no longer active.

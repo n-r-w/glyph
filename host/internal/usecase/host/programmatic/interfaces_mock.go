@@ -19,8 +19,48 @@ import (
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	operation "github.com/n-r-w/glyph/internal/operation"
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
+
+// MockCompactor is a mock of Compactor interface.
+type MockCompactor struct {
+	ctrl     *gomock.Controller
+	recorder *MockCompactorMockRecorder
+	isgomock struct{}
+}
+
+// MockCompactorMockRecorder is the mock recorder for MockCompactor.
+type MockCompactorMockRecorder struct {
+	mock *MockCompactor
+}
+
+// NewMockCompactor creates a new mock instance.
+func NewMockCompactor(ctrl *gomock.Controller) *MockCompactor {
+	mock := &MockCompactor{ctrl: ctrl}
+	mock.recorder = &MockCompactorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCompactor) EXPECT() *MockCompactorMockRecorder {
+	return m.recorder
+}
+
+// CompactProgrammatic mocks base method.
+func (m *MockCompactor) CompactProgrammatic(arg0 context.Context, arg1 mo.Option[string]) (ManualCompactionResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompactProgrammatic", arg0, arg1)
+	ret0, _ := ret[0].(ManualCompactionResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CompactProgrammatic indicates an expected call of CompactProgrammatic.
+func (mr *MockCompactorMockRecorder) CompactProgrammatic(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompactProgrammatic", reflect.TypeOf((*MockCompactor)(nil).CompactProgrammatic), arg0, arg1)
+}
 
 // MockRetryControl is a mock of RetryControl interface.
 type MockRetryControl struct {

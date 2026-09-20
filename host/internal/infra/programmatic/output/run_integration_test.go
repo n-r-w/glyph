@@ -29,7 +29,7 @@ func runCommand(id string) controller.Command {
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
 		SummaryMode: controller.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
-		RetryEnabled: mo.None[bool](),
+		RetryEnabled: mo.None[bool](), CompactionInstructions: mo.None[string](),
 	}
 }
 

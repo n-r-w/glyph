@@ -3,6 +3,7 @@ package app
 import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	extensiontransport "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
@@ -30,10 +31,13 @@ func bindExtensionHostFactory(
 	models *extensionmodels.Service,
 	contexts *extensioncontext.Service,
 	selection *modelselection.Service,
+	compaction *contextcompaction.Service,
+	compactionGate extensioncontroller.CompactionGate,
 ) {
 	factory.BindHostServiceFactory(func(extensionID, runtimeID string) extensionsdk.HostService {
 		controller := extensioncontroller.New(models, contexts, runtimes, extensionID, runtimeID)
 		controller.BindSelection(selection)
+		controller.BindCompaction(compaction, compactionGate)
 		return controller
 	})
 }

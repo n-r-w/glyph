@@ -37,6 +37,8 @@ type Service struct {
 	stateQuery StateQuery
 	// retryControl owns runtime retry enablement and policy projection.
 	retryControl RetryControl
+	// compactor owns manual active-conversation compaction.
+	compactor Compactor
 	// activeSessions owns active-session lifecycle operations.
 	activeSessions ActiveSessions
 	// navigator owns handler policy and navigation commit orchestration.
@@ -64,9 +66,22 @@ func New(
 	return &Service{
 		coordinator: coordinator, modelCatalog: modelCatalog, modelSelection: modelSelection, stateQuery: stateQuery,
 		retryControl:   retryControl,
+		compactor:      nil,
 		gate:           gate,
 		activeSessions: activeSessions, navigator: navigator, output: output,
 	}
+}
+
+// BindCompactor connects manual compaction before Programmatic requests are accepted.
+func (s *Service) BindCompactor(compactor Compactor) error {
+	if s.compactor != nil {
+		return errors.New("programmatic compactor is already bound")
+	}
+	if compactor == nil {
+		return errors.New("programmatic compactor is required")
+	}
+	s.compactor = compactor
+	return nil
 }
 
 // handle executes one prepared transport-independent operation.
@@ -124,6 +139,29 @@ func (s *Service) handleImmediate(
 		return response, true, err
 	case controller.CommandGetModels:
 		return s.models(command.OperationID), true, nil
+	case controller.CommandCompact:
+		if s.compactor == nil {
+			return s.rejection(
+				command,
+				controller.RejectionInternal,
+				errors.New("programmatic compactor is unavailable"),
+			), true, nil
+		}
+		result, compactErr := s.compactor.CompactProgrammatic(ctx, command.CompactionInstructions)
+		response := emptyResponse(command.OperationID, controller.ResponseCompaction)
+		response.CompactionCanceled = mo.Some(result.Canceled)
+		if compactErr != nil {
+			response.CompactionError = mo.Some(compactErr.Error())
+			response.CompactionFailureCode = mo.Some(failureCode(compactErr))
+		}
+		if committed, present := result.Committed.Get(); present {
+			entries, mapErr := mapSessionEntries([]session.Entry{committed})
+			if mapErr != nil {
+				return controller.Response{}, true, errors.Join(compactErr, mapErr)
+			}
+			response.SessionEntries = entries
+		}
+		return response, true, compactErr
 	case controller.CommandSetRetryEnabled:
 		enabled, present := command.RetryEnabled.Get()
 		if !present {
@@ -542,23 +580,26 @@ func retryPolicy(control RetryControl) controller.RetryPolicy {
 // sessionStatisticsResponse initializes the complete statistics response variant.
 func sessionStatisticsResponse(operationID string, statistics session.Statistics) controller.Response {
 	return controller.Response{
-		SessionEntries:    nil,
-		OperationID:       operationID,
-		Kind:              controller.ResponseSessionStats,
-		State:             mo.None[controller.RunStateResult](),
-		Messages:          nil,
-		Models:            mo.None[controller.ModelsResult](),
-		Selection:         mo.None[model.Selection](),
-		SelectionIssues:   nil,
-		SessionInfo:       mo.None[session.Info](),
-		Sessions:          nil,
-		SessionStatistics: mo.Some(statistics),
-		SessionTree:       mo.None[controller.SessionTree](),
-		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
-		Rejection:         mo.None[controller.Rejection](),
-		Replacement:       mo.None[controller.SessionReplacement](),
-		CancelTargetState: mo.None[operation.TerminalState](),
-		RetryPolicy:       mo.None[controller.RetryPolicy](),
+		SessionEntries:        nil,
+		OperationID:           operationID,
+		Kind:                  controller.ResponseSessionStats,
+		State:                 mo.None[controller.RunStateResult](),
+		Messages:              nil,
+		Models:                mo.None[controller.ModelsResult](),
+		Selection:             mo.None[model.Selection](),
+		SelectionIssues:       nil,
+		SessionInfo:           mo.None[session.Info](),
+		Sessions:              nil,
+		SessionStatistics:     mo.Some(statistics),
+		SessionTree:           mo.None[controller.SessionTree](),
+		TreeNavigation:        mo.None[controller.TreeNavigationResult](),
+		Rejection:             mo.None[controller.Rejection](),
+		Replacement:           mo.None[controller.SessionReplacement](),
+		CancelTargetState:     mo.None[operation.TerminalState](),
+		RetryPolicy:           mo.None[controller.RetryPolicy](),
+		CompactionCanceled:    mo.None[bool](),
+		CompactionError:       mo.None[string](),
+		CompactionFailureCode: mo.None[string](),
 	}
 }
 
@@ -606,6 +647,12 @@ func isPureCancellation(err error) bool {
 	}](err); categorized {
 		return false
 	}
+	if _, categorized := errors.AsType[interface {
+		error
+		CompactionFailureCode() string
+	}](err); categorized {
+		return false
+	}
 	return errtree.AllLeavesMatch(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled)
 	})
@@ -614,23 +661,26 @@ func isPureCancellation(err error) bool {
 // emptyResponse creates a response with only operation identity and kind set.
 func emptyResponse(operationID string, kind controller.ResponseKind) controller.Response {
 	return controller.Response{
-		SessionEntries:    nil,
-		OperationID:       operationID,
-		Kind:              kind,
-		State:             mo.None[controller.RunStateResult](),
-		Messages:          nil,
-		Models:            mo.None[controller.ModelsResult](),
-		Selection:         mo.None[model.Selection](),
-		SelectionIssues:   nil,
-		SessionInfo:       mo.None[session.Info](),
-		Sessions:          nil,
-		SessionStatistics: mo.None[session.Statistics](),
-		SessionTree:       mo.None[controller.SessionTree](),
-		TreeNavigation:    mo.None[controller.TreeNavigationResult](),
-		Replacement:       mo.None[controller.SessionReplacement](),
-		Rejection:         mo.None[controller.Rejection](),
-		CancelTargetState: mo.None[operation.TerminalState](),
-		RetryPolicy:       mo.None[controller.RetryPolicy](),
+		SessionEntries:        nil,
+		OperationID:           operationID,
+		Kind:                  kind,
+		State:                 mo.None[controller.RunStateResult](),
+		Messages:              nil,
+		Models:                mo.None[controller.ModelsResult](),
+		Selection:             mo.None[model.Selection](),
+		SelectionIssues:       nil,
+		SessionInfo:           mo.None[session.Info](),
+		Sessions:              nil,
+		SessionStatistics:     mo.None[session.Statistics](),
+		SessionTree:           mo.None[controller.SessionTree](),
+		TreeNavigation:        mo.None[controller.TreeNavigationResult](),
+		Replacement:           mo.None[controller.SessionReplacement](),
+		Rejection:             mo.None[controller.Rejection](),
+		CancelTargetState:     mo.None[operation.TerminalState](),
+		RetryPolicy:           mo.None[controller.RetryPolicy](),
+		CompactionCanceled:    mo.None[bool](),
+		CompactionError:       mo.None[string](),
+		CompactionFailureCode: mo.None[string](),
 	}
 }
 

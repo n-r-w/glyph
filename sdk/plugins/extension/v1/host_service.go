@@ -36,8 +36,9 @@ func (r *HostProgressReporter) Report(ctx context.Context, progress *extensionpb
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("report Host progress: %w", err)
 	}
-	if progress == nil || progress.GetConfiguredModelRetry() == nil {
-		return errors.New("report Host progress: configured-model retry progress is required")
+	if progress == nil ||
+		(progress.GetConfiguredModelRetry() == nil && progress.GetCompaction() == nil) {
+		return errors.New("report Host progress: configured-model retry or compaction progress is required")
 	}
 	if err := r.reporter.Report(progress); err != nil {
 		return fmt.Errorf("report Host progress: %w", err)

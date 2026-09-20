@@ -44,6 +44,8 @@ type Service struct {
 	catalog CatalogResolver
 	// conversationContext observes completed delivered agent responses.
 	conversationContext ConversationContext
+	// contextPreparation owns threshold and overflow mutation for agent requests only.
+	contextPreparation ContextPreparation
 	// retryPolicy contains validated persistent policy values.
 	retryPolicy RetryPolicy
 	// retryEnabled contains process-local runtime enablement.
@@ -74,11 +76,34 @@ func New(
 	policy := retryPolicy
 	policy.Delays = append([]time.Duration(nil), retryPolicy.Delays...)
 	service := &Service{
-		catalog: catalog, conversationContext: conversationContext,
+		catalog: catalog, conversationContext: conversationContext, contextPreparation: nil,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
+	}
+	if preparation, ok := conversationContext.(ContextPreparation); ok {
+		service.contextPreparation = preparation
 	}
 	service.retryEnabled.Store(policy.Enabled)
 	return service
+}
+
+// BindContextPreparation connects active-conversation preparation without affecting configured requests.
+func (s *Service) BindContextPreparation(preparation ContextPreparation) error {
+	if s.contextPreparation != nil {
+		return errors.New("context preparation is already bound")
+	}
+	if preparation == nil {
+		return errors.New("context preparation is required")
+	}
+	s.contextPreparation = preparation
+	return nil
+}
+
+// overflowRecovery returns the agent-only overflow callback when preparation is connected.
+func (s *Service) overflowRecovery() overflowRecoveryHandler {
+	if s.contextPreparation == nil {
+		return nil
+	}
+	return s.contextPreparation.RecoverOverflow
 }
 
 // SetRetryEnabled changes process-local enablement for later logical executions.
@@ -140,6 +165,10 @@ func (s *Service) Stream(
 		Instructions: request.Instructions, Model: binding.Model, ReasoningChoice: binding.ReasoningChoice,
 		History: ownedHistory, Tools: request.Tools,
 	}
+	providerRequest, err = s.prepareProviderContext(ctx, providerRequest)
+	if err != nil {
+		return err
+	}
 	responseStarted := false
 	response, err := s.execute(
 		ctx, binding.Provider, providerRequest,
@@ -166,6 +195,7 @@ func (s *Service) Stream(
 		},
 		errModelStreamTerminalMissingResponse,
 		modelStreamMissingTerminalMessage,
+		s.overflowRecovery(),
 	)
 	if err != nil {
 		if response.Outcome.IsSome() {
@@ -192,6 +222,22 @@ func (s *Service) Stream(
 	}
 	s.conversationContext.ObserveCompletedConversation(providerRequest, response)
 	return nil
+}
+
+// prepareProviderContext runs optional threshold preparation and preserves typed compaction failures.
+func (s *Service) prepareProviderContext(ctx context.Context, request ProviderRequest) (ProviderRequest, error) {
+	if s.contextPreparation == nil {
+		return request, nil
+	}
+	prepared, err := s.contextPreparation.PrepareContext(ctx, request)
+	if err == nil {
+		return prepared, nil
+	}
+	if isPureOwningCancellation(ctx, err) {
+		return ProviderRequest{}, context.Cause(ctx)
+	}
+	wrapped := fmt.Errorf("prepare conversation context: %w", joinOwningContextCause(ctx, err))
+	return ProviderRequest{}, contextPreparationLogicalFailure(wrapped)
 }
 
 // RequestConfigured executes one configured request with operation-scoped retry progress.
@@ -224,6 +270,7 @@ func (s *Service) RequestConfigured(
 			return progress(value.CompletedAttempts, value.AttemptLimit, value.Delay, value.Error)
 		},
 		errModelTerminalMissingResponse, modelRequestMissingTerminalMessage,
+		nil,
 	)
 	if err != nil {
 		return model.Response{}, fmt.Errorf("execute model request: %w", err)

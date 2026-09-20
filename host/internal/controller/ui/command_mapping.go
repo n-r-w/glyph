@@ -37,6 +37,13 @@ func mapUIRequest(command *uiv1.UIRequest) (Command, error) {
 			return Command{}, errors.New("receive UI command: submit text is required")
 		}
 		return newCommand(CommandSubmit, mo.Some(submit.GetText())), nil
+	case command.GetCompact() != nil:
+		compact := command.GetCompact()
+		mapped := newCommand(CommandCompact, mo.None[string]())
+		if compact.HasInstructions() {
+			mapped.CompactionInstructions = mo.Some(compact.GetInstructions())
+		}
+		return mapped, nil
 	case command.GetSetRetryEnabled() != nil:
 		retry := command.GetSetRetryEnabled()
 		if !retry.HasEnabled() {
@@ -84,20 +91,21 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 			return Command{}, true, errors.New("receive UI command: provider and model are required")
 		}
 		return Command{
-			OperationID:          "",
-			Kind:                 CommandSelectModel,
-			AuthenticationMethod: authentication.MethodUnspecified,
-			ProviderID:           mo.Some(selected.GetProviderId()),
-			ModelID:              mo.Some(selected.GetModelId()),
-			Text:                 mo.None[string](),
-			ReasoningChoice:      mo.None[model.ReasoningChoice](),
-			SessionID:            mo.None[string](),
-			SessionName:          mo.None[string](),
-			TargetEntryID:        mo.None[string](),
-			SummaryMode:          SummaryModeNoSummary,
-			CustomFocus:          mo.None[string](),
-			EntryLabel:           mo.None[string](),
-			RetryEnabled:         mo.None[bool](),
+			OperationID:            "",
+			Kind:                   CommandSelectModel,
+			AuthenticationMethod:   authentication.MethodUnspecified,
+			ProviderID:             mo.Some(selected.GetProviderId()),
+			ModelID:                mo.Some(selected.GetModelId()),
+			Text:                   mo.None[string](),
+			ReasoningChoice:        mo.None[model.ReasoningChoice](),
+			SessionID:              mo.None[string](),
+			SessionName:            mo.None[string](),
+			TargetEntryID:          mo.None[string](),
+			SummaryMode:            SummaryModeNoSummary,
+			CustomFocus:            mo.None[string](),
+			EntryLabel:             mo.None[string](),
+			RetryEnabled:           mo.None[bool](),
+			CompactionInstructions: mo.None[string](),
 		}, true, nil
 	case command.GetSelectReasoningChoice() != nil:
 		selected := command.GetSelectReasoningChoice()
@@ -109,20 +117,21 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 			return Command{}, true, err
 		}
 		return Command{
-			OperationID:          "",
-			Kind:                 CommandSelectReasoningChoice,
-			AuthenticationMethod: authentication.MethodUnspecified,
-			ReasoningChoice:      mo.Some(choice),
-			Text:                 mo.None[string](),
-			ProviderID:           mo.None[string](),
-			ModelID:              mo.None[string](),
-			SessionID:            mo.None[string](),
-			SessionName:          mo.None[string](),
-			TargetEntryID:        mo.None[string](),
-			SummaryMode:          SummaryModeNoSummary,
-			CustomFocus:          mo.None[string](),
-			EntryLabel:           mo.None[string](),
-			RetryEnabled:         mo.None[bool](),
+			OperationID:            "",
+			Kind:                   CommandSelectReasoningChoice,
+			AuthenticationMethod:   authentication.MethodUnspecified,
+			ReasoningChoice:        mo.Some(choice),
+			Text:                   mo.None[string](),
+			ProviderID:             mo.None[string](),
+			ModelID:                mo.None[string](),
+			SessionID:              mo.None[string](),
+			SessionName:            mo.None[string](),
+			TargetEntryID:          mo.None[string](),
+			SummaryMode:            SummaryModeNoSummary,
+			CustomFocus:            mo.None[string](),
+			EntryLabel:             mo.None[string](),
+			RetryEnabled:           mo.None[bool](),
+			CompactionInstructions: mo.None[string](),
 		}, true, nil
 	default:
 		return Command{}, false, nil
@@ -196,20 +205,21 @@ func mapSessionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 // emptySessionCommand initializes absent arguments for lifecycle commands without payloads.
 func newCommand(kind CommandKind, text mo.Option[string]) Command {
 	return Command{
-		OperationID:          "",
-		Kind:                 kind,
-		AuthenticationMethod: authentication.MethodUnspecified,
-		Text:                 text,
-		ProviderID:           mo.None[string](),
-		ModelID:              mo.None[string](),
-		ReasoningChoice:      mo.None[model.ReasoningChoice](),
-		SessionID:            mo.None[string](),
-		SessionName:          mo.None[string](),
-		TargetEntryID:        mo.None[string](),
-		SummaryMode:          SummaryModeNoSummary,
-		CustomFocus:          mo.None[string](),
-		EntryLabel:           mo.None[string](),
-		RetryEnabled:         mo.None[bool](),
+		OperationID:            "",
+		Kind:                   kind,
+		AuthenticationMethod:   authentication.MethodUnspecified,
+		Text:                   text,
+		ProviderID:             mo.None[string](),
+		ModelID:                mo.None[string](),
+		ReasoningChoice:        mo.None[model.ReasoningChoice](),
+		SessionID:              mo.None[string](),
+		SessionName:            mo.None[string](),
+		TargetEntryID:          mo.None[string](),
+		SummaryMode:            SummaryModeNoSummary,
+		CustomFocus:            mo.None[string](),
+		EntryLabel:             mo.None[string](),
+		RetryEnabled:           mo.None[bool](),
+		CompactionInstructions: mo.None[string](),
 	}
 }
 

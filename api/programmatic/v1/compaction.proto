@@ -1,0 +1,31 @@
+edition = "2023";
+
+package glyph.programmatic.v1;
+
+import "api/programmatic/v1/session.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
+
+// Compact requests manual active-conversation compaction.
+message Compact {
+  // Optional user guidance supplied to compaction handlers and generation.
+  string instructions = 1;
+}
+
+// CompactionProgress reports one Host-owned manual compaction stage.
+message CompactionProgress {
+  // The stable current stage.
+  string stage = 1;
+}
+
+// CompactionResult reports one terminal manual compaction outcome.
+message CompactionResult {
+  // The committed compaction marker when persistence succeeded.
+  SessionEntry committed = 1;
+  // Whether an extension explicitly canceled compaction.
+  bool canceled = 2;
+  // Complete terminal observer or publication failure after a durable commit.
+  string error = 3;
+  // Stable category for the post-commit failure.
+  string failure_code = 4;
+}

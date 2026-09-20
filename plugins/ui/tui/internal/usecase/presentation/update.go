@@ -45,6 +45,8 @@ const (
 	slashCommandName = "/name"
 	// slashCommandRetry changes process-local model retry enablement.
 	slashCommandRetry = "/retry"
+	// slashCommandCompact requests manual active-conversation compaction.
+	slashCommandCompact = "/compact"
 )
 
 // applyEvent updates presentation state and the editor after one Host event.
@@ -328,6 +330,16 @@ func (model interaction) updateEnter(availability Availability) (interaction, *c
 		model.input = nil
 		model.cursor = 0
 		return model, nil
+	}
+	if text == slashCommandCompact {
+		return model.emitCommand(emptyCommand(CommandCompact))
+	}
+	if after, ok := strings.CutPrefix(text, slashCommandCompact+slashCommandArgumentSeparator); ok {
+		command := emptyCommand(CommandCompact)
+		if after != "" {
+			command.Text = mo.Some(after)
+		}
+		return model.emitCommand(command)
 	}
 	if after, ok := strings.CutPrefix(text, slashCommandRetry+slashCommandArgumentSeparator); ok {
 		enabled := mo.None[bool]()

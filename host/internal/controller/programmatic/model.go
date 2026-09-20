@@ -51,6 +51,8 @@ const (
 	ResponseSetEntryLabel
 	// ResponseRetryEnabled contains updated runtime retry policy.
 	ResponseRetryEnabled
+	// ResponseCompaction reports one terminal manual compaction outcome.
+	ResponseCompaction
 )
 
 // RejectionCode identifies why an operation was not executed.
@@ -126,6 +128,12 @@ type Response struct {
 	CancelTargetState mo.Option[operation.TerminalState]
 	// RetryPolicy is present for run-state and retry-enablement results.
 	RetryPolicy mo.Option[RetryPolicy]
+	// CompactionCanceled reports explicit extension cancellation for manual compaction.
+	CompactionCanceled mo.Option[bool]
+	// CompactionError contains a post-commit manual compaction failure when present.
+	CompactionError mo.Option[string]
+	// CompactionFailureCode contains its stable category when CompactionError is present.
+	CompactionFailureCode mo.Option[string]
 }
 
 // SessionReplacement contains public active-session state after fork or clone.
@@ -289,6 +297,8 @@ type OperationProgress struct {
 	TreeNavigation mo.Option[TreeNavigationProgress]
 	// TreeNavigationRetry contains branch-summary retry progress when present.
 	TreeNavigationRetry mo.Option[RetryProgress]
+	// CompactionStage contains one stable Host-owned manual compaction stage.
+	CompactionStage mo.Option[string]
 }
 
 // AgentEvent is one progress event from an active user operation.

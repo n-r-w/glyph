@@ -15,6 +15,7 @@ import (
 
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
+	contextcompaction "github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -124,6 +125,21 @@ func (mr *MockExtensionRuntimeMockRecorder) Execute(ctx, name, argumentsJSON, ha
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Execute", reflect.TypeOf((*MockExtensionRuntime)(nil).Execute), ctx, name, argumentsJSON, handleProgress, binding)
 }
 
+// GenerateCompaction mocks base method.
+func (m *MockExtensionRuntime) GenerateCompaction(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 contextcompaction.RequestInvocation) (contextcompaction.Result, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "GenerateCompaction", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(contextcompaction.Result)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// GenerateCompaction indicates an expected call of GenerateCompaction.
+func (mr *MockExtensionRuntimeMockRecorder) GenerateCompaction(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "GenerateCompaction", reflect.TypeOf((*MockExtensionRuntime)(nil).GenerateCompaction), arg0, arg1, arg2, arg3)
+}
+
 // Handle mocks base method.
 func (m *MockExtensionRuntime) Handle(ctx context.Context, handlerID string, request HandlerInvocation) (HandlerAction, error) {
 	m.ctrl.T.Helper()
@@ -137,6 +153,64 @@ func (m *MockExtensionRuntime) Handle(ctx context.Context, handlerID string, req
 func (mr *MockExtensionRuntimeMockRecorder) Handle(ctx, handlerID, request any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Handle", reflect.TypeOf((*MockExtensionRuntime)(nil).Handle), ctx, handlerID, request)
+}
+
+// HandleCompactionRequest mocks base method.
+func (m *MockExtensionRuntime) HandleCompactionRequest(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 contextcompaction.RequestInvocation) (contextcompaction.RequestAction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleCompactionRequest", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(contextcompaction.RequestAction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleCompactionRequest indicates an expected call of HandleCompactionRequest.
+func (mr *MockExtensionRuntimeMockRecorder) HandleCompactionRequest(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleCompactionRequest", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleCompactionRequest), arg0, arg1, arg2, arg3)
+}
+
+// HandleCompactionResult mocks base method.
+func (m *MockExtensionRuntime) HandleCompactionResult(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 contextcompaction.ResultInvocation) (contextcompaction.ResultAction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleCompactionResult", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(contextcompaction.ResultAction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleCompactionResult indicates an expected call of HandleCompactionResult.
+func (mr *MockExtensionRuntimeMockRecorder) HandleCompactionResult(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleCompactionResult", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleCompactionResult), arg0, arg1, arg2, arg3)
+}
+
+// ObserveCompactionFailure mocks base method.
+func (m *MockExtensionRuntime) ObserveCompactionFailure(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 contextcompaction.OutcomeInvocation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObserveCompactionFailure", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ObserveCompactionFailure indicates an expected call of ObserveCompactionFailure.
+func (mr *MockExtensionRuntimeMockRecorder) ObserveCompactionFailure(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveCompactionFailure", reflect.TypeOf((*MockExtensionRuntime)(nil).ObserveCompactionFailure), arg0, arg1, arg2, arg3)
+}
+
+// ObserveCompactionSuccess mocks base method.
+func (m *MockExtensionRuntime) ObserveCompactionSuccess(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 contextcompaction.OutcomeInvocation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObserveCompactionSuccess", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ObserveCompactionSuccess indicates an expected call of ObserveCompactionSuccess.
+func (mr *MockExtensionRuntimeMockRecorder) ObserveCompactionSuccess(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveCompactionSuccess", reflect.TypeOf((*MockExtensionRuntime)(nil).ObserveCompactionSuccess), arg0, arg1, arg2, arg3)
 }
 
 // ObserveLifecycle mocks base method.

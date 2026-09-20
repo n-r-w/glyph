@@ -16,6 +16,16 @@ import (
 // ID is the opaque public identifier of one session.
 type ID string
 
+// Identity identifies one process-local incarnation of a durable active session.
+type Identity struct {
+	// ID identifies the durable active session.
+	ID string
+	// WorkingDirectory identifies the session project.
+	WorkingDirectory string
+	// Incarnation changes on every successful active-session replacement.
+	Incarnation uint64
+}
+
 var (
 	// ErrBusy reports that agent execution or another replacement owns the operation gate.
 	ErrBusy = errors.New("another operation is active")

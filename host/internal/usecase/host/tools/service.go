@@ -21,6 +21,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
@@ -59,8 +60,9 @@ type Service struct {
 }
 
 var (
-	_ run.ToolRuntime       = (*Service)(nil)
-	_ startup.ToolRegistrar = (*Service)(nil)
+	_ contextcompaction.ManualTools = (*Service)(nil)
+	_ run.ToolRuntime               = (*Service)(nil)
+	_ startup.ToolRegistrar         = (*Service)(nil)
 )
 
 // owner contains one accepted descriptor, schema, and extension identity.

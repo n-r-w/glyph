@@ -33,7 +33,7 @@ func TestProjectTreeEntryPreservesPublicCompactionPayload(t *testing.T) {
 	}
 
 	// Act by projecting the session-tree entry for extension transport.
-	projected := projectTreeEntry(entry)
+	projected := ProjectTreeEntry(entry)
 
 	// Assert the complete public compaction payload is retained independently.
 	compaction, present := projected.Compaction.Get()

@@ -173,6 +173,7 @@ func grpcCleanupProgress() OperationProgress {
 		}),
 		TreeNavigation:      mo.None[TreeNavigationProgress](),
 		TreeNavigationRetry: mo.None[RetryProgress](),
+		CompactionStage:     mo.None[string](),
 	}
 }
 

@@ -3,6 +3,7 @@
 package extension
 
 import (
+	"context"
 	"encoding/json/v2"
 	"errors"
 	"testing"
@@ -20,6 +21,133 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
+
+const (
+	// extensionPostCommitFailureCode identifies the observer category used by compaction completion tests.
+	extensionPostCommitFailureCode = "EXTENSION_FAILED"
+)
+
+// TestMapCompactionCompletionPreservesCommittedFailure verifies Extension Contract category and text.
+func TestMapCompactionCompletionPreservesCommittedFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange post-commit publication, observer, and joined failures.
+	publication := errors.New("publication failed after commit")
+	observer := errors.New("observer failed after commit")
+	tests := []struct {
+		name         string
+		failure      error
+		expectedCode string
+	}{
+		{
+			name:         "publication",
+			failure:      extensionPostCommitFailure{code: internalFailureCode, cause: publication},
+			expectedCode: internalFailureCode,
+		},
+		{
+			name:         "observer",
+			failure:      extensionPostCommitFailure{code: extensionPostCommitFailureCode, cause: observer},
+			expectedCode: extensionPostCommitFailureCode,
+		},
+		{name: "joined", failure: errors.Join(
+			extensionPostCommitFailure{code: internalFailureCode, cause: publication},
+			extensionPostCommitFailure{code: extensionPostCommitFailureCode, cause: observer},
+		), expectedCode: internalFailureCode},
+	}
+	for _, testCase := range tests {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			committed := session.Entry{ID: "compaction", Compaction: mo.Some(session.CompactionEntry{
+				Summary: "summary", FirstKeptEntryID: "kept",
+				Source: session.CompactionSource{
+					ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+				},
+				EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+			})}
+
+			// Act through the production Extension Host completion mapping.
+			result, err := mapCompactionCompletion(
+				t.Context(), CompactionResult{Committed: mo.Some(committed), Canceled: false}, testCase.failure,
+			)
+
+			// Assert committed state, complete text, and stable category survive together.
+			require.NoError(t, err)
+			require.Equal(t, "compaction", result.GetCommitted().GetEntryId())
+			require.Equal(t, testCase.failure.Error(), result.GetError())
+			require.Equal(t, testCase.expectedCode, result.GetFailureCode())
+		})
+	}
+}
+
+// TestMapCompactionCompletionCancellationMatrix verifies owner cancellation and typed precedence at Extension boundary.
+func TestMapCompactionCompletionCancellationMatrix(t *testing.T) {
+	t.Parallel()
+	ownerCause := errors.New("extension owner canceled compaction")
+	for _, testCase := range []struct {
+		name         string
+		cancelOwner  bool
+		result       CompactionResult
+		failure      error
+		expectedCode mo.Option[string]
+	}{
+		{
+			name: "owner cancellation ignores explicit handler bit", cancelOwner: true,
+			result:  CompactionResult{Committed: mo.None[session.Entry](), Canceled: false},
+			failure: ownerCause, expectedCode: mo.None[string](),
+		},
+		{
+			name: "active owner cancellation-shaped failure remains failed", cancelOwner: false,
+			result:  CompactionResult{Committed: mo.None[session.Entry](), Canceled: true},
+			failure: context.Canceled, expectedCode: mo.Some("COMPACTION_FAILED"),
+		},
+		{
+			name: "typed failure wins concurrent owner cancellation", cancelOwner: true,
+			result: CompactionResult{Committed: mo.None[session.Entry](), Canceled: false},
+			failure: errors.Join(extensionPostCommitFailure{
+				code: extensionPostCommitFailureCode, cause: errors.New("handler failed"),
+			}, ownerCause),
+			expectedCode: mo.Some(extensionPostCommitFailureCode),
+		},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Parallel()
+			ctx, cancel := context.WithCancelCause(t.Context())
+			if testCase.cancelOwner {
+				cancel(ownerCause)
+			}
+
+			// Act through the Extension Host completion mapping.
+			result, err := mapCompactionCompletion(ctx, testCase.result, testCase.failure)
+
+			// Assert pure owner cancellation stays untyped and independent typed failure retains its category.
+			require.Nil(t, result)
+			var failure *extensionsdk.FailureError
+			if code, present := testCase.expectedCode.Get(); present {
+				require.ErrorAs(t, err, &failure)
+				require.Equal(t, code, failure.Code())
+			} else {
+				require.ErrorIs(t, err, ownerCause)
+				require.NotErrorAs(t, err, &failure)
+			}
+		})
+	}
+}
+
+// extensionPostCommitFailure keeps a stable category and complete post-commit cause.
+type extensionPostCommitFailure struct {
+	// code is the stable public category.
+	code string
+	// cause is the complete underlying failure.
+	cause error
+}
+
+// Error returns the complete underlying failure text.
+func (e extensionPostCommitFailure) Error() string { return e.cause.Error() }
+
+// Unwrap preserves the underlying failure.
+func (e extensionPostCommitFailure) Unwrap() error { return e.cause }
+
+// CompactionFailureCode returns the stable category.
+func (e extensionPostCommitFailure) CompactionFailureCode() string { return e.code }
 
 // TestConfiguredModelRequestMapsPublicTerminalResponse verifies request validation and provider-private omission.
 func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {

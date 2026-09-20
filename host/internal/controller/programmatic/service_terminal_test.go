@@ -36,6 +36,12 @@ func TestFailureCodeForCommandEnforcesClosedSets(t *testing.T) {
 			expected: FailureCodeModelFailed,
 		},
 		{
+			name:     "run accepts compaction category",
+			command:  CommandUserRequest,
+			proposed: FailureCodeCompactionFailed,
+			expected: FailureCodeCompactionFailed,
+		},
+		{
 			name:     "internal query rejects model category",
 			command:  CommandGetModels,
 			proposed: FailureCodeModelFailed,

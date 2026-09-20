@@ -13,6 +13,7 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	authdomain "github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
@@ -117,6 +118,7 @@ type Catalog struct {
 }
 
 var (
+	_ contextcompaction.ManualModel  = (*Catalog)(nil)
 	_ modelexecution.CatalogResolver = (*Catalog)(nil)
 	_ modelselection.Catalog         = (*Catalog)(nil)
 	_ extensionmodels.Catalog        = (*Catalog)(nil)
@@ -190,6 +192,18 @@ func (c *Catalog) ActiveSelection() model.Selection {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return c.activeSelection
+}
+
+// ManualCompactionModel returns an atomic defensive snapshot without the raw provider executor.
+func (c *Catalog) ManualCompactionModel() contextcompaction.ManualModelSnapshot {
+	c.mutex.RLock()
+	defer c.mutex.RUnlock()
+
+	entry := c.entries[c.activeEntryIndex]
+	return contextcompaction.ManualModelSnapshot{
+		Model:           entry.Descriptor.Clone(),
+		ReasoningChoice: c.activeSelection.ReasoningChoice,
+	}
 }
 
 // ActiveBinding returns an atomic defensive snapshot of the active raw provider binding.

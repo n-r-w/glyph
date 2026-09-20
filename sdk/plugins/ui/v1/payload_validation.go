@@ -24,6 +24,12 @@ func validateHostProgressFields(progress *uiv1.HostProgress) error {
 	if retry := progress.GetSessionTreeRetry(); retry != nil {
 		return validateRetryProgress(retry)
 	}
+	if compaction := progress.GetCompaction(); compaction != nil {
+		if !compaction.HasStage() || compaction.GetStage() == "" {
+			return errors.New("Host compaction progress stage is required")
+		}
+		return nil
+	}
 	if navigation := progress.GetSessionTreeNavigation(); navigation != nil {
 		if err := validateSessionTree(navigation.GetTree()); err != nil {
 			return fmt.Errorf("Host navigation progress tree is invalid: %w", err)
@@ -242,6 +248,8 @@ func validateHostCompletedFields(completed *uiv1.HostCompleted) error {
 		if completed.GetAuthentication() == nil {
 			return errors.New("Host authentication acknowledgement is required")
 		}
+	case uiv1.HostCompleted_Compaction_case:
+		return validateCompactionCompletion(completed.GetCompaction())
 	case uiv1.HostCompleted_RetryEnabled_case:
 		result := completed.GetRetryEnabled()
 		if result == nil {
@@ -263,6 +271,32 @@ func validateHostCompletedFields(completed *uiv1.HostCompleted) error {
 		return errors.New("Host completed payload kind is required")
 	default:
 		return errors.New("Host completed payload kind is unknown")
+	}
+	return nil
+}
+
+// validateCompactionCompletion validates terminal state, diagnostics, and committed entry shape.
+func validateCompactionCompletion(result *uiv1.CompactionResult) error {
+	if result == nil || !result.HasCanceled() {
+		return errors.New("Host compaction result is required")
+	}
+	if result.GetCommitted() == nil && !result.GetCanceled() {
+		return errors.New("Host compaction result requires a commit or cancellation")
+	}
+	if result.GetCommitted() != nil && result.GetCanceled() {
+		return errors.New("Host compaction result cannot be committed and canceled")
+	}
+	if result.HasError() && result.GetCommitted() == nil {
+		return errors.New("Host compaction result error requires committed state")
+	}
+	if result.HasError() && (!result.HasFailureCode() || result.GetFailureCode() == "") {
+		return errors.New("Host compaction result error requires a failure code")
+	}
+	if !result.HasError() && result.HasFailureCode() {
+		return errors.New("Host compaction result failure code requires an error")
+	}
+	if result.GetCommitted() != nil {
+		return validateSessionEntry(result.GetCommitted())
 	}
 	return nil
 }

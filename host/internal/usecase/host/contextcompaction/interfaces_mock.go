@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
@@ -43,7 +44,7 @@ func (m *MockSessionState) EXPECT() *MockSessionStateMockRecorder {
 }
 
 // CommitCompaction mocks base method.
-func (m *MockSessionState) CommitCompaction(ctx context.Context, expected SessionIdentity, expectedLeafID mo.Option[string], compaction session.CompactionEntry) (session.Entry, error) {
+func (m *MockSessionState) CommitCompaction(ctx context.Context, expected session.Identity, expectedLeafID mo.Option[string], compaction session.CompactionEntry) (session.Entry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "CommitCompaction", ctx, expected, expectedLeafID, compaction)
 	ret0, _ := ret[0].(session.Entry)
@@ -57,11 +58,25 @@ func (mr *MockSessionStateMockRecorder) CommitCompaction(ctx, expected, expected
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitCompaction", reflect.TypeOf((*MockSessionState)(nil).CommitCompaction), ctx, expected, expectedLeafID, compaction)
 }
 
+// CompactionSnapshot mocks base method.
+func (m *MockSessionState) CompactionSnapshot() Snapshot {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompactionSnapshot")
+	ret0, _ := ret[0].(Snapshot)
+	return ret0
+}
+
+// CompactionSnapshot indicates an expected call of CompactionSnapshot.
+func (mr *MockSessionStateMockRecorder) CompactionSnapshot() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompactionSnapshot", reflect.TypeOf((*MockSessionState)(nil).CompactionSnapshot))
+}
+
 // ContextSession mocks base method.
-func (m *MockSessionState) ContextSession() SessionIdentity {
+func (m *MockSessionState) ContextSession() session.Identity {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContextSession")
-	ret0, _ := ret[0].(SessionIdentity)
+	ret0, _ := ret[0].(session.Identity)
 	return ret0
 }
 
@@ -69,4 +84,33 @@ func (m *MockSessionState) ContextSession() SessionIdentity {
 func (mr *MockSessionStateMockRecorder) ContextSession() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ContextSession", reflect.TypeOf((*MockSessionState)(nil).ContextSession))
+}
+
+// ProjectCompaction mocks base method.
+func (m *MockSessionState) ProjectCompaction(entries []session.Entry, compaction session.CompactionEntry) []agent.HistoryEntry {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProjectCompaction", entries, compaction)
+	ret0, _ := ret[0].([]agent.HistoryEntry)
+	return ret0
+}
+
+// ProjectCompaction indicates an expected call of ProjectCompaction.
+func (mr *MockSessionStateMockRecorder) ProjectCompaction(entries, compaction any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProjectCompaction", reflect.TypeOf((*MockSessionState)(nil).ProjectCompaction), entries, compaction)
+}
+
+// ProjectSuffix mocks base method.
+func (m *MockSessionState) ProjectSuffix(entries []session.Entry, firstKeptEntryID string) ([]agent.HistoryEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProjectSuffix", entries, firstKeptEntryID)
+	ret0, _ := ret[0].([]agent.HistoryEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProjectSuffix indicates an expected call of ProjectSuffix.
+func (mr *MockSessionStateMockRecorder) ProjectSuffix(entries, firstKeptEntryID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProjectSuffix", reflect.TypeOf((*MockSessionState)(nil).ProjectSuffix), entries, firstKeptEntryID)
 }

@@ -44,6 +44,8 @@ const (
 	CommandSetEntryLabel
 	// CommandSetRetryEnabled changes process-local model retry enablement.
 	CommandSetRetryEnabled
+	// CommandCompact requests manual active-conversation compaction.
+	CommandCompact
 )
 
 // AuthenticationMethod identifies a user-selected sign-in flow.

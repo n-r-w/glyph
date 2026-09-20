@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 )
@@ -143,7 +142,7 @@ func TestOverlappingMessageAppendContinuesFromNavigationCommit(t *testing.T) {
 	createdAt := time.Unix(1, 0).UTC()
 	service := New(repository, ids, clock, nil, "/project")
 	service.active = commitNavigationLoadedSession(commitNavigationTree(t, createdAt), createdAt)
-	expected := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	expected := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	service.contextIdentity.Store(&expected)
 	calls := 0
 	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -315,7 +314,7 @@ func TestExtensionStateIsCoherentDuringNavigation(t *testing.T) {
 	require.NoError(t, err)
 	service := New(repository, nil, nil, nil, "/project")
 	service.active = commitNavigationLoadedSession(tree, createdAt)
-	expected := contextcompaction.SessionIdentity{
+	expected := session.Identity{
 		ID: "session", WorkingDirectory: "/project", Incarnation: 1,
 	}
 	service.contextIdentity.Store(&expected)

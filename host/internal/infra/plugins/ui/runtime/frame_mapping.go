@@ -73,6 +73,10 @@ func mapFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
 		completed := new(uiv1.HostCompleted)
 		completed.SetAuthentication(new(uiv1.AuthenticationCompleted))
 		return completedRequest(completed), nil
+	case controllerui.FrameCompactionProgress:
+		return mapCompactionProgressFrame(frame)
+	case controllerui.FrameCompaction:
+		return mapCompactionCompletionFrame(frame)
 	case controllerui.FrameRetryEnabled:
 		policy, present := frame.RetryPolicy.Get()
 		if !present {
@@ -100,6 +104,44 @@ func mapFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
 	default:
 		return nil, errors.New("map UI frame: payload is required")
 	}
+}
+
+// mapCompactionProgressFrame maps the dedicated compaction stage to public progress.
+func mapCompactionProgressFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
+	stage, present := frame.CompactionStage.Get()
+	if !present {
+		return nil, errors.New("map UI frame: compaction stage is required")
+	}
+	progress := new(uiv1.HostProgress)
+	progress.SetCompaction(uiv1.CompactionProgress_builder{Stage: new(stage)}.Build())
+	return progressRequest(progress), nil
+}
+
+// mapCompactionCompletionFrame maps dedicated cancellation and optional durable outcome fields.
+func mapCompactionCompletionFrame(frame controllerui.Frame) (*uiv1.OpenRequest, error) {
+	canceled, present := frame.CompactionCanceled.Get()
+	if !present {
+		return nil, errors.New("map UI frame: compaction canceled state is required")
+	}
+	result := uiv1.CompactionResult_builder{
+		Committed: nil, Canceled: new(canceled), Error: nil, FailureCode: nil,
+	}
+	if message, messagePresent := frame.CompactionError.Get(); messagePresent {
+		result.Error = new(message)
+	}
+	if code, codePresent := frame.CompactionFailureCode.Get(); codePresent {
+		result.FailureCode = new(code)
+	}
+	if len(frame.SessionEntries) > 0 {
+		entries, err := mapRestoredSessionEntries(frame.SessionEntries[:1])
+		if err != nil {
+			return nil, err
+		}
+		result.Committed = entries[0]
+	}
+	completed := new(uiv1.HostCompleted)
+	completed.SetCompaction(result.Build())
+	return completedRequest(completed), nil
 }
 
 // completedRequest wraps one completed operation payload.
@@ -157,7 +199,7 @@ func mapSessionFrame(frame controllerui.Frame) (*uiv1.HostCompleted, bool, error
 		controllerui.FrameSessionTree, controllerui.FrameSessionTreeNavigationProgress,
 		controllerui.FrameSessionTreeRetryProgress, controllerui.FrameSessionTreeNavigation,
 		controllerui.FrameEntryLabelSet, controllerui.FrameSubmitCompleted, controllerui.FrameAuthenticationCompleted,
-		controllerui.FrameRetryEnabled:
+		controllerui.FrameRetryEnabled, controllerui.FrameCompactionProgress, controllerui.FrameCompaction:
 		return nil, false, nil
 	default:
 		return nil, false, nil

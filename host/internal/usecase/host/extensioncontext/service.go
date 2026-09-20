@@ -74,6 +74,7 @@ type Service struct {
 }
 
 var (
+	_ contextcompaction.ContextIssuer       = (*Service)(nil)
 	_ extensioncontroller.ContextOperations = (*Service)(nil)
 	_ extensionmodels.ContextValidator      = (*Service)(nil)
 	_ sessiontree.ContextIssuer             = (*Service)(nil)
@@ -257,17 +258,17 @@ func (s *Service) boundSession(
 	ctx context.Context,
 	extensionID, runtimeID string,
 	reference extension.ContextRef,
-) (contextcompaction.SessionIdentity, error) {
+) (session.Identity, error) {
 	if err := ctx.Err(); err != nil {
-		return contextcompaction.SessionIdentity{}, fmt.Errorf("complete extension context operation: %w", err)
+		return session.Identity{}, fmt.Errorf("complete extension context operation: %w", err)
 	}
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	issued, err := s.validateContextLocked(extensionID, runtimeID, reference)
 	if err != nil {
-		return contextcompaction.SessionIdentity{}, err
+		return session.Identity{}, err
 	}
-	return contextcompaction.SessionIdentity{
+	return session.Identity{
 		ID: issued.context.SessionID, WorkingDirectory: issued.context.WorkingDirectory,
 		Incarnation: issued.incarnation,
 	}, nil

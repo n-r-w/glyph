@@ -1,0 +1,213 @@
+edition = "2023";
+
+package glyph.plugins.extension.v1;
+
+import "api/plugins/extension/v1/model.proto";
+import "api/plugins/extension/v1/session.proto";
+import "api/plugins/extension/v1/tool.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// SessionTreeEntry contains one provider-neutral abandoned-branch entry.
+message SessionTreeEntry {
+  // The session entry identifier.
+  string id = 1;
+  // The model-visible or opaque entry projection.
+  oneof content {
+    SessionTreeUserMessage user = 2;
+    SessionTreeModelResponse model = 3;
+    SessionTreeToolResult tool_result = 4;
+    SessionTreeBranchSummary branch_summary = 5;
+    SessionTreeExtensionEntry extension = 6;
+    SessionTreeExtensionMessage extension_message = 7;
+    SessionTreeCompaction compaction = 8;
+  }
+}
+
+// SessionTreeExtensionMessage contains one model-visible extension message.
+message SessionTreeExtensionMessage {
+  // The owning extension identifier.
+  string extension_id = 1;
+  // The extension-defined entry kind.
+  string entry_type = 2;
+  // The exact model-visible text.
+  string text = 3;
+  // The ordinary client transcript visibility.
+  ClientVisibility visibility = 4;
+}
+
+// SessionTreeUserMessage contains one user message.
+message SessionTreeUserMessage {
+  // The ordered user content blocks.
+  repeated SessionTreeUserContent content = 1;
+}
+
+// SessionTreeUserContent contains one text or image input block.
+message SessionTreeUserContent {
+  // The user content payload.
+  oneof content {
+    string text = 1;
+    SessionTreeImage image = 2;
+  }
+}
+
+// SessionTreeImage contains one encoded image.
+message SessionTreeImage {
+  // The image media type.
+  string media_type = 1;
+  // The encoded image bytes.
+  bytes data = 2;
+}
+
+// SessionTreeModelResponse contains provider-neutral model output.
+message SessionTreeModelResponse {
+  // The ordered model-visible response blocks.
+  repeated SessionTreeModelContent content = 1;
+}
+
+// SessionTreeModelContent contains one finalized model response block.
+message SessionTreeModelContent {
+  // The semantic content kind.
+  SessionTreeModelContentKind kind = 1;
+  // The finalized text for text, refusal, or reasoning content.
+  string text = 2;
+  // The finalized tool call for tool-call content.
+  SessionTreeToolCall tool_call = 3;
+}
+
+// SessionTreeModelContentKind identifies provider-neutral model content.
+enum SessionTreeModelContentKind {
+  // No model content kind was provided.
+  SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED = 0;
+  // Public model response text.
+  SESSION_TREE_MODEL_CONTENT_KIND_TEXT = 1;
+  // Model refusal text.
+  SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL = 2;
+  // Model reasoning text.
+  SESSION_TREE_MODEL_CONTENT_KIND_REASONING = 3;
+  // A model-requested tool call.
+  SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL = 4;
+}
+
+// SessionTreeToolCall contains one provider-neutral tool request.
+message SessionTreeToolCall {
+  // The tool call identifier.
+  string id = 1;
+  // The requested tool name.
+  string name = 2;
+  // The JSON-encoded tool arguments.
+  bytes arguments_json = 3;
+}
+
+// SessionTreeToolResult contains one terminal tool result.
+message SessionTreeToolResult {
+  // The source tool call identifier.
+  string call_id = 1;
+  // The source tool name.
+  string tool_name = 2;
+  // The ordered terminal result blocks.
+  repeated ToolResultContent contents = 3;
+  // Whether tool execution ended with an error.
+  bool is_error = 4;
+}
+
+// SessionTreeBranchSummary contains one prior persisted summary.
+message SessionTreeBranchSummary {
+  // The persisted summary text.
+  string summary = 1;
+}
+
+// SessionTreeCompaction contains one persisted active-context compaction marker.
+message SessionTreeCompaction {
+  // The summary text included in model context.
+  string summary = 1;
+  // The first original entry retained after the summary.
+  string first_kept_entry_id = 2;
+  // The actual producer and its optional model usage.
+  BranchSummarySource source = 3;
+  // Persisted estimated cost when available for a model source.
+  EstimatedCost estimated_cost = 4;
+  // Opaque extension-owned result details when present.
+  bytes details = 5;
+}
+
+// SessionTreeExtensionEntry identifies one model-hidden extension entry without exposing its payload.
+message SessionTreeExtensionEntry {
+  // The extension identifier.
+  string extension_id = 1;
+  // The extension-owned entry type.
+  string entry_type = 2;
+}
+
+// BranchSummaryResult contains summary output and its explicit producer.
+message BranchSummaryResult {
+  // The nonempty summary text.
+  string summary = 1;
+  // The required actual source, independent of the built-in selection.
+  BranchSummarySource source = 2;
+}
+
+// BranchSummarySource identifies exactly one producer of the result.
+message BranchSummarySource {
+  // The producer and its model accounting, when applicable.
+  oneof source {
+    // The extension that produced the result without a model.
+    string extension_id = 1;
+    // The actual model execution and its reported usage.
+    BranchSummaryModelSource model = 2;
+  }
+}
+
+// BranchSummaryModelSource keeps model identity and reported usage together.
+message BranchSummaryModelSource {
+  // The required provider, model, and reasoning choice that produced the result.
+  ModelSelection selection = 1;
+  // Normalized provider usage, when reported.
+  TokenUsage usage = 2;
+}
+
+// TokenUsage contains normalized token accounting.
+message TokenUsage {
+  // Input tokens excluding cache buckets.
+  int64 input_tokens = 1;
+  // Output tokens including the reasoning subset.
+  int64 output_tokens = 2;
+  // Cache-read input tokens.
+  int64 cache_read_tokens = 3;
+  // Cache-write input tokens.
+  int64 cache_write_tokens = 4;
+  // Reasoning output tokens.
+  int64 reasoning_tokens = 5;
+  // Total input, output, cache-read, and cache-write tokens without recounting reasoning.
+  int64 total_tokens = 6;
+}
+
+// CommittedBranchSummary contains the complete Host-committed summary entry.
+message CommittedBranchSummary {
+  // The committed session entry identifier.
+  string entry_id = 1;
+  // The persisted summary text.
+  string summary = 2;
+  // The first abandoned entry identifier.
+  string first_entry_id = 3;
+  // The last abandoned entry identifier.
+  string last_entry_id = 4;
+  // The actual producer and its model usage.
+  BranchSummarySource source = 5;
+  // Persisted estimated cost, when calculable for a model source.
+  EstimatedCost estimated_cost = 6;
+}
+
+// EstimatedCost contains persisted USD cost buckets.
+message EstimatedCost {
+  // Uncached input-token cost.
+  double input = 1;
+  // Output-token cost.
+  double output = 2;
+  // Cache-read token cost.
+  double cache_read = 3;
+  // Cache-write token cost.
+  double cache_write = 4;
+  // Total cost across all buckets.
+  double total = 5;
+}

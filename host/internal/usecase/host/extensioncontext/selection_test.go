@@ -11,7 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 )
 
@@ -23,7 +23,7 @@ func TestProtectSelectionCommitCoordinatesIssuedSessionAndRuntime(t *testing.T) 
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
-	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 7}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 7}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).Times(2)
 	sessions.EXPECT().ContextSession().Return(identity).Times(2)
 	service := New(runtime, sessions)
@@ -39,7 +39,7 @@ func TestProtectSelectionCommitCoordinatesIssuedSessionAndRuntime(t *testing.T) 
 		}, nil
 	})
 	sessions.EXPECT().ProtectContextCommit(gomock.Any(), identity, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ contextcompaction.SessionIdentity, guard ContextCommitGuard, commit func() error) error {
+		func(_ context.Context, _ session.Identity, guard ContextCommitGuard, commit func() error) error {
 			release, guardErr := guard()
 			if guardErr != nil {
 				return guardErr
@@ -78,8 +78,8 @@ func TestProtectSelectionCommitRejectsSupersededContext(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
-	oldIdentity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
-	newIdentity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	oldIdentity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	newIdentity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).Times(2)
 	sessions.EXPECT().ContextSession().Return(oldIdentity)
 	sessions.EXPECT().ContextSession().Return(newIdentity)

@@ -60,6 +60,9 @@ func (d *streamDelivery) Progress(id string, progress OperationProgress) error {
 		payload.SetSessionTreeNavigation(mapped)
 	case progress.TreeNavigationRetry.IsSome():
 		payload.SetSessionTreeRetry(mapRetryProgress(progress.TreeNavigationRetry.MustGet()))
+	case progress.CompactionStage.IsSome():
+		stage, _ := progress.CompactionStage.Get()
+		payload.SetCompaction(programmaticv1.CompactionProgress_builder{Stage: new(stage)}.Build())
 	default:
 		return d.failed(errors.New("map Programmatic progress: payload is required"))
 	}
@@ -127,7 +130,7 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 		switch proposed {
 		case FailureCodePersistenceUnavailable, FailureCodeModelFailed, FailureCodeRetryExhausted,
 			FailureCodeRetryCanceled, FailureCodeExtensionFailed, FailureCodeRetryDelayExceeded,
-			FailureCodeContextLimit:
+			FailureCodeContextLimit, FailureCodeCompactionFailed:
 			return proposed
 		}
 	case CommandSelectModel, CommandSelectReasoningChoice:
@@ -142,6 +145,14 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 		CommandForkSession, CommandCloneSession, CommandSetEntryLabel:
 		if proposed == FailureCodeSessionUnavailable || proposed == FailureCodePersistenceUnavailable {
 			return proposed
+		}
+	case CommandCompact:
+		switch proposed {
+		case FailureCodeCompactionFailed, FailureCodeExtensionFailed, FailureCodePersistenceUnavailable,
+			FailureCodeContextLimit, FailureCodeInternal:
+			return proposed
+		default:
+			return FailureCodeInternal
 		}
 	case CommandNavigateSessionTree:
 		switch proposed {
@@ -201,6 +212,8 @@ func completionMatches(command CommandKind, response ResponseKind) bool {
 		return response == ResponseSetEntryLabel
 	case CommandSetRetryEnabled:
 		return response == ResponseRetryEnabled
+	case CommandCompact:
+		return response == ResponseCompaction
 	case CommandUnspecified:
 		return false
 	default:

@@ -5,14 +5,14 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
 // ProtectContextCommit protects one bound state commit under session and runtime validity.
 func (s *Service) ProtectContextCommit(
 	ctx context.Context,
-	expected contextcompaction.SessionIdentity,
+	expected session.Identity,
 	commitGuard extensioncontext.ContextCommitGuard,
 	commit func() error,
 ) error {

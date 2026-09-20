@@ -75,7 +75,7 @@ func projectNavigation(request sessiontree.HandlerNavigationRequest) Navigation 
 func projectPreparation(state sessiontree.HandlerNavigationState) Preparation {
 	entries := make([]TreeEntry, len(state.Preparation.AbandonedPath))
 	for index := range state.Preparation.AbandonedPath {
-		entries[index] = projectTreeEntry(state.Preparation.AbandonedPath[index])
+		entries[index] = ProjectTreeEntry(state.Preparation.AbandonedPath[index])
 	}
 	return Preparation{
 		SessionID:             state.SessionID,
@@ -87,8 +87,8 @@ func projectPreparation(state sessiontree.HandlerNavigationState) Preparation {
 	}
 }
 
-// projectTreeEntry removes provider replay context and hidden extension state before transport sees them.
-func projectTreeEntry(entry session.Entry) TreeEntry {
+// ProjectTreeEntry removes provider replay context and hidden extension state before transport sees them.
+func ProjectTreeEntry(entry session.Entry) TreeEntry {
 	result := TreeEntry{
 		ID:               entry.ID,
 		User:             entry.User,

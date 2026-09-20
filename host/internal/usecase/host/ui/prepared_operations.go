@@ -34,6 +34,8 @@ const (
 	selectionCodeExtensionRejected = "extension_rejected"
 	// selectionCodeExtensionUnavailable identifies selected runtime loss.
 	selectionCodeExtensionUnavailable = "extension_unavailable"
+	// compactionRunningStage identifies active manual compaction work.
+	compactionRunningStage = "running"
 )
 
 // PreparationError reports a request that did not create a Host UI operation.
@@ -84,6 +86,9 @@ func (prepared *preparedUIOperation) Run(
 		if committed, ok := errors.AsType[*committedSelectionError](err); ok {
 			return operation.CompletedWithSource(result, committed.Unwrap())
 		}
+		if committed, ok := errors.AsType[*committedCompactionError](err); ok {
+			return operation.CompletedWithSource(result, committed.Unwrap())
+		}
 		if isPureCancellation(err) {
 			return operation.Canceled[controllerui.Frame]()
 		}
@@ -112,6 +117,12 @@ func isPureCancellation(err error) bool {
 	if _, categorized := errors.AsType[interface {
 		error
 		FailureCode() string
+	}](err); categorized {
+		return false
+	}
+	if _, categorized := errors.AsType[interface {
+		error
+		CompactionFailureCode() string
 	}](err); categorized {
 		return false
 	}
@@ -195,6 +206,9 @@ func (s *Session) Prepare(
 	if command.Kind == controllerui.CommandRetryAuthentication {
 		return s.prepareAuthentication(command.AuthenticationMethod)
 	}
+	if command.Kind == controllerui.CommandCompact {
+		return s.prepareCompaction(command)
+	}
 	if command.Kind == controllerui.CommandSetRetryEnabled {
 		enabled, present := command.RetryEnabled.Get()
 		if !present {
@@ -217,6 +231,57 @@ func (s *Session) Prepare(
 		return s.prepareSelection(command)
 	}
 	return s.prepareSessionOperation(command)
+}
+
+// prepareCompaction reserves the operation gate and builds one asynchronous manual compaction.
+func (s *Session) prepareCompaction(
+	command controllerui.Command,
+) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
+	if s.compactor == nil {
+		return nil, rejectOperation(controllerui.RejectionCodeNotReady, errors.New("UI compactor is unavailable"))
+	}
+	release, acquired := s.gate.TryAcquire()
+	if !acquired {
+		return nil, rejectOperation(controllerui.RejectionCodeBusy, session.ErrBusy)
+	}
+	return &preparedUIOperation{
+		run: func(ctx context.Context, reporter operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
+			progress := controllerui.NewFrame(controllerui.FrameCompactionProgress)
+			progress.CompactionStage = mo.Some(compactionRunningStage)
+			if err := reporter.Report(progress); err != nil {
+				return controllerui.Frame{}, fmt.Errorf("report compaction progress: %w", err)
+			}
+			result, compactionErr := s.compactor.CompactManual(ctx, command.CompactionInstructions)
+			return compactionCompletionFrame(result, compactionErr)
+		},
+		failureCode: sessionOperationFailureCode,
+		release:     release, releaseOnce: sync.Once{},
+	}, nil
+}
+
+// compactionCompletionFrame maps one compaction terminal into the consumer-owned UI result.
+func compactionCompletionFrame(
+	result ManualCompactionResult,
+	compactionErr error,
+) (controllerui.Frame, error) {
+	frame := controllerui.NewFrame(controllerui.FrameCompaction)
+	if committed, present := result.Committed.Get(); present {
+		entries, err := mapSessionEntries([]session.Entry{committed})
+		if err != nil {
+			return controllerui.Frame{}, errors.Join(compactionErr, err)
+		}
+		frame.SessionEntries = entries
+	}
+	frame.CompactionCanceled = mo.Some(result.Canceled)
+	if compactionErr == nil {
+		return frame, nil
+	}
+	frame.CompactionError = mo.Some(compactionErr.Error())
+	frame.CompactionFailureCode = mo.Some(sessionOperationFailureCode(compactionErr))
+	if result.Committed.IsSome() {
+		return frame, &committedCompactionError{cause: compactionErr}
+	}
+	return controllerui.Frame{}, compactionErr
 }
 
 // prepareSubmit reserves the agent-run gate before acceptance.
@@ -280,6 +345,24 @@ func runFailureCode(err error) string {
 	return controllerui.FailureCodeInternal
 }
 
+// directCompactionFailureCode retains the compaction-owned category for manual operations.
+func directCompactionFailureCode(err error) (string, bool) {
+	failure, found := errors.AsType[interface {
+		error
+		CompactionFailureCode() string
+	}](err)
+	if !found {
+		return "", false
+	}
+	switch failure.CompactionFailureCode() {
+	case controllerui.FailureCodeCompactionFailed, controllerui.FailureCodeExtensionFailed,
+		controllerui.FailureCodePersistence, controllerui.FailureCodeInternal:
+		return failure.CompactionFailureCode(), true
+	default:
+		return "", false
+	}
+}
+
 // modelExecutionFailureCode reads the closed provider-neutral category without replacing its cause.
 func modelExecutionFailureCode(err error) (string, bool) {
 	failure, found := errors.AsType[interface {
@@ -293,6 +376,7 @@ func modelExecutionFailureCode(err error) (string, bool) {
 	case controllerui.FailureCodeModelFailed, controllerui.FailureCodeRetryExhausted,
 		controllerui.FailureCodeRetryCanceled, controllerui.FailureCodeExtensionFailed,
 		controllerui.FailureCodeRetryDelayExceeded, controllerui.FailureCodeContextLimit,
+		controllerui.FailureCodeCompactionFailed, controllerui.FailureCodePersistence,
 		controllerui.FailureCodeInternal:
 		return failure.FailureCode(), true
 	default:
@@ -337,6 +421,18 @@ func (s *Session) prepareAuthentication(
 		releaseOnce: sync.Once{},
 	}, nil
 }
+
+// committedCompactionError marks a failure acquired after compaction state committed.
+type committedCompactionError struct {
+	// cause preserves the complete post-commit failure.
+	cause error
+}
+
+// Error returns complete post-commit failure text.
+func (e *committedCompactionError) Error() string { return e.cause.Error() }
+
+// Unwrap returns the post-commit failure cause.
+func (e *committedCompactionError) Unwrap() error { return e.cause }
 
 // committedSelectionError marks diagnostics acquired after selection state committed.
 type committedSelectionError struct {
@@ -571,6 +667,9 @@ func (s *Session) runSessionOperation(
 func sessionOperationFailureCode(err error) string {
 	if errors.Is(err, session.ErrPersistenceUnavailable) {
 		return controllerui.FailureCodePersistence
+	}
+	if code, found := directCompactionFailureCode(err); found {
+		return code
 	}
 	if code, found := modelExecutionFailureCode(err); found {
 		return code

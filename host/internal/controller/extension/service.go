@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/samber/mo"
 
@@ -21,6 +22,10 @@ const (
 	internalFailureCode = "INTERNAL"
 	// deliveryFailedIssueCode identifies post-commit client publication failure.
 	deliveryFailedIssueCode = "DELIVERY_FAILED"
+	// compactionFailedCode identifies an unclassified compaction failure.
+	compactionFailedCode = "COMPACTION_FAILED"
+	// compactionRunningStage identifies active compaction work.
+	compactionRunningStage = "running"
 )
 
 // Service maps requests from one connected runtime to Host context operations.
@@ -33,6 +38,10 @@ type Service struct {
 	runtime RuntimeOperations
 	// selection owns shared active-selection admission and execution.
 	selection ModelSelection
+	// compaction owns session-bound manual compaction.
+	compaction CompactionOperations
+	// compactionGate owns admission against active agent and session operations.
+	compactionGate CompactionGate
 	// extensionID comes from process discovery, never request payloads.
 	extensionID string
 	// runtimeID identifies the exact process incarnation connected to this controller.
@@ -49,18 +58,26 @@ func New(
 	extensionID, runtimeID string,
 ) *Service {
 	return &Service{
-		models:      models,
-		contexts:    contexts,
-		runtime:     runtime,
-		selection:   nil,
-		extensionID: extensionID,
-		runtimeID:   runtimeID,
+		models:         models,
+		contexts:       contexts,
+		runtime:        runtime,
+		selection:      nil,
+		compaction:     nil,
+		compactionGate: nil,
+		extensionID:    extensionID,
+		runtimeID:      runtimeID,
 	}
 }
 
 // BindSelection binds shared selection before this controller becomes available to its stream.
 func (s *Service) BindSelection(selection ModelSelection) {
 	s.selection = selection
+}
+
+// BindCompaction binds session-bound manual compaction before this controller becomes available.
+func (s *Service) BindCompaction(compaction CompactionOperations, gate CompactionGate) {
+	s.compaction = compaction
+	s.compactionGate = gate
 }
 
 // Prepare validates the binding and reserves runtime accounting before acceptance.
@@ -93,6 +110,22 @@ func (s *Service) Prepare(
 	if err != nil {
 		return nil, extensionsdk.Reject(contextFailureCode(err), err)
 	}
+	if mappedRequest.compactionInstructions.IsSome() {
+		if s.compaction == nil || s.compactionGate == nil {
+			release()
+			return nil, extensionsdk.Reject(internalFailureCode, errors.New("manual compaction is not bound"))
+		}
+		gateRelease, acquired := s.compactionGate.TryAcquire()
+		if !acquired {
+			release()
+			return nil, extensionsdk.Reject("BUSY", errors.New("another operation is active"))
+		}
+		runtimeRelease := release
+		release = sync.OnceFunc(func() {
+			gateRelease()
+			runtimeRelease()
+		})
+	}
 	preparedSelection := mo.None[PreparedSelection]()
 	selectionCommand, hasSelection := mappedRequest.selection.Get()
 	if hasSelection {
@@ -114,7 +147,8 @@ func (s *Service) Prepare(
 		service: s, reference: bound, models: mappedRequest.models, sessionState: mappedRequest.sessionState,
 		configured: mappedRequest.configured, appendValue: mappedRequest.appendValue,
 		appendMessage: mappedRequest.appendMessage, selection: preparedSelection,
-		release: release, id: operationID,
+		compactionInstructions: mappedRequest.compactionInstructions,
+		release:                release, id: operationID,
 	}, nil
 }
 
@@ -134,6 +168,8 @@ type contextRequest struct {
 	appendMessage mo.Option[appendMessageRequest]
 	// selection contains one active-selection command when selected.
 	selection mo.Option[SelectionCommand]
+	// compactionInstructions is present when manual compaction is selected.
+	compactionInstructions mo.Option[mo.Option[string]]
 }
 
 // mapContextRequest validates the selected request payload before admission.
@@ -142,6 +178,7 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 		reference: nil, models: false, sessionState: false,
 		configured: mo.None[configuredRequest](), appendValue: mo.None[appendRequest](),
 		appendMessage: mo.None[appendMessageRequest](), selection: mo.None[SelectionCommand](),
+		compactionInstructions: mo.None[mo.Option[string]](),
 	}
 	if request == nil {
 		return mapped, errors.New("extension context request is required")
@@ -167,6 +204,14 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 		mapped.sessionState, mapped.reference = true, request.GetGetSessionState().GetContext()
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
 		return mapAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
+	case extensionpb.ExtensionRequest_Compact_case:
+		compact := request.GetCompact()
+		mapped.reference = compact.GetContext()
+		instructions := mo.None[string]()
+		if compact.HasInstructions() {
+			instructions = mo.Some(compact.GetInstructions())
+		}
+		mapped.compactionInstructions = mo.Some(instructions)
 	case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
 		return contextRequest{}, errors.New("extension context operation request is required")
 	case extensionpb.ExtensionRequest_SelectModel_case, extensionpb.ExtensionRequest_SelectReasoning_case:
@@ -195,7 +240,8 @@ func mapSelectionContextRequest(
 		extensionpb.ExtensionRequest_ConfiguredModel_case,
 		extensionpb.ExtensionRequest_AppendExtension_case,
 		extensionpb.ExtensionRequest_GetSessionState_case,
-		extensionpb.ExtensionRequest_AppendExtensionMessage_case:
+		extensionpb.ExtensionRequest_AppendExtensionMessage_case,
+		extensionpb.ExtensionRequest_Compact_case:
 		return SelectionCommand{}, nil, false, nil
 	default:
 		return SelectionCommand{}, nil, false, nil
@@ -261,6 +307,8 @@ type contextOperation struct {
 	sessionState bool
 	// selection owns an accepted shared selection operation when selected.
 	selection mo.Option[PreparedSelection]
+	// compactionInstructions is present when this is manual compaction.
+	compactionInstructions mo.Option[mo.Option[string]]
 	// release returns the runtime operation reservation.
 	release func()
 }
@@ -291,7 +339,31 @@ func (o *contextOperation) Run(
 	appendValue, hasAppend := o.appendValue.Get()
 	appendMessage, hasAppendMessage := o.appendMessage.Get()
 	preparedSelection, hasSelection := o.selection.Get()
+	compactionInstructions, hasCompaction := o.compactionInstructions.Get()
 	switch {
+	case hasCompaction:
+		if o.service.compaction == nil {
+			return nil, extensionsdk.Fail(internalFailureCode, errors.New("manual compaction is not bound"))
+		}
+		if reporter == nil {
+			return nil, extensionsdk.Fail(
+				internalFailureCode,
+				errors.New("compaction progress reporter is unavailable"),
+			)
+		}
+		progress := new(extensionpb.HostProgress)
+		progress.SetCompaction(extensionpb.CompactionProgress_builder{Stage: new(compactionRunningStage)}.Build())
+		if err := reporter.Report(ctx, progress); err != nil {
+			return nil, extensionsdk.Fail(internalFailureCode, fmt.Errorf("report compaction progress: %w", err))
+		}
+		compacted, compactionErr := o.service.compaction.CompactExtension(
+			ctx, o.service.extensionID, o.service.runtimeID, o.reference, compactionInstructions,
+		)
+		mapped, err := mapCompactionCompletion(ctx, compacted, compactionErr)
+		if err != nil {
+			return nil, err
+		}
+		result.SetCompact(mapped)
 	case hasSelection:
 		selectionResult := preparedSelection.Run(ctx)
 		mapped, err := mapSelectionResult(selectionResult)
@@ -404,6 +476,47 @@ func (o *contextOperation) Release() {
 	o.release()
 }
 
+// mapCompactionCompletion maps one committed Host result into the Extension Contract.
+func mapCompactionCompletion(
+	ctx context.Context,
+	result CompactionResult,
+	compactionErr error,
+) (*extensionpb.CompactResult, error) {
+	if compactionErr != nil && result.Committed.IsNone() {
+		if isPureOwningCancellation(ctx, compactionErr) {
+			return nil, compactionErr
+		}
+		return nil, extensionsdk.Fail(compactionFailureCode(compactionErr), compactionErr)
+	}
+	builder := extensionpb.CompactResult_builder{
+		Committed: nil, Canceled: new(result.Canceled), Error: nil, FailureCode: nil,
+	}
+	if committed, present := result.Committed.Get(); present {
+		mapped, err := mapCommittedCompaction(committed)
+		if err != nil {
+			return nil, extensionsdk.Fail(internalFailureCode, errors.Join(compactionErr, err))
+		}
+		builder.Committed = mapped
+	}
+	if compactionErr != nil {
+		builder.Error = new(compactionErr.Error())
+		builder.FailureCode = new(compactionFailureCode(compactionErr))
+	}
+	return builder.Build(), nil
+}
+
+// compactionFailureCode preserves typed compaction categories through the public contract.
+func compactionFailureCode(err error) string {
+	failure, found := errors.AsType[interface {
+		error
+		CompactionFailureCode() string
+	}](err)
+	if found {
+		return failure.CompactionFailureCode()
+	}
+	return compactionFailedCode
+}
+
 // mapModelFailure preserves source identity before reducing pure unclassified cancellation.
 func mapModelFailure(action string, err error) error {
 	cause := fmt.Errorf("%s: %w", action, err)
@@ -437,6 +550,24 @@ func mapContextFailure(action string, err error) error {
 		return cause
 	}
 	return extensionsdk.Fail(internalFailureCode, cause)
+}
+
+// isPureOwningCancellation reports a no-commit failure caused only by the canceled operation owner.
+func isPureOwningCancellation(ctx context.Context, err error) bool {
+	if ctx.Err() == nil {
+		return false
+	}
+	if _, typed := errors.AsType[interface {
+		error
+		CompactionFailureCode() string
+	}](err); typed {
+		return false
+	}
+	ownerCause := context.Cause(ctx)
+	return errtree.AllLeavesMatch(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) ||
+			errors.Is(cause, ownerCause)
+	})
 }
 
 // isPureCancellation reports whether every acquired error leaf is a cancellation sentinel.

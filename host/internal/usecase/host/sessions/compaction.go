@@ -11,18 +11,16 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
-
-var _ contextcompaction.SessionState = (*Service)(nil)
 
 // CommitCompaction validates and appends one compaction entry to the expected active branch.
 func (s *Service) CommitCompaction(
 	ctx context.Context,
-	expected contextcompaction.SessionIdentity,
+	expected session.Identity,
 	expectedLeafID mo.Option[string],
 	compaction session.CompactionEntry,
 ) (session.Entry, error) {
+	compaction.EstimatedCost = s.compactionEstimatedCost(compaction.Source)
 	if err := validateCompactionPayload(compaction); err != nil {
 		return session.Entry{}, err
 	}
@@ -75,6 +73,19 @@ func (s *Service) CommitCompaction(
 		return committed, fmt.Errorf("deliver committed compaction entry: %w", waitErr)
 	}
 	return committed, nil
+}
+
+// compactionEstimatedCost derives persisted accounting from the actual model source and Host pricing.
+func (s *Service) compactionEstimatedCost(source session.CompactionSource) mo.Option[session.EstimatedCost] {
+	modelSource, present := source.Model.Get()
+	if !present {
+		return mo.None[session.EstimatedCost]()
+	}
+	return s.estimatedUsageCost(
+		modelSource.Selection.Provider,
+		modelSource.Selection.Model,
+		modelSource.Usage,
+	)
 }
 
 // validateCompactionPayload checks fields that do not require active-branch state.

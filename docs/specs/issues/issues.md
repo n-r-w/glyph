@@ -15,4 +15,5 @@
   - [ ] Final public failure-code closure and Programmatic/UI contract tests after PHS-12: `docs/specs/issues/agent-run-failure-semantics/problem.md`
 - [X] Blocking contract operation processing: `docs/specs/issues/blocking-contract-operation-processing`
 - [X] Reliable branch summarization: `docs/specs/issues/reliable-branch-summarization`
+- [ ] Production panic elimination: `docs/specs/issues/production-panic-elimination/ticket.md`
 - [X] Unclear model operation naming: `docs/specs/issues/unclear-model-operation-naming`

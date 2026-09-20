@@ -7,7 +7,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extensioncontext
@@ -23,25 +22,25 @@ type RuntimeState interface {
 // SessionState supplies one atomic active-session identity snapshot.
 type SessionState interface {
 	// ContextSession returns durable identity, project directory, and process-local incarnation.
-	ContextSession() contextcompaction.SessionIdentity
+	ContextSession() session.Identity
 	// AppendExtension appends one entry only while the expected session incarnation remains active.
 	AppendExtension(
 		context.Context,
-		contextcompaction.SessionIdentity,
+		session.Identity,
 		session.ExtensionEnvelope,
 		ContextCommitGuard,
 	) (session.Entry, error)
 	// AppendExtensionMessage persists and publishes one message under the bound session incarnation.
 	AppendExtensionMessage(
 		context.Context,
-		contextcompaction.SessionIdentity,
+		session.Identity,
 		session.ExtensionMessage,
 		ContextCommitGuard,
 	) (session.Entry, error)
 	// ExtensionState returns one coherent filtered active-branch snapshot.
-	ExtensionState(context.Context, contextcompaction.SessionIdentity, string) (SessionSnapshot, error)
+	ExtensionState(context.Context, session.Identity, string) (SessionSnapshot, error)
 	// ProtectContextCommit validates and protects the expected session before runtime while commit runs.
-	ProtectContextCommit(context.Context, contextcompaction.SessionIdentity, ContextCommitGuard, func() error) error
+	ProtectContextCommit(context.Context, session.Identity, ContextCommitGuard, func() error) error
 }
 
 // ContextCommitGuard acquires runtime validity across one owning session commit.

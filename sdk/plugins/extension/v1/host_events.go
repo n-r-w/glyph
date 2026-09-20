@@ -30,6 +30,8 @@ const (
 	hostRequestModelSelection
 	// hostRequestReasoningSelection identifies active reasoning selection.
 	hostRequestReasoningSelection
+	// hostRequestCompaction identifies session-bound manual compaction.
+	hostRequestCompaction
 	// hostRequestCancel identifies targeted cancellation.
 	hostRequestCancel
 	// contextCodeStale identifies a permanently invalidated context binding.
@@ -50,6 +52,8 @@ const (
 	hostFailureCodeRetryDelayExceeded = "RETRY_DELAY_EXCEEDED"
 	// hostFailureCodeContextLimit identifies terminal provider context overflow.
 	hostFailureCodeContextLimit = "CONTEXT_LIMIT"
+	// hostFailureCodeCompactionFailed identifies terminal manual compaction failure.
+	hostFailureCodeCompactionFailed = "COMPACTION_FAILED"
 	// hostFailureCodeSessionUnavailable identifies unavailable active session state.
 	hostFailureCodeSessionUnavailable = "SESSION_UNAVAILABLE"
 	// hostFailureCodePersistenceUnavailable identifies a durable append failure.
@@ -86,6 +90,8 @@ func classifyHostRequest(request *extensionpb.ExtensionRequest) hostRequestKind 
 		return hostRequestModelSelection
 	case extensionpb.ExtensionRequest_SelectReasoning_case:
 		return hostRequestReasoningSelection
+	case extensionpb.ExtensionRequest_Compact_case:
+		return hostRequestCompaction
 	case extensionpb.ExtensionRequest_Cancel_case:
 		return hostRequestCancel
 	case extensionpb.ExtensionRequest_Request_not_set_case:
@@ -115,6 +121,8 @@ func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostComplete
 		return result.GetAppendExtensionMessage() != nil
 	case hostRequestModelSelection, hostRequestReasoningSelection:
 		return result.GetSelection() != nil
+	case hostRequestCompaction:
+		return result.GetCompact() != nil
 	case hostRequestCancel:
 		return result.GetCancel() != nil
 	case hostRequestInvalid:
@@ -125,6 +133,8 @@ func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostComplete
 }
 
 // validateHostFailureCode enforces the closed execution categories for one request kind.
+//
+//nolint:gocyclo // The request-specific category allowlist is intentionally explicit.
 func validateHostFailureCode(kind hostRequestKind, code string) error {
 	if code == failureCodeInternal || code == contextCodeStale {
 		return nil
@@ -134,6 +144,13 @@ func validateHostFailureCode(kind hostRequestKind, code string) error {
 		case hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable, hostFailureCodeModelFailed,
 			hostFailureCodeRetryExhausted, hostFailureCodeRetryCanceled, hostFailureCodeExtensionFailed,
 			hostFailureCodeRetryDelayExceeded, hostFailureCodeContextLimit:
+			return nil
+		}
+	}
+	if kind == hostRequestCompaction {
+		switch code {
+		case hostFailureCodeCompactionFailed, hostFailureCodeExtensionFailed,
+			hostFailureCodeSessionUnavailable, hostFailureCodePersistenceUnavailable:
 			return nil
 		}
 	}
@@ -160,7 +177,7 @@ func validateHostFailureCode(kind hostRequestKind, code string) error {
 func validateHostOutputFailureCode(code string) error {
 	for _, kind := range []hostRequestKind{
 		hostRequestModels, hostRequestConfiguredModel, hostRequestAppendExtension, hostRequestSessionState,
-		hostRequestModelSelection, hostRequestReasoningSelection,
+		hostRequestModelSelection, hostRequestReasoningSelection, hostRequestCompaction,
 	} {
 		if validateHostFailureCode(kind, code) == nil {
 			return nil
@@ -200,6 +217,50 @@ func validateHostCompleted(kind hostRequestKind, result *extensionpb.HostComplet
 	}
 	if kind == hostRequestModelSelection || kind == hostRequestReasoningSelection {
 		return validateSelectionResult(result.GetSelection())
+	}
+	if kind == hostRequestCompaction {
+		return validateCompactionCompleted(result.GetCompact())
+	}
+	return nil
+}
+
+// validateCompactionCompleted checks exclusive terminal state and durable marker fields.
+func validateCompactionCompleted(compaction *extensionpb.CompactResult) error {
+	if compaction.GetCommitted() == nil && !compaction.GetCanceled() {
+		return errors.New("host compaction completion requires a commit or cancellation")
+	}
+	if compaction.GetCommitted() != nil && compaction.GetCanceled() {
+		return errors.New("host compaction completion cannot be committed and canceled")
+	}
+	if err := validateCommittedCompaction(compaction.GetCommitted()); err != nil {
+		return err
+	}
+	return validateCompactionDiagnostic(compaction)
+}
+
+// validateCommittedCompaction checks complete durable marker identity when present.
+func validateCommittedCompaction(committed *extensionpb.CommittedCompaction) error {
+	if committed == nil {
+		return nil
+	}
+	marker := committed.GetCompaction()
+	if committed.GetEntryId() == "" || marker == nil || marker.GetSummary() == "" ||
+		marker.GetFirstKeptEntryId() == "" || marker.GetSource() == nil {
+		return errors.New("host committed compaction is incomplete")
+	}
+	return nil
+}
+
+// validateCompactionDiagnostic checks post-commit error text and category presence together.
+func validateCompactionDiagnostic(compaction *extensionpb.CompactResult) error {
+	if compaction.HasError() && compaction.GetCommitted() == nil {
+		return errors.New("host compaction completion error requires committed state")
+	}
+	if compaction.HasError() && (!compaction.HasFailureCode() || compaction.GetFailureCode() == "") {
+		return errors.New("host compaction completion error requires a failure code")
+	}
+	if !compaction.HasError() && compaction.HasFailureCode() {
+		return errors.New("host compaction completion failure code requires an error")
 	}
 	return nil
 }
@@ -251,6 +312,8 @@ func hostPeerError(cause error, event *extensionpb.HostEvent) error {
 }
 
 // mapHostEvent maps peer lifecycle events without truncating Host-owned error causes.
+//
+//nolint:gocyclo // The lifecycle and request-kind product is validated explicitly.
 func mapHostEvent(
 	id string,
 	kind hostRequestKind,
@@ -273,8 +336,11 @@ func mapHostEvent(
 	case extensionpb.HostEvent_Running_case:
 		event.Kind = operation.EventRunning
 	case extensionpb.HostEvent_Progress_case:
-		if kind != hostRequestConfiguredModel || payload.GetProgress().GetConfiguredModelRetry() == nil {
-			return event, false, errors.New("host progress does not match configured-model request")
+		progress := payload.GetProgress()
+		configuredProgress := kind == hostRequestConfiguredModel && progress.GetConfiguredModelRetry() != nil
+		compactionProgress := kind == hostRequestCompaction && progress.GetCompaction() != nil
+		if !configuredProgress && !compactionProgress {
+			return event, false, errors.New("host progress does not match request kind")
 		}
 		event.Kind, event.Progress = operation.EventProgress, payload.GetProgress()
 	case extensionpb.HostEvent_Completed_case:

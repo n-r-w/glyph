@@ -4,6 +4,7 @@ package operationgate
 import (
 	"sync/atomic"
 
+	controllerextension "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
@@ -16,9 +17,10 @@ type Service struct {
 }
 
 var (
-	_ runcontrol.Gate   = (*Service)(nil)
-	_ ui.Gate           = (*Service)(nil)
-	_ programmatic.Gate = (*Service)(nil)
+	_ controllerextension.CompactionGate = (*Service)(nil)
+	_ runcontrol.Gate                    = (*Service)(nil)
+	_ ui.Gate                            = (*Service)(nil)
+	_ programmatic.Gate                  = (*Service)(nil)
 )
 
 // TryAcquire reserves the gate and returns an idempotent release function.

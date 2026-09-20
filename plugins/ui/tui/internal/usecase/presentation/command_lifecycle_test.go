@@ -14,6 +14,76 @@ import (
 	tuiinput "github.com/n-r-w/glyph/plugins/ui/tui/internal/controller/tui"
 )
 
+// TestCompactionPostCommitErrorRendersAndSettles verifies terminal diagnostics release the standard TUI operation.
+func TestCompactionPostCommitErrorRendersAndSettles(t *testing.T) {
+	t.Parallel()
+	// Arrange one dispatched manual compaction tracked as the foreground operation.
+	service := newTestModel(t, AvailabilityIdle, nil)
+	host := NewMockHost(gomock.NewController(t))
+	service.host = host
+	work := service.prepareCommand(emptyCommand(CommandCompact))
+	identifier := work.(*preparedDispatch).identifier
+	host.EXPECT().Send(identifier, gomock.Any(), "").Return(nil)
+	result := work.Execute()
+	require.NoError(t, result.Err)
+	service.Complete(result)
+	_, pendingBefore := service.pending[identifier]
+	require.True(t, pendingBefore)
+
+	// Act by delivering a completed operation with a categorized post-commit error payload.
+	err := service.Notify(plugininput.Notification{
+		FailureCode: "", Kind: plugininput.NotificationCompleted, OperationID: identifier, Failure: nil,
+		Payload: mo.Some(plugininput.TextPayload(plugininput.TextUpdate{
+			Kind: plugininput.TextError, Text: "publication failed after commit", FailureCode: "INTERNAL",
+			AuthorizationCode: mo.None[string](),
+		})),
+	})
+
+	// Assert the operation settles and the exact error is rendered in the transcript.
+	require.NoError(t, err)
+	require.Empty(t, service.foreground)
+	_, pending := service.pending[identifier]
+	require.False(t, pending)
+	require.NotEmpty(t, service.model.state.Transcript)
+	line := service.model.state.Transcript[len(service.model.state.Transcript)-1]
+	require.Equal(t, LineError, line.Kind)
+	require.Equal(t, mo.Some("publication failed after commit"), line.Text)
+}
+
+// TestCompactionCancellationRendersAndSettles verifies handler cancellation releases the foreground operation.
+func TestCompactionCancellationRendersAndSettles(t *testing.T) {
+	t.Parallel()
+	// Arrange one dispatched manual compaction tracked as the foreground operation.
+	service := newTestModel(t, AvailabilityIdle, nil)
+	host := NewMockHost(gomock.NewController(t))
+	service.host = host
+	work := service.prepareCommand(emptyCommand(CommandCompact))
+	identifier := work.(*preparedDispatch).identifier
+	host.EXPECT().Send(identifier, gomock.Any(), "").Return(nil)
+	result := work.Execute()
+	require.NoError(t, result.Err)
+	service.Complete(result)
+
+	// Act by delivering the explicit cancellation information as a completed operation.
+	err := service.Notify(plugininput.Notification{
+		FailureCode: "", Kind: plugininput.NotificationCompleted, OperationID: identifier, Failure: nil,
+		Payload: mo.Some(plugininput.TextPayload(plugininput.TextUpdate{
+			Kind: plugininput.TextInformation, Text: "Compaction canceled.", FailureCode: "",
+			AuthorizationCode: mo.None[string](),
+		})),
+	})
+
+	// Assert the terminal reason is visible and the foreground command is released.
+	require.NoError(t, err)
+	require.Empty(t, service.foreground)
+	_, pending := service.pending[identifier]
+	require.False(t, pending)
+	require.NotEmpty(t, service.model.state.Transcript)
+	line := service.model.state.Transcript[len(service.model.state.Transcript)-1]
+	require.Equal(t, LineInformation, line.Kind)
+	require.Equal(t, mo.Some("Compaction canceled."), line.Text)
+}
+
 // TestForegroundCancelTargetSurvivesConcurrentCommands preserves first-foreground policy at its application owner.
 func TestForegroundCancelTargetSurvivesConcurrentCommands(t *testing.T) {
 	t.Parallel()

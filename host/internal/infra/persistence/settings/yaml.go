@@ -21,6 +21,14 @@ type settingsFile struct {
 	ActiveUI mo.Option[string] `yaml:"activeUI"`
 	// Retry contains raw Host retry policy overrides.
 	Retry mo.Option[retryFile] `yaml:"retry"`
+	// Compaction contains raw Host compaction policy overrides.
+	Compaction mo.Option[compactionFile] `yaml:"compaction"`
+}
+
+// compactionFile contains optional compaction policy overrides.
+type compactionFile struct {
+	// RetainedContextTokens contains the optional recent-context target.
+	RetainedContextTokens mo.Option[int64]
 }
 
 // retryFile contains optional retry policy overrides.
@@ -134,7 +142,9 @@ type reasoningFile struct {
 
 // The YAML methods preserve scalar presence before validation because mo.Option does not decode plain YAML scalars.
 func (configured *settingsFile) UnmarshalYAML(node *yaml.Node) error {
-	fields, err := decodeYAMLMapping(node, "defaultProvider", "defaultModel", "providers", "activeUI", "retry")
+	fields, err := decodeYAMLMapping(
+		node, "defaultProvider", "defaultModel", "providers", "activeUI", "retry", "compaction",
+	)
 	if err != nil {
 		return err
 	}
@@ -158,7 +168,26 @@ func (configured *settingsFile) UnmarshalYAML(node *yaml.Node) error {
 		return decodeErr
 	}
 	decoded.Retry = retry
+	compaction, decodeErr := decodeYAMLOption[compactionFile](fields, "compaction")
+	if decodeErr != nil {
+		return decodeErr
+	}
+	decoded.Compaction = compaction
 	*configured = decoded
+	return nil
+}
+
+// UnmarshalYAML decodes strict compaction policy overrides while retaining scalar presence.
+func (configured *compactionFile) UnmarshalYAML(node *yaml.Node) error {
+	fields, err := decodeYAMLMapping(node, "retainedContextTokens")
+	if err != nil {
+		return err
+	}
+	value, err := decodeYAMLOption[int64](fields, "retainedContextTokens")
+	if err != nil {
+		return err
+	}
+	configured.RetainedContextTokens = value
 	return nil
 }
 

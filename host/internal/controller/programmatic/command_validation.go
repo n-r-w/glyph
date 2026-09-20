@@ -5,7 +5,12 @@ import (
 )
 
 // Valid reports whether the command payload matches its discriminator.
+//
+//nolint:gocyclo // The closed command union requires explicit payload validation.
 func (command Command) Valid() bool {
+	if command.Kind != CommandCompact && command.CompactionInstructions.IsSome() {
+		return false
+	}
 	if invalid, handled := command.invalidSessionCommand(); handled {
 		return !invalid
 	}
@@ -14,10 +19,13 @@ func (command Command) Valid() bool {
 		return !command.invalidUserRequest()
 	case CommandCancel, CommandGetRunState, CommandGetMessages, CommandGetModels:
 		return command.UserText.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
-			command.RetryEnabled.IsNone()
+			command.RetryEnabled.IsNone() && command.CompactionInstructions.IsNone()
 	case CommandSetRetryEnabled:
 		return command.RetryEnabled.IsSome() && command.UserText.IsNone() && !command.hasModelArguments() &&
-			!command.hasSessionArguments()
+			!command.hasSessionArguments() && command.CompactionInstructions.IsNone()
+	case CommandCompact:
+		return command.UserText.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
+			command.RetryEnabled.IsNone()
 	case CommandSelectModel:
 		return !command.invalidModelSelection()
 	case CommandSelectReasoningChoice:
@@ -50,7 +58,7 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 	case CommandSetEntryLabel:
 		return command.invalidSetEntryLabel(), true
 	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
-		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice, CommandSetRetryEnabled:
+		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice, CommandSetRetryEnabled, CommandCompact:
 		return false, false
 	default:
 		return false, false

@@ -15,7 +15,7 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	sessiondomain "github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 )
@@ -35,14 +35,14 @@ func TestCataloguesRevalidateBlockedReads(t *testing.T) {
 			catalog := extensionmodels.NewMockCatalog(controller)
 			requester := extensionmodels.NewMockModelRequester(controller)
 			var mutex sync.Mutex
-			identity := contextcompaction.SessionIdentity{ID: "A", WorkingDirectory: "/project", Incarnation: 1}
+			identity := sessiondomain.Identity{ID: "A", WorkingDirectory: "/project", Incarnation: 1}
 			instance := "runtime"
 			runtime.EXPECT().ContextRuntime("extension").DoAndReturn(func(string) (string, bool) {
 				mutex.Lock()
 				defer mutex.Unlock()
 				return instance, true
 			}).AnyTimes()
-			session.EXPECT().ContextSession().DoAndReturn(func() contextcompaction.SessionIdentity {
+			session.EXPECT().ContextSession().DoAndReturn(func() sessiondomain.Identity {
 				mutex.Lock()
 				defer mutex.Unlock()
 				return identity

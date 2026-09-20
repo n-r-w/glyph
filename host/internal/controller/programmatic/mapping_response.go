@@ -65,6 +65,28 @@ func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
 		if err := mapModelSelectionCompleted(wire, response.Selection, response.SelectionIssues); err != nil {
 			return nil, err
 		}
+	case ResponseCompaction:
+		canceled, present := response.CompactionCanceled.Get()
+		if !present {
+			return nil, errors.New("map compaction: canceled state is absent")
+		}
+		result := programmaticv1.CompactionResult_builder{
+			Committed: nil, Canceled: new(canceled), Error: nil, FailureCode: nil,
+		}
+		if message, messagePresent := response.CompactionError.Get(); messagePresent {
+			result.Error = new(message)
+		}
+		if code, codePresent := response.CompactionFailureCode.Get(); codePresent {
+			result.FailureCode = new(code)
+		}
+		if len(response.SessionEntries) > 0 {
+			entries, err := mapSessionEntries(response.SessionEntries[:1])
+			if err != nil {
+				return nil, err
+			}
+			result.Committed = entries[0]
+		}
+		wire.SetCompaction(result.Build())
 	case ResponseRetryEnabled:
 		policy, present := response.RetryPolicy.Get()
 		if !present {

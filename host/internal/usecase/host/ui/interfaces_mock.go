@@ -20,6 +20,7 @@ import (
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	operation "github.com/n-r-w/glyph/internal/operation"
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -245,6 +246,45 @@ func (m *MockRetryControl) SetRetryEnabled(enabled bool) {
 func (mr *MockRetryControlMockRecorder) SetRetryEnabled(enabled any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetRetryEnabled", reflect.TypeOf((*MockRetryControl)(nil).SetRetryEnabled), enabled)
+}
+
+// MockCompactor is a mock of Compactor interface.
+type MockCompactor struct {
+	ctrl     *gomock.Controller
+	recorder *MockCompactorMockRecorder
+	isgomock struct{}
+}
+
+// MockCompactorMockRecorder is the mock recorder for MockCompactor.
+type MockCompactorMockRecorder struct {
+	mock *MockCompactor
+}
+
+// NewMockCompactor creates a new mock instance.
+func NewMockCompactor(ctrl *gomock.Controller) *MockCompactor {
+	mock := &MockCompactor{ctrl: ctrl}
+	mock.recorder = &MockCompactorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCompactor) EXPECT() *MockCompactorMockRecorder {
+	return m.recorder
+}
+
+// CompactManual mocks base method.
+func (m *MockCompactor) CompactManual(arg0 context.Context, arg1 mo.Option[string]) (ManualCompactionResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompactManual", arg0, arg1)
+	ret0, _ := ret[0].(ManualCompactionResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CompactManual indicates an expected call of CompactManual.
+func (mr *MockCompactorMockRecorder) CompactManual(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompactManual", reflect.TypeOf((*MockCompactor)(nil).CompactManual), arg0, arg1)
 }
 
 // MockAgentRunner is a mock of AgentRunner interface.

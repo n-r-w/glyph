@@ -17,7 +17,6 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 // TestBindingsNeverReactivate verifies runtime replacement, same-ID resume, and A-to-B-to-A invalidation.
@@ -27,18 +26,18 @@ func TestBindingsNeverReactivate(t *testing.T) {
 	// Arrange: isolate runtime and session identity behind generated state-owner mocks.
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
-	session := NewMockSessionState(controller)
+	sessionState := NewMockSessionState(controller)
 	instance := "runtime-1"
-	identity := contextcompaction.SessionIdentity{ID: "A", WorkingDirectory: "/project", Incarnation: 1}
+	identity := session.Identity{ID: "A", WorkingDirectory: "/project", Incarnation: 1}
 	runtime.EXPECT().
 		ContextRuntime("extension").
 		DoAndReturn(func(string) (string, bool) { return instance, true }).
 		AnyTimes()
-	session.EXPECT().
+	sessionState.EXPECT().
 		ContextSession().
-		DoAndReturn(func() contextcompaction.SessionIdentity { return identity }).
+		DoAndReturn(func() session.Identity { return identity }).
 		AnyTimes()
-	service := New(runtime, session)
+	service := New(runtime, sessionState)
 
 	// Act: issue and reuse a binding before each permanent replacement.
 	first, err := service.IssueContext("extension")
@@ -48,7 +47,7 @@ func TestBindingsNeverReactivate(t *testing.T) {
 	require.Equal(t, first, repeated)
 	old := extension.ContextRef{ID: first.ID, RuntimeInstanceID: first.RuntimeInstanceID, SessionID: first.SessionID}
 	require.NoError(t, service.ValidateContext("extension", instance, old))
-	for _, replacement := range []contextcompaction.SessionIdentity{
+	for _, replacement := range []session.Identity{
 		{ID: "A", WorkingDirectory: "/project", Incarnation: 2},
 		{ID: "B", WorkingDirectory: "/project", Incarnation: 3},
 		{ID: "A", WorkingDirectory: "/project", Incarnation: 4},
@@ -84,7 +83,7 @@ func TestHiddenAppendAndRecoveryUseIssuedIncarnation(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
-	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
 	runtime.EXPECT().BeginContextCommit("extension", "runtime").Return(func() {}, nil)
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
@@ -105,13 +104,14 @@ func TestHiddenAppendAndRecoveryUseIssuedIncarnation(t *testing.T) {
 		Extension: mo.Some(
 			session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "checkpoint", Data: payload},
 		),
-		BranchSummary: mo.None[session.BranchSummaryEntry](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		BranchSummary:    mo.None[session.BranchSummaryEntry](),
+		ExtensionMessage: mo.None[session.ExtensionMessage](),
 	}
 	sessions.EXPECT().AppendExtension(
 		gomock.Any(), identity, stored.Extension.MustGet(), gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		_ contextcompaction.SessionIdentity,
+		_ session.Identity,
 		_ session.ExtensionEnvelope,
 		guard ContextCommitGuard,
 	) (session.Entry, error) {
@@ -146,7 +146,7 @@ func TestMessageAppendReturnsCommittedEntryWithDeliveryIssue(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
-	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
 	runtime.EXPECT().BeginContextCommit("extension", "runtime").Return(func() {}, nil)
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
@@ -155,7 +155,10 @@ func TestMessageAppendReturnsCommittedEntryWithDeliveryIssue(t *testing.T) {
 	require.NoError(t, err)
 	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
 	message := session.ExtensionMessage{
-		ExtensionID: "extension", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityHidden,
+		ExtensionID: "extension",
+		EntryType:   "note",
+		Text:        "exact text",
+		Visibility:  session.ClientVisibilityHidden,
 	}
 	stored := session.Entry{
 		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(10, 0).UTC(),
@@ -169,7 +172,7 @@ func TestMessageAppendReturnsCommittedEntryWithDeliveryIssue(t *testing.T) {
 		gomock.Any(), identity, message, gomock.Any(),
 	).DoAndReturn(func(
 		_ context.Context,
-		_ contextcompaction.SessionIdentity,
+		_ session.Identity,
 		_ session.ExtensionMessage,
 		guard ContextCommitGuard,
 	) (session.Entry, error) {
@@ -201,7 +204,7 @@ func TestMessageAppendWithoutPublisherReportsCommittedDeliveryFailure(t *testing
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
-	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	service := New(runtime, sessions)
@@ -209,7 +212,10 @@ func TestMessageAppendWithoutPublisherReportsCommittedDeliveryFailure(t *testing
 	require.NoError(t, err)
 	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
 	message := session.ExtensionMessage{
-		ExtensionID: "extension", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityVisible,
+		ExtensionID: "extension",
+		EntryType:   "note",
+		Text:        "exact text",
+		Visibility:  session.ClientVisibilityVisible,
 	}
 	stored := session.Entry{
 		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(10, 0).UTC(),
@@ -244,7 +250,7 @@ func TestMessageAppendReportsPostCommitCancellation(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
-	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	service := New(runtime, sessions)
@@ -252,7 +258,10 @@ func TestMessageAppendReportsPostCommitCancellation(t *testing.T) {
 	require.NoError(t, err)
 	reference := extension.ContextRef{ID: issued.ID, RuntimeInstanceID: "runtime", SessionID: "session"}
 	message := session.ExtensionMessage{
-		ExtensionID: "extension", EntryType: "note", Text: "exact text", Visibility: session.ClientVisibilityVisible,
+		ExtensionID: "extension",
+		EntryType:   "note",
+		Text:        "exact text",
+		Visibility:  session.ClientVisibilityVisible,
 	}
 	stored := session.Entry{
 		ID: "message", ParentID: mo.Some("parent"), CreatedAt: time.Unix(10, 0).UTC(),
@@ -287,9 +296,9 @@ func TestSessionRecoveryRejectsReplacementDuringRead(t *testing.T) {
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
 	var mutex sync.Mutex
-	identity := contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
-	sessions.EXPECT().ContextSession().DoAndReturn(func() contextcompaction.SessionIdentity {
+	sessions.EXPECT().ContextSession().DoAndReturn(func() session.Identity {
 		mutex.Lock()
 		defer mutex.Unlock()
 		return identity
@@ -301,7 +310,7 @@ func TestSessionRecoveryRejectsReplacementDuringRead(t *testing.T) {
 	entered := make(chan struct{})
 	release := make(chan struct{})
 	sessions.EXPECT().ExtensionState(gomock.Any(), identity, "extension").DoAndReturn(
-		func(context.Context, contextcompaction.SessionIdentity, string) (SessionSnapshot, error) {
+		func(context.Context, session.Identity, string) (SessionSnapshot, error) {
 			close(entered)
 			<-release
 			return SessionSnapshot{
@@ -336,17 +345,17 @@ func TestFreshContextOwnersNeverReuseBindingIDs(t *testing.T) {
 	// Arrange: supply the same durable identity to two independently constructed context owners.
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
-	session := NewMockSessionState(controller)
+	sessionState := NewMockSessionState(controller)
 	runtime.EXPECT().ContextRuntime("extension").Return("runtime", true).AnyTimes()
-	session.EXPECT().
+	sessionState.EXPECT().
 		ContextSession().
-		Return(contextcompaction.SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
+		Return(session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
 		AnyTimes()
 
 	// Act: issue the first binding from each fresh owner.
-	first, err := New(runtime, session).IssueContext("extension")
+	first, err := New(runtime, sessionState).IssueContext("extension")
 	require.NoError(t, err)
-	second, err := New(runtime, session).IssueContext("extension")
+	second, err := New(runtime, sessionState).IssueContext("extension")
 	require.NoError(t, err)
 
 	// Assert: binding identity is not a counter that restarts with Host ownership.

@@ -130,7 +130,7 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
 		SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
 		EntryLabel:   mo.None[string](),
-		RetryEnabled: mo.None[bool](),
+		RetryEnabled: mo.None[bool](), CompactionInstructions: mo.None[string](),
 	}
 
 	// Act by preparing before and after releasing the shared gate.

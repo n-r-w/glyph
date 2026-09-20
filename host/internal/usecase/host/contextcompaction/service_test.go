@@ -6,6 +6,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/samber/lo"
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -190,12 +191,189 @@ func TestFallbackEstimateMeasuresEveryProviderNeutralInputCategory(t *testing.T)
 	require.Equal(t, want, got)
 }
 
+// TestNewRequestCarriesHostFallbackEstimateForEveryInputEntry verifies complete compaction input sizing.
+func TestNewRequestCarriesHostFallbackEstimateForEveryInputEntry(t *testing.T) {
+	t.Parallel()
+	// Arrange text, image, model-private replay, tool-result, summary, and model-hidden entries.
+	controller := gomock.NewController(t)
+	sessions := NewMockSessionState(controller)
+	entries := []session.Entry{
+		compactionUserEntry("text", mo.None[string](), "text"),
+		compactionUserEntry("image", mo.Some("text"), ""),
+		compactionMarkerEntry("summary", "image", Result{
+			Summary: "previous", FirstKeptEntryID: "text",
+			Source: session.CompactionSource{
+				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+			},
+			Details: mo.None[[]byte](),
+		}),
+		compactionUserEntry("tail", mo.Some("summary"), "tail"),
+	}
+	entries[1].User = mo.Some(model.Message{Content: []model.InputContent{{
+		Kind: model.InputContentImage, Text: mo.None[string](), MediaType: mo.Some("image/png"),
+		Data: mo.Some([]byte("ignored")),
+	}}})
+	entries[2].Compaction = mo.None[session.CompactionEntry]()
+	entries[2].BranchSummary = mo.Some(session.BranchSummaryEntry{
+		Summary: "summary", FirstEntryID: "text", LastEntryID: "image",
+		Source: session.BranchSummarySource{
+			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+		},
+		EstimatedCost: mo.None[session.EstimatedCost](),
+	})
+	modelEntry := compactionUserEntry("model", mo.Some("tail"), "unused")
+	modelEntry.User = mo.None[session.UserMessage]()
+	modelEntry.Model = mo.Some(model.Response{
+		Content: []model.Content{{
+			Kind: model.ContentReasoning, Text: mo.Some("model"), Final: true,
+			ProviderContext: mo.Some(model.ProviderContext{
+				Source: model.ProviderContextSource{
+					ProviderID: "provider", API: "api", Model: "model", CompatibilityKey: mo.None[string](),
+				},
+				Payload: []byte("opaque"),
+			}),
+			ToolCall: mo.None[model.ToolCall](),
+		}},
+		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](),
+		Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+		Usage: mo.None[model.Usage](), Diagnostics: nil,
+	})
+	entries = append(entries, modelEntry)
+	hidden := compactionUserEntry("hidden", mo.Some("model"), "unused")
+	hidden.User = mo.None[session.UserMessage]()
+	hidden.Extension = mo.Some(
+		session.ExtensionEnvelope{ExtensionID: "extension", EntryType: "opaque", Data: []byte("secret")},
+	)
+	entries = append(entries, hidden)
+	sessions.EXPECT().ProjectSuffix(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(projected []session.Entry, _ string) ([]agent.HistoryEntry, error) {
+			if len(projected) == 1 && projected[0].BranchSummary.IsSome() {
+				return []agent.HistoryEntry{textHistory("rendered summary")}, nil
+			}
+			return []agent.HistoryEntry{textHistory("tail")}, nil
+		},
+	).AnyTimes()
+	service := New(sessions)
+	service.BindOrchestration(nil, nil, 1)
+	providerRequest := baselineRequest()
+	snapshot := Snapshot{
+		Identity:     session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
+		ActiveLeafID: mo.Some("hidden"), Entries: entries, Context: providerRequest.History,
+		Previous: mo.None[session.CompactionEntry](),
+	}
+
+	// Act by creating the immutable Host request.
+	request, err := service.newRequest(snapshot, providerRequest, TriggerManual, mo.None[string](), false)
+
+	// Assert every public entry has its exact Host estimate and hidden replay contributes without being exposed.
+	require.NoError(t, err)
+	all := append(cloneInputEntries(request.Prefix), request.Suffix...)
+	require.Equal(t, []int64{
+		estimateRecord(4, 0), estimateRecord(0, 1), estimateRecord(int64(len("rendered summary")), 0),
+		estimateRecord(4, 0), estimateRecord(int64(len("model")+len("opaque")), 0), 0,
+	}, lo.Map(all, func(entry InputEntry, _ int) int64 { return entry.EstimatedTokens }))
+	require.True(t, all[4].Model.MustGet().Content[0].ProviderContext.IsSome())
+}
+
+// TestReplacementEstimateRestoresImmutableOriginalReplayWeight verifies A-to-B-to-A handler composition.
+func TestReplacementEstimateRestoresImmutableOriginalReplayWeight(t *testing.T) {
+	t.Parallel()
+	// Arrange an original model entry whose opaque replay is hidden from the public replacement payload.
+	service := New(NewMockSessionState(gomock.NewController(t)))
+	response := model.Response{
+		Content: []model.Content{{
+			Kind: model.ContentReasoning, Text: mo.Some("visible"), Final: true,
+			ProviderContext: mo.Some(model.ProviderContext{
+				Source: model.ProviderContextSource{
+					ProviderID: "provider", API: "api", Model: "model", CompatibilityKey: mo.None[string](),
+				},
+				Payload: []byte("hidden replay"),
+			}),
+			ToolCall: mo.None[model.ToolCall](),
+		}},
+		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](), Provider: mo.None[model.ProviderID](),
+		Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
+		Usage: mo.None[model.Usage](), Diagnostics: nil,
+	}
+	originalEstimate, err := estimateModelResponse(response)
+	require.NoError(t, err)
+	entry := compactionUserEntry("model", mo.None[string](), "unused")
+	entry.User = mo.None[session.UserMessage]()
+	entry.Model = mo.Some(response)
+	original := Request{
+		Trigger: TriggerManual, RetryIntent: false, Instructions: mo.None[string](),
+		Model: baselineRequest().Model, ReasoningChoice: model.ReasoningChoiceOff,
+		Prefix: nil, Suffix: []InputEntry{{Entry: entry, EstimatedTokens: originalEstimate}},
+		Previous: mo.None[session.CompactionEntry](), ContextTokens: originalEstimate,
+		ContextTokensEstimated: true, ContextWindow: 1000, ResponseBudget: 100, RetainedBudget: 20,
+	}
+	changed := cloneRequest(original)
+	changedResponse := changed.Suffix[0].Model.MustGet()
+	changedResponse.Content[0].Text = mo.Some("changed")
+	changedResponse.Content[0].ProviderContext = mo.None[model.ProviderContext]()
+	changed.Suffix[0].Model = mo.Some(changedResponse)
+	changed, err = service.deriveReplacementEstimates(original, original, changed)
+	require.NoError(t, err)
+	restored := cloneRequest(original)
+	restoredResponse := restored.Suffix[0].Model.MustGet()
+	restoredResponse.Content[0].ProviderContext = mo.None[model.ProviderContext]()
+	restored.Suffix[0].Model = mo.Some(restoredResponse)
+	restored.Suffix[0].EstimatedTokens = 1
+
+	// Act by restoring the original visible content after an intermediate replacement.
+	restored, err = service.deriveReplacementEstimates(original, changed, restored)
+
+	// Assert Host restores its trusted opaque replay weight and never mutates immutable original state.
+	require.NoError(t, err)
+	require.Equal(t, originalEstimate, restored.Suffix[0].EstimatedTokens)
+	require.Equal(t, originalEstimate, original.Suffix[0].EstimatedTokens)
+	require.True(t, original.Suffix[0].Model.MustGet().Content[0].ProviderContext.IsSome())
+}
+
+// TestNewRequestMarksReportedUsageEstimate verifies baseline reuse keeps the required public estimate marker.
+func TestNewRequestMarksReportedUsageEstimate(t *testing.T) {
+	t.Parallel()
+	// Arrange one eligible reported-usage baseline and exact continuation.
+	controller := gomock.NewController(t)
+	sessions := NewMockSessionState(controller)
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
+	service := New(sessions)
+	request := baselineRequest()
+	response := baselineResponse(mo.Some(model.Usage{
+		InputTokens: 5_500, OutputTokens: 3_000, CachedInputTokens: 1_000,
+		CacheWriteTokens: 500, ReasoningTokens: 200, TotalTokens: 10_000,
+	}))
+	service.ObserveCompletedConversation(request, response)
+	next := request
+	next.History = append(
+		append([]agent.HistoryEntry(nil), request.History...),
+		modelHistory(response), textHistory(string(make([]byte, 400))),
+	)
+	entries := []session.Entry{compactionUserEntry("kept", mo.None[string](), "new")}
+	snapshot := Snapshot{
+		Identity: identity, ActiveLeafID: mo.Some("kept"), Entries: entries,
+		Context: next.History, Previous: mo.None[session.CompactionEntry](),
+	}
+	sessions.EXPECT().ProjectSuffix(entries, "kept").Return(next.History, nil).AnyTimes()
+
+	// Act through complete compaction request creation.
+	compactionRequest, err := service.newRequest(
+		snapshot, next, TriggerThreshold, mo.None[string](), false,
+	)
+
+	// Assert reported sizing remains explicitly identified as an estimate.
+	require.NoError(t, err)
+	require.Equal(t, int64(10_108), compactionRequest.ContextTokens)
+	require.True(t, compactionRequest.ContextTokensEstimated)
+}
+
 // TestReportedUsageBaselineReusesOnlyAnExactCompletedConversationPrefix verifies reuse and invalidation rules.
 func TestReportedUsageBaselineReusesOnlyAnExactCompletedConversationPrefix(t *testing.T) {
 	// Arrange a delivered completed response with normalized usage totaling ten thousand tokens.
 	controller := gomock.NewController(t)
 	sessions := NewMockSessionState(controller)
-	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 3}
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	service := New(sessions)
 	request := baselineRequest()
@@ -270,7 +448,7 @@ func TestCommittedCompactionInvalidatesBaselineDespitePublicationFailure(t *test
 	// Arrange one reusable baseline and a session commit that persisted before publication failed.
 	controller := gomock.NewController(t)
 	sessions := NewMockSessionState(controller)
-	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	service := New(sessions)
 	request := baselineRequest()
@@ -301,8 +479,8 @@ func TestReportedUsageBaselineRejectsChangedSessionIncarnation(t *testing.T) {
 	// Arrange one observed baseline and a process-local session identity that later changes.
 	controller := gomock.NewController(t)
 	sessions := NewMockSessionState(controller)
-	identity := SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
-	sessions.EXPECT().ContextSession().DoAndReturn(func() SessionIdentity { return identity }).AnyTimes()
+	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
+	sessions.EXPECT().ContextSession().DoAndReturn(func() session.Identity { return identity }).AnyTimes()
 	service := New(sessions)
 	request := baselineRequest()
 	response := baselineResponse(mo.Some(model.Usage{}))
@@ -326,8 +504,8 @@ func TestReportedUsageBaselineRejectsChangedSessionID(t *testing.T) {
 	// Arrange one observed baseline and a later different durable session identity.
 	controller := gomock.NewController(t)
 	sessions := NewMockSessionState(controller)
-	identity := SessionIdentity{ID: "session-a", WorkingDirectory: "/project", Incarnation: 1}
-	sessions.EXPECT().ContextSession().DoAndReturn(func() SessionIdentity { return identity }).AnyTimes()
+	identity := session.Identity{ID: "session-a", WorkingDirectory: "/project", Incarnation: 1}
+	sessions.EXPECT().ContextSession().DoAndReturn(func() session.Identity { return identity }).AnyTimes()
 	service := New(sessions)
 	request := baselineRequest()
 	response := baselineResponse(mo.Some(model.Usage{}))
@@ -387,7 +565,7 @@ func TestReportedUsageBaselineRejectsIneligibleResponsesAndAcceptsPresentZero(t 
 			sessions := NewMockSessionState(controller)
 			sessions.EXPECT().
 				ContextSession().
-				Return(SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
+				Return(session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
 				AnyTimes()
 			service := New(sessions)
 			request := baselineRequest()
@@ -418,7 +596,7 @@ func TestReportedUsageBaselineReusesNilToolCatalogue(t *testing.T) {
 	sessions := NewMockSessionState(controller)
 	sessions.EXPECT().
 		ContextSession().
-		Return(SessionIdentity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
+		Return(session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}).
 		AnyTimes()
 	service := New(sessions)
 	request := baselineRequest()

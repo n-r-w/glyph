@@ -196,6 +196,45 @@ func (mr *MockSessionTreeRegistrarMockRecorder) ValidateSessionTreeHandlers(regi
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateSessionTreeHandlers", reflect.TypeOf((*MockSessionTreeRegistrar)(nil).ValidateSessionTreeHandlers), registration)
 }
 
+// MockCompactionRegistrar is a mock of CompactionRegistrar interface.
+type MockCompactionRegistrar struct {
+	ctrl     *gomock.Controller
+	recorder *MockCompactionRegistrarMockRecorder
+	isgomock struct{}
+}
+
+// MockCompactionRegistrarMockRecorder is the mock recorder for MockCompactionRegistrar.
+type MockCompactionRegistrarMockRecorder struct {
+	mock *MockCompactionRegistrar
+}
+
+// NewMockCompactionRegistrar creates a new mock instance.
+func NewMockCompactionRegistrar(ctrl *gomock.Controller) *MockCompactionRegistrar {
+	mock := &MockCompactionRegistrar{ctrl: ctrl}
+	mock.recorder = &MockCompactionRegistrarMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCompactionRegistrar) EXPECT() *MockCompactionRegistrarMockRecorder {
+	return m.recorder
+}
+
+// ValidateCompactionHandlers mocks base method.
+func (m *MockCompactionRegistrar) ValidateCompactionHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateCompactionHandlers", registration)
+	ret0, _ := ret[0].([]AcceptedHandler)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateCompactionHandlers indicates an expected call of ValidateCompactionHandlers.
+func (mr *MockCompactionRegistrarMockRecorder) ValidateCompactionHandlers(registration any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateCompactionHandlers", reflect.TypeOf((*MockCompactionRegistrar)(nil).ValidateCompactionHandlers), registration)
+}
+
 // MockLifecycleRegistrar is a mock of LifecycleRegistrar interface.
 type MockLifecycleRegistrar struct {
 	ctrl     *gomock.Controller

@@ -40,7 +40,8 @@ func (d *hostDelivery) Running(id string) error {
 
 // Progress publishes one configured-model retry progress event.
 func (d *hostDelivery) Progress(id string, progress *extensionpb.HostProgress) error {
-	if progress == nil || progress.GetConfiguredModelRetry() == nil {
+	if progress == nil ||
+		(progress.GetConfiguredModelRetry() == nil && progress.GetCompaction() == nil) {
 		return errors.New("extension Host progress is invalid")
 	}
 	event := new(extensionpb.HostEvent)

@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"errors"
 	"sync"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
@@ -20,6 +21,8 @@ type Session struct {
 	modelSelection ModelSelection
 	// retryControl owns runtime retry enablement and policy projection.
 	retryControl RetryControl
+	// compactor owns manual active-conversation compaction.
+	compactor Compactor
 	// activeSessions owns active-session lifecycle operations.
 	activeSessions ActiveSessions
 	// navigator owns handler policy and navigation commit orchestration.
@@ -56,10 +59,23 @@ func NewSession(
 		modelCatalog:   modelCatalog,
 		modelSelection: modelSelection,
 		retryControl:   retryControl,
+		compactor:      nil,
 		gate:           gate,
 		activeSessions: activeSessions, navigator: navigator,
 		runtime:               runtime,
 		operationMutex:        sync.Mutex{},
 		operationAvailability: AvailabilityCheckingAuthentication,
 	}
+}
+
+// BindCompactor connects manual compaction before the UI session accepts commands.
+func (s *Session) BindCompactor(compactor Compactor) error {
+	if s.compactor != nil {
+		return errors.New("UI compactor is already bound")
+	}
+	if compactor == nil {
+		return errors.New("UI compactor is required")
+	}
+	s.compactor = compactor
+	return nil
 }

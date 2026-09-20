@@ -32,19 +32,20 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		return Command{}, Reject(RejectionCodeInvalidArgument, errors.New("programmatic operation request is required"))
 	}
 	command := Command{
-		OperationID:     operationID,
-		Kind:            CommandUnspecified,
-		UserText:        mo.None[string](),
-		ProviderID:      mo.None[model.ProviderID](),
-		ModelID:         mo.None[model.ID](),
-		ReasoningChoice: mo.None[model.ReasoningChoice](),
-		SessionID:       mo.None[session.ID](),
-		SessionName:     mo.None[string](),
-		TargetEntryID:   mo.None[string](),
-		SummaryMode:     SummaryModeNoSummary,
-		CustomFocus:     mo.None[string](),
-		EntryLabel:      mo.None[string](),
-		RetryEnabled:    mo.None[bool](),
+		OperationID:            operationID,
+		Kind:                   CommandUnspecified,
+		UserText:               mo.None[string](),
+		ProviderID:             mo.None[model.ProviderID](),
+		ModelID:                mo.None[model.ID](),
+		ReasoningChoice:        mo.None[model.ReasoningChoice](),
+		SessionID:              mo.None[session.ID](),
+		SessionName:            mo.None[string](),
+		TargetEntryID:          mo.None[string](),
+		SummaryMode:            SummaryModeNoSummary,
+		CustomFocus:            mo.None[string](),
+		EntryLabel:             mo.None[string](),
+		RetryEnabled:           mo.None[bool](),
+		CompactionInstructions: mo.None[string](),
 	}
 	if mapSessionRequest(payload, &command) {
 		if !command.Valid() {
@@ -76,6 +77,12 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 		command.Kind = CommandGetMessages
 	case programmaticv1.ControllerRequest_GetModels_case:
 		command.Kind = CommandGetModels
+	case programmaticv1.ControllerRequest_Compact_case:
+		compact := request.GetCompact()
+		command.Kind = CommandCompact
+		if compact.HasInstructions() {
+			command.CompactionInstructions = mo.Some(compact.GetInstructions())
+		}
 	case programmaticv1.ControllerRequest_SetRetryEnabled_case:
 		retry := request.GetSetRetryEnabled()
 		if !retry.HasEnabled() {

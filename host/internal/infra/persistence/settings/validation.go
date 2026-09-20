@@ -20,6 +20,8 @@ const (
 	defaultMaxRetries int64 = 3
 	// defaultMaxProviderDelay is the approved maximum accepted Retry-After value.
 	defaultMaxProviderDelay = 30 * time.Second
+	// defaultRetainedContextTokens is the approved recent unsummarized context target.
+	defaultRetainedContextTokens int64 = 20_000
 )
 
 // defaultRetryDelays returns the approved ordered retry schedule.
@@ -54,12 +56,17 @@ func (decoded settingsFile) validate() (Settings, error) {
 	if err != nil {
 		return Settings{}, err
 	}
+	compaction, err := validateCompaction(decoded.Compaction)
+	if err != nil {
+		return Settings{}, err
+	}
 	return Settings{
 		DefaultProvider: decoded.DefaultProvider,
 		DefaultModel:    decoded.DefaultModel,
 		Providers:       providers,
 		ActiveUI:        activeUI,
 		Retry:           retry,
+		Compaction:      compaction,
 	}, nil
 }
 
@@ -75,6 +82,18 @@ func (decoded settingsFile) validateDefaults() error {
 		return errors.New("providers must contain configured provider instances")
 	}
 	return nil
+}
+
+// validateCompaction applies the retained-context default and rejects negative targets.
+func validateCompaction(configured mo.Option[compactionFile]) (Compaction, error) {
+	value := defaultRetainedContextTokens
+	if raw, present := configured.Get(); present {
+		value = raw.RetainedContextTokens.OrElse(defaultRetainedContextTokens)
+	}
+	if value < 0 {
+		return Compaction{}, errors.New("compaction.retainedContextTokens must be nonnegative")
+	}
+	return Compaction{RetainedContextTokens: value}, nil
 }
 
 // validateRetry applies defaults and rejects unusable retry schedules.

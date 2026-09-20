@@ -17,6 +17,7 @@ import (
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -87,6 +88,84 @@ func (m *MockModelOperations) Request(ctx context.Context, extensionID, runtimeI
 func (mr *MockModelOperationsMockRecorder) Request(ctx, extensionID, runtimeID, reference, selection, instructions, history, progress any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelOperations)(nil).Request), ctx, extensionID, runtimeID, reference, selection, instructions, history, progress)
+}
+
+// MockCompactionGate is a mock of CompactionGate interface.
+type MockCompactionGate struct {
+	ctrl     *gomock.Controller
+	recorder *MockCompactionGateMockRecorder
+	isgomock struct{}
+}
+
+// MockCompactionGateMockRecorder is the mock recorder for MockCompactionGate.
+type MockCompactionGateMockRecorder struct {
+	mock *MockCompactionGate
+}
+
+// NewMockCompactionGate creates a new mock instance.
+func NewMockCompactionGate(ctrl *gomock.Controller) *MockCompactionGate {
+	mock := &MockCompactionGate{ctrl: ctrl}
+	mock.recorder = &MockCompactionGateMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCompactionGate) EXPECT() *MockCompactionGateMockRecorder {
+	return m.recorder
+}
+
+// TryAcquire mocks base method.
+func (m *MockCompactionGate) TryAcquire() (func(), bool) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "TryAcquire")
+	ret0, _ := ret[0].(func())
+	ret1, _ := ret[1].(bool)
+	return ret0, ret1
+}
+
+// TryAcquire indicates an expected call of TryAcquire.
+func (mr *MockCompactionGateMockRecorder) TryAcquire() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "TryAcquire", reflect.TypeOf((*MockCompactionGate)(nil).TryAcquire))
+}
+
+// MockCompactionOperations is a mock of CompactionOperations interface.
+type MockCompactionOperations struct {
+	ctrl     *gomock.Controller
+	recorder *MockCompactionOperationsMockRecorder
+	isgomock struct{}
+}
+
+// MockCompactionOperationsMockRecorder is the mock recorder for MockCompactionOperations.
+type MockCompactionOperationsMockRecorder struct {
+	mock *MockCompactionOperations
+}
+
+// NewMockCompactionOperations creates a new mock instance.
+func NewMockCompactionOperations(ctrl *gomock.Controller) *MockCompactionOperations {
+	mock := &MockCompactionOperations{ctrl: ctrl}
+	mock.recorder = &MockCompactionOperationsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCompactionOperations) EXPECT() *MockCompactionOperationsMockRecorder {
+	return m.recorder
+}
+
+// CompactExtension mocks base method.
+func (m *MockCompactionOperations) CompactExtension(arg0 context.Context, arg1, arg2 string, arg3 extension.ContextRef, arg4 mo.Option[string]) (CompactionResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CompactExtension", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(CompactionResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CompactExtension indicates an expected call of CompactExtension.
+func (mr *MockCompactionOperationsMockRecorder) CompactExtension(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompactExtension", reflect.TypeOf((*MockCompactionOperations)(nil).CompactExtension), arg0, arg1, arg2, arg3, arg4)
 }
 
 // MockContextOperations is a mock of ContextOperations interface.

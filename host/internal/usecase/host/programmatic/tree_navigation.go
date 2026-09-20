@@ -22,6 +22,7 @@ func programmaticNavigationCallback(
 		return reporter.Report(programmatic.OperationProgress{
 			AgentEvent: mo.None[programmatic.AgentEvent](), TreeNavigation: mo.Some(mapped),
 			TreeNavigationRetry: mo.None[programmatic.RetryProgress](),
+			CompactionStage:     mo.None[string](),
 		})
 	}
 }
@@ -37,6 +38,7 @@ func programmaticNavigationRetryCallback(
 			TreeNavigationRetry: mo.Some(programmatic.RetryProgress{
 				CompletedAttempts: completedAttempts, AttemptLimit: attemptLimit, Delay: delay, Error: failure,
 			}),
+			CompactionStage: mo.None[string](),
 		})
 	}
 }

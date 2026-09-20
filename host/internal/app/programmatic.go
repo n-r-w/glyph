@@ -80,6 +80,14 @@ func runProgrammaticWithPaths(
 	}
 	// contextCompaction owns active-conversation sizing and completed-usage observations.
 	contextCompaction := contextcompaction.New(sessionServices.active)
+	if err = contextCompaction.BindOrchestration(
+		extensions, contexts, configured.Compaction.RetainedContextTokens,
+	); err != nil {
+		return fmt.Errorf("bind Programmatic context compaction: %w", err)
+	}
+	if err = contextCompaction.BindManualRequest(providerCatalog, tools, codingagent.Instructions()); err != nil {
+		return fmt.Errorf("bind Programmatic manual compaction: %w", err)
+	}
 	// modelExecution owns every logical model request in the programmatic assembly.
 	modelExecution := modelexecution.New(
 		providerCatalog,
@@ -95,8 +103,14 @@ func runProgrammaticWithPaths(
 	selectionOwner.BindHandlers(extensions, contexts, delivery)
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
-	bindExtensionHostFactory(extensionFactory, extensions, extensionModels, contexts, selectionOwner)
+	bindExtensionHostFactory(
+		extensionFactory, extensions, extensionModels, contexts, selectionOwner, contextCompaction,
+		sessionServices.gate,
+	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
+	if err = startupService.BindCompaction(contextCompaction); err != nil {
+		return fmt.Errorf("bind Programmatic compaction registration: %w", err)
+	}
 	if _, err = startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}); err != nil {
@@ -118,6 +132,9 @@ func runProgrammaticWithPaths(
 		selectionOwner,
 		modelExecution,
 	)
+	if err = session.BindCompactor(contextCompaction); err != nil {
+		return fmt.Errorf("bind Programmatic manual compaction operation: %w", err)
+	}
 	controller := controllerprogrammatic.New(ctx, session, delivery)
 	lifecycleObservers.BindIssueDelivery(delivery)
 	sessionServices.active.BindEntryPublisher(delivery)

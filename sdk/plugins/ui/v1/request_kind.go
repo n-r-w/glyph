@@ -43,6 +43,8 @@ const (
 	requestSetEntryLabel
 	// requestSetRetryEnabled identifies runtime retry enablement.
 	requestSetRetryEnabled
+	// requestCompact identifies manual active-conversation compaction.
+	requestCompact
 )
 
 // classifyUIRequest returns the exact request payload kind.
@@ -63,6 +65,8 @@ func classifyUIRequest(request *uiv1.UIRequest) (requestKind, error) {
 		return requestSelectReasoning, nil
 	case uiv1.UIRequest_SetRetryEnabled_case:
 		return requestSetRetryEnabled, nil
+	case uiv1.UIRequest_Compact_case:
+		return requestCompact, nil
 	case uiv1.UIRequest_CreateSession_case:
 		return requestCreateSession, nil
 	case uiv1.UIRequest_ListSessions_case:
@@ -102,7 +106,8 @@ func classifySessionUIRequest(request *uiv1.UIRequest) (requestKind, error) {
 	case uiv1.UIRequest_Submit_case, uiv1.UIRequest_Cancel_case,
 		uiv1.UIRequest_RetryAuthentication_case, uiv1.UIRequest_SelectModel_case,
 		uiv1.UIRequest_SelectReasoningChoice_case, uiv1.UIRequest_CreateSession_case,
-		uiv1.UIRequest_ListSessions_case, uiv1.UIRequest_SetRetryEnabled_case:
+		uiv1.UIRequest_ListSessions_case, uiv1.UIRequest_SetRetryEnabled_case,
+		uiv1.UIRequest_Compact_case:
 		return 0, errors.New("UI operation request payload is not a session request")
 	default:
 		return 0, errors.New("UI operation request payload is unknown")
@@ -110,6 +115,8 @@ func classifySessionUIRequest(request *uiv1.UIRequest) (requestKind, error) {
 }
 
 // validateHostPayload checks progress and completion against the initiating request kind.
+//
+//nolint:gocyclo // The request and lifecycle payload product is validated explicitly.
 func validateHostPayload(kind requestKind, event *uiv1.HostEvent) error {
 	if event == nil {
 		return errors.New("Host operation event is required")
@@ -118,7 +125,8 @@ func validateHostPayload(kind requestKind, event *uiv1.HostEvent) error {
 		valid := kind == requestSubmit && progress.GetAgentEvent() != nil ||
 			kind == requestAuthentication && progress.GetAuthorization() != nil ||
 			kind == requestNavigateSessionTree && (progress.GetSessionTreeNavigation() != nil ||
-				progress.GetSessionTreeRetry() != nil)
+				progress.GetSessionTreeRetry() != nil) ||
+			kind == requestCompact && progress.GetCompaction() != nil
 		if !valid {
 			return fmt.Errorf("Host progress payload does not match UI request kind %d", kind)
 		}
@@ -166,6 +174,8 @@ func completedMatches(kind requestKind, completed *uiv1.HostCompleted) bool {
 		return completed.GetEntryLabelSet() != nil
 	case requestSetRetryEnabled:
 		return completed.GetRetryEnabled() != nil
+	case requestCompact:
+		return completed.GetCompaction() != nil
 	default:
 		return false
 	}

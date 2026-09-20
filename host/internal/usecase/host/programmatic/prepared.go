@@ -9,7 +9,13 @@ import (
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
+)
+
+const (
+	// compactionRunningStage identifies active Programmatic compaction work.
+	compactionRunningStage = "running"
 )
 
 // Prepare validates and admits one Programmatic operation without domain work.
@@ -82,6 +88,15 @@ func (p *commandPrepared) Run(
 	var response controller.Response
 	var active *runPrepared
 	var err error
+	if p.command.Kind == controller.CommandCompact {
+		if reportErr := reporter.Report(controller.OperationProgress{
+			AgentEvent:          mo.None[controller.AgentEvent](),
+			TreeNavigation:      mo.None[controller.TreeNavigationProgress](),
+			TreeNavigationRetry: mo.None[controller.RetryProgress](), CompactionStage: mo.Some(compactionRunningStage),
+		}); reportErr != nil {
+			return operation.Failed[controller.Response](controller.FailureCodeInternal, reportErr)
+		}
+	}
 	if p.command.Kind == controller.CommandNavigateSessionTree {
 		response, err = p.service.navigateSessionTree(
 			ctx,
@@ -93,6 +108,9 @@ func (p *commandPrepared) Run(
 		response, active, err = p.service.handle(ctx, p.command)
 	}
 	if err != nil {
+		if response.Kind == controller.ResponseCompaction && len(response.SessionEntries) > 0 {
+			return operation.CompletedWithSource(response, err)
+		}
 		if isOperationCancellation(ctx, err) {
 			return operation.Canceled[controller.Response]()
 		}
@@ -263,17 +281,16 @@ func mapSelectionPreparationError(err error) error {
 
 // isSessionMutation reports operation kinds that reserve the shared session gate.
 func isSessionMutation(kind controller.CommandKind) bool {
-	//nolint:exhaustive // Retry variants are handled by their owning path before this partial switch.
 	switch kind {
 	case controller.CommandCreateSession, controller.CommandResumeSession, controller.CommandSetSessionName,
 		controller.CommandNavigateSessionTree, controller.CommandForkSession, controller.CommandCloneSession,
-		controller.CommandSetEntryLabel:
+		controller.CommandSetEntryLabel, controller.CommandCompact:
 		return true
 	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandCancel,
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice, controller.CommandListSessions,
 		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries, controller.CommandGetSessionStats,
-		controller.CommandGetSessionTree:
+		controller.CommandGetSessionTree, controller.CommandSetRetryEnabled:
 		return false
 	default:
 		return false
@@ -312,13 +329,34 @@ func mapPreparationRejection(response controller.Response) error {
 
 // failureCode distinguishes source-classified history persistence from other Host errors.
 func failureCode(err error) string {
-	if errors.Is(err, agent.ErrPersistenceUnavailable) {
+	if errors.Is(err, agent.ErrPersistenceUnavailable) || errors.Is(err, session.ErrPersistenceUnavailable) {
 		return controller.FailureCodePersistenceUnavailable
+	}
+	if code, found := directCompactionFailureCode(err); found {
+		return code
 	}
 	if code, found := modelExecutionFailureCode(err); found {
 		return code
 	}
 	return controller.FailureCodeInternal
+}
+
+// directCompactionFailureCode retains the compaction-owned category for manual operations.
+func directCompactionFailureCode(err error) (string, bool) {
+	failure, found := errors.AsType[interface {
+		error
+		CompactionFailureCode() string
+	}](err)
+	if !found {
+		return "", false
+	}
+	switch failure.CompactionFailureCode() {
+	case controller.FailureCodeCompactionFailed, controller.FailureCodeExtensionFailed,
+		controller.FailureCodePersistenceUnavailable, controller.FailureCodeInternal:
+		return failure.CompactionFailureCode(), true
+	default:
+		return "", false
+	}
 }
 
 // modelExecutionFailureCode reads the closed provider-neutral category without replacing its cause.
@@ -334,6 +372,7 @@ func modelExecutionFailureCode(err error) (string, bool) {
 	case controller.FailureCodeModelFailed, controller.FailureCodeRetryExhausted,
 		controller.FailureCodeRetryCanceled, controller.FailureCodeExtensionFailed,
 		controller.FailureCodeRetryDelayExceeded, controller.FailureCodeContextLimit,
+		controller.FailureCodeCompactionFailed, controller.FailureCodePersistenceUnavailable,
 		controller.FailureCodeInternal:
 		return failure.FailureCode(), true
 	default:

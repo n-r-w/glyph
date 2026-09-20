@@ -67,6 +67,14 @@ func runHeadlessWithPaths(
 	}
 	// contextCompaction owns active-conversation sizing and completed-usage observations.
 	contextCompaction := contextcompaction.New(sessionServices.active)
+	if err = contextCompaction.BindOrchestration(
+		extensions, contexts, configured.Compaction.RetainedContextTokens,
+	); err != nil {
+		return fmt.Errorf("bind headless context compaction: %w", err)
+	}
+	if err = contextCompaction.BindManualRequest(providerCatalog, tools, codingagent.Instructions()); err != nil {
+		return fmt.Errorf("bind headless manual compaction: %w", err)
+	}
 	// modelExecution owns every logical model request in the headless assembly.
 	modelExecution := modelexecution.New(
 		providerCatalog,
@@ -82,8 +90,14 @@ func runHeadlessWithPaths(
 	selectionOwner.BindHandlers(extensions, contexts, renderer)
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
-	bindExtensionHostFactory(extensionFactory, extensions, extensionModels, contexts, selectionOwner)
+	bindExtensionHostFactory(
+		extensionFactory, extensions, extensionModels, contexts, selectionOwner, contextCompaction,
+		sessionServices.gate,
+	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
+	if err = startupService.BindCompaction(contextCompaction); err != nil {
+		return fmt.Errorf("bind headless compaction registration: %w", err)
+	}
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}, renderer)

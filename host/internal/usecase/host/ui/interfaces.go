@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/samber/mo"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 
 	"github.com/n-r-w/glyph/internal/operation"
@@ -41,6 +43,20 @@ type RetryControl interface {
 	SetRetryEnabled(enabled bool)
 	// RetryPolicy returns one detached effective policy snapshot.
 	RetryPolicy() (enabled bool, maxRetries int64, delays []time.Duration, maxProviderDelay time.Duration)
+}
+
+// ManualCompactionResult retains UI-visible state from manual compaction.
+type ManualCompactionResult struct {
+	// Committed contains the durable compaction entry when persistence succeeded.
+	Committed mo.Option[session.Entry]
+	// Canceled reports explicit handler cancellation before commit.
+	Canceled bool
+}
+
+// Compactor executes one manual active-conversation compaction.
+type Compactor interface {
+	// CompactManual runs the shared compaction chain with optional user instructions.
+	CompactManual(context.Context, mo.Option[string]) (ManualCompactionResult, error)
 }
 
 // AgentRunner starts one user request against the retained Agent Core history.

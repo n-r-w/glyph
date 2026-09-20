@@ -36,6 +36,8 @@ type Service struct {
 	lifecycle LifecycleRegistrar
 	// selection owns active-selection handler validation and publication when bound.
 	selection SelectionRegistrar
+	// compaction owns compaction capability registration validation when bound.
+	compaction CompactionRegistrar
 }
 
 // New creates the Host extension startup service.
@@ -48,8 +50,20 @@ func New(
 ) *Service {
 	return &Service{
 		runtimes: runtimes, tools: tools, sessionTree: sessionTree, lifecycle: lifecycle,
-		selection: selection,
+		selection: selection, compaction: nil,
 	}
+}
+
+// BindCompaction connects the compaction capability owner before extension loading.
+func (s *Service) BindCompaction(compaction CompactionRegistrar) error {
+	if s.compaction != nil {
+		return errors.New("compaction registrar is already bound")
+	}
+	if compaction == nil {
+		return errors.New("compaction registrar is required")
+	}
+	s.compaction = compaction
+	return nil
 }
 
 // Start loads extensions and reports the complete startup state to the selected output.
@@ -161,8 +175,17 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 			continue
 		}
 		retryHandlers := partitionHandlers(raw, RawHandlerKind.isRetry).acceptHandlers()
+		compactionHandlers, validationErr := s.validateCompactionHandlers(raw)
+		if validationErr != nil {
+			issues = append(
+				issues,
+				Issue{PluginIDs: []string{registration.ID}, Path: registration.Path, Err: validationErr},
+			)
+			rejected[registration.ID] = struct{}{}
+			continue
+		}
 		registration.Handlers = mergeHandlers(
-			raw.Handlers, sessionHandlers, lifecycleHandlers, selectionHandlers, retryHandlers,
+			raw.Handlers, sessionHandlers, lifecycleHandlers, selectionHandlers, retryHandlers, compactionHandlers,
 		)
 		handlerAccepted = append(handlerAccepted, registration)
 	}
@@ -201,6 +224,18 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	return report, nil
 }
 
+// validateCompactionHandlers validates the optional compaction partition through its capability owner.
+func (s *Service) validateCompactionHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
+	partition := partitionHandlers(registration, isCompactionKind)
+	if len(partition.Handlers) == 0 {
+		return nil, nil
+	}
+	if s.compaction == nil {
+		return nil, errors.New("compaction handler registration is not bound")
+	}
+	return s.compaction.ValidateCompactionHandlers(partition)
+}
+
 // validateSelectionHandlers validates the optional selection partition through its capability owner.
 func (s *Service) validateSelectionHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
 	selectionRegistration := partitionHandlers(registration, isSelectionKind)
@@ -221,7 +256,7 @@ func validateHandlerIdentities(handlers []RawHandlerDescriptor) error {
 			return errors.New("handler ID is empty")
 		}
 		if !isSessionTreeKind(handler.Kind) && !isLifecycleKind(handler.Kind) && !isSelectionKind(handler.Kind) &&
-			!handler.Kind.isRetry() {
+			!handler.Kind.isRetry() && !isCompactionKind(handler.Kind) {
 			return fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
 		}
 		if _, exists := ids[handler.ID]; exists {
@@ -272,6 +307,11 @@ func isLifecycleKind(kind RawHandlerKind) bool {
 // isSelectionKind reports whether active-selection policy owns one kind.
 func isSelectionKind(kind RawHandlerKind) bool {
 	return kind == RawHandlerKindModelSelection || kind == RawHandlerKindReasoningSelection
+}
+
+// isCompactionKind reports whether compaction policy owns one kind.
+func isCompactionKind(kind RawHandlerKind) bool {
+	return kind >= RawHandlerKindCompactionRequest && kind <= RawHandlerKindCompactionFailure
 }
 
 // isRetry reports whether model execution owns this retry handler kind.

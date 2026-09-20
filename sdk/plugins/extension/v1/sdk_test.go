@@ -239,6 +239,8 @@ func newContractService(t *testing.T) Service {
 		func(context.Context) (*extensionpb.HandleResponse, error) {
 			if handlerCalls.Add(1) == 1 {
 				return extensionpb.HandleResponse_builder{
+					CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+					CompactionSuccess: nil, CompactionFailure: nil,
 					Retry:          nil,
 					ModelSelection: nil, ReasoningSelection: nil,
 					Lifecycle:                nil,
@@ -249,6 +251,8 @@ func newContractService(t *testing.T) Service {
 				}.Build(), nil
 			}
 			return extensionpb.HandleResponse_builder{
+				CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+				CompactionSuccess: nil, CompactionFailure: nil,
 				Retry:          nil,
 				ModelSelection: nil, ReasoningSelection: nil,
 				Lifecycle:                nil,

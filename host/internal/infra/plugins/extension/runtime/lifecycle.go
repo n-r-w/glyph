@@ -24,6 +24,8 @@ func (r *Runtime) ObserveLifecycle(
 		HandlerId: new(handlerID), Context: mapContext(event.Context),
 		SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Lifecycle: invocation,
 		ModelSelection: nil, ReasoningSelection: nil,
+		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+		CompactionSuccess: nil, CompactionFailure: nil,
 	}.Build()
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)

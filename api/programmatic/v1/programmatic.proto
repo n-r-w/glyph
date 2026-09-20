@@ -4,6 +4,7 @@ package glyph.programmatic.v1;
 
 import "api/operation/v1/operation.proto";
 import "api/programmatic/v1/agent.proto";
+import "api/programmatic/v1/compaction.proto";
 import "api/programmatic/v1/model.proto";
 import "api/programmatic/v1/retry.proto";
 import "api/programmatic/v1/session.proto";
@@ -49,6 +50,8 @@ message ControllerRequest {
     CloneSession clone_session = 18;
     SetEntryLabel set_entry_label = 19;
     SetRetryEnabled set_retry_enabled = 20;
+    // A manual active-conversation compaction request.
+    Compact compact = 21;
   }
 }
 // UserRequest starts an agent run for user text.
@@ -113,6 +116,8 @@ message HostProgress {
     SessionTreeNavigationProgress session_tree_navigation = 2;
     // Retry progress for a branch-summary model request owned by this navigation operation.
     RetryProgress session_tree_retry = 3;
+    // Host-owned manual compaction progress.
+    CompactionProgress compaction = 4;
   }
 }
 // HostCompleted carries one operation-specific completed payload.
@@ -135,6 +140,8 @@ message HostCompleted {
     CloneSessionResult clone_session = 14;
     SetEntryLabelResult set_entry_label = 15;
     RetryEnabledResult retry_enabled = 16;
+    // The terminal manual compaction outcome.
+    CompactionResult compaction = 17;
   }
 }
 // UserRequestCompleted acknowledges a settled agent run.

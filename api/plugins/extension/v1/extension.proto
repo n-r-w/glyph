@@ -3,6 +3,7 @@ edition = "2023";
 package glyph.plugins.extension.v1;
 
 import "api/operation/v1/operation.proto";
+import "api/plugins/extension/v1/compaction.proto";
 import "api/plugins/extension/v1/lifecycle.proto";
 import "api/plugins/extension/v1/model.proto";
 import "api/plugins/extension/v1/session.proto";
@@ -97,6 +98,8 @@ message ExtensionRequest {
     AppendExtensionMessageRequest append_extension_message = 7;
     SelectModelRequest select_model = 8;
     SelectReasoningRequest select_reasoning = 9;
+    // A session-bound manual compaction request.
+    CompactRequest compact = 10;
   }
 }
 
@@ -119,6 +122,8 @@ message HostProgress {
   // The progress payload.
   oneof progress {
     ConfiguredModelRetryProgress configured_model_retry = 1;
+    // Progress for one extension-initiated manual compaction.
+    CompactionProgress compaction = 2;
   }
 }
 
@@ -134,6 +139,8 @@ message HostCompleted {
     GetSessionStateResult get_session_state = 6;
     AppendExtensionMessageResult append_extension_message = 7;
     SelectionResult selection = 8;
+    // The terminal manual compaction result.
+    CompactResult compact = 9;
   }
 }
 
@@ -187,6 +194,16 @@ enum HandlerKind {
   HANDLER_KIND_REASONING_SELECTION_OBSERVER = 18;
   // The handler composes one model retry decision.
   HANDLER_KIND_RETRY = 19;
+  // The handler composes a compaction request and optional result.
+  HANDLER_KIND_COMPACTION_REQUEST = 20;
+  // The handler is one registered compaction generation implementation.
+  HANDLER_KIND_COMPACTION_GENERATE = 21;
+  // The handler transforms an existing compaction result.
+  HANDLER_KIND_COMPACTION_RESULT = 22;
+  // The handler observes a committed compaction.
+  HANDLER_KIND_COMPACTION_SUCCESS = 23;
+  // The handler observes a failed or canceled compaction.
+  HANDLER_KIND_COMPACTION_FAILURE = 24;
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.

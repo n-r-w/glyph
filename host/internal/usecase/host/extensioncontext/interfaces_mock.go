@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
-	contextcompaction "github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -97,7 +96,7 @@ func (m *MockSessionState) EXPECT() *MockSessionStateMockRecorder {
 }
 
 // AppendExtension mocks base method.
-func (m *MockSessionState) AppendExtension(arg0 context.Context, arg1 contextcompaction.SessionIdentity, arg2 session.ExtensionEnvelope, arg3 ContextCommitGuard) (session.Entry, error) {
+func (m *MockSessionState) AppendExtension(arg0 context.Context, arg1 session.Identity, arg2 session.ExtensionEnvelope, arg3 ContextCommitGuard) (session.Entry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppendExtension", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(session.Entry)
@@ -112,7 +111,7 @@ func (mr *MockSessionStateMockRecorder) AppendExtension(arg0, arg1, arg2, arg3 a
 }
 
 // AppendExtensionMessage mocks base method.
-func (m *MockSessionState) AppendExtensionMessage(arg0 context.Context, arg1 contextcompaction.SessionIdentity, arg2 session.ExtensionMessage, arg3 ContextCommitGuard) (session.Entry, error) {
+func (m *MockSessionState) AppendExtensionMessage(arg0 context.Context, arg1 session.Identity, arg2 session.ExtensionMessage, arg3 ContextCommitGuard) (session.Entry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AppendExtensionMessage", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(session.Entry)
@@ -127,10 +126,10 @@ func (mr *MockSessionStateMockRecorder) AppendExtensionMessage(arg0, arg1, arg2,
 }
 
 // ContextSession mocks base method.
-func (m *MockSessionState) ContextSession() contextcompaction.SessionIdentity {
+func (m *MockSessionState) ContextSession() session.Identity {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ContextSession")
-	ret0, _ := ret[0].(contextcompaction.SessionIdentity)
+	ret0, _ := ret[0].(session.Identity)
 	return ret0
 }
 
@@ -141,7 +140,7 @@ func (mr *MockSessionStateMockRecorder) ContextSession() *gomock.Call {
 }
 
 // ExtensionState mocks base method.
-func (m *MockSessionState) ExtensionState(arg0 context.Context, arg1 contextcompaction.SessionIdentity, arg2 string) (SessionSnapshot, error) {
+func (m *MockSessionState) ExtensionState(arg0 context.Context, arg1 session.Identity, arg2 string) (SessionSnapshot, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ExtensionState", arg0, arg1, arg2)
 	ret0, _ := ret[0].(SessionSnapshot)
@@ -156,7 +155,7 @@ func (mr *MockSessionStateMockRecorder) ExtensionState(arg0, arg1, arg2 any) *go
 }
 
 // ProtectContextCommit mocks base method.
-func (m *MockSessionState) ProtectContextCommit(arg0 context.Context, arg1 contextcompaction.SessionIdentity, arg2 ContextCommitGuard, arg3 func() error) error {
+func (m *MockSessionState) ProtectContextCommit(arg0 context.Context, arg1 session.Identity, arg2 ContextCommitGuard, arg3 func() error) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProtectContextCommit", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
