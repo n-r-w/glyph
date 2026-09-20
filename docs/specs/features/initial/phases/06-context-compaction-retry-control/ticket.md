@@ -163,7 +163,7 @@ None.
 
 ## Technical Supplement
 
-The [technical solution](solution.md) separates the approved target boundary from the unaccepted Host-owned checkpoint and its implementation evidence. Its [tool-call argument representation](solution.md#tool-call-argument-representation) records the implemented single JSON value. QST-01 remains unresolved; PHS-06 implementation is not complete.
+The [technical solution](solution.md) separates the approved target boundary from the unaccepted Host-owned checkpoint and its implementation evidence. Its [tool-call argument representation](solution.md#tool-call-argument-representation) records the implemented single JSON value. QST-01 remains unresolved; PHS-06 implementation is not complete. The [migration plan](migration-plan.md) records the resume point, ordered work, and exit criteria after checkpoint `690827f`.
 
 ## References
 

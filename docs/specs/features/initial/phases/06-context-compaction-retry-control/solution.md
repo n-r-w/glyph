@@ -2,7 +2,7 @@
 
 Status: Unaccepted implementation checkpoint before migration to extension-owned compaction policy. PHS-06 remains in progress; see [implementation evidence](#implementation-evidence).
 
-The approved migration retains persisted context-replacement entries, session projection, and ordered request/result composition, but moves compaction policy and composition coordination into the extension. Agent Core continues to consume prepared history without compaction policy. The replacement integration contract, implementation migration, and bundled extension remain pending.
+The approved migration retains persisted context-replacement entries, session projection, and ordered request/result composition, but moves compaction policy and composition coordination into the extension. Agent Core continues to consume prepared history without compaction policy. The replacement integration contract, implementation migration, and bundled extension remain pending. The [migration plan](migration-plan.md) defines the continuation from checkpoint `690827f`; its next step is PHS-06.1, integration design.
 
 ## Problem Statement
 
