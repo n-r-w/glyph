@@ -248,15 +248,14 @@ func (c *Connection) Close() error {
 	return c.completionError()
 }
 
-// Fail marks a Host-detected peer protocol violation and joins failed connection work.
+// Fail reports a Host-detected peer protocol violation; the owner must call Close to join cleanup.
 func (c *Connection) Fail(cause error) error {
 	if cause == nil {
 		panic("extension connection failure cause is required")
 	}
 	mapped := newProtocolStatusError(codes.FailedPrecondition, cause.Error(), cause)
 	c.fail(mapped)
-	c.closeOnce.Do(c.join)
-	return c.completionError()
+	return mapped
 }
 
 // join stops the writer and waits for send, receive, and tracker cleanup.

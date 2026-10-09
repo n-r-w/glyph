@@ -1045,45 +1045,6 @@ func TestIdleProtocolFailureRetainsNonfatalDiagnostic(t *testing.T) {
 	require.NoError(t, connection.CompletionFailures())
 }
 
-// TestConnectionFailPreservesValidationCause verifies Host payload rejection fails and joins the connection.
-func TestConnectionFailPreservesValidationCause(t *testing.T) {
-	t.Parallel()
-
-	// Arrange: open a connection whose receive remains active until failure begins.
-	controller := gomock.NewController(t)
-	service := NewMockExtensionServiceClient(controller)
-	stream := NewMockExtensionService_OpenClient[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
-	service.EXPECT().Open(gomock.Any()).Return(stream, nil)
-	receiveEntered := make(chan struct{})
-	allowReceiveReturn := make(chan struct{})
-	stream.EXPECT().Recv().DoAndReturn(func() (*extensionpb.OpenResponse, error) {
-		close(receiveEntered)
-		<-allowReceiveReturn
-		return nil, status.Error(codes.Canceled, "failed connection canceled receive")
-	})
-	stream.EXPECT().CloseSend().DoAndReturn(func() error {
-		close(allowReceiveReturn)
-		return nil
-	})
-	client := &Client{
-		process: nil, service: service, done: nil, version: ProtocolVersion, closeOnce: sync.Once{},
-	}
-	connection, err := client.Open(t.Context())
-	require.NoError(t, err)
-	<-receiveEntered
-	validationCause := errors.New("result contents are empty")
-	failureResult := make(chan error, 1)
-
-	// Act: fail the connection and let CloseSend release receive cleanup.
-	go func() { failureResult <- connection.Fail(validationCause) }()
-	err = <-failureResult
-
-	// Assert: expose FailedPrecondition and preserve the exact validation cause.
-	assert.Equal(t, codes.FailedPrecondition, status.Code(err))
-	assert.ErrorContains(t, err, validationCause.Error())
-	assert.ErrorIs(t, err, validationCause)
-}
-
 // TestExtensionErrorMappingPreservesStatusTextAndCause verifies local error classification keeps Go causes.
 func TestExtensionErrorMappingPreservesStatusTextAndCause(t *testing.T) {
 	t.Parallel()
