@@ -200,7 +200,7 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 		}
 	}
 	if s.mode == "shutdown-host-work-loss" {
-		return status.Error(codes.Unavailable, "complete invocation transport failure")
+		return status.Error(codes.Unavailable, invocationTransportFailureText)
 	}
 	if s.mode == "shutdown-host-work-cancel" {
 		if err = stream.Send(extensionResponse(id, toolProgressEvent())); err != nil {

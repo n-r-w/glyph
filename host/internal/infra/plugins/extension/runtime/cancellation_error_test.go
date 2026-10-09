@@ -36,7 +36,7 @@ func TestReceivedErrorsSurviveLaterCancellation(t *testing.T) {
 			runtime := &Runtime{}
 
 			// Act through both production error-selection paths after caller cancellation.
-			execution := runtime.executionFailure(ctx, "tool", received, progress)
+			execution := runtime.composeExecutionFailure(ctx, "tool", received, progress, nil)
 			handler := runtime.handlerOperationError(ctx, "handler", received)
 
 			// Assert both received sources survive, with cancellation and independent progress preserved.
@@ -56,7 +56,7 @@ func TestTransportCancellationRetainsDiagnostic(t *testing.T) {
 	received := status.Error(codes.Canceled, "extension transport cancellation diagnostic Ω")
 	runtime := &Runtime{}
 	// Act through the transport mapper without caller cancellation.
-	err := runtime.executionError(t.Context(), "tool", received)
+	err := runtime.composeExecutionFailure(t.Context(), "tool", received, nil, nil)
 	// Assert mapping keeps both the original status and cancellation identity.
 	require.ErrorIs(t, err, received)
 	require.ErrorContains(t, err, received.Error())

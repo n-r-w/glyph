@@ -34,6 +34,10 @@ import (
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
+// invocationTransportFailureText includes peer-owned text that matches the Host classification.
+const invocationTransportFailureText = "complete invocation transport failure: " +
+	"extension runtime unavailable; original peer cause Ω"
+
 // TestManagerFailureReturnsBeforeRuntimeShutdown checks worker return and owner cleanup through a real process.
 func TestManagerFailureReturnsBeforeRuntimeShutdown(t *testing.T) {
 	t.Parallel()
@@ -85,6 +89,9 @@ func writeRuntimeExecutable(path, script string) error {
 
 // assertManagerFailureShutdown checks admission, worker return, and owner cleanup through a real process.
 func assertManagerFailureShutdown(t *testing.T, mode, invocation string, monitored bool, completion string) {
+	// toolInvocation selects tool failure classification assertions.
+	const toolInvocation = "tool"
+
 	t.Helper()
 
 	// Arrange a real runtime with admitted Host work whose release needs its invocation to return.
@@ -254,6 +261,15 @@ func assertManagerFailureShutdown(t *testing.T, mode, invocation string, monitor
 		executeErr = <-finished
 	}
 	require.ErrorIs(t, executeErr, manager.ErrExtensionUnavailable)
+	if invocation == toolInvocation {
+		// expectedMarkers counts the Host classification and any matching peer-owned text.
+		expectedMarkers := 1
+		if mode == "shutdown-host-work-loss" {
+			require.ErrorContains(t, executeErr, invocationTransportFailureText)
+			expectedMarkers++
+		}
+		assert.Equal(t, expectedMarkers, strings.Count(executeErr.Error(), manager.ErrExtensionUnavailable.Error()))
+	}
 	if mode == "shutdown-host-work" {
 		require.ErrorContains(t, executeErr, "result contents are empty")
 	} else {

@@ -3,6 +3,7 @@
 package runtime
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +29,9 @@ func TestRuntimeConnectionFailureStartsNoCancellationOperation(t *testing.T) {
 	)
 
 	// Assert: return the failure without allocating a third identifier for cancellation.
-	require.Error(t, err)
+	require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
+	require.ErrorContains(t, err, "complete failure before Accepted text")
+	assert.Equal(t, 1, strings.Count(err.Error(), extensionruntime.ErrExtensionUnavailable.Error()))
 	assert.Equal(t, uint64(2), runtime.nextOperationID.Load())
 	requireRuntimeStopped(t, runtime)
 }
