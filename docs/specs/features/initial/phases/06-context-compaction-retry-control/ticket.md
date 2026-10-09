@@ -15,6 +15,7 @@ Keep long sessions usable within model context limits.
 - DEF-09: Prepared history. The provider-neutral model history projected from the active session branch before Agent Core consumes it.
 - DEF-10: Compaction entry. The persisted replacement entry that contains the summary and the first preserved active-branch entry identifier.
 - DEF-11: Session validity. Structural checks on the session identity, active branch, replacement entry, accounting, and tool-call/result integrity that do not select compaction policy.
+- DEF-11.1: Compaction operation binding. Host process-local reference for one parent compaction or conversation-preparation operation, its captured input and participating runtime identities, nested work, and actual commit outcome. The [PHS-06.1 design](solution.md#phs-061-integration-proposal) describes this integration concept.
 
 ## Problem Statement
 
@@ -41,6 +42,7 @@ Keep long sessions usable within model context limits.
 In scope:
 
 - ISP-01: The behavior and artifacts defined by FRQ-01 onward, DLV-01 onward, and ACC-01 onward.
+- ISP-01.1: PHS-06.1 includes system contracts, caller migration, and Host-policy removal through the sequential behavior slices and final cleanup in the [migration plan](migration-plan.md). A reference extension verifies the system contract. The standard bundled compaction policy and generator belong to PHS-06.2.
 
 Out of scope:
 
@@ -156,14 +158,15 @@ None.
 
 ### QST-01: Minimal compaction integration contract
 
+- Status: Resolved for system-contract design. PHS-06.1 system implementation is in progress. The [target system contract and scoped dry-run evidence](solution.md#phs-061-system-contract-dry-run-evidence) define the approved integration. The separate [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) belongs to PHS-06.2 extension-implementation preparation.
 - Impact: The extension cannot own the complete policy and preserve composition until the technical design defines how it invokes participating request, generator, and result capabilities, receives session-bound inputs, observes model usage, runs before provider requests, handles provider context overflow, and requests one durable replacement entry.
 - Required answer: A minimal contract and call flow through which the policy-owning extension invokes ordered request, generator, and result capabilities, uses existing Host runtime and session services, keeps Agent Core unaware of compaction, and introduces no second Host policy implementation or general middleware platform.
 - Current evidence: The unaccepted unit 4 checkpoint proves the replacement-entry and projection mechanics but implements the rejected Host-owned policy boundary.
-- Resolution point: Resolve in the PHS-06 technical design before production migration.
+- Resolution point: PHS-06.1 includes system-contract design, system implementation, caller migration, and public-entry acceptance. PHS-06.2 implements the standard bundled extension.
 
 ## Technical Supplement
 
-The [technical solution](solution.md) separates the approved target boundary from the unaccepted Host-owned checkpoint and its implementation evidence. Its [tool-call argument representation](solution.md#tool-call-argument-representation) records the implemented single JSON value. QST-01 remains unresolved; PHS-06 implementation is not complete. The [migration plan](migration-plan.md) records the resume point, ordered work, and exit criteria after checkpoint `690827f`.
+The [technical solution](solution.md) separates the approved target boundary from the unaccepted Host-owned checkpoint and its implementation evidence. Its [tool-call argument representation](solution.md#tool-call-argument-representation) records the implemented single JSON value. QST-01 is resolved for system-contract design; PHS-06 implementation is not complete. The bundled extension's algorithm/source-accounting decision remains QST-01.1 in PHS-06.2. The [migration plan](migration-plan.md) records the resume point, ordered work, and exit criteria after checkpoint `690827f`.
 
 ## References
 

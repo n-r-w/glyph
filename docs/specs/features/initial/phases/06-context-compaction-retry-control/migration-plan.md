@@ -1,8 +1,8 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: Planned. Start with PHS-06.1. Production migration has not started.
+Status: PHS-06.1 system implementation is in progress. The approved system contracts passed the [scoped dry run](solution.md#phs-061-system-contract-dry-run-evidence). PHS-06.1 includes caller migration, Host-policy removal, and public-entry acceptance with a reference extension. The standard bundled extension and [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) belong to PHS-06.2.
 
-Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. This plan is the continuation path after checkpoint `690827f`. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
+Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation starts from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
 ## Key definitions and abbreviations
 
@@ -17,9 +17,9 @@ The [ticket](ticket.md#key-definitions-and-abbreviations) owns the detailed defi
 
 ### Resume point
 
-- The working baseline is checkpoint `690827f`. It passed generation stability, formatting, fix dry-run, lint, unit tests, integration tests, coverage, build, package loading, and diff checks. Coverage was 83.2%. These checks did not establish phase acceptance.
+- The restored working baseline is `96f061c` with the retained dependency updates and TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build, and diff checks passed. Coverage was 82.7%. These checks establish the starting state; phase acceptance requires the public behaviors below.
 - Units 0 through 3 and the session-entry/projection foundation are implemented. The Host-owned unit 4 implementation is unaccepted. The bundled compaction extension is not implemented.
-- The next deliverable is the target integration design in [solution.md](solution.md#proposed-solution), resolving [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract). Do not continue the old unit 5 as a generator-only addition to Host policy.
+- PHS-06.1 has an approved [system integration design](solution.md#proposed-solution). Complete its system implementation and public-entry acceptance before PHS-06.2 implements the standard bundled policy and generator.
 - After each completed migration phase, record its result, evidence, remaining blockers, and commit in this plan. The first phase without completed exit criteria is the resume point.
 
 ### Work boundaries
@@ -47,13 +47,13 @@ The [ticket requirements and acceptance criteria](ticket.md#requirements) define
 
 ## New Folders and Components
 
-The bundled compaction extension is the required runtime addition. Its package layout and the minimal integration contract are outputs of PHS-06.1, not assumptions in this plan. No new Host compaction-policy service, shared-contract namespace, or general middleware platform is planned.
+The bundled compaction extension is the required runtime addition. The [technical solution](solution.md#host-placement-and-dependency-direction) defines Host integration placement and the minimal system contract. Bundled-extension package design belongs to PHS-06.2. No new Host compaction-policy service, shared-contract namespace, or general middleware platform is planned.
 
 The checkpoint's [Host compaction implementation](../../../../../../host/internal/usecase/host/contextcompaction), [model execution](../../../../../../host/internal/usecase/host/modelexecution), [session owner](../../../../../../host/internal/usecase/host/sessions), and [Extension SDK](../../../../../../sdk/plugins/extension/v1) are the starting points for the ownership map. Their present API shapes do not constrain the target contract.
 
 ## Backward Compatibility
 
-No backward compatibility. Replace affected internal and public contracts with their callers in the same migration. Do not retain aliases, forwarding facades, alternate Host policy, or a fallback generator to keep the checkpoint API alive.
+No backward compatibility. Replace affected internal and public contracts with their callers in the same migration. The [behavior-slice migration](#decomposition-justification) retains the old mechanism only for behaviors that later slices move. No alias, forwarding facade, or fallback generator preserves a superseded caller.
 
 ## Phased Plan
 
@@ -71,9 +71,9 @@ config:
 ---
 flowchart TD
     design["`**PHS-06.1**
-Resolve integration design`"]
+Implement system contract`"]
     migrate["`**PHS-06.2**
-Migrate complete operation paths`"]
+Implement bundled extension`"]
     cleanup["`**PHS-06.3**
 Close migration residue`"]
     verify["`**PHS-06.4**
@@ -83,7 +83,9 @@ Independent acceptance`"]
 
 ### Decomposition Justification
 
-Design precedes production changes because the extension-to-Host integration is unresolved. Policy transfer, extension connection, caller migration, and removal of replaced Host behavior belong to one implementation phase; separating them into accepted layers would leave two policies or a disconnected extension. PHS-06.1 defines the concrete vertical work slices within PHS-06.2 after the contract is known. Cleanup and independent verification are separate acceptance gates, not permission to keep a compatibility path until the end.
+Each PHS-06.1 slice delivers one observable behavior through its public entry point. Configured-model image input, connection failure, and runtime shutdown have independent callers and checks. Later slices use those completed behaviors. Protocol declarations, SDK support, adapters, and fixtures arrive in the first slice that needs them. A reference extension verifies each system behavior independently of the standard bundled algorithm.
+
+During migration, `contextcompaction` serves only behaviors assigned to later slices. For example, after manual replacement moves to the policy extension, automatic preparation and overflow still use their existing paths until UNT-09 and UNT-10. Their internal usage state remains only while those paths consume it. A migrated behavior has one owner and no fallback to the old path. Each slice removes its superseded calls; UNT-11 removes the remaining package and shared residue.
 
 Tests exercise history changes and public operation outcomes. There are no tests whose only purpose is to count new types, assert deleted functionality is absent, or compare mutable prompts.
 
@@ -91,58 +93,88 @@ Tests exercise history changes and public operation outcomes. There are no tests
 
 Reuse session history and extension runtime mechanisms. Determine only the integration needed by the approved manual, automatic, and overflow paths. Do not invent API names, additional components, feature flags, or a generic framework before PHS-06.1 establishes a concrete need.
 
-### Phase PHS-06.1 - Resolve and agree the integration design
+### Phase PHS-06.1 - Implement the extension-owned compaction system contract
+
+Status: In progress. System-contract design and its scoped dry run are complete. System implementation, caller migration, Host-policy removal, and public-entry acceptance remain pending. The standard bundled algorithm and QST-01.1 are excluded from this phase.
 
 #### Goal
 
-Close the owning ticket's QST-01 without adding compaction knowledge to Agent Core or a second policy owner in Host.
+Provide the complete system path through which a registered policy extension controls compaction without a Host compaction policy.
 
 #### Work
 
-- Trace the checkpoint entry points, session snapshots and mutations, model access, usage observations, cancellation, retry decisions, and extension invocation.
-- Define how the policy-owning extension receives coherent inputs, invokes participating request/generator/result capabilities, and requests one durable replacement entry.
-- Define manual, pre-request, and overflow call flows, including nested summary-model calls, terminal errors, cancellation, and committed-result publication.
-- Map responsibilities and imports. Identify checkpoint behavior to retain, move, replace, or delete. Keep provider-private payloads outside non-provider extension data.
-- Record the target contract in the technical solution and obtain approval before production migration. Refine PHS-06.2 into end-to-end work slices using that contract, not speculative APIs.
+Follow the [approved system integration](solution.md#phs-061-integration-proposal) through the sequential units below. Each unit includes its callers and public-entry checks. Use a real reference extension for system acceptance. The standard bundled policy and generator belong to PHS-06.2.
+
+#### Sequential implementation units
+
+UNT-01 through UNT-10 are behavior slices. UNT-11 is Cleanup. Every unit starts only after the previous unit passes the [completion checks](#unit-completion-and-review). UNT-01 passed full checks and independent review and is committed as `5165a14`. UNT-02 passed the same gates and is committed as `bf62186`. UNT-03 passed project checks and independent review and is committed as `23f2f55`. The [runtime shutdown evidence](solution.md#tracked-runtime-shutdown) records its completion paths. Implementation is paused before UNT-04; UNT-04 through UNT-11 are planned.
+
+| Unit | Observable result and public-entry check | Executor role |
+|---|---|---|
+| UNT-01: Configured-model image input | An extension sends ordered text/image user content through the public SDK to the provider adapter. Tests check exact image bytes, ordering, invalid input, explicit selection, and conversation isolation. The Codex adapter sends the caller's instruction string, including an empty string, and preserves complete provider error causes. | `SubAgentCoderRegular` |
+| UNT-02: Connection failure without transport waiting | A handler can report connection failure and return while transport shutdown is pending. The connection owner later waits for resource cleanup and receives all acquired failure causes. Tests exercise both completion points through the SDK connection. | `SubAgentCoderRegular` |
+| UNT-03: Tracked runtime shutdown | The manager closes failed-runtime admission and independently tracks shutdown. A worker can finish without waiting for itself; application close joins shutdown and retains cleanup errors. Tests exercise protocol failure, cancellation, and completion. | `SubAgentCoderComplex` |
+| UNT-04: Manual replacement from a complete policy result | UI, Programmatic, and Extension calls invoke the registered policy owner. The owner receives one snapshot and can request a validated durable replacement. Tests cover the next model request, preserved original history, changed-branch rejection, cancellation, committed failure diagnostics, and an explicit error when no owner exists. | `SubAgentCoderComplex` |
+| UNT-05: Request-handler invocation | The policy extension invokes registered request handlers through operation-bound Host calls. A reference extension demonstrates registration order, immutable original input, independent request/result changes, cancellation, and terminal failure. Host routes one invocation at a time as requested by the extension. | `SubAgentCoderRegular` |
+| UNT-06: Generator invocation | The policy extension invokes its selected generator, which can use configured-model access. Tests cover a generator in the policy runtime, images, cancellation, conversation isolation, and generation bypass for a complete supplied result. | `SubAgentCoderRegular` |
+| UNT-07: Result-handler invocation | The policy extension invokes result handlers and validates each candidate before accepting its next state. Tests cover ordered changes, immutable original result, rejected candidates, and retention of the last accepted state. | `SubAgentCoderRegular` |
+| UNT-08: Completed-conversation observation | The captured policy owner receives the actual successful attempt input and response before logical success. Tests cover observer failure with preserved response/usage/causes, a rebuilt overflow input, and exclusion of nested generator requests from conversation observations. | `SubAgentCoderRegular` |
+| UNT-09: Automatic preparation | Before provider dispatch, Host invokes the captured policy owner to preserve or replace context. Tests check actual outgoing input after commit notifications and retention of the captured owner. With no registered owner, the ordinary request proceeds without automatic compaction. | `SubAgentCoderComplex` |
+| UNT-10: Overflow recovery | Host reports provider overflow to the captured owner within its admitted retry path. Tests check rebuilt input, the original attempt allowance, completed-tool preservation, cancellation, committed failures, and absence of compaction recovery when no owner exists. | `SubAgentCoderRegular` |
+| UNT-11: Cleanup | Remove `contextcompaction`, remaining obsolete contracts, settings, and assembly connections. Retain session projection and ordinary retries. Update phase documentation and run the complete acceptance checks against the single target implementation. | `SubAgentCoderRegular` |
+
+#### Dependencies and instance allocation
+
+UNT-03 depends on UNT-02. UNT-04 depends on both lifecycle units. UNT-05 through UNT-07 extend the accepted manual path, and UNT-06 also uses UNT-01 image input. UNT-08 through UNT-10 add observation, automatic preparation, and overflow recovery in order. UNT-11 follows all migrated behaviors.
+
+Each unit has a fresh executor session with the role listed above. Complex executors own runtime lifetime, manual operation snapshots, and captured automatic preparation. Regular executors implement the bounded paths whose ownership and contracts are already defined. Units run sequentially because they share code and project checks.
+
+#### Unit completion and review
+
+Each behavior change has fresh compiling RED/GREEN evidence and a check through the highest available public entry point. All units pass formatting, fix dry-run analysis, lint, unit tests, integration tests, coverage, build, package loading, and diff checks. Changes to generated inputs also pass repeated stable generation. Temporary stubs and debugging code are removed before acceptance.
+
+A fresh `SubAgentAnalyst` session independently reviews each completed unit. Main checks review claims against primary source, resolves accepted findings, and repeats completion checks after code corrections. Main then makes one local commit for the accepted unit, excluding pre-existing edits. Subagents do not commit, and no remote ref changes are part of this plan.
+
+After UNT-11, a fresh `SubAgentExtractor` session repeats final checks. Fresh `CodeQuality` and `SubAgentCritic` sessions independently examine the same completed result. Main owns acceptance reporting. These checks do not replace per-unit verification or the broader PHS-06.4 acceptance of the future bundled extension.
 
 #### Deliverables
 
-An updated technical solution, an acyclic ownership/dependency map, and concrete implementation slices with behavioral test scenarios.
+The system contract verified by a reference extension, migrated operation paths, removal of replaced Host policy, and uncached behavioral/integration evidence.
 
 #### Exit criteria
 
-QST-01 has an agreed answer. Every manual, automatic, and overflow path has a named owner, required inputs, cancellation/error outcome, and persistence boundary. Composition requirements are preserved. The design contains no duplicate Host compaction policy or workaround for an import cycle.
-
-#### Risks
-
-Moving only generation would reproduce the checkpoint architecture. Validate the ownership of every policy decision, not only the prompt location.
-
-### Phase PHS-06.2 - Migrate complete operation paths
-
-#### Goal
-
-Execute real compaction through the extension and leave no active Host policy path.
-
-#### Work
-
-- For each agreed vertical slice, write compiling behavioral regressions and run them uncached to establish RED. Implement the target behavior, obtain GREEN, and then refactor.
-- Implement extension-owned policy and summary generation through the ordinary runtime and configured-model access. Preserve the approved handling of preceding summaries, images, usage, and result source.
-- Wire manual UI, Programmatic, and session-bound Extension operations, automatic context preparation, and overflow recovery to the extension-owned path.
-- Apply the extension-selected replacement through the session owner and observe prepared history on the next real model request.
-- Remove the replaced Host sizing, boundary, composition, generation-dispatch, and compaction-specific recovery behavior together with its migrated callers. Preserve ordinary retry semantics.
-- Address the checkpoint's open result-candidate and snapshot findings in the target implementation. Preserve last valid composed state and one coherent operation snapshot.
-
-#### Deliverables
-
-A bundled extension invoked through its public contract, migrated operation paths, removal of replaced Host policy, and uncached behavioral/integration evidence for those paths.
-
-#### Exit criteria
-
-The bundled extension works in the standard coding-agent assembly. Manual, automatic, and overflow entry points use the extension-owned policy. Original history remains durable and model requests use the replacement summary plus retained suffix. Required composition and custom complete replacement work through public contracts. Host and Agent Core do not execute an alternate compaction algorithm.
+A reference extension works through real public entry points. Manual, automatic, and overflow paths use the captured extension-owned policy. Without a registered owner, ordinary requests proceed without compaction and manual compaction fails explicitly. Original history remains durable and model requests use the replacement summary plus retained suffix. Required composition and custom complete replacement work through public contracts. Host and Agent Core do not execute an alternate compaction algorithm.
 
 #### Risks
 
 Mocked capability fixtures can conceal an unwired real extension. Include production runtime, SDK, session, and model-execution paths rather than treating mock-backed transport tests as full assembly evidence.
+
+### Phase PHS-06.2 - Implement the standard bundled compaction extension
+
+Status: Planned. Depends on PHS-06.1 system acceptance. QST-01.1 belongs to this phase's preparation.
+
+#### Goal
+
+Provide the standard coding agent with an enabled bundled policy and generator through the accepted public system contracts.
+
+#### Work
+
+- Resolve the standard oversized-summary and source-accounting strategy under QST-01.1.
+- Implement standard triggering, sizing, usage-baseline policy, retained-boundary selection, ordered composition, summary preparation/generation, and overflow decisions in the bundled extension.
+- Supply extension-local retained-history configuration and the approved default, with independent generator registration control.
+- Verify standard and custom composition through the accepted system path, including preceding summaries and image input.
+
+#### Deliverables
+
+The standard bundled policy and generator with extension-local configuration and behavioral evidence.
+
+#### Exit criteria
+
+The standard coding-agent assembly enables the bundled extension. The ticket's standard-policy and default-generation acceptance criteria pass without adding a Host compaction algorithm.
+
+#### Risks
+
+The standard algorithm must use the accepted system services. Algorithm decisions must not reintroduce Host policy.
 
 ### Phase PHS-06.3 - Close migration residue and documentation
 
@@ -202,7 +234,7 @@ Use integration-tagged tests for assembled production components and real filesy
 
 ## Dependencies and Resourcing
 
-PHS-07 and PHS-04.1 are the ticket dependencies. The immediate blocker is QST-01, not the absence of the old generator-only unit 5. The plan assumes no new dependency, staffing, or external service. Further implementation depends on the agreed design from PHS-06.1.
+PHS-07 and PHS-04.1 are the ticket dependencies. PHS-06.1 system-contract design is complete. PHS-06.2 preparation still requires QST-01.1 and separate implementation authorization; the old generator-only unit 5 is not the continuation path. The plan assumes no new dependency, staffing, or external service.
 
 ## Project Definition of Done
 
@@ -214,7 +246,7 @@ No additional product behavior or integration API is assumed. Checkpoint `690827
 
 ## Open Questions
 
-The owning [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) blocks PHS-06.2. PHS-06.1 resolves it in the technical solution. This plan does not create a second version of that question or settle its API prematurely.
+The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) is resolved for PHS-06.1 system-contract design. System implementation continues through the units above. [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) remains an extension-implementation and source/accounting decision for PHS-06.2 preparation. This plan links to the owning question rather than selecting or duplicating its answer.
 
 ## Standards Deviations
 

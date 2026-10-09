@@ -61,9 +61,9 @@
 - Ticket: [Ticket](phases/06-context-compaction-retry-control/ticket.md)
 - Model-execution scope: Follow [APC-11.1](architecture.md#contracts).
 - Compaction ownership: The policy-owning extension owns triggering, sizing, retained-boundary selection, generation, compaction-specific overflow policy, and the preserved ordered request/result composition. Host retains runtime and durable session services, and Agent Core consumes prepared history without compaction knowledge.
-- Design gate: Resolve the minimal mechanism through which the policy-owning extension invokes participating request, generator, and result capabilities in [QST-01](phases/06-context-compaction-retry-control/ticket.md#qst-01-minimal-compaction-integration-contract) before migrating the unaccepted Host-owned checkpoint.
-- Completion status: In progress. The Host-owned unit 4 checkpoint is not accepted; the ownership migration and bundled compaction extension remain pending.
-- Next work: Follow the [migration plan](phases/06-context-compaction-retry-control/migration-plan.md) from checkpoint `690827f`, starting with PHS-06.1 integration design.
+- System phase: PHS-06.1 includes the approved system contract, implementation of the complete public operation path, removal of replaced Host policy, and real-entry checks with a reference extension.
+- Completion status: In progress. UNT-01 through UNT-03 passed project checks and independent review. The remaining PHS-06.1 units are pending. PHS-06.2 owns the standard bundled compaction extension and its algorithm decision under QST-01.1.
+- Next work: Implementation is paused before UNT-04. The [migration plan](phases/06-context-compaction-retry-control/migration-plan.md) contains the remaining behavior slices and final cleanup.
 
 ### PHS-08. Prompt, context, input, and provider middleware
 - Dependencies: PHS-06, PHS-04.1
