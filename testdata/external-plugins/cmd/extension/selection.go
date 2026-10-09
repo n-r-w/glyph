@@ -258,7 +258,7 @@ func (operation *handleOperation) runNestedSelectionOperations(ctx context.Conte
 	if _, err = models.Wait(ctx); err != nil {
 		return err
 	}
-	if _, err = requestConfiguredModel(ctx); err != nil {
+	if _, err = requestConfiguredModel(ctx, configuredInstructions, configuredOrdinaryReasoningChoice); err != nil {
 		return err
 	}
 	appendOperation, err := operation.context.StartAppendExtensionMessage(

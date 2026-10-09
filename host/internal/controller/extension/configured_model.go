@@ -1,6 +1,7 @@
 package extension
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -17,11 +18,11 @@ type configuredRequest struct {
 	selection model.Selection
 	// instructions contains the request instructions and can be empty.
 	instructions string
-	// history contains ordered user and assistant text entries.
+	// history contains ordered user and assistant entries.
 	history []agent.HistoryEntry
 }
 
-// mapConfiguredRequest validates and maps the public text-only request.
+// mapConfiguredRequest maps public configured-model input to provider-neutral history.
 func mapConfiguredRequest(request *extensionpb.ConfiguredModelRequest) (configuredRequest, error) {
 	if request == nil {
 		return configuredRequest{}, errors.New("configured model request is required")
@@ -37,23 +38,34 @@ func mapConfiguredRequest(request *extensionpb.ConfiguredModelRequest) (configur
 	}
 	history := make([]agent.HistoryEntry, len(messages))
 	for index, message := range messages {
-		if message == nil || message.GetText() == "" {
-			return configuredRequest{}, fmt.Errorf("configured model message %d requires nonempty text", index)
+		if message == nil || len(message.GetContent()) == 0 {
+			return configuredRequest{}, fmt.Errorf(
+				"configured model message %d requires at least one content block",
+				index,
+			)
+		}
+		content, err := mapConfiguredInput(message)
+		if err != nil {
+			return configuredRequest{}, fmt.Errorf("configured model message %d %w", index, err)
 		}
 		switch message.GetRole() {
 		case extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER:
 			history[index] = agent.HistoryEntry{
-				Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(message.GetText())),
+				Kind: agent.HistoryEntryUser, User: mo.Some(model.Message{Content: content}),
 				Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 			}
 		case extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT:
+			assistantContent := make([]model.Content, len(content))
+			for contentIndex, item := range content {
+				assistantContent[contentIndex] = model.Content{
+					Kind: model.ContentText, Text: item.Text, Final: true,
+					ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
+				}
+			}
 			history[index] = agent.HistoryEntry{
 				Kind: agent.HistoryEntryModel, User: mo.None[model.Message](),
 				Model: mo.Some(model.Response{
-					Content: []model.Content{{
-						Kind: model.ContentText, Text: mo.Some(message.GetText()), Final: true,
-						ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
-					}},
+					Content: assistantContent,
 					Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
 					Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](),
 					ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
@@ -78,6 +90,38 @@ func mapConfiguredRequest(request *extensionpb.ConfiguredModelRequest) (configur
 		instructions: request.GetInstructions(),
 		history:      history,
 	}, nil
+}
+
+// mapConfiguredInput maps ordered public input blocks to user-message content.
+func mapConfiguredInput(message *extensionpb.ConfiguredModelMessage) ([]model.InputContent, error) {
+	content := make([]model.InputContent, len(message.GetContent()))
+	for index, item := range message.GetContent() {
+		switch {
+		case item.HasText():
+			if item.GetText() == "" {
+				return nil, fmt.Errorf("content %d: nonempty text is required", index)
+			}
+			content[index] = model.InputContent{
+				Kind: model.InputContentText, Text: mo.Some(item.GetText()),
+				MediaType: mo.None[string](), Data: mo.None[[]byte](),
+			}
+		case item.HasImage():
+			if message.GetRole() == extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT {
+				return nil, fmt.Errorf("content %d: assistant content must be text", index)
+			}
+			image := item.GetImage()
+			if image.GetMediaType() == "" || len(image.GetData()) == 0 {
+				return nil, fmt.Errorf("content %d: image media type and data are required", index)
+			}
+			content[index] = model.InputContent{
+				Kind: model.InputContentImage, Text: mo.None[string](),
+				MediaType: mo.Some(image.GetMediaType()), Data: mo.Some(bytes.Clone(image.GetData())),
+			}
+		default:
+			return nil, fmt.Errorf("content %d: content payload is required", index)
+		}
+	}
+	return content, nil
 }
 
 // mapConfiguredResponse projects terminal content without opaque provider reasoning context.

@@ -209,9 +209,9 @@ func (s *Driver) executeRequest(
 
 // requestParams maps one raw provider request to an ordered Codex Responses request.
 func (s *Driver) requestParams(request modelexecution.ProviderRequest) (responses.ResponseNewParams, error) {
-	if request.Model.Provider != ProviderID || request.Model.Model == "" || request.Instructions == "" {
+	if request.Model.Provider != ProviderID || request.Model.Model == "" {
 		return responses.ResponseNewParams{}, errors.New(
-			"OpenAI Codex selected provider, model, and request instructions are required",
+			"OpenAI Codex selected provider and model are required",
 		)
 	}
 	tools, err := buildTools(request.Tools, requestToolCapabilities(request.Model))

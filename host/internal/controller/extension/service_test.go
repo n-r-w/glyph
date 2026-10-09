@@ -236,10 +236,20 @@ func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
 		Instructions: new(""),
 		Messages: []*extensionpb.ConfiguredModelMessage{
 			extensionpb.ConfiguredModelMessage_builder{
-				Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("question"),
+				Role: new(
+					extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
+				),
+				Content: []*extensionpb.ConfiguredModelInputContent{
+					extensionpb.ConfiguredModelInputContent_builder{Text: new("question"), Image: nil}.Build(),
+				},
 			}.Build(),
 			extensionpb.ConfiguredModelMessage_builder{
-				Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT), Text: new("prior answer"),
+				Role: new(
+					extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT,
+				),
+				Content: []*extensionpb.ConfiguredModelInputContent{
+					extensionpb.ConfiguredModelInputContent_builder{Text: new("prior answer"), Image: nil}.Build(),
+				},
 			}.Build(),
 		},
 	}.Build())
@@ -529,16 +539,26 @@ func TestConfiguredModelRequestRejectsInvalidTextHistory(t *testing.T) {
 		{
 			name: "unspecified role", selection: validConfiguredSelection(),
 			messages: []*extensionpb.ConfiguredModelMessage{extensionpb.ConfiguredModelMessage_builder{
-				Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_UNSPECIFIED), Text: new("text"),
+				Role: new(
+					extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_UNSPECIFIED,
+				),
+				Content: []*extensionpb.ConfiguredModelInputContent{
+					extensionpb.ConfiguredModelInputContent_builder{Text: new("text"), Image: nil}.Build(),
+				},
 			}.Build()},
 			text: "role is unspecified",
 		},
 		{
 			name: "empty text", selection: validConfiguredSelection(),
 			messages: []*extensionpb.ConfiguredModelMessage{extensionpb.ConfiguredModelMessage_builder{
-				Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new(""),
+				Role: new(
+					extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
+				),
+				Content: []*extensionpb.ConfiguredModelInputContent{
+					extensionpb.ConfiguredModelInputContent_builder{Text: new(""), Image: nil}.Build(),
+				},
 			}.Build()},
-			text: "requires nonempty text",
+			text: "nonempty text is required",
 		},
 	}
 	for _, test := range tests {
@@ -584,7 +604,12 @@ func validConfiguredSelection() *extensionpb.ModelSelection {
 // validConfiguredMessages supplies one valid nonempty user message.
 func validConfiguredMessages() []*extensionpb.ConfiguredModelMessage {
 	return []*extensionpb.ConfiguredModelMessage{extensionpb.ConfiguredModelMessage_builder{
-		Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("text"),
+		Role: new(
+			extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
+		),
+		Content: []*extensionpb.ConfiguredModelInputContent{
+			extensionpb.ConfiguredModelInputContent_builder{Text: new("text"), Image: nil}.Build(),
+		},
 	}.Build()}
 }
 

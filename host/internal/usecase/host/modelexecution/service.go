@@ -253,6 +253,20 @@ func (s *Service) RequestConfigured(
 	if err != nil {
 		return model.Response{}, err
 	}
+	if !slices.Contains(binding.Model.Input, model.InputModalityImage) {
+		for messageIndex := range history {
+			if user, present := history[messageIndex].User.Get(); present {
+				for contentIndex, content := range user.Content {
+					if content.Kind == model.InputContentImage {
+						return model.Response{}, fmt.Errorf(
+							"configured model %s does not accept image input at message %d content %d",
+							binding.Model.Model, messageIndex, contentIndex,
+						)
+					}
+				}
+			}
+		}
+	}
 	// ownedHistory prevents the raw provider from mutating caller history.
 	ownedHistory, err := cloneHistory(history)
 	if err != nil {

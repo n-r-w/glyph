@@ -37,6 +37,12 @@ const (
 	staleSelectionMode = "stale-selection"
 	// configuredRequestMode executes one explicit configured-model request.
 	configuredRequestMode = "configured-request"
+	// configuredInputMode selects image input and validation observations.
+	configuredInputMode = "configured-input"
+	// configuredEmptyRequestMode submits text with empty instructions.
+	configuredEmptyRequestMode = "configured-request-empty"
+	// configuredEmptyInputMode submits text and images with empty instructions.
+	configuredEmptyInputMode = "configured-input-empty"
 	// configuredRequestProgressMode records configured-model retry progress.
 	configuredRequestProgressMode = "configured-request-progress"
 	// configuredRequestFailuresMode records SDK failures from Wait and WaitWithProgress.
@@ -240,6 +246,9 @@ func (s *service) PrepareExecute(
 		staleCataloguesMode,
 		staleSelectionMode,
 		configuredRequestMode,
+		configuredInputMode,
+		configuredEmptyRequestMode,
+		configuredEmptyInputMode,
 		configuredRequestProgressMode,
 		configuredRequestFailuresMode,
 		sessionStateMode,
@@ -400,7 +409,13 @@ func (operation *executeOperation) Run(
 	case staleSelectionMode:
 		return operation.selectWithRetainedContext(ctx)
 	case configuredRequestMode:
-		return requestConfiguredModel(ctx)
+		return requestConfiguredModel(ctx, configuredInstructions, configuredNestedReasoningChoice)
+	case configuredInputMode:
+		return requestConfiguredInput(ctx, configuredInstructions)
+	case configuredEmptyRequestMode:
+		return requestConfiguredModel(ctx, "", configuredNestedReasoningChoice)
+	case configuredEmptyInputMode:
+		return requestConfiguredInput(ctx, "")
 	case configuredRequestProgressMode:
 		return requestConfiguredModelWithProgress(ctx)
 	case configuredRequestFailuresMode:

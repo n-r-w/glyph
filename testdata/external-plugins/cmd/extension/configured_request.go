@@ -11,6 +11,15 @@ import (
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
+// configuredInstructions contains explicit instructions for configured-model fixture requests.
+const configuredInstructions = "extension instructions"
+
+// configuredNestedReasoningChoice distinguishes explicit nested requests from the active conversation.
+const configuredNestedReasoningChoice = "high"
+
+// configuredOrdinaryReasoningChoice preserves the reasoning choice in other public fixtures.
+const configuredOrdinaryReasoningChoice = "off"
+
 // configuredRetryObservation is the stable retry progress subset returned by the external fixture.
 type configuredRetryObservation struct {
 	// CompletedAttempts is the number of completed configured-model attempts.
@@ -32,8 +41,11 @@ type configuredProgressReport struct {
 }
 
 // requestConfiguredModel executes one explicit public request and returns its public result as tool text.
-func requestConfiguredModel(ctx context.Context) (*extensionv1.ToolResult, error) {
-	operation, err := startConfiguredModel(ctx)
+func requestConfiguredModel(
+	ctx context.Context,
+	instructions, reasoningChoice string,
+) (*extensionv1.ToolResult, error) {
+	operation, err := startConfiguredModel(ctx, instructions, reasoningChoice)
 	if err != nil {
 		return nil, err
 	}
@@ -50,7 +62,7 @@ func requestConfiguredModel(ctx context.Context) (*extensionv1.ToolResult, error
 
 // requestConfiguredModelWithProgress awaits one configured request and records its scoped retry updates.
 func requestConfiguredModelWithProgress(ctx context.Context) (*extensionv1.ToolResult, error) {
-	operation, err := startConfiguredModel(ctx)
+	operation, err := startConfiguredModel(ctx, configuredInstructions, configuredOrdinaryReasoningChoice)
 	if err != nil {
 		return nil, err
 	}
@@ -96,7 +108,7 @@ type configuredFailuresReport struct {
 
 // requestConfiguredModelFailures records the public SDK failure surface for both wait APIs.
 func requestConfiguredModelFailures(ctx context.Context) (*extensionv1.ToolResult, error) {
-	waitOperation, err := startConfiguredModel(ctx)
+	waitOperation, err := startConfiguredModel(ctx, configuredInstructions, configuredOrdinaryReasoningChoice)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +116,7 @@ func requestConfiguredModelFailures(ctx context.Context) (*extensionv1.ToolResul
 	if waitErr == nil {
 		return nil, errors.New("configured-model Wait unexpectedly succeeded")
 	}
-	progressOperation, err := startConfiguredModel(ctx)
+	progressOperation, err := startConfiguredModel(ctx, configuredInstructions, configuredOrdinaryReasoningChoice)
 	if err != nil {
 		return nil, err
 	}
@@ -138,29 +150,52 @@ func observeConfiguredFailure(err error) configuredFailureObservation {
 }
 
 // startConfiguredModel starts the shared explicit configured-model fixture request.
-func startConfiguredModel(ctx context.Context) (*extensionsdk.ConfiguredModelOperation, error) {
+func startConfiguredModel(
+	ctx context.Context,
+	instructions, reasoningChoice string,
+) (*extensionsdk.ConfiguredModelOperation, error) {
 	binding, err := extensionsdk.ContextFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
-	request := extensionv1.ConfiguredModelRequest_builder{
+	return binding.StartConfiguredModel(ctx, newConfiguredModelRequest(instructions, reasoningChoice))
+}
+
+// newConfiguredModelRequest builds explicit text history for public fixture operations.
+func newConfiguredModelRequest(instructions, reasoningChoice string) *extensionv1.ConfiguredModelRequest {
+	return extensionv1.ConfiguredModelRequest_builder{
 		Context: nil,
 		Selection: extensionv1.ModelSelection_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt-test"), ReasoningChoice: new("off"),
+			ProviderId: new("openai-codex"), ModelId: new("gpt-test"), ReasoningChoice: new(reasoningChoice),
 		}.Build(),
-		Instructions: new("extension instructions"),
+		Instructions: new(instructions),
 		Messages: []*extensionv1.ConfiguredModelMessage{
 			extensionv1.ConfiguredModelMessage_builder{
-				Role: new(extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("first user"),
+				Role: new(
+					extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
+				),
+				Content: []*extensionv1.ConfiguredModelInputContent{
+					extensionv1.ConfiguredModelInputContent_builder{Text: new("first user"), Image: nil}.Build(),
+				},
 			}.Build(),
 			extensionv1.ConfiguredModelMessage_builder{
 				Role: new(extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT),
-				Text: new("assistant reply"),
+				Content: []*extensionv1.ConfiguredModelInputContent{
+					extensionv1.ConfiguredModelInputContent_builder{Text: new("assistant reply"), Image: nil}.Build(),
+					extensionv1.ConfiguredModelInputContent_builder{
+						Text:  new("assistant continuation"),
+						Image: nil,
+					}.Build(),
+				},
 			}.Build(),
 			extensionv1.ConfiguredModelMessage_builder{
-				Role: new(extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("second user"),
+				Role: new(
+					extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
+				),
+				Content: []*extensionv1.ConfiguredModelInputContent{
+					extensionv1.ConfiguredModelInputContent_builder{Text: new("second user"), Image: nil}.Build(),
+				},
 			}.Build(),
 		},
 	}.Build()
-	return binding.StartConfiguredModel(ctx, request)
 }

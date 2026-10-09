@@ -95,7 +95,7 @@ message RejectSelection {
   string message = 1;
 }
 
-// ConfiguredModelRequest executes one explicit provider-neutral text request.
+// ConfiguredModelRequest executes one explicit provider-neutral model request.
 message ConfiguredModelRequest {
   // The issued runtime-to-session binding.
   ExtensionContextRef context = 1;
@@ -103,23 +103,42 @@ message ConfiguredModelRequest {
   ModelSelection selection = 2;
   // The request instructions. Empty instructions are valid.
   string instructions = 3;
-  // The ordered nonempty user and assistant text history.
+  // The ordered nonempty user and assistant history.
   repeated ConfiguredModelMessage messages = 4;
 }
 
-// ConfiguredModelMessage is one ordered text history item.
+// ConfiguredModelMessage is one ordered history item.
 message ConfiguredModelMessage {
-  // The author role.
+  // The author role. Assistant content contains only text.
   ConfiguredModelRole role = 1;
-  // The nonempty text.
-  string text = 2;
+  // The ordered nonempty content blocks.
+  repeated ConfiguredModelInputContent content = 2;
 }
 
-// ConfiguredModelRole identifies a supported text history author.
+// ConfiguredModelInputContent contains one user or assistant input block.
+message ConfiguredModelInputContent {
+  // The input payload.
+  oneof content {
+    // The nonempty text input.
+    string text = 1;
+    // The user image input.
+    ConfiguredModelImage image = 2;
+  }
+}
+
+// ConfiguredModelImage contains encoded image input.
+message ConfiguredModelImage {
+  // The nonempty image media type.
+  string media_type = 1;
+  // The nonempty encoded image bytes.
+  bytes data = 2;
+}
+
+// ConfiguredModelRole identifies a supported history author.
 enum ConfiguredModelRole {
   // No role was supplied.
   CONFIGURED_MODEL_ROLE_UNSPECIFIED = 0;
-  // The user supplied the text.
+  // The user supplied the content.
   CONFIGURED_MODEL_ROLE_USER = 1;
   // The model assistant supplied the text.
   CONFIGURED_MODEL_ROLE_ASSISTANT = 2;

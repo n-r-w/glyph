@@ -155,17 +155,17 @@ func TestDriverStreamRequestPreparationFailureRemainsPredispatch(t *testing.T) {
 		testConfig(), credentials, NewMockInteraction(gomock.NewController(t)), defaultDriverOptions(),
 	)
 
-	// Act with missing instructions so request preparation fails before HTTP dispatch.
+	// Act with a missing selected model so request preparation fails before HTTP dispatch.
 	_, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn,
 		Instructions:    "",
-		Model:           testModelDescriptor("gpt-test"),
+		Model:           testModelDescriptor(""),
 		History:         nil,
 		Tools:           nil,
 	}, nil)
 
 	// Assert local request failure remains outside provider classification.
-	require.ErrorContains(t, err, "request instructions are required")
+	require.ErrorContains(t, err, "selected provider and model are required")
 	var providerFailure *modelexecution.ProviderFailureError
 	assert.NotErrorAs(t, err, &providerFailure)
 }

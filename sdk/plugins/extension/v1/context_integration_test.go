@@ -86,7 +86,12 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 				Instructions: new(""),
 				Messages: []*extensionpb.ConfiguredModelMessage{
 					extensionpb.ConfiguredModelMessage_builder{
-						Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("question"),
+						Role: new(
+							extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
+						),
+						Content: []*extensionpb.ConfiguredModelInputContent{
+							extensionpb.ConfiguredModelInputContent_builder{Text: new("question"), Image: nil}.Build(),
+						},
 					}.Build(),
 				},
 			}.Build()
@@ -192,7 +197,7 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
 			assert.Equal(t, "binding", request.GetConfiguredModel().GetContext().GetContextId())
-			assert.Equal(t, "question", request.GetConfiguredModel().GetMessages()[0].GetText())
+			assert.Equal(t, "question", request.GetConfiguredModel().GetMessages()[0].GetContent()[0].GetText())
 			return configured, nil
 		})
 	configured.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{

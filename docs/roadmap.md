@@ -167,6 +167,8 @@ Move the complete compaction policy and composition coordination into the policy
 
 Units 0 through 3 and the session entry/projection work remain implemented. Unit 4 is an unaccepted Host-owned compaction checkpoint retained for comparison and migration evidence; it is not the target design. The minimal replacement integration contract remains [technical design work](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md#qst-01-minimal-compaction-integration-contract). The ownership migration and bundled compaction extension remain pending, so PHS-06 is not complete. The [implementation evidence](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#implementation-evidence) records the checkpoint and its open findings. Follow the [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md), starting with PHS-06.1 integration design, to continue from checkpoint `690827f`.
 
+Configured-model image input is implemented; the [behavioral evidence](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#configured-model-image-input) covers public SDK requests in all three application modes.
+
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)
 - [Technical solution](specs/features/initial/phases/06-context-compaction-retry-control/solution.md)

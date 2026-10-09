@@ -27,6 +27,12 @@ The target integration contract and call flow remain unresolved. The technical d
 
 Retry behavior in this solution remains Host-owned and unchanged by the compaction ownership migration. The retry attempt allowance, provider classification, delay scheduling, response reset, and retry extension handlers continue to follow the [ticket requirements](ticket.md#functional-requirements).
 
+### Configured-model image input
+
+The public Extension SDK accepts ordered `ConfiguredModelInputContent` blocks through `StartConfiguredModel`. The extension controller maps user text and image bytes into provider-neutral history and rejects empty content, empty text, incomplete image payloads, assistant images, and unknown roles. Model execution checks image capability against the explicitly selected configured model before provider dispatch. Public operation errors contain the validation cause, including message and content indices.
+
+[TestPublicConfiguredRequestAcrossApplicationModes](../../../../../../host/internal/app/configured_request_modes_integration_test.go) exercises a public-only extension in headless, UI, and Programmatic applications. The test compares the complete ordered Codex provider input, including exact text, image bytes, and user/assistant roles. The Codex adapter serializes the two assistant text blocks as separate assistant messages. The nested reasoning choice is `high`; the active conversation keeps `off`, which Codex serializes as effort `none`. The test also checks invalid-input errors through the SDK, text-only requests, explicit model selection, and isolation from conversation history. Text-only and text/image requests include cases with empty instructions; the Codex adapter sends the caller's exact instructions string. When the remote provider rejects those requests, the public operation error contains the complete provider cause. Configured requests continue through ordinary model execution without conversation preparation or compaction recovery. The remaining compaction ownership migration is in progress. The standard bundled extension is planned for PHS-06.2.
+
 ## Unaccepted Checkpoint Design
 
 The following design through [Implementation order and verification](#implementation-order-and-verification) describes the implemented Host-owned unit 4 checkpoint. It is retained as comparison and migration evidence. It does not define the target compaction ownership or settle the pending integration contract.
@@ -460,7 +466,7 @@ The old unit 5 remains unimplemented. The bundled summary prompt, configured-mod
 - [Agent run failure semantics](../../../../issues/agent-run-failure-semantics/problem.md) - cross-phase terminal-category ownership.
 - [Model execution](../../../../../../host/internal/usecase/host/modelexecution/service.go) - current agent/configured-model execution paths.
 - [Core stream contracts](../../../../../../host/internal/usecase/agent/run/interfaces.go) - logical stream state and provider-neutral interfaces.
-- [Configured-model public input](../../../../../../api/plugins/extension/v1/model.proto) and [mapping](../../../../../../host/internal/controller/extension/configured_model.go) - text-only boundary that needs typed image input for extension-owned compaction.
+- [Configured-model public input](../../../../../../api/plugins/extension/v1/model.proto) and [mapping](../../../../../../host/internal/controller/extension/configured_model.go) - ordered text/image input for extension-owned compaction.
 - [Session history projection](../../../../../../host/internal/usecase/host/sessions/entry_history.go) - current client/model history projection source.
 - [Session navigation commit](../../../../../../host/internal/usecase/host/sessions/navigation.go) - atomic persistence and ordered publication precedent.
 - [TUI projection](../../../../../../plugins/ui/tui/internal/usecase/presentation/state.go) - partial-response accumulation and terminal display.

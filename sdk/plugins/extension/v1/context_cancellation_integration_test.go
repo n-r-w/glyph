@@ -88,7 +88,12 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 				}.Build(),
 				Instructions: new(""),
 				Messages: []*extensionpb.ConfiguredModelMessage{extensionpb.ConfiguredModelMessage_builder{
-					Role: new(extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new("question"),
+					Role: new(
+						extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
+					),
+					Content: []*extensionpb.ConfiguredModelInputContent{
+						extensionpb.ConfiguredModelInputContent_builder{Text: new("question"), Image: nil}.Build(),
+					},
 				}.Build()},
 			}.Build()
 			configured, err := binding.StartConfiguredModel(ctx, input)

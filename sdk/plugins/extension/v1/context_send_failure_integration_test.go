@@ -67,7 +67,12 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 								Role: new(
 									extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
 								),
-								Text: new("question"),
+								Content: []*extensionpb.ConfiguredModelInputContent{
+									extensionpb.ConfiguredModelInputContent_builder{
+										Text:  new("question"),
+										Image: nil,
+									}.Build(),
+								},
 							}.Build()},
 						}.Build())
 					} else {

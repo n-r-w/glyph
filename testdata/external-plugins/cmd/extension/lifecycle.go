@@ -39,7 +39,12 @@ func observeAgentStart(
 		}.Build(),
 		Instructions: new("extension lifecycle observer"),
 		Messages: []*extensionv1.ConfiguredModelMessage{extensionv1.ConfiguredModelMessage_builder{
-			Role: new(extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER), Text: new(lifecycleRequestText),
+			Role: new(
+				extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
+			),
+			Content: []*extensionv1.ConfiguredModelInputContent{
+				extensionv1.ConfiguredModelInputContent_builder{Text: new(lifecycleRequestText), Image: nil}.Build(),
+			},
 		}.Build()},
 	}.Build())
 	if err != nil {
