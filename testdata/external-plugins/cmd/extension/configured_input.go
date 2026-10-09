@@ -21,19 +21,24 @@ type configuredInputReport struct {
 
 // requestConfiguredInput exercises image content and invalid input through the public SDK.
 func requestConfiguredInput(ctx context.Context, instructions string) (*extensionv1.ToolResult, error) {
+	const (
+		// configuredImageMediaType identifies the fixture's PNG image payload.
+		configuredImageMediaType = "image/png"
+		// configuredAfterImageText marks the text block after the image.
+		configuredAfterImageText = "after image"
+	)
 	binding, err := extensionsdk.ContextFrom(ctx)
 	if err != nil {
 		return nil, err
 	}
 	request := newConfiguredModelRequest(instructions, configuredNestedReasoningChoice)
 	messages := request.GetMessages()
-	messages[0].SetContent([]*extensionv1.ConfiguredModelInputContent{
-		extensionv1.ConfiguredModelInputContent_builder{Text: new("first user"), Image: nil}.Build(),
+	messages[0].SetContent(append(messages[0].GetContent(),
 		extensionv1.ConfiguredModelInputContent_builder{Text: nil, Image: extensionv1.ConfiguredModelImage_builder{
-			MediaType: new("image/png"), Data: []byte{0, 1, 2, 255},
+			MediaType: new(configuredImageMediaType), Data: []byte{0, 1, 2, 255},
 		}.Build()}.Build(),
-		extensionv1.ConfiguredModelInputContent_builder{Text: new("after image"), Image: nil}.Build(),
-	})
+		extensionv1.ConfiguredModelInputContent_builder{Text: new(configuredAfterImageText), Image: nil}.Build(),
+	))
 	operation, err := binding.StartConfiguredModel(ctx, request)
 	if err != nil {
 		return nil, err
@@ -79,6 +84,10 @@ func collectConfiguredInputErrors(
 		unsupportedConfiguredImage = "unsupported image"
 		// unknownConfiguredRoleValue is the invalid author role used in rejection checks.
 		unknownConfiguredRoleValue = 99
+		// configuredTextOnlyModelID selects the model that rejects image input.
+		configuredTextOnlyModelID = "gpt-active"
+		// configuredUnexpectedSuccess marks a rejection case that completed without an error.
+		configuredUnexpectedSuccess = "unexpected success"
 	)
 	failures := make(map[string]string)
 	for _, name := range []string{
@@ -104,7 +113,7 @@ func collectConfiguredInputErrors(
 		case unknownConfiguredRole:
 			message.SetRole(extensionv1.ConfiguredModelRole(unknownConfiguredRoleValue))
 		case unsupportedConfiguredImage:
-			invalid.GetSelection().SetModelId("gpt-active")
+			invalid.GetSelection().SetModelId(configuredTextOnlyModelID)
 			invalid.GetSelection().SetReasoningChoice(configuredDisabledReasoningChoice)
 		}
 		invalidOperation, failure := binding.StartConfiguredModel(ctx, invalid)
@@ -112,7 +121,7 @@ func collectConfiguredInputErrors(
 			_, failure = invalidOperation.Wait(ctx)
 		}
 		if failure == nil {
-			failures[name] = "unexpected success"
+			failures[name] = configuredUnexpectedSuccess
 		} else {
 			failures[name] = failure.Error()
 		}

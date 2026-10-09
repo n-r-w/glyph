@@ -163,10 +163,28 @@ func startConfiguredModel(
 
 // newConfiguredModelRequest builds explicit text history for public fixture operations.
 func newConfiguredModelRequest(instructions, reasoningChoice string) *extensionv1.ConfiguredModelRequest {
+	const (
+		// configuredProviderID selects the provider for nested fixture requests.
+		configuredProviderID = "openai-codex"
+		// configuredModelID selects the image-capable model for nested fixture requests.
+		configuredModelID = "gpt-test"
+		// configuredFirstUserText starts the nested user history.
+		configuredFirstUserText = "first user"
+		// configuredAssistantReplyText supplies the first assistant text block.
+		configuredAssistantReplyText = "assistant reply"
+		// configuredAssistantContinuationText supplies the second assistant text block.
+		configuredAssistantContinuationText = "assistant continuation"
+		// configuredSecondUserText ends the nested user history.
+		configuredSecondUserText = "second user"
+	)
 	return extensionv1.ConfiguredModelRequest_builder{
 		Context: nil,
 		Selection: extensionv1.ModelSelection_builder{
-			ProviderId: new("openai-codex"), ModelId: new("gpt-test"), ReasoningChoice: new(reasoningChoice),
+			ProviderId: new(
+				configuredProviderID,
+			),
+			ModelId:         new(configuredModelID),
+			ReasoningChoice: new(reasoningChoice),
 		}.Build(),
 		Instructions: new(instructions),
 		Messages: []*extensionv1.ConfiguredModelMessage{
@@ -175,15 +193,21 @@ func newConfiguredModelRequest(instructions, reasoningChoice string) *extensionv
 					extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
 				),
 				Content: []*extensionv1.ConfiguredModelInputContent{
-					extensionv1.ConfiguredModelInputContent_builder{Text: new("first user"), Image: nil}.Build(),
+					extensionv1.ConfiguredModelInputContent_builder{
+						Text:  new(configuredFirstUserText),
+						Image: nil,
+					}.Build(),
 				},
 			}.Build(),
 			extensionv1.ConfiguredModelMessage_builder{
 				Role: new(extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT),
 				Content: []*extensionv1.ConfiguredModelInputContent{
-					extensionv1.ConfiguredModelInputContent_builder{Text: new("assistant reply"), Image: nil}.Build(),
 					extensionv1.ConfiguredModelInputContent_builder{
-						Text:  new("assistant continuation"),
+						Text:  new(configuredAssistantReplyText),
+						Image: nil,
+					}.Build(),
+					extensionv1.ConfiguredModelInputContent_builder{
+						Text:  new(configuredAssistantContinuationText),
 						Image: nil,
 					}.Build(),
 				},
@@ -193,7 +217,10 @@ func newConfiguredModelRequest(instructions, reasoningChoice string) *extensionv
 					extensionv1.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
 				),
 				Content: []*extensionv1.ConfiguredModelInputContent{
-					extensionv1.ConfiguredModelInputContent_builder{Text: new("second user"), Image: nil}.Build(),
+					extensionv1.ConfiguredModelInputContent_builder{
+						Text:  new(configuredSecondUserText),
+						Image: nil,
+					}.Build(),
 				},
 			}.Build(),
 		},
