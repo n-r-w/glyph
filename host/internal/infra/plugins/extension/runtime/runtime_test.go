@@ -206,7 +206,12 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 // isAdversarialMode reports whether one helper mode bypasses the SDK to violate the public protocol.
 func isAdversarialMode(mode string) bool {
 	switch mode {
-	case "host-rejection-registration",
+	case "shutdown-host-work-active",
+		"shutdown-host-work",
+		"shutdown-host-work-loss",
+		"shutdown-host-work-cancel",
+		"shutdown-host-work-cancel-handler",
+		"host-rejection-registration",
 		"host-rejection-delivered",
 		"host-rejection-completion",
 		"missing-result",
@@ -561,7 +566,7 @@ func TestRuntimeHandleCancellationWaitsForRelease(t *testing.T) {
 	require.ErrorIs(t, <-outcome, context.Canceled)
 }
 
-// TestRuntimeCancellationPreservesPrimaryAndTransportErrors verifies independent causes survive synchronous joining.
+// TestRuntimeCancellationPreservesPrimaryAndTransportErrors verifies caller and transport causes survive owner cleanup.
 func TestRuntimeCancellationPreservesPrimaryAndTransportErrors(t *testing.T) {
 	t.Parallel()
 
@@ -577,15 +582,12 @@ func TestRuntimeCancellationPreservesPrimaryAndTransportErrors(t *testing.T) {
 		return nil
 	}, runtimeTestContext())
 
-	// Assert: preserve both causes and finish failed-process cleanup before Execute returns.
+	// Assert: preserve both causes until the owner joins failed-process cleanup.
 	require.ErrorIs(t, err, context.Canceled)
 	assert.Equal(t, codes.Unavailable, status.Code(err))
 	require.ErrorContains(t, err, "cancellation transport failed")
-	select {
-	case <-runtime.Done():
-	default:
-		require.FailNow(t, "Execute returned before failed runtime process cleanup")
-	}
+	assertRuntimeRunning(t, runtime)
+	requireRuntimeStopped(t, runtime)
 }
 
 // TestRuntimeExecuteCancellationPreservesUnknownTransportFailure verifies explicit Unknown remains connection-fatal.
@@ -604,17 +606,14 @@ func TestRuntimeExecuteCancellationPreservesUnknownTransportFailure(t *testing.T
 		return nil
 	}, runtimeTestContext())
 
-	// Assert: preserve caller and gRPC causes and finish process cleanup before return.
+	// Assert: preserve caller and gRPC causes until the owner joins cleanup.
 	require.ErrorIs(t, err, context.Canceled)
 	transportStatus, hasStatus := status.FromError(err)
 	require.True(t, hasStatus)
 	assert.Equal(t, codes.Unknown, transportStatus.Code())
 	require.ErrorContains(t, err, "unknown cancellation transport failed")
-	select {
-	case <-runtime.Done():
-	default:
-		require.FailNow(t, "Execute returned before Unknown-failed runtime process cleanup")
-	}
+	assertRuntimeRunning(t, runtime)
+	requireRuntimeStopped(t, runtime)
 }
 
 // TestRuntimeHandleCancellationPreservesTransportFailure verifies independent Handler failure cleanup.
@@ -643,16 +642,13 @@ func TestRuntimeHandleCancellationPreservesTransportFailure(t *testing.T) {
 		require.FailNow(t, "Handle did not settle after cancellation transport failure")
 	}
 
-	// Assert: preserve both causes and finish failed-process cleanup before Handle returns.
+	// Assert: preserve both causes until the owner joins failed-process cleanup.
 	require.ErrorIs(t, handleErr, context.Canceled)
 	require.ErrorIs(t, handleErr, extensionruntime.ErrExtensionUnavailable)
 	assert.Equal(t, codes.Unavailable, status.Code(handleErr))
 	require.ErrorContains(t, handleErr, "cancellation transport failed")
-	select {
-	case <-runtime.Done():
-	default:
-		require.FailNow(t, "Handle returned before failed runtime process cleanup")
-	}
+	assertRuntimeRunning(t, runtime)
+	requireRuntimeStopped(t, runtime)
 }
 
 // TestRuntimeHandleCancellationPreservesUnknownTransportFailure verifies explicit Unknown cleanup for Handle.
@@ -687,17 +683,14 @@ func TestRuntimeHandleCancellationPreservesUnknownTransportFailure(t *testing.T)
 		require.FailNow(t, "Handle did not settle after Unknown cancellation transport failure")
 	}
 
-	// Assert: preserve caller and gRPC causes and finish process cleanup before return.
+	// Assert: preserve caller and gRPC causes until the owner joins cleanup.
 	require.ErrorIs(t, handleErr, context.Canceled)
 	transportStatus, hasStatus := status.FromError(handleErr)
 	require.True(t, hasStatus)
 	assert.Equal(t, codes.Unknown, transportStatus.Code())
 	require.ErrorContains(t, handleErr, "unknown cancellation transport failed")
-	select {
-	case <-runtime.Done():
-	default:
-		require.FailNow(t, "Handle returned before Unknown-failed runtime process cleanup")
-	}
+	assertRuntimeRunning(t, runtime)
+	requireRuntimeStopped(t, runtime)
 }
 
 // TestRuntimeCloseWaitsForActiveRelease verifies requested Host closure joins remote operation cleanup.
@@ -827,7 +820,7 @@ func TestRuntimeRejectsMalformedCompletedPayloads(t *testing.T) {
 			// Act: consume the malformed completed payload.
 			err = invoke(t, runtime)
 
-			// Assert: fail and join the connection without waiting for peer EOF.
+			// Assert: fail the connection, preserve the cause, and join through the owner.
 			require.Error(t, err)
 			require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 			assert.Equal(t, codes.FailedPrecondition, status.Code(err))
@@ -1427,10 +1420,11 @@ func assertRuntimeRunning(t *testing.T, runtime *Runtime) {
 	}
 }
 
-// requireRuntimeStopped verifies lifecycle completion through the consumer-owned signal.
+// requireRuntimeStopped joins owner cleanup and checks process completion.
 func requireRuntimeStopped(t *testing.T, runtime *Runtime) {
 	t.Helper()
 
+	require.NoError(t, runtime.Close())
 	select {
 	case <-runtime.Done():
 	default:

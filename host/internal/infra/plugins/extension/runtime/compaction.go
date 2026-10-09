@@ -166,14 +166,7 @@ func (r *Runtime) runCompactionHandler(
 	}
 	completed, err := started.Wait(ctx, nil)
 	if err != nil {
-		var cancellationErr error
-		if ctx.Err() != nil {
-			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
-		}
-		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
-			_ = r.Close()
-		}
-		return nil, errors.Join(r.handlerOperationError(ctx, handlerID, err), cancellationErr)
+		return nil, r.resolveHandlerWaitError(ctx, handlerID, operationID, err)
 	}
 	response := completed.GetHandle()
 	if response == nil {

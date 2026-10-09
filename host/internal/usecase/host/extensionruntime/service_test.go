@@ -29,54 +29,70 @@ import (
 func TestRuntimeUnavailableShutdownReleasesCommitLockBeforeTransportClose(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one failing admitted operation whose transport close waits for another Host operation.
-	controller := gomock.NewController(t)
-	process := NewMockExtensionRuntime(controller)
-	closeStarted := make(chan struct{})
-	allowClose := make(chan struct{})
-	process.EXPECT().Close().Do(func() {
-		close(closeStarted)
-		<-allowClose
-	})
-	state := &runtimeState{
-		runtime: process, instanceID: "runtime", available: true, activeExecutions: 1,
-		exitPending: false, work: sync.WaitGroup{}, closeOnce: sync.Once{}, observed: false,
-		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
-		invalidateOnce: sync.Once{},
-	}
-	state.work.Add(1)
-	service := &Service{
-		catalog: nil, factory: nil,
-		reporter: newRuntimeReporter(t, func(context.Context, extension.RuntimeFailure) error { return nil }),
-		mutex:    sync.RWMutex{}, runtimes: map[string]*runtimeState{"extension": state},
-		monitoring: false, monitorContext: nil, closing: false,
-		reportingStopped: false, reporting: sync.WaitGroup{}, reportErrors: nil,
-	}
-	finishDone := make(chan struct{})
-	go func() {
-		service.finishAndReport(
-			t.Context(), operationOwner{pluginID: "extension", state: state}, ErrExtensionUnavailable,
-		)
-		close(finishDone)
-	}()
-	<-closeStarted
+	synctest.Test(t, func(t *testing.T) {
+		// Arrange one failing admitted operation whose transport close waits for another Host operation.
+		controller := gomock.NewController(t)
+		process := NewMockExtensionRuntime(controller)
+		closeStarted := make(chan struct{})
+		allowClose := make(chan struct{})
+		cleanupErr := errors.New("complete blocked transport cleanup cause")
+		process.EXPECT().Close().DoAndReturn(func() error {
+			close(closeStarted)
+			<-allowClose
+			return cleanupErr
+		})
+		state := &runtimeState{
+			runtime:          process,
+			instanceID:       "runtime",
+			available:        true,
+			activeExecutions: 1,
+			exitPending:      false,
+			work:             sync.WaitGroup{},
+			closeOnce:        sync.Once{},
+			shutdownDone:     make(chan struct{}),
+			observed:         false,
+			monitorDone:      make(chan struct{}),
+			commit:           sync.RWMutex{},
+			invalidated:      make(chan struct{}),
+			invalidateOnce:   sync.Once{},
+		}
+		state.work.Add(1)
+		service := New(nil, nil,
+			newRuntimeReporter(t, func(context.Context, extension.RuntimeFailure) error { return nil }))
+		service.runtimes["extension"] = state
+		finishDone := make(chan struct{})
+		go func() {
+			service.finishAndReport(
+				t.Context(), operationOwner{pluginID: "extension", state: state}, ErrExtensionUnavailable,
+			)
+			close(finishDone)
+		}()
+		<-closeStarted
 
-	// Act by checking the commit boundary while transport closure remains blocked.
-	commitLockAvailable := state.commit.TryRLock()
-	if !commitLockAvailable {
+		// Act by checking the commit boundary while transport closure remains blocked.
+		commitLockAvailable := state.commit.TryRLock()
+		if !commitLockAvailable {
+			close(allowClose)
+			<-finishDone
+			t.Fatal("runtime shutdown held the commit lock during transport closure")
+		}
+		state.commit.RUnlock()
+		_, err := service.BeginContextCommit("extension", "runtime")
+
+		// Assert invalidated work fails immediately and shutdown can finish after transport closure.
+		failure, found := errors.AsType[extensioncontroller.ContextFailure](err)
+		require.True(t, found)
+		assert.Equal(t, "STALE_CONTEXT", failure.ContextCode())
+		synctest.Wait()
+		select {
+		case <-finishDone:
+		default:
+			assert.Fail(t, "failure worker waited for its runtime shutdown")
+		}
 		close(allowClose)
 		<-finishDone
-		t.Fatal("runtime shutdown held the commit lock during transport closure")
-	}
-	state.commit.RUnlock()
-	_, err := service.BeginContextCommit("extension", "runtime")
-
-	// Assert invalidated work fails immediately and shutdown can finish after transport closure.
-	failure, found := errors.AsType[extensioncontroller.ContextFailure](err)
-	require.True(t, found)
-	assert.Equal(t, "STALE_CONTEXT", failure.ContextCode())
-	close(allowClose)
-	<-finishDone
+		assert.ErrorIs(t, service.Close(), cleanupErr)
+	})
 }
 
 // TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit verifies invalidation waits for the owning mutation.
@@ -89,10 +105,19 @@ func TestRuntimeReplacementCannotOvertakeAdmittedAppendCommit(t *testing.T) {
 	transportClosed := make(chan struct{})
 	process.EXPECT().Close().Do(func() { close(transportClosed) })
 	state := &runtimeState{
-		runtime: process, instanceID: "runtime", available: true, activeExecutions: 0,
-		exitPending: false, work: sync.WaitGroup{}, closeOnce: sync.Once{}, observed: false,
-		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
-		invalidateOnce: sync.Once{},
+		runtime:          process,
+		instanceID:       "runtime",
+		available:        true,
+		activeExecutions: 0,
+		exitPending:      false,
+		work:             sync.WaitGroup{},
+		closeOnce:        sync.Once{},
+		shutdownDone:     make(chan struct{}),
+		observed:         false,
+		monitorDone:      make(chan struct{}),
+		commit:           sync.RWMutex{},
+		invalidated:      make(chan struct{}),
+		invalidateOnce:   sync.Once{},
 	}
 	runtimes := &Service{
 		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
@@ -193,10 +218,19 @@ func TestRuntimeReplacementBeforeFinalAppendValidationRejectsCommit(t *testing.T
 	process := NewMockExtensionRuntime(controller)
 	process.EXPECT().Close()
 	state := &runtimeState{
-		runtime: process, instanceID: "runtime", available: true, activeExecutions: 0,
-		exitPending: false, work: sync.WaitGroup{}, closeOnce: sync.Once{}, observed: false,
-		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
-		invalidateOnce: sync.Once{},
+		runtime:          process,
+		instanceID:       "runtime",
+		available:        true,
+		activeExecutions: 0,
+		exitPending:      false,
+		work:             sync.WaitGroup{},
+		closeOnce:        sync.Once{},
+		shutdownDone:     make(chan struct{}),
+		observed:         false,
+		monitorDone:      make(chan struct{}),
+		commit:           sync.RWMutex{},
+		invalidated:      make(chan struct{}),
+		invalidateOnce:   sync.Once{},
 	}
 	runtimes := &Service{
 		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
@@ -271,10 +305,19 @@ func TestRuntimeReplacementBeforeMessageCommitPreservesStaleCategory(t *testing.
 	process := NewMockExtensionRuntime(controller)
 	process.EXPECT().Close()
 	state := &runtimeState{
-		runtime: process, instanceID: "runtime", available: true, activeExecutions: 0,
-		exitPending: false, work: sync.WaitGroup{}, closeOnce: sync.Once{}, observed: false,
-		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
-		invalidateOnce: sync.Once{},
+		runtime:          process,
+		instanceID:       "runtime",
+		available:        true,
+		activeExecutions: 0,
+		exitPending:      false,
+		work:             sync.WaitGroup{},
+		closeOnce:        sync.Once{},
+		shutdownDone:     make(chan struct{}),
+		observed:         false,
+		monitorDone:      make(chan struct{}),
+		commit:           sync.RWMutex{},
+		invalidated:      make(chan struct{}),
+		invalidateOnce:   sync.Once{},
 	}
 	runtimes := &Service{
 		catalog: nil, factory: nil, reporter: nil, mutex: sync.RWMutex{},
@@ -556,7 +599,8 @@ func TestServiceExecuteToolPreservesUnavailableCause(t *testing.T) {
 		[]byte(`{}`),
 		func(tool.Progress) error { return nil }, runtimeBindingForTest(service, "tools"),
 	)
-	// Assert the complete cause is preserved and the runtime is disabled once.
+	// Assert the complete cause is preserved and the runtime owner joins cleanup.
+	require.NoError(t, service.Close())
 	require.ErrorIs(t, executeErr, ErrExtensionUnavailable)
 	require.ErrorContains(t, executeErr, "process crashed")
 	assert.False(t, service.ToolRuntimeAvailable("tools"))

@@ -171,6 +171,8 @@ Configured-model image input is implemented; the [behavioral evidence](specs/fea
 
 SDK connection failure reporting is implemented. `Connection.Fail` returns before resource shutdown, and the owner joins cleanup through `Close`. The [connection failure tests](../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check both completion points.
 
+Tracked runtime shutdown is implemented and passed independent review; the [runtime shutdown evidence](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#tracked-runtime-shutdown) records worker return, manager-owned cleanup, and generation checks.
+
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)
 - [Technical solution](specs/features/initial/phases/06-context-compaction-retry-control/solution.md)

@@ -157,6 +157,66 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 		return err
 	}
 
+	if strings.HasPrefix(s.mode, "shutdown-host-work") {
+		request := new(extensionpb.ExtensionRequest)
+		binding := execute.GetRequest().GetExecute().GetContext()
+		if execute.GetRequest().GetHandle() != nil {
+			binding = execute.GetRequest().GetHandle().GetContext()
+		}
+		request.SetGetModels(extensionpb.GetModelsRequest_builder{
+			Context: extensionpb.ExtensionContextRef_builder{
+				ContextId: new(binding.GetContextId()), RuntimeInstanceId: new(binding.GetRuntimeInstanceId()),
+				SessionId: new(binding.GetSessionId()),
+			}.Build(),
+		}.Build())
+		if err = stream.Send(extensionpb.OpenResponse_builder{
+			OperationId: new("nested-host-work"), Request: request, Event: nil,
+		}.Build()); err != nil {
+			return err
+		}
+		// Wait for admission before failing the invocation that shares this connection.
+		for {
+			response, receiveErr := stream.Recv()
+			if receiveErr != nil {
+				return receiveErr
+			}
+			if response.GetEvent().GetRunning() != nil {
+				break
+			}
+		}
+	}
+	if s.mode == "shutdown-host-work-active" {
+		if err = stream.Send(extensionResponse(id, toolProgressEvent())); err != nil {
+			return err
+		}
+		for {
+			response, receiveErr := stream.Recv()
+			if receiveErr != nil {
+				return receiveErr
+			}
+			if response.GetClose() != nil {
+				return status.Error(codes.Unavailable, "complete runtime close transport failure")
+			}
+		}
+	}
+	if s.mode == "shutdown-host-work-loss" {
+		return status.Error(codes.Unavailable, "complete invocation transport failure")
+	}
+	if s.mode == "shutdown-host-work-cancel" {
+		if err = stream.Send(extensionResponse(id, toolProgressEvent())); err != nil {
+			return err
+		}
+	}
+	if s.mode == "shutdown-host-work-cancel" || s.mode == "shutdown-host-work-cancel-handler" {
+		cancellation, receiveErr := stream.Recv()
+		if receiveErr != nil {
+			return receiveErr
+		}
+		if cancellation.GetRequest().GetCancel() == nil {
+			return errors.New("expected cancellation request")
+		}
+		return status.Error(codes.Unavailable, "complete invocation transport failure")
+	}
 	completed := toolCompletedEvent()
 	switch s.mode {
 	case "unsupported-failure":
@@ -221,7 +281,7 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 
 			OperationId: new(id), Event: new(extensionpb.ExtensionEvent),
 		}.Build())
-	case "empty-result":
+	case "empty-result", "shutdown-host-work":
 		completedEvent := new(extensionpb.ExtensionCompleted)
 		completedEvent.SetTool(extensionpb.ToolResult_builder{IsError: new(false), Contents: nil}.Build())
 		event := new(extensionpb.ExtensionEvent)

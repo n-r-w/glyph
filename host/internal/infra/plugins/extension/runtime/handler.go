@@ -68,19 +68,7 @@ func (r *Runtime) Handle(
 	}
 	completed, err := started.Wait(ctx, nil)
 	if err != nil {
-		var cancellationErr error
-		if ctx.Err() != nil {
-			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
-		}
-		connectionFailed := isConnectionFailure(err) || isConnectionFailure(cancellationErr)
-		if connectionFailed {
-			_ = r.Close()
-		}
-		resultErr := errors.Join(r.handlerOperationError(ctx, handlerID, err), cancellationErr)
-		if ctx.Err() != nil && connectionFailed {
-			resultErr = errors.Join(extensionruntime.ErrExtensionUnavailable, resultErr)
-		}
-		return extensionruntime.HandlerAction{}, resultErr
+		return extensionruntime.HandlerAction{}, r.resolveHandlerWaitError(ctx, handlerID, operationID, err)
 	}
 	mappedResponse, err := mapHandleResponse(request, completed.GetHandle())
 	if err != nil {
@@ -95,18 +83,41 @@ func (r *Runtime) Handle(
 // handlerOperationError preserves operation errors and classifies stream failures as unavailability.
 func (r *Runtime) handlerOperationError(ctx context.Context, handlerID string, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		return fmt.Errorf("handle extension handler %q: %w", handlerID, errors.Join(ctxErr, err))
+		// cause keeps caller cancellation and the received connection failure together.
+		cause := errors.Join(ctxErr, err)
+		if isConnectionFailure(err) {
+			cause = errors.Join(extensionruntime.ErrExtensionUnavailable, cause)
+		}
+		return fmt.Errorf("handle extension handler %q: %w", handlerID, cause)
 	}
 	if isExtensionTerminalError(err) {
 		return fmt.Errorf("handle extension handler %q: %w", handlerID, err)
 	}
-	_ = r.Close()
 	return fmt.Errorf(
 		"%w: handle extension handler %q: %w",
 		extensionruntime.ErrExtensionUnavailable,
 		handlerID,
 		err,
 	)
+}
+
+// resolveHandlerWaitError settles cancellation and classifies a failed handler connection for its owner.
+func (r *Runtime) resolveHandlerWaitError(
+	ctx context.Context,
+	handlerID, operationID string,
+	operationErr error,
+) error {
+	// cancellationErr retains failure to cancel an operation on a usable connection.
+	var cancellationErr error
+	if ctx.Err() != nil && !isConnectionFailure(operationErr) {
+		cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
+	}
+	// resultErr retains invocation and cancellation outcomes for the manager.
+	resultErr := errors.Join(r.handlerOperationError(ctx, handlerID, operationErr), cancellationErr)
+	if isConnectionFailure(cancellationErr) {
+		resultErr = errors.Join(extensionruntime.ErrExtensionUnavailable, resultErr)
+	}
+	return resultErr
 }
 
 // mapHandleRequest encodes the runtime-owned filtered operation payload.

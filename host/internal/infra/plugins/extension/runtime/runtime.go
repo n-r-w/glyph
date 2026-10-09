@@ -23,6 +23,8 @@ import (
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
+//go:generate go tool mockgen -build_constraint=integration -destination=host_service_mock_test.go -package=runtime github.com/n-r-w/glyph/sdk/plugins/extension/v1 HostService,HostOperation
+
 // Runtime owns one extension process connection.
 type Runtime struct {
 	// context carries runtime values into asynchronous cancellation and shutdown diagnostics.
@@ -62,17 +64,14 @@ func (r *Runtime) Register(ctx context.Context) (extensionruntime.Registration, 
 	request.SetRegister(new(extensionpb.RegisterRequest))
 	started, err := r.connection.Start(ctx, r.operationID(), request)
 	if err != nil {
-		_ = r.Close()
 		return extensionruntime.Registration{}, fmt.Errorf("start extension registration: %w", err)
 	}
 	completed, err := started.Wait(ctx, nil)
 	if err != nil {
-		_ = r.Close()
 		return extensionruntime.Registration{}, fmt.Errorf("register extension: %w", err)
 	}
 	registration, err := mapRegistration(completed.GetRegister())
 	if err != nil {
-		_ = r.Close()
 		return extensionruntime.Registration{}, fmt.Errorf("validate extension registration: %w", err)
 	}
 	return registration, nil
@@ -116,10 +115,12 @@ func (r *Runtime) Execute(
 		if shouldCancelFailedExecution(ctx.Err(), progressDeliveryErr, err) {
 			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 		}
+		// resultErr retains operation, progress-delivery, and cancellation causes.
+		resultErr := errors.Join(r.executionFailure(ctx, toolName, err, progressDeliveryErr), cancellationErr)
 		if connectionFailed || isConnectionFailure(cancellationErr) {
-			_ = r.Close()
+			resultErr = errors.Join(extensionruntime.ErrExtensionUnavailable, resultErr)
 		}
-		return tool.Result{}, errors.Join(r.executionFailure(ctx, toolName, err, progressDeliveryErr), cancellationErr)
+		return tool.Result{}, resultErr
 	}
 	result := completed.GetTool()
 	if result == nil {
@@ -148,7 +149,7 @@ func (r *Runtime) executionFailure(ctx context.Context, toolName string, receive
 func (r *Runtime) Done() <-chan struct{} { return r.client.Done() }
 
 // Close joins the stream and process and returns retained completion failures on every call.
-// Early operation cleanup leaves these failures available for final Host collection.
+// The runtime manager or bootstrap loader owns this blocking completion point.
 func (r *Runtime) Close() error {
 	// The first stop cause belongs to operation/runtime reporting, not resource cleanup.
 	if diagnostic := connectionDiagnostic(r.connection.Close()); diagnostic != nil {
@@ -209,15 +210,21 @@ func (r *Runtime) executionError(ctx context.Context, toolName string, err error
 		return fmt.Errorf("execute extension tool %q: %w", toolName, err)
 	}
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		return fmt.Errorf("execute extension tool %q: %w", toolName, errors.Join(ctxErr, err))
+		// cause keeps caller cancellation and the received connection failure together.
+		cause := errors.Join(ctxErr, err)
+		if isConnectionFailure(err) {
+			cause = errors.Join(extensionruntime.ErrExtensionUnavailable, cause)
+		}
+		return fmt.Errorf("execute extension tool %q: %w", toolName, cause)
 	}
 	if status.Code(err) == codes.Canceled {
-		return fmt.Errorf("execute extension tool %q: %w", toolName, errors.Join(context.Canceled, err))
+		return fmt.Errorf("%w: execute extension tool %q: %w", extensionruntime.ErrExtensionUnavailable,
+			toolName, errors.Join(context.Canceled, err))
 	}
 	if status.Code(err) == codes.FailedPrecondition {
-		return toolExecutionProtocolViolation(r, toolName, err)
+		return fmt.Errorf("%w: execute extension tool %q: extension protocol violation: %w",
+			extensionruntime.ErrExtensionUnavailable, toolName, err)
 	}
-	_ = r.Close()
 	return fmt.Errorf(
 		"%w: execute extension tool %q: %w",
 		extensionruntime.ErrExtensionUnavailable,
@@ -226,21 +233,9 @@ func (r *Runtime) executionError(ctx context.Context, toolName string, err error
 	)
 }
 
-// toolExecutionProtocolViolation stops the invalid stream and preserves the operation context.
-func toolExecutionProtocolViolation(r *Runtime, toolName string, err error) error {
-	_ = r.Close()
-	return fmt.Errorf(
-		"%w: execute extension tool %q: extension protocol violation: %w",
-		extensionruntime.ErrExtensionUnavailable,
-		toolName,
-		err,
-	)
-}
-
-// protocolViolation fails and joins the shared connection after Host payload validation rejects peer data.
+// protocolViolation seals the invalid connection and returns its cause to the runtime owner.
 func (r *Runtime) protocolViolation(cause error) error {
 	connectionErr := r.connection.Fail(cause)
-	r.client.Close()
 	return fmt.Errorf(
 		"%w: extension protocol violation: %w",
 		extensionruntime.ErrExtensionUnavailable,

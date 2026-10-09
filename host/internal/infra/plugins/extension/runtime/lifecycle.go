@@ -36,14 +36,7 @@ func (r *Runtime) ObserveLifecycle(
 	}
 	completed, err := started.Wait(ctx, nil)
 	if err != nil {
-		var cancellationErr error
-		if ctx.Err() != nil {
-			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
-		}
-		if isConnectionFailure(err) || isConnectionFailure(cancellationErr) {
-			_ = r.Close()
-		}
-		return errors.Join(r.handlerOperationError(ctx, handlerID, err), cancellationErr)
+		return r.resolveHandlerWaitError(ctx, handlerID, operationID, err)
 	}
 	response := completed.GetHandle()
 	if response == nil {

@@ -148,9 +148,11 @@ func TestRuntimeStopsAfterRegistrationRejectionOrFailure(t *testing.T) {
 			// Act: run the rejected or failed startup operation.
 			_, terminalErr := runtime.Register(t.Context())
 
-			// Assert: preserve the exact wrapper, code, context, and text, then stop startup.
+			// Assert: preserve the startup cause until the loader joins transport and process cleanup.
 			assertRuntimeTerminalError(t, terminalErr, testCase.rejection, testCase.code, testCase.sourceText)
 			require.ErrorContains(t, terminalErr, "register extension")
+			assertRuntimeRunning(t, runtime)
+			require.NoError(t, runtime.Close())
 			requireRuntimeStopped(t, runtime)
 		})
 	}

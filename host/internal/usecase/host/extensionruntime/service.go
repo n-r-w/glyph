@@ -83,8 +83,10 @@ type runtimeState struct {
 	exitPending bool
 	// work joins every operation reservation in both stream directions.
 	work sync.WaitGroup
-	// closeOnce closes process transport once across failure, replacement, and shutdown.
+	// closeOnce starts transport shutdown once for this runtime generation.
 	closeOnce sync.Once
+	// shutdownDone joins transport and process cleanup retained by the manager.
+	shutdownDone chan struct{}
 	// observed records whether a process-exit monitor has been started for this instance.
 	observed bool
 	// monitorDone closes after the process-exit monitor joins its owned work.
@@ -199,6 +201,7 @@ func (s *Service) LoadPending(ctx context.Context, directory startup.Directory) 
 			exitPending:      false,
 			work:             sync.WaitGroup{},
 			closeOnce:        sync.Once{},
+			shutdownDone:     make(chan struct{}),
 			observed:         false,
 			monitorDone:      make(chan struct{}),
 			commit:           sync.RWMutex{},
@@ -494,6 +497,9 @@ func (s *Service) Close() error {
 		s.mutex.Unlock()
 		state.commit.Unlock()
 		s.closeTransport(state)
+	}
+	// Start every shutdown before joining dependencies between runtime workers.
+	for _, state := range states {
 		state.join()
 	}
 	s.mutex.RLock()
@@ -514,9 +520,14 @@ func (state *runtimeState) isInvalidated() bool {
 	}
 }
 
-// closeTransport registers completion once, including for states removed before final Host cleanup.
+// closeTransport starts manager-owned shutdown without joining the reporting worker.
 func (s *Service) closeTransport(state *runtimeState) {
-	state.closeOnce.Do(func() { s.retainCompletion(state.runtime.Close()) })
+	state.closeOnce.Do(func() {
+		go func() {
+			defer close(state.shutdownDone)
+			s.retainCompletion(state.runtime.Close())
+		}()
+	})
 }
 
 // retainCompletion preserves independent runtime cleanup errors until application collection.
@@ -529,12 +540,13 @@ func (s *Service) retainCompletion(err error) {
 	s.mutex.Unlock()
 }
 
-// join waits for operation accounting and the instance's optional process-exit monitor.
+// join waits for this generation's workers, process monitor, and runtime shutdown.
 func (state *runtimeState) join() {
 	state.work.Wait()
 	if state.observed {
 		<-state.monitorDone
 	}
+	<-state.shutdownDone
 }
 
 // monitor invalidates an exited runtime and joins active work before observation ends.
