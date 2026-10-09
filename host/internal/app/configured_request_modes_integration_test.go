@@ -75,6 +75,7 @@ func TestPublicConfiguredRequestAcrossApplicationModes(t *testing.T) {
 			},
 		} {
 			t.Run(scenario.name+"/"+input.name, func(t *testing.T) {
+				// Arrange isolated application paths, credentials, and provider responses.
 				paths := testPaths(t, configuredRequestSettings)
 				writeProgrammaticCredentials(t, paths)
 				transport, bodies := configuredRequestProviderTransport(t, input.fixtureMode, input.rejected)
@@ -155,6 +156,9 @@ func configuredRequestProviderTransport(
 	rejected bool,
 ) (*MockHTTPRoundTripper, *requestBodies) {
 	t.Helper()
+	// configuredProviderRejectionBody contains the complete remote validation error.
+	const configuredProviderRejectionBody = `{"error":` + configuredProviderRejectionDetail + `}`
+
 	bodies := new(requestBodies)
 	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
 	transport.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(request *http.Request) (*http.Response, error) {
@@ -281,9 +285,6 @@ const configuredModelResponseSSE = `data: {"type":"response.output_text.delta","
 	`"input_tokens_details":{"cached_tokens":2,"cache_write_tokens":1},` +
 	`"output_tokens_details":{"reasoning_tokens":3}},"output":[]}}` + "\n\n" +
 	"data: [DONE]\n\n"
-
-// configuredProviderRejectionBody contains the complete remote validation error.
-const configuredProviderRejectionBody = `{"error":` + configuredProviderRejectionDetail + `}`
 
 // configuredProviderRejectionDetail contains the original provider SDK error cause.
 const configuredProviderRejectionDetail = `{"message":"remote configured input rejected: exact detail",` +

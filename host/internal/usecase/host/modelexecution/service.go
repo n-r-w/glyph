@@ -254,8 +254,11 @@ func (s *Service) RequestConfigured(
 		return model.Response{}, err
 	}
 	if !slices.Contains(binding.Model.Input, model.InputModalityImage) {
+		// messageIndex is the history position used in image rejection diagnostics.
 		for messageIndex := range history {
+			// user is the optional user payload. present is its availability.
 			if user, present := history[messageIndex].User.Get(); present {
+				// contentIndex is the block position. content is the user input block.
 				for contentIndex, content := range user.Content {
 					if content.Kind == model.InputContentImage {
 						return model.Response{}, fmt.Errorf(

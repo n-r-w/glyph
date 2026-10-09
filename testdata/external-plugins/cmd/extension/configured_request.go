@@ -17,8 +17,8 @@ const configuredInstructions = "extension instructions"
 // configuredNestedReasoningChoice distinguishes explicit nested requests from the active conversation.
 const configuredNestedReasoningChoice = "high"
 
-// configuredOrdinaryReasoningChoice preserves the reasoning choice in other public fixtures.
-const configuredOrdinaryReasoningChoice = "off"
+// configuredDisabledReasoningChoice is the disabled reasoning choice for configured-model fixture requests.
+const configuredDisabledReasoningChoice = "off"
 
 // configuredRetryObservation is the stable retry progress subset returned by the external fixture.
 type configuredRetryObservation struct {
@@ -62,7 +62,7 @@ func requestConfiguredModel(
 
 // requestConfiguredModelWithProgress awaits one configured request and records its scoped retry updates.
 func requestConfiguredModelWithProgress(ctx context.Context) (*extensionv1.ToolResult, error) {
-	operation, err := startConfiguredModel(ctx, configuredInstructions, configuredOrdinaryReasoningChoice)
+	operation, err := startConfiguredModel(ctx, configuredInstructions, configuredDisabledReasoningChoice)
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ type configuredFailuresReport struct {
 
 // requestConfiguredModelFailures records the public SDK failure surface for both wait APIs.
 func requestConfiguredModelFailures(ctx context.Context) (*extensionv1.ToolResult, error) {
-	waitOperation, err := startConfiguredModel(ctx, configuredInstructions, configuredOrdinaryReasoningChoice)
+	waitOperation, err := startConfiguredModel(ctx, configuredInstructions, configuredDisabledReasoningChoice)
 	if err != nil {
 		return nil, err
 	}
@@ -116,7 +116,7 @@ func requestConfiguredModelFailures(ctx context.Context) (*extensionv1.ToolResul
 	if waitErr == nil {
 		return nil, errors.New("configured-model Wait unexpectedly succeeded")
 	}
-	progressOperation, err := startConfiguredModel(ctx, configuredInstructions, configuredOrdinaryReasoningChoice)
+	progressOperation, err := startConfiguredModel(ctx, configuredInstructions, configuredDisabledReasoningChoice)
 	if err != nil {
 		return nil, err
 	}

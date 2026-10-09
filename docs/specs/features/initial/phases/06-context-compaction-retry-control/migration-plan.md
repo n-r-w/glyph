@@ -133,9 +133,11 @@ Each unit has a fresh executor session with the role listed above. Complex execu
 
 Each behavior change has fresh compiling RED/GREEN evidence and a check through the highest available public entry point. All units pass formatting, fix dry-run analysis, lint, unit tests, integration tests, coverage, build, package loading, and diff checks. Changes to generated inputs also pass repeated stable generation. Temporary stubs and debugging code are removed before acceptance.
 
-A fresh `SubAgentAnalyst` session independently reviews each completed unit. Main checks review claims against primary source, resolves accepted findings, and repeats completion checks after code corrections. Main then makes one local commit for the accepted unit, excluding pre-existing edits. Subagents do not commit, and no remote ref changes are part of this plan.
+After each unit and each migration phase, a fresh `CodeQuality` session reviews the completed changes in correction mode before acceptance and commit. The agent applies behavior-preserving corrections within its role and reports findings that need behavior, public-contract, or architecture changes for a separate decision. Main checks the findings and corrections against primary source and repeats completion checks after code corrections. At UNT-11, the same pass covers both the Cleanup unit and the complete PHS-06.1 change set.
 
-After UNT-11, a fresh `SubAgentExtractor` session repeats final checks. Fresh `CodeQuality` and `SubAgentCritic` sessions independently examine the same completed result. Main owns acceptance reporting. These checks do not replace per-unit verification or the broader PHS-06.4 acceptance of the future bundled extension.
+After the quality pass, a fresh `SubAgentAnalyst` session independently reviews each completed unit. Main checks review claims against primary source, resolves accepted findings, and repeats completion checks after code corrections. Main then makes one local commit for the accepted unit, excluding pre-existing edits. Corrections to committed units receive separate corrective commits. Subagents do not commit, and no remote ref changes are part of this plan.
+
+After the UNT-11 quality pass and unit review, a fresh `SubAgentExtractor` session repeats final checks. A fresh `SubAgentCritic` session examines the completed result. Main owns acceptance reporting. These checks do not replace per-unit verification or the broader PHS-06.4 acceptance of the future bundled extension.
 
 #### Deliverables
 

@@ -11,27 +11,6 @@ import (
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
-const (
-	// emptyConfiguredContent identifies the empty content rejection case.
-	emptyConfiguredContent = "empty content"
-	// missingConfiguredPayload identifies the missing payload rejection case.
-	missingConfiguredPayload = "missing payload"
-	// emptyConfiguredText identifies the empty text rejection case.
-	emptyConfiguredText = "empty text"
-	// missingConfiguredMediaType identifies the missing media type rejection case.
-	missingConfiguredMediaType = "missing media type"
-	// emptyConfiguredImageData identifies the empty image data rejection case.
-	emptyConfiguredImageData = "empty image data"
-	// assistantConfiguredImage identifies the assistant image rejection case.
-	assistantConfiguredImage = "assistant image"
-	// unknownConfiguredRole identifies the unknown role rejection case.
-	unknownConfiguredRole = "unknown role"
-	// unsupportedConfiguredImage identifies the unsupported image rejection case.
-	unsupportedConfiguredImage = "unsupported image"
-	// unknownConfiguredRoleValue is outside the public author enum.
-	unknownConfiguredRoleValue = 99
-)
-
 // configuredInputReport contains the image result and public input rejection text.
 type configuredInputReport struct {
 	// ResultJSON contains the successful public model response.
@@ -81,6 +60,26 @@ func collectConfiguredInputErrors(
 	binding *extensionsdk.ExtensionContext,
 	request *extensionv1.ConfiguredModelRequest,
 ) map[string]string {
+	const (
+		// emptyConfiguredContent identifies the empty content rejection case.
+		emptyConfiguredContent = "empty content"
+		// missingConfiguredPayload identifies the missing payload rejection case.
+		missingConfiguredPayload = "missing payload"
+		// emptyConfiguredText identifies the empty text rejection case.
+		emptyConfiguredText = "empty text"
+		// missingConfiguredMediaType identifies the missing media type rejection case.
+		missingConfiguredMediaType = "missing media type"
+		// emptyConfiguredImageData identifies the empty image data rejection case.
+		emptyConfiguredImageData = "empty image data"
+		// assistantConfiguredImage identifies the assistant image rejection case.
+		assistantConfiguredImage = "assistant image"
+		// unknownConfiguredRole identifies the unknown role rejection case.
+		unknownConfiguredRole = "unknown role"
+		// unsupportedConfiguredImage identifies the unsupported image rejection case.
+		unsupportedConfiguredImage = "unsupported image"
+		// unknownConfiguredRoleValue is the invalid author role used in rejection checks.
+		unknownConfiguredRoleValue = 99
+	)
 	failures := make(map[string]string)
 	for _, name := range []string{
 		emptyConfiguredContent, missingConfiguredPayload, emptyConfiguredText,
@@ -106,7 +105,7 @@ func collectConfiguredInputErrors(
 			message.SetRole(extensionv1.ConfiguredModelRole(unknownConfiguredRoleValue))
 		case unsupportedConfiguredImage:
 			invalid.GetSelection().SetModelId("gpt-active")
-			invalid.GetSelection().SetReasoningChoice(configuredOrdinaryReasoningChoice)
+			invalid.GetSelection().SetReasoningChoice(configuredDisabledReasoningChoice)
 		}
 		invalidOperation, failure := binding.StartConfiguredModel(ctx, invalid)
 		if failure == nil {
