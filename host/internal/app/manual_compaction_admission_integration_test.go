@@ -1,5 +1,6 @@
 //go:build integration
 
+// Package app composes and runs the Host application.
 package app
 
 import (

@@ -1,5 +1,6 @@
 //go:build integration
 
+// Package main runs the public compaction policy reference fixture.
 package main
 
 import (
@@ -20,15 +21,20 @@ type callerCancellationSuite struct {
 
 // TestCallerCancellationRetainsFailures checks acquired coordination failures and owned shutdown.
 func TestCallerCancellationRetainsFailures(t *testing.T) {
+	// Arrange an independent socket scenario.
 	t.Parallel()
+	// Act through the cancellation scenario suite.
 	suite.Run(t, &callerCancellationSuite{Suite: suite.Suite{}})
+	// Assert in the scenario method.
 }
 
 // TestScenario checks failure retention, unexpected cancellation, and joined ordinary shutdown.
 func (s *callerCancellationSuite) TestScenario() {
 	t := s.T()
 	// Arrange an externally closed real listener and an already acquired committed outcome.
+	// originalCause identifies the caller failure acquired before teardown.
 	const originalCause = "acquired caller failure before coordination finish"
+	// committedSummary contains the durable receipt content.
 	const committedSummary = "retained receipt summary"
 	listener, err := new(
 		net.ListenConfig,

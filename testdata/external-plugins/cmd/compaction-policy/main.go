@@ -482,10 +482,12 @@ func projectPolicyReplacement(
 
 // requestCanceledParentAdmission obtains the public nested admission rejection.
 func requestCanceledParentAdmission(ctx context.Context) (*extensionpb.HandleResponse, error) {
+	// binding and bindingErr contain the caller session context and lookup failure.
 	binding, bindingErr := extensionsdk.ContextFrom(ctx)
 	if bindingErr != nil {
 		return newPolicyFailure(bindingErr), nil
 	}
+	// operation and admissionErr contain the nested request handle and admission failure.
 	operation, admissionErr := binding.StartGetModels(ctx)
 	if admissionErr == nil {
 		_, admissionErr = operation.Wait(ctx)

@@ -56,13 +56,6 @@ func cloneHandlerSet(set HandlerSet) HandlerSet {
 	}
 }
 
-// cloneOutcome detaches every mutable outcome value.
-func cloneOutcome(outcome OutcomeInvocation) OutcomeInvocation {
-	outcome.State = outcome.State.MapValue(PolicyState.Clone)
-	outcome.Committed = outcome.Committed.MapValue(session.Entry.Clone)
-	return outcome
-}
-
 // cloneInputEntries detaches projected entries and preserves their Host estimates.
 func cloneInputEntries(entries []InputEntry) []InputEntry {
 	if entries == nil {

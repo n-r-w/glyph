@@ -1,3 +1,4 @@
+// Package sessions owns session history and compaction state.
 package sessions
 
 import (
@@ -115,8 +116,8 @@ func newCompactionBaseEntry(id string, parentID mo.Option[string]) session.Entry
 	}
 }
 
-// boundaryTestCompaction creates one extension-sourced marker for boundary behavior tests.
-func boundaryTestCompaction(firstKeptEntryID string) session.CompactionEntry {
+// newCompactionBoundaryEntry creates one extension-sourced marker for boundary behavior tests.
+func newCompactionBoundaryEntry(firstKeptEntryID string) session.CompactionEntry {
 	return session.CompactionEntry{
 		Summary: "summary", FirstKeptEntryID: firstKeptEntryID,
 		Source: session.CompactionSource{

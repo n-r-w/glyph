@@ -112,10 +112,13 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 		s.mutex.Unlock()
 		return
 	}
+	// observed contains runtimes awaiting monitor startup.
 	observed := make(map[string]*runtimeState)
+	// retryHandlers contains accepted retry capabilities.
 	retryHandlers := make([]modelexecution.RetryHandler, 0)
 	// policies contains policy identities in accepted registration order.
 	policies := make([]extensioncontext.PolicyOwner, 0)
+	// compactionHandlers contains accepted capabilities grouped by compaction role.
 	compactionHandlers := contextcompaction.HandlerSet{
 		Requests: nil, Generators: nil, Results: nil, Successes: nil, Failures: nil,
 	}
@@ -157,9 +160,12 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 			compactionHandlers.Failures = append(compactionHandlers.Failures, handler)
 		},
 	}
+	// registration contains the accepted capabilities of one runtime.
 	for _, registration := range registrations {
+		// state identifies the registered runtime; exists reports its presence.
 		if state, exists := s.runtimes[registration.ID]; exists && !state.isInvalidated() {
 			state.available = true
+			// handler identifies the current accepted capability.
 			for _, handler := range registration.Handlers {
 				// collect identifies the registration destination; supported indicates a collected capability kind.
 				if collect, supported := collectors[handler.Kind]; supported {
@@ -181,8 +187,10 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 	s.retryHandlers = retryHandlers
 	s.compactionHandlers = compactionHandlers
 	s.compactionPolicies = policies
+	// ctx owns runtime monitor cancellation.
 	ctx := s.monitorContext
 	s.mutex.Unlock()
+	// extensionID and state identify the runtime to monitor.
 	for extensionID, state := range observed {
 		go s.monitor(ctx, extensionID, state, state.runtime.Done())
 	}

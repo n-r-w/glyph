@@ -1,3 +1,4 @@
+// Package sessions owns session history and compaction state.
 package sessions
 
 import (

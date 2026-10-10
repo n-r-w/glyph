@@ -1,5 +1,6 @@
 //go:build !integration
 
+// Package sessions owns session history and compaction state.
 package sessions
 
 import (
@@ -26,7 +27,7 @@ func (s *projectReplacementPreservesBoundaryCauseSuite) TestScenario() {
 
 	// Act by requesting the candidate projection.
 	// history and err contain the candidate model input and projection failure.
-	history, err := service.ProjectReplacement(snapshot, boundaryTestCompaction("outside"))
+	history, err := service.ProjectReplacement(snapshot, newCompactionBoundaryEntry("outside"))
 
 	// Assert that the caller receives the session boundary cause rather than an empty projection.
 	require.ErrorContains(t, err, "compaction boundary is outside its branch")

@@ -404,7 +404,7 @@ func (s *Service) observeSuccess(ctx context.Context, handlers []Handler, outcom
 		if err != nil {
 			return fmt.Errorf("issue context for compaction success observer %q: %w", handler.HandlerID, err)
 		}
-		if err = s.runtime.ObserveCompactionSuccess(ctx, handler, binding, cloneOutcome(outcome)); err != nil {
+		if err = s.runtime.ObserveCompactionSuccess(ctx, handler, binding, outcome.Clone()); err != nil {
 			return fmt.Errorf("compaction success observer %q: %w", handler.HandlerID, err)
 		}
 	}
@@ -418,7 +418,7 @@ func (s *Service) observeFailure(ctx context.Context, handlers []Handler, outcom
 		if err != nil {
 			return fmt.Errorf("issue context for compaction failure observer %q: %w", handler.HandlerID, err)
 		}
-		if err = s.runtime.ObserveCompactionFailure(ctx, handler, binding, cloneOutcome(outcome)); err != nil {
+		if err = s.runtime.ObserveCompactionFailure(ctx, handler, binding, outcome.Clone()); err != nil {
 			return fmt.Errorf("compaction failure observer %q: %w", handler.HandlerID, err)
 		}
 	}

@@ -66,7 +66,7 @@ func (s *commitReplacementRecordsBeforePublicationSuite) TestScenario() {
 
 	// Act by committing with a runtime guard and a Host receipt recorder.
 	// committed and err contain the durable replacement receipt and delivery failure.
-	committed, err := service.CommitReplacement(t.Context(), snapshot, boundaryTestCompaction("kept"),
+	committed, err := service.CommitReplacement(t.Context(), snapshot, newCompactionBoundaryEntry("kept"),
 		func() (func(), error) { return func() { runtimeReleased = true }, nil },
 		func(entry session.Entry) { recorded = mo.Some(entry) },
 	)

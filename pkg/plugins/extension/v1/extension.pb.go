@@ -3345,7 +3345,7 @@ type HostCompleted_builder struct {
 	Selection              *SelectionResult
 	// The terminal manual compaction result.
 	Compact *CompactResult
-	// The validated candidate history.
+	// The structurally valid candidate model history.
 	ProjectCompaction *CompactionProjection
 	// The durable replacement receipt and diagnostics.
 	ReplaceCompaction *CompactResult
@@ -3444,7 +3444,7 @@ type hostCompleted_Compact struct {
 }
 
 type hostCompleted_ProjectCompaction struct {
-	// The validated candidate history.
+	// The structurally valid candidate model history.
 	ProjectCompaction *CompactionProjection `protobuf:"bytes,10,opt,name=project_compaction,json=projectCompaction,oneof"`
 }
 

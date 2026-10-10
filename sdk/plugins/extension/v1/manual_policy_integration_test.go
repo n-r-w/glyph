@@ -15,11 +15,11 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// manualPolicyReasoningOff selects disabled reasoning in public policy fixtures.
-const manualPolicyReasoningOff = "off"
-
 // TestScenario checks policy registration, invocation authority, and detached input.
 func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
+	// manualPolicyReasoningOff selects disabled reasoning in public policy fixtures.
+	const manualPolicyReasoningOff = "off"
+
 	t := s.T()
 	// Arrange one policy handler on the public asynchronous connection.
 	// controller owns mock expectations.

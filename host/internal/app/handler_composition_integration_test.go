@@ -348,6 +348,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 		}
 		// splitBoundaryEnvironment names the tool-result boundary fixture setting.
 		const splitBoundaryEnvironment = "GLYPH_THRESHOLD_SPLIT_BOUNDARY"
+		// boundary identifies the first retained candidate entry.
 		boundary := "kept"
 		if os.Getenv(splitBoundaryEnvironment) == manualFixtureEnabled {
 			for _, input := range append(invocation.GetOriginal().GetPrefix(), invocation.GetOriginal().GetSuffix()...) {

@@ -226,7 +226,7 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 
 // validateCompactionHandlers validates the optional compaction partition through its capability owner.
 func (s *Service) validateCompactionHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
-	partition := partitionHandlers(registration, isCompactionKind)
+	partition := partitionHandlers(registration, RawHandlerKind.isCompaction)
 	if len(partition.Handlers) == 0 {
 		return nil, nil
 	}
@@ -256,7 +256,7 @@ func validateHandlerIdentities(handlers []RawHandlerDescriptor) error {
 			return errors.New("handler ID is empty")
 		}
 		if !isSessionTreeKind(handler.Kind) && !isLifecycleKind(handler.Kind) && !isSelectionKind(handler.Kind) &&
-			!handler.Kind.isRetry() && !isCompactionKind(handler.Kind) {
+			!handler.Kind.isRetry() && !handler.Kind.isCompaction() {
 			return fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
 		}
 		if _, exists := ids[handler.ID]; exists {
@@ -307,11 +307,6 @@ func isLifecycleKind(kind RawHandlerKind) bool {
 // isSelectionKind reports whether active-selection policy owns one kind.
 func isSelectionKind(kind RawHandlerKind) bool {
 	return kind == RawHandlerKindModelSelection || kind == RawHandlerKindReasoningSelection
-}
-
-// isCompactionKind reports whether compaction policy owns one kind.
-func isCompactionKind(kind RawHandlerKind) bool {
-	return kind >= RawHandlerKindCompactionRequest && kind <= RawHandlerKindCompactionPolicy
 }
 
 // isRetry reports whether model execution owns this retry handler kind.

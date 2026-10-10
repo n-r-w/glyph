@@ -12,15 +12,19 @@ func receiveManualTerminal(
 	fixture *programmaticFixture,
 	operationID string,
 ) (chan *programmaticv1.HostEvent, chan error) {
+	// terminal carries the selected operation terminal event.
 	terminal := make(chan *programmaticv1.HostEvent, 1)
+	// receiveErrors carries the stream receive failure.
 	receiveErrors := make(chan error, 1)
 	go func() {
 		for {
+			// response contains the next public stream message.
 			response, err := fixture.stream.Recv()
 			if err != nil {
 				receiveErrors <- err
 				return
 			}
+			// event contains the public operation state.
 			event := response.GetEvent()
 			if response.GetOperationId() == operationID &&
 				(event.HasCompleted() || event.HasFailed() || event.HasCanceled()) {

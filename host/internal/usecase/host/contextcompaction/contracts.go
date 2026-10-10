@@ -247,6 +247,13 @@ type OutcomeInvocation struct {
 	Error mo.Option[string]
 }
 
+// Clone detaches every mutable outcome value.
+func (outcome OutcomeInvocation) Clone() OutcomeInvocation {
+	outcome.State = outcome.State.MapValue(PolicyState.Clone)
+	outcome.Committed = outcome.Committed.MapValue(session.Entry.Clone)
+	return outcome
+}
+
 // Runtime snapshots and invokes public compaction capabilities.
 type Runtime interface {
 	// SnapshotCompactionHandlers captures membership and order for one operation.

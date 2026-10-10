@@ -53,12 +53,16 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 	if err := waitForIdle(ctx, host); err != nil {
 		return err
 	}
+	// guidance selects the public manual policy scenario.
 	guidance := os.Getenv(manualGuidanceEnvironment)
 	if guidance != manualNoOwnerGuidance {
 		for index, text := range []string{manualOriginalText, manualRetainedText} {
+			// request contains one conversation submission.
 			request := new(uipb.UIRequest)
 			request.SetSubmit(uipb.SubmitCommand_builder{Text: new(text)}.Build())
+			// operationID identifies the conversation submission.
 			operationID := manualFixtureManualUiSubmit + strconv.Itoa(index)
+			// started contains the admitted conversation operation.
 			started, err := host.Start(ctx, operationID, request)
 			if err != nil {
 				return err
@@ -68,14 +72,18 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 			}
 		}
 	}
+	// request contains the manual compaction instructions.
 	request := new(uipb.UIRequest)
 	request.SetCompact(uipb.CompactCommand_builder{Instructions: new(guidance)}.Build())
+	// cancelContext and cancelSignal own the cancellation worker lifetime.
 	cancelContext, cancelSignal := context.WithCancelCause(ctx)
 	defer cancelSignal(nil)
+	// finishCancel joins the cancellation worker and returns its failure.
 	finishCancel, err := startManualUICancellation(cancelContext, host)
 	if err != nil {
 		return err
 	}
+	// cancellationCollected records whether the worker result has been collected.
 	cancellationCollected := false
 	defer func() {
 		if !cancellationCollected {
@@ -85,15 +93,19 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 	if os.Getenv(manualFixtureGlyphManualCancelFailure) == manualFixtureEnabled {
 		cancelSignal(errors.New("original UI cancellation request cause"))
 	}
+	// started contains the admitted manual compaction operation.
 	started, err := host.Start(ctx, manualFixtureManualUiCompact, request)
 	if err != nil {
 		return err
 	}
+	// completed and terminalErr contain the manual operation result and failure.
 	completed, terminalErr := waitUIOperation(ctx, host, manualFixtureManualUiCompact, started, nil)
+	// report contains the public outcome and stored history counts.
 	report := manualPublicReport{Committed: false, Summary: "", Error: "", Canceled: false, Originals: 0, Markers: 0}
 	if terminalErr != nil {
 		report.Error = terminalErr.Error()
 	} else {
+		// outcome contains the terminal compaction receipt and diagnostics.
 		outcome := completed.GetCompaction()
 		report.Committed = outcome.GetCommitted() != nil
 		report.Summary = outcome.GetCommitted().GetCompaction().GetSummary()
@@ -101,8 +113,10 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 		report.Canceled = outcome.GetCanceled()
 	}
 	if report.Committed {
+		// next contains the conversation request after replacement.
 		next := new(uipb.UIRequest)
 		next.SetSubmit(uipb.SubmitCommand_builder{Text: new(manualNextText)}.Build())
+		// operation owns the next conversation result.
 		operation, err := host.Start(ctx, manualFixtureManualUiNext, next)
 		if err != nil {
 			return err
@@ -111,12 +125,15 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 			return err
 		}
 	}
+	// treeRequest requests the stored session history.
 	treeRequest := new(uipb.UIRequest)
 	treeRequest.SetGetSessionTree(new(uipb.GetSessionTreeCommand))
+	// treeOperation owns the stored history result.
 	treeOperation, err := host.Start(ctx, manualFixtureManualUiStoredTree, treeRequest)
 	if err != nil {
 		return err
 	}
+	// treeCompleted contains the stored session tree.
 	treeCompleted, err := waitUIOperation(ctx, host, manualFixtureManualUiStoredTree, treeOperation, nil)
 	if err != nil {
 		return err
@@ -131,11 +148,13 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 			}
 		}
 	}
+	// cancellationErr contains the joined cancellation worker failure.
 	cancellationErr := finishCancel()
 	cancellationCollected = true
 	if cancellationErr != nil {
 		report.Error = errors.Join(errors.New(report.Error), cancellationErr).Error()
 	}
+	// encoded contains the public fixture report bytes.
 	encoded, err := json.Marshal(report)
 	if err != nil {
 		return err

@@ -230,7 +230,7 @@ func TestCommitCompactionAssociatesRepeatedToolIDsWithTheirModelResponses(t *tes
 
 	// Act by retaining the complete second model/tool turn.
 	_, err := service.CommitCompaction(
-		t.Context(), identity, mo.Some("r2"), boundaryTestCompaction("m2"),
+		t.Context(), identity, mo.Some("r2"), newCompactionBoundaryEntry("m2"),
 	)
 
 	// Assert commit succeeds and model context contains only the summary and exact retained second turn.
@@ -272,7 +272,7 @@ func TestCommitCompactionAllowsLaterBoundaryAfterFailedOrAbortedCalls(t *testing
 
 			// Act by committing after the model-hidden failed response.
 			_, err := service.CommitCompaction(
-				t.Context(), identity, mo.Some("u2"), boundaryTestCompaction("u2"),
+				t.Context(), identity, mo.Some("u2"), newCompactionBoundaryEntry("u2"),
 			)
 
 			// Assert absent results do not infer an active tool batch.
@@ -309,7 +309,7 @@ func TestCommitCompactionAllowsLaterBoundaryAfterInterruptedBatch(t *testing.T) 
 
 	// Act by committing after the interrupted batch and its single persisted result.
 	_, err := service.CommitCompaction(
-		t.Context(), identity, mo.Some("u2"), boundaryTestCompaction("u2"),
+		t.Context(), identity, mo.Some("u2"), newCompactionBoundaryEntry("u2"),
 	)
 
 	// Assert the omitted skipped result does not infer an active tool batch.

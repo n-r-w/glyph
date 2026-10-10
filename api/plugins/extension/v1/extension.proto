@@ -147,7 +147,7 @@ message HostCompleted {
     SelectionResult selection = 8;
     // The terminal manual compaction result.
     CompactResult compact = 9;
-    // The validated candidate history.
+    // The structurally valid candidate model history.
     CompactionProjection project_compaction = 10;
     // The durable replacement receipt and diagnostics.
     CompactResult replace_compaction = 11;

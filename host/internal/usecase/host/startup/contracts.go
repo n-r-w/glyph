@@ -146,6 +146,11 @@ const (
 	RawHandlerKindCompactionPolicy RawHandlerKind = 25
 )
 
+// isCompaction reports whether compaction policy owns one kind.
+func (kind RawHandlerKind) isCompaction() bool {
+	return kind >= RawHandlerKindCompactionRequest && kind <= RawHandlerKindCompactionPolicy
+}
+
 // RawHandlerDescriptor contains transport-mapped handler registration data.
 type RawHandlerDescriptor struct {
 	// Present reports whether the descriptor payload exists.

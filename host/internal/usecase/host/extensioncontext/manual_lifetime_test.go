@@ -92,11 +92,14 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 							release(err)
 							return false, err
 						}
-						defer unlink()
 						go func() {
 							<-childContext.Done()
-							release(errors.Join(childContext.Err(), scenario.source))
+							// cause retains the worker outcome before it releases its linkage.
+							cause := errors.Join(childContext.Err(), scenario.source)
+							unlink()
 							close(joined)
+							// Release parent ownership only after all observed worker work is complete.
+							release(cause)
 						}()
 						return false, nil
 					},
