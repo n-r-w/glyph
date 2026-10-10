@@ -72,8 +72,9 @@ func TestManagerCloseStartsAllRuntimeShutdowns(t *testing.T) {
 	accepted := make([]startup.AcceptedRegistration, 0, 2)
 	for _, extensionID := range []string{"first", "second"} {
 		path := filepath.Join(directory, extensionID)
-		script := fmt.Sprintf("#!/bin/sh\n%s=shutdown-host-work-active exec %q -test.run=^TestRuntimeHelperProcess$\n",
-			runtimeHelperEnvironment, os.Args[0])
+		// script keeps the child invocation active until manager Close.
+		script := fmt.Sprintf(shutdownScriptTemplate,
+			runtimeHelperEnvironment, shutdownHostWorkActiveMode, os.Args[0])
 		require.NoError(t, writeRuntimeExecutable(path, script))
 		accepted = append(
 			accepted,
@@ -98,7 +99,7 @@ func TestManagerCloseStartsAllRuntimeShutdowns(t *testing.T) {
 			_, executeErr := service.ExecuteTool(
 				t.Context(),
 				extensionID,
-				"read",
+				fixtureToolName,
 				[]byte(`{}`),
 				func(tool.Progress) error {
 					close(started)

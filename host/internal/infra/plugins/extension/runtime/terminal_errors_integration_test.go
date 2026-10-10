@@ -155,7 +155,6 @@ func TestRuntimeStopsAfterRegistrationRejectionOrFailure(t *testing.T) {
 			assertRuntimeTerminalError(t, terminalErr, testCase.rejection, testCase.code, testCase.sourceText)
 			require.ErrorContains(t, terminalErr, "register extension")
 			assertRuntimeRunning(t, runtime)
-			require.NoError(t, runtime.Close())
 			requireRuntimeStopped(t, runtime)
 		})
 	}

@@ -33,6 +33,16 @@ import (
 )
 
 const (
+	// runtimeWaitReleaseMode selects cancelable tool execution with optional release coordination.
+	runtimeWaitReleaseMode = "wait-release"
+	// fixtureToolName identifies the tool registered by the child protocol fixture.
+	fixtureToolName = "read"
+	// fixtureObserverID identifies the session-tree handler registered by the child fixture.
+	fixtureObserverID = "observer"
+	// fixtureSessionID identifies the session used by fixture bindings and observer payloads.
+	fixtureSessionID = "session"
+	// fixtureTargetEntryID identifies the observer target accepted by the child fixture.
+	fixtureTargetEntryID = "target"
 	// runtimeHelperEnvironment selects the child-process fixture behavior.
 	runtimeHelperEnvironment = "GLYPH_EXTENSION_RUNTIME_HELPER"
 	// runtimeCountEnvironment provides the path used to count remote executions.
@@ -203,14 +213,14 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 	return service
 }
 
-// isAdversarialMode reports whether one helper mode bypasses the SDK to violate the public protocol.
+// isAdversarialMode identifies modes served by the direct protocol fixture.
 func isAdversarialMode(mode string) bool {
 	switch mode {
-	case "shutdown-host-work-active",
-		"shutdown-host-work",
-		"shutdown-host-work-loss",
-		"shutdown-host-work-cancel",
-		"shutdown-host-work-cancel-handler",
+	case shutdownHostWorkActiveMode,
+		shutdownHostWorkMode,
+		shutdownHostWorkLossMode,
+		shutdownHostWorkCancelMode,
+		shutdownHostWorkCancelHandlerMode,
 		"host-rejection-registration",
 		"host-rejection-delivered",
 		"host-rejection-completion",
@@ -494,7 +504,7 @@ func TestRuntimeExecuteCancellationWaitsForRelease(t *testing.T) {
 	coordinationDir := t.TempDir()
 	releasePath := filepath.Join(coordinationDir, "release-started")
 	releaseGatePath := filepath.Join(coordinationDir, "release-gate")
-	runtime := startReleaseGatedHelperRuntime(t, "wait-release", "", releasePath, releaseGatePath)
+	runtime := startReleaseGatedHelperRuntime(t, runtimeWaitReleaseMode, "", releasePath, releaseGatePath)
 	t.Cleanup(func() { _ = os.WriteFile(releaseGatePath, nil, 0o600) })
 	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
@@ -701,7 +711,7 @@ func TestRuntimeCloseWaitsForActiveRelease(t *testing.T) {
 	coordinationDir := t.TempDir()
 	releasePath := filepath.Join(coordinationDir, "release-started")
 	releaseGatePath := filepath.Join(coordinationDir, "release-gate")
-	runtime := startReleaseGatedHelperRuntime(t, "wait-release", "", releasePath, releaseGatePath)
+	runtime := startReleaseGatedHelperRuntime(t, runtimeWaitReleaseMode, "", releasePath, releaseGatePath)
 	t.Cleanup(func() { _ = os.WriteFile(releaseGatePath, nil, 0o600) })
 	_, err := runtime.Register(t.Context())
 	require.NoError(t, err)
@@ -1176,10 +1186,11 @@ func (s *protocolService) PrepareHandle(
 ) (extensionsdk.HandleOperation, error) {
 	if (s.mode != "handler" && s.mode != "handler-error" && s.mode != "handler-empty-error" &&
 		s.mode != "handle-rejection" && s.mode != "handle-failure" && s.mode != "wait-handle-release") ||
-		request.GetHandlerId() != "observer" || request.GetSessionTree() == nil {
+		request.GetHandlerId() != fixtureObserverID || request.GetSessionTree() == nil {
 		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected handler request"))
 	}
-	if request.GetSessionTree().GetSessionId() != "session" || request.GetSessionTree().GetTargetEntryId() != "target" {
+	if request.GetSessionTree().GetSessionId() != fixtureSessionID ||
+		request.GetSessionTree().GetTargetEntryId() != fixtureTargetEntryID {
 		return nil, extensionsdk.Reject("INVALID_ARGUMENT", errors.New("unexpected observer payload"))
 	}
 	if s.mode == "handle-rejection" && s.attempts.Add(1) == 1 {
@@ -1212,7 +1223,7 @@ func (s *protocolService) PrepareExecute(
 	return &protocolExecuteOperation{service: s}, nil
 }
 
-// Run returns a valid or deliberately invalid catalog selected by the helper mode.
+// Run supplies the selected fixture registration outcome.
 func (operation *protocolRegisterOperation) Run(
 	context.Context,
 ) (*extensionpb.RegisterResponse, error) {
@@ -1220,7 +1231,7 @@ func (operation *protocolRegisterOperation) Run(
 		return nil, extensionsdk.Fail("INTERNAL", errors.New("complete Register failure source"))
 	}
 	descriptor := extensionpb.ToolDescriptor_builder{
-		Name: new("read"), Description: new("Read a project file."),
+		Name: new(fixtureToolName), Description: new("Read a project file."),
 		InputSchemaJson: []byte(validSchemaJSON), ConstrainedSampling: nil,
 	}.Build()
 	response := extensionpb.RegisterResponse_builder{
@@ -1231,7 +1242,7 @@ func (operation *protocolRegisterOperation) Run(
 	case "handler", "handler-error", "handler-empty-error", "handle-rejection", "handle-failure", "wait-handle-release":
 		response.SetHandlers([]*extensionpb.HandlerDescriptor{
 			extensionpb.HandlerDescriptor_builder{
-				Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
+				Id: new(fixtureObserverID), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
 			}.Build(),
 		})
 	}
@@ -1309,7 +1320,7 @@ func (operation *protocolExecuteOperation) Run(
 			return nil, err
 		}
 		return result, nil
-	case "wait", "wait-release":
+	case "wait", runtimeWaitReleaseMode:
 		if err := reporter.Report(ctx, progress); err != nil {
 			return nil, err
 		}
@@ -1439,7 +1450,7 @@ func runtimeObserverInvocation() extensionruntime.HandlerInvocation {
 		Original: extensionruntime.Preparation{}, Current: extensionruntime.Preparation{},
 		OriginalResult: mo.None[extensionruntime.Summary](), CurrentResult: mo.None[extensionruntime.Summary](),
 		Commit: mo.Some(extensionruntime.TreeCommit{
-			SessionID: "session", TargetEntryID: "target",
+			SessionID: fixtureSessionID, TargetEntryID: fixtureTargetEntryID,
 			PrecedingActiveLeafID: mo.None[string](), NavigationDestinationID: mo.None[string](),
 			CommittedActiveLeafID: mo.None[string](), CreatedSummary: mo.None[extensionruntime.CommittedSummary](),
 		}),
@@ -1454,7 +1465,7 @@ func runtimeTestContext() extension.Context {
 		ID:                "binding",
 		ExtensionID:       "extension",
 		RuntimeInstanceID: "runtime",
-		SessionID:         "session",
+		SessionID:         fixtureSessionID,
 		WorkingDirectory:  "/project",
 	}
 }
