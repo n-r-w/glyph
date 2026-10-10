@@ -81,17 +81,8 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 						if err != nil {
 							return false, err
 						}
-						// childContext, unlink, and err contain parent-linked cancellation and its release.
-						childContext, unlink, err := service.LinkCompactionChild(
-							ctx,
-							owner.ExtensionID,
-							owner.RuntimeID,
-							invocation.LifecycleID,
-						)
-						if err != nil {
-							release(err)
-							return false, err
-						}
+						// childContext and unlink contain parent-linked cancellation and its release.
+						childContext, unlink := service.LinkCompactionChild(ctx, invocation.LifecycleID)
 						go func() {
 							<-childContext.Done()
 							// cause retains the worker outcome before it releases its linkage.

@@ -238,7 +238,7 @@ type OutcomeInvocation struct {
 	// State contains acquired original and last valid composition values.
 	State mo.Option[PolicyState]
 	// ParentCompactionID correlates observer children with their owning lifetime.
-	ParentCompactionID string
+	ParentCompactionID mo.Option[string]
 	// Committed contains durable state when persistence succeeded.
 	Committed mo.Option[session.Entry]
 	// Canceled reports explicit handler cancellation.

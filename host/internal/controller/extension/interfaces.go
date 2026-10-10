@@ -250,10 +250,7 @@ type RuntimeOperations interface {
 // CompactionPolicyOperations supplies scoped lifetime, projection, and durable mutation.
 type CompactionPolicyOperations interface {
 	// LinkCompactionChild links an admitted child Run context to its parent cancellation.
-	LinkCompactionChild(
-		ctx context.Context,
-		extensionID, runtimeID, operationID string,
-	) (context.Context, func(), error)
+	LinkCompactionChild(ctx context.Context, lifecycleID string) (context.Context, func())
 	// BeginCompactionChild attaches work to the captured parent lifetime.
 	BeginCompactionChild(extensionID, runtimeID, operationID string) (func(error), error)
 	// ProjectPolicyReplacement supplies structurally valid candidate history.

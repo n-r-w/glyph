@@ -60,7 +60,7 @@ tasks:
     internal: true
     dir: testdata/external-plugins
     cmds:
-      - go test -race -tags=integration -p 1 -parallel 1 .
+      - go test -race -tags=integration -p 1 -parallel 1 ./...
 
   fix:
     desc: "Run go fix the codebase"

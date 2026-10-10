@@ -592,19 +592,18 @@ func (mr *MockCompactionPolicyOperationsMockRecorder) CommitPolicyReplacement(ct
 }
 
 // LinkCompactionChild mocks base method.
-func (m *MockCompactionPolicyOperations) LinkCompactionChild(ctx context.Context, extensionID, runtimeID, operationID string) (context.Context, func(), error) {
+func (m *MockCompactionPolicyOperations) LinkCompactionChild(ctx context.Context, lifecycleID string) (context.Context, func()) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "LinkCompactionChild", ctx, extensionID, runtimeID, operationID)
+	ret := m.ctrl.Call(m, "LinkCompactionChild", ctx, lifecycleID)
 	ret0, _ := ret[0].(context.Context)
 	ret1, _ := ret[1].(func())
-	ret2, _ := ret[2].(error)
-	return ret0, ret1, ret2
+	return ret0, ret1
 }
 
 // LinkCompactionChild indicates an expected call of LinkCompactionChild.
-func (mr *MockCompactionPolicyOperationsMockRecorder) LinkCompactionChild(ctx, extensionID, runtimeID, operationID any) *gomock.Call {
+func (mr *MockCompactionPolicyOperationsMockRecorder) LinkCompactionChild(ctx, lifecycleID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkCompactionChild", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).LinkCompactionChild), ctx, extensionID, runtimeID, operationID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkCompactionChild", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).LinkCompactionChild), ctx, lifecycleID)
 }
 
 // ProjectPolicyReplacement mocks base method.

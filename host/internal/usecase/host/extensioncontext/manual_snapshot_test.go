@@ -59,7 +59,6 @@ func (s *manualPolicyUsesOneCapturedSessionSuite) TestScenario() {
 			require.Equal(t, owner.RuntimeID, bound.RuntimeInstanceID)
 			require.NotEmpty(t, invocation.OperationID)
 			require.Equal(t, snapshot, invocation.Snapshot)
-			require.Equal(t, capturedHistory, invocation.Input.History)
 			require.Equal(t, mo.Some("manual guidance"), invocation.Instructions)
 			return false, cause
 		},

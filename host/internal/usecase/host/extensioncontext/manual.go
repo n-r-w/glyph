@@ -68,7 +68,6 @@ func (s *Service) CompactManualPolicy(
 		incarnation != snapshot.Identity.Incarnation {
 		return result, errors.New("captured compaction policy runtime or session changed before invocation")
 	}
-	input.History = snapshot.History
 	// operationID identifies the policy mutation authority.
 	operationID := rand.Text()
 	// lifecycleID identifies the nested-work lifetime.

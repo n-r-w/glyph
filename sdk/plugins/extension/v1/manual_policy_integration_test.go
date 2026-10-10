@@ -55,8 +55,13 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 	}.Build())
 	modelOperation.EXPECT().Run(gomock.Any(), gomock.Any()).Return(modeled, nil)
 	modelOperation.EXPECT().Release()
+	// source identifies the candidate's supplying extension.
+	source := new(extensionpb.BranchSummarySource)
+	source.SetExtensionId("extension")
 	// candidate contains the proposed replacement.
-	candidate := compactionHandlerResponse(false).GetCompactionGenerate()
+	candidate := extensionpb.CompactionResult_builder{
+		Summary: new("generated"), FirstKeptEntryId: new("kept"), Source: source, Details: nil,
+	}.Build()
 	hostService.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, id string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
 			assert.Equal(t, "lifetime", request.GetParentCompactionId())
@@ -116,12 +121,15 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 		Entries:            nil,
 		History:            nil,
 		Previous:           nil,
-		Model:              compactionPublicRequest().GetModel(),
-		ReasoningChoice:    new(manualPolicyReasoningOff),
-		Instructions:       new(""),
-		Tools:              nil,
-		UserInstructions:   new("guidance"),
-		PolicyRuntimeId:    new("runtime"),
+		Model: extensionpb.ModelDescriptor_builder{
+			ProviderId: new("provider"), ModelId: new("model"), InputModalities: nil,
+			ContextWindow: new(int64(1000)), MaxTokens: new(int64(100)), Reasoning: nil, Tools: nil, Pricing: nil,
+		}.Build(),
+		ReasoningChoice:  new(manualPolicyReasoningOff),
+		Instructions:     new(""),
+		Tools:            nil,
+		UserInstructions: new("guidance"),
+		PolicyRuntimeId:  new("runtime"),
 	}.Build()
 	service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).Return(handler, nil)
 	handler.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*extensionpb.HandleResponse, error) {

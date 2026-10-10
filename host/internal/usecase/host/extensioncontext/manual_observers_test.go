@@ -83,11 +83,13 @@ func (s *manualObserverFailureRetainsHandledPolicyCausesSuite) TestScenario() {
 		})
 	policy.EXPECT().ObserveCompactionSuccess(gomock.Any(), first, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, target contextcompaction.Handler, bound extension.Context, outcome contextcompaction.OutcomeInvocation) error {
+			// lifetimeID contains the observer's admitted non-authorizing parent lifetime.
+			lifetimeID := outcome.ParentCompactionID.OrEmpty()
 			// release and err contain observer child admission ownership and its failure.
 			release, err := service.BeginCompactionChild(
 				target.ExtensionID,
 				target.RuntimeID,
-				outcome.ParentCompactionID,
+				lifetimeID,
 			)
 			if err != nil {
 				return err
@@ -97,22 +99,13 @@ func (s *manualObserverFailureRetainsHandledPolicyCausesSuite) TestScenario() {
 			finish, err := service.BeginCompactionChild(
 				target.ExtensionID,
 				target.RuntimeID,
-				outcome.ParentCompactionID,
+				lifetimeID,
 			)
 			if err != nil {
 				return err
 			}
-			// child, unlink, and err contain observer-linked cancellation and its release.
-			child, unlink, err := service.LinkCompactionChild(
-				ctx,
-				target.ExtensionID,
-				target.RuntimeID,
-				outcome.ParentCompactionID,
-			)
-			if err != nil {
-				finish(err)
-				return err
-			}
+			// child and unlink contain observer-linked cancellation and its release.
+			child, unlink := service.LinkCompactionChild(ctx, lifetimeID)
 			go func() {
 				defer unlink()
 				<-child.Done()

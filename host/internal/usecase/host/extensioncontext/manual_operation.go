@@ -155,18 +155,15 @@ func (s *Service) BeginCompactionChild(
 }
 
 // LinkCompactionChild links admitted work to the parent lifetime with explicit Run context.
+// The caller retains child admission ownership until linkage cleanup finishes.
 func (s *Service) LinkCompactionChild(
 	ctx context.Context,
-	extensionID, runtimeID, operationID string,
-) (context.Context, func(), error) {
+	lifecycleID string,
+) (childContext context.Context, unlink func()) {
 	s.mutex.Lock()
-	// operation identifies the admitted parent owner; exists indicates an available binding.
-	operation, exists := s.compactionOperations[operationID]
+	// operation owns the lifetime retained by the caller's admitted child reservation.
+	operation := s.compactionOperations[lifecycleID]
 	s.mutex.Unlock()
-	if !exists || operation.lifecycleID != operationID || operation.owner.ExtensionID != extensionID ||
-		operation.owner.RuntimeID != runtimeID {
-		return nil, nil, errors.New("admitted compaction lifetime binding is unavailable")
-	}
 	// child retains Run values and owns linked cancellation.
 	child, cancel := context.WithCancelCause(ctx)
 	// stop releases the parent cancellation callback.
@@ -175,5 +172,5 @@ func (s *Service) LinkCompactionChild(
 	if cause := context.Cause(operation.context); cause != nil {
 		cancel(cause)
 	}
-	return child, func() { stop(); cancel(nil) }, nil
+	return child, func() { stop(); cancel(nil) }
 }

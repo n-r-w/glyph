@@ -28,7 +28,7 @@ func (s *Service) finishManualOutcome(
 	}
 	// outcome contains the acquired policy values and independent persistence receipt.
 	outcome := contextcompaction.OutcomeInvocation{
-		State: state, ParentCompactionID: "", Committed: result.Committed,
+		State: state, ParentCompactionID: mo.None[string](), Committed: result.Committed,
 		Canceled: result.Canceled, Error: mo.None[string](),
 	}
 	if cause != nil {
@@ -89,7 +89,7 @@ func (s *Service) finishManualOutcome(
 		s.mutex.Lock()
 		s.compactionOperations[lifetimeID] = operation
 		s.mutex.Unlock()
-		outcome.ParentCompactionID = lifetimeID
+		outcome.ParentCompactionID = mo.Some(lifetimeID)
 		outcome.State = state.MapValue(contextcompaction.PolicyState.Clone)
 		outcome.Committed = result.Committed.MapValue(session.Entry.Clone)
 		if failure {

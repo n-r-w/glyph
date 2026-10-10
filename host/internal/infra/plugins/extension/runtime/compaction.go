@@ -147,7 +147,7 @@ func (r *Runtime) observeCompaction(
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
 	builder := extensionpb.HandleRequest_builder{
 		HandlerId: new(handlerID), Context: mapContext(binding),
-		ParentCompactionId: new(invocation.ParentCompactionID),
+		ParentCompactionId: new(invocation.ParentCompactionID.OrEmpty()),
 		CompactionPolicy:   nil,
 	}
 	if success {

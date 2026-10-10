@@ -49,17 +49,8 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 			}
 			// runContext contains the values supplied by the child caller.
 			runContext := context.WithValue(ctx, struct{}{}, "Run context value")
-			// childContext, unlink, and err contain parent-linked cancellation and its release.
-			childContext, unlink, err := service.LinkCompactionChild(
-				runContext,
-				owner.ExtensionID,
-				owner.RuntimeID,
-				invocation.LifecycleID,
-			)
-			if err != nil {
-				release(err)
-				return false, err
-			}
+			// childContext and unlink contain parent-linked cancellation and its release.
+			childContext, unlink := service.LinkCompactionChild(runContext, invocation.LifecycleID)
 			defer unlink()
 			assert.Equal(t, "Run context value", childContext.Value(struct{}{}))
 			assert.NoError(t, childContext.Err())

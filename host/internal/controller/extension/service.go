@@ -117,16 +117,12 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 	case extensionpb.ExtensionRequest_GetModels_case:
 		mapped.reference = request.GetGetModels().GetContext()
 		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-				return o.runModelCatalog(ctx)
-			}), nil
+			return contextReadAction(o.runModelCatalog), nil
 		}
 	case extensionpb.ExtensionRequest_GetProviders_case:
 		mapped.reference = request.GetGetProviders().GetContext()
 		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-				return o.runProviderCatalog(ctx)
-			}), nil
+			return contextReadAction(o.runProviderCatalog), nil
 		}
 	case extensionpb.ExtensionRequest_ConfiguredModel_case:
 		return mapConfiguredContextRequest(mapped, request.GetConfiguredModel())
@@ -135,9 +131,7 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 	case extensionpb.ExtensionRequest_GetSessionState_case:
 		mapped.reference = request.GetGetSessionState().GetContext()
 		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-				return o.runSessionState(ctx)
-			}), nil
+			return contextReadAction(o.runSessionState), nil
 		}
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
 		return mapAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
@@ -284,15 +278,7 @@ func (o *contextOperation) Run(
 	}
 	if parentID, present := o.parentID.Get(); present {
 		// childContext links this Run to its admitted parent; unlink ends that linkage.
-		childContext, unlink, err := o.service.compactionPolicy.LinkCompactionChild(
-			ctx,
-			o.service.extensionID,
-			o.service.runtimeID,
-			parentID,
-		)
-		if err != nil {
-			return nil, extensionsdk.Fail(contextFailureCode(err), err)
-		}
+		childContext, unlink := o.service.compactionPolicy.LinkCompactionChild(ctx, parentID)
 		defer unlink()
 		ctx = childContext
 	}
