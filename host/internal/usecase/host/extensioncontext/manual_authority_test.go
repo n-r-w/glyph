@@ -52,9 +52,9 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 			runContext := context.WithValue(ctx, struct{}{}, "Run context value")
 			// childContext and unlink contain parent-linked cancellation and its release.
 			childContext, unlink := service.LinkCompactionChild(runContext, invocation.LifecycleID)
-			defer unlink()
 			assert.Equal(t, "Run context value", childContext.Value(struct{}{}))
 			assert.NoError(t, childContext.Err())
+			unlink()
 			release(nil)
 			return true, nil
 		},

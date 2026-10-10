@@ -99,6 +99,18 @@ type hostRequestDescriptor struct {
 
 // newHostRequestDescriptors constructs request classification and result rules.
 func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
+	// appendFailures contains delivery and session failures shared by both append requests.
+	appendFailures := []string{hostFailureCodePersistenceUnavailable, hostFailureCodeSessionUnavailable}
+	// selectionFailures contains model and extension failures shared by both selection requests.
+	selectionFailures := []string{
+		hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable,
+		hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable,
+	}
+	// compactionFailures contains operation, extension, session, and persistence failures.
+	compactionFailures := []string{
+		hostFailureCodeCompactionFailed, hostFailureCodeExtensionFailed,
+		hostFailureCodeSessionUnavailable, hostFailureCodePersistenceUnavailable,
+	}
 	return map[hostRequestKind]hostRequestDescriptor{
 		hostRequestModels: {
 			requestCase: int(extensionpb.ExtensionRequest_GetModels_case),
@@ -139,7 +151,7 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			requestCase: int(extensionpb.ExtensionRequest_AppendExtension_case),
 			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetAppendExtension() != nil },
 			validate:    mo.None[hostCompletionValidator](),
-			failures:    []string{hostFailureCodePersistenceUnavailable, hostFailureCodeSessionUnavailable},
+			failures:    appendFailures,
 			progress:    mo.None[hostProgressPredicate](),
 			selection:   false,
 		},
@@ -155,7 +167,7 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			requestCase: int(extensionpb.ExtensionRequest_AppendExtensionMessage_case),
 			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetAppendExtensionMessage() != nil },
 			validate:    mo.None[hostCompletionValidator](),
-			failures:    []string{hostFailureCodePersistenceUnavailable, hostFailureCodeSessionUnavailable},
+			failures:    appendFailures,
 			progress:    mo.None[hostProgressPredicate](),
 			selection:   false,
 		},
@@ -165,12 +177,7 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			validate: mo.Some[hostCompletionValidator](
 				func(result *extensionpb.HostCompleted) error { return validateSelectionResult(result.GetSelection()) },
 			),
-			failures: []string{
-				hostFailureCodeModelUnavailable,
-				hostFailureCodeCredentialUnavailable,
-				hostFailureCodeExtensionRejected,
-				hostFailureCodeExtensionUnavailable,
-			},
+			failures:  selectionFailures,
 			progress:  mo.None[hostProgressPredicate](),
 			selection: true,
 		},
@@ -180,12 +187,7 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			validate: mo.Some[hostCompletionValidator](
 				func(result *extensionpb.HostCompleted) error { return validateSelectionResult(result.GetSelection()) },
 			),
-			failures: []string{
-				hostFailureCodeModelUnavailable,
-				hostFailureCodeCredentialUnavailable,
-				hostFailureCodeExtensionRejected,
-				hostFailureCodeExtensionUnavailable,
-			},
+			failures:  selectionFailures,
 			progress:  mo.None[hostProgressPredicate](),
 			selection: true,
 		},
@@ -195,12 +197,7 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			validate: mo.Some[hostCompletionValidator](
 				func(result *extensionpb.HostCompleted) error { return validateCompactionCompleted(result.GetCompact()) },
 			),
-			failures: []string{
-				hostFailureCodeCompactionFailed,
-				hostFailureCodeExtensionFailed,
-				hostFailureCodeSessionUnavailable,
-				hostFailureCodePersistenceUnavailable,
-			},
+			failures: compactionFailures,
 			progress: mo.Some[hostProgressPredicate](
 				func(progress *extensionpb.HostProgress) bool { return progress.GetCompaction() != nil },
 			),
@@ -210,14 +207,9 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			requestCase: int(extensionpb.ExtensionRequest_ProjectCompaction_case),
 			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetProjectCompaction() != nil },
 			validate:    mo.None[hostCompletionValidator](),
-			failures: []string{
-				hostFailureCodeCompactionFailed,
-				hostFailureCodeExtensionFailed,
-				hostFailureCodeSessionUnavailable,
-				hostFailureCodePersistenceUnavailable,
-			},
-			progress:  mo.None[hostProgressPredicate](),
-			selection: false,
+			failures:    compactionFailures,
+			progress:    mo.None[hostProgressPredicate](),
+			selection:   false,
 		},
 		hostRequestCompactionReplacement: {
 			requestCase: int(extensionpb.ExtensionRequest_ReplaceCompaction_case),
@@ -225,12 +217,7 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			validate: mo.Some[hostCompletionValidator](func(result *extensionpb.HostCompleted) error {
 				return validateCompactionCompleted(result.GetReplaceCompaction())
 			}),
-			failures: []string{
-				hostFailureCodeCompactionFailed,
-				hostFailureCodeExtensionFailed,
-				hostFailureCodeSessionUnavailable,
-				hostFailureCodePersistenceUnavailable,
-			},
+			failures:  compactionFailures,
 			progress:  mo.None[hostProgressPredicate](),
 			selection: false,
 		},

@@ -252,5 +252,9 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 
 	// Assert successful policy completion with no cancellation.
 	require.NoError(t, err)
-	require.False(t, completed.GetHandle().GetCompactionPolicy().GetCanceled())
+	// policyResult contains the typed terminal policy completion.
+	policyResult := completed.GetHandle().GetCompactionPolicy()
+	require.NotNil(t, policyResult)
+	require.Empty(t, policyResult.GetError())
+	require.False(t, policyResult.GetCanceled())
 }

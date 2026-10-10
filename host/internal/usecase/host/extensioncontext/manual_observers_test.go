@@ -108,10 +108,12 @@ func (s *manualObserverFailureRetainsHandledPolicyCausesSuite) TestScenario() {
 			// child and unlink contain observer-linked cancellation and its release.
 			child, unlink := service.LinkCompactionChild(ctx, lifetimeID)
 			go func() {
-				defer unlink()
 				<-child.Done()
-				finish(child.Err())
+				// childOutcome retains the result before linkage cleanup.
+				childOutcome := child.Err()
+				unlink()
 				close(joined)
+				finish(childOutcome)
 			}()
 			return nil
 		})

@@ -60,7 +60,6 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 			}
 			// childContext and unlink contain parent-linked cancellation and its release.
 			childContext, unlink := service.LinkCompactionChild(ctx, invocation.LifecycleID)
-			defer unlink()
 			// proposalErr contains the rejected preliminary projection cause.
 			_, proposalErr := service.ProjectPolicyReplacement(
 				childContext,
@@ -69,6 +68,7 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 				invocation.OperationID,
 				candidate,
 			)
+			unlink()
 			release(proposalErr)
 			assert.ErrorIs(t, proposalErr, rejected)
 			_, err = service.CommitPolicyReplacement(

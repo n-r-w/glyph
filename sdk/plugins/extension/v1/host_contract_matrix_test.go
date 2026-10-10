@@ -4,6 +4,7 @@
 package extensionv1
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -171,4 +172,61 @@ func (s *hostContractMatrixSuite) TestScenario() {
 	require.False(t, hostCompletedMatches(hostRequestInvalid, new(extensionpb.HostCompleted)))
 	require.NoError(t, validateHostFailureCode(hostRequestInvalid, failureCodeInternal))
 	require.Error(t, validateHostCompleted(hostRequestInvalid, new(extensionpb.HostCompleted)))
+}
+
+// TestFailureFamilies checks accepted and unrelated categories for each shared contract family.
+func (s *hostContractMatrixSuite) TestFailureFamilies() {
+	t := s.T()
+	// Arrange the independent append, selection, and compaction failure contracts.
+	families := []struct {
+		// kinds identifies the request variants with this failure contract.
+		kinds []hostRequestKind
+		// allowed lists the exact operation-specific categories for those variants.
+		allowed []string
+	}{
+		{
+			kinds:   []hostRequestKind{hostRequestAppendExtension, hostRequestAppendExtensionMessage},
+			allowed: []string{hostFailureCodePersistenceUnavailable, hostFailureCodeSessionUnavailable},
+		},
+		{
+			kinds: []hostRequestKind{hostRequestModelSelection, hostRequestReasoningSelection},
+			allowed: []string{
+				hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable,
+				hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable,
+			},
+		},
+		{
+			kinds: []hostRequestKind{
+				hostRequestCompaction,
+				hostRequestCompactionProjection,
+				hostRequestCompactionReplacement,
+			},
+			allowed: []string{
+				hostFailureCodeCompactionFailed, hostFailureCodeExtensionFailed,
+				hostFailureCodeSessionUnavailable, hostFailureCodePersistenceUnavailable,
+			},
+		},
+	}
+	// categories includes related categories and categories that belong to other requests.
+	categories := []string{
+		hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable,
+		hostFailureCodeModelFailed, hostFailureCodeRetryExhausted, hostFailureCodeRetryCanceled,
+		hostFailureCodeExtensionFailed, hostFailureCodeRetryDelayExceeded, hostFailureCodeContextLimit,
+		hostFailureCodeSessionUnavailable, hostFailureCodePersistenceUnavailable,
+		hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable, hostFailureCodeCompactionFailed,
+	}
+	for _, family := range families {
+		for _, kind := range family.kinds {
+			for _, category := range categories {
+				// Act through SDK category validation for this request.
+				err := validateHostFailureCode(kind, category)
+				// Assert the independent category set, including rejection of unrelated categories.
+				if slices.Contains(family.allowed, category) {
+					require.NoError(t, err)
+				} else {
+					require.Error(t, err)
+				}
+			}
+		}
+	}
 }
