@@ -26,6 +26,9 @@ func (r *Runtime) ObserveLifecycle(
 		ModelSelection: nil, ReasoningSelection: nil,
 		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
 		CompactionSuccess: nil, CompactionFailure: nil,
+
+		ParentCompactionId: nil,
+		CompactionPolicy:   nil,
 	}.Build()
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)

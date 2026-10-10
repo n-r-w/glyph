@@ -42,6 +42,8 @@ type Service struct {
 	compaction CompactionOperations
 	// compactionGate owns admission against active agent and session operations.
 	compactionGate CompactionGate
+	// compactionPolicy supplies scoped projection, persistence, and nested lifetimes.
+	compactionPolicy CompactionPolicyOperations
 	// extensionID comes from process discovery, never request payloads.
 	extensionID string
 	// runtimeID identifies the exact process incarnation connected to this controller.
@@ -58,14 +60,15 @@ func New(
 	extensionID, runtimeID string,
 ) *Service {
 	return &Service{
-		models:         models,
-		contexts:       contexts,
-		runtime:        runtime,
-		selection:      nil,
-		compaction:     nil,
-		compactionGate: nil,
-		extensionID:    extensionID,
-		runtimeID:      runtimeID,
+		models:           models,
+		contexts:         contexts,
+		runtime:          runtime,
+		selection:        nil,
+		compaction:       nil,
+		compactionGate:   nil,
+		compactionPolicy: nil,
+		extensionID:      extensionID,
+		runtimeID:        runtimeID,
 	}
 }
 
@@ -78,6 +81,11 @@ func (s *Service) BindSelection(selection ModelSelection) {
 func (s *Service) BindCompaction(compaction CompactionOperations, gate CompactionGate) {
 	s.compaction = compaction
 	s.compactionGate = gate
+}
+
+// BindPolicyOperations supplies operation-scoped compaction services.
+func (s *Service) BindPolicyOperations(policy CompactionPolicyOperations) {
+	s.compactionPolicy = policy
 }
 
 // Prepare validates the binding and reserves runtime accounting before acceptance.
@@ -110,76 +118,102 @@ func (s *Service) Prepare(
 	if err != nil {
 		return nil, extensionsdk.Reject(contextFailureCode(err), err)
 	}
-	if mappedRequest.compactionInstructions.IsSome() {
+	// childRelease, release, and err contain the admitted child owner, scope release, and admission failure.
+	childRelease, release, err := s.prepareCompactionAdmission(
+		request.GetParentCompactionId(),
+		mappedRequest,
+		release,
+	)
+	if err != nil {
+		return nil, err
+	}
+	// prepared owns common admission and the selected executable.
+	prepared := &contextOperation{
+		service: s, reference: bound, action: nil, selectionRelease: mo.None[func()](),
+		parentID:     mo.EmptyableToOption(request.GetParentCompactionId()),
+		childRelease: mo.TupleToOption(childRelease, childRelease != nil), release: release, id: operationID,
+	}
+	// action contains the executable bound to the admitted operation.
+	action, prepareErr := mappedRequest.prepare(prepared)
+	if prepareErr != nil {
+		release()
+		return nil, prepareErr
+	}
+	prepared.action = action
+	return prepared, nil
+}
+
+// prepareCompactionAdmission reserves the manual gate or the owning policy lifetime.
+func (s *Service) prepareCompactionAdmission(
+	parentID string,
+	mappedRequest contextRequest,
+	release func(),
+) (childRelease func(error), scopeRelease func(), admissionErr error) {
+	// err contains any child lifetime admission failure.
+	var err error
+	if parentID != "" {
+		if mappedRequest.admission == contextAdmissionManual {
+			release()
+			return nil, nil, extensionsdk.Reject(
+				invalidArgumentCode,
+				errors.New("manual compaction cannot be nested in a compaction operation"),
+			)
+		}
+
+		childRelease, err = s.compactionPolicy.BeginCompactionChild(s.extensionID, s.runtimeID, parentID)
+		if err != nil {
+			release()
+			return nil, nil, extensionsdk.Reject(contextFailureCode(err), err)
+		}
+		// runtimeRelease owns the runtime reservation within the child scope.
+		runtimeRelease := release
+		release = sync.OnceFunc(func() {
+			childRelease(nil)
+			runtimeRelease()
+		})
+	}
+	if mappedRequest.admission == contextAdmissionCandidate && childRelease == nil {
+		release()
+		return nil, nil, extensionsdk.Reject(
+			invalidArgumentCode,
+			errors.New("compaction candidate requires a parent lifetime binding"),
+		)
+	}
+	if mappedRequest.admission == contextAdmissionManual {
 		if s.compaction == nil || s.compactionGate == nil {
 			release()
-			return nil, extensionsdk.Reject(internalFailureCode, errors.New("manual compaction is not bound"))
+			return nil, nil, extensionsdk.Reject(internalFailureCode, errors.New("manual compaction is not bound"))
 		}
+		// gateRelease owns the manual-operation gate; acquired indicates admission.
 		gateRelease, acquired := s.compactionGate.TryAcquire()
 		if !acquired {
 			release()
-			return nil, extensionsdk.Reject("BUSY", errors.New("another operation is active"))
+			return nil, nil, extensionsdk.Reject(publicSelectionCodeBusy, errors.New("another operation is active"))
 		}
+		// runtimeRelease owns the runtime reservation within the manual gate scope.
 		runtimeRelease := release
 		release = sync.OnceFunc(func() {
 			gateRelease()
 			runtimeRelease()
 		})
 	}
-	preparedSelection := mo.None[PreparedSelection]()
-	selectionCommand, hasSelection := mappedRequest.selection.Get()
-	if hasSelection {
-		if s.selection == nil {
-			release()
-			return nil, extensionsdk.Reject(internalFailureCode, errors.New("model selection is not bound"))
-		}
-		selectionCommand.ExtensionID = s.extensionID
-		selectionCommand.RuntimeID = s.runtimeID
-		selectionCommand.Context = bound
-		prepared, prepareErr := s.selection.PrepareExtensionSelection(selectionCommand)
-		if prepareErr != nil {
-			release()
-			return nil, mapSelectionRejection(prepareErr)
-		}
-		preparedSelection = mo.Some(prepared)
-	}
-	return &contextOperation{
-		service: s, reference: bound, models: mappedRequest.models, sessionState: mappedRequest.sessionState,
-		configured: mappedRequest.configured, appendValue: mappedRequest.appendValue,
-		appendMessage: mappedRequest.appendMessage, selection: preparedSelection,
-		compactionInstructions: mappedRequest.compactionInstructions,
-		release:                release, id: operationID,
-	}, nil
+	return childRelease, release, nil
 }
 
 // contextRequest contains one validated operation selector and its public reference.
 type contextRequest struct {
 	// reference identifies the issued binding.
 	reference *extensionpb.ExtensionContextRef
-	// models selects a model catalog instead of a provider catalog.
-	models bool
-	// sessionState selects active-branch recovery.
-	sessionState bool
-	// configured contains a configured-model request when selected.
-	configured mo.Option[configuredRequest]
-	// appendValue contains a hidden append when selected.
-	appendValue mo.Option[appendRequest]
-	// appendMessage contains a model-visible append when selected.
-	appendMessage mo.Option[appendMessageRequest]
-	// selection contains one active-selection command when selected.
-	selection mo.Option[SelectionCommand]
-	// compactionInstructions is present when manual compaction is selected.
-	compactionInstructions mo.Option[mo.Option[string]]
+	// prepare binds the one selected executable action.
+	prepare prepareContextAction
+	// admission identifies required gate or parent ownership.
+	admission contextAdmission
 }
 
 // mapContextRequest validates the selected request payload before admission.
 func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
-	mapped := contextRequest{
-		reference: nil, models: false, sessionState: false,
-		configured: mo.None[configuredRequest](), appendValue: mo.None[appendRequest](),
-		appendMessage: mo.None[appendMessageRequest](), selection: mo.None[SelectionCommand](),
-		compactionInstructions: mo.None[mo.Option[string]](),
-	}
+	// mapped contains the selected request payload and execution binding.
+	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
 	if request == nil {
 		return mapped, errors.New("extension context request is required")
 	}
@@ -188,30 +222,56 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 		return contextRequest{}, err
 	}
 	if selected {
-		mapped.selection, mapped.reference = mo.Some(selection), reference
+		mapped.reference = reference
+		mapped.prepare = func(o *contextOperation) (contextAction, error) { return o.prepareSelectionAction(selection) }
 		return mapped, nil
 	}
 	switch request.WhichRequest() {
 	case extensionpb.ExtensionRequest_GetModels_case:
-		mapped.reference, mapped.models = request.GetGetModels().GetContext(), true
+		mapped.reference = request.GetGetModels().GetContext()
+		mapped.prepare = func(o *contextOperation) (contextAction, error) {
+			return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
+				return o.runModelCatalog(ctx)
+			}), nil
+		}
 	case extensionpb.ExtensionRequest_GetProviders_case:
 		mapped.reference = request.GetGetProviders().GetContext()
+		mapped.prepare = func(o *contextOperation) (contextAction, error) {
+			return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
+				return o.runProviderCatalog(ctx)
+			}), nil
+		}
 	case extensionpb.ExtensionRequest_ConfiguredModel_case:
 		return mapConfiguredContextRequest(mapped, request.GetConfiguredModel())
 	case extensionpb.ExtensionRequest_AppendExtension_case:
 		return mapAppendContextRequest(mapped, request.GetAppendExtension())
 	case extensionpb.ExtensionRequest_GetSessionState_case:
-		mapped.sessionState, mapped.reference = true, request.GetGetSessionState().GetContext()
+		mapped.reference = request.GetGetSessionState().GetContext()
+		mapped.prepare = func(o *contextOperation) (contextAction, error) {
+			return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
+				return o.runSessionState(ctx)
+			}), nil
+		}
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
 		return mapAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
+	case extensionpb.ExtensionRequest_ProjectCompaction_case:
+		return mapPolicyCandidate(mapped, request.GetProjectCompaction(), policyCandidateProjection)
+	case extensionpb.ExtensionRequest_ReplaceCompaction_case:
+		return mapPolicyCandidate(mapped, request.GetReplaceCompaction(), policyCandidateReplacement)
 	case extensionpb.ExtensionRequest_Compact_case:
+		// compact contains the manual compaction request.
 		compact := request.GetCompact()
 		mapped.reference = compact.GetContext()
-		instructions := mo.None[string]()
-		if compact.HasInstructions() {
-			instructions = mo.Some(compact.GetInstructions())
+		// instructions contains optional user guidance for manual compaction.
+		instructions := mo.TupleToOption(compact.GetInstructions(), compact.HasInstructions())
+		mapped.admission = contextAdmissionManual
+		mapped.prepare = func(o *contextOperation) (contextAction, error) {
+			return contextProgressAction(
+				func(ctx context.Context, reporter *extensionsdk.HostProgressReporter) (*extensionpb.HostCompleted, error) {
+					return o.runManualCompaction(ctx, reporter, instructions)
+				},
+			), nil
 		}
-		mapped.compactionInstructions = mo.Some(instructions)
 	case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
 		return contextRequest{}, errors.New("extension context operation request is required")
 	case extensionpb.ExtensionRequest_SelectModel_case, extensionpb.ExtensionRequest_SelectReasoning_case:
@@ -241,7 +301,8 @@ func mapSelectionContextRequest(
 		extensionpb.ExtensionRequest_AppendExtension_case,
 		extensionpb.ExtensionRequest_GetSessionState_case,
 		extensionpb.ExtensionRequest_AppendExtensionMessage_case,
-		extensionpb.ExtensionRequest_Compact_case:
+		extensionpb.ExtensionRequest_Compact_case,
+		extensionpb.ExtensionRequest_ProjectCompaction_case, extensionpb.ExtensionRequest_ReplaceCompaction_case:
 		return SelectionCommand{}, nil, false, nil
 	default:
 		return SelectionCommand{}, nil, false, nil
@@ -257,7 +318,14 @@ func mapConfiguredContextRequest(
 	if err != nil {
 		return contextRequest{}, err
 	}
-	mapped.configured, mapped.reference = mo.Some(configured), request.GetContext()
+	mapped.reference = request.GetContext()
+	mapped.prepare = func(o *contextOperation) (contextAction, error) {
+		return contextProgressAction(
+			func(ctx context.Context, reporter *extensionsdk.HostProgressReporter) (*extensionpb.HostCompleted, error) {
+				return o.runConfiguredModel(ctx, reporter, configured)
+			},
+		), nil
+	}
 	return mapped, nil
 }
 
@@ -270,7 +338,12 @@ func mapAppendContextRequest(
 	if err != nil {
 		return contextRequest{}, err
 	}
-	mapped.appendValue, mapped.reference = mo.Some(appendValue), request.GetContext()
+	mapped.reference = request.GetContext()
+	mapped.prepare = func(o *contextOperation) (contextAction, error) {
+		return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
+			return o.runAppendValue(ctx, appendValue)
+		}), nil
+	}
 	return mapped, nil
 }
 
@@ -283,7 +356,12 @@ func mapAppendMessageContextRequest(
 	if err != nil {
 		return contextRequest{}, err
 	}
-	mapped.appendMessage, mapped.reference = mo.Some(message), request.GetContext()
+	mapped.reference = request.GetContext()
+	mapped.prepare = func(o *contextOperation) (contextAction, error) {
+		return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
+			return o.runAppendMessage(ctx, message)
+		}), nil
+	}
 	return mapped, nil
 }
 
@@ -295,20 +373,14 @@ type contextOperation struct {
 	service *Service
 	// reference retains the exact admitted context reference.
 	reference extensiondomain.ContextRef
-	// models selects the model rather than provider catalog result.
-	models bool
-	// configured contains an explicit model request when this is not a catalog read.
-	configured mo.Option[configuredRequest]
-	// appendValue contains a hidden append when selected.
-	appendValue mo.Option[appendRequest]
-	// appendMessage contains a model-visible append when selected.
-	appendMessage mo.Option[appendMessageRequest]
-	// sessionState selects active-branch recovery.
-	sessionState bool
-	// selection owns an accepted shared selection operation when selected.
-	selection mo.Option[PreparedSelection]
-	// compactionInstructions is present when this is manual compaction.
-	compactionInstructions mo.Option[mo.Option[string]]
+	// action executes the selected request with explicit Run context.
+	action contextAction
+	// selectionRelease owns selection-specific admission when present.
+	selectionRelease mo.Option[func()]
+	// parentID identifies the admitted parent lifetime.
+	parentID mo.Option[string]
+	// childRelease reports nested completion to the parent.
+	childRelease mo.Option[func(error)]
 	// release returns the runtime operation reservation.
 	release func()
 }
@@ -316,12 +388,28 @@ type contextOperation struct {
 var _ extensionsdk.HostOperation = (*contextOperation)(nil)
 
 // Run executes the typed read and preserves every added error cause.
-//
-//nolint:gocyclo,gocognit // The closed operation union requires one explicit branch for each request.
 func (o *contextOperation) Run(
 	ctx context.Context,
 	reporter *extensionsdk.HostProgressReporter,
-) (*extensionpb.HostCompleted, error) {
+) (completed *extensionpb.HostCompleted, returnErr error) {
+	if childRelease, present := o.childRelease.Get(); present {
+		defer func() { childRelease(returnErr) }()
+	}
+	if parentID, present := o.parentID.Get(); present {
+		// childContext links this Run to its admitted parent; unlink ends that linkage.
+		childContext, unlink, err := o.service.compactionPolicy.LinkCompactionChild(
+			ctx,
+			o.service.extensionID,
+			o.service.runtimeID,
+			parentID,
+		)
+		if err != nil {
+			return nil, extensionsdk.Fail(contextFailureCode(err), err)
+		}
+		defer unlink()
+		ctx = childContext
+	}
+
 	slog.DebugContext(
 		ctx,
 		"execute extension context operation",
@@ -334,144 +422,14 @@ func (o *contextOperation) Run(
 		"session_id",
 		o.reference.SessionID,
 	)
-	result := new(extensionpb.HostCompleted)
-	configured, hasConfigured := o.configured.Get()
-	appendValue, hasAppend := o.appendValue.Get()
-	appendMessage, hasAppendMessage := o.appendMessage.Get()
-	preparedSelection, hasSelection := o.selection.Get()
-	compactionInstructions, hasCompaction := o.compactionInstructions.Get()
-	switch {
-	case hasCompaction:
-		if o.service.compaction == nil {
-			return nil, extensionsdk.Fail(internalFailureCode, errors.New("manual compaction is not bound"))
-		}
-		if reporter == nil {
-			return nil, extensionsdk.Fail(
-				internalFailureCode,
-				errors.New("compaction progress reporter is unavailable"),
-			)
-		}
-		progress := new(extensionpb.HostProgress)
-		progress.SetCompaction(extensionpb.CompactionProgress_builder{Stage: new(compactionRunningStage)}.Build())
-		if err := reporter.Report(ctx, progress); err != nil {
-			return nil, extensionsdk.Fail(internalFailureCode, fmt.Errorf("report compaction progress: %w", err))
-		}
-		compacted, compactionErr := o.service.compaction.CompactExtension(
-			ctx, o.service.extensionID, o.service.runtimeID, o.reference, compactionInstructions,
-		)
-		mapped, err := mapCompactionCompletion(ctx, compacted, compactionErr)
-		if err != nil {
-			return nil, err
-		}
-		result.SetCompact(mapped)
-	case hasSelection:
-		selectionResult := preparedSelection.Run(ctx)
-		mapped, err := mapSelectionResult(selectionResult)
-		if err != nil {
-			return nil, err
-		}
-		result.SetSelection(mapped)
-	case hasAppendMessage:
-		appended, err := o.service.contexts.AppendExtensionMessage(
-			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
-			appendMessage.entryType, appendMessage.text, appendMessage.visibility,
-		)
-		if err != nil {
-			return nil, mapContextFailure("append extension message", err)
-		}
-		mapped, err := mapSessionEntry(appended.Entry)
-		if err != nil {
-			return nil, extensionsdk.Fail(internalFailureCode, err)
-		}
-		issues := make([]*extensionpb.AppendExtensionMessageIssue, 0, len(appended.Issues))
-		for issueIndex := range appended.Issues {
-			issue := &appended.Issues[issueIndex]
-			if issue.Code != deliveryFailedIssueCode {
-				return nil, extensionsdk.Fail(
-					internalFailureCode,
-					fmt.Errorf("unknown append message issue %q", issue.Code),
-				)
-			}
-			issues = append(issues, extensionpb.AppendExtensionMessageIssue_builder{
-				Code: new(
-					extensionpb.AppendExtensionMessageIssueCode_APPEND_EXTENSION_MESSAGE_ISSUE_CODE_DELIVERY_FAILED,
-				),
-				Message: new(issue.Message), ExtensionId: new(issue.ExtensionID),
-			}.Build())
-		}
-		result.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageResult_builder{
-			Entry: mapped, Issues: issues,
-		}.Build())
-	case hasAppend:
-		entry, err := o.service.contexts.AppendExtension(
-			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
-			appendValue.entryType, appendValue.data,
-		)
-		if err != nil {
-			return nil, mapContextFailure("append extension entry", err)
-		}
-		mapped, err := mapSessionEntry(entry)
-		if err != nil {
-			return nil, extensionsdk.Fail(internalFailureCode, err)
-		}
-		result.SetAppendExtension(extensionpb.AppendExtensionResult_builder{Entry: mapped}.Build())
-	case o.sessionState:
-		snapshot, err := o.service.contexts.ReadSessionState(
-			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
-		)
-		if err != nil {
-			return nil, mapContextFailure("read extension session state", err)
-		}
-		mapped, err := mapSessionState(snapshot)
-		if err != nil {
-			return nil, extensionsdk.Fail(internalFailureCode, err)
-		}
-		result.SetGetSessionState(mapped)
-	case hasConfigured:
-		response, err := o.service.models.Request(
-			ctx, o.service.extensionID, o.service.runtimeID, o.reference,
-			configured.selection, configured.instructions, configured.history,
-			func(progress ConfiguredRetryProgress) error {
-				if reporter == nil {
-					return errors.New("configured-model retry reporter is unavailable")
-				}
-				value := extensionpb.ConfiguredModelRetryProgress_builder{
-					CompletedAttempts: new(progress.CompletedAttempts), AttemptLimit: new(progress.AttemptLimit),
-					DelayMilliseconds: new(progress.Delay.Milliseconds()), Error: new(progress.Error),
-				}.Build()
-				frame := new(extensionpb.HostProgress)
-				frame.SetConfiguredModelRetry(value)
-				return reporter.Report(ctx, frame)
-			},
-		)
-		if err != nil {
-			return nil, mapModelFailure("request configured model", err)
-		}
-		mapped, err := mapConfiguredResponse(response)
-		if err != nil {
-			return nil, extensionsdk.Fail(internalFailureCode, err)
-		}
-		result.SetConfiguredModel(mapped)
-	case o.models:
-		catalog, err := o.service.models.ReadModels(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
-		if err != nil {
-			return nil, mapModelFailure("read model catalog", err)
-		}
-		result.SetGetModels(mapModelCatalog(catalog))
-	default:
-		providers, err := o.service.models.ReadProviders(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
-		if err != nil {
-			return nil, mapModelFailure("read provider catalog", err)
-		}
-		result.SetGetProviders(mapProviderCatalog(providers))
-	}
-	return result, nil
+	return o.action.Run(ctx, reporter)
 }
 
 // Release returns the reservation to the runtime accounting owner.
 func (o *contextOperation) Release() {
-	if selection, present := o.selection.Get(); present {
-		selection.Release()
+	// releaseSelection and present identify selection admission ownership.
+	if releaseSelection, present := o.selectionRelease.Get(); present {
+		releaseSelection()
 	}
 	o.release()
 }

@@ -274,15 +274,18 @@ func validateConnectionAvailability(payload *uiv1.AvailabilityChanged) error {
 	return nil
 }
 
-// validateSessionEntryAdded validates one complete extension-message connection payload.
+// validateSessionEntryAdded validates one complete committed-entry connection payload.
 func validateSessionEntryAdded(payload *uiv1.SessionEntryAdded) error {
-	if payload == nil || payload.GetEntry() == nil || payload.GetEntry().GetExtensionMessage() == nil {
-		return errors.New("Host added session entry message is required")
+	if payload == nil || payload.GetEntry() == nil {
+		return errors.New("Host added session entry is required")
 	}
 	if err := validateSessionTreeEntry(payload.GetEntry()); err != nil {
 		return fmt.Errorf("Host added session entry: %w", err)
 	}
 	message := payload.GetEntry().GetExtensionMessage()
+	if message == nil {
+		return nil
+	}
 	if !message.HasExtensionId() || !message.HasEntryType() || !message.HasText() || !message.HasVisibility() ||
 		message.GetVisibility() == uiv1.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED {
 		return errors.New("Host added session entry message is incomplete")

@@ -112,9 +112,6 @@ func runUIWithPaths(
 	); err != nil {
 		return fmt.Errorf("bind UI context compaction: %w", err)
 	}
-	if err = contextCompaction.BindManualRequest(providerCatalog, tools, codingagent.Instructions()); err != nil {
-		return fmt.Errorf("bind UI manual compaction: %w", err)
-	}
 	// modelExecution owns every logical model request in the UI assembly.
 	modelExecution := modelexecution.New(
 		providerCatalog,
@@ -123,6 +120,7 @@ func runUIWithPaths(
 		extensions,
 		transport,
 	)
+	modelExecution.BindManualCompaction(contexts, tools, codingagent.Instructions())
 	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
@@ -131,11 +129,11 @@ func runUIWithPaths(
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
 	bindExtensionHostFactory(
-		extensionFactory, extensions, extensionModels, contexts, selectionOwner, contextCompaction,
+		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution,
 		sessionServices.gate,
 	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
-	if err = startupService.BindCompaction(contextCompaction); err != nil {
+	if err = startupService.BindCompaction(contexts); err != nil {
 		return fmt.Errorf("bind UI compaction registration: %w", err)
 	}
 	_, err = startupService.Start(ctx, startup.Request{
@@ -161,7 +159,7 @@ func runUIWithPaths(
 		selectionOwner,
 		modelExecution,
 	)
-	if err = session.BindCompactor(contextCompaction); err != nil {
+	if err = session.BindCompactor(modelExecution); err != nil {
 		return fmt.Errorf("bind UI manual compaction operation: %w", err)
 	}
 	sessionServices.active.BindEntryPublisher(transport)

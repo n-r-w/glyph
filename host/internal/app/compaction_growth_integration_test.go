@@ -96,7 +96,7 @@ func runRealObserverContextGrowth(t *testing.T, recoverOverflow bool) {
 	startupService := startup.New(
 		extensions, toolservice.New(extensions), treeOwner, lifecycle.New(extensions, nil), nil,
 	)
-	require.NoError(t, startupService.BindCompaction(compactor))
+	require.NoError(t, startupService.BindCompaction(contexts))
 	report, err := startupService.Load(
 		t.Context(), startup.Request{DataDirectory: "", ExtensionDirectory: extensionDirectory},
 	)

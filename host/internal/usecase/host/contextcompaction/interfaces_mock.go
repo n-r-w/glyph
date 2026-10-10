@@ -87,11 +87,12 @@ func (mr *MockSessionStateMockRecorder) ContextSession() *gomock.Call {
 }
 
 // ProjectCompaction mocks base method.
-func (m *MockSessionState) ProjectCompaction(entries []session.Entry, compaction session.CompactionEntry) []agent.HistoryEntry {
+func (m *MockSessionState) ProjectCompaction(entries []session.Entry, compaction session.CompactionEntry) ([]agent.HistoryEntry, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ProjectCompaction", entries, compaction)
 	ret0, _ := ret[0].([]agent.HistoryEntry)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ProjectCompaction indicates an expected call of ProjectCompaction.

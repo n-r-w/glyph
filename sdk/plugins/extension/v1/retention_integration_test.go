@@ -70,6 +70,9 @@ func TestServerRetainsWorkSourceBeforeTerminal(t *testing.T) {
 						SessionId: new("session"), TargetEntryId: new("target"), PrecedingActiveLeafId: nil,
 						NavigationDestinationId: nil, CommittedActiveLeafId: nil, CreatedSummary: nil,
 					}.Build(),
+
+					ParentCompactionId: nil,
+					CompactionPolicy:   nil,
 				}.Build())
 				request.SetRequest(payload)
 				stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](

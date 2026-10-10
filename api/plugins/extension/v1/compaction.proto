@@ -5,6 +5,7 @@ package glyph.plugins.extension.v1;
 import "api/plugins/extension/v1/context.proto";
 import "api/plugins/extension/v1/model.proto";
 import "api/plugins/extension/v1/session_entry.proto";
+import "api/plugins/extension/v1/tool.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
 
@@ -20,11 +21,11 @@ enum CompactionTrigger {
   COMPACTION_TRIGGER_OVERFLOW = 3;
 }
 
-// CompactionInputEntry contains one projected branch entry and its Host fallback estimate.
+// CompactionInputEntry contains one projected branch entry and its producer estimate.
 message CompactionInputEntry {
   // The provider-neutral entry projection.
   SessionTreeEntry entry = 1;
-  // The Host-computed fallback estimate for this entry.
+  // The producer-computed estimate for this entry.
   int64 estimated_tokens = 2;
 }
 
@@ -40,9 +41,9 @@ message CompactionRequest {
   ModelDescriptor model = 4;
   // The captured reasoning choice.
   string reasoning_choice = 5;
-  // The proposed newly summarized branch prefix with Host fallback estimates.
+  // The proposed newly summarized branch prefix with producer estimates.
   repeated CompactionInputEntry prefix = 6;
-  // The proposed preserved branch suffix with Host fallback estimates.
+  // The proposed preserved branch suffix with producer estimates.
   repeated CompactionInputEntry suffix = 7;
   // The preceding persisted summary marker, when present.
   SessionTreeCompaction previous = 8;
@@ -72,7 +73,7 @@ message CompactionResult {
 
 // CompactionRequestInvocation carries immutable original and composed current state.
 message CompactionRequestInvocation {
-  // The immutable Host-produced request.
+  // The immutable producer-supplied request.
   CompactionRequest original = 1;
   // The request left by preceding handlers.
   CompactionRequest current = 2;
@@ -82,7 +83,7 @@ message CompactionRequestInvocation {
 
 // CompactionResultInvocation carries immutable request and result states.
 message CompactionResultInvocation {
-  // The immutable Host-produced request.
+  // The immutable producer-supplied request.
   CompactionRequest original_request = 1;
   // The final request-handler state.
   CompactionRequest current_request = 2;
@@ -138,20 +139,26 @@ message CompactionResultAction {
   CompactionResult result = 3;
 }
 
-// CompactionOutcome reports one terminal success or failure observation.
-message CompactionOutcome {
-  // The immutable Host-produced request.
+// CompactionPolicyState contains acquired original and last valid composition values.
+message CompactionPolicyState {
+  // The immutable original request supplied by the producer.
   CompactionRequest original_request = 1;
-  // The final valid request state.
+  // The last valid composed request.
   CompactionRequest current_request = 2;
-  // The final result when present.
+  // The last valid result, when present.
   CompactionResult result = 3;
-  // The durable marker when commit succeeded.
-  SessionTreeEntry committed = 4;
-  // Whether an extension explicitly canceled compaction.
-  bool canceled = 5;
-  // Complete terminal failure text when present.
-  string error = 6;
+}
+
+// CompactionOutcome reports acquired policy state and the independently committed outcome.
+message CompactionOutcome {
+  // Acquired composition values when available. Absence means no acquired policy state is available.
+  CompactionPolicyState state = 1;
+  // The durable entry, independently of policy state availability.
+  SessionTreeEntry committed = 2;
+  // Whether the policy explicitly canceled compaction.
+  bool canceled = 3;
+  // Complete acquired failure text, when present.
+  string error = 4;
 }
 
 // CompactionObserverAction acknowledges one terminal observation.
@@ -189,4 +196,91 @@ message CompactResult {
 message CompactionProgress {
   // The stable current stage.
   string stage = 1;
+}
+
+// CompactionHistoryRecord contains one prepared provider-neutral model-history record.
+message CompactionHistoryRecord {
+  // The prepared model-visible content.
+  oneof content {
+    // The prepared user message.
+    SessionTreeUserMessage user = 1;
+    // The prepared model response.
+    SessionTreeModelResponse model = 2;
+    // The prepared tool result.
+    SessionTreeToolResult tool_result = 3;
+  }
+  // The byte count of private replay payloads retained with this record.
+  int64 private_payload_bytes = 4;
+}
+
+// CompactionSnapshotEntry supplies one original entry and its private replay size.
+message CompactionSnapshotEntry {
+  // The provider-neutral original entry.
+  SessionTreeEntry entry = 1;
+  // The byte count of private replay payloads retained with this entry.
+  int64 private_payload_bytes = 2;
+}
+
+// CompactionToolDefinition supplies the captured outbound tool definition.
+message CompactionToolDefinition {
+  // The provider-neutral tool descriptor.
+  ToolDescriptor descriptor = 1;
+  // The grammar-constrained input property, when present.
+  string grammar_input_property = 2;
+}
+
+// CompactionPolicyInvocation supplies immutable conversation input and replacement authority.
+message CompactionPolicyInvocation {
+  // The scoped authority for this policy operation.
+  string operation_id = 1;
+  // The captured session identifier.
+  string session_id = 2;
+  // The captured session incarnation.
+  int64 session_incarnation = 3;
+  // The captured branch position, when present.
+  string active_leaf_id = 4;
+  // The original branch entries with private payloads excluded.
+  repeated CompactionSnapshotEntry entries = 5;
+  // The prepared history for the captured branch.
+  repeated CompactionHistoryRecord history = 6;
+  // The preceding applicable replacement, when present.
+  SessionTreeCompaction previous = 7;
+  // The selected conversation model.
+  ModelDescriptor model = 8;
+  // The selected conversation reasoning choice.
+  string reasoning_choice = 9;
+  // The conversation instructions, including an empty string.
+  string instructions = 10;
+  // The available conversation tool definitions.
+  repeated CompactionToolDefinition tools = 11;
+  // Optional caller guidance for manual compaction.
+  string user_instructions = 12;
+  // The captured policy runtime generation.
+  string policy_runtime_id = 13;
+}
+
+// CompactionPolicyResult acknowledges the policy operation.
+message CompactionPolicyResult {
+  // Complete acquired policy failure text, when present.
+  string error = 3;
+  // Acquired original and last valid composed state, when available.
+  CompactionPolicyState state = 2;
+  // Whether the policy canceled before replacement.
+  bool canceled = 1;
+}
+
+// CompactionCandidateRequest supplies a complete candidate through scoped policy authority.
+message CompactionCandidateRequest {
+  // The issued session context.
+  ExtensionContextRef context = 1;
+  // The owning policy operation.
+  string operation_id = 2;
+  // The complete replacement candidate.
+  CompactionResult result = 3;
+}
+
+// CompactionProjection supplies structurally valid candidate model history.
+message CompactionProjection {
+  // The summary followed by the retained suffix.
+  repeated CompactionHistoryRecord history = 1;
 }

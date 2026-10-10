@@ -55,10 +55,10 @@ func TestForkAndCloneRebuildCompactedContextForRetainedBranch(t *testing.T) {
 			ids := NewMockIDGenerator(controller)
 			clock := NewMockClock(controller)
 			entries := []session.Entry{
-				compactionUserEntry("u1", mo.None[string](), "old"),
-				compactionUserEntry("u2", mo.Some("u1"), "kept"),
-				compactionMarkerEntry("c1", "u2", "summary", "u2"),
-				compactionUserEntry("u3", mo.Some("c1"), "new"),
+				newCompactionUserEntry("u1", mo.None[string](), "old"),
+				newCompactionUserEntry("u2", mo.Some("u1"), "kept"),
+				newCompactionMarkerEntry("c1", "u2", "summary", "u2"),
+				newCompactionUserEntry("u3", mo.Some("c1"), "new"),
 			}
 			tree, err := session.NewTree(entries, mo.Some("u3"), nil)
 			require.NoError(t, err)

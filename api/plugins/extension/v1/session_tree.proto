@@ -17,6 +17,8 @@ message HandleRequest {
   string handler_id = 1;
   // The issued session-bound context for this invocation.
   ExtensionContext context = 5;
+  // The non-authorizing lifetime of the parent compaction operation.
+  string parent_compaction_id = 16;
   // The payload allowed for the registered handler kind.
   oneof payload {
     SessionBeforeTreeRequestInvocation session_before_tree_request = 2;
@@ -39,6 +41,8 @@ message HandleRequest {
     CompactionOutcome compaction_success = 13;
     // A failed or canceled compaction observation.
     CompactionOutcome compaction_failure = 14;
+    // The immutable input for the owning compaction policy.
+    CompactionPolicyInvocation compaction_policy = 15;
   }
 }
 
@@ -67,6 +71,8 @@ message HandleResponse {
     CompactionObserverAction compaction_success = 12;
     // A failed compaction acknowledgement.
     CompactionObserverAction compaction_failure = 13;
+    // The policy completion acknowledgement.
+    CompactionPolicyResult compaction_policy = 14;
   }
 }
 

@@ -175,6 +175,9 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		GetModels: extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: extensionpb.ModelSelection_builder{
 			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
 		}.Build()}.Build(),
+
+		ProjectCompaction: nil,
+		ReplaceCompaction: nil,
 	}.Build(), nil)
 	models.EXPECT().Release()
 	host.EXPECT().
@@ -191,6 +194,9 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		GetProviders: extensionpb.GetProvidersResult_builder{Providers: []*extensionpb.ProviderDescriptor{
 			extensionpb.ProviderDescriptor_builder{ProviderId: new("provider"), ModelIds: []string{"model"}}.Build(),
 		}}.Build(),
+
+		ProjectCompaction: nil,
+		ReplaceCompaction: nil,
 	}.Build(), nil)
 	providers.EXPECT().Release()
 	host.EXPECT().
@@ -212,6 +218,9 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 				return content
 			}()},
 		}.Build(),
+
+		ProjectCompaction: nil,
+		ReplaceCompaction: nil,
 	}.Build(), nil)
 	configured.EXPECT().Release()
 	host.EXPECT().
@@ -239,6 +248,9 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 				}.Build(),
 			}.Build(), Issues: nil,
 		}.Build(),
+
+		ProjectCompaction: nil,
+		ReplaceCompaction: nil,
 	}.Build(), nil)
 	message.EXPECT().Release()
 	host.EXPECT().
@@ -266,6 +278,9 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 					ActiveLeafId: new("entry"),
 					Entries:      []*extensionpb.SessionStateEntry{entry},
 				}.Build(),
+
+				ProjectCompaction: nil,
+				ReplaceCompaction: nil,
 			}.Build(), nil
 		})
 	recovery.EXPECT().Release()
@@ -299,6 +314,9 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 					Canceled: new(false), Error: new("observer failed after commit"),
 					FailureCode: new("EXTENSION_FAILED"),
 				}.Build(),
+
+				ProjectCompaction: nil,
+				ReplaceCompaction: nil,
 			}.Build(), nil
 		},
 	)

@@ -48,7 +48,7 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			os.Getpid(), initialization.GetSelectedUiId(), strings.Join(startupText, "\n"),
 		)
 		behavior := os.Getenv(appUIBehaviorEnvironment)
-		if behavior != "semantic" && behavior != "authentication" {
+		if behavior != "semantic" && behavior != "authentication" && behavior != manualUIBehavior {
 			if err := os.WriteFile(os.Getenv(appUITraceEnvironment), []byte(trace), 0o600); err != nil {
 				return nil, err
 			}
@@ -65,6 +65,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runAuthenticationFixture(ctx, host)
 		case "semantic":
 			return runSemanticFixture(ctx, host)
+		case manualUIBehavior:
+			return runManualUIFixture(ctx, host)
 		case persistenceUIBehavior:
 			return runPersistenceUIFixture(t, ctx, host)
 		case observerCancellationBehavior:

@@ -97,6 +97,10 @@ func (i *contextInitiator) start(
 	if err := ctx.Err(); err != nil {
 		return nil, fmt.Errorf("start Host operation: %w", err)
 	}
+	// parent identifies the nested-work lifetime; present indicates its availability.
+	if parent, present := ctx.Value(parentCompactionContextKey{}).(string); present {
+		request.SetParentCompactionId(parent)
+	}
 	i.mutex.Lock()
 	if i.closing || i.ctx.Err() != nil {
 		i.mutex.Unlock()

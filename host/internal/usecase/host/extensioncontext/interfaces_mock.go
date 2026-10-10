@@ -13,7 +13,10 @@ import (
 	context "context"
 	reflect "reflect"
 
+	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
+	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
+	contextcompaction "github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -166,4 +169,167 @@ func (m *MockSessionState) ProtectContextCommit(arg0 context.Context, arg1 sessi
 func (mr *MockSessionStateMockRecorder) ProtectContextCommit(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProtectContextCommit", reflect.TypeOf((*MockSessionState)(nil).ProtectContextCommit), arg0, arg1, arg2, arg3)
+}
+
+// MockPolicyRuntime is a mock of PolicyRuntime interface.
+type MockPolicyRuntime struct {
+	ctrl     *gomock.Controller
+	recorder *MockPolicyRuntimeMockRecorder
+	isgomock struct{}
+}
+
+// MockPolicyRuntimeMockRecorder is the mock recorder for MockPolicyRuntime.
+type MockPolicyRuntimeMockRecorder struct {
+	mock *MockPolicyRuntime
+}
+
+// NewMockPolicyRuntime creates a new mock instance.
+func NewMockPolicyRuntime(ctrl *gomock.Controller) *MockPolicyRuntime {
+	mock := &MockPolicyRuntime{ctrl: ctrl}
+	mock.recorder = &MockPolicyRuntimeMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockPolicyRuntime) EXPECT() *MockPolicyRuntimeMockRecorder {
+	return m.recorder
+}
+
+// InvokeCompactionPolicy mocks base method.
+func (m *MockPolicyRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 PolicyOwner, arg2 extension.Context, arg3 PolicyInvocation) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InvokeCompactionPolicy", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InvokeCompactionPolicy indicates an expected call of InvokeCompactionPolicy.
+func (mr *MockPolicyRuntimeMockRecorder) InvokeCompactionPolicy(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvokeCompactionPolicy", reflect.TypeOf((*MockPolicyRuntime)(nil).InvokeCompactionPolicy), arg0, arg1, arg2, arg3)
+}
+
+// ObserveCompactionFailure mocks base method.
+func (m *MockPolicyRuntime) ObserveCompactionFailure(arg0 context.Context, arg1 contextcompaction.Handler, arg2 extension.Context, arg3 contextcompaction.OutcomeInvocation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObserveCompactionFailure", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ObserveCompactionFailure indicates an expected call of ObserveCompactionFailure.
+func (mr *MockPolicyRuntimeMockRecorder) ObserveCompactionFailure(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveCompactionFailure", reflect.TypeOf((*MockPolicyRuntime)(nil).ObserveCompactionFailure), arg0, arg1, arg2, arg3)
+}
+
+// ObserveCompactionSuccess mocks base method.
+func (m *MockPolicyRuntime) ObserveCompactionSuccess(arg0 context.Context, arg1 contextcompaction.Handler, arg2 extension.Context, arg3 contextcompaction.OutcomeInvocation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObserveCompactionSuccess", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ObserveCompactionSuccess indicates an expected call of ObserveCompactionSuccess.
+func (mr *MockPolicyRuntimeMockRecorder) ObserveCompactionSuccess(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveCompactionSuccess", reflect.TypeOf((*MockPolicyRuntime)(nil).ObserveCompactionSuccess), arg0, arg1, arg2, arg3)
+}
+
+// SnapshotCompactionHandlers mocks base method.
+func (m *MockPolicyRuntime) SnapshotCompactionHandlers() contextcompaction.HandlerSet {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SnapshotCompactionHandlers")
+	ret0, _ := ret[0].(contextcompaction.HandlerSet)
+	return ret0
+}
+
+// SnapshotCompactionHandlers indicates an expected call of SnapshotCompactionHandlers.
+func (mr *MockPolicyRuntimeMockRecorder) SnapshotCompactionHandlers() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnapshotCompactionHandlers", reflect.TypeOf((*MockPolicyRuntime)(nil).SnapshotCompactionHandlers))
+}
+
+// SnapshotCompactionPolicies mocks base method.
+func (m *MockPolicyRuntime) SnapshotCompactionPolicies() []PolicyOwner {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SnapshotCompactionPolicies")
+	ret0, _ := ret[0].([]PolicyOwner)
+	return ret0
+}
+
+// SnapshotCompactionPolicies indicates an expected call of SnapshotCompactionPolicies.
+func (mr *MockPolicyRuntimeMockRecorder) SnapshotCompactionPolicies() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnapshotCompactionPolicies", reflect.TypeOf((*MockPolicyRuntime)(nil).SnapshotCompactionPolicies))
+}
+
+// MockCompactionSessions is a mock of CompactionSessions interface.
+type MockCompactionSessions struct {
+	ctrl     *gomock.Controller
+	recorder *MockCompactionSessionsMockRecorder
+	isgomock struct{}
+}
+
+// MockCompactionSessionsMockRecorder is the mock recorder for MockCompactionSessions.
+type MockCompactionSessionsMockRecorder struct {
+	mock *MockCompactionSessions
+}
+
+// NewMockCompactionSessions creates a new mock instance.
+func NewMockCompactionSessions(ctrl *gomock.Controller) *MockCompactionSessions {
+	mock := &MockCompactionSessions{ctrl: ctrl}
+	mock.recorder = &MockCompactionSessionsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCompactionSessions) EXPECT() *MockCompactionSessionsMockRecorder {
+	return m.recorder
+}
+
+// CaptureCompaction mocks base method.
+func (m *MockCompactionSessions) CaptureCompaction() CompactionSnapshot {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CaptureCompaction")
+	ret0, _ := ret[0].(CompactionSnapshot)
+	return ret0
+}
+
+// CaptureCompaction indicates an expected call of CaptureCompaction.
+func (mr *MockCompactionSessionsMockRecorder) CaptureCompaction() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CaptureCompaction", reflect.TypeOf((*MockCompactionSessions)(nil).CaptureCompaction))
+}
+
+// CommitReplacement mocks base method.
+func (m *MockCompactionSessions) CommitReplacement(arg0 context.Context, arg1 CompactionSnapshot, arg2 session.CompactionEntry, arg3 ContextCommitGuard, arg4 func(session.Entry)) (session.Entry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitReplacement", arg0, arg1, arg2, arg3, arg4)
+	ret0, _ := ret[0].(session.Entry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitReplacement indicates an expected call of CommitReplacement.
+func (mr *MockCompactionSessionsMockRecorder) CommitReplacement(arg0, arg1, arg2, arg3, arg4 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitReplacement", reflect.TypeOf((*MockCompactionSessions)(nil).CommitReplacement), arg0, arg1, arg2, arg3, arg4)
+}
+
+// ProjectReplacement mocks base method.
+func (m *MockCompactionSessions) ProjectReplacement(arg0 CompactionSnapshot, arg1 session.CompactionEntry) ([]agent.HistoryEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProjectReplacement", arg0, arg1)
+	ret0, _ := ret[0].([]agent.HistoryEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProjectReplacement indicates an expected call of ProjectReplacement.
+func (mr *MockCompactionSessionsMockRecorder) ProjectReplacement(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProjectReplacement", reflect.TypeOf((*MockCompactionSessions)(nil).ProjectReplacement), arg0, arg1)
 }

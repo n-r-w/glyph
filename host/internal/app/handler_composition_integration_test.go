@@ -325,6 +325,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 			CompactionGenerate: nil, CompactionResult: nil, CompactionSuccess: nil, CompactionFailure: nil,
 			Retry: nil, ModelSelection: nil, ReasoningSelection: nil, Lifecycle: nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Error: nil,
+
+			CompactionPolicy: nil,
 		}.Build(), nil
 	case "compact-later":
 		return nil, errors.New("later compaction handler observed malformed nested marker")
@@ -344,6 +346,17 @@ func (operation *handlerFixtureHandleOperation) Run(
 				}
 			}
 		}
+		// splitBoundaryEnvironment names the tool-result boundary fixture setting.
+		const splitBoundaryEnvironment = "GLYPH_THRESHOLD_SPLIT_BOUNDARY"
+		boundary := "kept"
+		if os.Getenv(splitBoundaryEnvironment) == manualFixtureEnabled {
+			for _, input := range append(invocation.GetOriginal().GetPrefix(), invocation.GetOriginal().GetSuffix()...) {
+				if input.GetEntry().GetToolResult() != nil {
+					boundary = input.GetEntry().GetId()
+					break
+				}
+			}
+		}
 		return extensionpb.HandleResponse_builder{
 			CompactionRequest: extensionpb.CompactionRequestAction_builder{
 				Cancel:        new(false),
@@ -352,7 +365,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 				ResultAction:  new(extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE),
 				Result: extensionpb.CompactionResult_builder{
 					Summary:          new("public custom summary"),
-					FirstKeptEntryId: new("kept"),
+					FirstKeptEntryId: new(boundary),
 					Source: extensionpb.BranchSummarySource_builder{
 						ExtensionId: new("01-compact"), Model: nil,
 					}.Build(),
@@ -362,6 +375,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 			CompactionGenerate: nil, CompactionResult: nil, CompactionSuccess: nil, CompactionFailure: nil,
 			Retry: nil, ModelSelection: nil, ReasoningSelection: nil, Lifecycle: nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Error: nil,
+
+			CompactionPolicy: nil,
 		}.Build(), nil
 	case "compact-observe":
 		if request.GetCompactionSuccess() == nil {
@@ -393,6 +408,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 			CompactionFailure: nil, Retry: nil, ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle: nil, SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,
 			SessionTree: nil, Error: nil,
+
+			CompactionPolicy: nil,
 		}.Build(), nil
 	case "supply":
 		return extensionpb.HandleResponse_builder{
@@ -412,6 +429,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 				}.Build(),
 			}.Build(),
 			SessionBeforeTreeResult: nil, SessionTree: nil, Error: nil,
+
+			CompactionPolicy: nil,
 		}.Build(), nil
 	case "refine":
 		return extensionpb.HandleResponse_builder{
@@ -430,6 +449,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 				}.Build(),
 			}.Build(),
 			SessionTree: nil, Error: nil,
+
+			CompactionPolicy: nil,
 		}.Build(), nil
 	case "observe":
 		invocation := request.GetSessionTree()
@@ -452,6 +473,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 			Lifecycle:                nil,
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,
 			SessionTree: extensionpb.SessionTreeAction_builder{}.Build(), Error: nil,
+
+			CompactionPolicy: nil,
 		}.Build(), nil
 	default:
 		return nil, fmt.Errorf("unknown handler %q", request.GetHandlerId())

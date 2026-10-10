@@ -3,6 +3,9 @@ package extensionv1
 import (
 	"errors"
 	"fmt"
+	"slices"
+
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/internal/operation"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -32,6 +35,10 @@ const (
 	hostRequestReasoningSelection
 	// hostRequestCompaction identifies session-bound manual compaction.
 	hostRequestCompaction
+	// hostRequestCompactionProjection identifies candidate model-history projection.
+	hostRequestCompactionProjection
+	// hostRequestCompactionReplacement identifies scoped durable replacement.
+	hostRequestCompactionReplacement
 	// hostRequestCancel identifies targeted cancellation.
 	hostRequestCancel
 	// contextCodeStale identifies a permanently invalidated context binding.
@@ -68,107 +75,206 @@ const (
 	hostRejectionCodeReasoningUnsupported = "REASONING_UNSUPPORTED"
 )
 
+// hostCompletionValidator checks a kind-specific completed payload.
+type hostCompletionValidator func(*extensionpb.HostCompleted) error
+
+// hostProgressPredicate identifies allowed progress for one request kind.
+type hostProgressPredicate func(*extensionpb.HostProgress) bool
+
+// hostRequestDescriptor contains one current Host request contract.
+type hostRequestDescriptor struct {
+	// requestCase identifies the protobuf request discriminator.
+	requestCase int
+	// matches identifies the corresponding completion payload.
+	matches func(*extensionpb.HostCompleted) bool
+	// validate contains additional completion validation when required.
+	validate mo.Option[hostCompletionValidator]
+	// failures contains the kind-specific execution categories.
+	failures []string
+	// progress contains the allowed progress predicate when present.
+	progress mo.Option[hostProgressPredicate]
+	// selection allows model/reasoning selection rejection categories.
+	selection bool
+}
+
+// newHostRequestDescriptors constructs request classification and result rules.
+func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
+	return map[hostRequestKind]hostRequestDescriptor{
+		hostRequestModels: {
+			requestCase: int(extensionpb.ExtensionRequest_GetModels_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetGetModels() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures:    nil,
+			progress:    mo.None[hostProgressPredicate](),
+			selection:   false,
+		},
+		hostRequestProviders: {
+			requestCase: int(extensionpb.ExtensionRequest_GetProviders_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetGetProviders() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures:    nil,
+			progress:    mo.None[hostProgressPredicate](),
+			selection:   false,
+		},
+		hostRequestConfiguredModel: {
+			requestCase: int(extensionpb.ExtensionRequest_ConfiguredModel_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetConfiguredModel() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures: []string{
+				hostFailureCodeModelUnavailable,
+				hostFailureCodeCredentialUnavailable,
+				hostFailureCodeModelFailed,
+				hostFailureCodeRetryExhausted,
+				hostFailureCodeRetryCanceled,
+				hostFailureCodeExtensionFailed,
+				hostFailureCodeRetryDelayExceeded,
+				hostFailureCodeContextLimit,
+			},
+			progress: mo.Some[hostProgressPredicate](
+				func(progress *extensionpb.HostProgress) bool { return progress.GetConfiguredModelRetry() != nil },
+			),
+			selection: false,
+		},
+		hostRequestAppendExtension: {
+			requestCase: int(extensionpb.ExtensionRequest_AppendExtension_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetAppendExtension() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures:    []string{hostFailureCodePersistenceUnavailable, hostFailureCodeSessionUnavailable},
+			progress:    mo.None[hostProgressPredicate](),
+			selection:   false,
+		},
+		hostRequestSessionState: {
+			requestCase: int(extensionpb.ExtensionRequest_GetSessionState_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetGetSessionState() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures:    []string{hostFailureCodeSessionUnavailable},
+			progress:    mo.None[hostProgressPredicate](),
+			selection:   false,
+		},
+		hostRequestAppendExtensionMessage: {
+			requestCase: int(extensionpb.ExtensionRequest_AppendExtensionMessage_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetAppendExtensionMessage() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures:    []string{hostFailureCodePersistenceUnavailable, hostFailureCodeSessionUnavailable},
+			progress:    mo.None[hostProgressPredicate](),
+			selection:   false,
+		},
+		hostRequestModelSelection: {
+			requestCase: int(extensionpb.ExtensionRequest_SelectModel_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetSelection() != nil },
+			validate: mo.Some[hostCompletionValidator](
+				func(result *extensionpb.HostCompleted) error { return validateSelectionResult(result.GetSelection()) },
+			),
+			failures: []string{
+				hostFailureCodeModelUnavailable,
+				hostFailureCodeCredentialUnavailable,
+				hostFailureCodeExtensionRejected,
+				hostFailureCodeExtensionUnavailable,
+			},
+			progress:  mo.None[hostProgressPredicate](),
+			selection: true,
+		},
+		hostRequestReasoningSelection: {
+			requestCase: int(extensionpb.ExtensionRequest_SelectReasoning_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetSelection() != nil },
+			validate: mo.Some[hostCompletionValidator](
+				func(result *extensionpb.HostCompleted) error { return validateSelectionResult(result.GetSelection()) },
+			),
+			failures: []string{
+				hostFailureCodeModelUnavailable,
+				hostFailureCodeCredentialUnavailable,
+				hostFailureCodeExtensionRejected,
+				hostFailureCodeExtensionUnavailable,
+			},
+			progress:  mo.None[hostProgressPredicate](),
+			selection: true,
+		},
+		hostRequestCompaction: {
+			requestCase: int(extensionpb.ExtensionRequest_Compact_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetCompact() != nil },
+			validate: mo.Some[hostCompletionValidator](
+				func(result *extensionpb.HostCompleted) error { return validateCompactionCompleted(result.GetCompact()) },
+			),
+			failures: []string{
+				hostFailureCodeCompactionFailed,
+				hostFailureCodeExtensionFailed,
+				hostFailureCodeSessionUnavailable,
+				hostFailureCodePersistenceUnavailable,
+			},
+			progress: mo.Some[hostProgressPredicate](
+				func(progress *extensionpb.HostProgress) bool { return progress.GetCompaction() != nil },
+			),
+			selection: false,
+		},
+		hostRequestCompactionProjection: {
+			requestCase: int(extensionpb.ExtensionRequest_ProjectCompaction_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetProjectCompaction() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures: []string{
+				hostFailureCodeCompactionFailed,
+				hostFailureCodeExtensionFailed,
+				hostFailureCodeSessionUnavailable,
+				hostFailureCodePersistenceUnavailable,
+			},
+			progress:  mo.None[hostProgressPredicate](),
+			selection: false,
+		},
+		hostRequestCompactionReplacement: {
+			requestCase: int(extensionpb.ExtensionRequest_ReplaceCompaction_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetReplaceCompaction() != nil },
+			validate: mo.Some[hostCompletionValidator](func(result *extensionpb.HostCompleted) error {
+				return validateCompactionCompleted(result.GetReplaceCompaction())
+			}),
+			failures: []string{
+				hostFailureCodeCompactionFailed,
+				hostFailureCodeExtensionFailed,
+				hostFailureCodeSessionUnavailable,
+				hostFailureCodePersistenceUnavailable,
+			},
+			progress:  mo.None[hostProgressPredicate](),
+			selection: false,
+		},
+		hostRequestCancel: {
+			requestCase: int(extensionpb.ExtensionRequest_Cancel_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetCancel() != nil },
+			validate: mo.Some[hostCompletionValidator](
+				func(result *extensionpb.HostCompleted) error { return validateCancelCompleted(result.GetCancel()) },
+			),
+			failures:  nil,
+			progress:  mo.None[hostProgressPredicate](),
+			selection: false,
+		},
+	}
+}
+
 // classifyHostRequest identifies an implemented extension-initiated request.
 func classifyHostRequest(request *extensionpb.ExtensionRequest) hostRequestKind {
 	if request == nil {
 		return hostRequestInvalid
 	}
-	switch request.WhichRequest() {
-	case extensionpb.ExtensionRequest_GetModels_case:
-		return hostRequestModels
-	case extensionpb.ExtensionRequest_GetProviders_case:
-		return hostRequestProviders
-	case extensionpb.ExtensionRequest_ConfiguredModel_case:
-		return hostRequestConfiguredModel
-	case extensionpb.ExtensionRequest_AppendExtension_case:
-		return hostRequestAppendExtension
-	case extensionpb.ExtensionRequest_GetSessionState_case:
-		return hostRequestSessionState
-	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
-		return hostRequestAppendExtensionMessage
-	case extensionpb.ExtensionRequest_SelectModel_case:
-		return hostRequestModelSelection
-	case extensionpb.ExtensionRequest_SelectReasoning_case:
-		return hostRequestReasoningSelection
-	case extensionpb.ExtensionRequest_Compact_case:
-		return hostRequestCompaction
-	case extensionpb.ExtensionRequest_Cancel_case:
-		return hostRequestCancel
-	case extensionpb.ExtensionRequest_Request_not_set_case:
-		return hostRequestInvalid
-	default:
-		return hostRequestInvalid
+	// kind and descriptor identify the request variant and its protocol rules.
+	for kind, descriptor := range newHostRequestDescriptors() {
+		if descriptor.requestCase == int(request.WhichRequest()) {
+			return kind
+		}
 	}
+	return hostRequestInvalid
 }
 
-// hostCompletedMatches checks that the terminal payload belongs to its initiator request kind.
+// hostCompletedMatches checks the completion payload for its initiated kind.
 func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostCompleted) bool {
-	if result == nil {
-		return false
-	}
-	switch kind {
-	case hostRequestModels:
-		return result.GetGetModels() != nil
-	case hostRequestProviders:
-		return result.GetGetProviders() != nil
-	case hostRequestConfiguredModel:
-		return result.GetConfiguredModel() != nil
-	case hostRequestAppendExtension:
-		return result.GetAppendExtension() != nil
-	case hostRequestSessionState:
-		return result.GetGetSessionState() != nil
-	case hostRequestAppendExtensionMessage:
-		return result.GetAppendExtensionMessage() != nil
-	case hostRequestModelSelection, hostRequestReasoningSelection:
-		return result.GetSelection() != nil
-	case hostRequestCompaction:
-		return result.GetCompact() != nil
-	case hostRequestCancel:
-		return result.GetCancel() != nil
-	case hostRequestInvalid:
-		return false
-	default:
-		return false
-	}
+	// descriptor and supported identify the completion rules for the request kind.
+	descriptor, supported := newHostRequestDescriptors()[kind]
+	return supported && descriptor.matches(result)
 }
 
-// validateHostFailureCode enforces the closed execution categories for one request kind.
-//
-//nolint:gocyclo // The request-specific category allowlist is intentionally explicit.
+// validateHostFailureCode enforces the current request's closed execution categories.
 func validateHostFailureCode(kind hostRequestKind, code string) error {
 	if code == failureCodeInternal || code == contextCodeStale {
 		return nil
 	}
-	if kind == hostRequestConfiguredModel {
-		switch code {
-		case hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable, hostFailureCodeModelFailed,
-			hostFailureCodeRetryExhausted, hostFailureCodeRetryCanceled, hostFailureCodeExtensionFailed,
-			hostFailureCodeRetryDelayExceeded, hostFailureCodeContextLimit:
-			return nil
-		}
-	}
-	if kind == hostRequestCompaction {
-		switch code {
-		case hostFailureCodeCompactionFailed, hostFailureCodeExtensionFailed,
-			hostFailureCodeSessionUnavailable, hostFailureCodePersistenceUnavailable:
-			return nil
-		}
-	}
-	if (kind == hostRequestAppendExtension || kind == hostRequestAppendExtensionMessage) &&
-		(code == hostFailureCodePersistenceUnavailable || code == hostFailureCodeSessionUnavailable) {
+	if slices.Contains(newHostRequestDescriptors()[kind].failures, code) {
 		return nil
-	}
-	if kind == hostRequestSessionState && code == hostFailureCodeSessionUnavailable {
-		return nil
-	}
-	if kind == hostRequestModelSelection || kind == hostRequestReasoningSelection {
-		switch code {
-		case hostFailureCodeModelUnavailable,
-			hostFailureCodeCredentialUnavailable,
-			hostFailureCodeExtensionRejected,
-			hostFailureCodeExtensionUnavailable:
-			return nil
-		}
 	}
 	return fmt.Errorf("unsupported Host failure category %q for request kind %d", code, kind)
 }
@@ -200,7 +306,7 @@ func validateHostRejectionCode(kind hostRequestKind, code string) error {
 		failureCodeInternal:
 		return nil
 	case hostRejectionCodeNotFound, hostRejectionCodeReasoningUnsupported:
-		if kind == hostRequestModelSelection || kind == hostRequestReasoningSelection {
+		if newHostRequestDescriptors()[kind].selection {
 			return nil
 		}
 	}
@@ -212,14 +318,9 @@ func validateHostCompleted(kind hostRequestKind, result *extensionpb.HostComplet
 	if !hostCompletedMatches(kind, result) {
 		return errors.New("received Host completion does not match request kind")
 	}
-	if kind == hostRequestCancel {
-		return validateCancelCompleted(result.GetCancel())
-	}
-	if kind == hostRequestModelSelection || kind == hostRequestReasoningSelection {
-		return validateSelectionResult(result.GetSelection())
-	}
-	if kind == hostRequestCompaction {
-		return validateCompactionCompleted(result.GetCompact())
+	// validate and present identify additional completion validation.
+	if validate, present := newHostRequestDescriptors()[kind].validate.Get(); present {
+		return validate(result)
 	}
 	return nil
 }
@@ -312,8 +413,6 @@ func hostPeerError(cause error, event *extensionpb.HostEvent) error {
 }
 
 // mapHostEvent maps peer lifecycle events without truncating Host-owned error causes.
-//
-//nolint:gocyclo // The lifecycle and request-kind product is validated explicitly.
 func mapHostEvent(
 	id string,
 	kind hostRequestKind,
@@ -337,9 +436,9 @@ func mapHostEvent(
 		event.Kind = operation.EventRunning
 	case extensionpb.HostEvent_Progress_case:
 		progress := payload.GetProgress()
-		configuredProgress := kind == hostRequestConfiguredModel && progress.GetConfiguredModelRetry() != nil
-		compactionProgress := kind == hostRequestCompaction && progress.GetCompaction() != nil
-		if !configuredProgress && !compactionProgress {
+		// allowed and present identify progress rules for the request kind.
+		allowed, present := newHostRequestDescriptors()[kind].progress.Get()
+		if !present || !allowed(progress) {
 			return event, false, errors.New("host progress does not match request kind")
 		}
 		event.Kind, event.Progress = operation.EventProgress, payload.GetProgress()

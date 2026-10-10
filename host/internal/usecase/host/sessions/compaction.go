@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/samber/mo"
@@ -19,6 +20,18 @@ func (s *Service) CommitCompaction(
 	expected session.Identity,
 	expectedLeafID mo.Option[string],
 	compaction session.CompactionEntry,
+) (session.Entry, error) {
+	return s.commitCompaction(ctx, expected, expectedLeafID, compaction, nil, nil)
+}
+
+// commitCompaction applies one durable replacement with optional runtime protection and receipt recording.
+func (s *Service) commitCompaction(
+	ctx context.Context,
+	expected session.Identity,
+	expectedLeafID mo.Option[string],
+	compaction session.CompactionEntry,
+	guard func() (func(), error),
+	record func(session.Entry),
 ) (session.Entry, error) {
 	compaction.EstimatedCost = s.compactionEstimatedCost(compaction.Source)
 	if err := validateCompactionPayload(compaction); err != nil {
@@ -36,6 +49,18 @@ func (s *Service) CommitCompaction(
 	if err := s.active.Tree.ValidateCompactionBoundary(compaction.FirstKeptEntryID, expectedLeafID); err != nil {
 		s.mutex.Unlock()
 		return session.Entry{}, err
+	}
+	// releaseRuntime ends runtime protection for the owning commit.
+	releaseRuntime := func() {}
+	if guard != nil {
+		// release ends runtime protection; err contains any protection failure.
+		release, err := guard()
+		if err != nil {
+			s.mutex.Unlock()
+			return session.Entry{}, fmt.Errorf("validate policy runtime before compaction commit: %w", err)
+		}
+		releaseRuntime = sync.OnceFunc(release)
+		defer releaseRuntime()
 	}
 	entry := session.Entry{
 		ID: "", ParentID: mo.None[string](), CreatedAt: time.Time{},
@@ -55,6 +80,10 @@ func (s *Service) CommitCompaction(
 	}
 	// Rebuild model context only after the durable tree contains the marker.
 	s.contextHistory = storedCompactedHistoryFromEntries(s.active.Tree.ActiveBranch())
+	if record != nil {
+		// Host needs the durable receipt even when publication fails.
+		record(committed)
+	}
 	var wait func(context.Context) error
 	var publishErr error
 	if s.publisher == nil {
@@ -63,6 +92,7 @@ func (s *Service) CommitCompaction(
 		wait, publishErr = s.publisher.PublishSessionEntry(committed)
 	}
 	s.mutex.Unlock()
+	releaseRuntime()
 	if publishErr != nil {
 		return committed, fmt.Errorf("publish committed compaction entry: %w", publishErr)
 	}

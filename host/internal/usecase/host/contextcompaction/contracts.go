@@ -11,7 +11,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -216,14 +215,30 @@ type ResultInvocation struct {
 	CurrentResult Result
 }
 
+// PolicyState contains acquired original and last valid composed values.
+type PolicyState struct {
+	// OriginalRequest contains the producer's immutable original request.
+	OriginalRequest Request
+	// CurrentRequest contains the last valid composed request.
+	CurrentRequest Request
+	// Result contains the last valid result, when present.
+	Result mo.Option[Result]
+}
+
+// Clone detaches the acquired diagnostic values.
+func (s PolicyState) Clone() PolicyState {
+	s.OriginalRequest = cloneRequest(s.OriginalRequest)
+	s.CurrentRequest = cloneRequest(s.CurrentRequest)
+	s.Result = cloneOptionalResult(s.Result)
+	return s
+}
+
 // OutcomeInvocation reports one terminal compaction outcome.
 type OutcomeInvocation struct {
-	// OriginalRequest is the immutable Host-produced request.
-	OriginalRequest Request
-	// CurrentRequest is the final valid request state.
-	CurrentRequest Request
-	// Result contains final output when one was validated.
-	Result mo.Option[Result]
+	// State contains acquired original and last valid composition values.
+	State mo.Option[PolicyState]
+	// ParentCompactionID correlates observer children with their owning lifetime.
+	ParentCompactionID string
 	// Committed contains durable state when persistence succeeded.
 	Committed mo.Option[session.Entry]
 	// Canceled reports explicit handler cancellation.
@@ -252,8 +267,6 @@ type Runtime interface {
 type ContextIssuer interface {
 	// IssueContext returns one binding for the extension and current active session.
 	IssueContext(extensionID string) (extension.Context, error)
-	// ValidateContext rejects a reference not issued to the runtime or no longer active.
-	ValidateContext(extensionID, runtimeID string, reference extension.ContextRef) error
 }
 
 // OperationResult retains durable state even when a post-commit observer fails.
@@ -262,24 +275,4 @@ type OperationResult struct {
 	Committed mo.Option[session.Entry]
 	// Canceled reports explicit handler cancellation before commit.
 	Canceled bool
-}
-
-// ManualModelSnapshot contains the model choices captured for one manual compaction.
-type ManualModelSnapshot struct {
-	// Model contains the active model descriptor.
-	Model model.Descriptor
-	// ReasoningChoice contains the active reasoning selection.
-	ReasoningChoice model.ReasoningChoice
-}
-
-// ManualModel supplies the current active model snapshot for manual compaction.
-type ManualModel interface {
-	// ManualCompactionModel returns one atomic model descriptor and reasoning snapshot.
-	ManualCompactionModel() ManualModelSnapshot
-}
-
-// ManualTools supplies the current available tool catalog for manual compaction.
-type ManualTools interface {
-	// Tools returns detached available descriptors in stable order.
-	Tools() []tool.Descriptor
 }

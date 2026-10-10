@@ -128,6 +128,9 @@ func mapHandleRequest(
 	//nolint:exhaustruct_v5 // The builder sets only the active operation payload.
 	builder := extensionpb.HandleRequest_builder{
 		Retry: nil, HandlerId: new(handlerID), Context: mapContext(request.Context),
+
+		ParentCompactionId: nil,
+		CompactionPolicy:   nil,
 	}
 	switch request.Kind {
 	case extensionruntime.InvocationRequest, extensionruntime.InvocationResult:

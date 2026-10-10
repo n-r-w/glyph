@@ -174,14 +174,15 @@ func (x SummaryMode) Number() protoreflect.EnumNumber {
 
 // HandleRequest invokes one registered handler with its typed payload.
 type HandleRequest struct {
-	state                  protoimpl.MessageState  `protogen:"opaque.v1"`
-	xxx_hidden_HandlerId   *string                 `protobuf:"bytes,1,opt,name=handler_id,json=handlerId"`
-	xxx_hidden_Context     *ExtensionContext       `protobuf:"bytes,5,opt,name=context"`
-	xxx_hidden_Payload     isHandleRequest_Payload `protobuf_oneof:"payload"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                         protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_HandlerId          *string                 `protobuf:"bytes,1,opt,name=handler_id,json=handlerId"`
+	xxx_hidden_Context            *ExtensionContext       `protobuf:"bytes,5,opt,name=context"`
+	xxx_hidden_ParentCompactionId *string                 `protobuf:"bytes,16,opt,name=parent_compaction_id,json=parentCompactionId"`
+	xxx_hidden_Payload            isHandleRequest_Payload `protobuf_oneof:"payload"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
 }
 
 func (x *HandleRequest) Reset() {
@@ -224,6 +225,16 @@ func (x *HandleRequest) GetContext() *ExtensionContext {
 		return x.xxx_hidden_Context
 	}
 	return nil
+}
+
+func (x *HandleRequest) GetParentCompactionId() string {
+	if x != nil {
+		if x.xxx_hidden_ParentCompactionId != nil {
+			return *x.xxx_hidden_ParentCompactionId
+		}
+		return ""
+	}
+	return ""
 }
 
 func (x *HandleRequest) GetSessionBeforeTreeRequest() *SessionBeforeTreeRequestInvocation {
@@ -334,13 +345,27 @@ func (x *HandleRequest) GetCompactionFailure() *CompactionOutcome {
 	return nil
 }
 
+func (x *HandleRequest) GetCompactionPolicy() *CompactionPolicyInvocation {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionPolicy); ok {
+			return x.CompactionPolicy
+		}
+	}
+	return nil
+}
+
 func (x *HandleRequest) SetHandlerId(v string) {
 	x.xxx_hidden_HandlerId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *HandleRequest) SetContext(v *ExtensionContext) {
 	x.xxx_hidden_Context = v
+}
+
+func (x *HandleRequest) SetParentCompactionId(v string) {
+	x.xxx_hidden_ParentCompactionId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
 }
 
 func (x *HandleRequest) SetSessionBeforeTreeRequest(v *SessionBeforeTreeRequestInvocation) {
@@ -439,6 +464,14 @@ func (x *HandleRequest) SetCompactionFailure(v *CompactionOutcome) {
 	x.xxx_hidden_Payload = &handleRequest_CompactionFailure{v}
 }
 
+func (x *HandleRequest) SetCompactionPolicy(v *CompactionPolicyInvocation) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &handleRequest_CompactionPolicy{v}
+}
+
 func (x *HandleRequest) HasHandlerId() bool {
 	if x == nil {
 		return false
@@ -451,6 +484,13 @@ func (x *HandleRequest) HasContext() bool {
 		return false
 	}
 	return x.xxx_hidden_Context != nil
+}
+
+func (x *HandleRequest) HasParentCompactionId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
 func (x *HandleRequest) HasPayload() bool {
@@ -556,6 +596,14 @@ func (x *HandleRequest) HasCompactionFailure() bool {
 	return ok
 }
 
+func (x *HandleRequest) HasCompactionPolicy() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionPolicy)
+	return ok
+}
+
 func (x *HandleRequest) ClearHandlerId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_HandlerId = nil
@@ -563,6 +611,11 @@ func (x *HandleRequest) ClearHandlerId() {
 
 func (x *HandleRequest) ClearContext() {
 	x.xxx_hidden_Context = nil
+}
+
+func (x *HandleRequest) ClearParentCompactionId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_ParentCompactionId = nil
 }
 
 func (x *HandleRequest) ClearPayload() {
@@ -641,6 +694,12 @@ func (x *HandleRequest) ClearCompactionFailure() {
 	}
 }
 
+func (x *HandleRequest) ClearCompactionPolicy() {
+	if _, ok := x.xxx_hidden_Payload.(*handleRequest_CompactionPolicy); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
 const HandleRequest_Payload_not_set_case case_HandleRequest_Payload = 0
 const HandleRequest_SessionBeforeTreeRequest_case case_HandleRequest_Payload = 2
 const HandleRequest_SessionBeforeTreeResult_case case_HandleRequest_Payload = 3
@@ -654,6 +713,7 @@ const HandleRequest_CompactionGenerate_case case_HandleRequest_Payload = 11
 const HandleRequest_CompactionResult_case case_HandleRequest_Payload = 12
 const HandleRequest_CompactionSuccess_case case_HandleRequest_Payload = 13
 const HandleRequest_CompactionFailure_case case_HandleRequest_Payload = 14
+const HandleRequest_CompactionPolicy_case case_HandleRequest_Payload = 15
 
 func (x *HandleRequest) WhichPayload() case_HandleRequest_Payload {
 	if x == nil {
@@ -684,6 +744,8 @@ func (x *HandleRequest) WhichPayload() case_HandleRequest_Payload {
 		return HandleRequest_CompactionSuccess_case
 	case *handleRequest_CompactionFailure:
 		return HandleRequest_CompactionFailure_case
+	case *handleRequest_CompactionPolicy:
+		return HandleRequest_CompactionPolicy_case
 	default:
 		return HandleRequest_Payload_not_set_case
 	}
@@ -696,6 +758,8 @@ type HandleRequest_builder struct {
 	HandlerId *string
 	// The issued session-bound context for this invocation.
 	Context *ExtensionContext
+	// The non-authorizing lifetime of the parent compaction operation.
+	ParentCompactionId *string
 	// The payload allowed for the registered handler kind.
 
 	// Fields of oneof xxx_hidden_Payload:
@@ -719,6 +783,8 @@ type HandleRequest_builder struct {
 	CompactionSuccess *CompactionOutcome
 	// A failed or canceled compaction observation.
 	CompactionFailure *CompactionOutcome
+	// The immutable input for the owning compaction policy.
+	CompactionPolicy *CompactionPolicyInvocation
 	// -- end of xxx_hidden_Payload
 }
 
@@ -727,10 +793,14 @@ func (b0 HandleRequest_builder) Build() *HandleRequest {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.HandlerId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_HandlerId = b.HandlerId
 	}
 	x.xxx_hidden_Context = b.Context
+	if b.ParentCompactionId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		x.xxx_hidden_ParentCompactionId = b.ParentCompactionId
+	}
 	if b.SessionBeforeTreeRequest != nil {
 		x.xxx_hidden_Payload = &handleRequest_SessionBeforeTreeRequest{b.SessionBeforeTreeRequest}
 	}
@@ -766,6 +836,9 @@ func (b0 HandleRequest_builder) Build() *HandleRequest {
 	}
 	if b.CompactionFailure != nil {
 		x.xxx_hidden_Payload = &handleRequest_CompactionFailure{b.CompactionFailure}
+	}
+	if b.CompactionPolicy != nil {
+		x.xxx_hidden_Payload = &handleRequest_CompactionPolicy{b.CompactionPolicy}
 	}
 	return m0
 }
@@ -840,6 +913,11 @@ type handleRequest_CompactionFailure struct {
 	CompactionFailure *CompactionOutcome `protobuf:"bytes,14,opt,name=compaction_failure,json=compactionFailure,oneof"`
 }
 
+type handleRequest_CompactionPolicy struct {
+	// The immutable input for the owning compaction policy.
+	CompactionPolicy *CompactionPolicyInvocation `protobuf:"bytes,15,opt,name=compaction_policy,json=compactionPolicy,oneof"`
+}
+
 func (*handleRequest_SessionBeforeTreeRequest) isHandleRequest_Payload() {}
 
 func (*handleRequest_SessionBeforeTreeResult) isHandleRequest_Payload() {}
@@ -863,6 +941,8 @@ func (*handleRequest_CompactionResult) isHandleRequest_Payload() {}
 func (*handleRequest_CompactionSuccess) isHandleRequest_Payload() {}
 
 func (*handleRequest_CompactionFailure) isHandleRequest_Payload() {}
+
+func (*handleRequest_CompactionPolicy) isHandleRequest_Payload() {}
 
 // HandleResponse returns one typed action or ordinary handler error.
 type HandleResponse struct {
@@ -1014,6 +1094,15 @@ func (x *HandleResponse) GetCompactionFailure() *CompactionObserverAction {
 	return nil
 }
 
+func (x *HandleResponse) GetCompactionPolicy() *CompactionPolicyResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionPolicy); ok {
+			return x.CompactionPolicy
+		}
+	}
+	return nil
+}
+
 func (x *HandleResponse) SetSessionBeforeTreeRequest(v *SessionBeforeTreeRequestAction) {
 	if v == nil {
 		x.xxx_hidden_Outcome = nil
@@ -1116,6 +1205,14 @@ func (x *HandleResponse) SetCompactionFailure(v *CompactionObserverAction) {
 		return
 	}
 	x.xxx_hidden_Outcome = &handleResponse_CompactionFailure{v}
+}
+
+func (x *HandleResponse) SetCompactionPolicy(v *CompactionPolicyResult) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &handleResponse_CompactionPolicy{v}
 }
 
 func (x *HandleResponse) HasOutcome() bool {
@@ -1229,6 +1326,14 @@ func (x *HandleResponse) HasCompactionFailure() bool {
 	return ok
 }
 
+func (x *HandleResponse) HasCompactionPolicy() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionPolicy)
+	return ok
+}
+
 func (x *HandleResponse) ClearOutcome() {
 	x.xxx_hidden_Outcome = nil
 }
@@ -1311,6 +1416,12 @@ func (x *HandleResponse) ClearCompactionFailure() {
 	}
 }
 
+func (x *HandleResponse) ClearCompactionPolicy() {
+	if _, ok := x.xxx_hidden_Outcome.(*handleResponse_CompactionPolicy); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
 const HandleResponse_Outcome_not_set_case case_HandleResponse_Outcome = 0
 const HandleResponse_SessionBeforeTreeRequest_case case_HandleResponse_Outcome = 1
 const HandleResponse_SessionBeforeTreeResult_case case_HandleResponse_Outcome = 2
@@ -1325,6 +1436,7 @@ const HandleResponse_CompactionGenerate_case case_HandleResponse_Outcome = 10
 const HandleResponse_CompactionResult_case case_HandleResponse_Outcome = 11
 const HandleResponse_CompactionSuccess_case case_HandleResponse_Outcome = 12
 const HandleResponse_CompactionFailure_case case_HandleResponse_Outcome = 13
+const HandleResponse_CompactionPolicy_case case_HandleResponse_Outcome = 14
 
 func (x *HandleResponse) WhichOutcome() case_HandleResponse_Outcome {
 	if x == nil {
@@ -1357,6 +1469,8 @@ func (x *HandleResponse) WhichOutcome() case_HandleResponse_Outcome {
 		return HandleResponse_CompactionSuccess_case
 	case *handleResponse_CompactionFailure:
 		return HandleResponse_CompactionFailure_case
+	case *handleResponse_CompactionPolicy:
+		return HandleResponse_CompactionPolicy_case
 	default:
 		return HandleResponse_Outcome_not_set_case
 	}
@@ -1389,6 +1503,8 @@ type HandleResponse_builder struct {
 	CompactionSuccess *CompactionObserverAction
 	// A failed compaction acknowledgement.
 	CompactionFailure *CompactionObserverAction
+	// The policy completion acknowledgement.
+	CompactionPolicy *CompactionPolicyResult
 	// -- end of xxx_hidden_Outcome
 }
 
@@ -1434,6 +1550,9 @@ func (b0 HandleResponse_builder) Build() *HandleResponse {
 	}
 	if b.CompactionFailure != nil {
 		x.xxx_hidden_Outcome = &handleResponse_CompactionFailure{b.CompactionFailure}
+	}
+	if b.CompactionPolicy != nil {
+		x.xxx_hidden_Outcome = &handleResponse_CompactionPolicy{b.CompactionPolicy}
 	}
 	return m0
 }
@@ -1512,6 +1631,11 @@ type handleResponse_CompactionFailure struct {
 	CompactionFailure *CompactionObserverAction `protobuf:"bytes,13,opt,name=compaction_failure,json=compactionFailure,oneof"`
 }
 
+type handleResponse_CompactionPolicy struct {
+	// The policy completion acknowledgement.
+	CompactionPolicy *CompactionPolicyResult `protobuf:"bytes,14,opt,name=compaction_policy,json=compactionPolicy,oneof"`
+}
+
 func (*handleResponse_SessionBeforeTreeRequest) isHandleResponse_Outcome() {}
 
 func (*handleResponse_SessionBeforeTreeResult) isHandleResponse_Outcome() {}
@@ -1537,6 +1661,8 @@ func (*handleResponse_CompactionResult) isHandleResponse_Outcome() {}
 func (*handleResponse_CompactionSuccess) isHandleResponse_Outcome() {}
 
 func (*handleResponse_CompactionFailure) isHandleResponse_Outcome() {}
+
+func (*handleResponse_CompactionPolicy) isHandleResponse_Outcome() {}
 
 // HandlerError reports one ordinary handler failure without invalidating the extension runtime.
 type HandlerError struct {
@@ -2985,12 +3111,12 @@ var File_api_plugins_extension_v1_session_tree_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\n" +
-	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a)api/plugins/extension/v1/compaction.proto\x1a&api/plugins/extension/v1/context.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a$api/plugins/extension/v1/retry.proto\x1a,api/plugins/extension/v1/session_entry.proto\"\xc0\n" +
-	"\n" +
+	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a)api/plugins/extension/v1/compaction.proto\x1a&api/plugins/extension/v1/context.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a$api/plugins/extension/v1/retry.proto\x1a,api/plugins/extension/v1/session_entry.proto\"\xd9\v\n" +
 	"\rHandleRequest\x12\x1d\n" +
 	"\n" +
 	"handler_id\x18\x01 \x01(\tR\thandlerId\x12F\n" +
-	"\acontext\x18\x05 \x01(\v2,.glyph.plugins.extension.v1.ExtensionContextR\acontext\x12\x7f\n" +
+	"\acontext\x18\x05 \x01(\v2,.glyph.plugins.extension.v1.ExtensionContextR\acontext\x120\n" +
+	"\x14parent_compaction_id\x18\x10 \x01(\tR\x12parentCompactionId\x12\x7f\n" +
 	"\x1bsession_before_tree_request\x18\x02 \x01(\v2>.glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocationH\x00R\x18sessionBeforeTreeRequest\x12|\n" +
 	"\x1asession_before_tree_result\x18\x03 \x01(\v2=.glyph.plugins.extension.v1.SessionBeforeTreeResultInvocationH\x00R\x17sessionBeforeTreeResult\x12V\n" +
 	"\fsession_tree\x18\x04 \x01(\v21.glyph.plugins.extension.v1.SessionTreeInvocationH\x00R\vsessionTree\x12O\n" +
@@ -3003,8 +3129,10 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\x13compaction_generate\x18\v \x01(\v27.glyph.plugins.extension.v1.CompactionRequestInvocationH\x00R\x12compactionGenerate\x12e\n" +
 	"\x11compaction_result\x18\f \x01(\v26.glyph.plugins.extension.v1.CompactionResultInvocationH\x00R\x10compactionResult\x12^\n" +
 	"\x12compaction_success\x18\r \x01(\v2-.glyph.plugins.extension.v1.CompactionOutcomeH\x00R\x11compactionSuccess\x12^\n" +
-	"\x12compaction_failure\x18\x0e \x01(\v2-.glyph.plugins.extension.v1.CompactionOutcomeH\x00R\x11compactionFailureB\t\n" +
-	"\apayload\"\xfb\t\n" +
+	"\x12compaction_failure\x18\x0e \x01(\v2-.glyph.plugins.extension.v1.CompactionOutcomeH\x00R\x11compactionFailure\x12e\n" +
+	"\x11compaction_policy\x18\x0f \x01(\v26.glyph.plugins.extension.v1.CompactionPolicyInvocationH\x00R\x10compactionPolicyB\t\n" +
+	"\apayload\"\xde\n" +
+	"\n" +
 	"\x0eHandleResponse\x12{\n" +
 	"\x1bsession_before_tree_request\x18\x01 \x01(\v2:.glyph.plugins.extension.v1.SessionBeforeTreeRequestActionH\x00R\x18sessionBeforeTreeRequest\x12x\n" +
 	"\x1asession_before_tree_result\x18\x02 \x01(\v29.glyph.plugins.extension.v1.SessionBeforeTreeResultActionH\x00R\x17sessionBeforeTreeResult\x12R\n" +
@@ -3019,7 +3147,8 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	" \x01(\v2,.glyph.plugins.extension.v1.CompactionResultH\x00R\x12compactionGenerate\x12a\n" +
 	"\x11compaction_result\x18\v \x01(\v22.glyph.plugins.extension.v1.CompactionResultActionH\x00R\x10compactionResult\x12e\n" +
 	"\x12compaction_success\x18\f \x01(\v24.glyph.plugins.extension.v1.CompactionObserverActionH\x00R\x11compactionSuccess\x12e\n" +
-	"\x12compaction_failure\x18\r \x01(\v24.glyph.plugins.extension.v1.CompactionObserverActionH\x00R\x11compactionFailureB\t\n" +
+	"\x12compaction_failure\x18\r \x01(\v24.glyph.plugins.extension.v1.CompactionObserverActionH\x00R\x11compactionFailure\x12a\n" +
+	"\x11compaction_policy\x18\x0e \x01(\v22.glyph.plugins.extension.v1.CompactionPolicyResultH\x00R\x10compactionPolicyB\t\n" +
 	"\aoutcome\"(\n" +
 	"\fHandlerError\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\x90\x04\n" +
@@ -3106,17 +3235,19 @@ var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
 	(*CompactionRequestInvocation)(nil),        // 18: glyph.plugins.extension.v1.CompactionRequestInvocation
 	(*CompactionResultInvocation)(nil),         // 19: glyph.plugins.extension.v1.CompactionResultInvocation
 	(*CompactionOutcome)(nil),                  // 20: glyph.plugins.extension.v1.CompactionOutcome
-	(*LifecycleAction)(nil),                    // 21: glyph.plugins.extension.v1.LifecycleAction
-	(*SelectionHandlerAction)(nil),             // 22: glyph.plugins.extension.v1.SelectionHandlerAction
-	(*RetryHandlerAction)(nil),                 // 23: glyph.plugins.extension.v1.RetryHandlerAction
-	(*CompactionRequestAction)(nil),            // 24: glyph.plugins.extension.v1.CompactionRequestAction
-	(*CompactionResult)(nil),                   // 25: glyph.plugins.extension.v1.CompactionResult
-	(*CompactionResultAction)(nil),             // 26: glyph.plugins.extension.v1.CompactionResultAction
-	(*CompactionObserverAction)(nil),           // 27: glyph.plugins.extension.v1.CompactionObserverAction
-	(*BranchSummaryResult)(nil),                // 28: glyph.plugins.extension.v1.BranchSummaryResult
-	(*CommittedBranchSummary)(nil),             // 29: glyph.plugins.extension.v1.CommittedBranchSummary
-	(*ModelSelection)(nil),                     // 30: glyph.plugins.extension.v1.ModelSelection
-	(*SessionTreeEntry)(nil),                   // 31: glyph.plugins.extension.v1.SessionTreeEntry
+	(*CompactionPolicyInvocation)(nil),         // 21: glyph.plugins.extension.v1.CompactionPolicyInvocation
+	(*LifecycleAction)(nil),                    // 22: glyph.plugins.extension.v1.LifecycleAction
+	(*SelectionHandlerAction)(nil),             // 23: glyph.plugins.extension.v1.SelectionHandlerAction
+	(*RetryHandlerAction)(nil),                 // 24: glyph.plugins.extension.v1.RetryHandlerAction
+	(*CompactionRequestAction)(nil),            // 25: glyph.plugins.extension.v1.CompactionRequestAction
+	(*CompactionResult)(nil),                   // 26: glyph.plugins.extension.v1.CompactionResult
+	(*CompactionResultAction)(nil),             // 27: glyph.plugins.extension.v1.CompactionResultAction
+	(*CompactionObserverAction)(nil),           // 28: glyph.plugins.extension.v1.CompactionObserverAction
+	(*CompactionPolicyResult)(nil),             // 29: glyph.plugins.extension.v1.CompactionPolicyResult
+	(*BranchSummaryResult)(nil),                // 30: glyph.plugins.extension.v1.BranchSummaryResult
+	(*CommittedBranchSummary)(nil),             // 31: glyph.plugins.extension.v1.CommittedBranchSummary
+	(*ModelSelection)(nil),                     // 32: glyph.plugins.extension.v1.ModelSelection
+	(*SessionTreeEntry)(nil),                   // 33: glyph.plugins.extension.v1.SessionTreeEntry
 }
 var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	14, // 0: glyph.plugins.extension.v1.HandleRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
@@ -3132,45 +3263,47 @@ var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	19, // 10: glyph.plugins.extension.v1.HandleRequest.compaction_result:type_name -> glyph.plugins.extension.v1.CompactionResultInvocation
 	20, // 11: glyph.plugins.extension.v1.HandleRequest.compaction_success:type_name -> glyph.plugins.extension.v1.CompactionOutcome
 	20, // 12: glyph.plugins.extension.v1.HandleRequest.compaction_failure:type_name -> glyph.plugins.extension.v1.CompactionOutcome
-	9,  // 13: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
-	10, // 14: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
-	11, // 15: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
-	5,  // 16: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
-	21, // 17: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
-	22, // 18: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	22, // 19: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	23, // 20: glyph.plugins.extension.v1.HandleResponse.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerAction
-	24, // 21: glyph.plugins.extension.v1.HandleResponse.compaction_request:type_name -> glyph.plugins.extension.v1.CompactionRequestAction
-	25, // 22: glyph.plugins.extension.v1.HandleResponse.compaction_generate:type_name -> glyph.plugins.extension.v1.CompactionResult
-	26, // 23: glyph.plugins.extension.v1.HandleResponse.compaction_result:type_name -> glyph.plugins.extension.v1.CompactionResultAction
-	27, // 24: glyph.plugins.extension.v1.HandleResponse.compaction_success:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
-	27, // 25: glyph.plugins.extension.v1.HandleResponse.compaction_failure:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
-	12, // 26: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	13, // 27: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	12, // 28: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	13, // 29: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	28, // 30: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	12, // 31: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	13, // 32: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	12, // 33: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	13, // 34: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	28, // 35: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	28, // 36: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	29, // 37: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
-	0,  // 38: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
-	12, // 39: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	1,  // 40: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	28, // 41: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	1,  // 42: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	28, // 43: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	2,  // 44: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
-	30, // 45: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
-	31, // 46: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
-	47, // [47:47] is the sub-list for method output_type
-	47, // [47:47] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	21, // 13: glyph.plugins.extension.v1.HandleRequest.compaction_policy:type_name -> glyph.plugins.extension.v1.CompactionPolicyInvocation
+	9,  // 14: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
+	10, // 15: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
+	11, // 16: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
+	5,  // 17: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
+	22, // 18: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
+	23, // 19: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	23, // 20: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	24, // 21: glyph.plugins.extension.v1.HandleResponse.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerAction
+	25, // 22: glyph.plugins.extension.v1.HandleResponse.compaction_request:type_name -> glyph.plugins.extension.v1.CompactionRequestAction
+	26, // 23: glyph.plugins.extension.v1.HandleResponse.compaction_generate:type_name -> glyph.plugins.extension.v1.CompactionResult
+	27, // 24: glyph.plugins.extension.v1.HandleResponse.compaction_result:type_name -> glyph.plugins.extension.v1.CompactionResultAction
+	28, // 25: glyph.plugins.extension.v1.HandleResponse.compaction_success:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
+	28, // 26: glyph.plugins.extension.v1.HandleResponse.compaction_failure:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
+	29, // 27: glyph.plugins.extension.v1.HandleResponse.compaction_policy:type_name -> glyph.plugins.extension.v1.CompactionPolicyResult
+	12, // 28: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 29: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	12, // 30: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 31: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	30, // 32: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	12, // 33: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 34: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	12, // 35: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 36: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	30, // 37: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	30, // 38: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	31, // 39: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
+	0,  // 40: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
+	12, // 41: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	1,  // 42: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	30, // 43: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	1,  // 44: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	30, // 45: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	2,  // 46: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
+	32, // 47: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
+	33, // 48: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
+	49, // [49:49] is the sub-list for method output_type
+	49, // [49:49] is the sub-list for method input_type
+	49, // [49:49] is the sub-list for extension type_name
+	49, // [49:49] is the sub-list for extension extendee
+	0,  // [0:49] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_tree_proto_init() }
@@ -3197,6 +3330,7 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*handleRequest_CompactionResult)(nil),
 		(*handleRequest_CompactionSuccess)(nil),
 		(*handleRequest_CompactionFailure)(nil),
+		(*handleRequest_CompactionPolicy)(nil),
 	}
 	file_api_plugins_extension_v1_session_tree_proto_msgTypes[1].OneofWrappers = []any{
 		(*handleResponse_SessionBeforeTreeRequest)(nil),
@@ -3212,6 +3346,7 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*handleResponse_CompactionResult)(nil),
 		(*handleResponse_CompactionSuccess)(nil),
 		(*handleResponse_CompactionFailure)(nil),
+		(*handleResponse_CompactionPolicy)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

@@ -8,15 +8,11 @@ import (
 
 	"github.com/samber/mo"
 
-	controllerextension "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
 // defaultRetainedContextBudget is the Host fallback for recent context retained after compaction.
@@ -46,37 +42,24 @@ type Service struct {
 	contexts ContextIssuer
 	// retainedBudget is the configured recent-context target.
 	retainedBudget int64
-	// manualModel supplies the active model snapshot for manual operations.
-	manualModel ManualModel
-	// manualTools supplies the active tool catalog for manual operations.
-	manualTools ManualTools
-	// manualInstructions contains the resolved agent instructions used by manual operations.
-	manualInstructions string
 	// baseline contains at most one completed conversation usage observation.
 	baseline mo.Option[reportedUsageBaseline]
 }
 
 var (
-	_ controllerextension.CompactionOperations = (*Service)(nil)
-	_ modelexecution.ConversationContext       = (*Service)(nil)
-	_ modelexecution.ContextPreparation        = (*Service)(nil)
-	_ programmatic.Compactor                   = (*Service)(nil)
-	_ startup.CompactionRegistrar              = (*Service)(nil)
-	_ ui.Compactor                             = (*Service)(nil)
+	_ modelexecution.ConversationContext = (*Service)(nil)
+	_ modelexecution.ContextPreparation  = (*Service)(nil)
 )
 
 // New creates the context-compaction owner.
 func New(sessions SessionState) *Service {
 	return &Service{
-		mutex:              sync.Mutex{},
-		sessions:           sessions,
-		runtime:            nil,
-		contexts:           nil,
-		retainedBudget:     defaultRetainedContextBudget,
-		manualModel:        nil,
-		manualTools:        nil,
-		manualInstructions: "",
-		baseline:           mo.None[reportedUsageBaseline](),
+		mutex:          sync.Mutex{},
+		sessions:       sessions,
+		runtime:        nil,
+		contexts:       nil,
+		retainedBudget: defaultRetainedContextBudget,
+		baseline:       mo.None[reportedUsageBaseline](),
 	}
 }
 
@@ -94,20 +77,6 @@ func (s *Service) BindOrchestration(runtime Runtime, contexts ContextIssuer, ret
 	s.runtime = runtime
 	s.contexts = contexts
 	s.retainedBudget = retainedBudget
-	return nil
-}
-
-// BindManualRequest connects active model, tools, and resolved instructions for manual operations.
-func (s *Service) BindManualRequest(modelSource ManualModel, tools ManualTools, instructions string) error {
-	if s.manualModel != nil || s.manualTools != nil {
-		return errors.New("manual compaction request sources are already bound")
-	}
-	if modelSource == nil || tools == nil {
-		return errors.New("manual compaction model and tools are required")
-	}
-	s.manualModel = modelSource
-	s.manualTools = tools
-	s.manualInstructions = instructions
 	return nil
 }
 

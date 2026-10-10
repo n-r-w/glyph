@@ -132,6 +132,9 @@ func TestCanceledServerSendUsesActualConfirmationAtCollection(t *testing.T) {
 							SessionId: new("session"), TargetEntryId: new("target"), PrecedingActiveLeafId: nil,
 							NavigationDestinationId: nil, CommittedActiveLeafId: nil, CreatedSummary: nil,
 						}.Build(),
+
+						ParentCompactionId: nil,
+						CompactionPolicy:   nil,
 					}.Build())
 					request := new(extensionpb.OpenRequest)
 					request.SetOperationId(id)

@@ -7,37 +7,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
-
-// appendCompactionHandler adds one accepted capability to its registration-order group.
-func appendCompactionHandler(
-	set *contextcompaction.HandlerSet,
-	handler contextcompaction.Handler,
-	kind startup.RawHandlerKind,
-) {
-	switch kind {
-	case startup.RawHandlerKindCompactionRequest:
-		set.Requests = append(set.Requests, handler)
-	case startup.RawHandlerKindCompactionGenerate:
-		set.Generators = append(set.Generators, handler)
-	case startup.RawHandlerKindCompactionResult:
-		set.Results = append(set.Results, handler)
-	case startup.RawHandlerKindCompactionSuccess:
-		set.Successes = append(set.Successes, handler)
-	case startup.RawHandlerKindCompactionFailure:
-		set.Failures = append(set.Failures, handler)
-	case startup.RawHandlerKindUnspecified, startup.RawHandlerKindSessionBeforeTreeRequest,
-		startup.RawHandlerKindSessionBeforeTreeResult, startup.RawHandlerKindSessionTree,
-		startup.RawHandlerKindAgentStart, startup.RawHandlerKindAgentEnd, startup.RawHandlerKindAgentSettled,
-		startup.RawHandlerKindTurnStart, startup.RawHandlerKindTurnEnd, startup.RawHandlerKindMessageStart,
-		startup.RawHandlerKindMessageUpdate, startup.RawHandlerKindMessageEnd,
-		startup.RawHandlerKindToolExecutionStart, startup.RawHandlerKindToolExecutionUpdate,
-		startup.RawHandlerKindToolExecutionEnd, startup.RawHandlerKindModelSelection,
-		startup.RawHandlerKindReasoningSelection, startup.RawHandlerKindModelSelectionObserver,
-		startup.RawHandlerKindReasoningSelectionObserver, startup.RawHandlerKindRetry:
-	}
-}
 
 // SnapshotCompactionHandlers captures accepted registration membership and runtime generations.
 func (s *Service) SnapshotCompactionHandlers() contextcompaction.HandlerSet {

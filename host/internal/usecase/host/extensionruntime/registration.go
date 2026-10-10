@@ -3,6 +3,10 @@ package extensionruntime
 import (
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
@@ -93,10 +97,93 @@ func (s *Service) bindRegistration(candidate Candidate, raw Registration) startu
 		value, present := descriptor.Get()
 		kind := startup.RawHandlerKindUnspecified
 		if value.Kind >= int32(startup.RawHandlerKindSessionBeforeTreeRequest) &&
-			value.Kind <= int32(startup.RawHandlerKindCompactionFailure) {
+			value.Kind <= int32(startup.RawHandlerKindCompactionPolicy) {
 			kind = startup.RawHandlerKind(value.Kind)
 		}
 		handlers[index] = startup.RawHandlerDescriptor{Present: present, ID: value.ID, Kind: kind}
 	}
 	return startup.PendingRegistration{ID: candidate.ID, Path: candidate.Path, Tools: tools, Handlers: handlers}
+}
+
+// Accept marks fully validated pending runtimes available.
+func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
+	s.mutex.Lock()
+	if s.closing {
+		s.mutex.Unlock()
+		return
+	}
+	observed := make(map[string]*runtimeState)
+	retryHandlers := make([]modelexecution.RetryHandler, 0)
+	// policies contains policy identities in accepted registration order.
+	policies := make([]extensioncontext.PolicyOwner, 0)
+	compactionHandlers := contextcompaction.HandlerSet{
+		Requests: nil, Generators: nil, Results: nil, Successes: nil, Failures: nil,
+	}
+	// collectors contains the supported registration-kind destinations.
+	collectors := map[startup.RawHandlerKind]func(contextcompaction.Handler){
+		startup.RawHandlerKindCompactionPolicy: func(handler contextcompaction.Handler) {
+			policies = append(
+				policies,
+				extensioncontext.PolicyOwner{
+					ExtensionID: handler.ExtensionID,
+					RuntimeID:   handler.RuntimeID,
+					HandlerID:   handler.HandlerID,
+				},
+			)
+		},
+		startup.RawHandlerKindRetry: func(handler contextcompaction.Handler) {
+			retryHandlers = append(
+				retryHandlers,
+				modelexecution.RetryHandler{
+					ExtensionID: handler.ExtensionID,
+					RuntimeID:   handler.RuntimeID,
+					HandlerID:   handler.HandlerID,
+				},
+			)
+		},
+		startup.RawHandlerKindCompactionRequest: func(handler contextcompaction.Handler) {
+			compactionHandlers.Requests = append(compactionHandlers.Requests, handler)
+		},
+		startup.RawHandlerKindCompactionGenerate: func(handler contextcompaction.Handler) {
+			compactionHandlers.Generators = append(compactionHandlers.Generators, handler)
+		},
+		startup.RawHandlerKindCompactionResult: func(handler contextcompaction.Handler) {
+			compactionHandlers.Results = append(compactionHandlers.Results, handler)
+		},
+		startup.RawHandlerKindCompactionSuccess: func(handler contextcompaction.Handler) {
+			compactionHandlers.Successes = append(compactionHandlers.Successes, handler)
+		},
+		startup.RawHandlerKindCompactionFailure: func(handler contextcompaction.Handler) {
+			compactionHandlers.Failures = append(compactionHandlers.Failures, handler)
+		},
+	}
+	for _, registration := range registrations {
+		if state, exists := s.runtimes[registration.ID]; exists && !state.isInvalidated() {
+			state.available = true
+			for _, handler := range registration.Handlers {
+				// collect identifies the registration destination; supported indicates a collected capability kind.
+				if collect, supported := collectors[handler.Kind]; supported {
+					collect(
+						contextcompaction.Handler{
+							ExtensionID: registration.ID,
+							RuntimeID:   state.instanceID,
+							HandlerID:   handler.ID,
+						},
+					)
+				}
+			}
+			if s.monitoring && !state.observed {
+				state.observed = true
+				observed[registration.ID] = state
+			}
+		}
+	}
+	s.retryHandlers = retryHandlers
+	s.compactionHandlers = compactionHandlers
+	s.compactionPolicies = policies
+	ctx := s.monitorContext
+	s.mutex.Unlock()
+	for extensionID, state := range observed {
+		go s.monitor(ctx, extensionID, state, state.runtime.Done())
+	}
 }

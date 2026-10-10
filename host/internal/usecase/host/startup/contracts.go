@@ -142,6 +142,8 @@ const (
 	RawHandlerKindCompactionSuccess RawHandlerKind = 23
 	// RawHandlerKindCompactionFailure identifies one failed-compaction observer.
 	RawHandlerKindCompactionFailure RawHandlerKind = 24
+	// RawHandlerKindCompactionPolicy identifies the registered compaction policy owner.
+	RawHandlerKindCompactionPolicy RawHandlerKind = 25
 )
 
 // RawHandlerDescriptor contains transport-mapped handler registration data.

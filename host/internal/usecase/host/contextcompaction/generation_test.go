@@ -62,7 +62,7 @@ func TestPrepareContextRejectsPostCommitGrowthAboveCapturedBudget(t *testing.T) 
 		}, nil,
 	)
 	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(
-		[]agent.HistoryEntry{textHistory("small compacted request")},
+		[]agent.HistoryEntry{textHistory("small compacted request")}, nil,
 	).AnyTimes()
 	committed := compactionMarkerEntry("compaction", "u2", ready)
 	sessions.EXPECT().CommitCompaction(gomock.Any(), identity, mo.Some("u2"), gomock.Any()).Return(committed, nil)
@@ -131,7 +131,7 @@ func TestCompactResultClearingInvokesGenerator(t *testing.T) {
 			},
 		),
 	)
-	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History).AnyTimes()
+	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History, nil).AnyTimes()
 	committed := compactionMarkerEntry("compaction", "kept", generated)
 	sessions.EXPECT().CommitCompaction(gomock.Any(), identity, mo.Some("kept"), gomock.Any()).Return(committed, nil)
 	service := New(sessions)
@@ -266,7 +266,7 @@ func TestCompactGeneratorAndConcurrentCancellation(t *testing.T) {
 			}, Details: mo.None[[]byte](),
 		}
 		runtime.EXPECT().GenerateCompaction(gomock.Any(), generator, gomock.Any(), gomock.Any()).Return(generated, nil)
-		sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History).AnyTimes()
+		sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History, nil).AnyTimes()
 		committed := compactionMarkerEntry("compact", "kept", generated)
 		sessions.EXPECT().CommitCompaction(gomock.Any(), identity, mo.Some("kept"), gomock.Any()).Return(committed, nil)
 		service := New(sessions)

@@ -17,6 +17,8 @@ import (
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
+	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
+	extensionv10 "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -533,4 +535,128 @@ func (m *MockRuntimeOperations) BeginContextOperation(ctx context.Context, exten
 func (mr *MockRuntimeOperationsMockRecorder) BeginContextOperation(ctx, extensionID, runtimeID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginContextOperation", reflect.TypeOf((*MockRuntimeOperations)(nil).BeginContextOperation), ctx, extensionID, runtimeID)
+}
+
+// MockCompactionPolicyOperations is a mock of CompactionPolicyOperations interface.
+type MockCompactionPolicyOperations struct {
+	ctrl     *gomock.Controller
+	recorder *MockCompactionPolicyOperationsMockRecorder
+	isgomock struct{}
+}
+
+// MockCompactionPolicyOperationsMockRecorder is the mock recorder for MockCompactionPolicyOperations.
+type MockCompactionPolicyOperationsMockRecorder struct {
+	mock *MockCompactionPolicyOperations
+}
+
+// NewMockCompactionPolicyOperations creates a new mock instance.
+func NewMockCompactionPolicyOperations(ctrl *gomock.Controller) *MockCompactionPolicyOperations {
+	mock := &MockCompactionPolicyOperations{ctrl: ctrl}
+	mock.recorder = &MockCompactionPolicyOperationsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockCompactionPolicyOperations) EXPECT() *MockCompactionPolicyOperationsMockRecorder {
+	return m.recorder
+}
+
+// BeginCompactionChild mocks base method.
+func (m *MockCompactionPolicyOperations) BeginCompactionChild(extensionID, runtimeID, operationID string) (func(error), error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BeginCompactionChild", extensionID, runtimeID, operationID)
+	ret0, _ := ret[0].(func(error))
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BeginCompactionChild indicates an expected call of BeginCompactionChild.
+func (mr *MockCompactionPolicyOperationsMockRecorder) BeginCompactionChild(extensionID, runtimeID, operationID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginCompactionChild", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).BeginCompactionChild), extensionID, runtimeID, operationID)
+}
+
+// CommitPolicyReplacement mocks base method.
+func (m *MockCompactionPolicyOperations) CommitPolicyReplacement(ctx context.Context, extensionID, runtimeID, operationID string, candidate session.CompactionEntry) (session.Entry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CommitPolicyReplacement", ctx, extensionID, runtimeID, operationID, candidate)
+	ret0, _ := ret[0].(session.Entry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CommitPolicyReplacement indicates an expected call of CommitPolicyReplacement.
+func (mr *MockCompactionPolicyOperationsMockRecorder) CommitPolicyReplacement(ctx, extensionID, runtimeID, operationID, candidate any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitPolicyReplacement", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).CommitPolicyReplacement), ctx, extensionID, runtimeID, operationID, candidate)
+}
+
+// LinkCompactionChild mocks base method.
+func (m *MockCompactionPolicyOperations) LinkCompactionChild(ctx context.Context, extensionID, runtimeID, operationID string) (context.Context, func(), error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "LinkCompactionChild", ctx, extensionID, runtimeID, operationID)
+	ret0, _ := ret[0].(context.Context)
+	ret1, _ := ret[1].(func())
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// LinkCompactionChild indicates an expected call of LinkCompactionChild.
+func (mr *MockCompactionPolicyOperationsMockRecorder) LinkCompactionChild(ctx, extensionID, runtimeID, operationID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "LinkCompactionChild", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).LinkCompactionChild), ctx, extensionID, runtimeID, operationID)
+}
+
+// ProjectPolicyReplacement mocks base method.
+func (m *MockCompactionPolicyOperations) ProjectPolicyReplacement(ctx context.Context, extensionID, runtimeID, operationID string, candidate session.CompactionEntry) ([]agent.HistoryEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProjectPolicyReplacement", ctx, extensionID, runtimeID, operationID, candidate)
+	ret0, _ := ret[0].([]agent.HistoryEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProjectPolicyReplacement indicates an expected call of ProjectPolicyReplacement.
+func (mr *MockCompactionPolicyOperationsMockRecorder) ProjectPolicyReplacement(ctx, extensionID, runtimeID, operationID, candidate any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProjectPolicyReplacement", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).ProjectPolicyReplacement), ctx, extensionID, runtimeID, operationID, candidate)
+}
+
+// MockcontextAction is a mock of contextAction interface.
+type MockcontextAction struct {
+	ctrl     *gomock.Controller
+	recorder *MockcontextActionMockRecorder
+	isgomock struct{}
+}
+
+// MockcontextActionMockRecorder is the mock recorder for MockcontextAction.
+type MockcontextActionMockRecorder struct {
+	mock *MockcontextAction
+}
+
+// NewMockcontextAction creates a new mock instance.
+func NewMockcontextAction(ctrl *gomock.Controller) *MockcontextAction {
+	mock := &MockcontextAction{ctrl: ctrl}
+	mock.recorder = &MockcontextActionMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockcontextAction) EXPECT() *MockcontextActionMockRecorder {
+	return m.recorder
+}
+
+// Run mocks base method.
+func (m *MockcontextAction) Run(arg0 context.Context, arg1 *extensionv10.HostProgressReporter) (*extensionv1.HostCompleted, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Run", arg0, arg1)
+	ret0, _ := ret[0].(*extensionv1.HostCompleted)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Run indicates an expected call of Run.
+func (mr *MockcontextActionMockRecorder) Run(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockcontextAction)(nil).Run), arg0, arg1)
 }

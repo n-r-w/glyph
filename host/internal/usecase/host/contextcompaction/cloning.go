@@ -58,9 +58,7 @@ func cloneHandlerSet(set HandlerSet) HandlerSet {
 
 // cloneOutcome detaches every mutable outcome value.
 func cloneOutcome(outcome OutcomeInvocation) OutcomeInvocation {
-	outcome.OriginalRequest = cloneRequest(outcome.OriginalRequest)
-	outcome.CurrentRequest = cloneRequest(outcome.CurrentRequest)
-	outcome.Result = cloneOptionalResult(outcome.Result)
+	outcome.State = outcome.State.MapValue(PolicyState.Clone)
 	outcome.Committed = outcome.Committed.MapValue(session.Entry.Clone)
 	return outcome
 }

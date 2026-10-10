@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
-	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -166,94 +165,4 @@ func (m *MockContextIssuer) IssueContext(extensionID string) (extension.Context,
 func (mr *MockContextIssuerMockRecorder) IssueContext(extensionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueContext", reflect.TypeOf((*MockContextIssuer)(nil).IssueContext), extensionID)
-}
-
-// ValidateContext mocks base method.
-func (m *MockContextIssuer) ValidateContext(extensionID, runtimeID string, reference extension.ContextRef) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ValidateContext", extensionID, runtimeID, reference)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// ValidateContext indicates an expected call of ValidateContext.
-func (mr *MockContextIssuerMockRecorder) ValidateContext(extensionID, runtimeID, reference any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateContext", reflect.TypeOf((*MockContextIssuer)(nil).ValidateContext), extensionID, runtimeID, reference)
-}
-
-// MockManualModel is a mock of ManualModel interface.
-type MockManualModel struct {
-	ctrl     *gomock.Controller
-	recorder *MockManualModelMockRecorder
-	isgomock struct{}
-}
-
-// MockManualModelMockRecorder is the mock recorder for MockManualModel.
-type MockManualModelMockRecorder struct {
-	mock *MockManualModel
-}
-
-// NewMockManualModel creates a new mock instance.
-func NewMockManualModel(ctrl *gomock.Controller) *MockManualModel {
-	mock := &MockManualModel{ctrl: ctrl}
-	mock.recorder = &MockManualModelMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockManualModel) EXPECT() *MockManualModelMockRecorder {
-	return m.recorder
-}
-
-// ManualCompactionModel mocks base method.
-func (m *MockManualModel) ManualCompactionModel() ManualModelSnapshot {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ManualCompactionModel")
-	ret0, _ := ret[0].(ManualModelSnapshot)
-	return ret0
-}
-
-// ManualCompactionModel indicates an expected call of ManualCompactionModel.
-func (mr *MockManualModelMockRecorder) ManualCompactionModel() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ManualCompactionModel", reflect.TypeOf((*MockManualModel)(nil).ManualCompactionModel))
-}
-
-// MockManualTools is a mock of ManualTools interface.
-type MockManualTools struct {
-	ctrl     *gomock.Controller
-	recorder *MockManualToolsMockRecorder
-	isgomock struct{}
-}
-
-// MockManualToolsMockRecorder is the mock recorder for MockManualTools.
-type MockManualToolsMockRecorder struct {
-	mock *MockManualTools
-}
-
-// NewMockManualTools creates a new mock instance.
-func NewMockManualTools(ctrl *gomock.Controller) *MockManualTools {
-	mock := &MockManualTools{ctrl: ctrl}
-	mock.recorder = &MockManualToolsMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockManualTools) EXPECT() *MockManualToolsMockRecorder {
-	return m.recorder
-}
-
-// Tools mocks base method.
-func (m *MockManualTools) Tools() []tool.Descriptor {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Tools")
-	ret0, _ := ret[0].([]tool.Descriptor)
-	return ret0
-}
-
-// Tools indicates an expected call of Tools.
-func (mr *MockManualToolsMockRecorder) Tools() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Tools", reflect.TypeOf((*MockManualTools)(nil).Tools))
 }

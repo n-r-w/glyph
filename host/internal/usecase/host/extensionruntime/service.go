@@ -54,6 +54,8 @@ type Service struct {
 	retryHandlers []modelexecution.RetryHandler
 	// compactionHandlers contains accepted compaction capabilities in registration order.
 	compactionHandlers contextcompaction.HandlerSet
+	// compactionPolicies contains registered policy identities, including unavailable generations.
+	compactionPolicies []extensioncontext.PolicyOwner
 }
 
 var (
@@ -66,6 +68,7 @@ var (
 	_ modelexecution.RetryHandlers          = (*Service)(nil)
 	_ contextcompaction.Runtime             = (*Service)(nil)
 	_ extensioncontext.RuntimeState         = (*Service)(nil)
+	_ extensioncontext.PolicyRuntime        = (*Service)(nil)
 	_ extensioncontroller.RuntimeOperations = (*Service)(nil)
 )
 
@@ -129,6 +132,7 @@ func New(
 		compactionHandlers: contextcompaction.HandlerSet{
 			Requests: nil, Generators: nil, Results: nil, Successes: nil, Failures: nil,
 		},
+		compactionPolicies: nil,
 	}
 }
 
@@ -252,46 +256,6 @@ func (s *Service) RejectPending(pluginIDs []string) {
 	for _, state := range states {
 		s.closeTransport(state)
 		state.join()
-	}
-}
-
-// Accept marks fully validated pending runtimes available.
-func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
-	s.mutex.Lock()
-	if s.closing {
-		s.mutex.Unlock()
-		return
-	}
-	observed := make(map[string]*runtimeState)
-	retryHandlers := make([]modelexecution.RetryHandler, 0)
-	compactionHandlers := contextcompaction.HandlerSet{
-		Requests: nil, Generators: nil, Results: nil, Successes: nil, Failures: nil,
-	}
-	for _, registration := range registrations {
-		if state, exists := s.runtimes[registration.ID]; exists && !state.isInvalidated() {
-			state.available = true
-			for _, handler := range registration.Handlers {
-				if handler.Kind == startup.RawHandlerKindRetry {
-					retryHandlers = append(retryHandlers, modelexecution.RetryHandler{
-						ExtensionID: registration.ID, RuntimeID: state.instanceID, HandlerID: handler.ID,
-					})
-				}
-				appendCompactionHandler(&compactionHandlers, contextcompaction.Handler{
-					ExtensionID: registration.ID, RuntimeID: state.instanceID, HandlerID: handler.ID,
-				}, handler.Kind)
-			}
-			if s.monitoring && !state.observed {
-				state.observed = true
-				observed[registration.ID] = state
-			}
-		}
-	}
-	s.retryHandlers = retryHandlers
-	s.compactionHandlers = compactionHandlers
-	ctx := s.monitorContext
-	s.mutex.Unlock()
-	for extensionID, state := range observed {
-		go s.monitor(ctx, extensionID, state, state.runtime.Done())
 	}
 }
 

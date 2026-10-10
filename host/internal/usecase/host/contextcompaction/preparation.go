@@ -7,65 +7,8 @@ import (
 
 	"github.com/samber/mo"
 
-	controllerextension "github.com/n-r-w/glyph/host/internal/controller/extension"
-	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
-
-// CompactManual builds the current agent request and runs the shared compaction chain.
-func (s *Service) CompactManual(
-	ctx context.Context,
-	instructions mo.Option[string],
-) (ui.ManualCompactionResult, error) {
-	result, err := s.compactManual(ctx, instructions)
-	return ui.ManualCompactionResult{Committed: result.Committed, Canceled: result.Canceled}, err
-}
-
-// CompactExtension validates the issued binding and maps the shared operation to the Extension controller contract.
-func (s *Service) CompactExtension(
-	ctx context.Context,
-	extensionID string,
-	runtimeID string,
-	reference extensiondomain.ContextRef,
-	instructions mo.Option[string],
-) (controllerextension.CompactionResult, error) {
-	if s.contexts == nil {
-		return controllerextension.CompactionResult{}, errors.New("compaction context validation is not bound")
-	}
-	if err := s.contexts.ValidateContext(extensionID, runtimeID, reference); err != nil {
-		return controllerextension.CompactionResult{}, err
-	}
-	result, err := s.compactManual(ctx, instructions)
-	return controllerextension.CompactionResult{Committed: result.Committed, Canceled: result.Canceled}, err
-}
-
-// CompactProgrammatic maps the shared manual operation to the Programmatic consumer contract.
-func (s *Service) CompactProgrammatic(
-	ctx context.Context,
-	instructions mo.Option[string],
-) (programmatic.ManualCompactionResult, error) {
-	result, err := s.compactManual(ctx, instructions)
-	return programmatic.ManualCompactionResult{Committed: result.Committed, Canceled: result.Canceled}, err
-}
-
-// compactManual builds the current agent request and runs the shared compaction chain.
-func (s *Service) compactManual(
-	ctx context.Context,
-	instructions mo.Option[string],
-) (OperationResult, error) {
-	if s.manualModel == nil || s.manualTools == nil {
-		return emptyOperationResult(), errors.New("manual compaction request sources are not bound")
-	}
-	modelSnapshot := s.manualModel.ManualCompactionModel()
-	snapshot := s.sessions.CompactionSnapshot()
-	request := modelexecution.ProviderRequest{
-		Instructions: s.manualInstructions, Model: modelSnapshot.Model,
-		ReasoningChoice: modelSnapshot.ReasoningChoice, History: snapshot.Context, Tools: s.manualTools.Tools(),
-	}
-	return s.Compact(ctx, TriggerManual, instructions, false, request)
-}
 
 // PrepareContext checks the initial request against its captured input budget.
 func (s *Service) PrepareContext(

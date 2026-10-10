@@ -311,7 +311,7 @@ func isSelectionKind(kind RawHandlerKind) bool {
 
 // isCompactionKind reports whether compaction policy owns one kind.
 func isCompactionKind(kind RawHandlerKind) bool {
-	return kind >= RawHandlerKindCompactionRequest && kind <= RawHandlerKindCompactionFailure
+	return kind >= RawHandlerKindCompactionRequest && kind <= RawHandlerKindCompactionPolicy
 }
 
 // isRetry reports whether model execution owns this retry handler kind.

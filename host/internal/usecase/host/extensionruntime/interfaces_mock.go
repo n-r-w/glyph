@@ -16,6 +16,7 @@ import (
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	contextcompaction "github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	extensioncontext "github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -183,6 +184,21 @@ func (m *MockExtensionRuntime) HandleCompactionResult(arg0 context.Context, arg1
 func (mr *MockExtensionRuntimeMockRecorder) HandleCompactionResult(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleCompactionResult", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleCompactionResult), arg0, arg1, arg2, arg3)
+}
+
+// InvokeCompactionPolicy mocks base method.
+func (m *MockExtensionRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.PolicyInvocation) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InvokeCompactionPolicy", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InvokeCompactionPolicy indicates an expected call of InvokeCompactionPolicy.
+func (mr *MockExtensionRuntimeMockRecorder) InvokeCompactionPolicy(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvokeCompactionPolicy", reflect.TypeOf((*MockExtensionRuntime)(nil).InvokeCompactionPolicy), arg0, arg1, arg2, arg3)
 }
 
 // ObserveCompactionFailure mocks base method.

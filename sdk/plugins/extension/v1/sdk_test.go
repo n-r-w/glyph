@@ -114,6 +114,9 @@ func TestConnectAndServe(t *testing.T) {
 			PrecedingActiveLeafId: nil, NavigationDestinationId: nil,
 			CommittedActiveLeafId: nil, CreatedSummary: nil,
 		}.Build(),
+
+		ParentCompactionId: nil,
+		CompactionPolicy:   nil,
 	}.Build())
 	handleOperation, err := connection.Start(t.Context(), "handle", handleRequest)
 	require.NoError(t, err)
@@ -248,6 +251,8 @@ func newContractService(t *testing.T) Service {
 					SessionBeforeTreeResult:  nil,
 					SessionTree:              extensionpb.SessionTreeAction_builder{}.Build(),
 					Error:                    nil,
+
+					CompactionPolicy: nil,
 				}.Build(), nil
 			}
 			return extensionpb.HandleResponse_builder{
@@ -262,6 +267,8 @@ func newContractService(t *testing.T) Service {
 				Error: extensionpb.HandlerError_builder{
 					Message: new(sdkOversizedError(" final handler cause")),
 				}.Build(),
+
+				CompactionPolicy: nil,
 			}.Build(), nil
 		},
 	).AnyTimes()

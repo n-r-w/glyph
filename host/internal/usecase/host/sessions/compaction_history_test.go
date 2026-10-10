@@ -4,7 +4,6 @@ package sessions
 
 import (
 	"testing"
-	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
@@ -20,14 +19,14 @@ func TestCompactedHistoryUsesLatestSummaryAndExactRetainedSuffix(t *testing.T) {
 
 	// Arrange two compactions around original messages and a complete tool-call group.
 	entries := []session.Entry{
-		compactionUserEntry("u1", mo.None[string](), "old"),
+		newCompactionUserEntry("u1", mo.None[string](), "old"),
 		compactionModelEntry("m1", "u1", "call"),
 		compactionToolEntry("r1", "m1", "call"),
-		compactionUserEntry("u2", mo.Some("r1"), "retained before second compaction"),
-		compactionMarkerEntry("c1", "u2", "first summary", "m1"),
-		compactionUserEntry("u3", mo.Some("c1"), "new after first compaction"),
-		compactionMarkerEntry("c2", "u3", "latest summary", "u2"),
-		compactionUserEntry("u4", mo.Some("c2"), "new after second compaction"),
+		newCompactionUserEntry("u2", mo.Some("r1"), "retained before second compaction"),
+		newCompactionMarkerEntry("c1", "u2", "first summary", "m1"),
+		newCompactionUserEntry("u3", mo.Some("c1"), "new after first compaction"),
+		newCompactionMarkerEntry("c2", "u3", "latest summary", "u2"),
+		newCompactionUserEntry("u4", mo.Some("c2"), "new after second compaction"),
 	}
 
 	// Act by projecting model context and independent original client history.
@@ -54,10 +53,10 @@ func TestCompactedHistoryKeepsCompleteToolGroupAtBoundary(t *testing.T) {
 
 	// Arrange a compaction whose first retained entry is a model response with one tool call.
 	entries := []session.Entry{
-		compactionUserEntry("u1", mo.None[string](), "summarized"),
+		newCompactionUserEntry("u1", mo.None[string](), "summarized"),
 		compactionModelEntry("m1", "u1", "call"),
 		compactionToolEntry("r1", "m1", "call"),
-		compactionMarkerEntry("c1", "r1", "summary", "m1"),
+		newCompactionMarkerEntry("c1", "r1", "summary", "m1"),
 	}
 
 	// Act by projecting compacted model context.
@@ -71,28 +70,9 @@ func TestCompactedHistoryKeepsCompleteToolGroupAtBoundary(t *testing.T) {
 	require.Equal(t, "call", history[2].ToolResult.MustGet().CallID)
 }
 
-// compactionBaseEntry returns one empty test entry with all payload alternatives initialized.
-func compactionBaseEntry(id string, parentID mo.Option[string]) session.Entry {
-	return session.Entry{
-		ID: id, ParentID: parentID, CreatedAt: time.Unix(1, 0).UTC(),
-		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-		Model: mo.None[session.ModelResponse](), EstimatedCost: mo.None[session.EstimatedCost](),
-		ToolResult: mo.None[session.ToolResult](), Extension: mo.None[session.ExtensionEnvelope](),
-		ExtensionMessage: mo.None[session.ExtensionMessage](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-		Compaction: mo.None[session.CompactionEntry](),
-	}
-}
-
-// compactionUserEntry returns one text user entry.
-func compactionUserEntry(id string, parentID mo.Option[string], text string) session.Entry {
-	entry := compactionBaseEntry(id, parentID)
-	entry.User = mo.Some(model.TextMessage(text))
-	return entry
-}
-
 // compactionModelEntry returns one model response containing a finalized tool call.
 func compactionModelEntry(id, parentID, callID string) session.Entry {
-	entry := compactionBaseEntry(id, mo.Some(parentID))
+	entry := newCompactionBaseEntry(id, mo.Some(parentID))
 	entry.Model = mo.Some(model.Response{
 		Content: []model.Content{{
 			Kind: model.ContentToolCall, Text: mo.None[string](), Final: true,
@@ -113,22 +93,9 @@ func compactionModelEntry(id, parentID, callID string) session.Entry {
 
 // compactionToolEntry returns one terminal result for a retained tool call.
 func compactionToolEntry(id, parentID, callID string) session.Entry {
-	entry := compactionBaseEntry(id, mo.Some(parentID))
+	entry := newCompactionBaseEntry(id, mo.Some(parentID))
 	entry.ToolResult = mo.Some(agent.ToolResult{
 		CallID: callID, ToolName: "tool", Contents: nil, IsError: false,
-	})
-	return entry
-}
-
-// compactionMarkerEntry returns one persisted compaction marker.
-func compactionMarkerEntry(id, parentID, summary, firstKeptID string) session.Entry {
-	entry := compactionBaseEntry(id, mo.Some(parentID))
-	entry.Compaction = mo.Some(session.CompactionEntry{
-		Summary: summary, FirstKeptEntryID: firstKeptID,
-		Source: session.CompactionSource{
-			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
-		},
-		EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
 	})
 	return entry
 }

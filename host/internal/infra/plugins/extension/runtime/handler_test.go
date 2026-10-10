@@ -116,6 +116,8 @@ func TestMapSelectionHandlerRoundTripPreservesTargetsAndReplacement(t *testing.T
 				ReasoningChoice: new(string(replacement.ReasoningChoice)),
 			}.Build(),
 		}.Build(),
+
+		CompactionPolicy: nil,
 	}.Build()
 	action, err := mapHandleResponse(invocation, response)
 
@@ -137,6 +139,8 @@ func TestMapSelectionResponseDefersInvalidActionToCapability(t *testing.T) {
 	response := extensionpb.HandleResponse_builder{
 		Retry:       nil,
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
+
+		CompactionPolicy: nil,
 	}.Build()
 
 	// Act by decoding the mismatched selection action.
@@ -170,6 +174,8 @@ func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 			response := extensionpb.HandleResponse_builder{
 				Retry: nil,
 				Error: extensionpb.HandlerError_builder{Message: new(test.message)}.Build(),
+
+				CompactionPolicy: nil,
 			}.Build()
 
 			// Act by mapping the typed ordinary failure.
@@ -191,6 +197,8 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 	response := extensionpb.HandleResponse_builder{
 		Retry:       nil,
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
+
+		CompactionPolicy: nil,
 	}.Build()
 
 	// Act by validating the response against the invoked kind.

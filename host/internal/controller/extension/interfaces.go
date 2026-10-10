@@ -5,6 +5,9 @@ import (
 	"context"
 	"time"
 
+	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
+	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -242,4 +245,33 @@ type ContextFailure interface {
 type RuntimeOperations interface {
 	// BeginContextOperation reserves one active operation and returns its release function.
 	BeginContextOperation(ctx context.Context, extensionID, runtimeID string) (func(), error)
+}
+
+// CompactionPolicyOperations supplies scoped lifetime, projection, and durable mutation.
+type CompactionPolicyOperations interface {
+	// LinkCompactionChild links an admitted child Run context to its parent cancellation.
+	LinkCompactionChild(
+		ctx context.Context,
+		extensionID, runtimeID, operationID string,
+	) (context.Context, func(), error)
+	// BeginCompactionChild attaches work to the captured parent lifetime.
+	BeginCompactionChild(extensionID, runtimeID, operationID string) (func(error), error)
+	// ProjectPolicyReplacement supplies structurally valid candidate history.
+	ProjectPolicyReplacement(
+		ctx context.Context,
+		extensionID, runtimeID, operationID string,
+		candidate session.CompactionEntry,
+	) ([]agent.HistoryEntry, error)
+	// CommitPolicyReplacement supplies the durable receipt and complete commit causes.
+	CommitPolicyReplacement(
+		ctx context.Context,
+		extensionID, runtimeID, operationID string,
+		candidate session.CompactionEntry,
+	) (session.Entry, error)
+}
+
+// contextAction executes one prepared request with its explicit Run context.
+type contextAction interface {
+	// Run executes the selected action with explicit operation context and progress access.
+	Run(context.Context, *extensionsdk.HostProgressReporter) (*extensionpb.HostCompleted, error)
 }

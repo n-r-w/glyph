@@ -26,7 +26,7 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 	publisher := NewMockEntryPublisher(controller)
 	pricing := NewMockPricingCatalog(controller)
 	entries := []session.Entry{
-		compactionUserEntry("u1", mo.None[string](), "old"),
+		newCompactionUserEntry("u1", mo.None[string](), "old"),
 		compactionModelEntry("m1", "u1", "call"),
 		compactionToolEntry("r1", "m1", "call"),
 	}
@@ -183,17 +183,17 @@ func TestCommitCompactionRejectsBoundaryInsideToolGroup(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one active complete tool group with a hidden entry between its call and result.
-	hidden := compactionBaseEntry("x1", mo.Some("m1"))
+	hidden := newCompactionBaseEntry("x1", mo.Some("m1"))
 	hidden.Extension = mo.Some(session.ExtensionEnvelope{
 		ExtensionID: "extension", EntryType: "hidden", Data: []byte(`{"state":true}`),
 	})
 	entries := []session.Entry{
-		compactionUserEntry("u1", mo.None[string](), "old"),
+		newCompactionUserEntry("u1", mo.None[string](), "old"),
 		compactionModelEntry("m1", "u1", "call"),
 		hidden,
 		compactionToolEntry("r1", "x1", "call"),
 	}
-	service, identity := newCompactionBoundaryTestService(t, entries, "r1")
+	service, identity := newCompactionBoundaryTestService(t, entries, "r1", mo.None[EntryPublisher]())
 
 	// Act by selecting the hidden entry between the owning model response and its result.
 	_, err := service.CommitCompaction(
@@ -219,14 +219,14 @@ func TestCommitCompactionAssociatesRepeatedToolIDsWithTheirModelResponses(t *tes
 
 	// Arrange two complete model/tool turns that reuse one response-local call ID.
 	entries := []session.Entry{
-		compactionUserEntry("u1", mo.None[string](), "first"),
+		newCompactionUserEntry("u1", mo.None[string](), "first"),
 		compactionModelEntry("m1", "u1", "same"),
 		compactionToolEntry("r1", "m1", "same"),
-		compactionUserEntry("u2", mo.Some("r1"), "second"),
+		newCompactionUserEntry("u2", mo.Some("r1"), "second"),
 		compactionModelEntry("m2", "u2", "same"),
 		compactionToolEntry("r2", "m2", "same"),
 	}
-	service, identity := newCompactionBoundaryTestService(t, entries, "r2")
+	service, identity := newCompactionBoundaryTestService(t, entries, "r2", mo.None[EntryPublisher]())
 
 	// Act by retaining the complete second model/tool turn.
 	_, err := service.CommitCompaction(
@@ -261,14 +261,14 @@ func TestCommitCompactionAllowsLaterBoundaryAfterFailedOrAbortedCalls(t *testing
 
 			// Arrange a failed or aborted response with calls but no persisted results, followed by a user message.
 			entries := []session.Entry{
-				compactionUserEntry("u1", mo.None[string](), "old"),
+				newCompactionUserEntry("u1", mo.None[string](), "old"),
 				compactionModelEntry("m1", "u1", "call"),
 			}
 			response := entries[1].Model.MustGet()
 			response.Outcome = mo.Some(test.outcome)
 			entries[1].Model = mo.Some(response)
-			entries = append(entries, compactionUserEntry("u2", mo.Some("m1"), "later"))
-			service, identity := newCompactionBoundaryTestService(t, entries, "u2")
+			entries = append(entries, newCompactionUserEntry("u2", mo.Some("m1"), "later"))
+			service, identity := newCompactionBoundaryTestService(t, entries, "u2", mo.None[EntryPublisher]())
 
 			// Act by committing after the model-hidden failed response.
 			_, err := service.CommitCompaction(
@@ -288,7 +288,7 @@ func TestCommitCompactionAllowsLaterBoundaryAfterInterruptedBatch(t *testing.T) 
 
 	// Arrange a stopped two-call batch with only the interrupted active result persisted.
 	entries := []session.Entry{
-		compactionUserEntry("u1", mo.None[string](), "old"),
+		newCompactionUserEntry("u1", mo.None[string](), "old"),
 		compactionModelEntry("m1", "u1", "active"),
 	}
 	response := entries[1].Model.MustGet()
@@ -303,9 +303,9 @@ func TestCommitCompactionAllowsLaterBoundaryAfterInterruptedBatch(t *testing.T) 
 	entries = append(
 		entries,
 		compactionToolEntry("r1", "m1", "active"),
-		compactionUserEntry("u2", mo.Some("r1"), "later"),
+		newCompactionUserEntry("u2", mo.Some("r1"), "later"),
 	)
-	service, identity := newCompactionBoundaryTestService(t, entries, "u2")
+	service, identity := newCompactionBoundaryTestService(t, entries, "u2", mo.None[EntryPublisher]())
 
 	// Act by committing after the interrupted batch and its single persisted result.
 	_, err := service.CommitCompaction(
@@ -323,12 +323,12 @@ func TestCommitCompactionRejectsBoundaryBeforeLatestCompaction(t *testing.T) {
 
 	// Arrange an active branch with one compaction followed by a new retained message.
 	entries := []session.Entry{
-		compactionUserEntry("u1", mo.None[string](), "summarized"),
-		compactionUserEntry("u2", mo.Some("u1"), "first retained"),
-		compactionMarkerEntry("c1", "u2", "first summary", "u2"),
-		compactionUserEntry("u3", mo.Some("c1"), "later retained"),
+		newCompactionUserEntry("u1", mo.None[string](), "summarized"),
+		newCompactionUserEntry("u2", mo.Some("u1"), "first retained"),
+		newCompactionMarkerEntry("c1", "u2", "first summary", "u2"),
+		newCompactionUserEntry("u3", mo.Some("c1"), "later retained"),
 	}
-	service, identity := newCompactionBoundaryTestService(t, entries, "u3")
+	service, identity := newCompactionBoundaryTestService(t, entries, "u3", mo.None[EntryPublisher]())
 
 	// Act by moving the next retained boundary behind the preceding compaction boundary.
 	_, err := service.CommitCompaction(
@@ -346,49 +346,4 @@ func TestCommitCompactionRejectsBoundaryBeforeLatestCompaction(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "preceding compaction")
 	require.Len(t, service.ActiveEntries(), 4)
-}
-
-// boundaryTestCompaction creates one extension-sourced marker for boundary behavior tests.
-func boundaryTestCompaction(firstKeptEntryID string) session.CompactionEntry {
-	return session.CompactionEntry{
-		Summary: "summary", FirstKeptEntryID: firstKeptEntryID,
-		Source: session.CompactionSource{
-			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
-		},
-		EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
-	}
-}
-
-// newCompactionBoundaryTestService supplies harmless commit dependencies for boundary tests.
-func newCompactionBoundaryTestService(
-	t *testing.T,
-	entries []session.Entry,
-	leafID string,
-) (*Service, session.Identity) {
-	t.Helper()
-	controller := gomock.NewController(t)
-	repository := NewMockRepository(controller)
-	ids := NewMockIDGenerator(controller)
-	clock := NewMockClock(controller)
-	publisher := NewMockEntryPublisher(controller)
-	repository.EXPECT().Apply(gomock.Any(), gomock.Any()).Return(
-		ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil,
-	).AnyTimes()
-	ids.EXPECT().NewID().Return("compaction", nil).AnyTimes()
-	clock.EXPECT().Now().Return(time.Unix(10, 0).UTC()).AnyTimes()
-	publisher.EXPECT().PublishSessionEntry(gomock.Any()).Return(
-		func(context.Context) error { return nil }, nil,
-	).AnyTimes()
-	tree, err := session.NewTree(entries, mo.Some(leafID), nil)
-	require.NoError(t, err)
-	service := New(repository, ids, clock, nil, "/project")
-	service.active = LoadedSession{
-		Header:      session.Header{ID: "session", CreatedAt: time.Unix(1, 0).UTC(), WorkingDirectory: "/project"},
-		StoragePath: "/sessions/session.jsonl", Tree: tree, Information: mo.None[session.Information](),
-		InformationUpdatedAt: mo.None[time.Time](),
-	}
-	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
-	service.contextIdentity.Store(&identity)
-	service.BindEntryPublisher(publisher)
-	return service, identity
 }

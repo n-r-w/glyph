@@ -30,6 +30,9 @@ func (r *Runtime) HandleCompactionRequest(
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
 	request := extensionpb.HandleRequest_builder{
 		HandlerId: new(handlerID), Context: mapContext(binding), CompactionRequest: payload,
+
+		ParentCompactionId: nil,
+		CompactionPolicy:   nil,
 	}.Build()
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
 	if err != nil {
@@ -58,6 +61,9 @@ func (r *Runtime) GenerateCompaction(
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
 	request := extensionpb.HandleRequest_builder{
 		HandlerId: new(handlerID), Context: mapContext(binding), CompactionGenerate: payload,
+
+		ParentCompactionId: nil,
+		CompactionPolicy:   nil,
 	}.Build()
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
 	if err != nil {
@@ -88,6 +94,9 @@ func (r *Runtime) HandleCompactionResult(
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
 	request := extensionpb.HandleRequest_builder{
 		HandlerId: new(handlerID), Context: mapContext(binding), CompactionResult: payload,
+
+		ParentCompactionId: nil,
+		CompactionPolicy:   nil,
 	}.Build()
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
 	if err != nil {
@@ -134,8 +143,13 @@ func (r *Runtime) observeCompaction(
 	if err != nil {
 		return err
 	}
+	// builder contains the observer invocation and parent lifetime correlation.
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
-	builder := extensionpb.HandleRequest_builder{HandlerId: new(handlerID), Context: mapContext(binding)}
+	builder := extensionpb.HandleRequest_builder{
+		HandlerId: new(handlerID), Context: mapContext(binding),
+		ParentCompactionId: new(invocation.ParentCompactionID),
+		CompactionPolicy:   nil,
+	}
 	if success {
 		builder.CompactionSuccess = payload
 	} else {
@@ -173,7 +187,7 @@ func (r *Runtime) runCompactionHandler(
 		return nil, r.protocolViolation(errors.New("compaction handler response is missing"))
 	}
 	if handlerErr := response.GetError(); handlerErr != nil {
-		return nil, newOrdinaryHandlerError(handlerErr.GetMessage())
+		return response, newOrdinaryHandlerError(handlerErr.GetMessage())
 	}
 	return response, nil
 }
@@ -340,20 +354,21 @@ func mapCompactionResultAction(
 
 // mapCompactionOutcome projects terminal state and optional durable commit.
 func mapCompactionOutcome(invocation contextcompaction.OutcomeInvocation) (*extensionpb.CompactionOutcome, error) {
-	original, err := mapCompactionRequest(invocation.OriginalRequest)
-	if err != nil {
-		return nil, err
-	}
-	current, err := mapCompactionRequest(invocation.CurrentRequest)
-	if err != nil {
-		return nil, err
-	}
+	// builder contains the terminal policy outcome for observers.
 	builder := extensionpb.CompactionOutcome_builder{
-		OriginalRequest: original, CurrentRequest: current, Result: nil, Committed: nil,
-		Canceled: new(invocation.Canceled), Error: nil,
+		State:     nil,
+		Committed: nil,
+		Canceled:  new(invocation.Canceled),
+		Error:     nil,
 	}
-	if result, present := invocation.Result.Get(); present {
-		builder.Result = mapCompactionResult(result)
+	// err contains any diagnostic-state or receipt encoding failure.
+	var err error
+	// state contains acquired policy diagnostics; present indicates their availability.
+	if state, present := invocation.State.Get(); present {
+		builder.State, err = mapPolicyState(state)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if committed, present := invocation.Committed.Get(); present {
 		builder.Committed, err = mapSessionEntry(extensionruntime.ProjectTreeEntry(committed))
@@ -480,4 +495,55 @@ func optionalString(present bool, value string) mo.Option[string] {
 		return mo.None[string]()
 	}
 	return mo.Some(value)
+}
+
+// mapPolicyState encodes acquired composition values for outcome observers.
+func mapPolicyState(state contextcompaction.PolicyState) (*extensionpb.CompactionPolicyState, error) {
+	// original and err contain the public original diagnostic request and its encoding failure.
+	original, err := mapCompactionRequest(state.OriginalRequest)
+	if err != nil {
+		return nil, err
+	}
+	// current and err contain the public current diagnostic request and its encoding failure.
+	current, err := mapCompactionRequest(state.CurrentRequest)
+	if err != nil {
+		return nil, err
+	}
+	// result contains the optional public policy candidate.
+	result := (*extensionpb.CompactionResult)(nil)
+	// value contains the acquired candidate; present indicates its availability.
+	if value, present := state.Result.Get(); present {
+		result = mapCompactionResult(value)
+	}
+	return extensionpb.CompactionPolicyState_builder{
+		OriginalRequest: original,
+		CurrentRequest:  current,
+		Result:          result,
+	}.Build(), nil
+}
+
+// mapPolicyStateFromProto decodes the diagnostic state actually supplied by the policy.
+func mapPolicyStateFromProto(raw *extensionpb.CompactionPolicyState) (contextcompaction.PolicyState, error) {
+	if raw.GetOriginalRequest() == nil || raw.GetCurrentRequest() == nil {
+		return contextcompaction.PolicyState{}, errors.New(
+			"policy diagnostic original and current requests are required",
+		)
+	}
+	// original and err contain the original diagnostic request and its decoding failure.
+	original, err := mapCompactionRequestFromProto(raw.GetOriginalRequest())
+	if err != nil {
+		return contextcompaction.PolicyState{}, err
+	}
+	// current and err contain the current diagnostic request and its decoding failure.
+	current, err := mapCompactionRequestFromProto(raw.GetCurrentRequest())
+	if err != nil {
+		return contextcompaction.PolicyState{}, err
+	}
+	// result contains the optional acquired policy candidate.
+	result := mo.None[contextcompaction.Result]()
+	// value contains the optional wire candidate.
+	if value := raw.GetResult(); value != nil {
+		result = mo.Some(mapCompactionResultFromProto(value))
+	}
+	return contextcompaction.PolicyState{OriginalRequest: original, CurrentRequest: current, Result: result}, nil
 }

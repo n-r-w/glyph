@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/samber/mo"
+
 	"github.com/n-r-w/glyph/internal/operation"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -124,6 +126,10 @@ type handlePrepared struct {
 	operation HandleOperation
 	// binding exposes nested Host operations during handler execution.
 	binding *ExtensionContext
+	// policy exposes scoped replacement authority to the owning handler.
+	policy mo.Option[CompactionPolicyContext]
+	// parentCompactionID carries the invocation's non-authorizing parent lifetime.
+	parentCompactionID mo.Option[string]
 }
 
 var _ operation.Prepared[*extensionpb.ToolProgress, extensionResult] = (*handlePrepared)(nil)
@@ -136,6 +142,18 @@ func (prepared *handlePrepared) Run(
 	operationContext := ctx
 	if prepared.binding != nil {
 		operationContext = context.WithValue(ctx, invocationContextKey{}, prepared.binding)
+	}
+	// policy and present identify replacement authority for handler execution.
+	if policy, present := prepared.policy.Get(); present {
+		operationContext = context.WithValue(operationContext, compactionPolicyContextKey{}, &policy)
+	}
+	// parentID and present identify the nested-work lifetime for handler execution.
+	if parentID, present := prepared.parentCompactionID.Get(); present {
+		operationContext = context.WithValue(
+			operationContext,
+			parentCompactionContextKey{},
+			parentID,
+		)
 	}
 	response, err := prepared.operation.Run(operationContext)
 	if err != nil {

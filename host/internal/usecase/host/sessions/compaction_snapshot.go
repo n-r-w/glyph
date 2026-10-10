@@ -37,16 +37,41 @@ func (s *Service) CompactionSnapshot() contextcompaction.Snapshot {
 }
 
 // ProjectCompaction projects a captured branch with one candidate compaction applied.
-func (s *Service) ProjectCompaction(entries []session.Entry, compaction session.CompactionEntry) []agent.HistoryEntry {
+func (s *Service) ProjectCompaction(
+	entries []session.Entry,
+	compaction session.CompactionEntry,
+) ([]agent.HistoryEntry, error) {
+	// leaf identifies the captured branch endpoint for structural validation.
+	leaf := mo.None[string]()
+	if len(entries) != 0 {
+		leaf = mo.Some(entries[len(entries)-1].ID)
+	}
+	return projectCompactionHistory(entries, leaf, compaction)
+}
+
+// projectCompactionHistory validates one captured branch and projects a candidate replacement.
+func projectCompactionHistory(
+	entries []session.Entry,
+	leaf mo.Option[string],
+	compaction session.CompactionEntry,
+) ([]agent.HistoryEntry, error) {
 	if len(entries) == 0 {
-		return nil
+		return nil, errors.New("captured active branch is empty")
+	}
+	if err := validateCompactionPayload(compaction); err != nil {
+		return nil, err
 	}
 	owned := cloneEntries(entries)
-	leafID := owned[len(owned)-1].ID
-	tree, err := session.NewTree(owned, mo.Some(leafID), nil)
-	if err != nil || tree.ValidateCompactionBoundary(compaction.FirstKeptEntryID, mo.Some(leafID)) != nil {
-		return nil
+	// tree contains the captured branch for boundary validation; err contains construction failure.
+	tree, err := session.NewTree(owned, leaf, nil)
+	if err != nil {
+		return nil, err
 	}
+	if boundaryErr := tree.ValidateCompactionBoundary(compaction.FirstKeptEntryID, leaf); boundaryErr != nil {
+		return nil, boundaryErr
+	}
+	// leafID identifies the parent of the temporary projection marker.
+	leafID := owned[len(owned)-1].ID
 	owned = append(owned, session.Entry{
 		ID: ephemeralCompactionID, ParentID: mo.Some(leafID), CreatedAt: time.Time{},
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
@@ -55,7 +80,7 @@ func (s *Service) ProjectCompaction(entries []session.Entry, compaction session.
 		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		Compaction: mo.Some(compaction.Clone()),
 	})
-	return agentrun.ProjectHistory(compactedHistoryFromEntries(owned))
+	return agentrun.ProjectHistory(compactedHistoryFromEntries(owned)), nil
 }
 
 // ProjectSuffix projects a captured branch suffix through the shared Core history algorithm.

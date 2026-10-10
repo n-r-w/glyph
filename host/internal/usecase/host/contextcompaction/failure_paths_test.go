@@ -226,7 +226,9 @@ func TestCompactInvalidResultBoundaryStopsBeforeCommit(t *testing.T) {
 			ResultAction: ResultActionReplace, Result: mo.Some(invalid),
 		}, nil,
 	)
-	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(nil)
+	sessions.EXPECT().
+		ProjectCompaction(gomock.Any(), gomock.Any()).
+		Return(nil, errors.New("compaction retained boundary is invalid"))
 
 	// Act through per-handler result validation.
 	result, err := service.Compact(t.Context(), TriggerManual, mo.None[string](), false, request)
@@ -341,7 +343,7 @@ func TestCompactSuccessfulObserverIgnoresLateOwnerCancellation(t *testing.T) {
 			ResultAction: ResultActionReplace, Result: mo.Some(ready),
 		}, nil,
 	)
-	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History).AnyTimes()
+	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History, nil).AnyTimes()
 	committed := compactionMarkerEntry("compaction", "kept", ready)
 	sessions.EXPECT().CommitCompaction(gomock.Any(), snapshot.Identity, snapshot.ActiveLeafID, gomock.Any()).Return(
 		committed, nil,
@@ -385,7 +387,7 @@ func TestCompactObserverFailureReturnsCommittedExtensionCategory(t *testing.T) {
 			ResultAction: ResultActionReplace, Result: mo.Some(ready),
 		}, nil,
 	)
-	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History).AnyTimes()
+	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History, nil).AnyTimes()
 	committed := compactionMarkerEntry("compaction", "kept", ready)
 	sessions.EXPECT().CommitCompaction(gomock.Any(), snapshot.Identity, snapshot.ActiveLeafID, gomock.Any()).Return(
 		committed, nil,
@@ -432,7 +434,7 @@ func TestCompactMixedCommitFailuresPreserveCategoryAndCallerCause(t *testing.T) 
 					ResultAction: ResultActionReplace, Result: mo.Some(ready),
 				}, nil,
 			)
-			sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History).AnyTimes()
+			sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(request.History, nil).AnyTimes()
 			callerCause := errors.New("caller canceled during commit")
 			ctx, cancel := context.WithCancelCause(t.Context())
 			committed := session.Entry{}

@@ -86,6 +86,9 @@ func invokeCompactionHandler(
 		ModelSelection: nil, ReasoningSelection: nil, Retry: nil,
 		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
 		CompactionSuccess: nil, CompactionFailure: nil,
+
+		ParentCompactionId: nil,
+		CompactionPolicy:   nil,
 	}
 	if requestHandler {
 		handleBuilder.CompactionRequest = invocation
@@ -132,6 +135,8 @@ func compactionHandlerResponse(requestHandler bool) *extensionpb.HandleResponse 
 		ModelSelection: nil, ReasoningSelection: nil, Retry: nil,
 		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
 		CompactionSuccess: nil, CompactionFailure: nil,
+
+		CompactionPolicy: nil,
 	}
 	if requestHandler {
 		builder.CompactionRequest = extensionpb.CompactionRequestAction_builder{

@@ -172,7 +172,7 @@ func (x CompactionResultDisposition) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// CompactionInputEntry contains one projected branch entry and its Host fallback estimate.
+// CompactionInputEntry contains one projected branch entry and its producer estimate.
 type CompactionInputEntry struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Entry           *SessionTreeEntry      `protobuf:"bytes,1,opt,name=entry"`
@@ -259,7 +259,7 @@ type CompactionInputEntry_builder struct {
 
 	// The provider-neutral entry projection.
 	Entry *SessionTreeEntry
-	// The Host-computed fallback estimate for this entry.
+	// The producer-computed estimate for this entry.
 	EstimatedTokens *int64
 }
 
@@ -629,9 +629,9 @@ type CompactionRequest_builder struct {
 	Model *ModelDescriptor
 	// The captured reasoning choice.
 	ReasoningChoice *string
-	// The proposed newly summarized branch prefix with Host fallback estimates.
+	// The proposed newly summarized branch prefix with producer estimates.
 	Prefix []*CompactionInputEntry
-	// The proposed preserved branch suffix with Host fallback estimates.
+	// The proposed preserved branch suffix with producer estimates.
 	Suffix []*CompactionInputEntry
 	// The preceding persisted summary marker, when present.
 	Previous *SessionTreeCompaction
@@ -972,7 +972,7 @@ func (x *CompactionRequestInvocation) ClearCurrentResult() {
 type CompactionRequestInvocation_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The immutable Host-produced request.
+	// The immutable producer-supplied request.
 	Original *CompactionRequest
 	// The request left by preceding handlers.
 	Current *CompactionRequest
@@ -1117,7 +1117,7 @@ func (x *CompactionResultInvocation) ClearCurrentResult() {
 type CompactionResultInvocation_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The immutable Host-produced request.
+	// The immutable producer-supplied request.
 	OriginalRequest *CompactionRequest
 	// The final request-handler state.
 	CurrentRequest *CompactionRequest
@@ -1469,35 +1469,30 @@ func (b0 CompactionResultAction_builder) Build() *CompactionResultAction {
 	return m0
 }
 
-// CompactionOutcome reports one terminal success or failure observation.
-type CompactionOutcome struct {
+// CompactionPolicyState contains acquired original and last valid composition values.
+type CompactionPolicyState struct {
 	state                      protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_OriginalRequest *CompactionRequest     `protobuf:"bytes,1,opt,name=original_request,json=originalRequest"`
 	xxx_hidden_CurrentRequest  *CompactionRequest     `protobuf:"bytes,2,opt,name=current_request,json=currentRequest"`
 	xxx_hidden_Result          *CompactionResult      `protobuf:"bytes,3,opt,name=result"`
-	xxx_hidden_Committed       *SessionTreeEntry      `protobuf:"bytes,4,opt,name=committed"`
-	xxx_hidden_Canceled        bool                   `protobuf:"varint,5,opt,name=canceled"`
-	xxx_hidden_Error           *string                `protobuf:"bytes,6,opt,name=error"`
-	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
-	XXX_presence               [1]uint32
 	unknownFields              protoimpl.UnknownFields
 	sizeCache                  protoimpl.SizeCache
 }
 
-func (x *CompactionOutcome) Reset() {
-	*x = CompactionOutcome{}
+func (x *CompactionPolicyState) Reset() {
+	*x = CompactionPolicyState{}
 	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *CompactionOutcome) String() string {
+func (x *CompactionPolicyState) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*CompactionOutcome) ProtoMessage() {}
+func (*CompactionPolicyState) ProtoMessage() {}
 
-func (x *CompactionOutcome) ProtoReflect() protoreflect.Message {
+func (x *CompactionPolicyState) ProtoReflect() protoreflect.Message {
 	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1509,23 +1504,134 @@ func (x *CompactionOutcome) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *CompactionOutcome) GetOriginalRequest() *CompactionRequest {
+func (x *CompactionPolicyState) GetOriginalRequest() *CompactionRequest {
 	if x != nil {
 		return x.xxx_hidden_OriginalRequest
 	}
 	return nil
 }
 
-func (x *CompactionOutcome) GetCurrentRequest() *CompactionRequest {
+func (x *CompactionPolicyState) GetCurrentRequest() *CompactionRequest {
 	if x != nil {
 		return x.xxx_hidden_CurrentRequest
 	}
 	return nil
 }
 
-func (x *CompactionOutcome) GetResult() *CompactionResult {
+func (x *CompactionPolicyState) GetResult() *CompactionResult {
 	if x != nil {
 		return x.xxx_hidden_Result
+	}
+	return nil
+}
+
+func (x *CompactionPolicyState) SetOriginalRequest(v *CompactionRequest) {
+	x.xxx_hidden_OriginalRequest = v
+}
+
+func (x *CompactionPolicyState) SetCurrentRequest(v *CompactionRequest) {
+	x.xxx_hidden_CurrentRequest = v
+}
+
+func (x *CompactionPolicyState) SetResult(v *CompactionResult) {
+	x.xxx_hidden_Result = v
+}
+
+func (x *CompactionPolicyState) HasOriginalRequest() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_OriginalRequest != nil
+}
+
+func (x *CompactionPolicyState) HasCurrentRequest() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_CurrentRequest != nil
+}
+
+func (x *CompactionPolicyState) HasResult() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Result != nil
+}
+
+func (x *CompactionPolicyState) ClearOriginalRequest() {
+	x.xxx_hidden_OriginalRequest = nil
+}
+
+func (x *CompactionPolicyState) ClearCurrentRequest() {
+	x.xxx_hidden_CurrentRequest = nil
+}
+
+func (x *CompactionPolicyState) ClearResult() {
+	x.xxx_hidden_Result = nil
+}
+
+type CompactionPolicyState_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The immutable original request supplied by the producer.
+	OriginalRequest *CompactionRequest
+	// The last valid composed request.
+	CurrentRequest *CompactionRequest
+	// The last valid result, when present.
+	Result *CompactionResult
+}
+
+func (b0 CompactionPolicyState_builder) Build() *CompactionPolicyState {
+	m0 := &CompactionPolicyState{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_OriginalRequest = b.OriginalRequest
+	x.xxx_hidden_CurrentRequest = b.CurrentRequest
+	x.xxx_hidden_Result = b.Result
+	return m0
+}
+
+// CompactionOutcome reports acquired policy state and the independently committed outcome.
+type CompactionOutcome struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_State       *CompactionPolicyState `protobuf:"bytes,1,opt,name=state"`
+	xxx_hidden_Committed   *SessionTreeEntry      `protobuf:"bytes,2,opt,name=committed"`
+	xxx_hidden_Canceled    bool                   `protobuf:"varint,3,opt,name=canceled"`
+	xxx_hidden_Error       *string                `protobuf:"bytes,4,opt,name=error"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *CompactionOutcome) Reset() {
+	*x = CompactionOutcome{}
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionOutcome) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionOutcome) ProtoMessage() {}
+
+func (x *CompactionOutcome) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionOutcome) GetState() *CompactionPolicyState {
+	if x != nil {
+		return x.xxx_hidden_State
 	}
 	return nil
 }
@@ -1554,16 +1660,8 @@ func (x *CompactionOutcome) GetError() string {
 	return ""
 }
 
-func (x *CompactionOutcome) SetOriginalRequest(v *CompactionRequest) {
-	x.xxx_hidden_OriginalRequest = v
-}
-
-func (x *CompactionOutcome) SetCurrentRequest(v *CompactionRequest) {
-	x.xxx_hidden_CurrentRequest = v
-}
-
-func (x *CompactionOutcome) SetResult(v *CompactionResult) {
-	x.xxx_hidden_Result = v
+func (x *CompactionOutcome) SetState(v *CompactionPolicyState) {
+	x.xxx_hidden_State = v
 }
 
 func (x *CompactionOutcome) SetCommitted(v *SessionTreeEntry) {
@@ -1572,33 +1670,19 @@ func (x *CompactionOutcome) SetCommitted(v *SessionTreeEntry) {
 
 func (x *CompactionOutcome) SetCanceled(v bool) {
 	x.xxx_hidden_Canceled = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
 }
 
 func (x *CompactionOutcome) SetError(v string) {
 	x.xxx_hidden_Error = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
-func (x *CompactionOutcome) HasOriginalRequest() bool {
+func (x *CompactionOutcome) HasState() bool {
 	if x == nil {
 		return false
 	}
-	return x.xxx_hidden_OriginalRequest != nil
-}
-
-func (x *CompactionOutcome) HasCurrentRequest() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_CurrentRequest != nil
-}
-
-func (x *CompactionOutcome) HasResult() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_Result != nil
+	return x.xxx_hidden_State != nil
 }
 
 func (x *CompactionOutcome) HasCommitted() bool {
@@ -1612,26 +1696,18 @@ func (x *CompactionOutcome) HasCanceled() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
 }
 
 func (x *CompactionOutcome) HasError() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
-func (x *CompactionOutcome) ClearOriginalRequest() {
-	x.xxx_hidden_OriginalRequest = nil
-}
-
-func (x *CompactionOutcome) ClearCurrentRequest() {
-	x.xxx_hidden_CurrentRequest = nil
-}
-
-func (x *CompactionOutcome) ClearResult() {
-	x.xxx_hidden_Result = nil
+func (x *CompactionOutcome) ClearState() {
+	x.xxx_hidden_State = nil
 }
 
 func (x *CompactionOutcome) ClearCommitted() {
@@ -1639,29 +1715,25 @@ func (x *CompactionOutcome) ClearCommitted() {
 }
 
 func (x *CompactionOutcome) ClearCanceled() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
 	x.xxx_hidden_Canceled = false
 }
 
 func (x *CompactionOutcome) ClearError() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_Error = nil
 }
 
 type CompactionOutcome_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The immutable Host-produced request.
-	OriginalRequest *CompactionRequest
-	// The final valid request state.
-	CurrentRequest *CompactionRequest
-	// The final result when present.
-	Result *CompactionResult
-	// The durable marker when commit succeeded.
+	// Acquired composition values when available. Absence means no acquired policy state is available.
+	State *CompactionPolicyState
+	// The durable entry, independently of policy state availability.
 	Committed *SessionTreeEntry
-	// Whether an extension explicitly canceled compaction.
+	// Whether the policy explicitly canceled compaction.
 	Canceled *bool
-	// Complete terminal failure text when present.
+	// Complete acquired failure text, when present.
 	Error *string
 }
 
@@ -1669,16 +1741,14 @@ func (b0 CompactionOutcome_builder) Build() *CompactionOutcome {
 	m0 := &CompactionOutcome{}
 	b, x := &b0, m0
 	_, _ = b, x
-	x.xxx_hidden_OriginalRequest = b.OriginalRequest
-	x.xxx_hidden_CurrentRequest = b.CurrentRequest
-	x.xxx_hidden_Result = b.Result
+	x.xxx_hidden_State = b.State
 	x.xxx_hidden_Committed = b.Committed
 	if b.Canceled != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
 		x.xxx_hidden_Canceled = *b.Canceled
 	}
 	if b.Error != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
 		x.xxx_hidden_Error = b.Error
 	}
 	return m0
@@ -1693,7 +1763,7 @@ type CompactionObserverAction struct {
 
 func (x *CompactionObserverAction) Reset() {
 	*x = CompactionObserverAction{}
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1705,7 +1775,7 @@ func (x *CompactionObserverAction) String() string {
 func (*CompactionObserverAction) ProtoMessage() {}
 
 func (x *CompactionObserverAction) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[8]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1741,7 +1811,7 @@ type CompactRequest struct {
 
 func (x *CompactRequest) Reset() {
 	*x = CompactRequest{}
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1753,7 +1823,7 @@ func (x *CompactRequest) String() string {
 func (*CompactRequest) ProtoMessage() {}
 
 func (x *CompactRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[9]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1847,7 +1917,7 @@ type CommittedCompaction struct {
 
 func (x *CommittedCompaction) Reset() {
 	*x = CommittedCompaction{}
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1859,7 +1929,7 @@ func (x *CommittedCompaction) String() string {
 func (*CommittedCompaction) ProtoMessage() {}
 
 func (x *CommittedCompaction) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[10]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1955,7 +2025,7 @@ type CompactResult struct {
 
 func (x *CompactResult) Reset() {
 	*x = CompactResult{}
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1967,7 +2037,7 @@ func (x *CompactResult) String() string {
 func (*CompactResult) ProtoMessage() {}
 
 func (x *CompactResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2123,7 +2193,7 @@ type CompactionProgress struct {
 
 func (x *CompactionProgress) Reset() {
 	*x = CompactionProgress{}
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2135,7 +2205,7 @@ func (x *CompactionProgress) String() string {
 func (*CompactionProgress) ProtoMessage() {}
 
 func (x *CompactionProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2191,11 +2261,1225 @@ func (b0 CompactionProgress_builder) Build() *CompactionProgress {
 	return m0
 }
 
+// CompactionHistoryRecord contains one prepared provider-neutral model-history record.
+type CompactionHistoryRecord struct {
+	state                          protoimpl.MessageState            `protogen:"opaque.v1"`
+	xxx_hidden_Content             isCompactionHistoryRecord_Content `protobuf_oneof:"content"`
+	xxx_hidden_PrivatePayloadBytes int64                             `protobuf:"varint,4,opt,name=private_payload_bytes,json=privatePayloadBytes"`
+	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
+	XXX_presence                   [1]uint32
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
+}
+
+func (x *CompactionHistoryRecord) Reset() {
+	*x = CompactionHistoryRecord{}
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionHistoryRecord) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionHistoryRecord) ProtoMessage() {}
+
+func (x *CompactionHistoryRecord) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionHistoryRecord) GetUser() *SessionTreeUserMessage {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_User); ok {
+			return x.User
+		}
+	}
+	return nil
+}
+
+func (x *CompactionHistoryRecord) GetModel() *SessionTreeModelResponse {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_Model); ok {
+			return x.Model
+		}
+	}
+	return nil
+}
+
+func (x *CompactionHistoryRecord) GetToolResult() *SessionTreeToolResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_ToolResult); ok {
+			return x.ToolResult
+		}
+	}
+	return nil
+}
+
+func (x *CompactionHistoryRecord) GetPrivatePayloadBytes() int64 {
+	if x != nil {
+		return x.xxx_hidden_PrivatePayloadBytes
+	}
+	return 0
+}
+
+func (x *CompactionHistoryRecord) SetUser(v *SessionTreeUserMessage) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &compactionHistoryRecord_User{v}
+}
+
+func (x *CompactionHistoryRecord) SetModel(v *SessionTreeModelResponse) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &compactionHistoryRecord_Model{v}
+}
+
+func (x *CompactionHistoryRecord) SetToolResult(v *SessionTreeToolResult) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &compactionHistoryRecord_ToolResult{v}
+}
+
+func (x *CompactionHistoryRecord) SetPrivatePayloadBytes(v int64) {
+	x.xxx_hidden_PrivatePayloadBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *CompactionHistoryRecord) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Content != nil
+}
+
+func (x *CompactionHistoryRecord) HasUser() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_User)
+	return ok
+}
+
+func (x *CompactionHistoryRecord) HasModel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_Model)
+	return ok
+}
+
+func (x *CompactionHistoryRecord) HasToolResult() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_ToolResult)
+	return ok
+}
+
+func (x *CompactionHistoryRecord) HasPrivatePayloadBytes() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *CompactionHistoryRecord) ClearContent() {
+	x.xxx_hidden_Content = nil
+}
+
+func (x *CompactionHistoryRecord) ClearUser() {
+	if _, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_User); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *CompactionHistoryRecord) ClearModel() {
+	if _, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_Model); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *CompactionHistoryRecord) ClearToolResult() {
+	if _, ok := x.xxx_hidden_Content.(*compactionHistoryRecord_ToolResult); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *CompactionHistoryRecord) ClearPrivatePayloadBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_PrivatePayloadBytes = 0
+}
+
+const CompactionHistoryRecord_Content_not_set_case case_CompactionHistoryRecord_Content = 0
+const CompactionHistoryRecord_User_case case_CompactionHistoryRecord_Content = 1
+const CompactionHistoryRecord_Model_case case_CompactionHistoryRecord_Content = 2
+const CompactionHistoryRecord_ToolResult_case case_CompactionHistoryRecord_Content = 3
+
+func (x *CompactionHistoryRecord) WhichContent() case_CompactionHistoryRecord_Content {
+	if x == nil {
+		return CompactionHistoryRecord_Content_not_set_case
+	}
+	switch x.xxx_hidden_Content.(type) {
+	case *compactionHistoryRecord_User:
+		return CompactionHistoryRecord_User_case
+	case *compactionHistoryRecord_Model:
+		return CompactionHistoryRecord_Model_case
+	case *compactionHistoryRecord_ToolResult:
+		return CompactionHistoryRecord_ToolResult_case
+	default:
+		return CompactionHistoryRecord_Content_not_set_case
+	}
+}
+
+type CompactionHistoryRecord_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The prepared model-visible content.
+
+	// Fields of oneof xxx_hidden_Content:
+	// The prepared user message.
+	User *SessionTreeUserMessage
+	// The prepared model response.
+	Model *SessionTreeModelResponse
+	// The prepared tool result.
+	ToolResult *SessionTreeToolResult
+	// -- end of xxx_hidden_Content
+	// The byte count of private replay payloads retained with this record.
+	PrivatePayloadBytes *int64
+}
+
+func (b0 CompactionHistoryRecord_builder) Build() *CompactionHistoryRecord {
+	m0 := &CompactionHistoryRecord{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.User != nil {
+		x.xxx_hidden_Content = &compactionHistoryRecord_User{b.User}
+	}
+	if b.Model != nil {
+		x.xxx_hidden_Content = &compactionHistoryRecord_Model{b.Model}
+	}
+	if b.ToolResult != nil {
+		x.xxx_hidden_Content = &compactionHistoryRecord_ToolResult{b.ToolResult}
+	}
+	if b.PrivatePayloadBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_PrivatePayloadBytes = *b.PrivatePayloadBytes
+	}
+	return m0
+}
+
+type case_CompactionHistoryRecord_Content protoreflect.FieldNumber
+
+func (x case_CompactionHistoryRecord_Content) String() string {
+	md := file_api_plugins_extension_v1_compaction_proto_msgTypes[14].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isCompactionHistoryRecord_Content interface {
+	isCompactionHistoryRecord_Content()
+}
+
+type compactionHistoryRecord_User struct {
+	// The prepared user message.
+	User *SessionTreeUserMessage `protobuf:"bytes,1,opt,name=user,oneof"`
+}
+
+type compactionHistoryRecord_Model struct {
+	// The prepared model response.
+	Model *SessionTreeModelResponse `protobuf:"bytes,2,opt,name=model,oneof"`
+}
+
+type compactionHistoryRecord_ToolResult struct {
+	// The prepared tool result.
+	ToolResult *SessionTreeToolResult `protobuf:"bytes,3,opt,name=tool_result,json=toolResult,oneof"`
+}
+
+func (*compactionHistoryRecord_User) isCompactionHistoryRecord_Content() {}
+
+func (*compactionHistoryRecord_Model) isCompactionHistoryRecord_Content() {}
+
+func (*compactionHistoryRecord_ToolResult) isCompactionHistoryRecord_Content() {}
+
+// CompactionSnapshotEntry supplies one original entry and its private replay size.
+type CompactionSnapshotEntry struct {
+	state                          protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Entry               *SessionTreeEntry      `protobuf:"bytes,1,opt,name=entry"`
+	xxx_hidden_PrivatePayloadBytes int64                  `protobuf:"varint,2,opt,name=private_payload_bytes,json=privatePayloadBytes"`
+	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
+	XXX_presence                   [1]uint32
+	unknownFields                  protoimpl.UnknownFields
+	sizeCache                      protoimpl.SizeCache
+}
+
+func (x *CompactionSnapshotEntry) Reset() {
+	*x = CompactionSnapshotEntry{}
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionSnapshotEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionSnapshotEntry) ProtoMessage() {}
+
+func (x *CompactionSnapshotEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionSnapshotEntry) GetEntry() *SessionTreeEntry {
+	if x != nil {
+		return x.xxx_hidden_Entry
+	}
+	return nil
+}
+
+func (x *CompactionSnapshotEntry) GetPrivatePayloadBytes() int64 {
+	if x != nil {
+		return x.xxx_hidden_PrivatePayloadBytes
+	}
+	return 0
+}
+
+func (x *CompactionSnapshotEntry) SetEntry(v *SessionTreeEntry) {
+	x.xxx_hidden_Entry = v
+}
+
+func (x *CompactionSnapshotEntry) SetPrivatePayloadBytes(v int64) {
+	x.xxx_hidden_PrivatePayloadBytes = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *CompactionSnapshotEntry) HasEntry() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Entry != nil
+}
+
+func (x *CompactionSnapshotEntry) HasPrivatePayloadBytes() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *CompactionSnapshotEntry) ClearEntry() {
+	x.xxx_hidden_Entry = nil
+}
+
+func (x *CompactionSnapshotEntry) ClearPrivatePayloadBytes() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_PrivatePayloadBytes = 0
+}
+
+type CompactionSnapshotEntry_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The provider-neutral original entry.
+	Entry *SessionTreeEntry
+	// The byte count of private replay payloads retained with this entry.
+	PrivatePayloadBytes *int64
+}
+
+func (b0 CompactionSnapshotEntry_builder) Build() *CompactionSnapshotEntry {
+	m0 := &CompactionSnapshotEntry{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Entry = b.Entry
+	if b.PrivatePayloadBytes != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_PrivatePayloadBytes = *b.PrivatePayloadBytes
+	}
+	return m0
+}
+
+// CompactionToolDefinition supplies the captured outbound tool definition.
+type CompactionToolDefinition struct {
+	state                           protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Descriptor_          *ToolDescriptor        `protobuf:"bytes,1,opt,name=descriptor"`
+	xxx_hidden_GrammarInputProperty *string                `protobuf:"bytes,2,opt,name=grammar_input_property,json=grammarInputProperty"`
+	XXX_raceDetectHookData          protoimpl.RaceDetectHookData
+	XXX_presence                    [1]uint32
+	unknownFields                   protoimpl.UnknownFields
+	sizeCache                       protoimpl.SizeCache
+}
+
+func (x *CompactionToolDefinition) Reset() {
+	*x = CompactionToolDefinition{}
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionToolDefinition) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionToolDefinition) ProtoMessage() {}
+
+func (x *CompactionToolDefinition) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionToolDefinition) GetDescriptor() *ToolDescriptor {
+	if x != nil {
+		return x.xxx_hidden_Descriptor_
+	}
+	return nil
+}
+
+func (x *CompactionToolDefinition) GetGrammarInputProperty() string {
+	if x != nil {
+		if x.xxx_hidden_GrammarInputProperty != nil {
+			return *x.xxx_hidden_GrammarInputProperty
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionToolDefinition) SetDescriptor(v *ToolDescriptor) {
+	x.xxx_hidden_Descriptor_ = v
+}
+
+func (x *CompactionToolDefinition) SetGrammarInputProperty(v string) {
+	x.xxx_hidden_GrammarInputProperty = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *CompactionToolDefinition) HasDescriptor() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Descriptor_ != nil
+}
+
+func (x *CompactionToolDefinition) HasGrammarInputProperty() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *CompactionToolDefinition) ClearDescriptor() {
+	x.xxx_hidden_Descriptor_ = nil
+}
+
+func (x *CompactionToolDefinition) ClearGrammarInputProperty() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_GrammarInputProperty = nil
+}
+
+type CompactionToolDefinition_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The provider-neutral tool descriptor.
+	Descriptor *ToolDescriptor
+	// The grammar-constrained input property, when present.
+	GrammarInputProperty *string
+}
+
+func (b0 CompactionToolDefinition_builder) Build() *CompactionToolDefinition {
+	m0 := &CompactionToolDefinition{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Descriptor_ = b.Descriptor
+	if b.GrammarInputProperty != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_GrammarInputProperty = b.GrammarInputProperty
+	}
+	return m0
+}
+
+// CompactionPolicyInvocation supplies immutable conversation input and replacement authority.
+type CompactionPolicyInvocation struct {
+	state                         protoimpl.MessageState       `protogen:"opaque.v1"`
+	xxx_hidden_OperationId        *string                      `protobuf:"bytes,1,opt,name=operation_id,json=operationId"`
+	xxx_hidden_SessionId          *string                      `protobuf:"bytes,2,opt,name=session_id,json=sessionId"`
+	xxx_hidden_SessionIncarnation int64                        `protobuf:"varint,3,opt,name=session_incarnation,json=sessionIncarnation"`
+	xxx_hidden_ActiveLeafId       *string                      `protobuf:"bytes,4,opt,name=active_leaf_id,json=activeLeafId"`
+	xxx_hidden_Entries            *[]*CompactionSnapshotEntry  `protobuf:"bytes,5,rep,name=entries"`
+	xxx_hidden_History            *[]*CompactionHistoryRecord  `protobuf:"bytes,6,rep,name=history"`
+	xxx_hidden_Previous           *SessionTreeCompaction       `protobuf:"bytes,7,opt,name=previous"`
+	xxx_hidden_Model              *ModelDescriptor             `protobuf:"bytes,8,opt,name=model"`
+	xxx_hidden_ReasoningChoice    *string                      `protobuf:"bytes,9,opt,name=reasoning_choice,json=reasoningChoice"`
+	xxx_hidden_Instructions       *string                      `protobuf:"bytes,10,opt,name=instructions"`
+	xxx_hidden_Tools              *[]*CompactionToolDefinition `protobuf:"bytes,11,rep,name=tools"`
+	xxx_hidden_UserInstructions   *string                      `protobuf:"bytes,12,opt,name=user_instructions,json=userInstructions"`
+	xxx_hidden_PolicyRuntimeId    *string                      `protobuf:"bytes,13,opt,name=policy_runtime_id,json=policyRuntimeId"`
+	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
+	XXX_presence                  [1]uint32
+	unknownFields                 protoimpl.UnknownFields
+	sizeCache                     protoimpl.SizeCache
+}
+
+func (x *CompactionPolicyInvocation) Reset() {
+	*x = CompactionPolicyInvocation{}
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionPolicyInvocation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionPolicyInvocation) ProtoMessage() {}
+
+func (x *CompactionPolicyInvocation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionPolicyInvocation) GetOperationId() string {
+	if x != nil {
+		if x.xxx_hidden_OperationId != nil {
+			return *x.xxx_hidden_OperationId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionPolicyInvocation) GetSessionId() string {
+	if x != nil {
+		if x.xxx_hidden_SessionId != nil {
+			return *x.xxx_hidden_SessionId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionPolicyInvocation) GetSessionIncarnation() int64 {
+	if x != nil {
+		return x.xxx_hidden_SessionIncarnation
+	}
+	return 0
+}
+
+func (x *CompactionPolicyInvocation) GetActiveLeafId() string {
+	if x != nil {
+		if x.xxx_hidden_ActiveLeafId != nil {
+			return *x.xxx_hidden_ActiveLeafId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionPolicyInvocation) GetEntries() []*CompactionSnapshotEntry {
+	if x != nil {
+		if x.xxx_hidden_Entries != nil {
+			return *x.xxx_hidden_Entries
+		}
+	}
+	return nil
+}
+
+func (x *CompactionPolicyInvocation) GetHistory() []*CompactionHistoryRecord {
+	if x != nil {
+		if x.xxx_hidden_History != nil {
+			return *x.xxx_hidden_History
+		}
+	}
+	return nil
+}
+
+func (x *CompactionPolicyInvocation) GetPrevious() *SessionTreeCompaction {
+	if x != nil {
+		return x.xxx_hidden_Previous
+	}
+	return nil
+}
+
+func (x *CompactionPolicyInvocation) GetModel() *ModelDescriptor {
+	if x != nil {
+		return x.xxx_hidden_Model
+	}
+	return nil
+}
+
+func (x *CompactionPolicyInvocation) GetReasoningChoice() string {
+	if x != nil {
+		if x.xxx_hidden_ReasoningChoice != nil {
+			return *x.xxx_hidden_ReasoningChoice
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionPolicyInvocation) GetInstructions() string {
+	if x != nil {
+		if x.xxx_hidden_Instructions != nil {
+			return *x.xxx_hidden_Instructions
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionPolicyInvocation) GetTools() []*CompactionToolDefinition {
+	if x != nil {
+		if x.xxx_hidden_Tools != nil {
+			return *x.xxx_hidden_Tools
+		}
+	}
+	return nil
+}
+
+func (x *CompactionPolicyInvocation) GetUserInstructions() string {
+	if x != nil {
+		if x.xxx_hidden_UserInstructions != nil {
+			return *x.xxx_hidden_UserInstructions
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionPolicyInvocation) GetPolicyRuntimeId() string {
+	if x != nil {
+		if x.xxx_hidden_PolicyRuntimeId != nil {
+			return *x.xxx_hidden_PolicyRuntimeId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionPolicyInvocation) SetOperationId(v string) {
+	x.xxx_hidden_OperationId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 13)
+}
+
+func (x *CompactionPolicyInvocation) SetSessionId(v string) {
+	x.xxx_hidden_SessionId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 13)
+}
+
+func (x *CompactionPolicyInvocation) SetSessionIncarnation(v int64) {
+	x.xxx_hidden_SessionIncarnation = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 13)
+}
+
+func (x *CompactionPolicyInvocation) SetActiveLeafId(v string) {
+	x.xxx_hidden_ActiveLeafId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 13)
+}
+
+func (x *CompactionPolicyInvocation) SetEntries(v []*CompactionSnapshotEntry) {
+	x.xxx_hidden_Entries = &v
+}
+
+func (x *CompactionPolicyInvocation) SetHistory(v []*CompactionHistoryRecord) {
+	x.xxx_hidden_History = &v
+}
+
+func (x *CompactionPolicyInvocation) SetPrevious(v *SessionTreeCompaction) {
+	x.xxx_hidden_Previous = v
+}
+
+func (x *CompactionPolicyInvocation) SetModel(v *ModelDescriptor) {
+	x.xxx_hidden_Model = v
+}
+
+func (x *CompactionPolicyInvocation) SetReasoningChoice(v string) {
+	x.xxx_hidden_ReasoningChoice = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 13)
+}
+
+func (x *CompactionPolicyInvocation) SetInstructions(v string) {
+	x.xxx_hidden_Instructions = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 13)
+}
+
+func (x *CompactionPolicyInvocation) SetTools(v []*CompactionToolDefinition) {
+	x.xxx_hidden_Tools = &v
+}
+
+func (x *CompactionPolicyInvocation) SetUserInstructions(v string) {
+	x.xxx_hidden_UserInstructions = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 13)
+}
+
+func (x *CompactionPolicyInvocation) SetPolicyRuntimeId(v string) {
+	x.xxx_hidden_PolicyRuntimeId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 13)
+}
+
+func (x *CompactionPolicyInvocation) HasOperationId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *CompactionPolicyInvocation) HasSessionId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *CompactionPolicyInvocation) HasSessionIncarnation() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *CompactionPolicyInvocation) HasActiveLeafId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
+}
+
+func (x *CompactionPolicyInvocation) HasPrevious() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Previous != nil
+}
+
+func (x *CompactionPolicyInvocation) HasModel() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Model != nil
+}
+
+func (x *CompactionPolicyInvocation) HasReasoningChoice() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 8)
+}
+
+func (x *CompactionPolicyInvocation) HasInstructions() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 9)
+}
+
+func (x *CompactionPolicyInvocation) HasUserInstructions() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 11)
+}
+
+func (x *CompactionPolicyInvocation) HasPolicyRuntimeId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 12)
+}
+
+func (x *CompactionPolicyInvocation) ClearOperationId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_OperationId = nil
+}
+
+func (x *CompactionPolicyInvocation) ClearSessionId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_SessionId = nil
+}
+
+func (x *CompactionPolicyInvocation) ClearSessionIncarnation() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_SessionIncarnation = 0
+}
+
+func (x *CompactionPolicyInvocation) ClearActiveLeafId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
+	x.xxx_hidden_ActiveLeafId = nil
+}
+
+func (x *CompactionPolicyInvocation) ClearPrevious() {
+	x.xxx_hidden_Previous = nil
+}
+
+func (x *CompactionPolicyInvocation) ClearModel() {
+	x.xxx_hidden_Model = nil
+}
+
+func (x *CompactionPolicyInvocation) ClearReasoningChoice() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 8)
+	x.xxx_hidden_ReasoningChoice = nil
+}
+
+func (x *CompactionPolicyInvocation) ClearInstructions() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 9)
+	x.xxx_hidden_Instructions = nil
+}
+
+func (x *CompactionPolicyInvocation) ClearUserInstructions() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 11)
+	x.xxx_hidden_UserInstructions = nil
+}
+
+func (x *CompactionPolicyInvocation) ClearPolicyRuntimeId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 12)
+	x.xxx_hidden_PolicyRuntimeId = nil
+}
+
+type CompactionPolicyInvocation_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The scoped authority for this policy operation.
+	OperationId *string
+	// The captured session identifier.
+	SessionId *string
+	// The captured session incarnation.
+	SessionIncarnation *int64
+	// The captured branch position, when present.
+	ActiveLeafId *string
+	// The original branch entries with private payloads excluded.
+	Entries []*CompactionSnapshotEntry
+	// The prepared history for the captured branch.
+	History []*CompactionHistoryRecord
+	// The preceding applicable replacement, when present.
+	Previous *SessionTreeCompaction
+	// The selected conversation model.
+	Model *ModelDescriptor
+	// The selected conversation reasoning choice.
+	ReasoningChoice *string
+	// The conversation instructions, including an empty string.
+	Instructions *string
+	// The available conversation tool definitions.
+	Tools []*CompactionToolDefinition
+	// Optional caller guidance for manual compaction.
+	UserInstructions *string
+	// The captured policy runtime generation.
+	PolicyRuntimeId *string
+}
+
+func (b0 CompactionPolicyInvocation_builder) Build() *CompactionPolicyInvocation {
+	m0 := &CompactionPolicyInvocation{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.OperationId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 13)
+		x.xxx_hidden_OperationId = b.OperationId
+	}
+	if b.SessionId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 13)
+		x.xxx_hidden_SessionId = b.SessionId
+	}
+	if b.SessionIncarnation != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 13)
+		x.xxx_hidden_SessionIncarnation = *b.SessionIncarnation
+	}
+	if b.ActiveLeafId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 13)
+		x.xxx_hidden_ActiveLeafId = b.ActiveLeafId
+	}
+	x.xxx_hidden_Entries = &b.Entries
+	x.xxx_hidden_History = &b.History
+	x.xxx_hidden_Previous = b.Previous
+	x.xxx_hidden_Model = b.Model
+	if b.ReasoningChoice != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 13)
+		x.xxx_hidden_ReasoningChoice = b.ReasoningChoice
+	}
+	if b.Instructions != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 13)
+		x.xxx_hidden_Instructions = b.Instructions
+	}
+	x.xxx_hidden_Tools = &b.Tools
+	if b.UserInstructions != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 13)
+		x.xxx_hidden_UserInstructions = b.UserInstructions
+	}
+	if b.PolicyRuntimeId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 13)
+		x.xxx_hidden_PolicyRuntimeId = b.PolicyRuntimeId
+	}
+	return m0
+}
+
+// CompactionPolicyResult acknowledges the policy operation.
+type CompactionPolicyResult struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Error       *string                `protobuf:"bytes,3,opt,name=error"`
+	xxx_hidden_State       *CompactionPolicyState `protobuf:"bytes,2,opt,name=state"`
+	xxx_hidden_Canceled    bool                   `protobuf:"varint,1,opt,name=canceled"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *CompactionPolicyResult) Reset() {
+	*x = CompactionPolicyResult{}
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionPolicyResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionPolicyResult) ProtoMessage() {}
+
+func (x *CompactionPolicyResult) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionPolicyResult) GetError() string {
+	if x != nil {
+		if x.xxx_hidden_Error != nil {
+			return *x.xxx_hidden_Error
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionPolicyResult) GetState() *CompactionPolicyState {
+	if x != nil {
+		return x.xxx_hidden_State
+	}
+	return nil
+}
+
+func (x *CompactionPolicyResult) GetCanceled() bool {
+	if x != nil {
+		return x.xxx_hidden_Canceled
+	}
+	return false
+}
+
+func (x *CompactionPolicyResult) SetError(v string) {
+	x.xxx_hidden_Error = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
+func (x *CompactionPolicyResult) SetState(v *CompactionPolicyState) {
+	x.xxx_hidden_State = v
+}
+
+func (x *CompactionPolicyResult) SetCanceled(v bool) {
+	x.xxx_hidden_Canceled = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
+}
+
+func (x *CompactionPolicyResult) HasError() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *CompactionPolicyResult) HasState() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_State != nil
+}
+
+func (x *CompactionPolicyResult) HasCanceled() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *CompactionPolicyResult) ClearError() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Error = nil
+}
+
+func (x *CompactionPolicyResult) ClearState() {
+	x.xxx_hidden_State = nil
+}
+
+func (x *CompactionPolicyResult) ClearCanceled() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Canceled = false
+}
+
+type CompactionPolicyResult_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Complete acquired policy failure text, when present.
+	Error *string
+	// Acquired original and last valid composed state, when available.
+	State *CompactionPolicyState
+	// Whether the policy canceled before replacement.
+	Canceled *bool
+}
+
+func (b0 CompactionPolicyResult_builder) Build() *CompactionPolicyResult {
+	m0 := &CompactionPolicyResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Error != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_Error = b.Error
+	}
+	x.xxx_hidden_State = b.State
+	if b.Canceled != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Canceled = *b.Canceled
+	}
+	return m0
+}
+
+// CompactionCandidateRequest supplies a complete candidate through scoped policy authority.
+type CompactionCandidateRequest struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Context     *ExtensionContextRef   `protobuf:"bytes,1,opt,name=context"`
+	xxx_hidden_OperationId *string                `protobuf:"bytes,2,opt,name=operation_id,json=operationId"`
+	xxx_hidden_Result      *CompactionResult      `protobuf:"bytes,3,opt,name=result"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *CompactionCandidateRequest) Reset() {
+	*x = CompactionCandidateRequest{}
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionCandidateRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionCandidateRequest) ProtoMessage() {}
+
+func (x *CompactionCandidateRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionCandidateRequest) GetContext() *ExtensionContextRef {
+	if x != nil {
+		return x.xxx_hidden_Context
+	}
+	return nil
+}
+
+func (x *CompactionCandidateRequest) GetOperationId() string {
+	if x != nil {
+		if x.xxx_hidden_OperationId != nil {
+			return *x.xxx_hidden_OperationId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionCandidateRequest) GetResult() *CompactionResult {
+	if x != nil {
+		return x.xxx_hidden_Result
+	}
+	return nil
+}
+
+func (x *CompactionCandidateRequest) SetContext(v *ExtensionContextRef) {
+	x.xxx_hidden_Context = v
+}
+
+func (x *CompactionCandidateRequest) SetOperationId(v string) {
+	x.xxx_hidden_OperationId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *CompactionCandidateRequest) SetResult(v *CompactionResult) {
+	x.xxx_hidden_Result = v
+}
+
+func (x *CompactionCandidateRequest) HasContext() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Context != nil
+}
+
+func (x *CompactionCandidateRequest) HasOperationId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *CompactionCandidateRequest) HasResult() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Result != nil
+}
+
+func (x *CompactionCandidateRequest) ClearContext() {
+	x.xxx_hidden_Context = nil
+}
+
+func (x *CompactionCandidateRequest) ClearOperationId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_OperationId = nil
+}
+
+func (x *CompactionCandidateRequest) ClearResult() {
+	x.xxx_hidden_Result = nil
+}
+
+type CompactionCandidateRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The issued session context.
+	Context *ExtensionContextRef
+	// The owning policy operation.
+	OperationId *string
+	// The complete replacement candidate.
+	Result *CompactionResult
+}
+
+func (b0 CompactionCandidateRequest_builder) Build() *CompactionCandidateRequest {
+	m0 := &CompactionCandidateRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Context = b.Context
+	if b.OperationId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
+		x.xxx_hidden_OperationId = b.OperationId
+	}
+	x.xxx_hidden_Result = b.Result
+	return m0
+}
+
+// CompactionProjection supplies structurally valid candidate model history.
+type CompactionProjection struct {
+	state              protoimpl.MessageState      `protogen:"opaque.v1"`
+	xxx_hidden_History *[]*CompactionHistoryRecord `protobuf:"bytes,1,rep,name=history"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *CompactionProjection) Reset() {
+	*x = CompactionProjection{}
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionProjection) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionProjection) ProtoMessage() {}
+
+func (x *CompactionProjection) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_compaction_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionProjection) GetHistory() []*CompactionHistoryRecord {
+	if x != nil {
+		if x.xxx_hidden_History != nil {
+			return *x.xxx_hidden_History
+		}
+	}
+	return nil
+}
+
+func (x *CompactionProjection) SetHistory(v []*CompactionHistoryRecord) {
+	x.xxx_hidden_History = &v
+}
+
+type CompactionProjection_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The summary followed by the retained suffix.
+	History []*CompactionHistoryRecord
+}
+
+func (b0 CompactionProjection_builder) Build() *CompactionProjection {
+	m0 := &CompactionProjection{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_History = &b.History
+	return m0
+}
+
 var File_api_plugins_extension_v1_compaction_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_compaction_proto_rawDesc = "" +
 	"\n" +
-	")api/plugins/extension/v1/compaction.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\x1a$api/plugins/extension/v1/model.proto\x1a,api/plugins/extension/v1/session_entry.proto\"\x85\x01\n" +
+	")api/plugins/extension/v1/compaction.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\x1a$api/plugins/extension/v1/model.proto\x1a,api/plugins/extension/v1/session_entry.proto\x1a#api/plugins/extension/v1/tool.proto\"\x85\x01\n" +
 	"\x14CompactionInputEntry\x12B\n" +
 	"\x05entry\x18\x01 \x01(\v2,.glyph.plugins.extension.v1.SessionTreeEntryR\x05entry\x12)\n" +
 	"\x10estimated_tokens\x18\x02 \x01(\x03R\x0festimatedTokens\"\xce\x05\n" +
@@ -2237,14 +3521,16 @@ const file_api_plugins_extension_v1_compaction_proto_rawDesc = "" +
 	"\x16CompactionResultAction\x12\x16\n" +
 	"\x06cancel\x18\x01 \x01(\bR\x06cancel\x12\\\n" +
 	"\rresult_action\x18\x02 \x01(\x0e27.glyph.plugins.extension.v1.CompactionResultDispositionR\fresultAction\x12D\n" +
-	"\x06result\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.CompactionResultR\x06result\"\x89\x03\n" +
-	"\x11CompactionOutcome\x12X\n" +
+	"\x06result\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.CompactionResultR\x06result\"\x8f\x02\n" +
+	"\x15CompactionPolicyState\x12X\n" +
 	"\x10original_request\x18\x01 \x01(\v2-.glyph.plugins.extension.v1.CompactionRequestR\x0foriginalRequest\x12V\n" +
 	"\x0fcurrent_request\x18\x02 \x01(\v2-.glyph.plugins.extension.v1.CompactionRequestR\x0ecurrentRequest\x12D\n" +
-	"\x06result\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.CompactionResultR\x06result\x12J\n" +
-	"\tcommitted\x18\x04 \x01(\v2,.glyph.plugins.extension.v1.SessionTreeEntryR\tcommitted\x12\x1a\n" +
-	"\bcanceled\x18\x05 \x01(\bR\bcanceled\x12\x14\n" +
-	"\x05error\x18\x06 \x01(\tR\x05error\"\x1a\n" +
+	"\x06result\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.CompactionResultR\x06result\"\xda\x01\n" +
+	"\x11CompactionOutcome\x12G\n" +
+	"\x05state\x18\x01 \x01(\v21.glyph.plugins.extension.v1.CompactionPolicyStateR\x05state\x12J\n" +
+	"\tcommitted\x18\x02 \x01(\v2,.glyph.plugins.extension.v1.SessionTreeEntryR\tcommitted\x12\x1a\n" +
+	"\bcanceled\x18\x03 \x01(\bR\bcanceled\x12\x14\n" +
+	"\x05error\x18\x04 \x01(\tR\x05error\"\x1a\n" +
 	"\x18CompactionObserverAction\"\x7f\n" +
 	"\x0eCompactRequest\x12I\n" +
 	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\x12\"\n" +
@@ -2260,7 +3546,48 @@ const file_api_plugins_extension_v1_compaction_proto_rawDesc = "" +
 	"\x05error\x18\x03 \x01(\tR\x05error\x12!\n" +
 	"\ffailure_code\x18\x04 \x01(\tR\vfailureCode\"*\n" +
 	"\x12CompactionProgress\x12\x14\n" +
-	"\x05stage\x18\x01 \x01(\tR\x05stage*\x99\x01\n" +
+	"\x05stage\x18\x01 \x01(\tR\x05stage\"\xc6\x02\n" +
+	"\x17CompactionHistoryRecord\x12H\n" +
+	"\x04user\x18\x01 \x01(\v22.glyph.plugins.extension.v1.SessionTreeUserMessageH\x00R\x04user\x12L\n" +
+	"\x05model\x18\x02 \x01(\v24.glyph.plugins.extension.v1.SessionTreeModelResponseH\x00R\x05model\x12T\n" +
+	"\vtool_result\x18\x03 \x01(\v21.glyph.plugins.extension.v1.SessionTreeToolResultH\x00R\n" +
+	"toolResult\x122\n" +
+	"\x15private_payload_bytes\x18\x04 \x01(\x03R\x13privatePayloadBytesB\t\n" +
+	"\acontent\"\x91\x01\n" +
+	"\x17CompactionSnapshotEntry\x12B\n" +
+	"\x05entry\x18\x01 \x01(\v2,.glyph.plugins.extension.v1.SessionTreeEntryR\x05entry\x122\n" +
+	"\x15private_payload_bytes\x18\x02 \x01(\x03R\x13privatePayloadBytes\"\x9c\x01\n" +
+	"\x18CompactionToolDefinition\x12J\n" +
+	"\n" +
+	"descriptor\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\n" +
+	"descriptor\x124\n" +
+	"\x16grammar_input_property\x18\x02 \x01(\tR\x14grammarInputProperty\"\xd9\x05\n" +
+	"\x1aCompactionPolicyInvocation\x12!\n" +
+	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1d\n" +
+	"\n" +
+	"session_id\x18\x02 \x01(\tR\tsessionId\x12/\n" +
+	"\x13session_incarnation\x18\x03 \x01(\x03R\x12sessionIncarnation\x12$\n" +
+	"\x0eactive_leaf_id\x18\x04 \x01(\tR\factiveLeafId\x12M\n" +
+	"\aentries\x18\x05 \x03(\v23.glyph.plugins.extension.v1.CompactionSnapshotEntryR\aentries\x12M\n" +
+	"\ahistory\x18\x06 \x03(\v23.glyph.plugins.extension.v1.CompactionHistoryRecordR\ahistory\x12M\n" +
+	"\bprevious\x18\a \x01(\v21.glyph.plugins.extension.v1.SessionTreeCompactionR\bprevious\x12A\n" +
+	"\x05model\x18\b \x01(\v2+.glyph.plugins.extension.v1.ModelDescriptorR\x05model\x12)\n" +
+	"\x10reasoning_choice\x18\t \x01(\tR\x0freasoningChoice\x12\"\n" +
+	"\finstructions\x18\n" +
+	" \x01(\tR\finstructions\x12J\n" +
+	"\x05tools\x18\v \x03(\v24.glyph.plugins.extension.v1.CompactionToolDefinitionR\x05tools\x12+\n" +
+	"\x11user_instructions\x18\f \x01(\tR\x10userInstructions\x12*\n" +
+	"\x11policy_runtime_id\x18\r \x01(\tR\x0fpolicyRuntimeId\"\x93\x01\n" +
+	"\x16CompactionPolicyResult\x12\x14\n" +
+	"\x05error\x18\x03 \x01(\tR\x05error\x12G\n" +
+	"\x05state\x18\x02 \x01(\v21.glyph.plugins.extension.v1.CompactionPolicyStateR\x05state\x12\x1a\n" +
+	"\bcanceled\x18\x01 \x01(\bR\bcanceled\"\xd0\x01\n" +
+	"\x1aCompactionCandidateRequest\x12I\n" +
+	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\x12!\n" +
+	"\foperation_id\x18\x02 \x01(\tR\voperationId\x12D\n" +
+	"\x06result\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.CompactionResultR\x06result\"e\n" +
+	"\x14CompactionProjection\x12M\n" +
+	"\ahistory\x18\x01 \x03(\v23.glyph.plugins.extension.v1.CompactionHistoryRecordR\ahistory*\x99\x01\n" +
 	"\x11CompactionTrigger\x12\"\n" +
 	"\x1eCOMPACTION_TRIGGER_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19COMPACTION_TRIGGER_MANUAL\x10\x01\x12 \n" +
@@ -2277,7 +3604,7 @@ const file_api_plugins_extension_v1_compaction_proto_rawDesc = "" +
 	"#COMPACTION_RESULT_DISPOSITION_CLEAR\x10\x03B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_compaction_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_api_plugins_extension_v1_compaction_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
+var file_api_plugins_extension_v1_compaction_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_api_plugins_extension_v1_compaction_proto_goTypes = []any{
 	(CompactionTrigger)(0),              // 0: glyph.plugins.extension.v1.CompactionTrigger
 	(CompactionRequestDisposition)(0),   // 1: glyph.plugins.extension.v1.CompactionRequestDisposition
@@ -2289,26 +3616,38 @@ var file_api_plugins_extension_v1_compaction_proto_goTypes = []any{
 	(*CompactionResultInvocation)(nil),  // 7: glyph.plugins.extension.v1.CompactionResultInvocation
 	(*CompactionRequestAction)(nil),     // 8: glyph.plugins.extension.v1.CompactionRequestAction
 	(*CompactionResultAction)(nil),      // 9: glyph.plugins.extension.v1.CompactionResultAction
-	(*CompactionOutcome)(nil),           // 10: glyph.plugins.extension.v1.CompactionOutcome
-	(*CompactionObserverAction)(nil),    // 11: glyph.plugins.extension.v1.CompactionObserverAction
-	(*CompactRequest)(nil),              // 12: glyph.plugins.extension.v1.CompactRequest
-	(*CommittedCompaction)(nil),         // 13: glyph.plugins.extension.v1.CommittedCompaction
-	(*CompactResult)(nil),               // 14: glyph.plugins.extension.v1.CompactResult
-	(*CompactionProgress)(nil),          // 15: glyph.plugins.extension.v1.CompactionProgress
-	(*SessionTreeEntry)(nil),            // 16: glyph.plugins.extension.v1.SessionTreeEntry
-	(*ModelDescriptor)(nil),             // 17: glyph.plugins.extension.v1.ModelDescriptor
-	(*SessionTreeCompaction)(nil),       // 18: glyph.plugins.extension.v1.SessionTreeCompaction
-	(*BranchSummarySource)(nil),         // 19: glyph.plugins.extension.v1.BranchSummarySource
-	(*ExtensionContextRef)(nil),         // 20: glyph.plugins.extension.v1.ExtensionContextRef
+	(*CompactionPolicyState)(nil),       // 10: glyph.plugins.extension.v1.CompactionPolicyState
+	(*CompactionOutcome)(nil),           // 11: glyph.plugins.extension.v1.CompactionOutcome
+	(*CompactionObserverAction)(nil),    // 12: glyph.plugins.extension.v1.CompactionObserverAction
+	(*CompactRequest)(nil),              // 13: glyph.plugins.extension.v1.CompactRequest
+	(*CommittedCompaction)(nil),         // 14: glyph.plugins.extension.v1.CommittedCompaction
+	(*CompactResult)(nil),               // 15: glyph.plugins.extension.v1.CompactResult
+	(*CompactionProgress)(nil),          // 16: glyph.plugins.extension.v1.CompactionProgress
+	(*CompactionHistoryRecord)(nil),     // 17: glyph.plugins.extension.v1.CompactionHistoryRecord
+	(*CompactionSnapshotEntry)(nil),     // 18: glyph.plugins.extension.v1.CompactionSnapshotEntry
+	(*CompactionToolDefinition)(nil),    // 19: glyph.plugins.extension.v1.CompactionToolDefinition
+	(*CompactionPolicyInvocation)(nil),  // 20: glyph.plugins.extension.v1.CompactionPolicyInvocation
+	(*CompactionPolicyResult)(nil),      // 21: glyph.plugins.extension.v1.CompactionPolicyResult
+	(*CompactionCandidateRequest)(nil),  // 22: glyph.plugins.extension.v1.CompactionCandidateRequest
+	(*CompactionProjection)(nil),        // 23: glyph.plugins.extension.v1.CompactionProjection
+	(*SessionTreeEntry)(nil),            // 24: glyph.plugins.extension.v1.SessionTreeEntry
+	(*ModelDescriptor)(nil),             // 25: glyph.plugins.extension.v1.ModelDescriptor
+	(*SessionTreeCompaction)(nil),       // 26: glyph.plugins.extension.v1.SessionTreeCompaction
+	(*BranchSummarySource)(nil),         // 27: glyph.plugins.extension.v1.BranchSummarySource
+	(*ExtensionContextRef)(nil),         // 28: glyph.plugins.extension.v1.ExtensionContextRef
+	(*SessionTreeUserMessage)(nil),      // 29: glyph.plugins.extension.v1.SessionTreeUserMessage
+	(*SessionTreeModelResponse)(nil),    // 30: glyph.plugins.extension.v1.SessionTreeModelResponse
+	(*SessionTreeToolResult)(nil),       // 31: glyph.plugins.extension.v1.SessionTreeToolResult
+	(*ToolDescriptor)(nil),              // 32: glyph.plugins.extension.v1.ToolDescriptor
 }
 var file_api_plugins_extension_v1_compaction_proto_depIdxs = []int32{
-	16, // 0: glyph.plugins.extension.v1.CompactionInputEntry.entry:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
+	24, // 0: glyph.plugins.extension.v1.CompactionInputEntry.entry:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
 	0,  // 1: glyph.plugins.extension.v1.CompactionRequest.trigger:type_name -> glyph.plugins.extension.v1.CompactionTrigger
-	17, // 2: glyph.plugins.extension.v1.CompactionRequest.model:type_name -> glyph.plugins.extension.v1.ModelDescriptor
+	25, // 2: glyph.plugins.extension.v1.CompactionRequest.model:type_name -> glyph.plugins.extension.v1.ModelDescriptor
 	3,  // 3: glyph.plugins.extension.v1.CompactionRequest.prefix:type_name -> glyph.plugins.extension.v1.CompactionInputEntry
 	3,  // 4: glyph.plugins.extension.v1.CompactionRequest.suffix:type_name -> glyph.plugins.extension.v1.CompactionInputEntry
-	18, // 5: glyph.plugins.extension.v1.CompactionRequest.previous:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
-	19, // 6: glyph.plugins.extension.v1.CompactionResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	26, // 5: glyph.plugins.extension.v1.CompactionRequest.previous:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
+	27, // 6: glyph.plugins.extension.v1.CompactionResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
 	4,  // 7: glyph.plugins.extension.v1.CompactionRequestInvocation.original:type_name -> glyph.plugins.extension.v1.CompactionRequest
 	4,  // 8: glyph.plugins.extension.v1.CompactionRequestInvocation.current:type_name -> glyph.plugins.extension.v1.CompactionRequest
 	5,  // 9: glyph.plugins.extension.v1.CompactionRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.CompactionResult
@@ -2322,18 +3661,33 @@ var file_api_plugins_extension_v1_compaction_proto_depIdxs = []int32{
 	5,  // 17: glyph.plugins.extension.v1.CompactionRequestAction.result:type_name -> glyph.plugins.extension.v1.CompactionResult
 	2,  // 18: glyph.plugins.extension.v1.CompactionResultAction.result_action:type_name -> glyph.plugins.extension.v1.CompactionResultDisposition
 	5,  // 19: glyph.plugins.extension.v1.CompactionResultAction.result:type_name -> glyph.plugins.extension.v1.CompactionResult
-	4,  // 20: glyph.plugins.extension.v1.CompactionOutcome.original_request:type_name -> glyph.plugins.extension.v1.CompactionRequest
-	4,  // 21: glyph.plugins.extension.v1.CompactionOutcome.current_request:type_name -> glyph.plugins.extension.v1.CompactionRequest
-	5,  // 22: glyph.plugins.extension.v1.CompactionOutcome.result:type_name -> glyph.plugins.extension.v1.CompactionResult
-	16, // 23: glyph.plugins.extension.v1.CompactionOutcome.committed:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
-	20, // 24: glyph.plugins.extension.v1.CompactRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
-	18, // 25: glyph.plugins.extension.v1.CommittedCompaction.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
-	13, // 26: glyph.plugins.extension.v1.CompactResult.committed:type_name -> glyph.plugins.extension.v1.CommittedCompaction
-	27, // [27:27] is the sub-list for method output_type
-	27, // [27:27] is the sub-list for method input_type
-	27, // [27:27] is the sub-list for extension type_name
-	27, // [27:27] is the sub-list for extension extendee
-	0,  // [0:27] is the sub-list for field type_name
+	4,  // 20: glyph.plugins.extension.v1.CompactionPolicyState.original_request:type_name -> glyph.plugins.extension.v1.CompactionRequest
+	4,  // 21: glyph.plugins.extension.v1.CompactionPolicyState.current_request:type_name -> glyph.plugins.extension.v1.CompactionRequest
+	5,  // 22: glyph.plugins.extension.v1.CompactionPolicyState.result:type_name -> glyph.plugins.extension.v1.CompactionResult
+	10, // 23: glyph.plugins.extension.v1.CompactionOutcome.state:type_name -> glyph.plugins.extension.v1.CompactionPolicyState
+	24, // 24: glyph.plugins.extension.v1.CompactionOutcome.committed:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
+	28, // 25: glyph.plugins.extension.v1.CompactRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	26, // 26: glyph.plugins.extension.v1.CommittedCompaction.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
+	14, // 27: glyph.plugins.extension.v1.CompactResult.committed:type_name -> glyph.plugins.extension.v1.CommittedCompaction
+	29, // 28: glyph.plugins.extension.v1.CompactionHistoryRecord.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	30, // 29: glyph.plugins.extension.v1.CompactionHistoryRecord.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
+	31, // 30: glyph.plugins.extension.v1.CompactionHistoryRecord.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
+	24, // 31: glyph.plugins.extension.v1.CompactionSnapshotEntry.entry:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
+	32, // 32: glyph.plugins.extension.v1.CompactionToolDefinition.descriptor:type_name -> glyph.plugins.extension.v1.ToolDescriptor
+	18, // 33: glyph.plugins.extension.v1.CompactionPolicyInvocation.entries:type_name -> glyph.plugins.extension.v1.CompactionSnapshotEntry
+	17, // 34: glyph.plugins.extension.v1.CompactionPolicyInvocation.history:type_name -> glyph.plugins.extension.v1.CompactionHistoryRecord
+	26, // 35: glyph.plugins.extension.v1.CompactionPolicyInvocation.previous:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
+	25, // 36: glyph.plugins.extension.v1.CompactionPolicyInvocation.model:type_name -> glyph.plugins.extension.v1.ModelDescriptor
+	19, // 37: glyph.plugins.extension.v1.CompactionPolicyInvocation.tools:type_name -> glyph.plugins.extension.v1.CompactionToolDefinition
+	10, // 38: glyph.plugins.extension.v1.CompactionPolicyResult.state:type_name -> glyph.plugins.extension.v1.CompactionPolicyState
+	28, // 39: glyph.plugins.extension.v1.CompactionCandidateRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContextRef
+	5,  // 40: glyph.plugins.extension.v1.CompactionCandidateRequest.result:type_name -> glyph.plugins.extension.v1.CompactionResult
+	17, // 41: glyph.plugins.extension.v1.CompactionProjection.history:type_name -> glyph.plugins.extension.v1.CompactionHistoryRecord
+	42, // [42:42] is the sub-list for method output_type
+	42, // [42:42] is the sub-list for method input_type
+	42, // [42:42] is the sub-list for extension type_name
+	42, // [42:42] is the sub-list for extension extendee
+	0,  // [0:42] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_compaction_proto_init() }
@@ -2344,13 +3698,19 @@ func file_api_plugins_extension_v1_compaction_proto_init() {
 	file_api_plugins_extension_v1_context_proto_init()
 	file_api_plugins_extension_v1_model_proto_init()
 	file_api_plugins_extension_v1_session_entry_proto_init()
+	file_api_plugins_extension_v1_tool_proto_init()
+	file_api_plugins_extension_v1_compaction_proto_msgTypes[14].OneofWrappers = []any{
+		(*compactionHistoryRecord_User)(nil),
+		(*compactionHistoryRecord_Model)(nil),
+		(*compactionHistoryRecord_ToolResult)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_compaction_proto_rawDesc), len(file_api_plugins_extension_v1_compaction_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   13,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

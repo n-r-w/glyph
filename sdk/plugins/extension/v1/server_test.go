@@ -755,6 +755,8 @@ func TestExternalErrorIngressPreservesEveryOutcome(t *testing.T) {
 	completed.SetHandle(extensionpb.HandleResponse_builder{
 		Retry: nil,
 		Error: extensionpb.HandlerError_builder{Message: new(text)}.Build(),
+
+		CompactionPolicy: nil,
 	}.Build())
 	handlerEvent := new(extensionpb.ExtensionEvent)
 	handlerEvent.SetCompleted(completed)
@@ -1191,6 +1193,9 @@ func openHandleRequest(id string, handlerID string) *extensionpb.OpenRequest {
 			SessionId: new("session"), TargetEntryId: new("target"), PrecedingActiveLeafId: nil,
 			NavigationDestinationId: nil, CommittedActiveLeafId: nil, CreatedSummary: nil,
 		}.Build(),
+
+		ParentCompactionId: nil,
+		CompactionPolicy:   nil,
 	}.Build())
 	return extensionpb.OpenRequest_builder{
 		Event:       nil,

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"fmt"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -195,7 +197,8 @@ func mapModelResponse(response []extensionruntime.Content) *extensionpb.SessionT
 	content := make([]*extensionpb.SessionTreeModelContent, 0, len(response))
 	for index := range response {
 		item := response[index]
-		kind := mapModelContentKind(item.Kind)
+		// kind identifies the public model content variant.
+		kind := extensioncontroller.MapCompactionContentKind(item.Kind)
 		builder := extensionpb.SessionTreeModelContent_builder{
 			Kind: new(kind), Text: nil, ToolCall: nil,
 		}
@@ -210,22 +213,6 @@ func mapModelResponse(response []extensionruntime.Content) *extensionpb.SessionT
 		content = append(content, builder.Build())
 	}
 	return extensionpb.SessionTreeModelResponse_builder{Content: content}.Build()
-}
-
-// mapModelContentKind maps provider-neutral response content kinds.
-func mapModelContentKind(kind model.ContentKind) extensionpb.SessionTreeModelContentKind {
-	switch kind {
-	case model.ContentText:
-		return extensionpb.SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_TEXT
-	case model.ContentRefusal:
-		return extensionpb.SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL
-	case model.ContentReasoning:
-		return extensionpb.SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_REASONING
-	case model.ContentToolCall:
-		return extensionpb.SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL
-	default:
-		return extensionpb.SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED
-	}
 }
 
 // mapTreeToolResult maps one terminal result and all model-visible blocks.

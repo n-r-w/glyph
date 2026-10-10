@@ -232,7 +232,7 @@ func TestCompactComposesReadyResultAndRetainsCommittedObserverFailure(t *testing
 			}),
 	)
 	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(
-		[]agent.HistoryEntry{textHistory("fits")},
+		[]agent.HistoryEntry{textHistory("fits")}, nil,
 	).Times(5)
 	committed := compactionMarkerEntry("compact", "u2", ready)
 	publicationCause := errors.New("publication failed after commit")

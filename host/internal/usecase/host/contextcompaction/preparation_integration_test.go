@@ -174,7 +174,7 @@ func newPreparationHarness(t *testing.T, initialText string, rebuiltText string)
 		}, nil,
 	)
 	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(
-		[]agent.HistoryEntry{preparationHistory("small compacted request")},
+		[]agent.HistoryEntry{preparationHistory("small compacted request")}, nil,
 	).AnyTimes()
 	committed := preparationEntry("compaction", mo.Some("kept"), "")
 	committed.User = mo.None[session.UserMessage]()

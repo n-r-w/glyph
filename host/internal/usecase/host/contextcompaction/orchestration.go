@@ -172,15 +172,19 @@ func (s *Service) Compact(
 		}
 		return s.fail(ctx, handlers, original, current, mo.Some(result), false, commitErr)
 	}
+	// outcome contains diagnostic state and the independent receipt for terminal notification.
 	outcome := OutcomeInvocation{
-		OriginalRequest: cloneRequest(
-			original,
+		State: mo.Some(
+			PolicyState{
+				OriginalRequest: cloneRequest(original),
+				CurrentRequest:  cloneRequest(current),
+				Result:          mo.Some(cloneResult(result)),
+			},
 		),
-		CurrentRequest: cloneRequest(current),
-		Result:         mo.Some(cloneResult(result)),
-		Committed:      mo.Some(committed.Clone()),
-		Canceled:       false,
-		Error:          mo.None[string](),
+		ParentCompactionID: "",
+		Committed:          mo.Some(committed.Clone()),
+		Canceled:           false,
+		Error:              mo.None[string](),
 	}
 	observerErr := s.observeSuccess(context.WithoutCancel(ctx), handlers.Successes, outcome)
 	terminalErr := errors.Join(internalFailure(commitErr), extensionFailure(observerErr))
@@ -320,8 +324,8 @@ func (s *Service) validateResultState(snapshot Snapshot, result Result) error {
 	if err := entry.ValidateAccounting(); err != nil {
 		return fmt.Errorf("validate compaction source accounting: %w", err)
 	}
-	if s.sessions.ProjectCompaction(snapshot.Entries, entry) == nil {
-		return errors.New("compaction retained boundary is invalid")
+	if _, err := s.sessions.ProjectCompaction(snapshot.Entries, entry); err != nil {
+		return fmt.Errorf("project compaction retained boundary: %w", err)
 	}
 	return nil
 }
@@ -339,9 +343,10 @@ func (s *Service) validateFinal(
 	if err := s.validateResultState(snapshot, result); err != nil {
 		return session.CompactionEntry{}, err
 	}
-	projected := s.sessions.ProjectCompaction(snapshot.Entries, entry)
-	if projected == nil {
-		return session.CompactionEntry{}, errors.New("compaction retained boundary is invalid")
+	// projected and err contain candidate model history and any structural projection failure.
+	projected, err := s.sessions.ProjectCompaction(snapshot.Entries, entry)
+	if err != nil {
+		return session.CompactionEntry{}, fmt.Errorf("project final compaction: %w", err)
 	}
 	candidate := cloneProviderRequest(providerRequest)
 	candidate.History = projected
@@ -372,9 +377,19 @@ func (s *Service) fail(
 	if cause != nil {
 		message = mo.Some(cause.Error())
 	}
+	// outcome contains diagnostic state and the independent receipt for terminal notification.
 	outcome := OutcomeInvocation{
-		OriginalRequest: cloneRequest(original), CurrentRequest: cloneRequest(current),
-		Result: cloneOptionalResult(result), Committed: mo.None[session.Entry](), Canceled: canceled, Error: message,
+		State: mo.Some(
+			PolicyState{
+				OriginalRequest: cloneRequest(original),
+				CurrentRequest:  cloneRequest(current),
+				Result:          cloneOptionalResult(result),
+			},
+		),
+		ParentCompactionID: "",
+		Committed:          mo.None[session.Entry](),
+		Canceled:           canceled,
+		Error:              message,
 	}
 	observerErr := s.observeFailure(context.WithoutCancel(ctx), handlers.Failures, outcome)
 	terminalErr := errors.Join(classifyCompactionFailure(cause), extensionFailure(observerErr))

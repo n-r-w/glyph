@@ -13,8 +13,10 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
 
@@ -71,23 +73,36 @@ type Service struct {
 	mutex sync.Mutex
 	// bindings retains only the latest binding for each extension.
 	bindings map[string]binding
+	// policyRuntime supplies captured manual policy generations.
+	policyRuntime PolicyRuntime
+	// compactionSessions owns manual replacement capture and persistence.
+	compactionSessions CompactionSessions
+	// compactionOperations contains live manual operation bindings.
+	compactionOperations map[string]*compactionOperation
 }
 
 var (
-	_ contextcompaction.ContextIssuer       = (*Service)(nil)
-	_ extensioncontroller.ContextOperations = (*Service)(nil)
-	_ extensionmodels.ContextValidator      = (*Service)(nil)
-	_ sessiontree.ContextIssuer             = (*Service)(nil)
-	_ lifecycle.ContextIssuer               = (*Service)(nil)
-	_ modelselection.ContextIssuer          = (*Service)(nil)
-	_ modelselection.BindingProtection      = (*Service)(nil)
-	_ tools.ContextIssuer                   = (*Service)(nil)
+	_ contextcompaction.ContextIssuer = (*Service)(nil)
+	// Service implements the model execution manual preparation contract.
+	_ modelexecution.ManualCompactionPreparation = (*Service)(nil)
+	_ extensioncontroller.ContextOperations      = (*Service)(nil)
+	// Service implements the controller policy authority contract.
+	_ extensioncontroller.CompactionPolicyOperations = (*Service)(nil)
+	_ extensionmodels.ContextValidator               = (*Service)(nil)
+	_ sessiontree.ContextIssuer                      = (*Service)(nil)
+	_ lifecycle.ContextIssuer                        = (*Service)(nil)
+	_ modelselection.ContextIssuer                   = (*Service)(nil)
+	_ modelselection.BindingProtection               = (*Service)(nil)
+	_ tools.ContextIssuer                            = (*Service)(nil)
+	// Service implements the startup compaction registration contract.
+	_ startup.CompactionRegistrar = (*Service)(nil)
 )
 
 // New constructs context ownership over the runtime and session state owners.
 func New(runtime RuntimeState, sessionState SessionState) *Service {
 	return &Service{
 		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, bindings: make(map[string]binding),
+		policyRuntime: nil, compactionSessions: nil, compactionOperations: make(map[string]*compactionOperation),
 	}
 }
 

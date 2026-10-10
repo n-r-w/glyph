@@ -72,9 +72,6 @@ func runHeadlessWithPaths(
 	); err != nil {
 		return fmt.Errorf("bind headless context compaction: %w", err)
 	}
-	if err = contextCompaction.BindManualRequest(providerCatalog, tools, codingagent.Instructions()); err != nil {
-		return fmt.Errorf("bind headless manual compaction: %w", err)
-	}
 	// modelExecution owns every logical model request in the headless assembly.
 	modelExecution := modelexecution.New(
 		providerCatalog,
@@ -83,6 +80,7 @@ func runHeadlessWithPaths(
 		extensions,
 		renderer,
 	)
+	modelExecution.BindManualCompaction(contexts, tools, codingagent.Instructions())
 	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
 	sessionServices.active.BindPricingCatalog(providerCatalog)
 	sessionServices.tree.BindModels(providerCatalog, modelExecution)
@@ -91,11 +89,11 @@ func runHeadlessWithPaths(
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
 	bindExtensionHostFactory(
-		extensionFactory, extensions, extensionModels, contexts, selectionOwner, contextCompaction,
+		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution,
 		sessionServices.gate,
 	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
-	if err = startupService.BindCompaction(contextCompaction); err != nil {
+	if err = startupService.BindCompaction(contexts); err != nil {
 		return fmt.Errorf("bind headless compaction registration: %w", err)
 	}
 	_, startupErr := startupService.Start(ctx, startup.Request{

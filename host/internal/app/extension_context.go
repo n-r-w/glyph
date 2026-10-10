@@ -3,10 +3,10 @@ package app
 import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	extensiontransport "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -19,6 +19,7 @@ func bindExtensionContexts(
 	sessions sessionComposition,
 ) *extensioncontext.Service {
 	contexts := extensioncontext.New(runtimes, sessions.active)
+	contexts.BindManualPolicy(runtimes, sessions.active)
 	toolService.BindContextIssuer(contexts)
 	sessions.tree.BindContextIssuer(contexts)
 	return contexts
@@ -31,13 +32,14 @@ func bindExtensionHostFactory(
 	models *extensionmodels.Service,
 	contexts *extensioncontext.Service,
 	selection *modelselection.Service,
-	compaction *contextcompaction.Service,
+	compaction *modelexecution.Service,
 	compactionGate extensioncontroller.CompactionGate,
 ) {
 	factory.BindHostServiceFactory(func(extensionID, runtimeID string) extensionsdk.HostService {
 		controller := extensioncontroller.New(models, contexts, runtimes, extensionID, runtimeID)
 		controller.BindSelection(selection)
 		controller.BindCompaction(compaction, compactionGate)
+		controller.BindPolicyOperations(contexts)
 		return controller
 	})
 }

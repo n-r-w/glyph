@@ -10,6 +10,7 @@ import (
 
 	"github.com/samber/mo"
 
+	controllerextension "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -54,15 +55,24 @@ type Service struct {
 	retryHandlers RetryHandlers
 	// retryOutput delivers agent-request retry progress through the active Host mode.
 	retryOutput RetryOutput
+	// manualPreparation invokes the captured manual compaction policy.
+	manualPreparation ManualCompactionPreparation
+	// manualTools supplies conversation tool definitions for manual operations.
+	manualTools ManualCompactionTools
+	// manualInstructions contains the conversation instructions for manual input.
+	manualInstructions string
 }
 
 var (
-	_ agentrun.ModelRuntime          = (*Service)(nil)
-	_ agentrun.ModelProvider         = (*Service)(nil)
-	_ extensionmodels.ModelRequester = (*Service)(nil)
-	_ sessiontree.ModelRequester     = (*Service)(nil)
-	_ hostprogrammatic.RetryControl  = (*Service)(nil)
-	_ hostui.RetryControl            = (*Service)(nil)
+	_ agentrun.ModelRuntime                    = (*Service)(nil)
+	_ agentrun.ModelProvider                   = (*Service)(nil)
+	_ extensionmodels.ModelRequester           = (*Service)(nil)
+	_ sessiontree.ModelRequester               = (*Service)(nil)
+	_ hostprogrammatic.RetryControl            = (*Service)(nil)
+	_ hostui.RetryControl                      = (*Service)(nil)
+	_ hostui.Compactor                         = (*Service)(nil)
+	_ hostprogrammatic.Compactor               = (*Service)(nil)
+	_ controllerextension.CompactionOperations = (*Service)(nil)
 )
 
 // New creates the logical model-execution owner from one validated retry policy.
@@ -78,6 +88,7 @@ func New(
 	service := &Service{
 		catalog: catalog, conversationContext: conversationContext, contextPreparation: nil,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
+		manualPreparation: nil, manualTools: nil, manualInstructions: "",
 	}
 	if preparation, ok := conversationContext.(ContextPreparation); ok {
 		service.contextPreparation = preparation

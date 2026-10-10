@@ -87,6 +87,8 @@ message ExtensionCompleted {
 
 // ExtensionRequest carries one extension-initiated operation owned by Host.
 message ExtensionRequest {
+  // The non-authorizing parent lifetime for nested policy work.
+  string parent_compaction_id = 11;
   // The request payload.
   oneof request {
     GetModelsRequest get_models = 1;
@@ -100,6 +102,10 @@ message ExtensionRequest {
     SelectReasoningRequest select_reasoning = 9;
     // A session-bound manual compaction request.
     CompactRequest compact = 10;
+    // A candidate projection requested by the policy owner.
+    CompactionCandidateRequest project_compaction = 12;
+    // One durable replacement requested by the policy owner.
+    CompactionCandidateRequest replace_compaction = 13;
   }
 }
 
@@ -141,6 +147,10 @@ message HostCompleted {
     SelectionResult selection = 8;
     // The terminal manual compaction result.
     CompactResult compact = 9;
+    // The validated candidate history.
+    CompactionProjection project_compaction = 10;
+    // The durable replacement receipt and diagnostics.
+    CompactResult replace_compaction = 11;
   }
 }
 
@@ -204,6 +214,8 @@ enum HandlerKind {
   HANDLER_KIND_COMPACTION_SUCCESS = 23;
   // The handler observes a failed or canceled compaction.
   HANDLER_KIND_COMPACTION_FAILURE = 24;
+  // The handler owns one complete compaction policy operation.
+  HANDLER_KIND_COMPACTION_POLICY = 25;
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.

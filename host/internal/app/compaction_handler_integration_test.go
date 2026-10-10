@@ -63,7 +63,7 @@ func TestCompactionUsesRealGRPCCustomResult(t *testing.T) {
 	compactor := contextcompaction.New(sessionState)
 	require.NoError(t, compactor.BindOrchestration(extensions, contexts, 20_000))
 	startupService := startup.New(extensions, tools, treeOwner, lifecycle.New(extensions, nil), nil)
-	require.NoError(t, startupService.BindCompaction(compactor))
+	require.NoError(t, startupService.BindCompaction(contexts))
 	report, err := startupService.Load(
 		t.Context(), startup.Request{DataDirectory: "", ExtensionDirectory: extensionDirectory},
 	)
@@ -90,7 +90,7 @@ func TestCompactionUsesRealGRPCCustomResult(t *testing.T) {
 		Context: providerRequest.History, Previous: mo.None[session.CompactionEntry](),
 	})
 	sessionState.EXPECT().ProjectSuffix(gomock.Any(), gomock.Any()).Return(providerRequest.History, nil).AnyTimes()
-	sessionState.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(providerRequest.History).AnyTimes()
+	sessionState.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(providerRequest.History, nil).AnyTimes()
 	committed := grpcUserEntry("compaction", mo.Some("kept"), "", createdAt)
 	committed.User = mo.None[session.UserMessage]()
 	committed.Compaction = mo.Some(session.CompactionEntry{
@@ -156,7 +156,7 @@ func TestCompactionRejectsRealGRPCMalformedReplacement(t *testing.T) {
 	startupService := startup.New(
 		extensions, toolservice.New(extensions), treeOwner, lifecycle.New(extensions, nil), nil,
 	)
-	require.NoError(t, startupService.BindCompaction(compactor))
+	require.NoError(t, startupService.BindCompaction(contexts))
 	report, err := startupService.Load(
 		t.Context(), startup.Request{DataDirectory: "", ExtensionDirectory: extensionDirectory},
 	)
@@ -241,7 +241,7 @@ func TestCompactionClassifiesRealGRPCHandlerCancellation(t *testing.T) {
 	startupService := startup.New(
 		extensions, toolservice.New(extensions), treeOwner, lifecycle.New(extensions, nil), nil,
 	)
-	require.NoError(t, startupService.BindCompaction(compactor))
+	require.NoError(t, startupService.BindCompaction(contexts))
 	report, err := startupService.Load(
 		t.Context(), startup.Request{DataDirectory: "", ExtensionDirectory: extensionDirectory},
 	)

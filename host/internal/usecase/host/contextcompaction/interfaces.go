@@ -19,7 +19,7 @@ type SessionState interface {
 	// CompactionSnapshot returns one detached active-branch and model-context snapshot.
 	CompactionSnapshot() Snapshot
 	// ProjectCompaction projects the supplied captured branch with one candidate compaction applied.
-	ProjectCompaction(entries []session.Entry, compaction session.CompactionEntry) []agent.HistoryEntry
+	ProjectCompaction(entries []session.Entry, compaction session.CompactionEntry) ([]agent.HistoryEntry, error)
 	// ProjectSuffix projects a captured branch suffix through the shared Core history algorithm.
 	ProjectSuffix(entries []session.Entry, firstKeptEntryID string) ([]agent.HistoryEntry, error)
 	// CommitCompaction validates and appends one compaction entry to the expected active branch.

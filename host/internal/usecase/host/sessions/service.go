@@ -56,12 +56,14 @@ type Service struct {
 }
 
 var (
-	_ ui.ActiveSessions              = (*Service)(nil)
-	_ programmatic.ActiveSessions    = (*Service)(nil)
-	_ sessiontree.ActiveSession      = (*Service)(nil)
-	_ agentrun.HistoryStore          = (*Service)(nil)
-	_ extensioncontext.SessionState  = (*Service)(nil)
-	_ contextcompaction.SessionState = (*Service)(nil)
+	_ ui.ActiveSessions             = (*Service)(nil)
+	_ programmatic.ActiveSessions   = (*Service)(nil)
+	_ sessiontree.ActiveSession     = (*Service)(nil)
+	_ agentrun.HistoryStore         = (*Service)(nil)
+	_ extensioncontext.SessionState = (*Service)(nil)
+	// Service implements session capture and replacement for the policy owner.
+	_ extensioncontext.CompactionSessions = (*Service)(nil)
+	_ contextcompaction.SessionState      = (*Service)(nil)
 )
 
 // New creates an active-session service without performing storage I/O.
