@@ -15,7 +15,8 @@ type compactionPolicyReceivesScopedInputSuite struct {
 	suite.Suite
 }
 
-// TestCompactionPolicyReceivesScopedInput runs its manual compaction scenario.
+// TestCompactionPolicyReceivesScopedInput checks detached policy input and scoped nested operations
+// through the SDK connection.
 func TestCompactionPolicyReceivesScopedInput(t *testing.T) {
 	// Arrange independent scenario configuration.
 	t.Parallel()

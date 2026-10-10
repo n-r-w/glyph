@@ -1727,7 +1727,7 @@ func (x *CompactionOutcome) ClearError() {
 type CompactionOutcome_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Acquired composition values when available. Absence means no acquired policy state is available.
+	// Acquired composition values when available.
 	State *CompactionPolicyState
 	// The durable entry, independently of policy state availability.
 	Committed *SessionTreeEntry

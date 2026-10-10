@@ -1,5 +1,6 @@
 //go:build !integration
 
+// Package extensioncontext owns issued extension bindings and session-bound Host capabilities.
 package extensioncontext
 
 import (
@@ -68,7 +69,7 @@ func (s *manualPolicyUsesOneCapturedSessionSuite) TestScenario() {
 	service.policyRuntime = policy
 	service.compactionSessions = compactionSessions
 
-	// Act through manual preparation with obsolete history in the caller's model input.
+	// Act through manual preparation with the captured conversation selection and manual guidance.
 	result, err := service.CompactManualPolicy(t.Context(), modelexecution.ProviderRequest{
 		Instructions: "conversation instructions", Model: model.Descriptor{}, ReasoningChoice: model.ReasoningChoiceOff,
 		History: nil, Tools: nil,

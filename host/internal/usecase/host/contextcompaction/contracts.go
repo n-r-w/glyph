@@ -215,45 +215,6 @@ type ResultInvocation struct {
 	CurrentResult Result
 }
 
-// PolicyState contains acquired original and last valid composed values.
-type PolicyState struct {
-	// OriginalRequest contains the producer's immutable original request.
-	OriginalRequest Request
-	// CurrentRequest contains the last valid composed request.
-	CurrentRequest Request
-	// Result contains the last valid result, when present.
-	Result mo.Option[Result]
-}
-
-// Clone detaches the acquired diagnostic values.
-func (s PolicyState) Clone() PolicyState {
-	s.OriginalRequest = cloneRequest(s.OriginalRequest)
-	s.CurrentRequest = cloneRequest(s.CurrentRequest)
-	s.Result = cloneOptionalResult(s.Result)
-	return s
-}
-
-// OutcomeInvocation reports one terminal compaction outcome.
-type OutcomeInvocation struct {
-	// State contains acquired original and last valid composition values.
-	State mo.Option[PolicyState]
-	// ParentCompactionID correlates observer children with their owning lifetime.
-	ParentCompactionID mo.Option[string]
-	// Committed contains durable state when persistence succeeded.
-	Committed mo.Option[session.Entry]
-	// Canceled reports explicit handler cancellation.
-	Canceled bool
-	// Error contains complete terminal failure text when present.
-	Error mo.Option[string]
-}
-
-// Clone detaches every mutable outcome value.
-func (outcome OutcomeInvocation) Clone() OutcomeInvocation {
-	outcome.State = outcome.State.MapValue(PolicyState.Clone)
-	outcome.Committed = outcome.Committed.MapValue(session.Entry.Clone)
-	return outcome
-}
-
 // Runtime snapshots and invokes public compaction capabilities.
 type Runtime interface {
 	// SnapshotCompactionHandlers captures membership and order for one operation.

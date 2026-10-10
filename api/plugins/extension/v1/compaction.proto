@@ -151,7 +151,7 @@ message CompactionPolicyState {
 
 // CompactionOutcome reports acquired policy state and the independently committed outcome.
 message CompactionOutcome {
-  // Acquired composition values when available. Absence means no acquired policy state is available.
+  // Acquired composition values when available.
   CompactionPolicyState state = 1;
   // The durable entry, independently of policy state availability.
   SessionTreeEntry committed = 2;

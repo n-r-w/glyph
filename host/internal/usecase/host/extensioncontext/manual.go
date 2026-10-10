@@ -1,3 +1,4 @@
+// Package extensioncontext owns issued extension bindings and session-bound Host capabilities.
 package extensioncontext
 
 import (

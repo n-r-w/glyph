@@ -105,7 +105,7 @@ func (s *policyService) PrepareRegister(
 	return &policyRegistration{disabled: s.disabled, observe: s.observe}, nil
 }
 
-// PrepareHandle admits the owning policy invocation.
+// PrepareHandle admits the reference extension's handler operations.
 func (s *policyService) PrepareHandle(
 	ctx context.Context,
 	request *extensionpb.HandleRequest,

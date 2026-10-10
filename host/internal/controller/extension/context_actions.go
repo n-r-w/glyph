@@ -1,3 +1,4 @@
+// Package extension maps extension-initiated requests to session-bound Host operations.
 package extension
 
 import (

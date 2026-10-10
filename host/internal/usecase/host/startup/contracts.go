@@ -146,7 +146,7 @@ const (
 	RawHandlerKindCompactionPolicy RawHandlerKind = 25
 )
 
-// isCompaction reports whether compaction policy owns one kind.
+// isCompaction reports whether kind identifies a compaction capability.
 func (kind RawHandlerKind) isCompaction() bool {
 	return kind >= RawHandlerKindCompactionRequest && kind <= RawHandlerKindCompactionPolicy
 }

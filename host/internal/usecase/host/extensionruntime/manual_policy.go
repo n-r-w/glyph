@@ -1,3 +1,4 @@
+// Package extensionruntime owns extension process registration, invocation, and availability.
 package extensionruntime
 
 import (
