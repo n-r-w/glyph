@@ -7,14 +7,16 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
@@ -123,11 +125,27 @@ func (peer *responsiveCancellationPeer) Open(
 	return nil
 }
 
-// TestCanceledBlockedInitializationUsesOneGrace verifies bounded cancellation with blocked real transport calls.
-func TestCanceledBlockedInitializationUsesOneGrace(t *testing.T) {
-	t.Parallel()
+// canceledInitializationSuite checks shared cleanup grace through the real UI transport.
+type canceledInitializationSuite struct {
+	// Suite supplies the scenario's test context and lifecycle.
+	suite.Suite
+}
 
-	// Arrange a real peer that does not read and a production initialization larger than flow-control windows.
+// TestCanceledBlockedInitializationUsesOneGrace runs an isolated cancellation suite in parallel.
+func TestCanceledBlockedInitializationUsesOneGrace(t *testing.T) {
+	// Arrange parallel execution for this isolated suite.
+	t.Parallel()
+	// Act through the suite's canceled initialization scenario.
+	// Assert the one-grace cleanup guarantees within the suite scenario.
+	suite.Run(t, new(canceledInitializationSuite))
+}
+
+// TestUsesOneGrace checks shared cleanup grace after a successful initialization Send.
+func (s *canceledInitializationSuite) TestUsesOneGrace() {
+	// t owns this suite scenario's context and cleanup.
+	t := s.T()
+
+	// Arrange an unread peer: the first large Send can queue, but leaves insufficient quota for the cancellation Send.
 	peerStarted := make(chan struct{})
 	peerStopped := make(chan struct{})
 	peer := &blockedInitializationPeer{
@@ -137,30 +155,92 @@ func TestCanceledBlockedInitializationUsesOneGrace(t *testing.T) {
 	}
 	stream, cancelStream, stopServer := openHostUITestStream(t, peer)
 	defer stopServer()
-	sendStarted := make(chan struct{})
-	sendReturned := make(chan struct{})
+	// initializationSent reports completion of the initial raw Send.
+	initializationSent := make(chan error, 1)
+	// cancellationStarted reports Send entry after the matcher accepts the cancellation request identity.
+	cancellationStarted := make(chan struct{}, 1)
+	// cancellationReturned reports completion of the cancellation raw Send.
+	cancellationReturned := make(chan error, 1)
 	receiveStarted := make(chan struct{})
-	receiveReturned := make(chan struct{})
+	// receiveReturned reports completion of the initialization raw Recv.
+	receiveReturned := make(chan error, 1)
+	// closeReceiveReturned reports completion of the close-drain raw Recv.
+	closeReceiveReturned := make(chan error, 1)
+	// closeSendReturned reports completion of the raw CloseSend.
+	closeSendReturned := make(chan error, 1)
+	// initializationRequest is published to the test by initializationSent after the raw Send returns.
+	var initializationRequest *uiv1.OpenRequest
+	// activeSends and activeReceives count raw calls whose transport work has not returned.
+	var activeSends, activeReceives atomic.Int64
+	// concurrentReceives and closeOverlappedSend record forbidden transport overlap.
+	var concurrentReceives, closeOverlappedSend atomic.Bool
 	writerCause := errors.New("independent initialization writer failure")
 	receiveCause := errors.New("independent initialization receive failure")
-	observed := &observedHostUIClientStream{
-		UIService_OpenClient: stream,
-		sendStarted:          sendStarted,
-		sendStartedOnce:      sync.Once{},
-		sendReturned:         sendReturned,
-		sendReturnedOnce:     sync.Once{},
-		receiveStarted:       receiveStarted,
-		receiveStartedOnce:   sync.Once{},
-		receiveReturned:      receiveReturned,
-		receiveReturnedOnce:  sync.Once{},
-		activeSends:          atomic.Int64{},
-		activeReceives:       atomic.Int64{},
-		concurrentReceives:   atomic.Bool{},
-		closeOverlappedSend:  atomic.Bool{},
-		sendErr:              writerCause,
-		receiveErr:           receiveCause,
-		cancel:               cancelStream,
-	}
+	// closeReceiveCause identifies the independent close-drain receive failure.
+	closeReceiveCause := errors.New("independent initialization close receive failure")
+	// closeSendCause identifies the independent CloseSend failure.
+	closeSendCause := errors.New("independent initialization CloseSend failure")
+	// observed records transport calls while delegating to the real stream.
+	observed := NewMockUIService_OpenClient[uiv1.OpenRequest, uiv1.OpenResponse](gomock.NewController(t))
+	observed.EXPECT().Context().Return(stream.Context()).AnyTimes()
+	// initializationSend orders the cancellation Send after the initialization Send.
+	initializationSend := observed.EXPECT().Send(gomock.Cond(func(request *uiv1.OpenRequest) bool {
+		return request.GetOperationId() == initializationOperationID && request.GetRequest().GetInitialize() != nil
+	})).DoAndReturn(func(request *uiv1.OpenRequest) error {
+		activeSends.Add(1)
+		initializationRequest = request
+		// err reports the initial raw Send result.
+		err := stream.Send(request)
+		activeSends.Add(-1)
+		initializationSent <- err
+		return err
+	})
+	observed.EXPECT().Send(gomock.Cond(func(request *uiv1.OpenRequest) bool {
+		return request.GetOperationId() == initializationCancellationOperationID &&
+			request.GetRequest().GetCancel().GetTargetOperationId() == initializationOperationID
+	})).After(initializationSend).DoAndReturn(func(request *uiv1.OpenRequest) error {
+		activeSends.Add(1)
+		cancellationStarted <- struct{}{}
+		// err includes the raw cancellation Send result and the independent writer cause.
+		err := errors.Join(stream.Send(request), writerCause)
+		activeSends.Add(-1)
+		cancellationReturned <- err
+		return err
+	})
+	// initialReceive orders the close-drain Recv after the initialization Recv.
+	initialReceive := observed.EXPECT().Recv().DoAndReturn(func() (*uiv1.OpenResponse, error) {
+		if activeReceives.Add(1) != 1 {
+			concurrentReceives.Store(true)
+		}
+		close(receiveStarted)
+		// response and err report the raw initialization Recv result.
+		response, err := stream.Recv()
+		err = errors.Join(err, receiveCause)
+		activeReceives.Add(-1)
+		receiveReturned <- err
+		return response, err
+	})
+	observed.EXPECT().Recv().After(initialReceive).DoAndReturn(func() (*uiv1.OpenResponse, error) {
+		if activeReceives.Add(1) != 1 {
+			concurrentReceives.Store(true)
+		}
+		// response and err report the raw close-drain Recv result.
+		response, err := stream.Recv()
+		err = errors.Join(err, closeReceiveCause)
+		activeReceives.Add(-1)
+		closeReceiveReturned <- err
+		return response, err
+	})
+	observed.EXPECT().CloseSend().DoAndReturn(func() error {
+		if activeSends.Load() != 0 {
+			closeOverlappedSend.Store(true)
+			cancelStream()
+		}
+		// err includes the raw CloseSend result and the independent close cause.
+		err := errors.Join(stream.CloseSend(), closeSendCause)
+		closeSendReturned <- err
+		return err
+	})
 	startupCause := errors.New("large initialization startup source")
 	largeStartupCause := fmt.Errorf("%s: %w", strings.Repeat("x", blockedInitializationRequestSize), startupCause)
 	service := New()
@@ -172,68 +252,80 @@ func TestCanceledBlockedInitializationUsesOneGrace(t *testing.T) {
 	}
 	callerCause := errors.New("caller canceled blocked initialization")
 	ctx, cancelCaller := context.WithCancelCause(t.Context())
+	defer cancelCaller(context.Canceled)
 	result := make(chan error, 1)
 	go func() { result <- service.Initialize(ctx, testInitialization()) }()
-	awaitHostUISignal(t, peerStarted, "blocked initialization peer start")
-	awaitHostUISignal(t, sendStarted, "raw initialization Send start")
-	awaitHostUISignal(t, receiveStarted, "raw initialization Recv start")
-	require.EqualValues(t, 1, observed.activeSends.Load())
-	require.EqualValues(t, 1, observed.activeReceives.Load())
-	select {
-	case <-sendReturned:
-		t.Fatal("raw initialization Send returned before caller cancellation")
-	default:
-	}
-	select {
-	case <-receiveReturned:
-		t.Fatal("raw initialization Recv returned before caller cancellation")
-	default:
-	}
+	awaitHostUISignal(t, peerStarted, "unread initialization peer start")
+	require.NoError(t, awaitHostUIResult(t, initializationSent, "initialization Send queue submission"))
+	// The serialized request exceeds both the initial local quota and the peer's entire stream window.
+	require.Greater(t, proto.Size(initializationRequest), blockedInitializationRequestSize)
+	awaitHostUISignal(t, receiveStarted, "initialization raw Recv start")
+	require.Zero(t, activeSends.Load())
+	require.EqualValues(t, 1, activeReceives.Load())
 
-	// Act through caller cancellation while both raw calls remain active.
+	// Act through caller cancellation after successful local submission of the initialization request.
 	canceledAt := time.Now()
 	cancelCaller(callerCause)
+	awaitHostUISignal(t, cancellationStarted, "cancellation Send start")
+	// The unread peer's 64 KiB windows cannot replenish the quota consumed by the 2 MiB first message.
+	// The identified cancellation request owns this second Send.
+	require.EqualValues(t, 1, activeSends.Load())
+	require.EqualValues(t, 1, activeReceives.Load())
+	select {
+	// err reports an early cancellation Send completion.
+	case err := <-cancellationReturned:
+		t.Fatalf("cancellation Send returned before grace cancellation: %v", err)
+	default:
+	}
+	select {
+	// err reports an early initialization Recv completion.
+	case err := <-receiveReturned:
+		t.Fatalf("initialization Recv returned before grace cancellation: %v", err)
+	default:
+	}
 	select {
 	case <-peerStopped:
 		t.Fatal("actual RPC stopped before the initialization grace elapsed")
 	default:
 	}
 	var initializationErr error
-	returnedWithinBound := true
 	select {
 	case initializationErr = <-result:
-	case <-time.After(hostUIInitializationReturnBound):
+	case <-time.After(time.Until(canceledAt.Add(hostUIInitializationReturnBound))):
 		assert.Fail(t, "Service.Initialize did not return after its one-second grace")
-		returnedWithinBound = false
 		cancelStream()
-		initializationErr = awaitHostUIResult(t, result, "forced blocked initialization cleanup")
-	}
-	if !returnedWithinBound {
-		awaitHostUISignal(t, peerStopped, "forced blocked initialization peer cleanup")
+		_ = awaitHostUIResult(t, result, "forced blocked initialization cleanup")
 		return
 	}
 
-	// Assert timeout cancellation joined both original calls and retained every acquired cause.
+	// Assert one shared grace joined every owned call and exposed each acquired error's complete text.
 	require.GreaterOrEqual(t, time.Since(canceledAt), unsuccessfulInitializationGracePeriod)
-	require.ErrorIs(t, initializationErr, callerCause)
 	require.ErrorIs(t, initializationErr, context.DeadlineExceeded)
 	require.ErrorContains(t, initializationErr, "UI unsuccessful initialization cleanup timed out after 1s")
-	require.ErrorIs(t, initializationErr, writerCause)
-	require.ErrorIs(t, initializationErr, receiveCause)
-	select {
-	case <-sendReturned:
-	default:
-		t.Error("Service.Initialize returned before raw Send joined")
+	// cause identifies each required caller or transport failure.
+	for _, cause := range []error{callerCause, writerCause, receiveCause, closeReceiveCause, closeSendCause} {
+		require.ErrorIs(t, initializationErr, cause)
+		require.ErrorContains(t, initializationErr, cause.Error())
 	}
-	select {
-	case <-receiveReturned:
-	default:
-		t.Error("Service.Initialize returned before raw Recv joined")
+	// name labels the raw call whose completion channel is returned.
+	for name, returned := range map[string]<-chan error{
+		"cancellation Send":   cancellationReturned,
+		"initialization Recv": receiveReturned,
+		"close Recv":          closeReceiveReturned,
+		"CloseSend":           closeSendReturned,
+	} {
+		select {
+		// err reports the completed raw call failure.
+		case err := <-returned:
+			require.Error(t, err, name)
+		default:
+			t.Errorf("Service.Initialize returned before %s joined", name)
+		}
 	}
-	assert.Zero(t, observed.activeSends.Load())
-	assert.Zero(t, observed.activeReceives.Load())
-	assert.False(t, observed.concurrentReceives.Load())
-	assert.False(t, observed.closeOverlappedSend.Load())
+	assert.Zero(t, activeSends.Load())
+	assert.Zero(t, activeReceives.Load())
+	assert.False(t, concurrentReceives.Load())
+	assert.False(t, closeOverlappedSend.Load())
 	awaitHostUISignal(t, peerStopped, "blocked initialization peer cleanup")
 }
 
