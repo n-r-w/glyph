@@ -2,7 +2,6 @@
 package extension
 
 import (
-	"bytes"
 	"context"
 	"errors"
 
@@ -32,43 +31,6 @@ type policyCandidate struct {
 	operationID string
 	// value contains the complete replacement candidate.
 	value session.CompactionEntry
-}
-
-// mapPolicyCandidate validates and decodes one scoped replacement candidate.
-func mapPolicyCandidate(
-	mapped contextRequest,
-	raw *extensionpb.CompactionCandidateRequest,
-	kind policyCandidateKind,
-) (contextRequest, error) {
-	if raw == nil || raw.GetOperationId() == "" || raw.GetResult() == nil {
-		return contextRequest{}, errors.New("compaction candidate requires operation authority and a complete result")
-	}
-	// result contains the complete wire candidate.
-	result := raw.GetResult()
-	// source and err contain the candidate producer and its decoding failure.
-	source, err := mapPolicyCandidateSource(result.GetSource())
-	if err != nil {
-		return contextRequest{}, err
-	}
-	// details contains optional detached policy metadata.
-	details := mo.None[[]byte]()
-	if result.HasDetails() {
-		details = mo.Some(bytes.Clone(result.GetDetails()))
-	}
-	mapped.reference = raw.GetContext()
-	// candidate contains the replacement request bound to its policy authority.
-	candidate := policyCandidate{kind: kind, operationID: raw.GetOperationId(), value: session.CompactionEntry{
-		Summary: result.GetSummary(), FirstKeptEntryID: result.GetFirstKeptEntryId(), Source: source,
-		EstimatedCost: mo.None[session.EstimatedCost](), Details: details,
-	}}
-	mapped.admission = contextAdmissionCandidate
-	mapped.prepare = func(o *contextOperation) (contextAction, error) {
-		return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-			return o.runPolicyCandidate(ctx, candidate)
-		}), nil
-	}
-
-	return mapped, nil
 }
 
 // mapPolicyCandidateSource decodes the result's producer and normalized accounting.

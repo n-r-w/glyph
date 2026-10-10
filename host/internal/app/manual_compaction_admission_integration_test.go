@@ -48,6 +48,9 @@ func TestManualChildRejectionCarriesParentCauseThroughSDK(t *testing.T) {
 
 // TestScenario checks the received child rejection before parent settlement can supplement it.
 func (s *admissionWireSuite) TestScenario() {
+	// canceledParentAdmissionGuidance selects a nested request after parent cancellation.
+	const canceledParentAdmissionGuidance = "request-after-parent-cancellation"
+
 	t := s.T()
 	// Arrange real controller, runtime adapter, SDK peer, and a deterministically canceled parent registry entry.
 	mocks := gomock.NewController(t)
@@ -120,7 +123,7 @@ func (s *admissionWireSuite) TestScenario() {
 	result, err := contexts.CompactManualPolicy(
 		parent,
 		modelexecution.ProviderRequest{},
-		mo.Some("request-after-parent-cancellation"),
+		mo.Some(canceledParentAdmissionGuidance),
 	)
 	// Assert no mutation and the independent original owning cause after settlement.
 	require.ErrorIs(t, err, cause)

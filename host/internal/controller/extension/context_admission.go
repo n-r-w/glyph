@@ -13,7 +13,7 @@ import (
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
-// Prepare validates the binding and reserves runtime accounting before acceptance.
+// Prepare returns admitted executable work for one extension request.
 func (s *Service) Prepare(
 	ctx context.Context,
 	operationID string,

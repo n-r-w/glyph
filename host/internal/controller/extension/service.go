@@ -87,82 +87,6 @@ func (s *Service) BindPolicyOperations(policy CompactionPolicyOperations) {
 	s.compactionPolicy = policy
 }
 
-// contextRequest contains one validated operation selector and its public reference.
-type contextRequest struct {
-	// reference identifies the issued binding.
-	reference *extensionpb.ExtensionContextRef
-	// prepare binds the one selected executable action.
-	prepare prepareContextAction
-	// admission identifies required gate or parent ownership.
-	admission contextAdmission
-}
-
-// mapContextRequest validates the selected request payload before admission.
-func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
-	// mapped contains the selected request payload and execution binding.
-	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
-	if request == nil {
-		return mapped, errors.New("extension context request is required")
-	}
-	selection, reference, selected, err := mapSelectionContextRequest(request)
-	if err != nil {
-		return contextRequest{}, err
-	}
-	if selected {
-		mapped.reference = reference
-		mapped.prepare = func(o *contextOperation) (contextAction, error) { return o.prepareSelectionAction(selection) }
-		return mapped, nil
-	}
-	switch request.WhichRequest() {
-	case extensionpb.ExtensionRequest_GetModels_case:
-		mapped.reference = request.GetGetModels().GetContext()
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(o.runModelCatalog), nil
-		}
-	case extensionpb.ExtensionRequest_GetProviders_case:
-		mapped.reference = request.GetGetProviders().GetContext()
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(o.runProviderCatalog), nil
-		}
-	case extensionpb.ExtensionRequest_ConfiguredModel_case:
-		return mapConfiguredContextRequest(mapped, request.GetConfiguredModel())
-	case extensionpb.ExtensionRequest_AppendExtension_case:
-		return mapAppendContextRequest(mapped, request.GetAppendExtension())
-	case extensionpb.ExtensionRequest_GetSessionState_case:
-		mapped.reference = request.GetGetSessionState().GetContext()
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(o.runSessionState), nil
-		}
-	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
-		return mapAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
-	case extensionpb.ExtensionRequest_ProjectCompaction_case:
-		return mapPolicyCandidate(mapped, request.GetProjectCompaction(), policyCandidateProjection)
-	case extensionpb.ExtensionRequest_ReplaceCompaction_case:
-		return mapPolicyCandidate(mapped, request.GetReplaceCompaction(), policyCandidateReplacement)
-	case extensionpb.ExtensionRequest_Compact_case:
-		// compact contains the manual compaction request.
-		compact := request.GetCompact()
-		mapped.reference = compact.GetContext()
-		// instructions contains optional user guidance for manual compaction.
-		instructions := mo.TupleToOption(compact.GetInstructions(), compact.HasInstructions())
-		mapped.admission = contextAdmissionManual
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextProgressAction(
-				func(ctx context.Context, reporter *extensionsdk.HostProgressReporter) (*extensionpb.HostCompleted, error) {
-					return o.runManualCompaction(ctx, reporter, instructions)
-				},
-			), nil
-		}
-	case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
-		return contextRequest{}, errors.New("extension context operation request is required")
-	case extensionpb.ExtensionRequest_SelectModel_case, extensionpb.ExtensionRequest_SelectReasoning_case:
-		return contextRequest{}, errors.New("selection context request mapping did not complete")
-	default:
-		return contextRequest{}, errors.New("unsupported extension context request")
-	}
-	return mapped, nil
-}
-
 // mapSelectionContextRequest maps either active-selection request before the general context-operation union.
 func mapSelectionContextRequest(
 	request *extensionpb.ExtensionRequest,
@@ -188,62 +112,6 @@ func mapSelectionContextRequest(
 	default:
 		return SelectionCommand{}, nil, false, nil
 	}
-}
-
-// mapConfiguredContextRequest maps one configured-model request into the general context selector.
-func mapConfiguredContextRequest(
-	mapped contextRequest,
-	request *extensionpb.ConfiguredModelRequest,
-) (contextRequest, error) {
-	configured, err := mapConfiguredRequest(request)
-	if err != nil {
-		return contextRequest{}, err
-	}
-	mapped.reference = request.GetContext()
-	mapped.prepare = func(o *contextOperation) (contextAction, error) {
-		return contextProgressAction(
-			func(ctx context.Context, reporter *extensionsdk.HostProgressReporter) (*extensionpb.HostCompleted, error) {
-				return o.runConfiguredModel(ctx, reporter, configured)
-			},
-		), nil
-	}
-	return mapped, nil
-}
-
-// mapAppendContextRequest maps one hidden extension append into the general context selector.
-func mapAppendContextRequest(
-	mapped contextRequest,
-	request *extensionpb.AppendExtensionRequest,
-) (contextRequest, error) {
-	appendValue, err := mapAppendRequest(request)
-	if err != nil {
-		return contextRequest{}, err
-	}
-	mapped.reference = request.GetContext()
-	mapped.prepare = func(o *contextOperation) (contextAction, error) {
-		return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-			return o.runAppendValue(ctx, appendValue)
-		}), nil
-	}
-	return mapped, nil
-}
-
-// mapAppendMessageContextRequest maps one visible extension message into the general context selector.
-func mapAppendMessageContextRequest(
-	mapped contextRequest,
-	request *extensionpb.AppendExtensionMessageRequest,
-) (contextRequest, error) {
-	message, err := mapAppendMessageRequest(request)
-	if err != nil {
-		return contextRequest{}, err
-	}
-	mapped.reference = request.GetContext()
-	mapped.prepare = func(o *contextOperation) (contextAction, error) {
-		return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
-			return o.runAppendMessage(ctx, message)
-		}), nil
-	}
-	return mapped, nil
 }
 
 // contextOperation maps one admitted context request and owns its accounting release.
@@ -273,9 +141,11 @@ func (o *contextOperation) Run(
 	ctx context.Context,
 	reporter *extensionsdk.HostProgressReporter,
 ) (completed *extensionpb.HostCompleted, returnErr error) {
+	// childRelease reports admitted child completion; present indicates child ownership.
 	if childRelease, present := o.childRelease.Get(); present {
 		defer func() { childRelease(returnErr) }()
 	}
+	// parentID identifies the admitted parent lifetime; present indicates parent linkage.
 	if parentID, present := o.parentID.Get(); present {
 		// childContext links this Run to its admitted parent; unlink ends that linkage.
 		childContext, unlink := o.service.compactionPolicy.LinkCompactionChild(ctx, parentID)
