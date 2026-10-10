@@ -1,6 +1,6 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: PHS-06.1 system implementation is in progress. The approved system contracts passed the [scoped dry run](solution.md#phs-061-system-contract-dry-run-evidence). PHS-06.1 includes caller migration, Host-policy removal, and public-entry acceptance with a reference extension. The standard bundled extension and [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) belong to PHS-06.2.
+Status: PHS-06.1 implementation has resumed and remains incomplete. See [unit progress](#sequential-implementation-units) and the [phased plan](#phased-plan).
 
 Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation starts from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
@@ -19,7 +19,7 @@ The [ticket](ticket.md#key-definitions-and-abbreviations) owns the detailed defi
 
 - The restored working baseline is `96f061c` with the retained dependency updates and TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build, and diff checks passed. Coverage was 82.7%. These checks establish the starting state; phase acceptance requires the public behaviors below.
 - Units 0 through 3 and the session-entry/projection foundation are implemented. The Host-owned unit 4 implementation is unaccepted. The bundled compaction extension is not implemented.
-- PHS-06.1 has an approved [system integration design](solution.md#proposed-solution). Complete its system implementation and public-entry acceptance before PHS-06.2 implements the standard bundled policy and generator.
+- The approved [system integration design](solution.md#proposed-solution) and [phased plan](#phased-plan) define the continuation path. The [unit progress](#sequential-implementation-units) identifies the next implementation unit.
 - After each completed migration phase, record its result, evidence, remaining blockers, and commit in this plan. The first phase without completed exit criteria is the resume point.
 
 ### Work boundaries
@@ -95,7 +95,7 @@ Reuse session history and extension runtime mechanisms. Determine only the integ
 
 ### Phase PHS-06.1 - Implement the extension-owned compaction system contract
 
-Status: In progress. System-contract design and its scoped dry run are complete. System implementation, caller migration, Host-policy removal, and public-entry acceptance remain pending. The standard bundled algorithm and QST-01.1 are excluded from this phase.
+Status: In progress. System-contract design and its [scoped dry run](solution.md#phs-061-system-contract-dry-run-evidence) are complete. See [unit progress](#sequential-implementation-units) for accepted and pending implementation work.
 
 #### Goal
 
@@ -103,11 +103,22 @@ Provide the complete system path through which a registered policy extension con
 
 #### Work
 
-Follow the [approved system integration](solution.md#phs-061-integration-proposal) through the sequential units below. Each unit includes its callers and public-entry checks. Use a real reference extension for system acceptance. The standard bundled policy and generator belong to PHS-06.2.
+Follow the [approved system integration](solution.md#phs-061-integration-proposal) through the sequential units below. Each unit includes its callers and public-entry checks. Use a real reference extension for system acceptance. This phase includes caller migration, Host-policy removal, and public-entry acceptance; PHS-06.2 owns the standard bundled policy and generator.
 
 #### Sequential implementation units
 
-UNT-01 through UNT-10 are behavior slices. UNT-11 is Cleanup. Every unit starts only after the previous unit passes the [completion checks](#unit-completion-and-review). UNT-01 passed full checks and independent review and is committed as `5165a14`. UNT-02 passed the same gates and is committed as `bf62186`. UNT-03 passed project checks and independent review and is committed as `23f2f55`. The [runtime shutdown evidence](solution.md#tracked-runtime-shutdown) records its completion paths. Implementation is paused before UNT-04; UNT-04 through UNT-11 are planned.
+UNT-01 through UNT-10 are behavior slices. UNT-11 is Cleanup. Every unit starts only after the previous unit passes the [completion checks](#unit-completion-and-review).
+
+Implementation has resumed. UNT-04 has not started; UNT-04 through UNT-11 remain pending in the approved order below. PHS-06.1 is incomplete.
+
+- Accepted units: UNT-01 (`5165a14`), UNT-02 (`bf62186`), and UNT-03 (`23f2f55`) passed full checks and independent review. See [configured-model input](solution.md#configured-model-image-input) and [runtime shutdown](solution.md#tracked-runtime-shutdown) for behavior and evidence. The [SDK connection failure tests](../../../../../../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../../../../../../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check failure reporting before shutdown and owner cleanup through `Close`.
+- Retained baseline: `64bcecd`. Safe quality corrections: `1612ae5`.
+- Accepted code corrections:
+  - `2cf86e8`: shared configured-input image fixture construction and named configured-input protocol values.
+  - `53f4c06`: single-owner runtime-unavailability classification with complete error causes.
+  - `efdd9cf`: separate shutdown scenario helpers, removal of duplicate registration cleanup, and named shutdown modes and formatting templates.
+  - All code correction units passed CodeQuality, full checks, and independent review. Latest coverage is 82.8%.
+- Document clarity and status corrections: linked progress and phase ordering, positive behavior statements, explicit component ownership, split design blocks, and resumed-work status passed CodeQuality and independent review. Local references, anchors, and whitespace checks passed. This document-only unit changed no code.
 
 | Unit | Observable result and public-entry check | Executor role |
 |---|---|---|
@@ -188,7 +199,7 @@ Leave one target implementation and documentation that describes it.
 
 - Inspect the migrated call graph for obsolete Host policy, unused contracts, duplicate estimators, forwarding wrappers, and compatibility aliases. Remove residue not already removed with its callers.
 - Regenerate public contracts and mocks. Correct the projected-session-entry description and other contract comments whose scope changed.
-- Update the technical solution and phase status to separate target behavior from checkpoint evidence. Keep unresolved findings open instead of marking the phase complete because checks pass.
+- Update the technical solution and phase status to separate target behavior from checkpoint evidence. Record unresolved findings as open. Phase completion requires its exit criteria as well as passing checks.
 - Run the project's mandatory generation, formatting, fix, lint, unit, integration, coverage, build, package, and diff checks.
 
 #### Deliverables
@@ -236,7 +247,7 @@ Use integration-tagged tests for assembled production components and real filesy
 
 ## Dependencies and Resourcing
 
-PHS-07 and PHS-04.1 are the ticket dependencies. PHS-06.1 system-contract design is complete. PHS-06.2 preparation still requires QST-01.1 and separate implementation authorization; the old generator-only unit 5 is not the continuation path. The plan assumes no new dependency, staffing, or external service.
+PHS-07 and PHS-04.1 are the ticket dependencies. The [phased plan](#phased-plan) defines preparation and ordering; PHS-06.2 requires separate implementation authorization. The old generator-only unit 5 is not the continuation path. The plan assumes no new dependency, staffing, or external service.
 
 ## Project Definition of Done
 
@@ -248,7 +259,7 @@ No additional product behavior or integration API is assumed. Checkpoint `690827
 
 ## Open Questions
 
-The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) is resolved for PHS-06.1 system-contract design. System implementation continues through the units above. [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) remains an extension-implementation and source/accounting decision for PHS-06.2 preparation. This plan links to the owning question rather than selecting or duplicating its answer.
+The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) is resolved for system-contract design. The solution owns the deferred [QST-01.1 decision](solution.md#qst-011-standard-summary-input-above-the-model-budget); see [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) for its place in the phase order.
 
 ## Standards Deviations
 
@@ -257,7 +268,7 @@ No new deviation is authorized. The narrowly accepted checkpoint test-first devi
 ## References
 
 - [PHS-06 ticket](ticket.md) - requirements, acceptance criteria, and QST-01.
-- [Target solution](solution.md#proposed-solution) - approved ownership and pending integration design.
+- [Target solution](solution.md#proposed-solution) - approved ownership and integration design.
 - [Checkpoint evidence](solution.md#implementation-evidence) - implemented units, open findings, and process exception.
 - [Target architecture](../../architecture.md) - Agent Core, Host, extension, and session boundaries.
 - [Product delivery plan](../../delivery-plan.md) and [roadmap](../../../../../roadmap.md) - product ordering and phase status.

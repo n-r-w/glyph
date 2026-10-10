@@ -163,17 +163,9 @@ Documents:
 
 Status: In progress
 
-Move the complete compaction policy and composition coordination into the policy-owning compaction extension. The policy includes triggering, context sizing and usage observations, retained-history budget and boundary selection, summary preparation and generation, and compaction-specific overflow handling. Preserve ordered request handlers, immutable original and composed current values, independent request/result updates, generation bypass for a complete result, ordered result handlers, explicit cancellation, and custom complete replacement. Keep durable replacement entries, original history, restoration and navigation projection, structural session checks, publication, and accounting with the session and Host runtime owners. Agent Core consumes prepared history and has no compaction policy or compaction-specific orchestration.
+The policy-owning extension controls compaction, while Host and session services retain runtime and durable history responsibilities. Agent Core consumes prepared history. The [target ownership](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#target-ownership) defines the boundary.
 
-Units 0 through 3 and the session entry/projection foundation remain implemented. Unit 4 is an unaccepted Host-owned checkpoint. PHS-06.1 includes the approved [system integration design](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#phs-061-integration-proposal) and its system implementation, caller migration, Host-policy removal, and public-entry verification with a reference extension. System implementation is in progress.
-
-Configured-model image input is implemented; the [behavioral evidence](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#configured-model-image-input) covers public SDK requests in all three application modes.
-
-SDK connection failure reporting is implemented. `Connection.Fail` returns before resource shutdown, and the owner joins cleanup through `Close`. The [connection failure tests](../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check both completion points.
-
-Tracked runtime shutdown is implemented and passed independent review; the [runtime shutdown evidence](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#tracked-runtime-shutdown) records worker return, manager-owned cleanup, and generation checks.
-
-The standard bundled policy and generator, including QST-01.1, belong to PHS-06.2. PHS-06 remains incomplete. Implementation is paused before UNT-04. The [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md) records the phase boundaries, completed units, and acceptance checks.
+PHS-06.1 implementation has resumed and remains incomplete. The [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) records accepted units and pending work; its [phased plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) owns phase ordering.
 
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)

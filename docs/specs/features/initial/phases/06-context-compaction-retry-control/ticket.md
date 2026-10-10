@@ -42,7 +42,7 @@ Keep long sessions usable within model context limits.
 In scope:
 
 - ISP-01: The behavior and artifacts defined by FRQ-01 onward, DLV-01 onward, and ACC-01 onward.
-- ISP-01.1: PHS-06.1 includes system contracts, caller migration, and Host-policy removal through the sequential behavior slices and final cleanup in the [migration plan](migration-plan.md). A reference extension verifies the system contract. The standard bundled compaction policy and generator belong to PHS-06.2.
+- ISP-01.1: PHS-06.1 includes system contracts, caller migration, Host-policy removal, and verification of the system contract with a reference extension. See the [migration plan](migration-plan.md#phased-plan) for phase boundaries, sequential behavior slices, and final cleanup.
 
 Out of scope:
 
@@ -141,7 +141,7 @@ Out of scope:
 
 ## Overengineering and Overspecification Considerations
 
-Compaction reuses ordered extension composition, the extension runtime, and the session entry/projection model. It adds no Host compaction algorithm, Agent Core compaction branch, generic middleware platform, retry daemon, or provider-specific policy language. QST-01 leaves only the minimum integration mechanism unresolved. Retry retains its approved Host-owned composition rule.
+Compaction reuses ordered extension composition, the extension runtime, and the session entry/projection model. It adds no Host compaction algorithm, Agent Core compaction branch, generic middleware platform, retry daemon, or provider-specific policy language. QST-01 records the approved minimum integration mechanism. Retry retains its approved Host-owned composition rule.
 
 ## Constraints and Risks
 
@@ -158,15 +158,15 @@ None.
 
 ### QST-01: Minimal compaction integration contract
 
-- Status: Resolved for system-contract design. PHS-06.1 system implementation is in progress. The [target system contract and scoped dry-run evidence](solution.md#phs-061-system-contract-dry-run-evidence) define the approved integration. The separate [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) belongs to PHS-06.2 extension-implementation preparation.
+- Status: Resolved for system-contract design. See the approved [target system contract and scoped dry-run evidence](solution.md#phs-061-system-contract-dry-run-evidence), [implementation progress](migration-plan.md#sequential-implementation-units), and the separate [QST-01.1 decision](solution.md#qst-011-standard-summary-input-above-the-model-budget).
 - Impact: The extension cannot own the complete policy and preserve composition until the technical design defines how it invokes participating request, generator, and result capabilities, receives session-bound inputs, observes model usage, runs before provider requests, handles provider context overflow, and requests one durable replacement entry.
 - Required answer: A minimal contract and call flow through which the policy-owning extension invokes ordered request, generator, and result capabilities, uses existing Host runtime and session services, keeps Agent Core unaware of compaction, and introduces no second Host policy implementation or general middleware platform.
 - Current evidence: The unaccepted unit 4 checkpoint proves the replacement-entry and projection mechanics but implements the rejected Host-owned policy boundary.
-- Resolution point: PHS-06.1 includes system-contract design, system implementation, caller migration, and public-entry acceptance. PHS-06.2 implements the standard bundled extension.
+- Resolution point: The [phased plan](migration-plan.md#phased-plan) defines system implementation and acceptance before bundled-extension implementation.
 
 ## Technical Supplement
 
-The [technical solution](solution.md) separates the approved target boundary from the unaccepted Host-owned checkpoint and its implementation evidence. Its [tool-call argument representation](solution.md#tool-call-argument-representation) records the implemented single JSON value. QST-01 is resolved for system-contract design; PHS-06 implementation is not complete. The bundled extension's algorithm/source-accounting decision remains QST-01.1 in PHS-06.2. The [migration plan](migration-plan.md) records the resume point, ordered work, and exit criteria after checkpoint `690827f`.
+The [technical solution](solution.md) contains the approved target boundary, the unaccepted Host-owned checkpoint evidence, and the [tool-call argument representation](solution.md#tool-call-argument-representation). The [migration plan](migration-plan.md#sequential-implementation-units) owns implementation progress and links to the phase order and exit criteria. The solution owns the deferred [QST-01.1 decision](solution.md#qst-011-standard-summary-input-above-the-model-budget).
 
 ## References
 
