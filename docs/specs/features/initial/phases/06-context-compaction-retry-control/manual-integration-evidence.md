@@ -1,8 +1,6 @@
 # Manual compaction integration evidence
 
-Status: UNT-04 implementation and executor checks are complete. The integration coordinator owns the remaining fresh CodeQuality and independent analysis passes. Acceptance remains pending those passes.
-
-The [migration plan](migration-plan.md#sequential-implementation-units) owns unit order and acceptance. The [target solution](solution.md#manual-automatic-and-overflow-integration) owns outcome notification requirements.
+The [migration plan](migration-plan.md#sequential-implementation-units) records unit order and acceptance. The [target solution](solution.md#manual-automatic-and-overflow-integration) describes outcome notification requirements.
 
 ## Implemented paths
 

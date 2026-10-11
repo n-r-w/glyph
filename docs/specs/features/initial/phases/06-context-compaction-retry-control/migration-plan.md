@@ -109,15 +109,15 @@ Follow the [approved system integration](solution.md#phs-061-integration-proposa
 
 UNT-01 through UNT-10 are behavior slices. UNT-11 is Cleanup. Every unit starts only after the previous unit passes the [completion checks](#unit-completion-and-review).
 
-UNT-04 implementation and executor checks are complete. Its [implementation evidence](manual-integration-evidence.md) records public-path checks and outcome observer integration. The integration coordinator owns the remaining fresh CodeQuality and independent analysis passes before acceptance. UNT-05 through UNT-11 remain pending in the approved order below. PHS-06.1 is incomplete.
+UNT-05 through UNT-11 remain pending in the approved order below. PHS-06.1 is incomplete.
 
-- Accepted units: UNT-01 (`5165a14`), UNT-02 (`bf62186`), and UNT-03 (`23f2f55`) passed full checks and independent review. See [configured-model input](solution.md#configured-model-image-input) and [runtime shutdown](solution.md#tracked-runtime-shutdown) for behavior and evidence. The [SDK connection failure tests](../../../../../../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../../../../../../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check failure reporting before shutdown and owner cleanup through `Close`.
+- Accepted units: UNT-01 (`5165a14`), UNT-02 (`bf62186`), UNT-03 (`23f2f55`), and UNT-04 (`85f7b9a`) passed full checks, corrective CodeQuality review, and independent review. See [configured-model input](solution.md#configured-model-image-input), [runtime shutdown](solution.md#tracked-runtime-shutdown), and [manual policy integration evidence](manual-integration-evidence.md) for behavior and checks. The [SDK connection failure tests](../../../../../../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../../../../../../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check failure reporting before shutdown and owner cleanup through `Close`.
 - Retained baseline: `64bcecd`. Safe quality corrections: `1612ae5`.
 - Accepted code corrections:
   - `2cf86e8`: shared configured-input image fixture construction and named configured-input protocol values.
   - `53f4c06`: single-owner runtime-unavailability classification with complete error causes.
   - `efdd9cf`: separate shutdown scenario helpers, removal of duplicate registration cleanup, and named shutdown modes and formatting templates.
-  - All code correction units passed CodeQuality, full checks, and independent review. Latest coverage is 82.8%.
+  - All code correction units passed CodeQuality, full checks, and independent review.
 - Document clarity and status corrections: linked progress and phase ordering, positive behavior statements, explicit component ownership, split design blocks, and resumed-work status passed CodeQuality and independent review. Local references, anchors, and whitespace checks passed. This document-only unit changed no code.
 
 | Unit | Observable result and public-entry check | Executor role |
