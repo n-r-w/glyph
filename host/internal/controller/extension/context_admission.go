@@ -20,7 +20,7 @@ func (s *Service) Prepare(
 	request *extensionpb.ExtensionRequest,
 ) (extensionsdk.HostOperation, error) {
 	// mappedRequest and err contain the decoded operation selector and decoding failure.
-	mappedRequest, err := mapContextRequest(request)
+	mappedRequest, err := newContextRequest(request)
 	if err != nil {
 		return nil, extensionsdk.Reject(invalidArgumentCode, err)
 	}
@@ -66,6 +66,10 @@ func (s *Service) Prepare(
 	// action and prepareErr contain the bound executable and preparation failure.
 	action, prepareErr := mappedRequest.prepare(prepared)
 	if prepareErr != nil {
+		// Preserve the acquired cause before the once-only scope release settles the child.
+		if childRelease != nil {
+			childRelease(prepareErr)
+		}
 		release()
 		return nil, prepareErr
 	}

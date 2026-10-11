@@ -23,8 +23,8 @@ type contextRequest struct {
 	admission contextAdmission
 }
 
-// mapContextRequest validates the selected request payload before admission.
-func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
+// newContextRequest constructs the operation selector for admission.
+func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
 	// mapped contains the selected request payload and execution binding.
 	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
 	if request == nil {
@@ -53,20 +53,20 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 			return contextReadAction(o.runProviderCatalog), nil
 		}
 	case extensionpb.ExtensionRequest_ConfiguredModel_case:
-		return mapConfiguredContextRequest(mapped, request.GetConfiguredModel())
+		return newConfiguredContextRequest(mapped, request.GetConfiguredModel())
 	case extensionpb.ExtensionRequest_AppendExtension_case:
-		return mapAppendContextRequest(mapped, request.GetAppendExtension())
+		return newAppendContextRequest(mapped, request.GetAppendExtension())
 	case extensionpb.ExtensionRequest_GetSessionState_case:
 		mapped.reference = request.GetGetSessionState().GetContext()
 		mapped.prepare = func(o *contextOperation) (contextAction, error) {
 			return contextReadAction(o.runSessionState), nil
 		}
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
-		return mapAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
+		return newAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
 	case extensionpb.ExtensionRequest_ProjectCompaction_case:
-		return mapPolicyCandidate(mapped, request.GetProjectCompaction(), policyCandidateProjection)
+		return newPolicyCandidateContextRequest(mapped, request.GetProjectCompaction(), policyCandidateProjection)
 	case extensionpb.ExtensionRequest_ReplaceCompaction_case:
-		return mapPolicyCandidate(mapped, request.GetReplaceCompaction(), policyCandidateReplacement)
+		return newPolicyCandidateContextRequest(mapped, request.GetReplaceCompaction(), policyCandidateReplacement)
 	case extensionpb.ExtensionRequest_Compact_case:
 		// compact contains the manual compaction request.
 		compact := request.GetCompact()
@@ -91,8 +91,8 @@ func mapContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 	return mapped, nil
 }
 
-// mapPolicyCandidate validates and decodes one scoped replacement candidate.
-func mapPolicyCandidate(
+// newPolicyCandidateContextRequest constructs an operation selector for a scoped compaction candidate.
+func newPolicyCandidateContextRequest(
 	mapped contextRequest,
 	raw *extensionpb.CompactionCandidateRequest,
 	kind policyCandidateKind,
@@ -128,8 +128,8 @@ func mapPolicyCandidate(
 	return mapped, nil
 }
 
-// mapConfiguredContextRequest maps one configured-model request into the general context selector.
-func mapConfiguredContextRequest(
+// newConfiguredContextRequest constructs an operation selector for a configured model.
+func newConfiguredContextRequest(
 	mapped contextRequest,
 	request *extensionpb.ConfiguredModelRequest,
 ) (contextRequest, error) {
@@ -149,8 +149,8 @@ func mapConfiguredContextRequest(
 	return mapped, nil
 }
 
-// mapAppendContextRequest maps one hidden extension append into the general context selector.
-func mapAppendContextRequest(
+// newAppendContextRequest constructs an operation selector for a hidden extension entry.
+func newAppendContextRequest(
 	mapped contextRequest,
 	request *extensionpb.AppendExtensionRequest,
 ) (contextRequest, error) {
@@ -168,8 +168,8 @@ func mapAppendContextRequest(
 	return mapped, nil
 }
 
-// mapAppendMessageContextRequest maps one visible extension message into the general context selector.
-func mapAppendMessageContextRequest(
+// newAppendMessageContextRequest constructs an operation selector for a visible extension message.
+func newAppendMessageContextRequest(
 	mapped contextRequest,
 	request *extensionpb.AppendExtensionMessageRequest,
 ) (contextRequest, error) {

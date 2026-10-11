@@ -34,7 +34,8 @@ func configureManualOutcomeFixture(t *testing.T, guidance string) string {
 	if guidance == manualFixtureLoseStateAfterCommit {
 		t.Setenv(manualFixtureGlyphReferenceSeparateObserver, manualFixtureEnabled)
 	}
-	if guidance == manualFixtureObserverFailure || guidance == manualFixtureLoseStateAfterCommit {
+	if guidance == manualFixtureObserverFailure || guidance == manualFixtureLoseStateAfterCommit ||
+		guidance == manualSelectionRejectionObserverFailureGuidance {
 		t.Setenv(manualFixtureGlyphReferenceObserverFailure, manualFixtureEnabled)
 	}
 	if guidance == manualFixtureObserverFailure {
@@ -67,7 +68,8 @@ func assertManualOutcome(t *testing.T, path, guidance string, committed bool, te
 		require.NotNil(t, outcome.GetState().GetCurrentRequest())
 		require.Equal(t, manualReferenceSummary, outcome.GetState().GetResult().GetSummary())
 	}
-	if guidance == manualFixtureObserverFailure || guidance == manualFixtureLoseStateAfterCommit {
+	if guidance == manualFixtureObserverFailure || guidance == manualFixtureLoseStateAfterCommit ||
+		guidance == manualSelectionRejectionObserverFailureGuidance {
 		require.Contains(t, terminalError, "original observer cause")
 	}
 	if guidance == manualFixtureLoseStateAfterCommit {
@@ -78,6 +80,17 @@ func assertManualOutcome(t *testing.T, path, guidance string, committed bool, te
 	if guidance == manualFixtureInvalidStateAfterCommit {
 		require.Contains(t, terminalError, "original policy failure cause")
 		require.Contains(t, terminalError, "policy diagnostic original and current requests are required")
+	}
+	if guidance == manualSelectionRejectionGuidance || guidance == manualSelectionRejectionObserverFailureGuidance {
+		require.NotNil(t, outcome.GetCommitted())
+		require.Empty(t, outcome.GetCommitted().GetCompaction().GetDetails())
+		require.Empty(t, outcome.GetState().GetResult().GetDetails())
+		if guidance == manualSelectionRejectionObserverFailureGuidance {
+			require.Contains(t, terminalError, manualSelectionPreparationCause)
+			require.Contains(t, terminalError, "original observer cause")
+		} else {
+			require.Empty(t, terminalError)
+		}
 	}
 	if committed {
 		require.Equal(t, manualReferenceSummary, outcome.GetCommitted().GetCompaction().GetSummary())

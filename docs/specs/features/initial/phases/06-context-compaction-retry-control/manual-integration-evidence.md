@@ -77,6 +77,10 @@ The real session/history capture scenario runs under the integration tag. Its or
 
 `BeginCompactionChild` returns release ownership and an admission error. `LinkCompactionChild` supplies the explicit execution context. The controller prepares one typed executable action and retains common gate, linkage, and release ownership.
 
+When nested selection preparation fails after child admission, the controller records the acquired error before scope cleanup. `TestSelectionPreparationRetainsAdmittedChildCause` checks returned error identity, the public rejection category, and once-only child/runtime settlement. Its ordinary-selection control checks the uncorrelated path.
+
+The Programmatic, UI, and Extension terminal-state suites include a policy-handled nested selection rejection followed by durable replacement. Each suite checks observer failure with both the underlying selection and observer causes, and observer success with an empty terminal error. The tests retain receipt, original-history, and next-provider-input checks. The policy keeps candidate details empty and handles the rejection without copying its text into diagnostics. Compiling RED runs reproduced the lost cause on all three public routes; the corrected runs pass.
+
 `TestManualChildAdmissionRetainsDistinctParentCause` checks cancellation-cause identity before child admission. `TestManualChildRejectionCarriesParentCauseThroughSDK` checks the acquired rejection through the real controller, runtime adapter, and SDK peer before parent settlement. Both tests failed when admission omitted the distinct cause and pass with the cause-preserving join.
 
 The SDK defines request completion, validation, failure, and progress rules in request-kind descriptors. A bounded predicate table identifies handler payloads. `TestHostRequestContracts` and `TestHandlerPayloadContracts` check request and handler matching, absent payloads, and unknown kinds. Policy authority and parent lifetime use separate optional prepared values.
@@ -89,6 +93,6 @@ The controller represents optional parent lifetime and child release with `mo.Op
 
 ## Checks
 
-`task fmt`, `task fix_dry_run`, `task lint`, `task test`, `task itest`, `task test-coverage`, `task build`, `go list ./...`, and `git diff --check` pass. Fix dry-run proposals were analyzed before correction. Coverage is 83.4%; the required minimum is 80.0%. The checks include the external-plugin module.
+`task fmt`, `task fix_dry_run`, `task lint`, `task test`, `task itest`, `task test-coverage`, `task build`, `go list ./...`, and `git diff --check` pass. Fix dry-run proposals were analyzed before correction. Coverage is 83.5%; the required minimum is 80.0%. The checks include the external-plugin module.
 
 Two consecutive protobuf and affected mock generation commands produced files with identical SHA-256 manifests.

@@ -235,6 +235,11 @@ func (o *policyOperation) Run(ctx context.Context) (*extensionpb.HandleResponse,
 	if err != nil {
 		return o.attachAcquiredState(newPolicyFailure(err)), nil
 	}
+	if rejectionErr := handlePolicySelectionRejection(
+		ctx, contextBinding, input.GetUserInstructions(), input.GetModel().GetProviderId(),
+	); rejectionErr != nil {
+		return o.attachAcquiredState(newPolicyFailure(rejectionErr)), nil
+	}
 	if input.GetUserInstructions() == waitGuidance {
 		if modelErr := waitPolicyConfiguredModel(
 			ctx,
@@ -493,4 +498,38 @@ func requestCanceledParentAdmission(ctx context.Context) (*extensionpb.HandleRes
 		_, admissionErr = operation.Wait(ctx)
 	}
 	return newPolicyFailure(admissionErr), nil
+}
+
+// handlePolicySelectionRejection handles nested rejection for the selected fixture guidance.
+func handlePolicySelectionRejection(
+	ctx context.Context,
+	binding *extensionsdk.ExtensionContext,
+	guidance, providerID string,
+) error {
+	// selectionRejectionGuidance selects policy handling of a rejected nested selection.
+	const selectionRejectionGuidance = "handled-selection-rejection"
+	// selectionRejectionObserverFailureGuidance selects later observer failure after the same rejection.
+	const selectionRejectionObserverFailureGuidance = "handled-selection-rejection-observer-failure"
+	switch guidance {
+	case selectionRejectionGuidance, selectionRejectionObserverFailureGuidance:
+	default:
+		return nil
+	}
+	// missingModel identifies a model absent from the configured provider catalog.
+	const missingModel = "reference-missing-selection-model"
+	// request contains the ordinary nested model-selection input.
+	request := extensionpb.SelectModelRequest_builder{
+		Context: nil, ProviderId: new(providerID), ModelId: new(missingModel),
+	}.Build()
+	// selection owns the public nested selection operation.
+	selection, err := binding.StartModelSelection(ctx, request)
+	if err != nil {
+		return err
+	}
+	// rejection contains the acquired preparation failure that the policy chooses to handle.
+	_, rejection := selection.Wait(ctx)
+	if rejection == nil {
+		return errors.New("reference policy expected an unknown-model selection rejection")
+	}
+	return nil
 }

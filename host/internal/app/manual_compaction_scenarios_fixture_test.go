@@ -3,6 +3,15 @@
 // Package app assembles the host application and its public integration fixtures.
 package app
 
+// manualSelectionRejectionGuidance selects a handled nested selection rejection.
+const manualSelectionRejectionGuidance = "handled-selection-rejection"
+
+// manualSelectionRejectionObserverFailureGuidance selects observer failure after a handled selection rejection.
+const manualSelectionRejectionObserverFailureGuidance = "handled-selection-rejection-observer-failure"
+
+// manualSelectionPreparationCause identifies the complete underlying catalog rejection.
+const manualSelectionPreparationCause = "provider catalog selection failed: not_found"
+
 // manualTerminalScenario contains one caller-observable policy outcome.
 type manualTerminalScenario struct {
 	// name identifies the Programmatic subtest.
@@ -43,6 +52,17 @@ func newManualTerminalScenarios() []manualTerminalScenario {
 		{
 			name: "observer failure", guidance: manualFixtureObserverFailure,
 			cause: "original observer cause", committed: true, canceled: false,
+		},
+		{
+			name: "handled selection rejection observer success", guidance: manualSelectionRejectionGuidance,
+			cause: "", committed: true, canceled: false,
+		},
+		{
+			name:      "handled selection rejection observer failure",
+			guidance:  manualSelectionRejectionObserverFailureGuidance,
+			cause:     manualSelectionPreparationCause,
+			committed: true,
+			canceled:  false,
 		},
 		{
 			name: "lost policy state", guidance: manualFixtureLoseStateAfterCommit,
