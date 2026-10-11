@@ -6,6 +6,7 @@ package app
 import (
 	"bytes"
 	"encoding/json/v2"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -143,6 +144,9 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance, participant
 				close(started)
 				<-request.Context().Done()
 				close(stopped)
+				if participantTimeout != "" {
+					return nil, errors.Join(request.Context().Err(), errors.New("nested provider cleanup source"))
+				}
 				return nil, request.Context().Err()
 			}
 			return &http.Response{
@@ -220,6 +224,7 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance, participant
 		require.True(t, event.HasFailed(), "participant timeout must expose its failure")
 		require.Contains(t, event.GetFailed().GetMessage(), "context deadline exceeded")
 		require.Contains(t, event.GetFailed().GetMessage(), "provider catalog selection failed: not_found")
+		require.Contains(t, event.GetFailed().GetMessage(), "nested provider cleanup source")
 	}
 	select {
 	case <-stopped:

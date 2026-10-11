@@ -34,7 +34,7 @@ Host returns the action and retains operation ownership. The reference extension
 - Participant input artifacts use exclusive creation. The tests compare each handler's original request with the first captured original. They check the independent current values and the absence of a later participant after terminal actions.
 - The Programmatic, UI, and Extension manual terminal-state suites include request-handler cancellation, failure, invalid action, and a handled participant-child preparation rejection followed by a later handler failure. They check the acquired composition state, both preparation and handler causes, and absence of a replacement.
 - `TestProgrammaticManualCancellationStopsNestedModel` includes participant-owned configured-model work. Public parent cancellation stops that provider work before terminal return and leaves the original history intact.
-- `TestProgrammaticManualParticipantTimeout` configures a two-second participant duration through YAML and enters through Programmatic manual compaction without caller cancellation. The real participant handles a model-selection rejection, then starts nested configured-model work. The test checks timeout text, the acquired selection cause, stopped provider work before terminal return, and retained original history.
+- `TestProgrammaticManualParticipantTimeout` configures a two-second participant duration through YAML and enters through Programmatic manual compaction without caller cancellation. The real participant handles a model-selection rejection, then starts nested configured-model work. The provider transport returns cancellation joined with `nested provider cleanup source`. The test checks timeout text, both acquired causes, stopped provider work before terminal return, and retained original history.
 
 These tests replace only the external provider HTTP transport. UI evidence enters through the established public UI protocol fixture. It is not an interactive terminal proof.
 
@@ -67,6 +67,12 @@ The unit handoff records exact command results and source identities. The initia
 Fresh compiling ownership RED failed because an invocation exceeded its configured duration without a deadline cause. Configuration RED failed on an omitted default, a rejected positive duration, and missing positive-duration validation. Public RED canceled the still-pending operation after its assertion deadline and failed because Host had not exposed a participant timeout. The corresponding corrected tests pass. Caller-deadline and caller-cancellation cases are characterization checks of preserved behavior.
 
 Checkpoint `84446d6` is intermediate evidence. The deadline correction and the behavior-preserving redundant-result-guard cleanup require source-matched final verification and unit reviews before UNT-05 acceptance. The retained orchestration helper unpacks a supplied result once, returns detached data, and bypasses generation. Generation failure classification remains unchanged.
+
+### Codex transport-cause preservation
+
+Fresh compiling RED runs reproduced the loss of a transport cause returned after request cancellation. `TestDriverStreamCancellationRetainsTransportFailure` failed on missing error identity at the Codex boundary. `TestProgrammaticManualParticipantTimeout` failed on the missing transport marker in the public failure. Both tests pass after the correction in the existing Codex capture transport. These executions reconstruct the behavior; the earlier temporary probe has no retained source snapshot or recorded intermediate SDK error values.
+
+`TestErrorCaptureTransportJoinsMissingCause` failed when the combining method omitted the acquired cause, then passed after restoration. `TestErrorCaptureTransportKeepsExistingCause` characterizes preservation of the full SDK error when it already contains the captured cause. The provider suite also checks pure cancellation, stream-finalization failures, and terminal-delivery failures. The adapter combines acquired transport errors before cancellation classification and assembler finalization. Dependencies, public schemas, retry policy, and participant ownership remain unchanged. UNT-05 acceptance remains pending.
 
 ## Migration boundary
 

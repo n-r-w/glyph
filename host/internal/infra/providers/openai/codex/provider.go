@@ -192,10 +192,10 @@ func (s *Driver) executeRequest(
 	for stream.Next() {
 		response, terminal, terminalErr := assembler.consume(stream.Current())
 		if terminal {
-			return response, terminalErr
+			return response, errorTransport.JoinError(terminalErr)
 		}
 	}
-	streamErr := stream.Err()
+	streamErr := errorTransport.JoinError(stream.Err())
 	if finishErr := assembler.finish(); finishErr != nil {
 		return terminalModelResponse(
 			"OpenAI Codex stream delivery failed.", model.OutcomeFailed,
