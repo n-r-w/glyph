@@ -154,24 +154,25 @@ func (s *hostContractMatrixSuite) TestScenario() {
 	} {
 		// Act through SDK request classification and terminal validation.
 		require.Equal(t, scenario.kind, classifyHostRequest(scenario.request))
-		require.True(t, hostCompletedMatches(scenario.kind, scenario.completed))
-		require.False(t, hostCompletedMatches(scenario.kind, nil))
-		err := validateHostCompleted(scenario.kind, scenario.completed)
+		require.True(t, scenario.kind.matchesHostCompleted(scenario.completed))
+		require.False(t, scenario.kind.matchesHostCompleted(nil))
+		// err contains the completion-validation error for the scenario.
+		err := scenario.kind.validateHostCompleted(scenario.completed)
 		// Assert exact established malformed-result behavior and common code allowances.
 		if scenario.validationFailure {
 			require.Error(t, err)
 		} else {
 			require.NoError(t, err)
 		}
-		require.NoError(t, validateHostFailureCode(scenario.kind, failureCodeInternal))
-		require.NoError(t, validateHostFailureCode(scenario.kind, contextCodeStale))
-		require.Error(t, validateHostFailureCode(scenario.kind, "UNKNOWN_CATEGORY"))
+		require.NoError(t, scenario.kind.validateHostFailureCode(failureCodeInternal))
+		require.NoError(t, scenario.kind.validateHostFailureCode(contextCodeStale))
+		require.Error(t, scenario.kind.validateHostFailureCode("UNKNOWN_CATEGORY"))
 	}
 	require.Equal(t, hostRequestInvalid, classifyHostRequest(nil))
 	require.Equal(t, hostRequestInvalid, classifyHostRequest(new(extensionpb.ExtensionRequest)))
-	require.False(t, hostCompletedMatches(hostRequestInvalid, new(extensionpb.HostCompleted)))
-	require.NoError(t, validateHostFailureCode(hostRequestInvalid, failureCodeInternal))
-	require.Error(t, validateHostCompleted(hostRequestInvalid, new(extensionpb.HostCompleted)))
+	require.False(t, hostRequestInvalid.matchesHostCompleted(new(extensionpb.HostCompleted)))
+	require.NoError(t, hostRequestInvalid.validateHostFailureCode(failureCodeInternal))
+	require.Error(t, hostRequestInvalid.validateHostCompleted(new(extensionpb.HostCompleted)))
 }
 
 // TestFailureFamilies checks accepted and unrelated categories for each shared contract family.
@@ -215,11 +216,15 @@ func (s *hostContractMatrixSuite) TestFailureFamilies() {
 		hostFailureCodeSessionUnavailable, hostFailureCodePersistenceUnavailable,
 		hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable, hostFailureCodeCompactionFailed,
 	}
+	// family contains the expected failure contract for its request variants.
 	for _, family := range families {
+		// kind identifies the request variant under test.
 		for _, kind := range family.kinds {
+			// category contains the failure category under test.
 			for _, category := range categories {
 				// Act through SDK category validation for this request.
-				err := validateHostFailureCode(kind, category)
+				// err contains the category-validation error for this request.
+				err := kind.validateHostFailureCode(category)
 				// Assert the independent category set, including rejection of unrelated categories.
 				if slices.Contains(family.allowed, category) {
 					require.NoError(t, err)

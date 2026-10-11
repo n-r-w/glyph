@@ -75,6 +75,57 @@ const (
 	hostRejectionCodeReasoningUnsupported = "REASONING_UNSUPPORTED"
 )
 
+// matchesHostCompleted checks the completion payload for its request kind.
+func (kind hostRequestKind) matchesHostCompleted(result *extensionpb.HostCompleted) bool {
+	// descriptor and supported identify the completion rules for the request kind.
+	descriptor, supported := newHostRequestDescriptors()[kind]
+	return supported && descriptor.matches(result)
+}
+
+// validateHostFailureCode enforces the current request's closed execution categories.
+func (kind hostRequestKind) validateHostFailureCode(code string) error {
+	if code == failureCodeInternal || code == contextCodeStale {
+		return nil
+	}
+	if slices.Contains(newHostRequestDescriptors()[kind].failures, code) {
+		return nil
+	}
+	return fmt.Errorf("unsupported Host failure category %q for request kind %d", code, kind)
+}
+
+// validateHostRejectionCode enforces operation-specific admission categories.
+func (kind hostRequestKind) validateHostRejectionCode(code string) error {
+	if kind == hostRequestCancel {
+		return validateRejectionCode(requestCancel, code)
+	}
+	switch code {
+	case rejectionCodeInvalidArgument,
+		rejectionCodeOperationIDInUse,
+		rejectionCodeNotReady,
+		rejectionCodeBusy,
+		contextCodeStale,
+		failureCodeInternal:
+		return nil
+	case hostRejectionCodeNotFound, hostRejectionCodeReasoningUnsupported:
+		if newHostRequestDescriptors()[kind].selection {
+			return nil
+		}
+	}
+	return fmt.Errorf("unsupported Host catalog rejection category %q", code)
+}
+
+// validateHostCompleted enforces the result contract for one extension-initiated request kind.
+func (kind hostRequestKind) validateHostCompleted(result *extensionpb.HostCompleted) error {
+	if !kind.matchesHostCompleted(result) {
+		return errors.New("received Host completion does not match request kind")
+	}
+	// validate and present identify additional completion validation.
+	if validate, present := newHostRequestDescriptors()[kind].validate.Get(); present {
+		return validate(result)
+	}
+	return nil
+}
+
 // hostCompletionValidator checks a kind-specific completed payload.
 type hostCompletionValidator func(*extensionpb.HostCompleted) error
 
@@ -248,68 +299,18 @@ func classifyHostRequest(request *extensionpb.ExtensionRequest) hostRequestKind 
 	return hostRequestInvalid
 }
 
-// hostCompletedMatches checks the completion payload for its initiated kind.
-func hostCompletedMatches(kind hostRequestKind, result *extensionpb.HostCompleted) bool {
-	// descriptor and supported identify the completion rules for the request kind.
-	descriptor, supported := newHostRequestDescriptors()[kind]
-	return supported && descriptor.matches(result)
-}
-
-// validateHostFailureCode enforces the current request's closed execution categories.
-func validateHostFailureCode(kind hostRequestKind, code string) error {
-	if code == failureCodeInternal || code == contextCodeStale {
-		return nil
-	}
-	if slices.Contains(newHostRequestDescriptors()[kind].failures, code) {
-		return nil
-	}
-	return fmt.Errorf("unsupported Host failure category %q for request kind %d", code, kind)
-}
-
-// validateHostOutputFailureCode accepts the union that the Host peer can publish before request-local validation.
+// validateHostOutputFailureCode validates publishable Host failure categories.
 func validateHostOutputFailureCode(code string) error {
+	// kind identifies a request contract for output-category validation.
 	for _, kind := range []hostRequestKind{
 		hostRequestModels, hostRequestConfiguredModel, hostRequestAppendExtension, hostRequestSessionState,
 		hostRequestModelSelection, hostRequestReasoningSelection, hostRequestCompaction,
 	} {
-		if validateHostFailureCode(kind, code) == nil {
+		if kind.validateHostFailureCode(code) == nil {
 			return nil
 		}
 	}
 	return fmt.Errorf("unsupported Host failure category %q", code)
-}
-
-// validateHostRejectionCode enforces operation-specific admission categories.
-func validateHostRejectionCode(kind hostRequestKind, code string) error {
-	if kind == hostRequestCancel {
-		return validateRejectionCode(requestCancel, code)
-	}
-	switch code {
-	case rejectionCodeInvalidArgument,
-		rejectionCodeOperationIDInUse,
-		rejectionCodeNotReady,
-		rejectionCodeBusy,
-		contextCodeStale,
-		failureCodeInternal:
-		return nil
-	case hostRejectionCodeNotFound, hostRejectionCodeReasoningUnsupported:
-		if newHostRequestDescriptors()[kind].selection {
-			return nil
-		}
-	}
-	return fmt.Errorf("unsupported Host catalog rejection category %q", code)
-}
-
-// validateHostCompleted enforces the result contract for one extension-initiated request kind.
-func validateHostCompleted(kind hostRequestKind, result *extensionpb.HostCompleted) error {
-	if !hostCompletedMatches(kind, result) {
-		return errors.New("received Host completion does not match request kind")
-	}
-	// validate and present identify additional completion validation.
-	if validate, present := newHostRequestDescriptors()[kind].validate.Get(); present {
-		return validate(result)
-	}
-	return nil
 }
 
 // validateCompactionCompleted checks exclusive terminal state and durable marker fields.
@@ -405,6 +406,7 @@ func mapHostEvent(
 	kind hostRequestKind,
 	payload *extensionpb.HostEvent,
 ) (operation.Event[*extensionpb.HostProgress, *extensionpb.HostCompleted], bool, error) {
+	// event contains the SDK lifecycle result.
 	event := operation.Event[*extensionpb.HostProgress, *extensionpb.HostCompleted]{
 		ID:       id,
 		Kind:     0,
@@ -422,6 +424,7 @@ func mapHostEvent(
 	case extensionpb.HostEvent_Running_case:
 		event.Kind = operation.EventRunning
 	case extensionpb.HostEvent_Progress_case:
+		// progress contains the received progress payload.
 		progress := payload.GetProgress()
 		// allowed and present identify progress rules for the request kind.
 		allowed, present := newHostRequestDescriptors()[kind].progress.Get()
@@ -431,7 +434,8 @@ func mapHostEvent(
 		event.Kind, event.Progress = operation.EventProgress, payload.GetProgress()
 	case extensionpb.HostEvent_Completed_case:
 		event.Kind, event.Result = operation.EventCompleted, payload.GetCompleted()
-		if err := validateHostCompleted(kind, event.Result); err != nil {
+		// err contains the completion contract error.
+		if err := kind.validateHostCompleted(event.Result); err != nil {
 			return event, false, err
 		}
 		return event, true, nil
@@ -443,7 +447,8 @@ func mapHostEvent(
 			GetCode(),
 			payload.GetFailed().
 				GetMessage()
-		if err := validateHostFailureCode(kind, event.Code); err != nil {
+		// err contains the failure-category contract error.
+		if err := kind.validateHostFailureCode(event.Code); err != nil {
 			return event, false, fmt.Errorf("%w: peer failure text: %s", err, event.Message)
 		}
 		return event, true, nil
@@ -452,7 +457,8 @@ func mapHostEvent(
 			GetCode(),
 			payload.GetRejected().
 				GetMessage()
-		if err := validateHostRejectionCode(kind, event.Code); err != nil {
+		// err contains the rejection-category contract error.
+		if err := kind.validateHostRejectionCode(event.Code); err != nil {
 			return event, false, fmt.Errorf("%w: peer rejection text: %s", err, event.Message)
 		}
 		return event, true, nil
