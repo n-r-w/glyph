@@ -109,7 +109,7 @@ func TestPublicConfiguredRequestAcrossApplicationModes(t *testing.T) {
 				assertOuterRequestUnaffected(t, outerBody)
 				encoded := externalToolOutput(t, outerBody)
 				if input.rejected {
-					assert.Contains(t, encoded, configuredProviderRejectionStatus+configuredProviderRejectionDetail)
+					assert.Contains(t, encoded, configuredProviderRejectionStatus+configuredProviderRejectionBody)
 					return
 				}
 				if input.images {
@@ -167,12 +167,11 @@ func configuredRequestProviderTransport(
 ) (*MockHTTPRoundTripper, *requestBodies) {
 	t.Helper()
 	const (
-		configuredProviderRejectionBody = `{"error":` + configuredProviderRejectionDetail + `}`
-		configuredModelMatch            = `"model":"` + configuredRequestModelID + `"`
-		originalToolNameJSON            = `"bash"`
-		configuredToolNameJSON          = `"external"`
-		originalToolArgumentsJSON       = `{\"command\":\"printf tool-ok\"}`
-		configuredToolArgumentsFormat   = `{\"mode\":\"%s\"}`
+		configuredModelMatch          = `"model":"` + configuredRequestModelID + `"`
+		originalToolNameJSON          = `"bash"`
+		configuredToolNameJSON        = `"external"`
+		originalToolArgumentsJSON     = `{\"command\":\"printf tool-ok\"}`
+		configuredToolArgumentsFormat = `{\"mode\":\"%s\"}`
 	)
 
 	bodies := new(requestBodies)
@@ -321,3 +320,6 @@ const configuredModelResponseSSE = `data: {"type":"response.output_text.delta","
 // configuredProviderRejectionDetail contains the original provider SDK error cause.
 const configuredProviderRejectionDetail = `{"message":"remote configured input rejected: exact detail",` +
 	`"type":"invalid_request_error","code":"empty_instructions"}`
+
+// configuredProviderRejectionBody supplies the complete received rejection envelope.
+const configuredProviderRejectionBody = `{"error":` + configuredProviderRejectionDetail + `}`

@@ -273,9 +273,9 @@ message CompactionRequestParticipant {
   int64 registration_order = 4;
 }
 
-// InvokeCompactionRequestRequest invokes one captured request handler.
+// InvokeCompactionRequestRequest contains a request to invoke one captured request handler.
 message InvokeCompactionRequestRequest {
-  // The policy's ordinary session binding.
+  // The session binding for the policy runtime.
   ExtensionContextRef context = 1;
   // The authority for the current policy operation.
   string operation_id = 2;

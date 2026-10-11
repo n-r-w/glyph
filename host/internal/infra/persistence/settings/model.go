@@ -120,11 +120,11 @@ type Retry struct {
 	MaxProviderDelay time.Duration
 }
 
-// Compaction contains validated compaction policy and Host lifecycle settings.
+// Compaction contains compaction policy and Host lifecycle settings.
 type Compaction struct {
 	// RetainedContextTokens is the recent unsummarized context target.
 	RetainedContextTokens int64
-	// ParticipantTimeout bounds one compaction participant invocation.
+	// ParticipantTimeout is the timeout for one compaction participant invocation.
 	ParticipantTimeout time.Duration
 }
 

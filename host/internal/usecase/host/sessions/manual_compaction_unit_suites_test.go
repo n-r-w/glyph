@@ -19,7 +19,7 @@ type projectReplacementPreservesBoundaryCauseSuite struct {
 func TestProjectReplacementPreservesBoundaryCause(t *testing.T) {
 	// Arrange parallel execution of the boundary-rejection suite.
 	t.Parallel()
-	// Act through candidate projection with an outside boundary.
-	// Assert the complete structural cause before mutation in TestScenario.
+	// Act through candidate projection with a boundary outside the captured branch.
+	// Assert the complete boundary rejection cause before mutation in TestScenario.
 	suite.Run(t, &projectReplacementPreservesBoundaryCauseSuite{Suite: suite.Suite{}})
 }

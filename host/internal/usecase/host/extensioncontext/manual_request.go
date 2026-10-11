@@ -80,7 +80,7 @@ func (s *Service) InvokePolicyRequest(
 		invocation.CurrentResult = mo.Some(newResult(result))
 	}
 	action, invokeErr := s.policyRuntime.InvokeCompactionRequest(childContext, participant, bound, invocation)
-	// Capture execution failure before normal teardown deliberately cancels the lifetime.
+	// Capture execution failure before child.finish cancels the lifetime during normal teardown.
 	executionErr := errors.Join(childContext.Err(), context.Cause(childContext))
 	_, acquired, terminal := child.finish()
 	s.mutex.Lock()

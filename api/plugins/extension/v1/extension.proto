@@ -106,7 +106,7 @@ message ExtensionRequest {
     CompactionCandidateRequest project_compaction = 12;
     // One durable replacement requested by the policy owner.
     CompactionCandidateRequest replace_compaction = 13;
-    // One captured request handler selected by the policy owner.
+    // A request to invoke one captured request handler selected by the policy owner.
     InvokeCompactionRequestRequest invoke_compaction_request = 14;
   }
 }

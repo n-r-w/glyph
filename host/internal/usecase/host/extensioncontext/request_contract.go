@@ -199,7 +199,7 @@ const (
 
 // RequestAction contains the independent request and result changes returned by one participant.
 type RequestAction struct {
-	// Cancel exclusively terminates compaction without a commit.
+	// Cancel indicates exclusive compaction cancellation without a commit.
 	Cancel bool
 	// RequestAction identifies request preservation or replacement.
 	RequestAction RequestActionKind

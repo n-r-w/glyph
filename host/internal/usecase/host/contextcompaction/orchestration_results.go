@@ -7,7 +7,7 @@ import (
 	"github.com/samber/mo"
 )
 
-// prepareCompactionResult supplies the original result for captured result handlers.
+// prepareCompactionResult supplies the original compaction result.
 func (s *Service) prepareCompactionResult(
 	ctx context.Context,
 	snapshot Snapshot,
@@ -26,7 +26,7 @@ func (s *Service) prepareCompactionResult(
 	return cloneResult(generated), false, nil
 }
 
-// composeResultHandlers applies captured result actions in registration order.
+// composeResultHandlers combines changes to the compaction result.
 func (s *Service) composeResultHandlers(
 	ctx context.Context,
 	snapshot Snapshot,
@@ -73,7 +73,7 @@ func (s *Service) composeResultHandlers(
 	return result, false, nil
 }
 
-// applyValidatedResultAction supplies the next result with producer and boundary validation.
+// applyValidatedResultAction supplies the next compaction result.
 func (s *Service) applyValidatedResultAction(
 	snapshot Snapshot,
 	handler Handler,

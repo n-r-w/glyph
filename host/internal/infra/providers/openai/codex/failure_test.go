@@ -435,12 +435,20 @@ func TestDriverStreamMixedCancellationPreservesAcquiredProviderFailure(t *testin
 	providerCause := fmt.Errorf("unique acquired Codex transport source: %w", syscall.ECONNRESET)
 	typedProviderErr := &url.Error{Op: "POST", URL: "https://mixed-cancel.invalid", Err: providerCause}
 	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-	service := &Driver{}
+	defer cancel()
+	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+	transport.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(*http.Request) (*http.Response, error) {
+		cancel()
+		return nil, typedProviderErr
+	})
+	service := newTransportFailureDriver(t, transport)
 
-	// Act once through the stream error mapper used after the provider attempt ends.
-	response, sourceErr := service.streamError(ctx, typedProviderErr, newErrorCaptureTransport(http.DefaultTransport))
-	err := classifyCodexFailure(ctx, sourceErr)
+	// Act through provider execution and its cleanup finalizer.
+	events, err := collectStreamEvents(service, ctx, modelexecution.ProviderRequest{
+		ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions",
+		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil,
+	}, nil)
+	response := terminalResponse(events)
 
 	// Assert aborted presentation, transient classification, and both internal causes survive the mapping.
 	require.ErrorIs(t, err, context.Canceled)
@@ -450,7 +458,7 @@ func TestDriverStreamMixedCancellationPreservesAcquiredProviderFailure(t *testin
 	assert.Equal(t, modelexecution.ProviderFailureTransient, providerFailure.Classification)
 	var acquired *url.Error
 	require.ErrorAs(t, err, &acquired)
-	assert.Same(t, typedProviderErr, acquired)
+	require.ErrorIs(t, err, typedProviderErr)
 	assert.Equal(t, model.OutcomeAborted, response.Outcome.OrEmpty())
 	assert.Contains(t, response.ErrorMessage.OrEmpty(), providerCause.Error())
 }

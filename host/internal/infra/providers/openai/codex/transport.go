@@ -17,7 +17,7 @@ type errorCaptureTransport struct {
 	base http.RoundTripper
 	// mu protects captured diagnostics.
 	mu sync.Mutex
-	// body contains one complete failed response body.
+	// body contains the received rejection bytes.
 	body []byte
 	// err contains the acquired HTTP transport failure.
 	err error
@@ -32,7 +32,7 @@ func newErrorCaptureTransport(base http.RoundTripper) *errorCaptureTransport {
 	return &errorCaptureTransport{base: base, mu: sync.Mutex{}, body: nil, err: nil, response: nil}
 }
 
-// RoundTrip retains HTTP failures and restores failed response bodies for the SDK.
+// RoundTrip captures provider HTTP diagnostics.
 func (t *errorCaptureTransport) RoundTrip(request *http.Request) (_ *http.Response, returnErr error) {
 	t.mu.Lock()
 	t.body = nil
@@ -51,12 +51,10 @@ func (t *errorCaptureTransport) RoundTrip(request *http.Request) (_ *http.Respon
 	}
 	body, readErr := io.ReadAll(response.Body)
 	closeErr := response.Body.Close()
-	if readErr == nil {
-		t.mu.Lock()
-		t.body = bytes.Clone(body)
-		t.response = response
-		t.mu.Unlock()
-	}
+	t.mu.Lock()
+	t.body = bytes.Clone(body)
+	t.response = response
+	t.mu.Unlock()
 	if readErr != nil {
 		readErr = fmt.Errorf("capture failed Codex response: %w", readErr)
 	}
@@ -70,7 +68,7 @@ func (t *errorCaptureTransport) RoundTrip(request *http.Request) (_ *http.Respon
 	return response, nil
 }
 
-// ErrorBody returns a defensive copy of the last complete failed response body.
+// ErrorBody returns a defensive copy of the received rejection bytes.
 func (t *errorCaptureTransport) ErrorBody() []byte {
 	t.mu.Lock()
 	defer t.mu.Unlock()
@@ -84,7 +82,7 @@ func (t *errorCaptureTransport) errorResponse() *http.Response {
 	return t.response
 }
 
-// joinError restores an acquired transport cause absent from the SDK error.
+// joinError combines SDK and acquired transport failures.
 func (t *errorCaptureTransport) joinError(err error) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()

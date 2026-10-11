@@ -20,13 +20,7 @@ func (o *policyOperation) runRequestPolicy(
 			newPolicyFailure(errors.New("reference policy requires an original user entry")),
 		), nil
 	}
-	seed := extensionpb.CompactionResult_builder{
-		Summary:          nil,
-		FirstKeptEntryId: new(boundary),
-		Source:           nil,
-		Details:          nil,
-	}.Build()
-	result, canceled, err := o.composeRequests(ctx, input, seed)
+	result, canceled, err := o.composeRequests(ctx, input, boundary)
 	if err != nil {
 		return o.attachAcquiredState(newPolicyFailure(err)), nil
 	}

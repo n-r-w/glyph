@@ -7,7 +7,7 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// DecodeCompactionPrevious supplies a detached preceding replacement.
+// DecodeCompactionPrevious supplies a detached preceding compaction entry.
 func DecodeCompactionPrevious(wire *extensionpb.SessionTreeCompaction) mo.Option[session.CompactionEntry] {
 	if wire == nil {
 		return mo.None[session.CompactionEntry]()

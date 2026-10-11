@@ -9,7 +9,8 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// compactionPolicyReceivesScopedInputSuite isolates policy authority and input ownership over the SDK connection.
+// compactionPolicyReceivesScopedInputSuite checks detached policy input
+// and policy-scoped Host operations through the SDK connection.
 type compactionPolicyReceivesScopedInputSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite

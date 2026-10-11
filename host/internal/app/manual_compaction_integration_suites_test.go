@@ -122,7 +122,7 @@ func TestProgrammaticManualCompactionTerminalStates(t *testing.T) {
 	// Arrange policy-input capture for Programmatic terminal scenarios.
 	t.Setenv(manualFixtureGlyphReferencePolicyInput, filepath.Join(t.TempDir(), manualFixtureInputJson))
 	// Act through Programmatic cancellation and failure scenarios.
-	// Assert preserved originals and receipt-dependent outcomes in TestScenario.
+	// Assert preserved originals and outcomes with and without a committed replacement in TestScenario.
 	suite.Run(t, &programmaticManualCompactionTerminalStatesSuite{Suite: suite.Suite{}})
 }
 
@@ -137,7 +137,7 @@ func TestUIManualCompactionTerminalStates(t *testing.T) {
 	// Arrange the public UI fixture for terminal outcomes.
 	t.Setenv(appUIBehaviorEnvironment, manualUIBehavior)
 	// Act through UI cancellation and failure scenarios.
-	// Assert preserved originals and receipt-dependent outcomes in TestScenario.
+	// Assert preserved originals and outcomes with and without a committed replacement in TestScenario.
 	suite.Run(t, &uIManualCompactionTerminalStatesSuite{Suite: suite.Suite{}})
 }
 
@@ -170,7 +170,7 @@ func TestExtensionManualCompactionTerminalStates(t *testing.T) {
 	// Arrange policy registration for the Extension terminal scenarios.
 	t.Setenv(manualFixtureGlyphReferencePolicyDisabled, manualFixtureDisabled)
 	// Act through session-bound Extension cancellation and failure scenarios.
-	// Assert preserved originals and receipt-dependent outcomes in TestScenario.
+	// Assert preserved originals and outcomes with and without a committed replacement in TestScenario.
 	suite.Run(t, &extensionManualCompactionTerminalStatesSuite{Suite: suite.Suite{}})
 }
 

@@ -93,7 +93,7 @@ func (o *compactionOperation) diagnosticState() mo.Option[contextcompaction.Poli
 	return o.state.MapValue(contextcompaction.PolicyState.Clone)
 }
 
-// findRequestParticipant resolves one captured request registration under live parent authority.
+// findRequestParticipant resolves one captured request registration.
 func (o *compactionOperation) findRequestParticipant(
 	target extensioncontroller.CompactionRequestParticipant,
 ) (RequestParticipant, error) {

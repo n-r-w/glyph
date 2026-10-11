@@ -43,7 +43,6 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 // TestScenario checks nested Host operations while both peers receive events.
 func (s *nestedCatalogueReadsSuite) TestScenario() {
 	t := s.T()
-	// disabledReasoningChoice selects the protocol's disabled reasoning mode.
 	const disabledReasoningChoice = "off"
 	const runningCompactionStage = "running"
 

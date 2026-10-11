@@ -19,7 +19,7 @@ import (
 
 // requestEncodingSuite checks public payload precedence and malformed content boundaries.
 type requestEncodingSuite struct {
-	// Suite separates entry projection from model-payload validation.
+	// Suite provides the test context for these scenarios.
 	suite.Suite
 }
 
@@ -31,7 +31,8 @@ func TestCompactionRequestEncoding(t *testing.T) {
 	suite.Run(t, &requestEncodingSuite{Suite: suite.Suite{}})
 }
 
-// TestConversationPrecedence checks overlapping conversation fields before non-conversation variants.
+// TestConversationPrecedence checks that overlapping conversation fields
+// take precedence over non-conversation variants.
 func (s *requestEncodingSuite) TestConversationPrecedence() {
 	t := s.T()
 	// Arrange all conversation alternatives alongside a preceding marker.

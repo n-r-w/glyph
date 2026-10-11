@@ -22,8 +22,6 @@ const (
 	defaultMaxProviderDelay = 30 * time.Second
 	// defaultRetainedContextTokens is the approved recent unsummarized context target.
 	defaultRetainedContextTokens int64 = 20_000
-	// defaultParticipantTimeout is the Host invocation duration for compaction participants.
-	defaultParticipantTimeout = 5 * time.Minute
 )
 
 // defaultRetryDelays returns the approved ordered retry schedule.
@@ -88,6 +86,9 @@ func (decoded settingsFile) validateDefaults() error {
 
 // validateCompaction supplies validated compaction settings.
 func validateCompaction(configured mo.Option[compactionFile]) (Compaction, error) {
+	// defaultParticipantTimeout is the Host invocation duration for compaction participants.
+	const defaultParticipantTimeout = 5 * time.Minute
+
 	value := defaultRetainedContextTokens
 	timeout := defaultParticipantTimeout
 	if raw, present := configured.Get(); present {

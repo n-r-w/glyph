@@ -11,7 +11,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
-// InvokeCompactionRequest routes one policy participant through its captured runtime.
+// InvokeCompactionRequest invokes the participant's compaction request handler in the captured runtime.
 func (s *Service) InvokeCompactionRequest(
 	ctx context.Context,
 	participant extensioncontext.RequestParticipant,
@@ -77,7 +77,7 @@ func mapPolicyRequestEntries(values []extensioncontext.InputEntry) []contextcomp
 	return entries
 }
 
-// mapPolicyRequestResult supplies the optional summary state to the runtime dispatcher.
+// mapPolicyRequestResult converts a compaction result to the runtime representation.
 func mapPolicyRequestResult(value extensioncontext.Result) contextcompaction.Result {
 	return contextcompaction.Result{
 		Summary:          value.Summary,

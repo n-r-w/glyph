@@ -76,6 +76,7 @@ func (o *policyOperation) Run(ctx context.Context) (*extensionpb.HandleResponse,
 		Source:           source,
 		Details:          nil,
 	}.Build()
-	o.state = newReferencePolicyState(input, candidate)
+	o.state = newReferencePolicyState(input, boundary)
+	o.state.SetResult(candidate)
 	return o.replaceHistory(ctx, candidate, input.GetUserInstructions())
 }

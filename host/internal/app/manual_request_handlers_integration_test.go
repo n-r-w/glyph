@@ -20,10 +20,10 @@ import (
 	programmaticpb "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// manualRequestInputsEnvironment selects captured participant input artifacts.
+// manualRequestInputsEnvironment names the environment variable that request handlers use to record their inputs.
 const manualRequestInputsEnvironment = "GLYPH_REFERENCE_REQUEST_INPUTS"
 
-// manualSeparateRequestsEnvironment selects a separate participant runtime.
+// manualSeparateRequestsEnvironment names the environment variable for a separate participant runtime.
 const manualSeparateRequestsEnvironment = "GLYPH_REFERENCE_SEPARATE_REQUESTS"
 
 // manualRequestHandlersSuite checks policy-owned request composition through the public application.
@@ -42,11 +42,11 @@ func TestProgrammaticManualRequestHandlers(t *testing.T) {
 	suite.Run(t, &manualRequestHandlersSuite{Suite: suite.Suite{}})
 }
 
-// TestComposition checks independent request and result changes with detached originals.
+// TestComposition checks independent request and result changes with original requests isolated from later changes.
 func (s *manualRequestHandlersSuite) TestComposition() {
 	// Arrange the composition fixture in runScenario.
 	// Act through the public compaction operation in runScenario.
-	// Assert request composition and detached originals in runScenario.
+	// Assert request composition and original requests isolated from later changes in runScenario.
 	s.runScenario(manualRequestCompositionGuidance, manualRequestFinalSummary, "", false)
 }
 
@@ -55,7 +55,7 @@ func (s *manualRequestHandlersSuite) TestSeparateRuntimeComposition() {
 	// Arrange request-only registration in a distinct extension process.
 	s.T().Setenv(manualSeparateRequestsEnvironment, manualFixtureEnabled)
 	// Act through public composition in runScenario.
-	// Assert the captured generation and result in runScenario.
+	// Assert the captured runtime IDs and the compaction result in runScenario.
 	s.runScenario(manualRequestCompositionGuidance, manualRequestFinalSummary, "", false)
 }
 
@@ -83,11 +83,12 @@ func (s *manualRequestHandlersSuite) TestFailure() {
 	s.runScenario(manualRequestFailGuidance, "", manualRequestFailureCause, false)
 }
 
-// TestHandledChildFailure checks complete preparation and handler causes through real participant lifetime wiring.
+// TestHandledChildFailure checks that public compaction retains a handled model-selection error
+// and a later handler error.
 func (s *manualRequestHandlersSuite) TestHandledChildFailure() {
 	// Arrange a participant that handles its nested selection rejection.
 	// Act through a later failing handler in runScenario.
-	// Assert both acquired causes in runScenario.
+	// Assert both the model-selection cause and the handler cause in runScenario.
 	s.runScenario(
 		manualRequestFailAfterChildGuidance,
 		"",
@@ -155,7 +156,7 @@ func (s *manualRequestHandlersSuite) runScenario(guidance, summary, failure stri
 		}
 	}
 	completeProgrammaticRequest(t, fixture, userRequest(manualRequestNextOperation, manualNextText))
-	// Assert preserved originals, one successful replacement, and prepared provider input.
+	// Assert preserved originals, the replacement count, and prepared provider input.
 	stored := sendProgrammaticOperation(
 		t,
 		fixture,
@@ -261,7 +262,7 @@ func assertManualRequestInputs(t *testing.T, directory, policyPath, guidance str
 	}
 }
 
-// isManualRequestTerminalScenario identifies the request-handler terminal fixtures shared by all public routes.
+// isManualRequestTerminalScenario identifies request-handler terminal fixtures.
 func isManualRequestTerminalScenario(guidance string) bool {
 	return guidance == manualRequestCancelGuidance || guidance == manualRequestFailGuidance ||
 		guidance == manualRequestInvalidGuidance ||

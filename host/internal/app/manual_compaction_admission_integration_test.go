@@ -42,7 +42,7 @@ func TestManualChildRejectionCarriesParentCauseThroughSDK(t *testing.T) {
 	// Arrange parallel execution of the public child-admission suite.
 	t.Parallel()
 	// Act through a nested SDK request after parent cancellation.
-	// Assert the received owning cause before parent settlement in TestScenario.
+	// Assert the received parent cancellation cause before parent settlement in TestScenario.
 	suite.Run(t, &admissionWireSuite{Suite: suite.Suite{}})
 }
 

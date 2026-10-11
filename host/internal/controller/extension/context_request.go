@@ -242,7 +242,7 @@ func newPolicyRequestContextRequest(
 	return mapped, nil
 }
 
-// newModelSelectionContextRequest decodes admission for a model selection.
+// newModelSelectionContextRequest prepares a context request for model selection.
 func newModelSelectionContextRequest(
 	mapped contextRequest,
 	request *extensionpb.SelectModelRequest,
@@ -256,7 +256,7 @@ func newModelSelectionContextRequest(
 	return mapped, nil
 }
 
-// newReasoningSelectionContextRequest decodes admission for a reasoning selection.
+// newReasoningSelectionContextRequest prepares a context request for reasoning selection.
 func newReasoningSelectionContextRequest(
 	mapped contextRequest,
 	request *extensionpb.SelectReasoningRequest,

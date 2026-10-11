@@ -27,9 +27,9 @@ const (
 type CompactionRequestChange uint8
 
 const (
-	// CompactionRequestPreserve keeps the current request.
+	// CompactionRequestPreserve denotes preservation of the current request.
 	CompactionRequestPreserve CompactionRequestChange = iota + 1
-	// CompactionRequestReplace supplies a replacement request.
+	// CompactionRequestReplace denotes replacement of the current request.
 	CompactionRequestReplace
 )
 
@@ -37,11 +37,11 @@ const (
 type CompactionResultChange uint8
 
 const (
-	// CompactionResultPreserve keeps the optional current result.
+	// CompactionResultPreserve denotes preservation of the optional current result.
 	CompactionResultPreserve CompactionResultChange = iota + 1
-	// CompactionResultReplace supplies a replacement result.
+	// CompactionResultReplace denotes replacement of the current result.
 	CompactionResultReplace
-	// CompactionResultClear removes the optional result.
+	// CompactionResultClear denotes clearing of the optional result.
 	CompactionResultClear
 )
 
@@ -98,7 +98,7 @@ func encodePolicyRequestEntries(entries []CompactionRequestEntry) ([]*extensionp
 	return wires, nil
 }
 
-// CompactionRequestValue carries extension-owned request state across Host admission.
+// CompactionRequestValue contains extension-owned request state for Host admission.
 type CompactionRequestValue struct {
 	// Trigger identifies the compaction entry point.
 	Trigger CompactionRequestTrigger
@@ -108,13 +108,13 @@ type CompactionRequestValue struct {
 	Instructions mo.Option[string]
 	// Model contains the selected model descriptor.
 	Model model.Descriptor
-	// ReasoningChoice contains the selected reasoning mode.
+	// ReasoningChoice contains the selected reasoning choice.
 	ReasoningChoice model.ReasoningChoice
-	// Prefix contains the proposed summarized entries.
+	// Prefix contains the entries proposed for summarization.
 	Prefix []CompactionRequestEntry
 	// Suffix contains the proposed retained entries.
 	Suffix []CompactionRequestEntry
-	// Previous contains the preceding replacement.
+	// Previous contains the preceding compaction entry.
 	Previous mo.Option[session.CompactionEntry]
 	// ContextTokens contains the supplied size estimate.
 	ContextTokens int64
@@ -124,7 +124,7 @@ type CompactionRequestValue struct {
 	ContextWindow int64
 	// ResponseBudget contains the output reserve.
 	ResponseBudget int64
-	// RetainedBudget contains the extension-selected retained budget.
+	// RetainedBudget contains the extension-selected token budget for the retained suffix.
 	RetainedBudget int64
 }
 
@@ -210,7 +210,7 @@ func (value CompactionRequestValue) encodePolicyRequest() (*extensionpb.Compacti
 	return wire, nil
 }
 
-// CompactionRequestCommand selects one participant with extension-owned input values.
+// CompactionRequestCommand contains the selected participant and extension-owned input values.
 type CompactionRequestCommand struct {
 	// OperationID identifies policy invocation authority.
 	OperationID string

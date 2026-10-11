@@ -2224,7 +2224,7 @@ type ExtensionRequest_builder struct {
 	ProjectCompaction *CompactionCandidateRequest
 	// One durable replacement requested by the policy owner.
 	ReplaceCompaction *CompactionCandidateRequest
-	// One captured request handler selected by the policy owner.
+	// A request to invoke one captured request handler selected by the policy owner.
 	InvokeCompactionRequest *InvokeCompactionRequestRequest
 	// -- end of xxx_hidden_Request
 }
@@ -2345,7 +2345,7 @@ type extensionRequest_ReplaceCompaction struct {
 }
 
 type extensionRequest_InvokeCompactionRequest struct {
-	// One captured request handler selected by the policy owner.
+	// A request to invoke one captured request handler selected by the policy owner.
 	InvokeCompactionRequest *InvokeCompactionRequestRequest `protobuf:"bytes,14,opt,name=invoke_compaction_request,json=invokeCompactionRequest,oneof"`
 }
 

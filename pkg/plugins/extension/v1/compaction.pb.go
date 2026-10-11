@@ -3341,7 +3341,7 @@ func (b0 CompactionRequestParticipant_builder) Build() *CompactionRequestPartici
 	return m0
 }
 
-// InvokeCompactionRequestRequest invokes one captured request handler.
+// InvokeCompactionRequestRequest contains a request to invoke one captured request handler.
 type InvokeCompactionRequestRequest struct {
 	state                  protoimpl.MessageState        `protogen:"opaque.v1"`
 	xxx_hidden_Context     *ExtensionContextRef          `protobuf:"bytes,1,opt,name=context"`
@@ -3475,7 +3475,7 @@ func (x *InvokeCompactionRequestRequest) ClearInvocation() {
 type InvokeCompactionRequestRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The policy's ordinary session binding.
+	// The session binding for the policy runtime.
 	Context *ExtensionContextRef
 	// The authority for the current policy operation.
 	OperationId *string

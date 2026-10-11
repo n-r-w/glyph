@@ -87,11 +87,11 @@ Each logical model execution snapshots these values and the runtime enabled stat
 
 ## Compaction participant lifetime
 
-`compaction.participantTimeout` is a positive duration for one participant invocation. When omitted, Host uses `5m`. For example, `participantTimeout: 30s` bounds an invoked request handler and its nested work to thirty seconds. A caller cancellation or earlier deadline takes precedence.
+`compaction.participantTimeout` is a positive duration for one participant invocation. When omitted, Host uses `5m`. For example, `participantTimeout: 30s` sets a thirty-second deadline for an invoked request handler and its nested work. Host cancels that work when the deadline expires and waits for child cleanup before the invocation completes. Completion can occur after the deadline. A caller cancellation or earlier deadline takes precedence.
 
-On expiry, Host cancels participant-owned work and joins its children before releasing the invocation. Host reports the timeout and acquired child causes through the public operation outcome. Original session entries remain stored. Normal successful teardown preserves the participant result.
+Host reports the timeout and error causes obtained from the participant's nested work through the public operation outcome. Original session entries remain stored. During normal successful teardown, Host preserves the participant result.
 
-This duration is Host lifecycle configuration. The request-handler path applies it now; generator and result-handler invocation will use it when their migration units are implemented.
+This duration is Host lifecycle configuration. Host applies this duration to request handlers invoked by the policy extension during manual compaction. The [migration plan](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) lists the planned generator and result-handler work.
 
 ## Extensions and tools
 

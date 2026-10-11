@@ -69,25 +69,26 @@ const (
 )
 
 const (
-	// manualRequestCompositionGuidance selects ordered request composition.
+	// manualRequestCompositionGuidance is the fixture instruction for ordered request composition.
 	manualRequestCompositionGuidance = "request-composition"
-	// manualRequestClearGuidance selects clearing the composed result.
+	// manualRequestClearGuidance is the fixture instruction for clearing the composed result.
 	manualRequestClearGuidance = "request-clear-result"
-	// manualRequestCancelGuidance selects participant cancellation.
+	// manualRequestCancelGuidance is the fixture instruction for participant cancellation.
 	manualRequestCancelGuidance = "request-cancel"
-	// manualRequestFailGuidance selects participant failure.
+	// manualRequestFailGuidance is the fixture instruction for participant failure.
 	manualRequestFailGuidance = "request-fail"
-	// manualRequestFailAfterChildGuidance selects failure after a handled child cause.
+	// manualRequestFailAfterChildGuidance is the fixture instruction for failure
+	// after a participant handles a nested failure.
 	manualRequestFailAfterChildGuidance = "request-fail-after-handled-child"
-	// manualRequestInvalidGuidance selects an invalid participant action.
+	// manualRequestInvalidGuidance is the fixture instruction for an invalid participant action.
 	manualRequestInvalidGuidance = "request-invalid"
 	// manualRequestFinalSummary contains the final participant summary.
 	manualRequestFinalSummary = "Ordered request replacement summary."
-	// manualRequestSecondInstruction contains the second participant request change.
+	// manualRequestSecondInstruction contains the second participant's change to the request.
 	manualRequestSecondInstruction = "second request change from original"
 	// manualRequestResultDetails contains the opaque result-only change.
 	manualRequestResultDetails = "result-only-details"
-	// manualRequestFailureCause identifies the complete participant failure.
+	// manualRequestFailureCause contains the complete cause text for a participant failure.
 	manualRequestFailureCause = "reference request handler failure: complete source cause"
 	// manualRequestInvalidCause identifies the invalid-action rejection.
 	manualRequestInvalidCause = "invalid reference request action"

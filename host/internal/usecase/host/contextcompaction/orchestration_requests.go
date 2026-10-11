@@ -7,7 +7,7 @@ import (
 	"github.com/samber/mo"
 )
 
-// composeRequestHandlers applies captured request actions in registration order.
+// composeRequestHandlers combines changes to the compaction request and optional result.
 func (s *Service) composeRequestHandlers(
 	ctx context.Context,
 	snapshot Snapshot,
@@ -59,7 +59,7 @@ func (s *Service) composeRequestHandlers(
 	return current, currentResult, false, nil
 }
 
-// applyValidatedRequestAction supplies the next admissible request and optional result state.
+// applyValidatedRequestAction supplies the next request and optional result.
 func (s *Service) applyValidatedRequestAction(
 	snapshot Snapshot,
 	original, current Request,

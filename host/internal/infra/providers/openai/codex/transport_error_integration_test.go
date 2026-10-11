@@ -18,11 +18,20 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+const (
+	// diagnosticHTTPProtocol is the HTTP version for response diagnostic fixtures.
+	diagnosticHTTPProtocol = "HTTP/1.1"
+	// diagnosticTooManyRequestsStatus is the rate-limit status for response diagnostic fixtures.
+	diagnosticTooManyRequestsStatus = "429 Too Many Requests"
+	// diagnosticRetryAfterHeader is the retry-delay header for response diagnostic fixtures.
+	diagnosticRetryAfterHeader = "Retry-After"
+)
+
 // TestErrorCaptureTransportJoinsMissingCause checks transport and terminal error identity.
 func TestErrorCaptureTransportJoinsMissingCause(t *testing.T) {
 	t.Parallel()
 	// Arrange distinct transport and terminal causes.
-	// Act through capture joining.
+	// Act by calling joinError with a separate terminal error.
 	// Assert both identities in the suite scenario.
 	suite.Run(t, new(transportMissingCauseSuite))
 }
@@ -64,7 +73,7 @@ func (s *transportMissingCauseSuite) TestScenario() {
 func TestErrorCaptureTransportKeepsExistingCause(t *testing.T) {
 	t.Parallel()
 	// Arrange acquired causes already exposed by the SDK.
-	// Act through capture joining and rejection mapping.
+	// Act by calling joinError and providerStreamFailure in the suite scenarios.
 	// Assert SDK identity and unrepeated diagnostics in the suite scenarios.
 	suite.Run(t, new(transportExistingCauseSuite))
 }
@@ -108,7 +117,7 @@ func (s *transportExistingCauseSuite) TestScenario() {
 func TestErrorCaptureTransportRetainsReadAndCloseCauses(t *testing.T) {
 	t.Parallel()
 	// Arrange failed response-body reading and cleanup.
-	// Act through capture and SDK joining.
+	// Act by calling RoundTrip and joining the captured failures with the SDK error.
 	// Assert both acquired causes in the suite scenario.
 	suite.Run(t, new(bodyFailureCaptureSuite))
 }
@@ -122,17 +131,20 @@ type bodyFailureCaptureSuite struct {
 // TestScenario checks read and cleanup identities through capture and SDK joining.
 func (s *bodyFailureCaptureSuite) TestScenario() {
 	t := s.T()
-	// Arrange a rejected response with two acquired body failures.
+	const partial = `{"error":{"message":"partial capture source"`
+	// Arrange an incomplete rejection with two acquired body failures.
 	readCause := errors.New("provider body read source")
 	closeCause := errors.New("provider body cleanup source")
 	body := NewMockIOReadCloser(gomock.NewController(t))
-	body.EXPECT().Read(gomock.Any()).Return(0, readCause)
+	body.EXPECT().Read(gomock.Any()).DoAndReturn(func(buffer []byte) (int, error) {
+		return copy(buffer, partial), readCause
+	})
 	body.EXPECT().Close().Return(closeCause)
 	base := NewMockHTTPRoundTripper(gomock.NewController(t))
 	base.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
-		Status: "500 Internal Server Error", StatusCode: http.StatusInternalServerError,
-		Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1,
-		Header: make(http.Header), Body: body, ContentLength: -1,
+		Status: diagnosticTooManyRequestsStatus, StatusCode: http.StatusTooManyRequests,
+		Proto: diagnosticHTTPProtocol, ProtoMajor: 1, ProtoMinor: 1,
+		Header: http.Header{diagnosticRetryAfterHeader: []string{"7"}}, Body: body, ContentLength: -1,
 		TransferEncoding: nil, Close: false, Uncompressed: false,
 		Trailer: nil, Request: nil, TLS: nil,
 	}, nil)
@@ -154,6 +166,13 @@ func (s *bodyFailureCaptureSuite) TestScenario() {
 	require.ErrorIs(t, joined, closeCause)
 	require.ErrorIs(t, joined, context.Canceled)
 	assert.Same(t, err, transport.joinError(err))
+	//nolint:testifylint // Partial received bytes are not a complete JSON document.
+	assert.Equal(t, []byte(partial), transport.ErrorBody())
+	//nolint:bodyclose // Capture owns the original body; this accessor borrows metadata.
+	rejection := transport.errorResponse()
+	require.NotNil(t, rejection)
+	assert.Equal(t, http.StatusTooManyRequests, rejection.StatusCode)
+	assert.Equal(t, "7", rejection.Header.Get(diagnosticRetryAfterHeader))
 }
 
 // TestReceivedRejection checks SDK identity and diagnostics for a captured rejection.
@@ -165,8 +184,8 @@ func (s *transportExistingCauseSuite) TestReceivedRejection() {
 	require.NoError(t, err)
 	base := NewMockHTTPRoundTripper(gomock.NewController(t))
 	base.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
-		Status: "429 Too Many Requests", StatusCode: http.StatusTooManyRequests,
-		Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1,
+		Status: diagnosticTooManyRequestsStatus, StatusCode: http.StatusTooManyRequests,
+		Proto: diagnosticHTTPProtocol, ProtoMajor: 1, ProtoMinor: 1,
 		Header: make(http.Header), Body: io.NopCloser(strings.NewReader(rejectionBody)),
 		ContentLength: int64(len(rejectionBody)), TransferEncoding: nil,
 		Close: false, Uncompressed: false, Trailer: nil, Request: request, TLS: nil,
@@ -209,8 +228,8 @@ func (s *bodyFailureCaptureSuite) TestCompleteRejectionAndCloseFailure() {
 	body.EXPECT().Close().Return(closeCause)
 	base := NewMockHTTPRoundTripper(gomock.NewController(t))
 	base.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
-		Status: "429 Too Many Requests", StatusCode: http.StatusTooManyRequests,
-		Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1,
+		Status: diagnosticTooManyRequestsStatus, StatusCode: http.StatusTooManyRequests,
+		Proto: diagnosticHTTPProtocol, ProtoMajor: 1, ProtoMinor: 1,
 		Header: make(http.Header), Body: body, ContentLength: int64(len(rejectionBody)),
 		TransferEncoding: nil, Close: false, Uncompressed: false,
 		Trailer: nil, Request: nil, TLS: nil,

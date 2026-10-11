@@ -13,7 +13,7 @@ import (
 
 // requestCompletionSuite checks missing request-handler actions at the Host completion boundary.
 type requestCompletionSuite struct {
-	// Suite separates absent-action rejection from present-action delivery.
+	// Suite supplies the test context.
 	suite.Suite
 }
 
@@ -21,7 +21,8 @@ type requestCompletionSuite struct {
 func TestCompactionRequestCompletion(t *testing.T) {
 	t.Parallel()
 	// Arrange independent completion payloads.
-	// Act and Assert through the boundary suite.
+	// Act through completion validation in the suite scenarios.
+	// Assert rejection of missing actions and acceptance of present actions.
 	suite.Run(t, &requestCompletionSuite{Suite: suite.Suite{}})
 }
 
@@ -48,6 +49,6 @@ func (s *requestCompletionSuite) TestPresentAction() {
 	result.SetInvokeCompactionRequest(new(extensionpb.CompactionRequestAction))
 	// Act through completion validation.
 	err := hostRequestCompactionRequest.validateHostCompleted(result)
-	// Assert successful typed delivery for later composition-action validation.
+	// Assert that completion validation accepts the present action.
 	require.NoError(t, err)
 }

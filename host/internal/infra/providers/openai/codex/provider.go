@@ -71,7 +71,7 @@ func (s *Driver) Stream(
 	if handlerErr != nil {
 		return combineHandlerError(streamErr, handlerErr)
 	}
-	if streamErr != nil && !errors.Is(streamErr, context.Canceled) && !errors.Is(streamErr, context.DeadlineExceeded) {
+	if streamErr != nil && !isPureCancellation(streamErr) {
 		errorMessage := response.ErrorMessage.OrEmpty()
 		if errorMessage == "" {
 			errorMessage = streamErr.Error()
@@ -158,7 +158,7 @@ func (s *Driver) executeRequest(
 	credentials oauthCredentials,
 	params responses.ResponseNewParams,
 	handle modelexecution.StreamHandler,
-) (model.Response, error) {
+) (response model.Response, returnErr error) {
 	baseTransport := s.options.httpClient.Transport
 	if baseTransport == nil {
 		baseTransport = http.DefaultTransport
@@ -185,14 +185,23 @@ func (s *Driver) executeRequest(
 		option.WithHeader("User-Agent", providerconsts.AgentID),
 	)
 	defer func() {
-		_ = stream.Close()
+		if closeErr := stream.Close(); closeErr != nil {
+			returnErr = errors.Join(returnErr, closeErr)
+			response.Outcome = mo.Some(model.OutcomeFailed)
+		}
+		if returnErr != nil && ctx.Err() != nil {
+			if !errors.Is(returnErr, ctx.Err()) {
+				returnErr = errors.Join(ctx.Err(), returnErr)
+			}
+			response.Outcome = mo.Some(model.OutcomeAborted)
+		}
 	}()
 	assembler := newSemanticAssembler(handle, grammarInputProperties(request.Tools))
 
 	for stream.Next() {
-		response, terminal, terminalErr := assembler.consume(stream.Current())
+		assembled, terminal, terminalErr := assembler.consume(stream.Current())
 		if terminal {
-			return response, errorTransport.joinError(terminalErr)
+			return assembled, errorTransport.joinError(terminalErr)
 		}
 	}
 	streamErr := errorTransport.joinError(stream.Err())
@@ -488,8 +497,7 @@ func (s *Driver) streamError(
 	if isPureCancellation(failure) {
 		return terminalModelResponse(requestCanceledMessage, model.OutcomeAborted), ctx.Err()
 	}
-	response.Outcome = mo.Some(model.OutcomeAborted)
-	return response, errors.Join(ctx.Err(), failure)
+	return response, failure
 }
 
 // providerStreamFailure maps an acquired stream error before cancellation policy is applied.
@@ -498,6 +506,11 @@ func (s *Driver) providerStreamFailure(
 	transport *errorCaptureTransport,
 ) (model.Response, error) {
 	if apiError, ok := errors.AsType[*openai.Error](streamErr); ok {
+		streamErr = newReceivedRejectionError(streamErr, apiError, transport.ErrorBody())
+		if apiError.StatusCode != http.StatusUnauthorized {
+			failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
+			return terminalModelResponse(failure.Error(), model.OutcomeFailed), failure
+		}
 		detail := providerErrorDetail([]byte(apiError.RawJSON()))
 		if detail == "" {
 			detail = providerErrorDetail(transport.ErrorBody())
@@ -505,17 +518,7 @@ func (s *Driver) providerStreamFailure(
 		if detail == "" {
 			detail = apiError.Message
 		}
-		if apiError.StatusCode == http.StatusUnauthorized {
-			return unauthorizedFailure(streamErr, detail)
-		}
-		message := providerFailureMessage(detail)
-		return terminalModelResponse(
-				message,
-				model.OutcomeFailed,
-			), fmt.Errorf(
-				"OpenAI Codex request failed: %w",
-				streamErr,
-			)
+		return unauthorizedFailure(streamErr, detail)
 	}
 	//nolint:bodyclose // RoundTrip owns the original body; the SDK owns any replay.
 	if rejection := transport.errorResponse(); rejection != nil {
@@ -527,7 +530,7 @@ func (s *Driver) providerStreamFailure(
 			_, failure = unauthorizedFailure(streamErr, "")
 		}
 		return terminalModelResponse(failure.Error(), model.OutcomeFailed), &modelexecution.ProviderFailureError{
-			Classification: openaifailure.FailureClassification("", rejection.StatusCode, false),
+			Classification: openaifailure.FailureClassification(providerErrorCode(body), rejection.StatusCode, false),
 			RetryDelay:     openaifailure.RetryAfterDelay(rejection),
 			Cause:          failure,
 		}

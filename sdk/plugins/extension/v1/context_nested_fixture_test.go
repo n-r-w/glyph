@@ -204,7 +204,7 @@ func expectNestedCatalogueHosts(
 	providers.EXPECT().Release()
 }
 
-// runNestedCompaction checks progress and the independent durable receipt.
+// runNestedCompaction checks progress, a commit receipt and observer-failure diagnostics.
 func runNestedCompaction(
 	t *testing.T,
 	ctx context.Context,

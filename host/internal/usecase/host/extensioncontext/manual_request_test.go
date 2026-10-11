@@ -58,7 +58,8 @@ func (s *policyRequestInvocationSuite) TestSelectedActionAndAuthority() {
 				require.Equal(t, owner.RuntimeID, bound.RuntimeInstanceID)
 				lifetime, present := input.ParentCompactionID.Get()
 				require.True(t, present)
-				// A participant lifetime admits ordinary nested work but authorizes neither mutation nor invocation.
+				// Host admits ordinary nested work under a participant lifetime.
+				// Host rejects policy replacement and participant invocation under that lifetime.
 				release, err := service.BeginCompactionChild(owner.ExtensionID, owner.RuntimeID, lifetime)
 				require.NoError(t, err)
 				nested, unlink := service.LinkCompactionChild(ctx, lifetime)

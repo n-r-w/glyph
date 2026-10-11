@@ -123,9 +123,9 @@ func (s *canceledHTTPRejectionSuite) TestScenario() {
 			transport.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(request *http.Request) (*http.Response, error) {
 				cancel()
 				return &http.Response{
-					Status: "429 Too Many Requests", StatusCode: http.StatusTooManyRequests,
-					Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1,
-					Header: http.Header{"Retry-After": []string{"7"}},
+					Status: diagnosticTooManyRequestsStatus, StatusCode: http.StatusTooManyRequests,
+					Proto: diagnosticHTTPProtocol, ProtoMajor: 1, ProtoMinor: 1,
+					Header: http.Header{diagnosticRetryAfterHeader: []string{"7"}},
 					Body:   io.NopCloser(strings.NewReader(body)), ContentLength: int64(len(body)),
 					TransferEncoding: nil, Close: false, Uncompressed: false,
 					Trailer: nil, Request: request, TLS: nil,
@@ -173,6 +173,7 @@ type bodyFailureStreamSuite struct {
 
 // TestScenario checks both response-body causes in the returned error and terminal response.
 func (s *bodyFailureStreamSuite) TestScenario() {
+	const internalServerErrorStatus = "500 Internal Server Error"
 	t := s.T()
 	// Arrange a rejected response whose body read and close both fail.
 	readCause := errors.New("provider body read source")
@@ -182,8 +183,8 @@ func (s *bodyFailureStreamSuite) TestScenario() {
 	body.EXPECT().Close().Return(closeCause)
 	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
 	transport.EXPECT().RoundTrip(gomock.Any()).Return(&http.Response{
-		Status: "500 Internal Server Error", StatusCode: http.StatusInternalServerError,
-		Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1,
+		Status: internalServerErrorStatus, StatusCode: http.StatusInternalServerError,
+		Proto: diagnosticHTTPProtocol, ProtoMajor: 1, ProtoMinor: 1,
 		Header: make(http.Header), Body: body, ContentLength: -1,
 		TransferEncoding: nil, Close: false, Uncompressed: false,
 		Trailer: nil, Request: nil, TLS: nil,
@@ -227,7 +228,7 @@ func (s *bodyFailureStreamSuite) TestCompleteRejectionAndCloseFailure() {
 	t := s.T()
 	const rejectionBody = `{"error":{"message":"received rejection before cleanup failure"},` +
 		`"diagnostic":"full source details"}`
-	// Arrange a complete rejection body whose close operation acquires a failure.
+	// Arrange a complete rejection body whose Close method returns an error.
 	closeCause := errors.New("provider body cleanup source")
 	body := NewMockIOReadCloser(gomock.NewController(t))
 	body.EXPECT().Read(gomock.Any()).DoAndReturn(func(buffer []byte) (int, error) {
@@ -240,9 +241,9 @@ func (s *bodyFailureStreamSuite) TestCompleteRejectionAndCloseFailure() {
 	transport.EXPECT().RoundTrip(gomock.Any()).DoAndReturn(func(request *http.Request) (*http.Response, error) {
 		cancel()
 		return &http.Response{
-			Status: "429 Too Many Requests", StatusCode: http.StatusTooManyRequests,
-			Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1,
-			Header: http.Header{"Retry-After": []string{"7"}}, Body: body,
+			Status: diagnosticTooManyRequestsStatus, StatusCode: http.StatusTooManyRequests,
+			Proto: diagnosticHTTPProtocol, ProtoMajor: 1, ProtoMinor: 1,
+			Header: http.Header{diagnosticRetryAfterHeader: []string{"7"}}, Body: body,
 			ContentLength: int64(len(rejectionBody)), TransferEncoding: nil,
 			Close: false, Uncompressed: false, Trailer: nil, Request: request, TLS: nil,
 		}, nil

@@ -119,7 +119,9 @@ func (s *programmaticManualCancellationStopsNestedModelSuite) TestScenario() {
 // runProgrammaticManualNestedCancellation checks public termination of active nested provider work.
 func runProgrammaticManualNestedCancellation(t *testing.T, guidance, participantTimeout, providerFailure string) {
 	t.Helper()
-	// Arrange nested provider work held until its owning lifetime ends.
+	// Arrange nested provider work and diagnostics before or during cancellation.
+	receivedBeforeCancellation := providerFailure == manualProviderSDKEnvelope ||
+		providerFailure == manualProviderCodedRejection || providerFailure == manualProviderStreamCleanup
 
 	directory := buildManualPolicyFixture(t)
 	settings := configuredRequestSettings
@@ -132,6 +134,113 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance, participant
 	started := make(chan struct{})
 	// stopped signals that nested provider work has ended.
 	stopped := make(chan struct{})
+	transport := newManualNestedCancellationTransport(
+		t,
+		started,
+		stopped,
+		receivedBeforeCancellation,
+		participantTimeout,
+		providerFailure,
+	)
+	previous := http.DefaultTransport
+	http.DefaultTransport = transport
+	t.Cleanup(func() { http.DefaultTransport = previous })
+	fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
+	completeProgrammaticRequest(t, fixture, userRequest(manualFixtureOriginal, manualOriginalText))
+	completeProgrammaticRequest(t, fixture, userRequest(manualFixtureRetained, manualRetainedText))
+	request := new(programmaticpb.OpenRequest)
+	request.SetOperationId(manualFixtureCancelParent)
+	programmaticRequest(
+		request,
+	).SetCompact(programmaticpb.Compact_builder{Instructions: new(guidance)}.Build())
+	require.NoError(t, fixture.stream.Send(request))
+	terminal, receiveErrors := receiveManualTerminal(fixture, manualFixtureCancelParent)
+
+	// Act through caller cancellation or the configured participant deadline.
+	var event *programmaticpb.HostEvent
+	select {
+	case <-started:
+		if participantTimeout == "" {
+			require.NoError(
+				t,
+				fixture.stream.Send(cancelRequest(manualFixtureCancelCommand, manualFixtureCancelParent)),
+			)
+		}
+	case event = <-terminal:
+		// Terminal delivery can already be ready when nested work has started and ended.
+		select {
+		case <-started:
+		default:
+			require.Nil(
+				t,
+				event.GetCompleted().GetCompaction().GetCommitted(),
+				"policy returned before nested work started",
+			)
+			require.FailNow(t, "policy did not start its nested model request")
+		}
+	case err := <-receiveErrors:
+		require.NoError(t, err)
+	case <-t.Context().Done():
+		require.FailNow(t, "application ended before nested work started")
+	}
+	if event == nil {
+		select {
+		case event = <-terminal:
+		case <-time.After(10 * time.Second):
+			// Cancel the public operation so a missing Host deadline fails by assertion after cleanup.
+			require.NoError(
+				t,
+				fixture.stream.Send(cancelRequest(manualFixtureCancelCommand, manualFixtureCancelParent)),
+			)
+			event = <-terminal
+		}
+	}
+
+	// Assert joined nested work and preserved original history.
+	require.True(t, event.HasCanceled() || event.HasFailed(), "parent must not complete a replacement")
+	if event.HasFailed() {
+		if participantTimeout == "" {
+			require.Contains(t, event.GetFailed().GetMessage(), "context canceled")
+		}
+		require.Contains(t, event.GetFailed().GetMessage(), "request configured model")
+	}
+	if participantTimeout != "" {
+		require.True(t, event.HasFailed(), "participant timeout must expose its failure")
+		if !receivedBeforeCancellation {
+			require.Contains(t, event.GetFailed().GetMessage(), "context deadline exceeded")
+		}
+		require.Contains(t, event.GetFailed().GetMessage(), "provider catalog selection failed: not_found")
+		assertManualNestedProviderFailure(t, event, providerFailure)
+	}
+	select {
+	case <-stopped:
+	default:
+		assert.Fail(t, "parent ended before nested provider work stopped")
+	}
+	stored := sendProgrammaticOperation(
+		t,
+		fixture,
+		manualFixtureCanceledOriginals,
+		func(request *programmaticpb.OpenRequest) {
+			programmaticRequest(request).SetGetSessionEntries(new(programmaticpb.GetSessionEntries))
+		},
+	).GetSessionEntries().
+		GetEntries()
+	require.Len(t, stored, 4)
+	for _, entry := range stored {
+		require.Nil(t, entry.GetCompaction())
+	}
+	fixture.closeOwner(t)
+}
+
+// newManualNestedCancellationTransport supplies nested provider work and its lifecycle signals.
+func newManualNestedCancellationTransport(
+	t *testing.T,
+	started, stopped chan struct{},
+	receivedBeforeCancellation bool,
+	participantTimeout, providerFailure string,
+) *MockHTTPRoundTripper {
+	t.Helper()
 	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
 	transport.EXPECT().
 		RoundTrip(gomock.Any()).
@@ -143,10 +252,12 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance, participant
 			}
 			if bytes.Contains(encoded, []byte(manualFixtureNestedCancellationCheckpoint)) {
 				close(started)
-				<-request.Context().Done()
+				if !receivedBeforeCancellation {
+					<-request.Context().Done()
+				}
 				close(stopped)
 				if providerFailure != "" {
-					return manualNestedProviderFailure(t, request, providerFailure)
+					return newManualNestedProviderFailure(t, request, providerFailure)
 				}
 				if participantTimeout != "" {
 					return nil, errors.Join(request.Context().Err(), errors.New("nested provider cleanup source"))
@@ -172,99 +283,41 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance, participant
 				TLS:              nil,
 			}, nil
 		})
-	previous := http.DefaultTransport
-	http.DefaultTransport = transport
-	t.Cleanup(func() { http.DefaultTransport = previous })
-	fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
-	completeProgrammaticRequest(t, fixture, userRequest(manualFixtureOriginal, manualOriginalText))
-	completeProgrammaticRequest(t, fixture, userRequest(manualFixtureRetained, manualRetainedText))
-	request := new(programmaticpb.OpenRequest)
-	request.SetOperationId(manualFixtureCancelParent)
-	programmaticRequest(
-		request,
-	).SetCompact(programmaticpb.Compact_builder{Instructions: new(guidance)}.Build())
-	require.NoError(t, fixture.stream.Send(request))
-	terminal, receiveErrors := receiveManualTerminal(fixture, manualFixtureCancelParent)
-
-	// Act through caller cancellation or the configured participant deadline.
-	select {
-	case <-started:
-		if participantTimeout == "" {
-			require.NoError(
-				t,
-				fixture.stream.Send(cancelRequest(manualFixtureCancelCommand, manualFixtureCancelParent)),
-			)
-		}
-	case event := <-terminal:
-		require.Nil(
-			t,
-			event.GetCompleted().GetCompaction().GetCommitted(),
-			"policy returned before nested work started",
-		)
-		require.FailNow(t, "policy did not start its nested model request")
-	case err := <-receiveErrors:
-		require.NoError(t, err)
-	case <-t.Context().Done():
-		require.FailNow(t, "application ended before nested work started")
-	}
-	var event *programmaticpb.HostEvent
-	select {
-	case event = <-terminal:
-	case <-time.After(10 * time.Second):
-		// Cancel the public operation so a missing Host deadline fails by assertion after cleanup.
-		require.NoError(t, fixture.stream.Send(cancelRequest(manualFixtureCancelCommand, manualFixtureCancelParent)))
-		event = <-terminal
-	}
-
-	// Assert joined nested work and preserved original history.
-	require.True(t, event.HasCanceled() || event.HasFailed(), "parent must not complete a replacement")
-	if event.HasFailed() {
-		if participantTimeout == "" {
-			require.Contains(t, event.GetFailed().GetMessage(), "context canceled")
-		}
-		require.Contains(t, event.GetFailed().GetMessage(), "request configured model")
-	}
-	if participantTimeout != "" {
-		require.True(t, event.HasFailed(), "participant timeout must expose its failure")
-		require.Contains(t, event.GetFailed().GetMessage(), "context deadline exceeded")
-		require.Contains(t, event.GetFailed().GetMessage(), "provider catalog selection failed: not_found")
-		switch providerFailure {
-		case manualProviderHTTPRejection:
-			require.Contains(t, event.GetFailed().GetMessage(), manualProviderRejectionBody)
-			require.Contains(t, event.GetFailed().GetMessage(), "429")
-		case manualProviderBodyCleanup:
-			require.Contains(t, event.GetFailed().GetMessage(), manualProviderRejectionBody)
-			require.Contains(t, event.GetFailed().GetMessage(), "429")
-			require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
-		case manualProviderBodyFailure:
-			require.Contains(t, event.GetFailed().GetMessage(), "provider body read source")
-			require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
-		default:
-			require.Contains(t, event.GetFailed().GetMessage(), "nested provider cleanup source")
-		}
-	}
-	select {
-	case <-stopped:
-	default:
-		assert.Fail(t, "parent ended before nested provider work stopped")
-	}
-	stored := sendProgrammaticOperation(
-		t,
-		fixture,
-		manualFixtureCanceledOriginals,
-		func(request *programmaticpb.OpenRequest) {
-			programmaticRequest(request).SetGetSessionEntries(new(programmaticpb.GetSessionEntries))
-		},
-	).GetSessionEntries().
-		GetEntries()
-	require.Len(t, stored, 4)
-	for _, entry := range stored {
-		require.Nil(t, entry.GetCompaction())
-	}
-	fixture.closeOwner(t)
+	return transport
 }
 
-// TestProgrammaticManualParticipantTimeout checks Host expiry through the public operation.
+// assertManualNestedProviderFailure checks the selected provider diagnostics on the public terminal event.
+func assertManualNestedProviderFailure(t *testing.T, event *programmaticpb.HostEvent, providerFailure string) {
+	t.Helper()
+	const manualProviderContextLimitCategory = "category CONTEXT_LIMIT:"
+	switch providerFailure {
+	case manualProviderSDKEnvelope:
+		require.Contains(t, event.GetFailed().GetMessage(), manualProviderEnvelopeBody)
+	case manualProviderCodedRejection:
+		require.Contains(t, event.GetFailed().GetMessage(), manualProviderOverflowBody)
+		require.Contains(t, event.GetFailed().GetMessage(), manualProviderContextLimitCategory)
+		require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
+	case manualProviderStreamCleanup:
+		require.Contains(t, event.GetFailed().GetMessage(), "provider body read source")
+		require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
+	case manualProviderHTTPRejection:
+		require.Contains(t, event.GetFailed().GetMessage(), manualProviderRejectionBody)
+		require.Contains(t, event.GetFailed().GetMessage(), "429")
+	case manualProviderBodyCleanup:
+		require.Contains(t, event.GetFailed().GetMessage(), manualProviderRejectionBody)
+		require.Contains(t, event.GetFailed().GetMessage(), "429")
+		require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
+	case manualProviderBodyFailure:
+		require.Contains(t, event.GetFailed().GetMessage(), manualProviderRejectionBody)
+		require.Contains(t, event.GetFailed().GetMessage(), "429")
+		require.Contains(t, event.GetFailed().GetMessage(), "provider body read source")
+		require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
+	default:
+		require.Contains(t, event.GetFailed().GetMessage(), "nested provider cleanup source")
+	}
+}
+
+// TestProgrammaticManualParticipantTimeout checks Host-enforced participant expiry through the public operation.
 func TestProgrammaticManualParticipantTimeout(t *testing.T) {
 	// Arrange isolated policy-input capture for the public timeout scenario.
 	t.Setenv(manualFixtureGlyphReferencePolicyInput, filepath.Join(t.TempDir(), manualFixtureInputJson))
@@ -284,7 +337,7 @@ func (s *programmaticManualParticipantTimeoutSuite) TestScenario() {
 	t := s.T()
 	const participantGuidance = "request-wait-for-caller-cancel"
 
-	// Arrange real participant-owned nested model work and a YAML invocation duration.
+	// Arrange real participant-owned nested model work with a participant timeout configured in YAML.
 	// Act through Programmatic manual compaction without caller cancellation.
 	// Assert joined provider cleanup, full timeout causes, and preserved history in the helper.
 	runProgrammaticManualNestedCancellation(t, participantGuidance, "2s", "")
@@ -297,6 +350,18 @@ const (
 	manualProviderBodyFailure = "body failure"
 	// manualProviderBodyCleanup selects a received rejection with failed cleanup.
 	manualProviderBodyCleanup = "body cleanup"
+	// manualProviderSDKEnvelope selects outer diagnostics on the SDK rejection route.
+	manualProviderSDKEnvelope = "sdk envelope"
+	// manualProviderCodedRejection selects context overflow with failed cleanup.
+	manualProviderCodedRejection = "coded rejection"
+	// manualProviderStreamCleanup selects HTTP-success stream read and cleanup failures.
+	manualProviderStreamCleanup = "stream cleanup"
+	// manualProviderEnvelopeBody supplies a complete rejection envelope.
+	manualProviderEnvelopeBody = `{"error":{"message":"SDK rejection source","code":"invalid_request"},` +
+		`"diagnostic":"outer public diagnostic source"}`
+	// manualProviderOverflowBody supplies a structured context-overflow rejection.
+	manualProviderOverflowBody = `{"error":{"message":"public context limit source",` +
+		`"code":"context_length_exceeded"}}`
 	// manualProviderRejectionBody supplies the complete external rejection text.
 	manualProviderRejectionBody = `{"error":{"message":"captured HTTP rejection source"},` +
 		`"diagnostic":"complete rejection details"}`
@@ -319,40 +384,58 @@ type programmaticManualProviderFailuresSuite struct {
 
 // TestScenario checks complete acquired diagnostics with cancellation and preserved history.
 func (s *programmaticManualProviderFailuresSuite) TestScenario() {
-	for _, failure := range []string{manualProviderHTTPRejection, manualProviderBodyFailure, manualProviderBodyCleanup} {
+	const requestScenario = "request-wait-for-caller-cancel"
+	for _, failure := range []string{
+		manualProviderHTTPRejection, manualProviderBodyFailure, manualProviderBodyCleanup,
+		manualProviderSDKEnvelope, manualProviderCodedRejection, manualProviderStreamCleanup,
+	} {
 		s.Run(failure, func() {
 			t := s.T()
 			// Arrange a real request participant and its nested configured-model work.
 			// Act through the public operation with a two-second participant lifetime.
 			// Assert diagnostics, joined cleanup and history in the shared fixture.
-			runProgrammaticManualNestedCancellation(t, "request-wait-for-caller-cancel", "2s", failure)
+			runProgrammaticManualNestedCancellation(t, requestScenario, "2s", failure)
 		})
 	}
 }
 
-// manualNestedProviderFailure supplies an external rejection with the selected response-body failures.
-func manualNestedProviderFailure(t *testing.T, request *http.Request, failure string) (*http.Response, error) {
+// newManualNestedProviderFailure supplies HTTP response fixtures with selectable failures for nested-provider tests.
+func newManualNestedProviderFailure(t *testing.T, request *http.Request, failure string) (*http.Response, error) {
 	t.Helper()
+	const responseProtocol = "HTTP/1.1"
 	var responseBody io.ReadCloser
 	status := http.StatusTooManyRequests
-	if failure == manualProviderHTTPRejection {
+	switch failure {
+	case manualProviderHTTPRejection:
 		responseBody = io.NopCloser(bytes.NewBufferString(manualProviderRejectionBody))
-	} else {
+	case manualProviderSDKEnvelope:
+		status = http.StatusBadRequest
+		responseBody = io.NopCloser(bytes.NewBufferString(manualProviderEnvelopeBody))
+	default:
 		body := NewMockBodyReadCloser(gomock.NewController(t))
-		if failure == manualProviderBodyCleanup {
+		if failure == manualProviderCodedRejection {
+			status = http.StatusBadRequest
+			body.EXPECT().Read(gomock.Any()).DoAndReturn(func(buffer []byte) (int, error) {
+				return copy(buffer, manualProviderOverflowBody), io.EOF
+			})
+		} else if failure == manualProviderStreamCleanup {
+			status = http.StatusOK
+			body.EXPECT().Read(gomock.Any()).Return(0, errors.New("provider body read source"))
+		} else if failure == manualProviderBodyCleanup {
 			body.EXPECT().Read(gomock.Any()).DoAndReturn(func(buffer []byte) (int, error) {
 				return copy(buffer, manualProviderRejectionBody), io.EOF
 			})
 		} else {
-			body.EXPECT().Read(gomock.Any()).Return(0, errors.New("provider body read source"))
-			status = http.StatusInternalServerError
+			body.EXPECT().Read(gomock.Any()).DoAndReturn(func(buffer []byte) (int, error) {
+				return copy(buffer, manualProviderRejectionBody), errors.New("provider body read source")
+			})
 		}
 		body.EXPECT().Close().Return(errors.New("provider body cleanup source"))
 		responseBody = body
 	}
 	return &http.Response{
 		Status: http.StatusText(status), StatusCode: status,
-		Proto: "HTTP/1.1", ProtoMajor: 1, ProtoMinor: 1,
+		Proto: responseProtocol, ProtoMajor: 1, ProtoMinor: 1,
 		Header: make(http.Header), Body: responseBody, ContentLength: -1,
 		TransferEncoding: nil, Close: false, Uncompressed: false,
 		Trailer: nil, Request: request, TLS: nil,

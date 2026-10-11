@@ -227,14 +227,14 @@ func (s *SettingsSuite) TestLoadAcceptsEachAPIKeySource() {
 	}
 }
 
-// TestLoadParticipantTimeoutDefaults checks the omitted participant deadline.
+// TestLoadParticipantTimeoutDefaults checks the default duration when the participant setting is omitted.
 func (s *SettingsSuite) TestLoadParticipantTimeoutDefaults() {
 	for _, extra := range []string{"", "compaction:\n  retainedContextTokens: 1234\n"} {
 		// Arrange settings without a participant duration.
 		path := writeSettings(s.T(), validSettings(extra))
 		// Act through the YAML settings loader.
 		loaded, err := New(path).Load()
-		// Assert the approved invocation bound.
+		// Assert the participant invocation timeout.
 		s.Require().NoError(err)
 		s.Equal(5*time.Minute, loaded.Compaction.ParticipantTimeout)
 	}

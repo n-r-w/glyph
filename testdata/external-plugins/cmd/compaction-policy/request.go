@@ -18,7 +18,7 @@ import (
 )
 
 const (
-	// referenceRequestParticipantCount identifies the complete fixture sequence.
+	// referenceRequestParticipantCount is the number of request handlers in the fixture.
 	referenceRequestParticipantCount = 5
 	// referenceRequestComposition selects successful independent action composition.
 	referenceRequestComposition = "request-composition"
@@ -30,7 +30,8 @@ const (
 	referenceRequestFail = "request-fail"
 	// referenceRequestWait selects parent cancellation during participant-owned model work.
 	referenceRequestWait = "request-wait-for-caller-cancel"
-	// referenceRequestFailAfterChild selects terminal failure after a handled participant-child rejection.
+	// referenceRequestFailAfterChild is the fixture instruction for terminal failure
+	// after a request participant handles a nested request rejection.
 	referenceRequestFailAfterChild = "request-fail-after-handled-child"
 	// referenceRequestInvalid selects an invalid terminal action.
 	referenceRequestInvalid = "request-invalid"
@@ -54,7 +55,7 @@ const (
 	referenceRequestFinalSummary = "Ordered request replacement summary."
 )
 
-// newReferenceRequestDescriptors builds the ordered request-handler registrations for the fixture.
+// newReferenceRequestDescriptors builds request-handler registrations for the fixture.
 func newReferenceRequestDescriptors() []*extensionpb.HandlerDescriptor {
 	handlers := make([]*extensionpb.HandlerDescriptor, 0, referenceRequestParticipantCount)
 	for _, id := range []string{
@@ -91,12 +92,10 @@ func isReferenceRequestGuidance(guidance string) bool {
 func (o *policyOperation) composeRequests(
 	ctx context.Context,
 	input *extensionpb.CompactionPolicyInvocation,
-	seed *extensionpb.CompactionResult,
+	boundary string,
 ) (*extensionpb.CompactionResult, bool, error) {
-	o.state = newReferencePolicyState(input, seed)
+	o.state = newReferencePolicyState(input, boundary)
 	original := o.state.GetOriginalRequest()
-	o.state.SetCurrentRequest(proto.CloneOf(original))
-	o.state.ClearResult()
 	participants := input.GetRequestParticipants()
 	if len(participants) != referenceRequestParticipantCount {
 		return nil, false, fmt.Errorf(
@@ -206,7 +205,6 @@ var _ extensionsdk.HandleOperation = (*referenceRequestOperation)(nil)
 
 // Run supplies the action of one reference request participant.
 func (o *referenceRequestOperation) Run(ctx context.Context) (*extensionpb.HandleResponse, error) {
-	// referenceRequestInputsEnvironment selects public participant input artifacts.
 	const referenceRequestInputsEnvironment = "GLYPH_REFERENCE_REQUEST_INPUTS"
 
 	if directory := os.Getenv(referenceRequestInputsEnvironment); directory != "" {
@@ -257,7 +255,6 @@ func (*referenceRequestOperation) Release() {}
 // writeRequestInput records the public input of one request participant.
 func writeRequestInput(directory, handlerID string, input *extensionpb.CompactionRequestInvocation) error {
 	const requestInputSuffix = ".json"
-	// requestInputPermission restricts artifacts to the fixture owner.
 	const requestInputPermission = 0o600
 	encoded, err := protojson.Marshal(input)
 	if err != nil {
@@ -338,7 +335,7 @@ func (o *referenceRequestOperation) newFirstRequestAction(
 	return action, nil
 }
 
-// newSecondRequestAction creates the request derived from the original.
+// newSecondRequestAction creates a request-only replacement action.
 func (o *referenceRequestOperation) newSecondRequestAction() (*extensionpb.CompactionRequestAction, error) {
 	original, current, result := o.invocation.GetOriginal(), o.invocation.GetCurrent(), o.invocation.GetCurrentResult()
 	action := newReferencePreserveAction()
@@ -375,7 +372,6 @@ func (o *referenceRequestOperation) newTerminalRequestAction(
 	ctx context.Context,
 	bound *extensionsdk.ExtensionContext,
 ) (*extensionpb.CompactionRequestAction, error) {
-	// referenceRequestFailureText supplies the complete handler error cause.
 	const referenceRequestFailureText = "reference request handler failure: complete source cause"
 
 	original, current, result := o.invocation.GetOriginal(), o.invocation.GetCurrent(), o.invocation.GetCurrentResult()
@@ -416,7 +412,7 @@ func (o *referenceRequestOperation) newTerminalRequestAction(
 	return action, nil
 }
 
-// newLastRequestAction creates the final preserved state.
+// newLastRequestAction supplies the final participant's preservation action.
 func (o *referenceRequestOperation) newLastRequestAction() (*extensionpb.CompactionRequestAction, error) {
 	original, current, result := o.invocation.GetOriginal(), o.invocation.GetCurrent(), o.invocation.GetCurrentResult()
 	action := newReferencePreserveAction()

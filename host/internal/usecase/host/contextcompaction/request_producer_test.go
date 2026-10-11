@@ -15,12 +15,12 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 )
 
-// TestRequestProducerFailureRetainsPrecedingState checks retained orchestration ownership.
+// TestRequestProducerFailureRetainsPrecedingState checks that producer rejection preserves the preceding request and result.
 func TestRequestProducerFailureRetainsPrecedingState(t *testing.T) {
 	t.Parallel()
 	// Arrange successful composition followed by an invalid producer.
-	// Act through retained orchestration.
-	// Assert preceding failure-observer state in the suite scenario.
+	// Act through threshold-triggered compaction.
+	// Assert in the suite scenario that the failure observer receives the preceding request and result.
 	suite.Run(t, new(requestProducerFailureSuite))
 }
 
@@ -30,7 +30,8 @@ type requestProducerFailureSuite struct {
 	suite.Suite
 }
 
-// TestScenario checks detached successful values and preceding state after producer rejection.
+// TestScenario checks independent result copies and the failure observer's preceding request and result
+// after producer rejection.
 func (s *requestProducerFailureSuite) TestScenario() {
 	t := s.T()
 	// Arrange a successful result supplier followed by an invalid producer.

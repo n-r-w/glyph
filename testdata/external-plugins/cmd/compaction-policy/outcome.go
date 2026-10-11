@@ -7,6 +7,8 @@ import (
 	"net"
 	"os"
 
+	"google.golang.org/protobuf/proto"
+
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -63,14 +65,14 @@ func (o *outcomeOperation) Release() {}
 // newReferencePolicyState supplies the reference policy's acquired composition values.
 func newReferencePolicyState(
 	input *extensionpb.CompactionPolicyInvocation,
-	result *extensionpb.CompactionResult,
+	boundary string,
 ) *extensionpb.CompactionPolicyState {
 	prefix := make([]*extensionpb.CompactionInputEntry, 0)
 	suffix := make([]*extensionpb.CompactionInputEntry, 0)
 	// retained marks the retained boundary and subsequent entries.
 	retained := false
 	for _, entry := range input.GetEntries() {
-		retained = retained || entry.GetEntry().GetId() == result.GetFirstKeptEntryId()
+		retained = retained || entry.GetEntry().GetId() == boundary
 		projected := extensionpb.CompactionInputEntry_builder{
 			Entry:           entry.GetEntry(),
 			EstimatedTokens: new(int64(0)),
@@ -102,8 +104,8 @@ func newReferencePolicyState(
 	}.Build()
 	return extensionpb.CompactionPolicyState_builder{
 		OriginalRequest: request,
-		CurrentRequest:  request,
-		Result:          result,
+		CurrentRequest:  proto.CloneOf(request),
+		Result:          nil,
 	}.Build()
 }
 
