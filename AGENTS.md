@@ -75,15 +75,6 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 1. Avoid large files. More than 500 lines of code is a reason to consider splitting.
 2. Separate logically related functionality into separate files of reasonable size.
 
-## Code comments
-1. MUST explain your code with concise and clear comments. Don't make developers guess what's going on!
-2. Following objects MUST contain a comment describing their purpose (exported and non-exported):
-    1) Functions
-    2) Structures and ALL their fields
-    3) Enums and contants (not just group, but ALL elements)
-    4) Variables involved in business logic
-3. Generated code MUST be ignored.
-
 ## Testing rules
 1. Use `t.Context()` instead of `context.Background()`
 2. Use `github.com/stretchr/testify` and `testify/suite`
