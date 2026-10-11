@@ -19,6 +19,9 @@ retry:
   delays: [1s, 2s, 4s]
   maxProviderDelay: 30s
 
+compaction:
+  participantTimeout: 5m
+
 providers:
   openai-codex:
     type: openai-codex
@@ -67,6 +70,7 @@ Model limits and capabilities are configuration data. Check them against the pro
 | `providers` | Yes | Nonempty map of provider IDs to provider configurations. |
 | `activeUI` | No | Persisted UI plugin ID. Glyph converts it to lowercase, normalizes runs of whitespace, `_`, and `-` to one `-`, and rejects an empty result. |
 | `retry` | No | Model retry policy. Omitted fields use the defaults described below. |
+| `compaction` | No | Compaction settings, including the Host participant lifetime below. |
 
 `defaultProvider`, `defaultModel`, provider IDs, model IDs, API-key references, and compatibility keys must be nonempty and must not contain surrounding whitespace.
 
@@ -80,6 +84,14 @@ Model limits and capabilities are configuration data. Check them against the pro
 | `maxProviderDelay` | `30s` | Nonnegative maximum accepted provider-requested delay. A larger requested delay fails explicitly. |
 
 Each logical model execution snapshots these values and the runtime enabled state before its initial request.
+
+## Compaction participant lifetime
+
+`compaction.participantTimeout` is a positive duration for one participant invocation. When omitted, Host uses `5m`. For example, `participantTimeout: 30s` bounds an invoked request handler and its nested work to thirty seconds. A caller cancellation or earlier deadline takes precedence.
+
+On expiry, Host cancels participant-owned work and joins its children before releasing the invocation. Host reports the timeout and acquired child causes through the public operation outcome. Original session entries remain stored. Normal successful teardown preserves the participant result.
+
+This duration is Host lifecycle configuration. The request-handler path applies it now; generator and result-handler invocation will use it when their migration units are implemented.
 
 ## Extensions and tools
 

@@ -14,7 +14,7 @@ The operation owner checks policy authority and captured membership. It issues a
 
 The participant receives ordinary session and configured-model access. Its lifetime identifier authorizes neither replacement nor participant invocation. This distinction applies when the participant and policy share a runtime.
 
-The owner cancels and joins participant children before releasing their lifetime. It retains handled participant-child causes for a later terminal failure. Runtime cancellation waits for the dispatched SDK operation to settle. Host receive loops and parent state locks remain available during nested waits.
+The owner applies the [Host participant duration](../../../../../guidelines/configuration.md#compaction-participant-lifetime) to each admitted invocation and its nested work. Caller cancellation and earlier deadlines take precedence. The owner captures execution failure before normal teardown cancels the lifetime, so successful teardown preserves the action. The owner cancels and joins participant children before releasing their lifetime. It retains handled participant-child causes for a later terminal failure. Runtime cancellation waits for the dispatched SDK operation to settle. Host receive loops and parent state locks remain available during nested waits.
 
 ## Reference composition
 
@@ -34,6 +34,7 @@ Host returns the action and retains operation ownership. The reference extension
 - Participant input artifacts use exclusive creation. The tests compare each handler's original request with the first captured original. They check the independent current values and the absence of a later participant after terminal actions.
 - The Programmatic, UI, and Extension manual terminal-state suites include request-handler cancellation, failure, invalid action, and a handled participant-child preparation rejection followed by a later handler failure. They check the acquired composition state, both preparation and handler causes, and absence of a replacement.
 - `TestProgrammaticManualCancellationStopsNestedModel` includes participant-owned configured-model work. Public parent cancellation stops that provider work before terminal return and leaves the original history intact.
+- `TestProgrammaticManualParticipantTimeout` configures a two-second participant duration through YAML and enters through Programmatic manual compaction without caller cancellation. The real participant handles a model-selection rejection, then starts nested configured-model work. The test checks timeout text, the acquired selection cause, stopped provider work before terminal return, and retained original history.
 
 These tests replace only the external provider HTTP transport. UI evidence enters through the established public UI protocol fixture. It is not an interactive terminal proof.
 
@@ -42,6 +43,8 @@ These tests replace only the external provider HTTP transport. UI evidence enter
 `TestPolicyRequestInvocation` checks selection of one captured participant, authority and membership rejection, independent typed action return, shared-runtime lifetime restrictions, unavailable captured generations, and handled nested-cause retention with generated mocks.
 
 `TestCompactionRequestValues` checks detached preceding-marker details and persisted accounting through request mapping. The shared marker and public-value mappers retain their automatic, overflow, and manual consumers.
+
+`TestPolicyRequestDeadline` uses a fake clock to check participant expiry, an earlier caller deadline with its cause, caller cancellation with its cause, joined delayed child cleanup, and released lifetime state. The existing successful request-action tests check normal teardown. `TestSettingsSuite` checks the five-minute default, a configured positive duration, and rejection of zero, negative, and malformed durations through the YAML loader.
 
 Layer tests establish the corresponding logic under their mock or pure-mapping contracts. The public cases above establish runtime and session wiring.
 
@@ -58,6 +61,12 @@ A separate public cause-discrimination run omitted the transfer of handled parti
 Marker-mapping tests failed when request encoding omitted preceding accounting or entry-marker details. They pass with the complete shared marker projection.
 
 The unit handoff records exact command results and source identities. The initial command records have reserved logs and results but no per-command source manifest. Later records include before-and-after source manifests. Counterfactual runs are identified separately from the initial behavior RED runs. No broader historical test-first claim is made.
+
+### Participant-deadline correction
+
+Fresh compiling ownership RED failed because an invocation exceeded its configured duration without a deadline cause. Configuration RED failed on an omitted default, a rejected positive duration, and missing positive-duration validation. Public RED canceled the still-pending operation after its assertion deadline and failed because Host had not exposed a participant timeout. The corresponding corrected tests pass. Caller-deadline and caller-cancellation cases are characterization checks of preserved behavior.
+
+Checkpoint `84446d6` is intermediate evidence. The deadline correction and the behavior-preserving redundant-result-guard cleanup require source-matched final verification and unit reviews before UNT-05 acceptance. The retained orchestration helper unpacks a supplied result once, returns detached data, and bypasses generation. Generation failure classification remains unchanged.
 
 ## Migration boundary
 

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -287,7 +288,7 @@ func (s *policyRequestInvocationSuite) TestUnavailableCapturedGeneration() {
 		CaptureCompaction().
 		Return(CompactionSnapshot{Identity: identity, ActiveLeafID: mo.Some("leaf"), Entries: nil, History: nil, Previous: mo.None[session.CompactionEntry]()})
 	service := New(runtimeState, sessions)
-	service.BindManualPolicy(runtime, snapshots)
+	service.BindManualPolicy(runtime, snapshots, 5*time.Minute)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (bool, error) {
 			_, err := service.InvokePolicyRequest(

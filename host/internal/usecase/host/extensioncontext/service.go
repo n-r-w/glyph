@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
@@ -75,6 +76,8 @@ type Service struct {
 	bindings map[string]binding
 	// policyRuntime supplies captured manual policy generations.
 	policyRuntime PolicyRuntime
+	// participantTimeout bounds one captured participant invocation and its nested work.
+	participantTimeout time.Duration
 	// compactionSessions owns manual replacement capture and persistence.
 	compactionSessions CompactionSessions
 	// compactionOperations contains live manual operation bindings.
@@ -101,8 +104,14 @@ var (
 // New constructs context ownership over the runtime and session state owners.
 func New(runtime RuntimeState, sessionState SessionState) *Service {
 	return &Service{
-		runtime: runtime, session: sessionState, mutex: sync.Mutex{}, bindings: make(map[string]binding),
-		policyRuntime: nil, compactionSessions: nil, compactionOperations: make(map[string]*compactionOperation),
+		runtime:              runtime,
+		session:              sessionState,
+		mutex:                sync.Mutex{},
+		bindings:             make(map[string]binding),
+		policyRuntime:        nil,
+		participantTimeout:   0,
+		compactionSessions:   nil,
+		compactionOperations: make(map[string]*compactionOperation),
 	}
 }
 

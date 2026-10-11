@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -94,6 +95,6 @@ func newManualPolicyOperationFixture(
 		Previous:     mo.None[session.CompactionEntry](),
 	})
 	service := New(runtime, sessions)
-	service.BindManualPolicy(policy, compactionSessions)
+	service.BindManualPolicy(policy, compactionSessions, 5*time.Minute)
 	return service, policy, owner
 }

@@ -109,18 +109,22 @@ func (s *programmaticManualCancellationStopsNestedModelSuite) TestScenario() {
 		s.Run(guidance, func() {
 			// Act through public cancellation in runProgrammaticManualNestedCancellation.
 			// Assert joined provider work in runProgrammaticManualNestedCancellation.
-			runProgrammaticManualNestedCancellation(s.T(), guidance)
+			runProgrammaticManualNestedCancellation(s.T(), guidance, "")
 		})
 	}
 }
 
-// runProgrammaticManualNestedCancellation checks public cancellation of active nested provider work.
-func runProgrammaticManualNestedCancellation(t *testing.T, guidance string) {
+// runProgrammaticManualNestedCancellation checks public termination of active nested provider work.
+func runProgrammaticManualNestedCancellation(t *testing.T, guidance, participantTimeout string) {
 	t.Helper()
-	// Arrange actual nested provider work held until its parent is canceled.
+	// Arrange nested provider work held until its owning lifetime ends.
 
 	directory := buildManualPolicyFixture(t)
-	paths := testPaths(t, configuredRequestSettings)
+	settings := configuredRequestSettings
+	if participantTimeout != "" {
+		settings += "\ncompaction:\n  participantTimeout: " + participantTimeout + "\n"
+	}
+	paths := testPaths(t, settings)
 	writeProgrammaticCredentials(t, paths)
 	// started signals that nested provider work is active.
 	started := make(chan struct{})
@@ -174,10 +178,15 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance string) {
 	require.NoError(t, fixture.stream.Send(request))
 	terminal, receiveErrors := receiveManualTerminal(fixture, manualFixtureCancelParent)
 
-	// Act by canceling the public parent while its nested model request is pending.
+	// Act through caller cancellation or the configured participant deadline.
 	select {
 	case <-started:
-		require.NoError(t, fixture.stream.Send(cancelRequest(manualFixtureCancelCommand, manualFixtureCancelParent)))
+		if participantTimeout == "" {
+			require.NoError(
+				t,
+				fixture.stream.Send(cancelRequest(manualFixtureCancelCommand, manualFixtureCancelParent)),
+			)
+		}
 	case event := <-terminal:
 		require.Nil(
 			t,
@@ -190,13 +199,27 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance string) {
 	case <-t.Context().Done():
 		require.FailNow(t, "application ended before nested work started")
 	}
-	event := <-terminal
+	var event *programmaticpb.HostEvent
+	select {
+	case event = <-terminal:
+	case <-time.After(10 * time.Second):
+		// Cancel the public operation so a missing Host deadline fails by assertion after cleanup.
+		require.NoError(t, fixture.stream.Send(cancelRequest(manualFixtureCancelCommand, manualFixtureCancelParent)))
+		event = <-terminal
+	}
 
-	// Assert cancellation joins nested work and leaves original history without a replacement.
+	// Assert joined nested work and preserved original history.
 	require.True(t, event.HasCanceled() || event.HasFailed(), "parent must not complete a replacement")
 	if event.HasFailed() {
-		require.Contains(t, event.GetFailed().GetMessage(), "context canceled")
+		if participantTimeout == "" {
+			require.Contains(t, event.GetFailed().GetMessage(), "context canceled")
+		}
 		require.Contains(t, event.GetFailed().GetMessage(), "request configured model")
+	}
+	if participantTimeout != "" {
+		require.True(t, event.HasFailed(), "participant timeout must expose its failure")
+		require.Contains(t, event.GetFailed().GetMessage(), "context deadline exceeded")
+		require.Contains(t, event.GetFailed().GetMessage(), "provider catalog selection failed: not_found")
 	}
 	select {
 	case <-stopped:
@@ -217,4 +240,15 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance string) {
 		require.Nil(t, entry.GetCompaction())
 	}
 	fixture.closeOwner(t)
+}
+
+// TestProgrammaticManualParticipantTimeout checks Host expiry through the public operation.
+func TestProgrammaticManualParticipantTimeout(t *testing.T) {
+	const participantGuidance = "request-wait-for-caller-cancel"
+
+	// Arrange real participant-owned nested model work and a YAML invocation duration.
+	t.Setenv(manualFixtureGlyphReferencePolicyInput, filepath.Join(t.TempDir(), manualFixtureInputJson))
+	// Act through Programmatic manual compaction without caller cancellation.
+	// Assert joined provider cleanup, full timeout causes, and preserved history in the helper.
+	runProgrammaticManualNestedCancellation(t, participantGuidance, "2s")
 }

@@ -160,6 +160,7 @@ func (s *SettingsSuite) TestLoadParsesCompactionPolicy() {
 	// Arrange valid settings with one explicit compaction mapping.
 	path := writeSettings(s.T(), validSettings(`compaction:
   retainedContextTokens: 1234
+  participantTimeout: 17s
 `))
 
 	// Act by loading the strict settings document.
@@ -167,7 +168,7 @@ func (s *SettingsSuite) TestLoadParsesCompactionPolicy() {
 
 	// Assert the independent retained-context target is preserved.
 	s.Require().NoError(err)
-	s.Equal(Compaction{RetainedContextTokens: 1234}, loaded.Compaction)
+	s.Equal(Compaction{RetainedContextTokens: 1234, ParticipantTimeout: 17 * time.Second}, loaded.Compaction)
 }
 
 // TestLoadParsesToolCapabilities verifies exact declarative capability mapping for an arbitrary model ID.
@@ -223,5 +224,33 @@ func (s *SettingsSuite) TestLoadAcceptsEachAPIKeySource() {
 			s.Require().True(present)
 			s.Equal(testCase.expected, apiKey)
 		})
+	}
+}
+
+// TestLoadParticipantTimeoutDefaults checks the omitted participant deadline.
+func (s *SettingsSuite) TestLoadParticipantTimeoutDefaults() {
+	for _, extra := range []string{"", "compaction:\n  retainedContextTokens: 1234\n"} {
+		// Arrange settings without a participant duration.
+		path := writeSettings(s.T(), validSettings(extra))
+		// Act through the YAML settings loader.
+		loaded, err := New(path).Load()
+		// Assert the approved invocation bound.
+		s.Require().NoError(err)
+		s.Equal(5*time.Minute, loaded.Compaction.ParticipantTimeout)
+	}
+}
+
+// TestLoadRejectsParticipantTimeout checks invalid operational durations.
+func (s *SettingsSuite) TestLoadRejectsParticipantTimeout() {
+	for _, duration := range []string{"0s", "-1s", "invalid"} {
+		// Arrange a supplied unusable duration.
+		path := writeSettings(s.T(), validSettings("compaction:\n  participantTimeout: "+duration+"\n"))
+		// Act through the YAML boundary.
+		_, err := New(path).Load()
+		// Assert the configuration field is identified.
+		s.Require().ErrorContains(err, "participantTimeout")
+		if duration != "invalid" {
+			s.Require().ErrorContains(err, "must be positive")
+		}
 	}
 }

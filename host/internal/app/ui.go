@@ -98,7 +98,7 @@ func runUIWithPaths(
 	if err != nil {
 		return fmt.Errorf("initialize Host sessions: %w", err)
 	}
-	contexts := bindExtensionContexts(extensions, tools, sessionServices)
+	contexts := bindExtensionContexts(extensions, tools, sessionServices, configured.Compaction.ParticipantTimeout)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
 	lifecycleObservers.BindIssueDelivery(transport)
 	providerCatalog, err := newProviderCatalog(configured, paths, transport)

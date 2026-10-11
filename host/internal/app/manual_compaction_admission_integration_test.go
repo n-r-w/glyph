@@ -96,7 +96,7 @@ func (s *admissionWireSuite) TestScenario() {
 	policy := extensioncontext.NewMockPolicyRuntime(mocks)
 	policy.EXPECT().SnapshotCompactionPolicies().Return([]extensioncontext.PolicyOwner{owner})
 	policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{})
-	contexts.BindManualPolicy(policy, sessionOwner)
+	contexts.BindManualPolicy(policy, sessionOwner, 5*time.Minute)
 	cause := errors.New("original owner cause before controller admission")
 	parent, cancel := context.WithCancelCause(t.Context())
 	defer cancel(nil)

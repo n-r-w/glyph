@@ -25,10 +25,12 @@ type settingsFile struct {
 	Compaction mo.Option[compactionFile] `yaml:"compaction"`
 }
 
-// compactionFile contains optional compaction policy overrides.
+// compactionFile contains optional compaction policy and Host lifecycle overrides.
 type compactionFile struct {
 	// RetainedContextTokens contains the optional recent-context target.
 	RetainedContextTokens mo.Option[int64]
+	// ParticipantTimeout contains the optional participant invocation duration.
+	ParticipantTimeout mo.Option[time.Duration]
 }
 
 // retryFile contains optional retry policy overrides.
@@ -179,7 +181,7 @@ func (configured *settingsFile) UnmarshalYAML(node *yaml.Node) error {
 
 // UnmarshalYAML decodes strict compaction policy overrides while retaining scalar presence.
 func (configured *compactionFile) UnmarshalYAML(node *yaml.Node) error {
-	fields, err := decodeYAMLMapping(node, "retainedContextTokens")
+	fields, err := decodeYAMLMapping(node, "retainedContextTokens", "participantTimeout")
 	if err != nil {
 		return err
 	}
@@ -188,6 +190,11 @@ func (configured *compactionFile) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 	configured.RetainedContextTokens = value
+	timeout, err := decodeYAMLOption[time.Duration](fields, "participantTimeout")
+	if err != nil {
+		return fmt.Errorf("decode compaction.participantTimeout: %w", err)
+	}
+	configured.ParticipantTimeout = timeout
 	return nil
 }
 

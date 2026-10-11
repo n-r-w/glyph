@@ -57,7 +57,7 @@ func runHeadlessWithPaths(
 		returnErr = errors.Join(returnErr, extensions.Close())
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}()
-	contexts := bindExtensionContexts(extensions, tools, sessionServices)
+	contexts := bindExtensionContexts(extensions, tools, sessionServices, configured.Compaction.ParticipantTimeout)
 	sessionServices.active.BindEntryPublisher(renderer)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
 	lifecycleObservers.BindIssueDelivery(renderer)

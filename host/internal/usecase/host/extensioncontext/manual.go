@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/samber/mo"
 
@@ -16,9 +17,14 @@ import (
 )
 
 // BindManualPolicy supplies runtime invocation and durable replacement services.
-func (s *Service) BindManualPolicy(runtime PolicyRuntime, sessions CompactionSessions) {
+func (s *Service) BindManualPolicy(
+	runtime PolicyRuntime,
+	sessions CompactionSessions,
+	participantTimeout time.Duration,
+) {
 	s.policyRuntime = runtime
 	s.compactionSessions = sessions
+	s.participantTimeout = participantTimeout
 }
 
 // CompactManualPolicy invokes the registered owner for an admitted manual replacement.

@@ -2,7 +2,6 @@ package contextcompaction
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	"github.com/samber/mo"
@@ -16,19 +15,15 @@ func (s *Service) prepareCompactionResult(
 	original, current Request,
 	currentResult mo.Option[Result],
 ) (Result, bool, error) {
-	if currentResult.IsNone() {
-		generated, err := s.generateCompaction(ctx, snapshot, handlers, original, current)
-		if err != nil {
-			canceled, failure := classifyExtensionInvocation(ctx, err)
-			return Result{}, canceled, failure
-		}
-		currentResult = mo.Some(cloneResult(generated))
+	if supplied, present := currentResult.Get(); present {
+		return cloneResult(supplied), false, nil
 	}
-	originalResult, present := currentResult.Get()
-	if !present {
-		return Result{}, false, errors.New("compaction completed generation without a result")
+	generated, err := s.generateCompaction(ctx, snapshot, handlers, original, current)
+	if err != nil {
+		canceled, failure := classifyExtensionInvocation(ctx, err)
+		return Result{}, canceled, failure
 	}
-	return cloneResult(originalResult), false, nil
+	return cloneResult(generated), false, nil
 }
 
 // composeResultHandlers applies captured result actions in registration order.

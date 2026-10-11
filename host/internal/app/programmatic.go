@@ -72,7 +72,7 @@ func runProgrammaticWithPaths(
 		slog.DebugContext(context.WithoutCancel(ctx), "closed extension runtimes")
 	}
 	defer closeExtensions()
-	contexts := bindExtensionContexts(extensions, tools, sessionServices)
+	contexts := bindExtensionContexts(extensions, tools, sessionServices, configured.Compaction.ParticipantTimeout)
 	lifecycleObservers := lifecycle.New(extensions, contexts)
 	providerCatalog, err := newProviderCatalog(configured, paths, nil)
 	if err != nil {

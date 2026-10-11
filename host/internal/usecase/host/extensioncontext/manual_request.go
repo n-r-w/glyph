@@ -47,7 +47,7 @@ func (s *Service) InvokePolicyRequest(
 	}
 	// lifetimeID identifies nested work without granting policy authority.
 	lifetimeID := rand.Text()
-	childContext, cancel := context.WithCancel(ctx)
+	childContext, cancel := context.WithTimeout(ctx, s.participantTimeout)
 	child := &compactionOperation{
 		authorityID:          "",
 		lifecycleID:          lifetimeID,
@@ -80,6 +80,8 @@ func (s *Service) InvokePolicyRequest(
 		invocation.CurrentResult = mo.Some(newResult(result))
 	}
 	action, invokeErr := s.policyRuntime.InvokeCompactionRequest(childContext, participant, bound, invocation)
+	// Capture execution failure before normal teardown deliberately cancels the lifetime.
+	executionErr := errors.Join(childContext.Err(), context.Cause(childContext))
 	_, acquired, terminal := child.finish()
 	s.mutex.Lock()
 	delete(s.compactionOperations, lifetimeID)
@@ -87,7 +89,7 @@ func (s *Service) InvokePolicyRequest(
 	parent.mutex.Lock()
 	parent.causes = errors.Join(parent.causes, acquired)
 	parent.mutex.Unlock()
-	if err = errors.Join(invokeErr, terminal, ctx.Err(), context.Cause(ctx)); err != nil {
+	if err = errors.Join(invokeErr, executionErr, terminal, ctx.Err(), context.Cause(ctx)); err != nil {
 		return extensioncontroller.CompactionRequestResponse{}, fmt.Errorf(
 			"request participant %q generation %q: %w",
 			participant.HandlerID,

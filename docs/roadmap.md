@@ -165,7 +165,7 @@ Status: In progress
 
 The policy-owning extension controls compaction, while Host and session services retain runtime and durable history responsibilities. Agent Core consumes prepared history. The [target ownership](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#target-ownership) defines the boundary.
 
-PHS-06.1 implementation has resumed and remains incomplete. The [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) records accepted units and pending work; its [phased plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) owns phase ordering.
+PHS-06.1 implementation has resumed and remains incomplete. UNT-05 remains unaccepted while its participant-deadline correction awaits unit reviews. The [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) records accepted units and pending work; its [phased plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) owns phase ordering.
 
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)

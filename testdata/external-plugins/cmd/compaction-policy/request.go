@@ -400,6 +400,9 @@ func (o *referenceRequestOperation) newTerminalRequestAction(
 	case referenceRequestClear:
 		action.SetResultAction(extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_CLEAR)
 	case referenceRequestWait:
+		if err := handleMissingModelSelection(ctx, bound, original.GetModel().GetProviderId()); err != nil {
+			return nil, err
+		}
 		if err := waitPolicyConfiguredModel(
 			ctx,
 			bound,

@@ -1,6 +1,8 @@
 package app
 
 import (
+	"time"
+
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	extensiontransport "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
@@ -17,9 +19,10 @@ func bindExtensionContexts(
 	runtimes *extensionruntime.Service,
 	toolService *tools.Service,
 	sessions sessionComposition,
+	participantTimeout time.Duration,
 ) *extensioncontext.Service {
 	contexts := extensioncontext.New(runtimes, sessions.active)
-	contexts.BindManualPolicy(runtimes, sessions.active)
+	contexts.BindManualPolicy(runtimes, sessions.active, participantTimeout)
 	toolService.BindContextIssuer(contexts)
 	sessions.tree.BindContextIssuer(contexts)
 	return contexts
