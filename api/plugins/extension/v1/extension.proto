@@ -106,6 +106,8 @@ message ExtensionRequest {
     CompactionCandidateRequest project_compaction = 12;
     // One durable replacement requested by the policy owner.
     CompactionCandidateRequest replace_compaction = 13;
+    // One captured request handler selected by the policy owner.
+    InvokeCompactionRequestRequest invoke_compaction_request = 14;
   }
 }
 
@@ -151,6 +153,8 @@ message HostCompleted {
     CompactionProjection project_compaction = 10;
     // The durable replacement receipt and diagnostics.
     CompactResult replace_compaction = 11;
+    // The action returned by the selected request handler.
+    CompactionRequestAction invoke_compaction_request = 12;
   }
 }
 

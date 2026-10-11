@@ -195,6 +195,8 @@ type HandlerSet struct {
 
 // RequestInvocation carries immutable original and composed current state.
 type RequestInvocation struct {
+	// ParentCompactionID correlates nested work with a non-authorizing parent lifetime.
+	ParentCompactionID mo.Option[string]
 	// Original is the immutable Host-produced request.
 	Original Request
 	// Current is the request left by preceding handlers.

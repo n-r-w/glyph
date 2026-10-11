@@ -22,7 +22,6 @@ import (
 
 // TestScenario checks session-bound public Extension manual operations.
 func (s *extensionManualCompactionTerminalStatesSuite) TestScenario() {
-	// manualFixtureExtensionOriginals identifies original-history retrieval after Extension compaction.
 	const manualFixtureExtensionOriginals = "extension-originals"
 
 	t := s.T()
@@ -101,13 +100,31 @@ func (s *extensionManualCompactionTerminalStatesSuite) TestScenario() {
 
 // TestScenario checks owning cancellation through the live receive loop.
 func (s *programmaticManualCancellationStopsNestedModelSuite) TestScenario() {
-	t := s.T()
+	const manualRequestWaitGuidance = "request-wait-for-caller-cancel"
+
+	// Arrange both policy-owned and participant-owned nested work in the cancellation helper.
+	// Act through public cancellation in each nested-work scenario.
+	// Assert joined provider work in the cancellation helper.
+	for _, guidance := range []string{manualFixtureWaitForCallerCancel, manualRequestWaitGuidance} {
+		s.Run(guidance, func() {
+			// Act through public cancellation in runProgrammaticManualNestedCancellation.
+			// Assert joined provider work in runProgrammaticManualNestedCancellation.
+			runProgrammaticManualNestedCancellation(s.T(), guidance)
+		})
+	}
+}
+
+// runProgrammaticManualNestedCancellation checks public cancellation of active nested provider work.
+func runProgrammaticManualNestedCancellation(t *testing.T, guidance string) {
+	t.Helper()
 	// Arrange actual nested provider work held until its parent is canceled.
 
 	directory := buildManualPolicyFixture(t)
 	paths := testPaths(t, configuredRequestSettings)
 	writeProgrammaticCredentials(t, paths)
+	// started signals that nested provider work is active.
 	started := make(chan struct{})
+	// stopped signals that nested provider work has ended.
 	stopped := make(chan struct{})
 	transport := NewMockHTTPRoundTripper(gomock.NewController(t))
 	transport.EXPECT().
@@ -153,7 +170,7 @@ func (s *programmaticManualCancellationStopsNestedModelSuite) TestScenario() {
 	request.SetOperationId(manualFixtureCancelParent)
 	programmaticRequest(
 		request,
-	).SetCompact(programmaticpb.Compact_builder{Instructions: new(manualFixtureWaitForCallerCancel)}.Build())
+	).SetCompact(programmaticpb.Compact_builder{Instructions: new(guidance)}.Build())
 	require.NoError(t, fixture.stream.Send(request))
 	terminal, receiveErrors := receiveManualTerminal(fixture, manualFixtureCancelParent)
 

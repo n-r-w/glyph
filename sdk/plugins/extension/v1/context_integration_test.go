@@ -14,6 +14,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -24,9 +25,27 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
+// nestedCatalogueReadsSuite checks receive-loop delivery during nested contextual work.
+type nestedCatalogueReadsSuite struct {
+	// Suite supplies the scenario's test context and assertions.
+	suite.Suite
+}
+
 // TestNestedCatalogueReadsKeepBothReceiveLoopsLive verifies contextual tool work can await both catalog kinds.
 func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 	t.Parallel()
+	// Arrange the nested Host-operation receive-loop scenario.
+	// Act through asynchronous SDK calls while both peers receive events.
+	// Assert terminal delivery, local wait cancellation, and progress in TestScenario.
+	suite.Run(t, &nestedCatalogueReadsSuite{Suite: suite.Suite{}})
+}
+
+// TestScenario checks nested Host operations while both peers receive events.
+func (s *nestedCatalogueReadsSuite) TestScenario() {
+	t := s.T()
+	// disabledReasoningChoice selects the protocol's disabled reasoning mode.
+	const disabledReasoningChoice = "off"
+	const runningCompactionStage = "running"
 
 	// Arrange: connect both production SDK peers over real gRPC with isolated service implementations.
 	controller := gomock.NewController(t)
@@ -40,8 +59,11 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 	message := NewMockHostOperation(controller)
 	recovery := NewMockHostOperation(controller)
 	compaction := NewMockHostOperation(controller)
+	// recoveryEntered signals that the session-state read is active.
 	recoveryEntered := make(chan struct{})
+	// recoveryRelease permits the session-state completion after local wait cancellation.
 	recoveryRelease := make(chan struct{})
+	// largePayload contains the session data used to exercise receive-loop delivery.
 	largePayload := bytes.Repeat([]byte(`{"state":"exact"}`), 300000)
 	service.EXPECT().PrepareRegister(gomock.Any(), gomock.Any()).Return(registration, nil)
 	registration.EXPECT().Run(gomock.Any()).Return(contractRegistration(), nil)
@@ -52,275 +74,20 @@ func TestNestedCatalogueReadsKeepBothReceiveLoopsLive(t *testing.T) {
 		ContextId: new("binding"), ExtensionId: new("extension"), RuntimeInstanceId: new("runtime"),
 		SessionId: new("session"), Cwd: new("/project"),
 	}.Build()
-	execution.EXPECT().
-		Run(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, _ *ProgressReporter) (*extensionpb.ToolResult, error) {
-			bound, err := ContextFrom(ctx)
-			if err != nil {
-				return nil, err
-			}
-			assert.Equal(t, identity.GetContextId(), bound.Identity().GetContextId())
-			modelRead, err := bound.StartGetModels(ctx)
-			if err != nil {
-				return nil, err
-			}
-			modelResult, err := modelRead.Wait(ctx)
-			if err != nil {
-				return nil, err
-			}
-			assert.Equal(t, "model", modelResult.GetActiveSelection().GetModelId())
-			providerRead, err := bound.StartGetProviders(ctx)
-			if err != nil {
-				return nil, err
-			}
-			providerResult, err := providerRead.Wait(ctx)
-			if err != nil {
-				return nil, err
-			}
-			assert.Equal(t, []string{"model"}, providerResult.GetProviders()[0].GetModelIds())
-			request := extensionpb.ConfiguredModelRequest_builder{
-				Context: nil,
-				Selection: extensionpb.ModelSelection_builder{
-					ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
-				}.Build(),
-				Instructions: new(""),
-				Messages: []*extensionpb.ConfiguredModelMessage{
-					extensionpb.ConfiguredModelMessage_builder{
-						Role: new(
-							extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_USER,
-						),
-						Content: []*extensionpb.ConfiguredModelInputContent{
-							extensionpb.ConfiguredModelInputContent_builder{Text: new("question"), Image: nil}.Build(),
-						},
-					}.Build(),
-				},
-			}.Build()
-			modelRequest, err := bound.StartConfiguredModel(ctx, request)
-			if err != nil {
-				return nil, err
-			}
-			configuredResult, err := modelRequest.Wait(ctx)
-			if err != nil {
-				return nil, err
-			}
-			assert.Equal(t, "answer", configuredResult.GetContent()[0].GetText().GetText())
-			messageAppend, err := bound.StartAppendExtensionMessage(
-				ctx,
-				extensionpb.AppendExtensionMessageRequest_builder{
-					Context: nil, EntryType: new("note"), Text: new("exact text"),
-					Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
-				}.Build(),
-			)
-			if err != nil {
-				return nil, err
-			}
-			messageResult, err := messageAppend.Wait(ctx)
-			if err != nil {
-				return nil, err
-			}
-			assert.Equal(t, "exact text", messageResult.GetEntry().GetMessage().GetText())
-			assert.Equal(
-				t,
-				extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN,
-				messageResult.GetEntry().GetMessage().GetVisibility(),
-			)
-			stateRead, err := bound.StartGetSessionState(ctx)
-			if err != nil {
-				return nil, err
-			}
-			<-recoveryEntered
-			localWait, cancelWait := context.WithCancel(ctx)
-			cancelWait()
-			_, err = stateRead.Wait(localWait)
-			if !errors.Is(err, context.Canceled) {
-				return nil, fmt.Errorf("local wait cancellation: %w", err)
-			}
-			close(recoveryRelease)
-			state, err := stateRead.Wait(ctx)
-			if err != nil {
-				return nil, err
-			}
-			assert.Equal(t, largePayload, state.GetEntries()[0].GetData())
-			compact, err := bound.StartCompaction(ctx, extensionpb.CompactRequest_builder{
-				Context: nil, Instructions: new("preserve decisions"),
-			}.Build())
-			if err != nil {
-				return nil, err
-			}
-			var stages []string
-			compacted, err := compact.WaitWithProgress(ctx, func(progress *extensionpb.CompactionProgress) error {
-				stages = append(stages, progress.GetStage())
-				return nil
-			})
-			if err != nil {
-				return nil, err
-			}
-			assert.Equal(t, []string{"running"}, stages)
-			assert.Equal(t, "compaction-entry", compacted.GetCommitted().GetEntryId())
-			assert.Equal(t, "observer failed after commit", compacted.GetError())
-			assert.Equal(t, "EXTENSION_FAILED", compacted.GetFailureCode())
-			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil
-		})
-	host.EXPECT().
-		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
-			assert.Equal(t, "binding", request.GetGetModels().GetContext().GetContextId())
-			return models, nil
-		})
-	models.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Compact: nil,
-		Cancel:  nil, GetProviders: nil, ConfiguredModel: nil,
-		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
-
-		GetModels: extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: extensionpb.ModelSelection_builder{
-			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new("off"),
-		}.Build()}.Build(),
-
-		ProjectCompaction: nil,
-		ReplaceCompaction: nil,
-	}.Build(), nil)
-	models.EXPECT().Release()
-	host.EXPECT().
-		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
-			assert.Equal(t, "binding", request.GetGetProviders().GetContext().GetContextId())
-			return providers, nil
-		})
-	providers.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Compact: nil,
-		Cancel:  nil, GetModels: nil, ConfiguredModel: nil,
-		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
-
-		GetProviders: extensionpb.GetProvidersResult_builder{Providers: []*extensionpb.ProviderDescriptor{
-			extensionpb.ProviderDescriptor_builder{ProviderId: new("provider"), ModelIds: []string{"model"}}.Build(),
-		}}.Build(),
-
-		ProjectCompaction: nil,
-		ReplaceCompaction: nil,
-	}.Build(), nil)
-	providers.EXPECT().Release()
-	host.EXPECT().
-		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
-			assert.Equal(t, "binding", request.GetConfiguredModel().GetContext().GetContextId())
-			assert.Equal(t, "question", request.GetConfiguredModel().GetMessages()[0].GetContent()[0].GetText())
-			return configured, nil
-		})
-	configured.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Compact: nil,
-		Cancel:  nil, GetModels: nil, GetProviders: nil, AppendExtension: nil, GetSessionState: nil,
-		AppendExtensionMessage: nil, Selection: nil, ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
-			Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
-			ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
-			Content: []*extensionpb.ConfiguredModelContent{func() *extensionpb.ConfiguredModelContent {
-				content := new(extensionpb.ConfiguredModelContent)
-				content.SetText(extensionpb.ConfiguredModelText_builder{Text: new("answer")}.Build())
-				return content
-			}()},
-		}.Build(),
-
-		ProjectCompaction: nil,
-		ReplaceCompaction: nil,
-	}.Build(), nil)
-	configured.EXPECT().Release()
-	host.EXPECT().
-		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
-			assert.Equal(t, "binding", request.GetAppendExtensionMessage().GetContext().GetContextId())
-			assert.Equal(t, "exact text", request.GetAppendExtensionMessage().GetText())
-			return message, nil
-		})
-	message.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Compact:         nil,
-		Cancel:          nil,
-		GetModels:       nil,
-		GetProviders:    nil,
-		ConfiguredModel: nil,
-		AppendExtension: nil,
-		GetSessionState: nil,
-		Selection:       nil,
-		AppendExtensionMessage: extensionpb.AppendExtensionMessageResult_builder{
-			Entry: extensionpb.SessionStateEntry_builder{
-				Id: new("message"), ParentId: new("entry"), CreatedTime: nil,
-				ExtensionId: new("extension"), EntryType: new("note"), Data: nil,
-				Message: extensionpb.ExtensionMessage_builder{
-					Text: new("exact text"), Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
-				}.Build(),
-			}.Build(), Issues: nil,
-		}.Build(),
-
-		ProjectCompaction: nil,
-		ReplaceCompaction: nil,
-	}.Build(), nil)
-	message.EXPECT().Release()
-	host.EXPECT().
-		Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
-			assert.Equal(t, "binding", request.GetGetSessionState().GetContext().GetContextId())
-			return recovery, nil
-		})
-	recovery.EXPECT().
-		Run(gomock.Any(), gomock.Any()).
-		DoAndReturn(func(_ context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
-			close(recoveryEntered)
-			<-recoveryRelease
-			entry := extensionpb.SessionStateEntry_builder{
-				Id: new("entry"), ParentId: new("parent"), CreatedTime: nil,
-				ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload, Message: nil,
-			}.Build()
-			return extensionpb.HostCompleted_builder{
-				Compact: nil,
-				Cancel:  nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
-				AppendExtensionMessage: nil, Selection: nil, GetSessionState: extensionpb.GetSessionStateResult_builder{
-					SessionId: new(
-						"session",
-					),
-					ActiveLeafId: new("entry"),
-					Entries:      []*extensionpb.SessionStateEntry{entry},
-				}.Build(),
-
-				ProjectCompaction: nil,
-				ReplaceCompaction: nil,
-			}.Build(), nil
-		})
-	recovery.EXPECT().Release()
-	host.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
-			assert.Equal(t, "binding", request.GetCompact().GetContext().GetContextId())
-			assert.Equal(t, "preserve decisions", request.GetCompact().GetInstructions())
-			return compaction, nil
-		},
+	expectNestedToolExecution(
+		t,
+		execution,
+		identity,
+		disabledReasoningChoice,
+		runningCompactionStage,
+		recoveryEntered,
+		recoveryRelease,
+		largePayload,
 	)
-	compaction.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, reporter *HostProgressReporter) (*extensionpb.HostCompleted, error) {
-			progress := new(extensionpb.HostProgress)
-			progress.SetCompaction(extensionpb.CompactionProgress_builder{Stage: new("running")}.Build())
-			if err := reporter.Report(ctx, progress); err != nil {
-				return nil, err
-			}
-			source := new(extensionpb.BranchSummarySource)
-			source.SetExtensionId("extension")
-			return extensionpb.HostCompleted_builder{
-				Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil,
-				AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
-				Compact: extensionpb.CompactResult_builder{
-					Committed: extensionpb.CommittedCompaction_builder{
-						EntryId: new("compaction-entry"),
-						Compaction: extensionpb.SessionTreeCompaction_builder{
-							Summary: new("summary"), FirstKeptEntryId: new("kept"), Source: source,
-							EstimatedCost: nil, Details: nil,
-						}.Build(),
-					}.Build(),
-					Canceled: new(false), Error: new("observer failed after commit"),
-					FailureCode: new("EXTENSION_FAILED"),
-				}.Build(),
-
-				ProjectCompaction: nil,
-				ReplaceCompaction: nil,
-			}.Build(), nil
-		},
-	)
-	compaction.EXPECT().Release()
+	expectNestedCatalogueHosts(t, host, models, providers, disabledReasoningChoice)
+	expectNestedModelMessageHosts(t, host, configured, message)
+	expectNestedRecoveryHost(t, host, recovery, recoveryEntered, recoveryRelease, largePayload)
+	expectNestedCompactionHost(t, host, compaction, runningCompactionStage)
 	connection := openContextTestConnection(t, service, host)
 	register, err := connection.Start(t.Context(), "register", extensionpb.HostRequest_builder{
 		Cancel:   nil,

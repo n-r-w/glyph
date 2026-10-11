@@ -28,11 +28,11 @@ func (s *Service) CompactManualPolicy(
 	instructions mo.Option[string],
 ) (result modelexecution.ManualCompactionResult, terminalCause error) {
 	result = modelexecution.ManualCompactionResult{Committed: mo.None[session.Entry](), Canceled: false}
-	// handlers fixes outcome delivery to registered generations at admission.
+	// Use the observer generations captured at admission for terminal delivery.
 	handlers := s.policyRuntime.SnapshotCompactionHandlers()
-	// state contains diagnostic values received from the policy.
+	requests := newRequestParticipants(handlers.Requests)
 	state := mo.None[contextcompaction.PolicyState]()
-	// acquiredCauses retains handled child failures for a later terminal failure.
+	// Keep handled child failures for a later terminal failure.
 	var acquiredCauses error
 	defer func() {
 		terminalCause = s.finishManualOutcome(
@@ -44,7 +44,6 @@ func (s *Service) CompactManualPolicy(
 			acquiredCauses,
 		)
 	}()
-	// owners contains the policy generations captured for admission.
 	owners := s.policyRuntime.SnapshotCompactionPolicies()
 	if len(owners) == 0 {
 		return result, errors.New("no compaction policy owner is registered")
@@ -52,17 +51,13 @@ func (s *Service) CompactManualPolicy(
 	if len(owners) != 1 {
 		return result, errors.New("multiple compaction policy owners are registered")
 	}
-	// owner identifies the sole captured policy generation.
 	owner := owners[0]
-	// snapshot contains the immutable session input for this operation.
 	snapshot := s.compactionSessions.CaptureCompaction()
-	// bound contains the issued policy context; err contains any issuance failure.
 	bound, err := s.IssueContext(owner.ExtensionID)
 	if err != nil {
 		return result, fmt.Errorf("issue captured policy context: %w", err)
 	}
 	s.mutex.Lock()
-	// incarnation identifies the session lifetime of the issued binding.
 	incarnation := s.bindings[owner.ExtensionID].incarnation
 	s.mutex.Unlock()
 	if bound.RuntimeInstanceID != owner.RuntimeID || bound.SessionID != snapshot.Identity.ID ||
@@ -73,14 +68,13 @@ func (s *Service) CompactManualPolicy(
 	operationID := rand.Text()
 	// lifecycleID identifies the nested-work lifetime.
 	lifecycleID := rand.Text()
-	// parentContext and cancel control the policy and nested-work lifetime.
 	parentContext, cancel := context.WithCancel(ctx)
-	// operation owns mutation state, acquired causes, and the durable receipt.
 	operation := &compactionOperation{
 		authorityID:          operationID,
 		lifecycleID:          lifecycleID,
 		owner:                owner,
 		snapshot:             snapshot,
+		requests:             requests,
 		context:              parentContext,
 		cancel:               cancel,
 		mutex:                sync.Mutex{},
@@ -96,17 +90,15 @@ func (s *Service) CompactManualPolicy(
 	s.compactionOperations[operationID] = operation
 	s.compactionOperations[lifecycleID] = operation
 	s.mutex.Unlock()
-	// invocation contains captured input and scoped policy authority.
 	invocation := PolicyInvocation{
 		OperationID:  operationID,
 		LifecycleID:  lifecycleID,
 		Snapshot:     snapshot,
+		Requests:     requests,
 		Input:        input,
 		Instructions: instructions, RecordState: operation.recordState,
 	}
-	// canceled and policyErr contain the policy cancellation and invocation outcomes.
 	canceled, policyErr := s.policyRuntime.InvokeCompactionPolicy(parentContext, owner, bound, invocation)
-	// committed contains the receipt; acquiredErr and terminalErr contain child and teardown failures.
 	committed, acquiredErr, terminalErr := operation.finish()
 	acquiredCauses = acquiredErr
 	state = operation.diagnosticState()
@@ -115,7 +107,6 @@ func (s *Service) CompactManualPolicy(
 	delete(s.compactionOperations, lifecycleID)
 	s.mutex.Unlock()
 	result.Committed = committed
-	// hasReceipt selects receipt-dependent settlement once.
 	_, hasReceipt := committed.Get()
 	result.Canceled = canceled && !hasReceipt
 	if policyErr != nil {

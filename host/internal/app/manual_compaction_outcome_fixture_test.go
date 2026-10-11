@@ -16,19 +16,19 @@ import (
 
 // configureManualOutcomeFixture selects public outcome capture and observer failure.
 func configureManualOutcomeFixture(t *testing.T, guidance string) string {
-	// manualFixtureOutcomeJson names the public outcome artifact file.
 	const manualFixtureOutcomeJson = "outcome.json"
 
-	// manualFixtureGlyphReferenceSeparateObserver names the separate observer process setting.
 	const manualFixtureGlyphReferenceSeparateObserver = "GLYPH_REFERENCE_SEPARATE_OBSERVER"
 
-	// manualFixtureGlyphReferenceOutcome names the outcome artifact path setting.
 	const manualFixtureGlyphReferenceOutcome = "GLYPH_REFERENCE_OUTCOME"
 
-	// manualFixtureGlyphReferenceObserverFailure names the observer failure setting.
 	const manualFixtureGlyphReferenceObserverFailure = "GLYPH_REFERENCE_OBSERVER_FAILURE"
 
 	t.Helper()
+	if isManualRequestTerminalScenario(guidance) {
+		t.Setenv(manualRequestInputsEnvironment, t.TempDir())
+		t.Setenv(manualFixtureGlyphReferencePolicyInput, filepath.Join(t.TempDir(), manualRequestPolicyInputFile))
+	}
 	path := filepath.Join(t.TempDir(), manualFixtureOutcomeJson)
 	t.Setenv(manualFixtureGlyphReferenceOutcome, path)
 	if guidance == manualFixtureLoseStateAfterCommit {
@@ -66,7 +66,24 @@ func assertManualOutcome(t *testing.T, path, guidance string, committed bool, te
 		require.NotNil(t, outcome.GetState())
 		require.NotNil(t, outcome.GetState().GetOriginalRequest())
 		require.NotNil(t, outcome.GetState().GetCurrentRequest())
-		require.Equal(t, manualReferenceSummary, outcome.GetState().GetResult().GetSummary())
+		expectedSummary := manualReferenceSummary
+		if isManualRequestTerminalScenario(guidance) {
+			expectedSummary = manualRequestFinalSummary
+			require.Equal(t, guidance, outcome.GetState().GetOriginalRequest().GetInstructions())
+			require.Equal(
+				t,
+				manualRequestSecondInstruction,
+				outcome.GetState().GetCurrentRequest().GetInstructions(),
+			)
+			assertManualRequestInputs(
+				t,
+				os.Getenv(manualRequestInputsEnvironment),
+				os.Getenv(manualFixtureGlyphReferencePolicyInput),
+				guidance,
+				false,
+			)
+		}
+		require.Equal(t, expectedSummary, outcome.GetState().GetResult().GetSummary())
 	}
 	if guidance == manualFixtureObserverFailure || guidance == manualFixtureLoseStateAfterCommit ||
 		guidance == manualSelectionRejectionObserverFailureGuidance {
@@ -80,6 +97,11 @@ func assertManualOutcome(t *testing.T, path, guidance string, committed bool, te
 	if guidance == manualFixtureInvalidStateAfterCommit {
 		require.Contains(t, terminalError, "original policy failure cause")
 		require.Contains(t, terminalError, "policy diagnostic original and current requests are required")
+	}
+	if guidance == manualRequestFailAfterChildGuidance {
+		require.Contains(t, outcome.GetError(), manualSelectionPreparationCause)
+		require.Contains(t, outcome.GetError(), manualRequestFailureCause)
+		require.Equal(t, []byte(manualRequestResultDetails), outcome.GetState().GetResult().GetDetails())
 	}
 	if guidance == manualSelectionRejectionGuidance || guidance == manualSelectionRejectionObserverFailureGuidance {
 		require.NotNil(t, outcome.GetCommitted())
@@ -99,10 +121,8 @@ func assertManualOutcome(t *testing.T, path, guidance string, committed bool, te
 
 // buildManualOutcomePolicyFixture separates loss-prone policy work from public callers and observers.
 func buildManualOutcomePolicyFixture(t *testing.T, guidance string) string {
-	// manualFixtureReferenceObserver names the independent outcome observer executable.
 	const manualFixtureReferenceObserver = "reference-observer"
 
-	// manualFixtureReferenceCaller names the independent Extension caller executable.
 	const manualFixtureReferenceCaller = "reference-caller"
 
 	t.Helper()

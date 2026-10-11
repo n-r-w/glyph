@@ -2,6 +2,8 @@
 
 The [migration plan](migration-plan.md#sequential-implementation-units) records unit order and acceptance. The [target solution](solution.md#manual-automatic-and-overflow-integration) describes outcome notification requirements.
 
+The [request-handler integration evidence](request-integration-evidence.md) describes the operation-bound participant calls added to this manual foundation.
+
 ## Implemented paths
 
 `modelexecution.Service` implements the UI, Programmatic, and session-bound Extension manual adapters. `extensioncontext.Service` captures one operation snapshot and invokes the registered policy generation. The runtime and SDK expose asynchronous candidate projection and replacement operations. `sessions.Service` validates the captured branch, persists one replacement, and records its receipt before publication.

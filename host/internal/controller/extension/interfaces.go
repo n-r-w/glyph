@@ -249,6 +249,12 @@ type RuntimeOperations interface {
 
 // CompactionPolicyOperations supplies scoped lifetime, projection, and durable mutation.
 type CompactionPolicyOperations interface {
+	// InvokePolicyRequest routes one selected captured request handler.
+	InvokePolicyRequest(
+		ctx context.Context,
+		extensionID, runtimeID string,
+		command CompactionRequestCommand,
+	) (CompactionRequestResponse, error)
 	// LinkCompactionChild links an admitted child Run context to its parent cancellation.
 	LinkCompactionChild(ctx context.Context, lifecycleID string) (context.Context, func())
 	// BeginCompactionChild attaches work to the captured parent lifetime.

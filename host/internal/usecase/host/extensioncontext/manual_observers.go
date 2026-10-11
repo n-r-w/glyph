@@ -27,7 +27,6 @@ func (s *Service) finishManualOutcome(
 		cause = errors.Join(cause, policyCauses)
 		policyCauses = nil
 	}
-	// outcome contains the acquired policy values and independent persistence receipt.
 	outcome := contextcompaction.OutcomeInvocation{
 		State: state, ParentCompactionID: mo.None[string](), Committed: result.Committed,
 		Canceled: result.Canceled, Error: mo.None[string](),
@@ -35,18 +34,14 @@ func (s *Service) finishManualOutcome(
 	if cause != nil {
 		outcome.Error = mo.Some(cause.Error())
 	}
-	// failure selects the immutable terminal observation route.
 	failure := cause != nil || result.Committed.IsNone()
-	// observers contains the captured terminal notification targets.
 	observers := handlers.Successes
 	if failure {
 		observers = handlers.Failures
 	}
-	// acquiredCauses retains handled work from earlier observers.
+	// Keep handled failures from earlier observers for terminal reporting.
 	var acquiredCauses error
-	// handler identifies the current captured terminal observer.
 	for _, handler := range observers {
-		// binding supplies ordinary session access for the captured observer.
 		binding, err := s.IssueContext(handler.ExtensionID)
 		if err != nil {
 			return fmt.Errorf(
@@ -64,9 +59,7 @@ func (s *Service) finishManualOutcome(
 		}
 		// lifetimeID correlates nested observer work without mutation authority.
 		lifetimeID := rand.Text()
-		// parent owns cancellation for this observer and its children.
 		parent, cancel := context.WithCancel(ctx)
-		// operation tracks observer-owned work through terminal teardown.
 		operation := &compactionOperation{
 			authorityID: "",
 			lifecycleID: lifetimeID,
@@ -76,6 +69,7 @@ func (s *Service) finishManualOutcome(
 				HandlerID:   handler.HandlerID,
 			},
 			snapshot:             CompactionSnapshot{},
+			requests:             nil,
 			context:              parent,
 			cancel:               cancel,
 			mutex:                sync.Mutex{},
@@ -98,7 +92,6 @@ func (s *Service) finishManualOutcome(
 		} else {
 			err = s.policyRuntime.ObserveCompactionSuccess(parent, handler, binding, outcome)
 		}
-		// acquiredErr and terminalErr contain acquired child failures and terminal teardown failures.
 		_, acquiredErr, terminalErr := operation.finish()
 		acquiredCauses = errors.Join(acquiredCauses, acquiredErr)
 		s.mutex.Lock()

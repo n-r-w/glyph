@@ -94,6 +94,8 @@ type PolicyInvocation struct {
 	Snapshot CompactionSnapshot
 	// Input contains the captured outbound model selection, instructions, and tools.
 	Input modelexecution.ProviderRequest
+	// Requests contains captured request participants in registration order.
+	Requests []RequestParticipant
 	// Instructions contains the caller's manual guidance.
 	Instructions mo.Option[string]
 	// RecordState retains acquired diagnostic state independently of the durable receipt.
@@ -102,6 +104,13 @@ type PolicyInvocation struct {
 
 // PolicyRuntime supplies registered policy identity and asynchronous invocation.
 type PolicyRuntime interface {
+	// InvokeCompactionRequest invokes one captured policy request participant.
+	InvokeCompactionRequest(
+		context.Context,
+		RequestParticipant,
+		extension.Context,
+		RequestInvocation,
+	) (RequestAction, error)
 	// SnapshotCompactionHandlers captures registered observer generations in order.
 	SnapshotCompactionHandlers() contextcompaction.HandlerSet
 	// ObserveCompactionSuccess invokes one captured committed-outcome observer.

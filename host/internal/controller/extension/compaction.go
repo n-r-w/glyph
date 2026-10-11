@@ -13,21 +13,8 @@ func mapCommittedCompaction(entry session.Entry) (*extensionpb.CommittedCompacti
 	if !present || entry.ID == "" {
 		return nil, errors.New("committed compaction entry is incomplete")
 	}
-	builder := extensionpb.SessionTreeCompaction_builder{
-		Summary: new(compaction.Summary), FirstKeptEntryId: new(compaction.FirstKeptEntryID),
-		Source: mapCompactionSource(compaction.Source), EstimatedCost: nil, Details: nil,
-	}
-	if cost, costPresent := compaction.EstimatedCost.Get(); costPresent {
-		builder.EstimatedCost = extensionpb.EstimatedCost_builder{
-			Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
-			CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
-		}.Build()
-	}
-	if details, detailsPresent := compaction.Details.Get(); detailsPresent {
-		builder.Details = append([]byte(nil), details...)
-	}
 	return extensionpb.CommittedCompaction_builder{
-		EntryId: new(entry.ID), Compaction: builder.Build(),
+		EntryId: new(entry.ID), Compaction: MapCompactionMarker(compaction),
 	}.Build(), nil
 }
 
@@ -57,4 +44,22 @@ func mapCompactionSource(source session.CompactionSource) *extensionpb.BranchSum
 		mapped.SetModel(builder.Build())
 	}
 	return mapped
+}
+
+// MapCompactionMarker supplies a detached complete public replacement marker.
+func MapCompactionMarker(value session.CompactionEntry) *extensionpb.SessionTreeCompaction {
+	builder := extensionpb.SessionTreeCompaction_builder{
+		Summary: new(value.Summary), FirstKeptEntryId: new(value.FirstKeptEntryID),
+		Source: mapCompactionSource(value.Source), EstimatedCost: nil, Details: nil,
+	}
+	if cost, costPresent := value.EstimatedCost.Get(); costPresent {
+		builder.EstimatedCost = extensionpb.EstimatedCost_builder{
+			Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
+			CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
+		}.Build()
+	}
+	if details, detailsPresent := value.Details.Get(); detailsPresent {
+		builder.Details = append([]byte(nil), details...)
+	}
+	return builder.Build()
 }

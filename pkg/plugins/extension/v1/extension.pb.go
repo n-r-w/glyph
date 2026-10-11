@@ -1827,6 +1827,15 @@ func (x *ExtensionRequest) GetReplaceCompaction() *CompactionCandidateRequest {
 	return nil
 }
 
+func (x *ExtensionRequest) GetInvokeCompactionRequest() *InvokeCompactionRequestRequest {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Request.(*extensionRequest_InvokeCompactionRequest); ok {
+			return x.InvokeCompactionRequest
+		}
+	}
+	return nil
+}
+
 func (x *ExtensionRequest) SetParentCompactionId(v string) {
 	x.xxx_hidden_ParentCompactionId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
@@ -1926,6 +1935,14 @@ func (x *ExtensionRequest) SetReplaceCompaction(v *CompactionCandidateRequest) {
 		return
 	}
 	x.xxx_hidden_Request = &extensionRequest_ReplaceCompaction{v}
+}
+
+func (x *ExtensionRequest) SetInvokeCompactionRequest(v *InvokeCompactionRequestRequest) {
+	if v == nil {
+		x.xxx_hidden_Request = nil
+		return
+	}
+	x.xxx_hidden_Request = &extensionRequest_InvokeCompactionRequest{v}
 }
 
 func (x *ExtensionRequest) HasParentCompactionId() bool {
@@ -2038,6 +2055,14 @@ func (x *ExtensionRequest) HasReplaceCompaction() bool {
 	return ok
 }
 
+func (x *ExtensionRequest) HasInvokeCompactionRequest() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Request.(*extensionRequest_InvokeCompactionRequest)
+	return ok
+}
+
 func (x *ExtensionRequest) ClearParentCompactionId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_ParentCompactionId = nil
@@ -2119,6 +2144,12 @@ func (x *ExtensionRequest) ClearReplaceCompaction() {
 	}
 }
 
+func (x *ExtensionRequest) ClearInvokeCompactionRequest() {
+	if _, ok := x.xxx_hidden_Request.(*extensionRequest_InvokeCompactionRequest); ok {
+		x.xxx_hidden_Request = nil
+	}
+}
+
 const ExtensionRequest_Request_not_set_case case_ExtensionRequest_Request = 0
 const ExtensionRequest_GetModels_case case_ExtensionRequest_Request = 1
 const ExtensionRequest_GetProviders_case case_ExtensionRequest_Request = 2
@@ -2132,6 +2163,7 @@ const ExtensionRequest_SelectReasoning_case case_ExtensionRequest_Request = 9
 const ExtensionRequest_Compact_case case_ExtensionRequest_Request = 10
 const ExtensionRequest_ProjectCompaction_case case_ExtensionRequest_Request = 12
 const ExtensionRequest_ReplaceCompaction_case case_ExtensionRequest_Request = 13
+const ExtensionRequest_InvokeCompactionRequest_case case_ExtensionRequest_Request = 14
 
 func (x *ExtensionRequest) WhichRequest() case_ExtensionRequest_Request {
 	if x == nil {
@@ -2162,6 +2194,8 @@ func (x *ExtensionRequest) WhichRequest() case_ExtensionRequest_Request {
 		return ExtensionRequest_ProjectCompaction_case
 	case *extensionRequest_ReplaceCompaction:
 		return ExtensionRequest_ReplaceCompaction_case
+	case *extensionRequest_InvokeCompactionRequest:
+		return ExtensionRequest_InvokeCompactionRequest_case
 	default:
 		return ExtensionRequest_Request_not_set_case
 	}
@@ -2190,6 +2224,8 @@ type ExtensionRequest_builder struct {
 	ProjectCompaction *CompactionCandidateRequest
 	// One durable replacement requested by the policy owner.
 	ReplaceCompaction *CompactionCandidateRequest
+	// One captured request handler selected by the policy owner.
+	InvokeCompactionRequest *InvokeCompactionRequestRequest
 	// -- end of xxx_hidden_Request
 }
 
@@ -2236,6 +2272,9 @@ func (b0 ExtensionRequest_builder) Build() *ExtensionRequest {
 	}
 	if b.ReplaceCompaction != nil {
 		x.xxx_hidden_Request = &extensionRequest_ReplaceCompaction{b.ReplaceCompaction}
+	}
+	if b.InvokeCompactionRequest != nil {
+		x.xxx_hidden_Request = &extensionRequest_InvokeCompactionRequest{b.InvokeCompactionRequest}
 	}
 	return m0
 }
@@ -2305,6 +2344,11 @@ type extensionRequest_ReplaceCompaction struct {
 	ReplaceCompaction *CompactionCandidateRequest `protobuf:"bytes,13,opt,name=replace_compaction,json=replaceCompaction,oneof"`
 }
 
+type extensionRequest_InvokeCompactionRequest struct {
+	// One captured request handler selected by the policy owner.
+	InvokeCompactionRequest *InvokeCompactionRequestRequest `protobuf:"bytes,14,opt,name=invoke_compaction_request,json=invokeCompactionRequest,oneof"`
+}
+
 func (*extensionRequest_GetModels) isExtensionRequest_Request() {}
 
 func (*extensionRequest_GetProviders) isExtensionRequest_Request() {}
@@ -2328,6 +2372,8 @@ func (*extensionRequest_Compact) isExtensionRequest_Request() {}
 func (*extensionRequest_ProjectCompaction) isExtensionRequest_Request() {}
 
 func (*extensionRequest_ReplaceCompaction) isExtensionRequest_Request() {}
+
+func (*extensionRequest_InvokeCompactionRequest) isExtensionRequest_Request() {}
 
 // HostEvent carries the lifecycle of one extension-initiated operation.
 type HostEvent struct {
@@ -3031,6 +3077,15 @@ func (x *HostCompleted) GetReplaceCompaction() *CompactResult {
 	return nil
 }
 
+func (x *HostCompleted) GetInvokeCompactionRequest() *CompactionRequestAction {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Completed.(*hostCompleted_InvokeCompactionRequest); ok {
+			return x.InvokeCompactionRequest
+		}
+	}
+	return nil
+}
+
 func (x *HostCompleted) SetGetModels(v *GetModelsResult) {
 	if v == nil {
 		x.xxx_hidden_Completed = nil
@@ -3117,6 +3172,14 @@ func (x *HostCompleted) SetReplaceCompaction(v *CompactResult) {
 		return
 	}
 	x.xxx_hidden_Completed = &hostCompleted_ReplaceCompaction{v}
+}
+
+func (x *HostCompleted) SetInvokeCompactionRequest(v *CompactionRequestAction) {
+	if v == nil {
+		x.xxx_hidden_Completed = nil
+		return
+	}
+	x.xxx_hidden_Completed = &hostCompleted_InvokeCompactionRequest{v}
 }
 
 func (x *HostCompleted) HasCompleted() bool {
@@ -3214,6 +3277,14 @@ func (x *HostCompleted) HasReplaceCompaction() bool {
 	return ok
 }
 
+func (x *HostCompleted) HasInvokeCompactionRequest() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Completed.(*hostCompleted_InvokeCompactionRequest)
+	return ok
+}
+
 func (x *HostCompleted) ClearCompleted() {
 	x.xxx_hidden_Completed = nil
 }
@@ -3284,6 +3355,12 @@ func (x *HostCompleted) ClearReplaceCompaction() {
 	}
 }
 
+func (x *HostCompleted) ClearInvokeCompactionRequest() {
+	if _, ok := x.xxx_hidden_Completed.(*hostCompleted_InvokeCompactionRequest); ok {
+		x.xxx_hidden_Completed = nil
+	}
+}
+
 const HostCompleted_Completed_not_set_case case_HostCompleted_Completed = 0
 const HostCompleted_GetModels_case case_HostCompleted_Completed = 1
 const HostCompleted_GetProviders_case case_HostCompleted_Completed = 2
@@ -3296,6 +3373,7 @@ const HostCompleted_Selection_case case_HostCompleted_Completed = 8
 const HostCompleted_Compact_case case_HostCompleted_Completed = 9
 const HostCompleted_ProjectCompaction_case case_HostCompleted_Completed = 10
 const HostCompleted_ReplaceCompaction_case case_HostCompleted_Completed = 11
+const HostCompleted_InvokeCompactionRequest_case case_HostCompleted_Completed = 12
 
 func (x *HostCompleted) WhichCompleted() case_HostCompleted_Completed {
 	if x == nil {
@@ -3324,6 +3402,8 @@ func (x *HostCompleted) WhichCompleted() case_HostCompleted_Completed {
 		return HostCompleted_ProjectCompaction_case
 	case *hostCompleted_ReplaceCompaction:
 		return HostCompleted_ReplaceCompaction_case
+	case *hostCompleted_InvokeCompactionRequest:
+		return HostCompleted_InvokeCompactionRequest_case
 	default:
 		return HostCompleted_Completed_not_set_case
 	}
@@ -3349,6 +3429,8 @@ type HostCompleted_builder struct {
 	ProjectCompaction *CompactionProjection
 	// The durable replacement receipt and diagnostics.
 	ReplaceCompaction *CompactResult
+	// The action returned by the selected request handler.
+	InvokeCompactionRequest *CompactionRequestAction
 	// -- end of xxx_hidden_Completed
 }
 
@@ -3388,6 +3470,9 @@ func (b0 HostCompleted_builder) Build() *HostCompleted {
 	}
 	if b.ReplaceCompaction != nil {
 		x.xxx_hidden_Completed = &hostCompleted_ReplaceCompaction{b.ReplaceCompaction}
+	}
+	if b.InvokeCompactionRequest != nil {
+		x.xxx_hidden_Completed = &hostCompleted_InvokeCompactionRequest{b.InvokeCompactionRequest}
 	}
 	return m0
 }
@@ -3453,6 +3538,11 @@ type hostCompleted_ReplaceCompaction struct {
 	ReplaceCompaction *CompactResult `protobuf:"bytes,11,opt,name=replace_compaction,json=replaceCompaction,oneof"`
 }
 
+type hostCompleted_InvokeCompactionRequest struct {
+	// The action returned by the selected request handler.
+	InvokeCompactionRequest *CompactionRequestAction `protobuf:"bytes,12,opt,name=invoke_compaction_request,json=invokeCompactionRequest,oneof"`
+}
+
 func (*hostCompleted_GetModels) isHostCompleted_Completed() {}
 
 func (*hostCompleted_GetProviders) isHostCompleted_Completed() {}
@@ -3474,6 +3564,8 @@ func (*hostCompleted_Compact) isHostCompleted_Completed() {}
 func (*hostCompleted_ProjectCompaction) isHostCompleted_Completed() {}
 
 func (*hostCompleted_ReplaceCompaction) isHostCompleted_Completed() {}
+
+func (*hostCompleted_InvokeCompactionRequest) isHostCompleted_Completed() {}
 
 // HandlerDescriptor registers one implemented extension handler.
 type HandlerDescriptor struct {
@@ -3750,7 +3842,8 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x06handle\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.HandleResponseH\x00R\x06handle\x12<\n" +
 	"\x04tool\x18\x03 \x01(\v2&.glyph.plugins.extension.v1.ToolResultH\x00R\x04tool\x12=\n" +
 	"\x06cancel\x18\x04 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancelB\v\n" +
-	"\tcompleted\"\xa0\t\n" +
+	"\tcompleted\"\x9a\n" +
+	"\n" +
 	"\x10ExtensionRequest\x120\n" +
 	"\x14parent_compaction_id\x18\v \x01(\tR\x12parentCompactionId\x12M\n" +
 	"\n" +
@@ -3766,7 +3859,8 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\acompact\x18\n" +
 	" \x01(\v2*.glyph.plugins.extension.v1.CompactRequestH\x00R\acompact\x12g\n" +
 	"\x12project_compaction\x18\f \x01(\v26.glyph.plugins.extension.v1.CompactionCandidateRequestH\x00R\x11projectCompaction\x12g\n" +
-	"\x12replace_compaction\x18\r \x01(\v26.glyph.plugins.extension.v1.CompactionCandidateRequestH\x00R\x11replaceCompactionB\t\n" +
+	"\x12replace_compaction\x18\r \x01(\v26.glyph.plugins.extension.v1.CompactionCandidateRequestH\x00R\x11replaceCompaction\x12x\n" +
+	"\x19invoke_compaction_request\x18\x0e \x01(\v2:.glyph.plugins.extension.v1.InvokeCompactionRequestRequestH\x00R\x17invokeCompactionRequestB\t\n" +
 	"\arequest\"\xca\x03\n" +
 	"\tHostEvent\x12:\n" +
 	"\baccepted\x18\x01 \x01(\v2\x1c.glyph.operation.v1.AcceptedH\x00R\baccepted\x127\n" +
@@ -3783,7 +3877,7 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"compaction\x18\x02 \x01(\v2..glyph.plugins.extension.v1.CompactionProgressH\x00R\n" +
 	"compactionB\n" +
 	"\n" +
-	"\bprogress\"\xea\a\n" +
+	"\bprogress\"\xdd\b\n" +
 	"\rHostCompleted\x12L\n" +
 	"\n" +
 	"get_models\x18\x01 \x01(\v2+.glyph.plugins.extension.v1.GetModelsResultH\x00R\tgetModels\x12U\n" +
@@ -3797,7 +3891,8 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\acompact\x18\t \x01(\v2).glyph.plugins.extension.v1.CompactResultH\x00R\acompact\x12a\n" +
 	"\x12project_compaction\x18\n" +
 	" \x01(\v20.glyph.plugins.extension.v1.CompactionProjectionH\x00R\x11projectCompaction\x12Z\n" +
-	"\x12replace_compaction\x18\v \x01(\v2).glyph.plugins.extension.v1.CompactResultH\x00R\x11replaceCompactionB\v\n" +
+	"\x12replace_compaction\x18\v \x01(\v2).glyph.plugins.extension.v1.CompactResultH\x00R\x11replaceCompaction\x12q\n" +
+	"\x19invoke_compaction_request\x18\f \x01(\v23.glyph.plugins.extension.v1.CompactionRequestActionH\x00R\x17invokeCompactionRequestB\v\n" +
 	"\tcompleted\"`\n" +
 	"\x11HandlerDescriptor\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12;\n" +
@@ -3840,55 +3935,57 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 var file_api_plugins_extension_v1_extension_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_api_plugins_extension_v1_extension_proto_msgTypes = make([]protoimpl.MessageInfo, 13)
 var file_api_plugins_extension_v1_extension_proto_goTypes = []any{
-	(HandlerKind)(0),                      // 0: glyph.plugins.extension.v1.HandlerKind
-	(*OpenRequest)(nil),                   // 1: glyph.plugins.extension.v1.OpenRequest
-	(*OpenResponse)(nil),                  // 2: glyph.plugins.extension.v1.OpenResponse
-	(*HostRequest)(nil),                   // 3: glyph.plugins.extension.v1.HostRequest
-	(*ExtensionEvent)(nil),                // 4: glyph.plugins.extension.v1.ExtensionEvent
-	(*ExtensionProgress)(nil),             // 5: glyph.plugins.extension.v1.ExtensionProgress
-	(*ExtensionCompleted)(nil),            // 6: glyph.plugins.extension.v1.ExtensionCompleted
-	(*ExtensionRequest)(nil),              // 7: glyph.plugins.extension.v1.ExtensionRequest
-	(*HostEvent)(nil),                     // 8: glyph.plugins.extension.v1.HostEvent
-	(*HostProgress)(nil),                  // 9: glyph.plugins.extension.v1.HostProgress
-	(*HostCompleted)(nil),                 // 10: glyph.plugins.extension.v1.HostCompleted
-	(*HandlerDescriptor)(nil),             // 11: glyph.plugins.extension.v1.HandlerDescriptor
-	(*RegisterRequest)(nil),               // 12: glyph.plugins.extension.v1.RegisterRequest
-	(*RegisterResponse)(nil),              // 13: glyph.plugins.extension.v1.RegisterResponse
-	(*v1.CloseConnection)(nil),            // 14: glyph.operation.v1.CloseConnection
-	(*HandleRequest)(nil),                 // 15: glyph.plugins.extension.v1.HandleRequest
-	(*ExecuteRequest)(nil),                // 16: glyph.plugins.extension.v1.ExecuteRequest
-	(*v1.CancelOperation)(nil),            // 17: glyph.operation.v1.CancelOperation
-	(*v1.Accepted)(nil),                   // 18: glyph.operation.v1.Accepted
-	(*v1.Running)(nil),                    // 19: glyph.operation.v1.Running
-	(*v1.Canceled)(nil),                   // 20: glyph.operation.v1.Canceled
-	(*v1.Failed)(nil),                     // 21: glyph.operation.v1.Failed
-	(*v1.Rejected)(nil),                   // 22: glyph.operation.v1.Rejected
-	(*ToolProgress)(nil),                  // 23: glyph.plugins.extension.v1.ToolProgress
-	(*HandleResponse)(nil),                // 24: glyph.plugins.extension.v1.HandleResponse
-	(*ToolResult)(nil),                    // 25: glyph.plugins.extension.v1.ToolResult
-	(*v1.CancelCompleted)(nil),            // 26: glyph.operation.v1.CancelCompleted
-	(*GetModelsRequest)(nil),              // 27: glyph.plugins.extension.v1.GetModelsRequest
-	(*GetProvidersRequest)(nil),           // 28: glyph.plugins.extension.v1.GetProvidersRequest
-	(*ConfiguredModelRequest)(nil),        // 29: glyph.plugins.extension.v1.ConfiguredModelRequest
-	(*AppendExtensionRequest)(nil),        // 30: glyph.plugins.extension.v1.AppendExtensionRequest
-	(*GetSessionStateRequest)(nil),        // 31: glyph.plugins.extension.v1.GetSessionStateRequest
-	(*AppendExtensionMessageRequest)(nil), // 32: glyph.plugins.extension.v1.AppendExtensionMessageRequest
-	(*SelectModelRequest)(nil),            // 33: glyph.plugins.extension.v1.SelectModelRequest
-	(*SelectReasoningRequest)(nil),        // 34: glyph.plugins.extension.v1.SelectReasoningRequest
-	(*CompactRequest)(nil),                // 35: glyph.plugins.extension.v1.CompactRequest
-	(*CompactionCandidateRequest)(nil),    // 36: glyph.plugins.extension.v1.CompactionCandidateRequest
-	(*ConfiguredModelRetryProgress)(nil),  // 37: glyph.plugins.extension.v1.ConfiguredModelRetryProgress
-	(*CompactionProgress)(nil),            // 38: glyph.plugins.extension.v1.CompactionProgress
-	(*GetModelsResult)(nil),               // 39: glyph.plugins.extension.v1.GetModelsResult
-	(*GetProvidersResult)(nil),            // 40: glyph.plugins.extension.v1.GetProvidersResult
-	(*ConfiguredModelResult)(nil),         // 41: glyph.plugins.extension.v1.ConfiguredModelResult
-	(*AppendExtensionResult)(nil),         // 42: glyph.plugins.extension.v1.AppendExtensionResult
-	(*GetSessionStateResult)(nil),         // 43: glyph.plugins.extension.v1.GetSessionStateResult
-	(*AppendExtensionMessageResult)(nil),  // 44: glyph.plugins.extension.v1.AppendExtensionMessageResult
-	(*SelectionResult)(nil),               // 45: glyph.plugins.extension.v1.SelectionResult
-	(*CompactResult)(nil),                 // 46: glyph.plugins.extension.v1.CompactResult
-	(*CompactionProjection)(nil),          // 47: glyph.plugins.extension.v1.CompactionProjection
-	(*ToolDescriptor)(nil),                // 48: glyph.plugins.extension.v1.ToolDescriptor
+	(HandlerKind)(0),                       // 0: glyph.plugins.extension.v1.HandlerKind
+	(*OpenRequest)(nil),                    // 1: glyph.plugins.extension.v1.OpenRequest
+	(*OpenResponse)(nil),                   // 2: glyph.plugins.extension.v1.OpenResponse
+	(*HostRequest)(nil),                    // 3: glyph.plugins.extension.v1.HostRequest
+	(*ExtensionEvent)(nil),                 // 4: glyph.plugins.extension.v1.ExtensionEvent
+	(*ExtensionProgress)(nil),              // 5: glyph.plugins.extension.v1.ExtensionProgress
+	(*ExtensionCompleted)(nil),             // 6: glyph.plugins.extension.v1.ExtensionCompleted
+	(*ExtensionRequest)(nil),               // 7: glyph.plugins.extension.v1.ExtensionRequest
+	(*HostEvent)(nil),                      // 8: glyph.plugins.extension.v1.HostEvent
+	(*HostProgress)(nil),                   // 9: glyph.plugins.extension.v1.HostProgress
+	(*HostCompleted)(nil),                  // 10: glyph.plugins.extension.v1.HostCompleted
+	(*HandlerDescriptor)(nil),              // 11: glyph.plugins.extension.v1.HandlerDescriptor
+	(*RegisterRequest)(nil),                // 12: glyph.plugins.extension.v1.RegisterRequest
+	(*RegisterResponse)(nil),               // 13: glyph.plugins.extension.v1.RegisterResponse
+	(*v1.CloseConnection)(nil),             // 14: glyph.operation.v1.CloseConnection
+	(*HandleRequest)(nil),                  // 15: glyph.plugins.extension.v1.HandleRequest
+	(*ExecuteRequest)(nil),                 // 16: glyph.plugins.extension.v1.ExecuteRequest
+	(*v1.CancelOperation)(nil),             // 17: glyph.operation.v1.CancelOperation
+	(*v1.Accepted)(nil),                    // 18: glyph.operation.v1.Accepted
+	(*v1.Running)(nil),                     // 19: glyph.operation.v1.Running
+	(*v1.Canceled)(nil),                    // 20: glyph.operation.v1.Canceled
+	(*v1.Failed)(nil),                      // 21: glyph.operation.v1.Failed
+	(*v1.Rejected)(nil),                    // 22: glyph.operation.v1.Rejected
+	(*ToolProgress)(nil),                   // 23: glyph.plugins.extension.v1.ToolProgress
+	(*HandleResponse)(nil),                 // 24: glyph.plugins.extension.v1.HandleResponse
+	(*ToolResult)(nil),                     // 25: glyph.plugins.extension.v1.ToolResult
+	(*v1.CancelCompleted)(nil),             // 26: glyph.operation.v1.CancelCompleted
+	(*GetModelsRequest)(nil),               // 27: glyph.plugins.extension.v1.GetModelsRequest
+	(*GetProvidersRequest)(nil),            // 28: glyph.plugins.extension.v1.GetProvidersRequest
+	(*ConfiguredModelRequest)(nil),         // 29: glyph.plugins.extension.v1.ConfiguredModelRequest
+	(*AppendExtensionRequest)(nil),         // 30: glyph.plugins.extension.v1.AppendExtensionRequest
+	(*GetSessionStateRequest)(nil),         // 31: glyph.plugins.extension.v1.GetSessionStateRequest
+	(*AppendExtensionMessageRequest)(nil),  // 32: glyph.plugins.extension.v1.AppendExtensionMessageRequest
+	(*SelectModelRequest)(nil),             // 33: glyph.plugins.extension.v1.SelectModelRequest
+	(*SelectReasoningRequest)(nil),         // 34: glyph.plugins.extension.v1.SelectReasoningRequest
+	(*CompactRequest)(nil),                 // 35: glyph.plugins.extension.v1.CompactRequest
+	(*CompactionCandidateRequest)(nil),     // 36: glyph.plugins.extension.v1.CompactionCandidateRequest
+	(*InvokeCompactionRequestRequest)(nil), // 37: glyph.plugins.extension.v1.InvokeCompactionRequestRequest
+	(*ConfiguredModelRetryProgress)(nil),   // 38: glyph.plugins.extension.v1.ConfiguredModelRetryProgress
+	(*CompactionProgress)(nil),             // 39: glyph.plugins.extension.v1.CompactionProgress
+	(*GetModelsResult)(nil),                // 40: glyph.plugins.extension.v1.GetModelsResult
+	(*GetProvidersResult)(nil),             // 41: glyph.plugins.extension.v1.GetProvidersResult
+	(*ConfiguredModelResult)(nil),          // 42: glyph.plugins.extension.v1.ConfiguredModelResult
+	(*AppendExtensionResult)(nil),          // 43: glyph.plugins.extension.v1.AppendExtensionResult
+	(*GetSessionStateResult)(nil),          // 44: glyph.plugins.extension.v1.GetSessionStateResult
+	(*AppendExtensionMessageResult)(nil),   // 45: glyph.plugins.extension.v1.AppendExtensionMessageResult
+	(*SelectionResult)(nil),                // 46: glyph.plugins.extension.v1.SelectionResult
+	(*CompactResult)(nil),                  // 47: glyph.plugins.extension.v1.CompactResult
+	(*CompactionProjection)(nil),           // 48: glyph.plugins.extension.v1.CompactionProjection
+	(*CompactionRequestAction)(nil),        // 49: glyph.plugins.extension.v1.CompactionRequestAction
+	(*ToolDescriptor)(nil),                 // 50: glyph.plugins.extension.v1.ToolDescriptor
 }
 var file_api_plugins_extension_v1_extension_proto_depIdxs = []int32{
 	3,  // 0: glyph.plugins.extension.v1.OpenRequest.request:type_name -> glyph.plugins.extension.v1.HostRequest
@@ -3924,36 +4021,38 @@ var file_api_plugins_extension_v1_extension_proto_depIdxs = []int32{
 	35, // 30: glyph.plugins.extension.v1.ExtensionRequest.compact:type_name -> glyph.plugins.extension.v1.CompactRequest
 	36, // 31: glyph.plugins.extension.v1.ExtensionRequest.project_compaction:type_name -> glyph.plugins.extension.v1.CompactionCandidateRequest
 	36, // 32: glyph.plugins.extension.v1.ExtensionRequest.replace_compaction:type_name -> glyph.plugins.extension.v1.CompactionCandidateRequest
-	18, // 33: glyph.plugins.extension.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
-	19, // 34: glyph.plugins.extension.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
-	10, // 35: glyph.plugins.extension.v1.HostEvent.completed:type_name -> glyph.plugins.extension.v1.HostCompleted
-	20, // 36: glyph.plugins.extension.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
-	21, // 37: glyph.plugins.extension.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
-	22, // 38: glyph.plugins.extension.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
-	9,  // 39: glyph.plugins.extension.v1.HostEvent.progress:type_name -> glyph.plugins.extension.v1.HostProgress
-	37, // 40: glyph.plugins.extension.v1.HostProgress.configured_model_retry:type_name -> glyph.plugins.extension.v1.ConfiguredModelRetryProgress
-	38, // 41: glyph.plugins.extension.v1.HostProgress.compaction:type_name -> glyph.plugins.extension.v1.CompactionProgress
-	39, // 42: glyph.plugins.extension.v1.HostCompleted.get_models:type_name -> glyph.plugins.extension.v1.GetModelsResult
-	40, // 43: glyph.plugins.extension.v1.HostCompleted.get_providers:type_name -> glyph.plugins.extension.v1.GetProvidersResult
-	26, // 44: glyph.plugins.extension.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	41, // 45: glyph.plugins.extension.v1.HostCompleted.configured_model:type_name -> glyph.plugins.extension.v1.ConfiguredModelResult
-	42, // 46: glyph.plugins.extension.v1.HostCompleted.append_extension:type_name -> glyph.plugins.extension.v1.AppendExtensionResult
-	43, // 47: glyph.plugins.extension.v1.HostCompleted.get_session_state:type_name -> glyph.plugins.extension.v1.GetSessionStateResult
-	44, // 48: glyph.plugins.extension.v1.HostCompleted.append_extension_message:type_name -> glyph.plugins.extension.v1.AppendExtensionMessageResult
-	45, // 49: glyph.plugins.extension.v1.HostCompleted.selection:type_name -> glyph.plugins.extension.v1.SelectionResult
-	46, // 50: glyph.plugins.extension.v1.HostCompleted.compact:type_name -> glyph.plugins.extension.v1.CompactResult
-	47, // 51: glyph.plugins.extension.v1.HostCompleted.project_compaction:type_name -> glyph.plugins.extension.v1.CompactionProjection
-	46, // 52: glyph.plugins.extension.v1.HostCompleted.replace_compaction:type_name -> glyph.plugins.extension.v1.CompactResult
-	0,  // 53: glyph.plugins.extension.v1.HandlerDescriptor.kind:type_name -> glyph.plugins.extension.v1.HandlerKind
-	48, // 54: glyph.plugins.extension.v1.RegisterResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
-	11, // 55: glyph.plugins.extension.v1.RegisterResponse.handlers:type_name -> glyph.plugins.extension.v1.HandlerDescriptor
-	1,  // 56: glyph.plugins.extension.v1.ExtensionService.Open:input_type -> glyph.plugins.extension.v1.OpenRequest
-	2,  // 57: glyph.plugins.extension.v1.ExtensionService.Open:output_type -> glyph.plugins.extension.v1.OpenResponse
-	57, // [57:58] is the sub-list for method output_type
-	56, // [56:57] is the sub-list for method input_type
-	56, // [56:56] is the sub-list for extension type_name
-	56, // [56:56] is the sub-list for extension extendee
-	0,  // [0:56] is the sub-list for field type_name
+	37, // 33: glyph.plugins.extension.v1.ExtensionRequest.invoke_compaction_request:type_name -> glyph.plugins.extension.v1.InvokeCompactionRequestRequest
+	18, // 34: glyph.plugins.extension.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	19, // 35: glyph.plugins.extension.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
+	10, // 36: glyph.plugins.extension.v1.HostEvent.completed:type_name -> glyph.plugins.extension.v1.HostCompleted
+	20, // 37: glyph.plugins.extension.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	21, // 38: glyph.plugins.extension.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
+	22, // 39: glyph.plugins.extension.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	9,  // 40: glyph.plugins.extension.v1.HostEvent.progress:type_name -> glyph.plugins.extension.v1.HostProgress
+	38, // 41: glyph.plugins.extension.v1.HostProgress.configured_model_retry:type_name -> glyph.plugins.extension.v1.ConfiguredModelRetryProgress
+	39, // 42: glyph.plugins.extension.v1.HostProgress.compaction:type_name -> glyph.plugins.extension.v1.CompactionProgress
+	40, // 43: glyph.plugins.extension.v1.HostCompleted.get_models:type_name -> glyph.plugins.extension.v1.GetModelsResult
+	41, // 44: glyph.plugins.extension.v1.HostCompleted.get_providers:type_name -> glyph.plugins.extension.v1.GetProvidersResult
+	26, // 45: glyph.plugins.extension.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	42, // 46: glyph.plugins.extension.v1.HostCompleted.configured_model:type_name -> glyph.plugins.extension.v1.ConfiguredModelResult
+	43, // 47: glyph.plugins.extension.v1.HostCompleted.append_extension:type_name -> glyph.plugins.extension.v1.AppendExtensionResult
+	44, // 48: glyph.plugins.extension.v1.HostCompleted.get_session_state:type_name -> glyph.plugins.extension.v1.GetSessionStateResult
+	45, // 49: glyph.plugins.extension.v1.HostCompleted.append_extension_message:type_name -> glyph.plugins.extension.v1.AppendExtensionMessageResult
+	46, // 50: glyph.plugins.extension.v1.HostCompleted.selection:type_name -> glyph.plugins.extension.v1.SelectionResult
+	47, // 51: glyph.plugins.extension.v1.HostCompleted.compact:type_name -> glyph.plugins.extension.v1.CompactResult
+	48, // 52: glyph.plugins.extension.v1.HostCompleted.project_compaction:type_name -> glyph.plugins.extension.v1.CompactionProjection
+	47, // 53: glyph.plugins.extension.v1.HostCompleted.replace_compaction:type_name -> glyph.plugins.extension.v1.CompactResult
+	49, // 54: glyph.plugins.extension.v1.HostCompleted.invoke_compaction_request:type_name -> glyph.plugins.extension.v1.CompactionRequestAction
+	0,  // 55: glyph.plugins.extension.v1.HandlerDescriptor.kind:type_name -> glyph.plugins.extension.v1.HandlerKind
+	50, // 56: glyph.plugins.extension.v1.RegisterResponse.tools:type_name -> glyph.plugins.extension.v1.ToolDescriptor
+	11, // 57: glyph.plugins.extension.v1.RegisterResponse.handlers:type_name -> glyph.plugins.extension.v1.HandlerDescriptor
+	1,  // 58: glyph.plugins.extension.v1.ExtensionService.Open:input_type -> glyph.plugins.extension.v1.OpenRequest
+	2,  // 59: glyph.plugins.extension.v1.ExtensionService.Open:output_type -> glyph.plugins.extension.v1.OpenResponse
+	59, // [59:60] is the sub-list for method output_type
+	58, // [58:59] is the sub-list for method input_type
+	58, // [58:58] is the sub-list for extension type_name
+	58, // [58:58] is the sub-list for extension extendee
+	0,  // [0:58] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_extension_proto_init() }
@@ -4013,6 +4112,7 @@ func file_api_plugins_extension_v1_extension_proto_init() {
 		(*extensionRequest_Compact)(nil),
 		(*extensionRequest_ProjectCompaction)(nil),
 		(*extensionRequest_ReplaceCompaction)(nil),
+		(*extensionRequest_InvokeCompactionRequest)(nil),
 	}
 	file_api_plugins_extension_v1_extension_proto_msgTypes[7].OneofWrappers = []any{
 		(*hostEvent_Accepted)(nil),
@@ -4039,6 +4139,7 @@ func file_api_plugins_extension_v1_extension_proto_init() {
 		(*hostCompleted_Compact)(nil),
 		(*hostCompleted_ProjectCompaction)(nil),
 		(*hostCompleted_ReplaceCompaction)(nil),
+		(*hostCompleted_InvokeCompactionRequest)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

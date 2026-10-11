@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/samber/mo"
 
@@ -25,21 +26,9 @@ type contextRequest struct {
 
 // newContextRequest constructs the operation selector for admission.
 func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
-	// mapped contains the selected request payload and execution binding.
 	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
 	if request == nil {
 		return mapped, errors.New("extension context request is required")
-	}
-	// selection and reference contain the selection command and binding.
-	// selected indicates selection work; err is the decoding failure.
-	selection, reference, selected, err := mapSelectionContextRequest(request)
-	if err != nil {
-		return contextRequest{}, err
-	}
-	if selected {
-		mapped.reference = reference
-		mapped.prepare = func(o *contextOperation) (contextAction, error) { return o.prepareSelectionAction(selection) }
-		return mapped, nil
 	}
 	switch request.WhichRequest() {
 	case extensionpb.ExtensionRequest_GetModels_case:
@@ -63,15 +52,15 @@ func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 		}
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
 		return newAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
+	case extensionpb.ExtensionRequest_InvokeCompactionRequest_case:
+		return newPolicyRequestContextRequest(mapped, request.GetInvokeCompactionRequest())
 	case extensionpb.ExtensionRequest_ProjectCompaction_case:
 		return newPolicyCandidateContextRequest(mapped, request.GetProjectCompaction(), policyCandidateProjection)
 	case extensionpb.ExtensionRequest_ReplaceCompaction_case:
 		return newPolicyCandidateContextRequest(mapped, request.GetReplaceCompaction(), policyCandidateReplacement)
 	case extensionpb.ExtensionRequest_Compact_case:
-		// compact contains the manual compaction request.
 		compact := request.GetCompact()
 		mapped.reference = compact.GetContext()
-		// instructions contains optional user guidance for manual compaction.
 		instructions := mo.TupleToOption(compact.GetInstructions(), compact.HasInstructions())
 		mapped.admission = contextAdmissionManual
 		mapped.prepare = func(o *contextOperation) (contextAction, error) {
@@ -83,8 +72,10 @@ func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 		}
 	case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
 		return contextRequest{}, errors.New("extension context operation request is required")
-	case extensionpb.ExtensionRequest_SelectModel_case, extensionpb.ExtensionRequest_SelectReasoning_case:
-		return contextRequest{}, errors.New("selection context request mapping did not complete")
+	case extensionpb.ExtensionRequest_SelectModel_case:
+		return newModelSelectionContextRequest(mapped, request.GetSelectModel())
+	case extensionpb.ExtensionRequest_SelectReasoning_case:
+		return newReasoningSelectionContextRequest(mapped, request.GetSelectReasoning())
 	default:
 		return contextRequest{}, errors.New("unsupported extension context request")
 	}
@@ -100,20 +91,16 @@ func newPolicyCandidateContextRequest(
 	if raw == nil || raw.GetOperationId() == "" || raw.GetResult() == nil {
 		return contextRequest{}, errors.New("compaction candidate requires operation authority and a complete result")
 	}
-	// result contains the complete wire candidate.
 	result := raw.GetResult()
-	// source and err contain the candidate producer and its decoding failure.
 	source, err := mapPolicyCandidateSource(result.GetSource())
 	if err != nil {
 		return contextRequest{}, err
 	}
-	// details contains optional detached policy metadata.
 	details := mo.None[[]byte]()
 	if result.HasDetails() {
 		details = mo.Some(bytes.Clone(result.GetDetails()))
 	}
 	mapped.reference = raw.GetContext()
-	// candidate contains the replacement request bound to its policy authority.
 	candidate := policyCandidate{kind: kind, operationID: raw.GetOperationId(), value: session.CompactionEntry{
 		Summary: result.GetSummary(), FirstKeptEntryID: result.GetFirstKeptEntryId(), Source: source,
 		EstimatedCost: mo.None[session.EstimatedCost](), Details: details,
@@ -133,7 +120,6 @@ func newConfiguredContextRequest(
 	mapped contextRequest,
 	request *extensionpb.ConfiguredModelRequest,
 ) (contextRequest, error) {
-	// configured contains the model request; err is its decoding failure.
 	configured, err := mapConfiguredRequest(request)
 	if err != nil {
 		return contextRequest{}, err
@@ -154,7 +140,6 @@ func newAppendContextRequest(
 	mapped contextRequest,
 	request *extensionpb.AppendExtensionRequest,
 ) (contextRequest, error) {
-	// appendValue contains the hidden entry request; err is its decoding failure.
 	appendValue, err := mapAppendRequest(request)
 	if err != nil {
 		return contextRequest{}, err
@@ -173,7 +158,6 @@ func newAppendMessageContextRequest(
 	mapped contextRequest,
 	request *extensionpb.AppendExtensionMessageRequest,
 ) (contextRequest, error) {
-	// message contains the visible message request; err is its decoding failure.
 	message, err := mapAppendMessageRequest(request)
 	if err != nil {
 		return contextRequest{}, err
@@ -184,5 +168,104 @@ func newAppendMessageContextRequest(
 			return o.runAppendMessage(ctx, message)
 		}), nil
 	}
+	return mapped, nil
+}
+
+// newPolicyRequestContextRequest binds one participant call to the policy operation.
+func newPolicyRequestContextRequest(
+	mapped contextRequest,
+	wire *extensionpb.InvokeCompactionRequestRequest,
+) (contextRequest, error) {
+	if wire == nil || wire.GetOperationId() == "" || wire.GetParticipant() == nil || wire.GetInvocation() == nil {
+		return contextRequest{}, errors.New("complete captured request invocation is required")
+	}
+	original, err := decodePolicyRequest(wire.GetInvocation().GetOriginal())
+	if err != nil {
+		return contextRequest{}, fmt.Errorf("decode original request: %w", err)
+	}
+	current, err := decodePolicyRequest(wire.GetInvocation().GetCurrent())
+	if err != nil {
+		return contextRequest{}, fmt.Errorf("decode current request: %w", err)
+	}
+	result := mo.None[session.CompactionEntry]()
+	if supplied := wire.GetInvocation().GetCurrentResult(); supplied != nil {
+		source, sourceErr := mapPolicyCandidateSource(supplied.GetSource())
+		if sourceErr != nil {
+			return contextRequest{}, sourceErr
+		}
+		details := mo.TupleToOption(append([]byte(nil), supplied.GetDetails()...), supplied.HasDetails())
+		result = mo.Some(
+			session.CompactionEntry{
+				Summary:          supplied.GetSummary(),
+				FirstKeptEntryID: supplied.GetFirstKeptEntryId(),
+				Source:           source,
+				Details:          details,
+				EstimatedCost:    mo.None[session.EstimatedCost](),
+			},
+		)
+	}
+	target := wire.GetParticipant()
+	command := CompactionRequestCommand{
+		OperationID: wire.GetOperationId(),
+		Participant: CompactionRequestParticipant{
+			ExtensionID:       target.GetExtensionId(),
+			RuntimeID:         target.GetRuntimeId(),
+			HandlerID:         target.GetHandlerId(),
+			RegistrationOrder: target.GetRegistrationOrder(),
+		},
+		Original:      original,
+		Current:       current,
+		CurrentResult: result,
+	}
+	mapped.reference = wire.GetContext()
+	mapped.admission = contextAdmissionCandidate
+	mapped.prepare = func(o *contextOperation) (contextAction, error) {
+		return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
+			action, invokeErr := o.service.compactionPolicy.InvokePolicyRequest(
+				ctx,
+				o.service.extensionID,
+				o.service.runtimeID,
+				command,
+			)
+			if invokeErr != nil {
+				return nil, extensionsdk.Fail(compactionFailureCode(invokeErr), invokeErr)
+			}
+			response, encodeErr := action.encodePolicyRequestAction()
+			if encodeErr != nil {
+				return nil, extensionsdk.Fail(compactionFailureCode(encodeErr), encodeErr)
+			}
+			completed := new(extensionpb.HostCompleted)
+			completed.SetInvokeCompactionRequest(response)
+			return completed, nil
+		}), nil
+	}
+	return mapped, nil
+}
+
+// newModelSelectionContextRequest decodes admission for a model selection.
+func newModelSelectionContextRequest(
+	mapped contextRequest,
+	request *extensionpb.SelectModelRequest,
+) (contextRequest, error) {
+	selection, err := mapModelSelectionRequest(request)
+	if err != nil {
+		return contextRequest{}, err
+	}
+	mapped.reference = request.GetContext()
+	mapped.prepare = func(o *contextOperation) (contextAction, error) { return o.prepareSelectionAction(selection) }
+	return mapped, nil
+}
+
+// newReasoningSelectionContextRequest decodes admission for a reasoning selection.
+func newReasoningSelectionContextRequest(
+	mapped contextRequest,
+	request *extensionpb.SelectReasoningRequest,
+) (contextRequest, error) {
+	selection, err := mapReasoningSelectionRequest(request)
+	if err != nil {
+		return contextRequest{}, err
+	}
+	mapped.reference = request.GetContext()
+	mapped.prepare = func(o *contextOperation) (contextAction, error) { return o.prepareSelectionAction(selection) }
 	return mapped, nil
 }

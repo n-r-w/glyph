@@ -197,7 +197,6 @@ func mapModelResponse(response []extensionruntime.Content) *extensionpb.SessionT
 	content := make([]*extensionpb.SessionTreeModelContent, 0, len(response))
 	for index := range response {
 		item := response[index]
-		// kind identifies the public model content variant.
 		kind := extensioncontroller.MapCompactionContentKind(item.Kind)
 		builder := extensionpb.SessionTreeModelContent_builder{
 			Kind: new(kind), Text: nil, ToolCall: nil,
@@ -270,7 +269,7 @@ func mapOptionalSummaryResultFromProto(
 		return mo.None[extensionruntime.Summary]()
 	}
 	return mo.Some(extensionruntime.Summary{
-		Summary: result.GetSummary(), Source: mapSummarySourceFromProto(result.GetSource()),
+		Summary: result.GetSummary(), Source: extensioncontroller.DecodeCompactionSource(result.GetSource()),
 	})
 }
 
@@ -281,15 +280,6 @@ func mapTokenUsage(usage session.TokenUsage) *extensionpb.TokenUsage {
 		CacheReadTokens: new(usage.CacheReadTokens), CacheWriteTokens: new(usage.CacheWriteTokens),
 		ReasoningTokens: new(usage.ReasoningTokens), TotalTokens: new(usage.TotalTokens),
 	}.Build()
-}
-
-// mapTokenUsageFromProto maps all normalized usage buckets from protobuf.
-func mapTokenUsageFromProto(usage *extensionpb.TokenUsage) session.TokenUsage {
-	return session.TokenUsage{
-		InputTokens: usage.GetInputTokens(), OutputTokens: usage.GetOutputTokens(),
-		CacheReadTokens: usage.GetCacheReadTokens(), CacheWriteTokens: usage.GetCacheWriteTokens(),
-		ReasoningTokens: usage.GetReasoningTokens(), TotalTokens: usage.GetTotalTokens(),
-	}
 }
 
 // mapSessionTreeInvocation maps committed navigation and optional complete summary data.

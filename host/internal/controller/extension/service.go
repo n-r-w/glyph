@@ -87,33 +87,6 @@ func (s *Service) BindPolicyOperations(policy CompactionPolicyOperations) {
 	s.compactionPolicy = policy
 }
 
-// mapSelectionContextRequest maps either active-selection request before the general context-operation union.
-func mapSelectionContextRequest(
-	request *extensionpb.ExtensionRequest,
-) (SelectionCommand, *extensionpb.ExtensionContextRef, bool, error) {
-	switch request.WhichRequest() {
-	case extensionpb.ExtensionRequest_SelectModel_case:
-		command, err := mapModelSelectionRequest(request.GetSelectModel())
-		return command, request.GetSelectModel().GetContext(), true, err
-	case extensionpb.ExtensionRequest_SelectReasoning_case:
-		command, err := mapReasoningSelectionRequest(request.GetSelectReasoning())
-		return command, request.GetSelectReasoning().GetContext(), true, err
-	case extensionpb.ExtensionRequest_Request_not_set_case,
-		extensionpb.ExtensionRequest_GetModels_case,
-		extensionpb.ExtensionRequest_GetProviders_case,
-		extensionpb.ExtensionRequest_Cancel_case,
-		extensionpb.ExtensionRequest_ConfiguredModel_case,
-		extensionpb.ExtensionRequest_AppendExtension_case,
-		extensionpb.ExtensionRequest_GetSessionState_case,
-		extensionpb.ExtensionRequest_AppendExtensionMessage_case,
-		extensionpb.ExtensionRequest_Compact_case,
-		extensionpb.ExtensionRequest_ProjectCompaction_case, extensionpb.ExtensionRequest_ReplaceCompaction_case:
-		return SelectionCommand{}, nil, false, nil
-	default:
-		return SelectionCommand{}, nil, false, nil
-	}
-}
-
 // contextOperation maps one admitted context request and owns its accounting release.
 type contextOperation struct {
 	// id identifies the extension-initiated operation in diagnostics.
@@ -141,13 +114,10 @@ func (o *contextOperation) Run(
 	ctx context.Context,
 	reporter *extensionsdk.HostProgressReporter,
 ) (completed *extensionpb.HostCompleted, returnErr error) {
-	// childRelease reports admitted child completion; present indicates child ownership.
 	if childRelease, present := o.childRelease.Get(); present {
 		defer func() { childRelease(returnErr) }()
 	}
-	// parentID identifies the admitted parent lifetime; present indicates parent linkage.
 	if parentID, present := o.parentID.Get(); present {
-		// childContext links this Run to its admitted parent; unlink ends that linkage.
 		childContext, unlink := o.service.compactionPolicy.LinkCompactionChild(ctx, parentID)
 		defer unlink()
 		ctx = childContext
@@ -170,7 +140,6 @@ func (o *contextOperation) Run(
 
 // Release returns the reservation to the runtime accounting owner.
 func (o *contextOperation) Release() {
-	// releaseSelection and present identify selection admission ownership.
 	if releaseSelection, present := o.selectionRelease.Get(); present {
 		releaseSelection()
 	}

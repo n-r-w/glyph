@@ -257,6 +257,32 @@ message CompactionPolicyInvocation {
   string user_instructions = 12;
   // The captured policy runtime generation.
   string policy_runtime_id = 13;
+  // The captured request handlers in registration order.
+  repeated CompactionRequestParticipant request_participants = 14;
+}
+
+// CompactionRequestParticipant identifies one captured request handler.
+message CompactionRequestParticipant {
+  // The extension that registered the handler.
+  string extension_id = 1;
+  // The captured runtime generation.
+  string runtime_id = 2;
+  // The extension-local handler identifier.
+  string handler_id = 3;
+  // The handler position in the captured request registration sequence.
+  int64 registration_order = 4;
+}
+
+// InvokeCompactionRequestRequest invokes one captured request handler.
+message InvokeCompactionRequestRequest {
+  // The policy's ordinary session binding.
+  ExtensionContextRef context = 1;
+  // The authority for the current policy operation.
+  string operation_id = 2;
+  // The captured request participant selected by the policy.
+  CompactionRequestParticipant participant = 3;
+  // The original and composed values selected by the policy.
+  CompactionRequestInvocation invocation = 4;
 }
 
 // CompactionPolicyResult acknowledges the policy operation.

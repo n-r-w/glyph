@@ -64,15 +64,11 @@ var _ extensionsdk.HandleOperation = (*policyOperation)(nil)
 // main starts the independently built reference extension.
 func main() {
 	const (
-		// disabledPolicyEnvironment selects an observer-only fixture.
 		disabledPolicyEnvironment = "GLYPH_REFERENCE_POLICY_DISABLED"
-		// callerSocketEnvironment selects public Extension caller coordination.
-		callerSocketEnvironment = "GLYPH_REFERENCE_CALLER_SOCKET"
-		// callerExecutable identifies the ordinary public Extension caller.
-		callerExecutable = "reference-caller"
+		callerSocketEnvironment   = "GLYPH_REFERENCE_CALLER_SOCKET"
+		callerExecutable          = "reference-caller"
 	)
 
-	// service owns fixture capabilities and the retained caller binding.
 	service := &policyService{
 		workerStart: sync.Once{}, listener: nil,
 		disabled: os.Getenv(disabledPolicyEnvironment) == fixtureEnabledValue ||
@@ -81,9 +77,7 @@ func main() {
 			(os.Getenv(separateObserverEnvironment) != fixtureEnabledValue || filepath.Base(os.Args[0]) == callerExecutable),
 	}
 	if service.observe {
-		// listenConfig supplies caller socket options.
 		listenConfig := &net.ListenConfig{}
-		// listener owns the fixture coordination socket.
 		listener, err := listenConfig.Listen(
 			context.Background(),
 			fixtureSocketNetwork,
@@ -110,6 +104,12 @@ func (s *policyService) PrepareHandle(
 	ctx context.Context,
 	request *extensionpb.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
+	if request.GetCompactionRequest() != nil {
+		return &referenceRequestOperation{
+			handlerID:  request.GetHandlerId(),
+			invocation: request.GetCompactionRequest(),
+		}, nil
+	}
 	if request.GetLifecycle().GetAgentSettled() != nil {
 		return &settledOperation{service: s}, nil
 	}
@@ -122,7 +122,6 @@ func (s *policyService) PrepareHandle(
 	if request.GetCompactionPolicy() == nil {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("reference policy payload is required"))
 	}
-	// policy contains invocation-scoped replacement authority.
 	policy, present := extensionsdk.FindCompactionPolicy(ctx)
 	if !present {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("reference policy authority is required"))
@@ -141,18 +140,20 @@ func (s *policyService) PrepareExecute(
 // Run publishes the complete reference capability catalog.
 func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterResponse, error) {
 	const (
-		// settledHandlerID identifies the session-context observer.
-		settledHandlerID = "reference-settled"
-		// successHandlerID identifies the committed outcome observer.
-		successHandlerID = "reference-compaction-success"
-		// failureHandlerID identifies the failed outcome observer.
-		failureHandlerID = "reference-compaction-failure"
-		// observerExecutable identifies the outcome-only process.
-		observerExecutable = "reference-observer"
+		// referenceRequestsExecutable identifies the request-only runtime fixture.
+		referenceRequestsExecutable = "reference-requests"
+		// referenceSeparateRequestsEnvironment selects request handlers in a separate runtime.
+		referenceSeparateRequestsEnvironment = "GLYPH_REFERENCE_SEPARATE_REQUESTS"
+		settledHandlerID                     = "reference-settled"
+		successHandlerID                     = "reference-compaction-success"
+		failureHandlerID                     = "reference-compaction-failure"
+		observerExecutable                   = "reference-observer"
 	)
 
-	// handlers contains the enabled fixture capabilities.
 	handlers := make([]*extensionpb.HandlerDescriptor, 0)
+	if filepath.Base(os.Args[0]) == referenceRequestsExecutable {
+		return extensionpb.RegisterResponse_builder{Tools: nil, Handlers: newReferenceRequestDescriptors()}.Build(), nil
+	}
 	if os.Getenv(separateObserverEnvironment) != fixtureEnabledValue ||
 		filepath.Base(os.Args[0]) == observerExecutable {
 		handlers = append(handlers,
@@ -184,124 +185,26 @@ func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterRespon
 			}.Build(),
 		)
 	}
+	if os.Getenv(referenceSeparateRequestsEnvironment) != fixtureEnabledValue {
+		handlers = append(handlers, newReferenceRequestDescriptors()...)
+	}
 	return extensionpb.RegisterResponse_builder{Tools: nil, Handlers: handlers}.Build(), nil
 }
 
 // Release completes registration admission.
 func (r *policyRegistration) Release() {}
 
-// Run executes one reference manual policy invocation.
-func (o *policyOperation) Run(ctx context.Context) (*extensionpb.HandleResponse, error) {
-	const (
-		// referenceSummary identifies fixture replacement content.
-		referenceSummary = "Reference policy replacement summary."
-		// cancelGuidance selects explicit pre-mutation cancellation.
-		cancelGuidance = "cancel-before-commit"
-		// staleGuidance selects an active-branch change before replacement.
-		staleGuidance = "change-branch-before-commit"
-		// waitGuidance selects caller-owned cancellation with active nested model work.
-		waitGuidance = "wait-for-caller-cancel"
-	)
-
-	// input contains captured policy invocation data.
-	input := o.policy.Input()
-	// admissionProbeGuidance selects a nested request after owner cancellation.
-	const admissionProbeGuidance = "request-after-parent-cancellation"
-	if input.GetUserInstructions() == admissionProbeGuidance {
-		return requestCanceledParentAdmission(ctx)
-	}
-	// policyInputEnvironment identifies the optional captured-input artifact path.
-	const policyInputEnvironment = "GLYPH_REFERENCE_POLICY_INPUT"
-	if err := writePolicyArtifact(os.Getenv(policyInputEnvironment), input); err != nil {
-		return o.attachAcquiredState(newPolicyFailure(err)), nil
-	}
-	if input.GetUserInstructions() == cancelGuidance {
-		// response contains the acquired terminal completion.
-		response := new(extensionpb.HandleResponse)
-		response.SetCompactionPolicy(
-			extensionpb.CompactionPolicyResult_builder{State: nil, Error: nil, Canceled: new(true)}.Build(),
-		)
-		return o.attachAcquiredState(response), nil
-	}
-	// boundary identifies the first retained original entry.
-	boundary := findPolicyBoundary(input.GetEntries())
-	if boundary == "" {
-		return o.attachAcquiredState(
-			newPolicyFailure(errors.New("reference policy requires an original user entry")),
-		), nil
-	}
-	// contextBinding supplies ordinary session operations.
-	contextBinding, err := extensionsdk.ContextFrom(ctx)
-	if err != nil {
-		return o.attachAcquiredState(newPolicyFailure(err)), nil
-	}
-	if rejectionErr := handlePolicySelectionRejection(
-		ctx, contextBinding, input.GetUserInstructions(), input.GetModel().GetProviderId(),
-	); rejectionErr != nil {
-		return o.attachAcquiredState(newPolicyFailure(rejectionErr)), nil
-	}
-	if input.GetUserInstructions() == waitGuidance {
-		if modelErr := waitPolicyConfiguredModel(
-			ctx,
-			contextBinding,
-			input.GetModel(),
-			input.GetReasoningChoice(),
-		); modelErr != nil {
-			return o.attachAcquiredState(newPolicyFailure(modelErr)), nil
-		}
-	}
-	// source identifies the extension that supplies the summary.
-	source := new(extensionpb.BranchSummarySource)
-	source.SetExtensionId(contextBinding.Identity().GetExtensionId())
-	if input.GetUserInstructions() == staleGuidance {
-		if appendErr := appendPolicyBranchChange(ctx, contextBinding); appendErr != nil {
-			return o.attachAcquiredState(newPolicyFailure(appendErr)), nil
-		}
-	}
-	// candidate contains the proposed replacement.
-	candidate := extensionpb.CompactionResult_builder{
-		Summary:          new(referenceSummary),
-		FirstKeptEntryId: new(boundary),
-		Source:           source,
-		Details:          nil,
-	}.Build()
-	o.state = newReferencePolicyState(input, candidate)
-	if projectionErr := projectPolicyReplacement(ctx, o.policy, candidate); projectionErr != nil {
-		return o.attachAcquiredState(newPolicyFailure(projectionErr)), nil
-	}
-	// replacement owns the pending durable replacement.
-	replacement, err := o.policy.StartReplaceHistory(ctx, candidate)
-	if err != nil {
-		return o.attachAcquiredState(newPolicyFailure(fmt.Errorf("start reference replacement: %w", err))), nil
-	}
-	// receipt contains the durable replacement outcome.
-	receipt, err := replacement.Wait(ctx)
-	if err != nil {
-		return o.attachAcquiredState(newPolicyFailure(fmt.Errorf("await reference replacement: %w", err))), nil
-	}
-	if receipt.GetError() != "" {
-		return o.attachAcquiredState(newPolicyFailure(errors.New(receipt.GetError()))), nil
-	}
-	return o.completeReplacement(input.GetUserInstructions()), nil
-}
-
 // completeReplacement supplies the acquired policy completion after persistence.
 func (o *policyOperation) completeReplacement(guidance string) *extensionpb.HandleResponse {
 	const (
-		// unavailableObserverGuidance selects loss of a shared policy and observer process.
 		unavailableObserverGuidance = "lose-shared-owner-after-commit"
-		// invalidStateGuidance selects invalid diagnostic state with a received policy error.
-		invalidStateGuidance = "invalid-state-after-commit"
-		// invalidStateCause identifies the original acquired policy error.
-		invalidStateCause = "reference invalid diagnostic producer: original policy failure cause"
-		// lostStateGuidance selects result loss after a durable replacement.
-		lostStateGuidance = "lose-state-after-commit"
+		invalidStateGuidance        = "invalid-state-after-commit"
+		invalidStateCause           = "reference invalid diagnostic producer: original policy failure cause"
+		lostStateGuidance           = "lose-state-after-commit"
 		// lostStateExit identifies deliberate loss of the policy process after persistence.
-		lostStateExit = 23
-		// failureGuidance selects a complete-result policy failure after persistence.
+		lostStateExit   = 23
 		failureGuidance = "fail-after-commit"
-		// failureCause supplies a complete original policy failure.
-		failureCause = "reference policy failure after durable replacement: original producer cause"
+		failureCause    = "reference policy failure after durable replacement: original producer cause"
 	)
 
 	if guidance == lostStateGuidance || guidance == unavailableObserverGuidance {
@@ -314,7 +217,6 @@ func (o *policyOperation) completeReplacement(guidance string) *extensionpb.Hand
 	if guidance == failureGuidance {
 		return o.attachAcquiredState(newPolicyFailure(errors.New(failureCause)))
 	}
-	// response contains the acquired terminal completion.
 	response := new(extensionpb.HandleResponse)
 	response.SetCompactionPolicy(
 		extensionpb.CompactionPolicyResult_builder{State: nil, Error: nil, Canceled: new(false)}.Build(),
@@ -327,9 +229,7 @@ func (o *policyOperation) attachAcquiredState(response *extensionpb.HandleRespon
 	if o.state == nil {
 		return response
 	}
-	// failure contains the complete policy cause.
 	failure := response.GetError().GetMessage()
-	// result contains policy diagnostics and terminal status.
 	result := response.GetCompactionPolicy()
 	if result == nil {
 		result = extensionpb.CompactionPolicyResult_builder{State: nil, Error: nil, Canceled: new(false)}.Build()
@@ -345,7 +245,6 @@ func (o *policyOperation) Release() {}
 
 // newPolicyFailure supplies an ordinary policy failure with its complete cause.
 func newPolicyFailure(err error) *extensionpb.HandleResponse {
-	// response contains the acquired terminal completion.
 	response := new(extensionpb.HandleResponse)
 	response.SetError(extensionpb.HandlerError_builder{Message: new(err.Error())}.Build())
 	return response
@@ -353,10 +252,8 @@ func newPolicyFailure(err error) *extensionpb.HandleResponse {
 
 // findPolicyBoundary selects the most recent original user entry.
 func findPolicyBoundary(entries []*extensionpb.CompactionSnapshotEntry) string {
-	// boundary identifies the first retained original entry.
 	boundary := ""
 	for _, snapshotEntry := range slices.Backward(entries) {
-		// entry contains the original branch record.
 		entry := snapshotEntry.GetEntry()
 		if entry.GetUser() != nil {
 			boundary = entry.GetId()
@@ -378,7 +275,6 @@ var _ extensionsdk.HandleOperation = (*settledOperation)(nil)
 // Run completes the observer without keeping the conversation gate active.
 func (o *settledOperation) Run(ctx context.Context) (*extensionpb.HandleResponse, error) {
 	if o.service.listener != nil {
-		// binding supplies ordinary session access to the detached caller.
 		binding, err := extensionsdk.ContextFrom(ctx)
 		if err != nil {
 			return nil, err
@@ -391,7 +287,6 @@ func (o *settledOperation) Run(ctx context.Context) (*extensionpb.HandleResponse
 			}(context.WithoutCancel(ctx), binding, o.service.listener)
 		})
 	}
-	// response acknowledges session settlement.
 	response := new(extensionpb.HandleResponse)
 	response.SetLifecycle(new(extensionpb.LifecycleAction))
 	return response, nil
@@ -407,13 +302,10 @@ func waitPolicyConfiguredModel(
 	descriptor *extensionpb.ModelDescriptor, reasoningChoice string,
 ) error {
 	const (
-		// nestedCheckpoint identifies the pending nested provider request.
 		nestedCheckpoint = "nested cancellation checkpoint"
 	)
-	// content contains nested model input.
 	content := new(extensionpb.ConfiguredModelInputContent)
 	content.SetText(nestedCheckpoint)
-	// request contains the public operation input.
 	request := extensionpb.ConfiguredModelRequest_builder{
 		Context: nil,
 		Selection: extensionpb.ModelSelection_builder{
@@ -430,7 +322,6 @@ func waitPolicyConfiguredModel(
 			Content: []*extensionpb.ConfiguredModelInputContent{content},
 		}.Build()},
 	}.Build()
-	// operation owns the pending public request.
 	operation, err := binding.StartConfiguredModel(ctx, request)
 	if err != nil {
 		return err
@@ -442,17 +333,14 @@ func waitPolicyConfiguredModel(
 // appendPolicyBranchChange creates an original branch change through the public SDK.
 func appendPolicyBranchChange(ctx context.Context, contextBinding *extensionsdk.ExtensionContext) error {
 	const (
-		// branchChangeType identifies fixture-owned branch mutation.
 		branchChangeType = "reference-branch-change"
 	)
 
-	// appendRequest contains the fixture branch mutation.
 	appendRequest := extensionpb.AppendExtensionRequest_builder{
 		Context:   nil,
 		EntryType: new(branchChangeType),
 		Data:      []byte(`{"changed":true}`),
 	}.Build()
-	// appendOperation owns the pending branch mutation.
 	appendOperation, appendErr := contextBinding.StartAppendExtension(ctx, appendRequest)
 	if appendErr != nil {
 		return appendErr
@@ -469,12 +357,10 @@ func projectPolicyReplacement(
 	policy *extensionsdk.CompactionPolicyContext,
 	candidate *extensionpb.CompactionResult,
 ) error {
-	// projection owns the pending candidate projection.
 	projection, err := policy.StartProjectReplacement(ctx, candidate)
 	if err != nil {
 		return fmt.Errorf("start reference projection: %w", err)
 	}
-	// projected contains the public projection result.
 	projected, err := projection.Wait(ctx)
 	if err != nil {
 		return fmt.Errorf("await reference projection: %w", err)
@@ -487,12 +373,10 @@ func projectPolicyReplacement(
 
 // requestCanceledParentAdmission obtains the public nested admission rejection.
 func requestCanceledParentAdmission(ctx context.Context) (*extensionpb.HandleResponse, error) {
-	// binding and bindingErr contain the caller session context and lookup failure.
 	binding, bindingErr := extensionsdk.ContextFrom(ctx)
 	if bindingErr != nil {
 		return newPolicyFailure(bindingErr), nil
 	}
-	// operation and admissionErr contain the nested request handle and admission failure.
 	operation, admissionErr := binding.StartGetModels(ctx)
 	if admissionErr == nil {
 		_, admissionErr = operation.Wait(ctx)
@@ -506,30 +390,12 @@ func handlePolicySelectionRejection(
 	binding *extensionsdk.ExtensionContext,
 	guidance, providerID string,
 ) error {
-	// selectionRejectionGuidance selects policy handling of a rejected nested selection.
 	const selectionRejectionGuidance = "handled-selection-rejection"
-	// selectionRejectionObserverFailureGuidance selects later observer failure after the same rejection.
 	const selectionRejectionObserverFailureGuidance = "handled-selection-rejection-observer-failure"
 	switch guidance {
 	case selectionRejectionGuidance, selectionRejectionObserverFailureGuidance:
 	default:
 		return nil
 	}
-	// missingModel identifies a model absent from the configured provider catalog.
-	const missingModel = "reference-missing-selection-model"
-	// request contains the ordinary nested model-selection input.
-	request := extensionpb.SelectModelRequest_builder{
-		Context: nil, ProviderId: new(providerID), ModelId: new(missingModel),
-	}.Build()
-	// selection owns the public nested selection operation.
-	selection, err := binding.StartModelSelection(ctx, request)
-	if err != nil {
-		return err
-	}
-	// rejection contains the acquired preparation failure that the policy chooses to handle.
-	_, rejection := selection.Wait(ctx)
-	if rejection == nil {
-		return errors.New("reference policy expected an unknown-model selection rejection")
-	}
-	return nil
+	return handleMissingModelSelection(ctx, binding, providerID)
 }

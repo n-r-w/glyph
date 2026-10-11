@@ -22,13 +22,8 @@ const (
 )
 
 // Compact coordinates one compaction operation against a captured agent request.
-//
-//nolint:gocognit,gocyclo // The ordered handler state machine keeps commit and terminal identity together.
 func (s *Service) Compact(
-	ctx context.Context,
-	trigger Trigger,
-	instructions mo.Option[string],
-	retryIntent bool,
+	ctx context.Context, trigger Trigger, instructions mo.Option[string], retryIntent bool,
 	providerRequest modelexecution.ProviderRequest,
 ) (OperationResult, error) {
 	if err := ctx.Err(); err != nil {
@@ -43,153 +38,26 @@ func (s *Service) Compact(
 	if err != nil {
 		return s.fail(ctx, handlers, original, original, mo.None[Result](), false, err)
 	}
-	current := cloneRequest(original)
-	currentResult := mo.None[Result]()
-	for _, handler := range handlers.Requests {
-		binding, bindingErr := s.contexts.IssueContext(handler.ExtensionID)
-		if bindingErr != nil {
-			return s.fail(
-				ctx,
-				handlers,
-				original,
-				current,
-				currentResult,
-				false,
-				extensionFailure(
-					fmt.Errorf("issue context for compaction request handler %q: %w", handler.HandlerID, bindingErr),
-				),
-			)
-		}
-		action, handlerErr := s.runtime.HandleCompactionRequest(ctx, handler, binding, RequestInvocation{
-			Original: cloneRequest(
-				original,
-			),
-			Current:       cloneRequest(current),
-			CurrentResult: cloneOptionalResult(currentResult),
-		})
-		if handlerErr != nil {
-			cause := fmt.Errorf("compaction request handler %q: %w", handler.HandlerID, handlerErr)
-			canceled, failure := classifyExtensionInvocation(ctx, cause)
-			return s.fail(ctx, handlers, original, current, currentResult, canceled, failure)
-		}
-		if replacement, present := action.Result.Get(); action.ResultAction == ResultActionReplace && present {
-			err = validateProducer(handler.ExtensionID, replacement)
-		}
-		nextRequest := cloneRequest(current)
-		nextResult := cloneOptionalResult(currentResult)
-		var canceled bool
-		if err == nil {
-			nextRequest, nextResult, canceled, err = applyRequestAction(current, currentResult, action)
-		}
-		if err == nil && !canceled {
-			nextRequest, err = s.deriveReplacementEstimates(original, current, nextRequest)
-		}
-		if err == nil && !canceled {
-			err = s.validateRequestState(snapshot, nextRequest)
-		}
-		if candidate, present := nextResult.Get(); err == nil && !canceled && present {
-			err = s.validateResultState(snapshot, candidate)
-		}
-		if err != nil {
-			return s.fail(ctx, handlers, original, current, currentResult, false,
-				extensionFailure(fmt.Errorf("compaction request handler %q: %w", handler.HandlerID, err)))
-		}
-		if canceled {
-			return s.fail(ctx, handlers, original, current, currentResult, true, context.Cause(ctx))
-		}
-		current, currentResult = nextRequest, nextResult
+	current, currentResult, canceled, err := s.composeRequestHandlers(ctx, snapshot, handlers.Requests, original)
+	if err != nil || canceled {
+		return s.fail(ctx, handlers, original, current, currentResult, canceled, err)
 	}
-	if currentResult.IsNone() {
-		generated, generationErr := s.generateCompaction(ctx, snapshot, handlers, original, current)
-		if generationErr != nil {
-			canceled, failure := classifyExtensionInvocation(ctx, generationErr)
-			return s.fail(ctx, handlers, original, current, currentResult, canceled, failure)
-		}
-		currentResult = mo.Some(cloneResult(generated))
+	originalResult, canceled, err := s.prepareCompactionResult(
+		ctx,
+		snapshot,
+		handlers,
+		original,
+		current,
+		currentResult,
+	)
+	if err != nil || canceled {
+		return s.fail(ctx, handlers, original, current, currentResult, canceled, err)
 	}
-	originalResult, present := currentResult.Get()
-	if !present {
-		err = errors.New("compaction completed generation without a result")
-		return s.fail(ctx, handlers, original, current, currentResult, false, err)
+	result, canceled, err := s.composeResultHandlers(ctx, snapshot, handlers.Results, original, current, originalResult)
+	if err != nil || canceled {
+		return s.fail(ctx, handlers, original, current, mo.Some(result), canceled, err)
 	}
-	originalResult = cloneResult(originalResult)
-	result := cloneResult(originalResult)
-	for _, handler := range handlers.Results {
-		binding, bindingErr := s.contexts.IssueContext(handler.ExtensionID)
-		if bindingErr != nil {
-			return s.fail(
-				ctx,
-				handlers,
-				original,
-				current,
-				mo.Some(result),
-				false,
-				extensionFailure(
-					fmt.Errorf("issue context for compaction result handler %q: %w", handler.HandlerID, bindingErr),
-				),
-			)
-		}
-		action, handlerErr := s.runtime.HandleCompactionResult(ctx, handler, binding, ResultInvocation{
-			OriginalRequest: cloneRequest(original), CurrentRequest: cloneRequest(current),
-			OriginalResult: cloneResult(originalResult), CurrentResult: cloneResult(result),
-		})
-		if handlerErr != nil {
-			cause := fmt.Errorf("compaction result handler %q: %w", handler.HandlerID, handlerErr)
-			canceled, failure := classifyExtensionInvocation(ctx, cause)
-			return s.fail(ctx, handlers, original, current, mo.Some(result), canceled, failure)
-		}
-		if replacement, replacementPresent := action.Result.Get(); !action.Preserve && !action.Cancel &&
-			replacementPresent {
-			err = validateProducer(handler.ExtensionID, replacement)
-		}
-		var canceled bool
-		if err == nil {
-			result, canceled, err = applyResultAction(result, action)
-		}
-		if err == nil && !canceled {
-			err = s.validateResultState(snapshot, result)
-		}
-		if err != nil {
-			return s.fail(ctx, handlers, original, current, mo.Some(result), false,
-				extensionFailure(fmt.Errorf("compaction result handler %q: %w", handler.HandlerID, err)))
-		}
-		if canceled {
-			return s.fail(ctx, handlers, original, current, mo.Some(result), true, context.Cause(ctx))
-		}
-	}
-	entry, err := s.validateFinal(snapshot, providerRequest, result)
-	if err != nil {
-		return s.fail(ctx, handlers, original, current, mo.Some(result), false, err)
-	}
-	if err = ctx.Err(); err != nil {
-		return s.fail(ctx, handlers, original, current, mo.Some(result), false, context.Cause(ctx))
-	}
-	committed, commitErr := s.CommitCompaction(ctx, snapshot.Identity, snapshot.ActiveLeafID, entry)
-	commitErr = joinContextCause(ctx, commitErr)
-	if committed.ID == "" {
-		if commitErr == nil {
-			commitErr = errors.New("compaction commit returned no committed entry")
-		}
-		return s.fail(ctx, handlers, original, current, mo.Some(result), false, commitErr)
-	}
-	// outcome contains diagnostic state and the independent receipt for terminal notification.
-	outcome := OutcomeInvocation{
-		State: mo.Some(
-			PolicyState{
-				OriginalRequest: cloneRequest(original),
-				CurrentRequest:  cloneRequest(current),
-				Result:          mo.Some(cloneResult(result)),
-			},
-		),
-		ParentCompactionID: mo.None[string](),
-		Committed:          mo.Some(committed.Clone()),
-		Canceled:           false,
-		Error:              mo.None[string](),
-	}
-	observerErr := s.observeSuccess(context.WithoutCancel(ctx), handlers.Successes, outcome)
-	terminalErr := errors.Join(internalFailure(commitErr), extensionFailure(observerErr))
-	return OperationResult{Committed: mo.Some(committed.Clone()), Canceled: false},
-		joinContextCause(ctx, terminalErr)
+	return s.settleCompaction(ctx, snapshot, providerRequest, handlers, original, current, result)
 }
 
 // generateCompaction invokes and validates the unique snapshotted generation capability.
@@ -211,7 +79,8 @@ func (s *Service) generateCompaction(
 		)
 	}
 	generated, err := s.runtime.GenerateCompaction(ctx, generator, binding, RequestInvocation{
-		Original: cloneRequest(original), Current: cloneRequest(current), CurrentResult: mo.None[Result](),
+		ParentCompactionID: mo.None[string](),
+		Original:           cloneRequest(original), Current: cloneRequest(current), CurrentResult: mo.None[Result](),
 	})
 	if err != nil {
 		return Result{}, fmt.Errorf("compaction generator %q: %w", generator.HandlerID, err)
@@ -343,7 +212,6 @@ func (s *Service) validateFinal(
 	if err := s.validateResultState(snapshot, result); err != nil {
 		return session.CompactionEntry{}, err
 	}
-	// projected and err contain candidate model history and any structural projection failure.
 	projected, err := s.sessions.ProjectCompaction(snapshot.Entries, entry)
 	if err != nil {
 		return session.CompactionEntry{}, fmt.Errorf("project final compaction: %w", err)
@@ -377,7 +245,6 @@ func (s *Service) fail(
 	if cause != nil {
 		message = mo.Some(cause.Error())
 	}
-	// outcome contains diagnostic state and the independent receipt for terminal notification.
 	outcome := OutcomeInvocation{
 		State: mo.Some(
 			PolicyState{

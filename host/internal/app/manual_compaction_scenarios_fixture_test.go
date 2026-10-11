@@ -28,13 +28,39 @@ type manualTerminalScenario struct {
 
 // newManualTerminalScenarios supplies the outcomes common to all public callers.
 func newManualTerminalScenarios() []manualTerminalScenario {
-	// manualFixtureFailAfterCommit selects policy failure after durable replacement.
 	const manualFixtureFailAfterCommit = "fail-after-commit"
 
-	// manualFixtureChangeBranchBeforeCommit selects a branch change before replacement.
 	const manualFixtureChangeBranchBeforeCommit = "change-branch-before-commit"
 
 	return []manualTerminalScenario{
+		{
+			name:      "request handler canceled",
+			guidance:  manualRequestCancelGuidance,
+			cause:     "",
+			committed: false,
+			canceled:  true,
+		},
+		{
+			name:      "request handler failed",
+			guidance:  manualRequestFailGuidance,
+			cause:     manualRequestFailureCause,
+			committed: false,
+			canceled:  false,
+		},
+		{
+			name:      "request handler invalid action",
+			guidance:  manualRequestInvalidGuidance,
+			cause:     manualRequestInvalidCause,
+			committed: false,
+			canceled:  false,
+		},
+		{
+			name:      "request handler retained child cause",
+			guidance:  manualRequestFailAfterChildGuidance,
+			cause:     manualSelectionPreparationCause,
+			committed: false,
+			canceled:  false,
+		},
 		{
 			name: "canceled", guidance: manualFixtureCancelBeforeCommit,
 			cause: "", committed: false, canceled: true,

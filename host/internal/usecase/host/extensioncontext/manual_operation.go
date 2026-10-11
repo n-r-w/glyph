@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"sync"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
+
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -20,10 +22,12 @@ type compactionOperation struct {
 	authorityID string
 	// lifecycleID identifies non-authorizing nested-work correlation.
 	lifecycleID string
-	// owner identifies the captured policy generation.
+	// owner identifies the captured runtime and handler that own this lifetime.
 	owner PolicyOwner
 	// snapshot contains the immutable session input.
 	snapshot CompactionSnapshot
+	// requests contains the captured request capabilities in registration order.
+	requests []RequestParticipant
 	// context is intentionally retained parent lifetime: a temporary decision and technical debt.
 	// It supplies synchronous cancellation checks before persistence and owned child cancellation/joins.
 	// TODO: Remove this field when an explicit-context parent-owner handoff preserves synchronous checks,
@@ -89,10 +93,40 @@ func (o *compactionOperation) diagnosticState() mo.Option[contextcompaction.Poli
 	return o.state.MapValue(contextcompaction.PolicyState.Clone)
 }
 
+// findRequestParticipant resolves one captured request registration under live parent authority.
+func (o *compactionOperation) findRequestParticipant(
+	target extensioncontroller.CompactionRequestParticipant,
+) (RequestParticipant, error) {
+	o.mutex.Lock()
+	if o.closed || o.context.Err() != nil {
+		o.mutex.Unlock()
+		return RequestParticipant{}, errors.Join(
+			errors.New("compaction operation has ended"),
+			o.context.Err(),
+			context.Cause(o.context),
+		)
+	}
+	// Membership includes the captured registration position and runtime generation.
+	if target.RegistrationOrder < 0 || target.RegistrationOrder >= int64(len(o.requests)) {
+		o.mutex.Unlock()
+		return RequestParticipant{}, errors.New(
+			"request participant is not captured by the compaction operation",
+		)
+	}
+	participant := o.requests[target.RegistrationOrder]
+	o.mutex.Unlock()
+	if participant.ExtensionID != target.ExtensionID || participant.RuntimeID != target.RuntimeID ||
+		participant.HandlerID != target.HandlerID {
+		return RequestParticipant{}, errors.New(
+			"request participant identity does not match the captured registration",
+		)
+	}
+	return participant, nil
+}
+
 // findCompactionOperation validates the captured policy's mutation authority.
 func (s *Service) findCompactionOperation(extensionID, runtimeID, operationID string) (*compactionOperation, error) {
 	s.mutex.Lock()
-	// operation contains the registered binding; exists indicates its availability.
 	operation, exists := s.compactionOperations[operationID]
 	s.mutex.Unlock()
 	if !exists {
@@ -116,7 +150,6 @@ func (s *Service) BeginCompactionChild(
 	extensionID, runtimeID, operationID string,
 ) (func(error), error) {
 	s.mutex.Lock()
-	// operation contains the registered binding; exists indicates its availability.
 	operation, exists := s.compactionOperations[operationID]
 	s.mutex.Unlock()
 	if !exists || operation.lifecycleID != operationID {
@@ -140,7 +173,6 @@ func (s *Service) BeginCompactionChild(
 	}
 	operation.children.Add(1)
 	operation.mutex.Unlock()
-	// releaseOnce guards the child lifetime against repeated release.
 	var releaseOnce sync.Once
 	return func(cause error) {
 		releaseOnce.Do(func() {
@@ -162,14 +194,11 @@ func (s *Service) LinkCompactionChild(
 	lifecycleID string,
 ) (childContext context.Context, unlink func()) {
 	s.mutex.Lock()
-	// operation owns the lifetime retained by the caller's admitted child reservation.
 	operation := s.compactionOperations[lifecycleID]
 	s.mutex.Unlock()
-	// child retains Run values and owns linked cancellation.
+	// Preserve Run values while propagating parent cancellation.
 	child, cancel := context.WithCancelCause(ctx)
-	// stop releases the parent cancellation callback.
 	stop := context.AfterFunc(operation.context, func() { cancel(context.Cause(operation.context)) })
-	// cause is the owning operation cancellation cause.
 	if cause := context.Cause(operation.context); cause != nil {
 		cancel(cause)
 	}

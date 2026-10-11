@@ -7,6 +7,7 @@ import (
 
 	"github.com/samber/mo"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
@@ -15,8 +16,6 @@ import (
 )
 
 // HandleCompactionRequest invokes one public compaction request handler.
-//
-//nolint:dupl // Each closed handler variant validates a different response union member.
 func (r *Runtime) HandleCompactionRequest(
 	ctx context.Context,
 	handlerID string,
@@ -31,7 +30,7 @@ func (r *Runtime) HandleCompactionRequest(
 	request := extensionpb.HandleRequest_builder{
 		HandlerId: new(handlerID), Context: mapContext(binding), CompactionRequest: payload,
 
-		ParentCompactionId: nil,
+		ParentCompactionId: invocation.ParentCompactionID.ToPointer(),
 		CompactionPolicy:   nil,
 	}.Build()
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
@@ -79,8 +78,6 @@ func (r *Runtime) GenerateCompaction(
 }
 
 // HandleCompactionResult invokes one public compaction result handler.
-//
-//nolint:dupl // Each closed handler variant validates a different response union member.
 func (r *Runtime) HandleCompactionResult(
 	ctx context.Context,
 	handlerID string,
@@ -143,7 +140,6 @@ func (r *Runtime) observeCompaction(
 	if err != nil {
 		return err
 	}
-	// builder contains the observer invocation and parent lifetime correlation.
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
 	builder := extensionpb.HandleRequest_builder{
 		HandlerId: new(handlerID), Context: mapContext(binding),
@@ -248,7 +244,7 @@ func mapCompactionRequest(request contextcompaction.Request) (*extensionpb.Compa
 	}
 	var previous *extensionpb.SessionTreeCompaction
 	if value, present := request.Previous.Get(); present {
-		previous = mapCompactionMarker(value)
+		previous = extensioncontroller.MapCompactionMarker(value)
 	}
 	return extensionpb.CompactionRequest_builder{
 		Trigger: new(mapCompactionTrigger(request.Trigger)), RetryIntent: new(request.RetryIntent),
@@ -287,11 +283,11 @@ func mapCompactionResult(result contextcompaction.Result) *extensionpb.Compactio
 	return builder.Build()
 }
 
-// mapCompactionResultFromProto retains malformed values for Host validation.
+// mapCompactionResultFromProto decodes a supplied result and optional producer details.
 func mapCompactionResultFromProto(value *extensionpb.CompactionResult) contextcompaction.Result {
 	result := contextcompaction.Result{
 		Summary: value.GetSummary(), FirstKeptEntryID: value.GetFirstKeptEntryId(),
-		Source: mapSummarySourceFromProto(value.GetSource()), Details: mo.None[[]byte](),
+		Source: extensioncontroller.DecodeCompactionSource(value.GetSource()), Details: mo.None[[]byte](),
 	}
 	if value.HasDetails() {
 		result.Details = mo.Some(append([]byte(nil), value.GetDetails()...))
@@ -354,16 +350,13 @@ func mapCompactionResultAction(
 
 // mapCompactionOutcome projects terminal state and optional durable commit.
 func mapCompactionOutcome(invocation contextcompaction.OutcomeInvocation) (*extensionpb.CompactionOutcome, error) {
-	// builder contains the terminal policy outcome for observers.
 	builder := extensionpb.CompactionOutcome_builder{
 		State:     nil,
 		Committed: nil,
 		Canceled:  new(invocation.Canceled),
 		Error:     nil,
 	}
-	// err contains any diagnostic-state or receipt encoding failure.
 	var err error
-	// state contains acquired policy diagnostics; present indicates their availability.
 	if state, present := invocation.State.Get(); present {
 		builder.State, err = mapPolicyState(state)
 		if err != nil {
@@ -382,7 +375,7 @@ func mapCompactionOutcome(invocation contextcompaction.OutcomeInvocation) (*exte
 	return builder.Build(), nil
 }
 
-// mapCompactionRequestFromProto maps replacement state and rejects malformed public entry values.
+// mapCompactionRequestFromProto decodes a public replacement request.
 func mapCompactionRequestFromProto(value *extensionpb.CompactionRequest) (contextcompaction.Request, error) {
 	if !value.HasContextTokensEstimated() || !value.GetContextTokensEstimated() {
 		return contextcompaction.Request{}, errors.New(
@@ -401,13 +394,13 @@ func mapCompactionRequestFromProto(value *extensionpb.CompactionRequest) (contex
 		Trigger:      mapCompactionTriggerFromProto(value.GetTrigger()),
 		RetryIntent:  value.GetRetryIntent(),
 		Instructions: optionalString(value.HasInstructions(), value.GetInstructions()),
-		Model: mapCompactionModelFromProto(
+		Model: extensioncontroller.DecodeCompactionRequestModel(
 			value.GetModel(),
 		),
 		ReasoningChoice:        model.ReasoningChoice(value.GetReasoningChoice()),
 		Prefix:                 prefix,
 		Suffix:                 suffix,
-		Previous:               mapOptionalCompactionMarker(value.GetPrevious()),
+		Previous:               extensioncontroller.DecodeCompactionPrevious(value.GetPrevious()),
 		ContextTokens:          value.GetContextTokens(),
 		ContextTokensEstimated: value.GetContextTokensEstimated(),
 		ContextWindow:          value.GetContextWindow(),
@@ -416,14 +409,14 @@ func mapCompactionRequestFromProto(value *extensionpb.CompactionRequest) (contex
 	}, nil
 }
 
-// mapCompactionEntriesFromProto maps replacement entries through the existing validated public mapper.
+// mapCompactionEntriesFromProto decodes replacement entries and their token estimates.
 func mapCompactionEntriesFromProto(values []*extensionpb.CompactionInputEntry) ([]contextcompaction.InputEntry, error) {
 	entries := make([]contextcompaction.InputEntry, len(values))
 	for index := range values {
 		if values[index] == nil || values[index].GetEntry() == nil {
 			return nil, fmt.Errorf("map replacement compaction entry %d: payload is missing", index)
 		}
-		entry, err := mapSessionEntryFromProto(values[index].GetEntry())
+		entry, err := extensioncontroller.DecodeCompactionRequestEntry(values[index].GetEntry())
 		if err != nil {
 			return nil, fmt.Errorf("map replacement compaction entry %d: %w", index, err)
 		}
@@ -499,19 +492,15 @@ func optionalString(present bool, value string) mo.Option[string] {
 
 // mapPolicyState encodes acquired composition values for outcome observers.
 func mapPolicyState(state contextcompaction.PolicyState) (*extensionpb.CompactionPolicyState, error) {
-	// original and err contain the public original diagnostic request and its encoding failure.
 	original, err := mapCompactionRequest(state.OriginalRequest)
 	if err != nil {
 		return nil, err
 	}
-	// current and err contain the public current diagnostic request and its encoding failure.
 	current, err := mapCompactionRequest(state.CurrentRequest)
 	if err != nil {
 		return nil, err
 	}
-	// result contains the optional public policy candidate.
 	result := (*extensionpb.CompactionResult)(nil)
-	// value contains the acquired candidate; present indicates its availability.
 	if value, present := state.Result.Get(); present {
 		result = mapCompactionResult(value)
 	}
@@ -529,19 +518,15 @@ func mapPolicyStateFromProto(raw *extensionpb.CompactionPolicyState) (contextcom
 			"policy diagnostic original and current requests are required",
 		)
 	}
-	// original and err contain the original diagnostic request and its decoding failure.
 	original, err := mapCompactionRequestFromProto(raw.GetOriginalRequest())
 	if err != nil {
 		return contextcompaction.PolicyState{}, err
 	}
-	// current and err contain the current diagnostic request and its decoding failure.
 	current, err := mapCompactionRequestFromProto(raw.GetCurrentRequest())
 	if err != nil {
 		return contextcompaction.PolicyState{}, err
 	}
-	// result contains the optional acquired policy candidate.
 	result := mo.None[contextcompaction.Result]()
-	// value contains the optional wire candidate.
 	if value := raw.GetResult(); value != nil {
 		result = mo.Some(mapCompactionResultFromProto(value))
 	}
