@@ -68,8 +68,8 @@ func (t *errorCaptureTransport) ErrorBody() []byte {
 	return bytes.Clone(t.body)
 }
 
-// JoinError restores an acquired transport cause absent from the SDK error.
-func (t *errorCaptureTransport) JoinError(err error) error {
+// joinError restores an acquired transport cause absent from the SDK error.
+func (t *errorCaptureTransport) joinError(err error) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.err == nil || errors.Is(err, t.err) {

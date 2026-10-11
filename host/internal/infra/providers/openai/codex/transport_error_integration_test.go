@@ -33,7 +33,7 @@ func TestErrorCaptureTransportJoinsMissingCause(t *testing.T) {
 	require.ErrorIs(t, err, transportErr)
 
 	// Act by restoring the cause the SDK omitted.
-	joined := transport.JoinError(terminalErr)
+	joined := transport.joinError(terminalErr)
 
 	// Assert both acquired causes remain inspectable.
 	require.ErrorIs(t, joined, transportErr)
@@ -62,7 +62,7 @@ func TestErrorCaptureTransportKeepsExistingCause(t *testing.T) {
 			sdkErr := fmt.Errorf("SDK request: %w", cause)
 
 			// Act by combining the SDK and capture results.
-			joined := transport.JoinError(sdkErr)
+			joined := transport.joinError(sdkErr)
 
 			// Assert the full SDK error retains its identity without repetition.
 			assert.Same(t, sdkErr, joined)
