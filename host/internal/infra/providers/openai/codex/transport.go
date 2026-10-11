@@ -21,13 +21,15 @@ type errorCaptureTransport struct {
 	body []byte
 	// err contains the acquired HTTP transport failure.
 	err error
+	// response contains the received HTTP rejection metadata.
+	response *http.Response
 }
 
 var _ http.RoundTripper = (*errorCaptureTransport)(nil)
 
 // newErrorCaptureTransport wraps the SDK's underlying HTTP transport.
 func newErrorCaptureTransport(base http.RoundTripper) *errorCaptureTransport {
-	return &errorCaptureTransport{base: base, mu: sync.Mutex{}, body: nil, err: nil}
+	return &errorCaptureTransport{base: base, mu: sync.Mutex{}, body: nil, err: nil, response: nil}
 }
 
 // RoundTrip retains HTTP failures and restores failed response bodies for the SDK.
@@ -35,6 +37,7 @@ func (t *errorCaptureTransport) RoundTrip(request *http.Request) (_ *http.Respon
 	t.mu.Lock()
 	t.body = nil
 	t.err = nil
+	t.response = nil
 	t.mu.Unlock()
 	defer func() {
 		t.mu.Lock()
@@ -48,16 +51,22 @@ func (t *errorCaptureTransport) RoundTrip(request *http.Request) (_ *http.Respon
 	}
 	body, readErr := io.ReadAll(response.Body)
 	closeErr := response.Body.Close()
+	if readErr == nil {
+		t.mu.Lock()
+		t.body = bytes.Clone(body)
+		t.response = response
+		t.mu.Unlock()
+	}
 	if readErr != nil {
-		return nil, fmt.Errorf("capture failed Codex response: %w", readErr)
+		readErr = fmt.Errorf("capture failed Codex response: %w", readErr)
 	}
 	if closeErr != nil {
-		return nil, fmt.Errorf("close failed Codex response: %w", closeErr)
+		closeErr = fmt.Errorf("close failed Codex response: %w", closeErr)
+	}
+	if readErr != nil || closeErr != nil {
+		return nil, errors.Join(readErr, closeErr)
 	}
 	response.Body = io.NopCloser(bytes.NewReader(body))
-	t.mu.Lock()
-	t.body = bytes.Clone(body)
-	t.mu.Unlock()
 	return response, nil
 }
 
@@ -66,6 +75,13 @@ func (t *errorCaptureTransport) ErrorBody() []byte {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return bytes.Clone(t.body)
+}
+
+// errorResponse returns borrowed rejection metadata; RoundTrip owns the original body and the SDK owns any replay.
+func (t *errorCaptureTransport) errorResponse() *http.Response {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	return t.response
 }
 
 // joinError restores an acquired transport cause absent from the SDK error.

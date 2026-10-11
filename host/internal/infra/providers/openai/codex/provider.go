@@ -485,7 +485,7 @@ func (s *Driver) streamError(
 	if ctx.Err() == nil {
 		return response, failure
 	}
-	if isPureCancellation(streamErr) {
+	if isPureCancellation(failure) {
 		return terminalModelResponse(requestCanceledMessage, model.OutcomeAborted), ctx.Err()
 	}
 	response.Outcome = mo.Some(model.OutcomeAborted)
@@ -516,6 +516,21 @@ func (s *Driver) providerStreamFailure(
 				"OpenAI Codex request failed: %w",
 				streamErr,
 			)
+	}
+	//nolint:bodyclose // RoundTrip owns the original body; the SDK owns any replay.
+	if rejection := transport.errorResponse(); rejection != nil {
+		body := transport.ErrorBody()
+		rejectionErr := fmt.Errorf("HTTP %d %s: %s", rejection.StatusCode, http.StatusText(rejection.StatusCode), body)
+		streamErr = errors.Join(streamErr, rejectionErr)
+		failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
+		if rejection.StatusCode == http.StatusUnauthorized {
+			_, failure = unauthorizedFailure(streamErr, "")
+		}
+		return terminalModelResponse(failure.Error(), model.OutcomeFailed), &modelexecution.ProviderFailureError{
+			Classification: openaifailure.FailureClassification("", rejection.StatusCode, false),
+			RetryDelay:     openaifailure.RetryAfterDelay(rejection),
+			Cause:          failure,
+		}
 	}
 	failure := fmt.Errorf("OpenAI Codex request failed: %w", streamErr)
 	return terminalModelResponse(failure.Error(), model.OutcomeFailed), failure

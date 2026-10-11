@@ -2,6 +2,7 @@ package app
 
 //go:generate go tool mockgen -build_constraint=integration -destination=http_roundtripper_mock_test.go -package=app -mock_names=RoundTripper=MockHTTPRoundTripper net/http RoundTripper
 //go:generate go tool mockgen -build_constraint=integration -destination=cleanup_writer_mock_test.go -package=app -mock_names=Writer=MockCleanupWriter io Writer
+//go:generate go tool mockgen -build_constraint=integration -destination=body_readcloser_mock_test.go -package=app -mock_names=ReadCloser=MockBodyReadCloser io ReadCloser
 
 import (
 	"os"

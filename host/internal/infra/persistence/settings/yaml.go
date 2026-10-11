@@ -181,7 +181,9 @@ func (configured *settingsFile) UnmarshalYAML(node *yaml.Node) error {
 
 // UnmarshalYAML decodes strict compaction policy overrides while retaining scalar presence.
 func (configured *compactionFile) UnmarshalYAML(node *yaml.Node) error {
-	fields, err := decodeYAMLMapping(node, "retainedContextTokens", "participantTimeout")
+	const participantTimeoutKey = "participantTimeout"
+
+	fields, err := decodeYAMLMapping(node, "retainedContextTokens", participantTimeoutKey)
 	if err != nil {
 		return err
 	}
@@ -190,7 +192,7 @@ func (configured *compactionFile) UnmarshalYAML(node *yaml.Node) error {
 		return err
 	}
 	configured.RetainedContextTokens = value
-	timeout, err := decodeYAMLOption[time.Duration](fields, "participantTimeout")
+	timeout, err := decodeYAMLOption[time.Duration](fields, participantTimeoutKey)
 	if err != nil {
 		return fmt.Errorf("decode compaction.participantTimeout: %w", err)
 	}

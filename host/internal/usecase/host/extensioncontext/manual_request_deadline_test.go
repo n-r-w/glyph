@@ -11,6 +11,7 @@ import (
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/suite"
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
@@ -21,6 +22,21 @@ import (
 // TestPolicyRequestDeadline checks invocation bounds and joined child causes.
 func TestPolicyRequestDeadline(t *testing.T) {
 	t.Parallel()
+	// Arrange bounded participants and earlier caller termination.
+	// Act through manual policy ownership under the fake clock.
+	// Assert joined child causes and released state in the suite scenarios.
+	suite.Run(t, new(policyRequestDeadlineSuite))
+}
+
+// policyRequestDeadlineSuite checks bounded participant lifetimes.
+type policyRequestDeadlineSuite struct {
+	// Suite owns assertions for participant lifetime bounds.
+	suite.Suite
+}
+
+// TestScenario checks deadlines and joined child causes under the fake clock.
+func (s *policyRequestDeadlineSuite) TestScenario() {
+	t := s.T()
 	for _, scenario := range []string{"participant", "participant late success", "caller deadline", "caller cancellation"} {
 		t.Run(scenario, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {

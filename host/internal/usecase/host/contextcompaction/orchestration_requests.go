@@ -14,6 +14,8 @@ func (s *Service) composeRequestHandlers(
 	handlers []Handler,
 	original Request,
 ) (Request, mo.Option[Result], bool, error) {
+	const handlerFailureFormat = "compaction request handler %q: %w"
+
 	current := cloneRequest(original)
 	currentResult := mo.None[Result]()
 	for _, handler := range handlers {
@@ -32,7 +34,7 @@ func (s *Service) composeRequestHandlers(
 		if err != nil {
 			canceled, failure := classifyExtensionInvocation(
 				ctx,
-				fmt.Errorf("compaction request handler %q: %w", handler.HandlerID, err),
+				fmt.Errorf(handlerFailureFormat, handler.HandlerID, err),
 			)
 			return current, currentResult, canceled, failure
 		}
@@ -46,7 +48,7 @@ func (s *Service) composeRequestHandlers(
 		)
 		if err != nil {
 			return current, currentResult, false, extensionFailure(
-				fmt.Errorf("compaction request handler %q: %w", handler.HandlerID, err),
+				fmt.Errorf(handlerFailureFormat, handler.HandlerID, err),
 			)
 		}
 		if canceled {
@@ -65,16 +67,12 @@ func (s *Service) applyValidatedRequestAction(
 	handler Handler,
 	action RequestAction,
 ) (Request, mo.Option[Result], bool, error) {
-	var err error
 	if replacement, present := action.Result.Get(); action.ResultAction == ResultActionReplace && present {
-		err = validateProducer(handler.ExtensionID, replacement)
+		if err := validateProducer(handler.ExtensionID, replacement); err != nil {
+			return Request{}, mo.None[Result](), false, err
+		}
 	}
-	nextRequest := cloneRequest(current)
-	nextResult := cloneOptionalResult(currentResult)
-	var canceled bool
-	if err == nil {
-		nextRequest, nextResult, canceled, err = applyRequestAction(current, currentResult, action)
-	}
+	nextRequest, nextResult, canceled, err := applyRequestAction(current, currentResult, action)
 	if err == nil && !canceled {
 		nextRequest, err = s.deriveReplacementEstimates(original, current, nextRequest)
 	}

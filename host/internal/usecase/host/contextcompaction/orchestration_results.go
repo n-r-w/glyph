@@ -34,6 +34,8 @@ func (s *Service) composeResultHandlers(
 	original, current Request,
 	originalResult Result,
 ) (Result, bool, error) {
+	const handlerFailureFormat = "compaction result handler %q: %w"
+
 	result := cloneResult(originalResult)
 	for _, handler := range handlers {
 		binding, err := s.contexts.IssueContext(handler.ExtensionID)
@@ -53,7 +55,7 @@ func (s *Service) composeResultHandlers(
 		if err != nil {
 			canceled, failure := classifyExtensionInvocation(
 				ctx,
-				fmt.Errorf("compaction result handler %q: %w", handler.HandlerID, err),
+				fmt.Errorf(handlerFailureFormat, handler.HandlerID, err),
 			)
 			return result, canceled, failure
 		}
@@ -61,7 +63,7 @@ func (s *Service) composeResultHandlers(
 		result, canceled, err = s.applyValidatedResultAction(snapshot, handler, result, action)
 		if err != nil {
 			return result, false, extensionFailure(
-				fmt.Errorf("compaction result handler %q: %w", handler.HandlerID, err),
+				fmt.Errorf(handlerFailureFormat, handler.HandlerID, err),
 			)
 		}
 		if canceled {

@@ -36,6 +36,8 @@ Host returns the action and retains operation ownership. The reference extension
 - `TestProgrammaticManualCancellationStopsNestedModel` includes participant-owned configured-model work. Public parent cancellation stops that provider work before terminal return and leaves the original history intact.
 - `TestProgrammaticManualParticipantTimeout` configures a two-second participant duration through YAML and enters through Programmatic manual compaction without caller cancellation. The real participant handles a model-selection rejection, then starts nested configured-model work. The provider transport returns cancellation joined with `nested provider cleanup source`. The test checks timeout text, both acquired causes, stopped provider work before terminal return, and retained original history.
 
+- `TestProgrammaticManualProviderFailures` exercises nested configured-model work during participant expiry. Its cases return an HTTP rejection, fail cleanup after reading a complete rejection body, or fail both response-body reading and closing. It checks the received rejection body and HTTP status alongside any acquired cleanup cause, or both body-failure messages, in the public operation failure. It also checks the earlier model-selection cause, joined provider work, and retained original history.
+
 These tests replace only the external provider HTTP transport. UI evidence enters through the established public UI protocol fixture. It is not an interactive terminal proof.
 
 ## Layer evidence
@@ -45,6 +47,10 @@ These tests replace only the external provider HTTP transport. UI evidence enter
 `TestCompactionRequestValues` checks detached preceding-marker details and persisted accounting through request mapping. The shared marker and public-value mappers retain their automatic, overflow, and manual consumers.
 
 `TestPolicyRequestDeadline` uses a fake clock to check participant expiry, an earlier caller deadline with its cause, caller cancellation with its cause, joined delayed child cleanup, and released lifetime state. The existing successful request-action tests check normal teardown. `TestSettingsSuite` checks the five-minute default, a configured positive duration, and rejection of zero, negative, and malformed durations through the YAML loader.
+
+`TestDriverStreamCancellationRetainsHTTPRejection` checks the complete received body, including malformed text, and HTTP status in the canceled provider error and terminal response. It checks retry classification and provider delay in the returned error. `TestErrorCaptureTransportRetainsReadAndCloseCauses` and `TestDriverStreamRetainsReadAndCloseCauses` check both acquired body-failure identities through capture and model execution. Their close-only cases check the received rejection status and complete body alongside the acquired cleanup cause. `TestErrorCaptureTransportKeepsExistingCause` includes an SDK-supplied HTTP rejection and checks SDK error identity and unrepeated diagnostics.
+
+`TestRequestProducerFailureRetainsPrecedingState` checks detached successful result details and unchanged failure-observer state after a later producer mismatch in retained threshold orchestration. It passes with both the preceding helper and the helper that validates the producer before acquiring its detached next values.
 
 Layer tests establish the corresponding logic under their mock or pure-mapping contracts. The public cases above establish runtime and session wiring.
 
@@ -73,6 +79,14 @@ Checkpoint `84446d6` is intermediate evidence. The deadline correction and the b
 Fresh compiling RED runs reproduced the loss of a transport cause returned after request cancellation. `TestDriverStreamCancellationRetainsTransportFailure` failed on missing error identity at the Codex boundary. `TestProgrammaticManualParticipantTimeout` failed on the missing transport marker in the public failure. Both tests pass after the correction in the existing Codex capture transport. These executions reconstruct the behavior; the earlier temporary probe has no retained source snapshot or recorded intermediate SDK error values.
 
 `TestErrorCaptureTransportJoinsMissingCause` failed when the combining method omitted the acquired cause, then passed after restoration. `TestErrorCaptureTransportKeepsExistingCause` characterizes preservation of the full SDK error when it already contains the captured cause. The provider suite also checks pure cancellation, stream-finalization failures, and terminal-delivery failures. The adapter combines acquired transport errors before cancellation classification and assembler finalization. Dependencies, public schemas, retry policy, and participant ownership remain unchanged. UNT-05 acceptance remains pending.
+
+### Received rejection and body-cleanup corrections
+
+Fresh compiling permanent regressions failed because cancellation hid a received HTTP rejection and because a response-body read failure hid its acquired close cause. The failures occurred at capture, provider execution, and Programmatic manual-operation boundaries. The corresponding regressions pass after correction.
+
+A further close-only regression failed when cleanup discarded a completely read rejection. Its capture, provider, and public executions pass after the transport retains that rejection before returning the cleanup failure.
+
+The capture transport retains rejection metadata with its complete received body and combines acquired read and close causes. Successful capture replays the body for the SDK. The capture transport owns the original body and calls its close method once. When the SDK omits a received rejection, the provider includes the status and complete body in its failure, uses the received status and headers for classification and delay, and retains cancellation in the aborted outcome. An SDK-supplied rejection uses the SDK's error identity. Pure cancellation and ordinary retries retain their existing behavior. UNT-05 acceptance remains pending.
 
 ## Migration boundary
 
