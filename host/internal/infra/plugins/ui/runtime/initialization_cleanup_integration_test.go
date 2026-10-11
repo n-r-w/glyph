@@ -142,7 +142,6 @@ func TestCanceledBlockedInitializationUsesOneGrace(t *testing.T) {
 
 // TestUsesOneGrace checks shared cleanup grace after a successful initialization Send.
 func (s *canceledInitializationSuite) TestUsesOneGrace() {
-	// t owns this suite scenario's context and cleanup.
 	t := s.T()
 
 	// Arrange an unread peer: the first large Send can queue, but leaves insufficient quota for the cancellation Send.
@@ -176,9 +175,7 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 	var concurrentReceives, closeOverlappedSend atomic.Bool
 	writerCause := errors.New("independent initialization writer failure")
 	receiveCause := errors.New("independent initialization receive failure")
-	// closeReceiveCause identifies the independent close-drain receive failure.
 	closeReceiveCause := errors.New("independent initialization close receive failure")
-	// closeSendCause identifies the independent CloseSend failure.
 	closeSendCause := errors.New("independent initialization CloseSend failure")
 	// observed records transport calls while delegating to the real stream.
 	observed := NewMockUIService_OpenClient[uiv1.OpenRequest, uiv1.OpenResponse](gomock.NewController(t))
@@ -189,7 +186,6 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 	})).DoAndReturn(func(request *uiv1.OpenRequest) error {
 		activeSends.Add(1)
 		initializationRequest = request
-		// err reports the initial raw Send result.
 		err := stream.Send(request)
 		activeSends.Add(-1)
 		initializationSent <- err
@@ -201,7 +197,6 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 	})).After(initializationSend).DoAndReturn(func(request *uiv1.OpenRequest) error {
 		activeSends.Add(1)
 		cancellationStarted <- struct{}{}
-		// err includes the raw cancellation Send result and the independent writer cause.
 		err := errors.Join(stream.Send(request), writerCause)
 		activeSends.Add(-1)
 		cancellationReturned <- err
@@ -213,7 +208,6 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 			concurrentReceives.Store(true)
 		}
 		close(receiveStarted)
-		// response and err report the raw initialization Recv result.
 		response, err := stream.Recv()
 		err = errors.Join(err, receiveCause)
 		activeReceives.Add(-1)
@@ -224,7 +218,6 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 		if activeReceives.Add(1) != 1 {
 			concurrentReceives.Store(true)
 		}
-		// response and err report the raw close-drain Recv result.
 		response, err := stream.Recv()
 		err = errors.Join(err, closeReceiveCause)
 		activeReceives.Add(-1)
@@ -236,7 +229,6 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 			closeOverlappedSend.Store(true)
 			cancelStream()
 		}
-		// err includes the raw CloseSend result and the independent close cause.
 		err := errors.Join(stream.CloseSend(), closeSendCause)
 		closeSendReturned <- err
 		return err
@@ -272,13 +264,11 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 	require.EqualValues(t, 1, activeSends.Load())
 	require.EqualValues(t, 1, activeReceives.Load())
 	select {
-	// err reports an early cancellation Send completion.
 	case err := <-cancellationReturned:
 		t.Fatalf("cancellation Send returned before grace cancellation: %v", err)
 	default:
 	}
 	select {
-	// err reports an early initialization Recv completion.
 	case err := <-receiveReturned:
 		t.Fatalf("initialization Recv returned before grace cancellation: %v", err)
 	default:
@@ -302,12 +292,10 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 	require.GreaterOrEqual(t, time.Since(canceledAt), unsuccessfulInitializationGracePeriod)
 	require.ErrorIs(t, initializationErr, context.DeadlineExceeded)
 	require.ErrorContains(t, initializationErr, "UI unsuccessful initialization cleanup timed out after 1s")
-	// cause identifies each required caller or transport failure.
 	for _, cause := range []error{callerCause, writerCause, receiveCause, closeReceiveCause, closeSendCause} {
 		require.ErrorIs(t, initializationErr, cause)
 		require.ErrorContains(t, initializationErr, cause.Error())
 	}
-	// name labels the raw call whose completion channel is returned.
 	for name, returned := range map[string]<-chan error{
 		"cancellation Send":   cancellationReturned,
 		"initialization Recv": receiveReturned,
@@ -315,7 +303,6 @@ func (s *canceledInitializationSuite) TestUsesOneGrace() {
 		"CloseSend":           closeSendReturned,
 	} {
 		select {
-		// err reports the completed raw call failure.
 		case err := <-returned:
 			require.Error(t, err, name)
 		default:

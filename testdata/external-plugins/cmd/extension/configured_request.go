@@ -164,18 +164,13 @@ func startConfiguredModel(
 // newConfiguredModelRequest builds explicit text history for public fixture operations.
 func newConfiguredModelRequest(instructions, reasoningChoice string) *extensionv1.ConfiguredModelRequest {
 	const (
-		// configuredProviderID selects the provider for nested fixture requests.
 		configuredProviderID = "openai-codex"
 		// configuredModelID selects the image-capable model for nested fixture requests.
-		configuredModelID = "gpt-test"
-		// configuredFirstUserText starts the nested user history.
-		configuredFirstUserText = "first user"
-		// configuredAssistantReplyText supplies the first assistant text block.
-		configuredAssistantReplyText = "assistant reply"
-		// configuredAssistantContinuationText supplies the second assistant text block.
+		configuredModelID                   = "gpt-test"
+		configuredFirstUserText             = "first user"
+		configuredAssistantReplyText        = "assistant reply"
 		configuredAssistantContinuationText = "assistant continuation"
-		// configuredSecondUserText ends the nested user history.
-		configuredSecondUserText = "second user"
+		configuredSecondUserText            = "second user"
 	)
 	return extensionv1.ConfiguredModelRequest_builder{
 		Context: nil,

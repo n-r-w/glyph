@@ -34,19 +34,12 @@ const (
 //nolint:paralleltest // The scenarios replace process-global provider HTTP transport.
 func TestPublicConfiguredRequestAcrossApplicationModes(t *testing.T) {
 	const (
-		// configuredRequestMode selects the text-only fixture request.
-		configuredRequestMode = "configured-request"
-		// configuredInputMode selects the image fixture request.
-		configuredInputMode = "configured-input"
-		// configuredEmptyRequestMode selects the text-only request with empty instructions.
-		configuredEmptyRequestMode = "configured-request-empty"
-		// configuredEmptyInputMode selects the image request with empty instructions.
-		configuredEmptyInputMode = "configured-input-empty"
-		// configuredInstructions contains the exact caller instructions.
-		configuredInstructions = "extension instructions"
-		// configuredRequestPrompt invokes the fixture tool from the conversation.
-		configuredRequestPrompt = "request configured model"
-		// configuredProviderRejectionStatus identifies the remote HTTP failure in public errors.
+		configuredRequestMode             = "configured-request"
+		configuredInputMode               = "configured-input"
+		configuredEmptyRequestMode        = "configured-request-empty"
+		configuredEmptyInputMode          = "configured-input-empty"
+		configuredInstructions            = "extension instructions"
+		configuredRequestPrompt           = "request configured model"
 		configuredProviderRejectionStatus = "400 Bad Request "
 	)
 	// Arrange one public-only extension binary shared by each isolated application scenario.
@@ -62,16 +55,11 @@ func TestPublicConfiguredRequestAcrossApplicationModes(t *testing.T) {
 		{name: "programmatic", mode: cli.ModeRPC},
 	} {
 		for _, input := range []struct {
-			// name identifies the public input scenario.
-			name string
-			// fixtureMode selects the extension request operation.
-			fixtureMode string
-			// instructions contains the caller's exact instructions.
+			name         string
+			fixtureMode  string
 			instructions string
-			// images selects ordered image assertions.
-			images bool
-			// rejected selects a remote provider rejection.
-			rejected bool
+			images       bool
+			rejected     bool
 		}{
 			{
 				name: "text", fixtureMode: configuredRequestMode, instructions: configuredInstructions,
@@ -126,10 +114,8 @@ func TestPublicConfiguredRequestAcrossApplicationModes(t *testing.T) {
 				}
 				if input.images {
 					var report struct {
-						// ResultJSON is the nested public response.
-						ResultJSON string `json:"result_json"`
-						// Errors contains complete public rejection causes.
-						Errors map[string]string `json:"errors"`
+						ResultJSON string            `json:"result_json"`
+						Errors     map[string]string `json:"errors"`
 					}
 					require.NoError(t, json.Unmarshal([]byte(encoded), &report))
 					assertConfiguredInputErrors(t, report.Errors)
@@ -181,18 +167,12 @@ func configuredRequestProviderTransport(
 ) (*MockHTTPRoundTripper, *requestBodies) {
 	t.Helper()
 	const (
-		// configuredProviderRejectionBody contains the complete remote validation error.
 		configuredProviderRejectionBody = `{"error":` + configuredProviderRejectionDetail + `}`
-		// configuredModelMatch identifies the nested provider request in serialized JSON.
-		configuredModelMatch = `"model":"` + configuredRequestModelID + `"`
-		// originalToolNameJSON identifies the tool in the source provider response.
-		originalToolNameJSON = `"bash"`
-		// configuredToolNameJSON identifies the public fixture tool in the provider response.
-		configuredToolNameJSON = `"external"`
-		// originalToolArgumentsJSON identifies the tool arguments in the source response.
-		originalToolArgumentsJSON = `{\"command\":\"printf tool-ok\"}`
-		// configuredToolArgumentsFormat inserts the selected fixture mode into tool arguments.
-		configuredToolArgumentsFormat = `{\"mode\":\"%s\"}`
+		configuredModelMatch            = `"model":"` + configuredRequestModelID + `"`
+		originalToolNameJSON            = `"bash"`
+		configuredToolNameJSON          = `"external"`
+		originalToolArgumentsJSON       = `{\"command\":\"printf tool-ok\"}`
+		configuredToolArgumentsFormat   = `{\"mode\":\"%s\"}`
 	)
 
 	bodies := new(requestBodies)
@@ -234,14 +214,11 @@ func assertConfiguredProviderRequest(t *testing.T, body []byte, instructions str
 	t.Helper()
 	const (
 		// configuredReasoningEffort is the provider effort for the nested reasoning choice.
-		configuredReasoningEffort = "high"
-		// configuredTextUserContent contains the first user's text-only provider input.
-		configuredTextUserContent = `[{"type":"input_text","text":"first user"}]`
-		// configuredImageUserContent contains the first user's ordered text and image input.
+		configuredReasoningEffort  = "high"
+		configuredTextUserContent  = `[{"type":"input_text","text":"first user"}]`
 		configuredImageUserContent = `[{"type":"input_text","text":"first user"},` +
 			`{"type":"input_image","detail":"auto","image_url":"data:image/png;base64,AAEC/w=="},` +
 			`{"type":"input_text","text":"after image"}]`
-		// configuredProviderHistoryFormat inserts the first user's content into the complete history.
 		configuredProviderHistoryFormat = `[{"type":"message","role":"user","content":%s},` +
 			`{"type":"message","role":"assistant","content":"assistant reply"},` +
 			`{"type":"message","role":"assistant","content":"assistant continuation"},` +
@@ -251,14 +228,11 @@ func assertConfiguredProviderRequest(t *testing.T, body []byte, instructions str
 		// Model identifies the explicit configured model.
 		Model string `json:"model"`
 		// Instructions contains exact extension instructions.
-		Instructions *string `json:"instructions"`
-		// Input contains the complete ordered provider history.
-		Input jsontext.Value `json:"input"`
+		Instructions *string        `json:"instructions"`
+		Input        jsontext.Value `json:"input"`
 		// Tools contains supplied provider tools.
-		Tools []jsontext.Value `json:"tools"`
-		// Reasoning contains the provider reasoning control.
+		Tools     []jsontext.Value `json:"tools"`
 		Reasoning struct {
-			// Effort contains the mapped explicit reasoning choice.
 			Effort string `json:"effort"`
 		} `json:"reasoning"`
 	}
@@ -268,12 +242,10 @@ func assertConfiguredProviderRequest(t *testing.T, body []byte, instructions str
 	assert.Equal(t, instructions, *request.Instructions)
 	assert.Empty(t, request.Tools)
 	assert.Equal(t, configuredReasoningEffort, request.Reasoning.Effort)
-	// firstContent is the expected first user input for the selected content scenario.
 	firstContent := configuredTextUserContent
 	if images {
 		firstContent = configuredImageUserContent
 	}
-	// expected is the provider history required by the public request contract.
 	expected := fmt.Sprintf(configuredProviderHistoryFormat, firstContent)
 	assert.JSONEq(t, expected, string(request.Input))
 }
@@ -282,29 +254,20 @@ func assertConfiguredProviderRequest(t *testing.T, body []byte, instructions str
 func assertOuterRequestUnaffected(t *testing.T, body []byte) {
 	t.Helper()
 	const (
-		// configuredActiveModelID identifies the unchanged conversation model.
 		configuredActiveModelID = "gpt-active"
 		// configuredActiveReasoningEffort is the provider effort for disabled conversation reasoning.
-		configuredActiveReasoningEffort = "none"
-		// configuredFirstUserText identifies the first nested user block for isolation checks.
-		configuredFirstUserText = "first user"
-		// configuredAssistantReplyText identifies the first nested assistant block for isolation checks.
-		configuredAssistantReplyText = "assistant reply"
-		// configuredAssistantContinuationText identifies the second nested assistant block for isolation checks.
+		configuredActiveReasoningEffort     = "none"
+		configuredFirstUserText             = "first user"
+		configuredAssistantReplyText        = "assistant reply"
 		configuredAssistantContinuationText = "assistant continuation"
-		// configuredAfterImageText identifies the nested text block after the image for isolation checks.
-		configuredAfterImageText = "after image"
-		// configuredImageDataURL identifies the exact nested image bytes for isolation checks.
-		configuredImageDataURL = "data:image/png;base64,AAEC/w=="
-		// configuredSecondUserText identifies the last nested user block for isolation checks.
-		configuredSecondUserText = "second user"
+		configuredAfterImageText            = "after image"
+		configuredImageDataURL              = "data:image/png;base64,AAEC/w=="
+		configuredSecondUserText            = "second user"
 	)
 	var request struct {
 		// Model identifies the active conversation model.
-		Model string `json:"model"`
-		// Reasoning contains the active conversation reasoning control.
+		Model     string `json:"model"`
 		Reasoning struct {
-			// Effort contains the mapped active reasoning choice.
 			Effort string `json:"effort"`
 		} `json:"reasoning"`
 	}

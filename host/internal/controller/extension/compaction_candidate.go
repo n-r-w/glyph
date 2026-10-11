@@ -44,16 +44,12 @@ func mapPolicyCandidateSource(raw *extensionpb.BranchSummarySource) (session.Com
 			Model:       mo.None[session.BranchSummaryModelSource](),
 		}, nil
 	}
-	// produced contains model attribution for the candidate.
 	produced := raw.GetModel()
 	if produced == nil || produced.GetSelection() == nil {
 		return session.CompactionSource{}, errors.New("compaction model source selection is required")
 	}
-	// selection contains the producer model binding.
 	selection := produced.GetSelection()
-	// usage contains optional producer token accounting.
 	usage := mo.None[session.TokenUsage]()
-	// reported contains token accounting; its presence selects reported usage.
 	if reported := produced.GetUsage(); reported != nil {
 		usage = mo.Some(session.TokenUsage{
 			InputTokens: reported.GetInputTokens(), OutputTokens: reported.GetOutputTokens(),
@@ -74,11 +70,9 @@ func (o *contextOperation) runPolicyCandidate(
 	ctx context.Context,
 	candidate policyCandidate,
 ) (*extensionpb.HostCompleted, error) {
-	// completed contains the public candidate operation result.
 	completed := new(extensionpb.HostCompleted)
 	switch candidate.kind {
 	case policyCandidateProjection:
-		// history and err contain the candidate model input and its projection failure.
 		history, err := o.service.compactionPolicy.ProjectPolicyReplacement(
 			ctx,
 			o.service.extensionID,
@@ -89,14 +83,12 @@ func (o *contextOperation) runPolicyCandidate(
 		if err != nil {
 			return nil, extensionsdk.Fail(compactionFailureCode(err), err)
 		}
-		// mapped and err contain public history and its encoding failure.
 		mapped, err := MapCompactionHistory(history)
 		if err != nil {
 			return nil, extensionsdk.Fail(internalFailureCode, err)
 		}
 		completed.SetProjectCompaction(extensionpb.CompactionProjection_builder{History: mapped}.Build())
 	case policyCandidateReplacement:
-		// entry and commitErr contain the durable receipt and replacement failure.
 		entry, commitErr := o.service.compactionPolicy.CommitPolicyReplacement(
 			ctx,
 			o.service.extensionID,
@@ -104,12 +96,10 @@ func (o *contextOperation) runPolicyCandidate(
 			candidate.operationID,
 			candidate.value,
 		)
-		// receipt contains the persisted entry when persistence supplied an entry identifier.
 		receipt := mo.None[session.Entry]()
 		if entry.ID != "" {
 			receipt = mo.Some(entry)
 		}
-		// mapped and err contain the public receipt outcome and its mapping failure.
 		mapped, err := mapCompactionCompletion(ctx, CompactionResult{Committed: receipt, Canceled: false}, commitErr)
 		if err != nil {
 			return nil, err

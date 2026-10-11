@@ -23,9 +23,7 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 	t := s.T()
 	// Arrange a rejected preliminary projection and a valid final replacement.
 	service, policy, owner := newManualPolicyOperationFixture(t)
-	// sessions supplies projection and replacement behavior.
 	sessions := service.compactionSessions.(*MockCompactionSessions)
-	// candidate contains the proposed replacement.
 	candidate := session.CompactionEntry{
 		Summary:          "summary",
 		FirstKeptEntryID: "leaf",
@@ -36,9 +34,7 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 		EstimatedCost: mo.None[session.EstimatedCost](),
 		Details:       mo.None[[]byte](),
 	}
-	// receipt contains the durable replacement entry.
 	receipt := newManualTestReceipt(candidate)
-	// rejected is the preliminary projection failure.
 	rejected := errors.New("proposed boundary separates a tool call from its result")
 	sessions.EXPECT().ProjectReplacement(gomock.Any(), candidate).Return(nil, rejected)
 	sessions.EXPECT().CommitReplacement(gomock.Any(), gomock.Any(), candidate, gomock.Any(), gomock.Any()).DoAndReturn(
@@ -49,7 +45,6 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 	)
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
-			// release and err contain child admission ownership and its failure.
 			release, err := service.BeginCompactionChild(
 				owner.ExtensionID,
 				owner.RuntimeID,
@@ -58,9 +53,7 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 			if err != nil {
 				return false, err
 			}
-			// childContext and unlink contain parent-linked cancellation and its release.
 			childContext, unlink := service.LinkCompactionChild(ctx, invocation.LifecycleID)
-			// proposalErr contains the rejected preliminary projection cause.
 			_, proposalErr := service.ProjectPolicyReplacement(
 				childContext,
 				owner.ExtensionID,

@@ -22,10 +22,10 @@ type hostContractMatrixSuite struct {
 
 // TestHostRequestContracts checks every current request and completion discriminator.
 func TestHostRequestContracts(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the Host request contract matrix.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through request classification and terminal validation.
+	// Assert matching payloads and failure-category limits in the suite scenarios.
 	suite.Run(t, &hostContractMatrixSuite{Suite: suite.Suite{}})
 }
 
@@ -34,11 +34,8 @@ func (s *hostContractMatrixSuite) TestScenario() {
 	t := s.T()
 	// Arrange the current public request/completion pairs.
 	for _, scenario := range []struct {
-		// kind identifies the expected initiated contract.
-		kind hostRequestKind
-		// request selects one public request payload.
-		request *extensionpb.ExtensionRequest
-		// completed selects its public completion payload.
+		kind      hostRequestKind
+		request   *extensionpb.ExtensionRequest
 		completed *extensionpb.HostCompleted
 		// validationFailure reports an incomplete required result.
 		validationFailure bool
@@ -156,7 +153,6 @@ func (s *hostContractMatrixSuite) TestScenario() {
 		require.Equal(t, scenario.kind, classifyHostRequest(scenario.request))
 		require.True(t, scenario.kind.matchesHostCompleted(scenario.completed))
 		require.False(t, scenario.kind.matchesHostCompleted(nil))
-		// err contains the completion-validation error for the scenario.
 		err := scenario.kind.validateHostCompleted(scenario.completed)
 		// Assert exact established malformed-result behavior and common code allowances.
 		if scenario.validationFailure {
@@ -180,9 +176,7 @@ func (s *hostContractMatrixSuite) TestFailureFamilies() {
 	t := s.T()
 	// Arrange the independent append, selection, and compaction failure contracts.
 	families := []struct {
-		// kinds identifies the request variants with this failure contract.
-		kinds []hostRequestKind
-		// allowed lists the exact operation-specific categories for those variants.
+		kinds   []hostRequestKind
 		allowed []string
 	}{
 		{
@@ -208,7 +202,6 @@ func (s *hostContractMatrixSuite) TestFailureFamilies() {
 			},
 		},
 	}
-	// categories includes related categories and categories that belong to other requests.
 	categories := []string{
 		hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable,
 		hostFailureCodeModelFailed, hostFailureCodeRetryExhausted, hostFailureCodeRetryCanceled,
@@ -216,14 +209,10 @@ func (s *hostContractMatrixSuite) TestFailureFamilies() {
 		hostFailureCodeSessionUnavailable, hostFailureCodePersistenceUnavailable,
 		hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable, hostFailureCodeCompactionFailed,
 	}
-	// family contains the expected failure contract for its request variants.
 	for _, family := range families {
-		// kind identifies the request variant under test.
 		for _, kind := range family.kinds {
-			// category contains the failure category under test.
 			for _, category := range categories {
 				// Act through SDK category validation for this request.
-				// err contains the category-validation error for this request.
 				err := kind.validateHostFailureCode(category)
 				// Assert the independent category set, including rejection of unrelated categories.
 				if slices.Contains(family.allowed, category) {

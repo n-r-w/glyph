@@ -38,7 +38,6 @@ func TestManagerCloseStartsAllRuntimeShutdowns(t *testing.T) {
 	t.Cleanup(func() { release(); _ = service.Close() })
 	// releaseStarted exposes each independent connection's cleanup entry.
 	releaseStarted := map[string]chan struct{}{"first": make(chan struct{}), "second": make(chan struct{})}
-	// sources distinguish acquired failures from both runtime owners.
 	sources := map[string]error{
 		"first":  errors.New("complete first runtime Host source"),
 		"second": errors.New("complete second runtime Host source"),
@@ -72,7 +71,6 @@ func TestManagerCloseStartsAllRuntimeShutdowns(t *testing.T) {
 	accepted := make([]startup.AcceptedRegistration, 0, 2)
 	for _, extensionID := range []string{"first", "second"} {
 		path := filepath.Join(directory, extensionID)
-		// script keeps the child invocation active until manager Close.
 		script := fmt.Sprintf(shutdownScriptTemplate,
 			runtimeHelperEnvironment, shutdownHostWorkActiveMode, os.Args[0])
 		require.NoError(t, writeRuntimeExecutable(path, script))

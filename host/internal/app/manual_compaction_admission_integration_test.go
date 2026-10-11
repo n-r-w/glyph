@@ -39,16 +39,15 @@ type admissionWireSuite struct {
 
 // TestManualChildRejectionCarriesParentCauseThroughSDK checks a distinct canceled-parent cause before admission.
 func TestManualChildRejectionCarriesParentCauseThroughSDK(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the public child-admission suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through a nested SDK request after parent cancellation.
+	// Assert the received owning cause before parent settlement in TestScenario.
 	suite.Run(t, &admissionWireSuite{Suite: suite.Suite{}})
 }
 
 // TestScenario checks the received child rejection before parent settlement can supplement it.
 func (s *admissionWireSuite) TestScenario() {
-	// canceledParentAdmissionGuidance selects a nested request after parent cancellation.
 	const canceledParentAdmissionGuidance = "request-after-parent-cancellation"
 
 	t := s.T()

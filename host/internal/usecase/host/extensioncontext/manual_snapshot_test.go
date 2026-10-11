@@ -25,34 +25,25 @@ func (s *manualPolicyUsesOneCapturedSessionSuite) TestScenario() {
 	t := s.T()
 	// Arrange a captured owner and history distinct from earlier caller input.
 	controller := gomock.NewController(t)
-	// runtime supplies the captured runtime identity.
 	runtime := NewMockRuntimeState(controller)
-	// sessions supplies the active session identity.
 	sessions := NewMockSessionState(controller)
-	// policy supplies the captured policy invocation.
 	policy := NewMockPolicyRuntime(controller)
 	policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).AnyTimes()
-	// compactionSessions supplies snapshot capture behavior.
 	compactionSessions := NewMockCompactionSessions(controller)
-	// identity identifies the captured session incarnation.
 	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
-	// owner identifies the captured policy handler and runtime.
 	owner := PolicyOwner{ExtensionID: "policy", RuntimeID: "captured-generation", HandlerID: "manual"}
 	runtime.EXPECT().ContextRuntime(owner.ExtensionID).Return(owner.RuntimeID, true)
 	sessions.EXPECT().ContextSession().Return(identity)
 	policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner})
-	// capturedHistory contains session history at admission.
 	capturedHistory := []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("captured history")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}}
-	// snapshot contains the captured branch and model history.
 	snapshot := CompactionSnapshot{
 		Identity: identity, ActiveLeafID: mo.Some("leaf"), Entries: nil,
 		History: capturedHistory, Previous: mo.None[session.CompactionEntry](),
 	}
 	compactionSessions.EXPECT().CaptureCompaction().Return(snapshot)
-	// cause is the captured runtime transport failure.
 	cause := errors.New("captured runtime became unavailable: original transport cause")
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, actualOwner PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
@@ -64,7 +55,6 @@ func (s *manualPolicyUsesOneCapturedSessionSuite) TestScenario() {
 			return false, cause
 		},
 	)
-	// service owns the manual operation under test.
 	service := New(runtime, sessions)
 	service.policyRuntime = policy
 	service.compactionSessions = compactionSessions

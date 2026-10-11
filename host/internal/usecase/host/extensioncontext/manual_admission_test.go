@@ -25,10 +25,10 @@ type parentAdmissionSuite struct {
 
 // TestManualChildAdmissionRetainsDistinctParentCause checks the rejection before parent settlement.
 func TestManualChildAdmissionRetainsDistinctParentCause(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the ended-parent admission suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through child admission after parent cancellation.
+	// Assert the original parent cause before settlement in TestScenario.
 	suite.Run(t, &parentAdmissionSuite{Suite: suite.Suite{}})
 }
 
@@ -37,15 +37,12 @@ func (s *parentAdmissionSuite) TestScenario() {
 	t := s.T()
 	// Arrange a captured operation canceled before a correlated request is admitted.
 	service, policy, owner := newManualPolicyOperationFixture(t)
-	// cause is the original parent cancellation failure.
 	cause := errors.New("original owning cancellation before child admission")
-	// parent and cancel own the canceled invocation lifetime.
 	parent, cancel := context.WithCancelCause(t.Context())
 	defer cancel(nil)
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, target PolicyOwner, binding extension.Context, invocation PolicyInvocation) (bool, error) {
 			cancel(cause)
-			// release and err contain child admission ownership and its failure.
 			release, err := service.BeginCompactionChild(owner.ExtensionID, owner.RuntimeID, invocation.LifecycleID)
 			// Assert the rejected child's acquired cause independently of the eventual parent error.
 			require.Nil(t, release)

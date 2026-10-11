@@ -345,11 +345,8 @@ func (s *server) prepareInvocation(
 		return nil, err
 	}
 	boundContext := context.WithValue(ctx, invocationContextKey{}, binding)
-	// policy contains optional invocation-scoped replacement authority.
 	policy := mo.None[CompactionPolicyContext]()
-	// input contains the optional captured policy input.
 	if input := request.GetHandle().GetCompactionPolicy(); input != nil {
-		// policyValue contains detached input and scoped replacement authority.
 		policyValue := CompactionPolicyContext{
 			invocation: proto.CloneOf(input), extension: binding,
 			parentCompactionID: request.GetHandle().GetParentCompactionId(),
@@ -357,9 +354,7 @@ func (s *server) prepareInvocation(
 		policy = mo.Some(policyValue)
 		boundContext = context.WithValue(boundContext, compactionPolicyContextKey{}, &policyValue)
 	}
-	// parentCompactionID identifies the nested-work lifetime.
 	parentCompactionID := mo.EmptyableToOption(request.GetHandle().GetParentCompactionId())
-	// parentID and present identify the nested-work lifetime.
 	if parentID, present := parentCompactionID.Get(); present {
 		boundContext = context.WithValue(boundContext, parentCompactionContextKey{}, parentID)
 	}
@@ -384,7 +379,6 @@ func (s *server) prepareBoundHandler(
 	policy mo.Option[CompactionPolicyContext],
 	parentID mo.Option[string],
 ) (operation.Prepared[*extensionpb.ToolProgress, extensionResult], error) {
-	// admitted and err contain the prepared callback owner and its admission failure.
 	admitted, err := s.service.PrepareHandle(ctx, request)
 	if err != nil {
 		return nil, err
@@ -464,7 +458,6 @@ func (s *server) validateHandle(request *extensionpb.HandleRequest) error {
 
 // newHandlerPayloadPredicates constructs the bounded handler payload table.
 func newHandlerPayloadPredicates() map[extensionpb.HandlerKind]func(*extensionpb.HandleRequest) bool {
-	// predicates contains handler payload matching rules by kind.
 	predicates := map[extensionpb.HandlerKind]func(*extensionpb.HandleRequest) bool{
 		extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST: func(request *extensionpb.HandleRequest) bool {
 			return request.GetSessionBeforeTreeRequest() != nil
@@ -503,7 +496,6 @@ func newHandlerPayloadPredicates() map[extensionpb.HandlerKind]func(*extensionpb
 			return request.GetCompactionPolicy() != nil
 		},
 	}
-	// kind identifies the lifecycle handler bound into its predicate.
 	for _, kind := range []extensionpb.HandlerKind{
 		extensionpb.HandlerKind_HANDLER_KIND_AGENT_START,
 		extensionpb.HandlerKind_HANDLER_KIND_AGENT_END,
@@ -528,7 +520,6 @@ func newHandlerPayloadPredicates() map[extensionpb.HandlerKind]func(*extensionpb
 
 // handlerKindMatches reports whether a registered kind matches its typed payload.
 func handlerKindMatches(kind extensionpb.HandlerKind, request *extensionpb.HandleRequest) bool {
-	// predicate and supported identify payload matching for the registered kind.
 	predicate, supported := newHandlerPayloadPredicates()[kind]
 	return supported && predicate(request)
 }

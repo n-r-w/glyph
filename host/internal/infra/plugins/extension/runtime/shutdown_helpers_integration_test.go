@@ -80,27 +80,21 @@ type managerShutdownFixture struct {
 // assertManagerFailureShutdown checks worker settlement before the runtime owner joins cleanup.
 func assertManagerFailureShutdown(t *testing.T, mode, invocation string, monitored bool, completion string) {
 	t.Helper()
-	// fixture retains the runtime owner and the Host release gate for this scenario.
 	fixture := prepareManagerShutdown(t, mode, monitored)
-	// ctx and cancel give the scenario control of caller cancellation.
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
-	// finished and executeErr retain the invocation outcome across the Host release gate.
 	finished, executeErr := assertManagerShutdownInvocation(t, ctx, cancel, fixture, mode, invocation)
 
 	// Assert admission and process lifetime before owner completion.
-	// pidData identifies the child whose lifetime the owner must join.
 	pidData, readErr := os.ReadFile(fixture.pidPath)
 	require.NoError(t, readErr)
 	// pid is the original child identity recorded before protocol startup.
 	pid, parseErr := strconv.Atoi(strings.TrimSpace(string(pidData)))
 	require.NoError(t, parseErr)
-	// process permits lifetime checks before release and after owner joining.
 	process, findErr := os.FindProcess(pid)
 	require.NoError(t, findErr)
 	assert.NoError(t, process.Signal(syscall.Signal(0)), "process shutdown preceded joined transport cleanup")
 	assert.False(t, fixture.service.ToolRuntimeAvailable(shutdownExtensionID))
-	// closed carries the owner outcome after the Host release gate opens.
 	closed := startManagerShutdownCompletion(t, fixture, completion)
 	fixture.release()
 	if executeErr == nil {
@@ -112,25 +106,18 @@ func assertManagerFailureShutdown(t *testing.T, mode, invocation string, monitor
 
 // prepareManagerShutdown starts a real runtime with a blocked nested Host release.
 func prepareManagerShutdown(t *testing.T, mode string, monitored bool) managerShutdownFixture {
-	// shutdownPIDScriptTemplate records the process identity before starting the protocol fixture.
 	const shutdownPIDScriptTemplate = "#!/bin/sh\nprintf '%%s' $$ > %q\n" +
 		"%s=%s exec %q -test.run=^TestRuntimeHelperProcess$\n"
 
 	t.Helper()
 	// Arrange a real runtime with admitted Host work whose release needs its invocation to return.
 	controller := gomock.NewController(t)
-	// host admits the nested operation from the real child protocol.
 	host := NewMockHostService(controller)
-	// operation supplies the nested Host failure and blocked cleanup.
 	operation := NewMockHostOperation(controller)
-	// reporter accepts failure notifications while the test controls cleanup.
 	reporter := manager.NewMockFailureReporter(controller)
 	reporter.EXPECT().ReportRuntimeFailure(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	// factory connects the child runtime to the nested Host fixture.
 	factory := NewFactory()
-	// service owns admission and shutdown of the runtime generation.
 	service := manager.New(catalog.New(), factory, reporter)
-	// sourceErr is the nested Host error identity expected after owner joining.
 	sourceErr := errors.New("complete nested Host operation source cause")
 	// releaseStarted signals that nested Host cleanup has begun.
 	releaseStarted := make(chan struct{})
@@ -138,7 +125,6 @@ func prepareManagerShutdown(t *testing.T, mode string, monitored bool) managerSh
 	hostStarted := make(chan struct{})
 	// allowRelease is the parent-controlled gate for nested Host cleanup.
 	allowRelease := make(chan struct{})
-	// release opens the Host gate for scenario completion and fallback cleanup.
 	release := sync.OnceFunc(func() { close(allowRelease) })
 	t.Cleanup(func() { release(); _ = service.Close() })
 	factory.BindHostServiceFactory(func(extensionID, instanceID string) extensionsdk.HostService {
@@ -148,7 +134,6 @@ func prepareManagerShutdown(t *testing.T, mode string, monitored bool) managerSh
 			DoAndReturn(func(
 				ctx context.Context, _ string, _ *extensionpb.ExtensionRequest,
 			) (extensionsdk.HostOperation, error) {
-				// finish releases the manager reservation after nested Host cleanup.
 				finish, err := service.BeginContextOperation(ctx, extensionID, instanceID)
 				if err != nil {
 					return nil, err
@@ -169,13 +154,9 @@ func prepareManagerShutdown(t *testing.T, mode string, monitored bool) managerSh
 			<-ctx.Done()
 			return nil, sourceErr
 		})
-	// directory holds the path used for executable discovery.
 	directory := t.TempDir()
-	// path identifies the executable shared by the original and replacement generations.
 	path := filepath.Join(directory, shutdownExtensionID)
-	// pidPath identifies the file used to record the original child identity.
 	pidPath := filepath.Join(t.TempDir(), "process-pid")
-	// script records the child identity and selects the original shutdown protocol.
 	script := fmt.Sprintf(
 		shutdownPIDScriptTemplate,
 		pidPath,
@@ -184,7 +165,6 @@ func prepareManagerShutdown(t *testing.T, mode string, monitored bool) managerSh
 		os.Args[0],
 	)
 	require.NoError(t, writeRuntimeExecutable(path, script))
-	// pending contains the registration produced by the original child.
 	pending, err := service.LoadPending(t.Context(), startup.Directory{Path: directory, Explicit: true})
 	require.NoError(t, err)
 	require.Empty(t, pending.Issues)
@@ -193,7 +173,6 @@ func prepareManagerShutdown(t *testing.T, mode string, monitored bool) managerSh
 	if monitored {
 		service.Activate(t.Context())
 	}
-	// instanceID retains the original generation identity for binding and stale-context checks.
 	instanceID, available := service.ContextRuntime(shutdownExtensionID)
 	require.True(t, available)
 	return managerShutdownFixture{
@@ -208,12 +187,10 @@ func assertManagerShutdownInvocation(
 	t *testing.T, ctx context.Context, cancel context.CancelFunc,
 	fixture managerShutdownFixture, mode, invocation string,
 ) (<-chan error, error) {
-	// shutdownGeneratorID selects the compaction handler invoked during shutdown verification.
 	const shutdownGeneratorID = "generator"
 
 	t.Helper()
 	// Arrange the binding and caller cancellation for the selected invocation.
-	// binding ties the public invocation to the original runtime generation.
 	binding := runtimeTestContext()
 	binding.ExtensionID = shutdownExtensionID
 	binding.RuntimeInstanceID = fixture.instanceID
@@ -229,7 +206,6 @@ func assertManagerShutdownInvocation(
 	// finished carries the worker outcome independently of owner cleanup.
 	finished := make(chan error, 1)
 	go func() {
-		// invokeErr retains the selected public invocation outcome.
 		var invokeErr error
 		switch invocation {
 		case shutdownToolInvocation:
@@ -290,7 +266,6 @@ func assertManagerShutdownInvocation(
 	case <-time.After(processOperationTimeout):
 		t.Fatal("nested Host release did not start")
 	}
-	// executeErr retains the worker outcome available before Host release.
 	var executeErr error
 	select {
 	case executeErr = <-finished:
@@ -306,7 +281,6 @@ func startManagerShutdownCompletion(
 	t *testing.T, fixture managerShutdownFixture, completion string,
 ) <-chan error {
 	t.Helper()
-	// closed carries the selected owner join outcome.
 	closed := make(chan error, 1)
 	go func() {
 		switch completion {
@@ -316,7 +290,6 @@ func startManagerShutdownCompletion(
 			fixture.service.RejectPending([]string{shutdownExtensionID})
 			closed <- nil
 		case shutdownReplacementCompletion:
-			// script selects the replacement protocol at the original executable path.
 			script := fmt.Sprintf(
 				shutdownScriptTemplate,
 				runtimeHelperEnvironment,
@@ -327,7 +300,6 @@ func startManagerShutdownCompletion(
 				closed <- writeErr
 				return
 			}
-			// loadErr retains the replacement outcome after the original generation joins.
 			_, loadErr := fixture.service.LoadPending(
 				t.Context(),
 				startup.Directory{Path: fixture.directory, Explicit: true},
@@ -372,7 +344,6 @@ func assertManagerShutdownCompletion(
 ) {
 	t.Helper()
 	select {
-	// completionErr is the owner outcome after nested Host release.
 	case completionErr := <-closed:
 		if completion == shutdownCloseCompletion {
 			require.ErrorIs(t, completionErr, fixture.sourceErr)
@@ -387,19 +358,15 @@ func assertManagerShutdownCompletion(
 					{ID: shutdownExtensionID, Path: fixture.path, Tools: nil, Handlers: nil},
 				},
 			)
-			// replacementID identifies the accepted generation for freshness and reservation checks.
 			replacementID, replacementAvailable := fixture.service.ContextRuntime(shutdownExtensionID)
 			require.True(t, replacementAvailable)
 			require.NotEqual(t, fixture.instanceID, replacementID)
-			// staleErr records rejection of the original generation identity.
 			_, staleErr := fixture.service.BeginContextOperation(t.Context(), shutdownExtensionID, fixture.instanceID)
 			require.ErrorContains(t, staleErr, "stale or unavailable")
-			// finish releases the reservation used to check replacement admission.
 			finish, reserveErr := fixture.service.BeginContextOperation(t.Context(), shutdownExtensionID, replacementID)
 			require.NoError(t, reserveErr)
 			finish()
 		}
-		// closeErr retains acquired Host failures after owner completion.
 		closeErr := fixture.service.Close()
 		require.ErrorIs(t, closeErr, fixture.sourceErr)
 		require.ErrorContains(t, closeErr, fixture.sourceErr.Error())

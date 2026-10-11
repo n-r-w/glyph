@@ -346,7 +346,6 @@ func (operation *handlerFixtureHandleOperation) Run(
 				}
 			}
 		}
-		// splitBoundaryEnvironment names the tool-result boundary fixture setting.
 		const splitBoundaryEnvironment = "GLYPH_THRESHOLD_SPLIT_BOUNDARY"
 		// boundary identifies the first retained candidate entry.
 		boundary := "kept"

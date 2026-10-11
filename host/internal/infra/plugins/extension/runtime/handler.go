@@ -83,7 +83,6 @@ func (r *Runtime) Handle(
 // handlerOperationError preserves operation errors and classifies stream failures as unavailability.
 func (r *Runtime) handlerOperationError(ctx context.Context, handlerID string, err error) error {
 	if ctxErr := ctx.Err(); ctxErr != nil {
-		// cause keeps caller cancellation and the received connection failure together.
 		cause := errors.Join(ctxErr, err)
 		if isConnectionFailure(err) {
 			cause = errors.Join(extensionruntime.ErrExtensionUnavailable, cause)
@@ -107,12 +106,10 @@ func (r *Runtime) resolveHandlerWaitError(
 	handlerID, operationID string,
 	operationErr error,
 ) error {
-	// cancellationErr retains failure to cancel an operation on a usable connection.
 	var cancellationErr error
 	if ctx.Err() != nil && !isConnectionFailure(operationErr) {
 		cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
 	}
-	// resultErr retains invocation and cancellation outcomes for the manager.
 	resultErr := errors.Join(r.handlerOperationError(ctx, handlerID, operationErr), cancellationErr)
 	if isConnectionFailure(cancellationErr) {
 		resultErr = errors.Join(extensionruntime.ErrExtensionUnavailable, resultErr)

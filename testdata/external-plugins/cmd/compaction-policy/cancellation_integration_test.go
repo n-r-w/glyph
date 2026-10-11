@@ -32,16 +32,13 @@ func TestCallerCancellationRetainsFailures(t *testing.T) {
 func (s *callerCancellationSuite) TestScenario() {
 	t := s.T()
 	// Arrange an externally closed real listener and an already acquired committed outcome.
-	// originalCause identifies the caller failure acquired before teardown.
 	const originalCause = "acquired caller failure before coordination finish"
-	// committedSummary contains the durable receipt content.
 	const committedSummary = "retained receipt summary"
 	listener, err := new(
 		net.ListenConfig,
 	).Listen(t.Context(), fixtureSocketNetwork, filepath.Join(t.TempDir(), "cancel.sock"))
 	require.NoError(t, err)
 	require.NoError(t, listener.Close())
-	// acceptCause contains the real closed-listener cause, including its operation and path.
 	_, acceptCause := listener.Accept()
 	require.ErrorIs(t, acceptCause, net.ErrClosed)
 	_, finish := startCallerCancellation(t.Context(), listener)

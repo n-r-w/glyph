@@ -15,7 +15,6 @@ const invocationTransportFailureText = "complete invocation transport failure: "
 
 // TestManagerFailureReturnsBeforeRuntimeShutdown checks worker return and owner cleanup through a real process.
 func TestManagerFailureReturnsBeforeRuntimeShutdown(t *testing.T) {
-	// shutdownMonitoredNameTemplate formats the process-observation subtest names.
 	const shutdownMonitoredNameTemplate = "monitored=%t"
 
 	t.Parallel()
@@ -29,7 +28,6 @@ func TestManagerFailureReturnsBeforeRuntimeShutdown(t *testing.T) {
 			} {
 				t.Run(invocation, func(t *testing.T) {
 					t.Parallel()
-					// modes select the failure routes for this public invocation kind.
 					modes := []string{shutdownHostWorkLossMode, shutdownHostWorkCancelHandlerMode}
 					if invocation == shutdownToolInvocation {
 						modes = []string{shutdownHostWorkMode, shutdownHostWorkLossMode, shutdownHostWorkCancelMode}

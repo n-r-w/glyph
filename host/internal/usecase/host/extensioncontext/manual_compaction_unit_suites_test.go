@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// manualPolicyRejectsAmbiguousOwnersSuite owns an independent scenario context.
+// manualPolicyRejectsAmbiguousOwnersSuite isolates admission with competing policy owners.
 type manualPolicyRejectsAmbiguousOwnersSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -17,14 +17,14 @@ type manualPolicyRejectsAmbiguousOwnersSuite struct {
 
 // TestManualPolicyRejectsAmbiguousOwners checks manual invocation rejects multiple policy owners before session capture.
 func TestManualPolicyRejectsAmbiguousOwners(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the owner-ambiguity suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through admission with competing owners.
+	// Assert rejection before session capture in TestScenario.
 	suite.Run(t, &manualPolicyRejectsAmbiguousOwnersSuite{Suite: suite.Suite{}})
 }
 
-// manualPolicyRejectsAbsentOwnerSuite owns an independent scenario context.
+// manualPolicyRejectsAbsentOwnerSuite isolates admission with no registered policy.
 type manualPolicyRejectsAbsentOwnerSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -32,14 +32,14 @@ type manualPolicyRejectsAbsentOwnerSuite struct {
 
 // TestManualPolicyRejectsAbsentOwner checks manual invocation reports an absent policy owner before session capture.
 func TestManualPolicyRejectsAbsentOwner(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the owner-absence suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through admission with no registered policy.
+	// Assert explicit owner absence before session capture in TestScenario.
 	suite.Run(t, &manualPolicyRejectsAbsentOwnerSuite{Suite: suite.Suite{}})
 }
 
-// manualPolicyUsesOneCapturedSessionSuite owns an independent scenario context.
+// manualPolicyUsesOneCapturedSessionSuite isolates session capture and policy failure.
 type manualPolicyUsesOneCapturedSessionSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -47,14 +47,14 @@ type manualPolicyUsesOneCapturedSessionSuite struct {
 
 // TestManualPolicyUsesOneCapturedSession checks captured history and runtime retention after policy failure.
 func TestManualPolicyUsesOneCapturedSession(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the captured-session suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through policy failure after session capture.
+	// Assert captured history and the original runtime cause in TestScenario.
 	suite.Run(t, &manualPolicyUsesOneCapturedSessionSuite{Suite: suite.Suite{}})
 }
 
-// manualPolicyRetainsReceiptAfterPolicyFailureSuite owns an independent scenario context.
+// manualPolicyRetainsReceiptAfterPolicyFailureSuite isolates durable receipt retention after policy failure.
 type manualPolicyRetainsReceiptAfterPolicyFailureSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -62,14 +62,14 @@ type manualPolicyRetainsReceiptAfterPolicyFailureSuite struct {
 
 // TestManualPolicyRetainsReceiptAfterPolicyFailure checks durable receipt retention after policy failure.
 func TestManualPolicyRetainsReceiptAfterPolicyFailure(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the durable-receipt suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through policy failure after persistence.
+	// Assert the durable receipt and acquired causes in TestScenario.
 	suite.Run(t, &manualPolicyRetainsReceiptAfterPolicyFailureSuite{Suite: suite.Suite{}})
 }
 
-// manualPolicyCanRejectItsOwnProposalSuite owns an independent scenario context.
+// manualPolicyCanRejectItsOwnProposalSuite isolates replacement after a handled projection rejection.
 type manualPolicyCanRejectItsOwnProposalSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -77,14 +77,14 @@ type manualPolicyCanRejectItsOwnProposalSuite struct {
 
 // TestManualPolicyCanRejectItsOwnProposal checks successful replacement after a handled proposal rejection.
 func TestManualPolicyCanRejectItsOwnProposal(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the handled-proposal suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through replacement after a handled projection rejection.
+	// Assert that the handled rejection does not become Host policy in TestScenario.
 	suite.Run(t, &manualPolicyCanRejectItsOwnProposalSuite{Suite: suite.Suite{}})
 }
 
-// manualObserverFailureRetainsHandledPolicyCausesSuite owns an independent scenario context.
+// manualObserverFailureRetainsHandledPolicyCausesSuite isolates observer failure after handled child failures.
 type manualObserverFailureRetainsHandledPolicyCausesSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -92,14 +92,14 @@ type manualObserverFailureRetainsHandledPolicyCausesSuite struct {
 
 // TestManualObserverFailureRetainsHandledPolicyCauses checks observer failure retains handled child causes after commit.
 func TestManualObserverFailureRetainsHandledPolicyCauses(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the observer-failure suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through observer failure after successful persistence.
+	// Assert all handled child causes and the durable receipt in TestScenario.
 	suite.Run(t, &manualObserverFailureRetainsHandledPolicyCausesSuite{Suite: suite.Suite{}})
 }
 
-// manualUnavailableObserverRetainsCausesSuite owns an independent scenario context.
+// manualUnavailableObserverRetainsCausesSuite isolates failure of a captured observer binding.
 type manualUnavailableObserverRetainsCausesSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -107,14 +107,14 @@ type manualUnavailableObserverRetainsCausesSuite struct {
 
 // TestManualUnavailableObserverRetainsCauses checks unavailable observer settlement retains causes and the durable receipt.
 func TestManualUnavailableObserverRetainsCauses(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the unavailable-observer suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through failure to bind a captured observer.
+	// Assert acquired causes and the durable receipt in TestScenario.
 	suite.Run(t, &manualUnavailableObserverRetainsCausesSuite{Suite: suite.Suite{}})
 }
 
-// manualPolicyOwnsNestedTeardownSuite owns an independent scenario context.
+// manualPolicyOwnsNestedTeardownSuite isolates parent cancellation and joined child teardown.
 type manualPolicyOwnsNestedTeardownSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -122,14 +122,14 @@ type manualPolicyOwnsNestedTeardownSuite struct {
 
 // TestManualPolicyOwnsNestedTeardown checks owning cancellation joins nested work and retains post-commit causes.
 func TestManualPolicyOwnsNestedTeardown(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the nested-teardown suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through policy completion with active nested work.
+	// Assert joined work and independent teardown failures in TestScenario.
 	suite.Run(t, &manualPolicyOwnsNestedTeardownSuite{Suite: suite.Suite{}})
 }
 
-// manualPolicySeparatesAuthorityFromLifetimeSuite owns an independent scenario context.
+// manualPolicySeparatesAuthorityFromLifetimeSuite isolates mutation authority from nested-work admission.
 type manualPolicySeparatesAuthorityFromLifetimeSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -137,9 +137,9 @@ type manualPolicySeparatesAuthorityFromLifetimeSuite struct {
 
 // TestManualPolicySeparatesAuthorityFromLifetime checks separate mutation authority and nested-work lifetime bindings.
 func TestManualPolicySeparatesAuthorityFromLifetime(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the authority-separation suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through child admission with distinct authority and lifetime bindings.
+	// Assert preserved Run values and parent cancellation in TestScenario.
 	suite.Run(t, &manualPolicySeparatesAuthorityFromLifetimeSuite{Suite: suite.Suite{}})
 }

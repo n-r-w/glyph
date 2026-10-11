@@ -15,12 +15,10 @@ func (s *Service) ProjectPolicyReplacement(
 	extensionID, runtimeID, operationID string,
 	candidate session.CompactionEntry,
 ) ([]agent.HistoryEntry, error) {
-	// operation contains the captured mutation authority; err contains any lookup failure.
 	operation, err := s.findCompactionOperation(extensionID, runtimeID, operationID)
 	if err != nil {
 		return nil, err
 	}
-	// cancellationErr contains cancellation causes that prohibit this operation.
 	if cancellationErr := errors.Join(
 		ctx.Err(),
 		context.Cause(ctx),
@@ -38,7 +36,6 @@ func (s *Service) CommitPolicyReplacement(
 	extensionID, runtimeID, operationID string,
 	candidate session.CompactionEntry,
 ) (session.Entry, error) {
-	// operation contains the captured mutation authority; err contains any lookup failure.
 	operation, err := s.findCompactionOperation(extensionID, runtimeID, operationID)
 	if err != nil {
 		return session.Entry{}, err
@@ -59,7 +56,6 @@ func (s *Service) CommitPolicyReplacement(
 	operation.mutex.Unlock()
 	// guard protects runtime validity at the persistence boundary.
 	guard := func() (func(), error) {
-		// cancellationErr contains cancellation causes that prohibit this operation.
 		if cancellationErr := errors.Join(
 			ctx.Err(),
 			context.Cause(ctx),
@@ -70,7 +66,6 @@ func (s *Service) CommitPolicyReplacement(
 		}
 		return s.runtime.BeginContextCommit(extensionID, runtimeID)
 	}
-	// committed contains the durable receipt; err contains persistence or publication failure.
 	committed, err := s.compactionSessions.CommitReplacement(
 		ctx,
 		operation.snapshot,

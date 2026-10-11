@@ -9,9 +9,7 @@ import (
 func (s *Service) ValidateCompactionHandlers(
 	registration startup.PendingRegistration,
 ) ([]startup.AcceptedHandler, error) {
-	// accepted contains capability descriptors in registration order.
 	accepted := make([]startup.AcceptedHandler, 0, len(registration.Handlers))
-	// handler contains the current capability descriptor.
 	for _, handler := range registration.Handlers {
 		accepted = append(accepted, startup.AcceptedHandler{ID: handler.ID, Kind: handler.Kind})
 	}

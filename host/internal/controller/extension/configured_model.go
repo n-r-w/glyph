@@ -44,7 +44,6 @@ func mapConfiguredRequest(request *extensionpb.ConfiguredModelRequest) (configur
 				index,
 			)
 		}
-		// content contains the mapped input blocks. err is their validation failure.
 		content, err := mapConfiguredInput(message)
 		if err != nil {
 			return configuredRequest{}, fmt.Errorf("configured model message %d %w", index, err)
@@ -56,9 +55,7 @@ func mapConfiguredRequest(request *extensionpb.ConfiguredModelRequest) (configur
 				Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 			}
 		case extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT:
-			// assistantContent contains the assistant's final text blocks.
 			assistantContent := make([]model.Content, len(content))
-			// contentIndex is the block position. item is the mapped source block.
 			for contentIndex, item := range content {
 				assistantContent[contentIndex] = model.Content{
 					Kind: model.ContentText, Text: item.Text, Final: true,
@@ -97,9 +94,7 @@ func mapConfiguredRequest(request *extensionpb.ConfiguredModelRequest) (configur
 
 // mapConfiguredInput maps ordered public input blocks to user-message content.
 func mapConfiguredInput(message *extensionpb.ConfiguredModelMessage) ([]model.InputContent, error) {
-	// content contains provider-neutral input blocks in source order.
 	content := make([]model.InputContent, len(message.GetContent()))
-	// index is the source position. item is the public input block.
 	for index, item := range message.GetContent() {
 		switch {
 		case item.HasText():
@@ -114,7 +109,6 @@ func mapConfiguredInput(message *extensionpb.ConfiguredModelMessage) ([]model.In
 			if message.GetRole() == extensionpb.ConfiguredModelRole_CONFIGURED_MODEL_ROLE_ASSISTANT {
 				return nil, fmt.Errorf("content %d: assistant content must be text", index)
 			}
-			// image contains the public media type and source bytes.
 			image := item.GetImage()
 			if image.GetMediaType() == "" || len(image.GetData()) == 0 {
 				return nil, fmt.Errorf("content %d: image media type and data are required", index)

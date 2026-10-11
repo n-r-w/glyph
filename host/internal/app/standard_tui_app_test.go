@@ -56,7 +56,6 @@ func requestStandardTUIControl(t *testing.T, socketPath string, command byte) {
 
 // lastSessionID extracts the final session identifier from captured application output.
 func lastSessionID(output string) string {
-	// prefix identifies the application's session announcement.
 	const prefix = "Session ID: "
 	_, remaining, found := strings.CutLast(output, prefix)
 	if !found {

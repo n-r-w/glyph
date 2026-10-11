@@ -22,11 +22,8 @@ import (
 // TestScenario checks cancellation, joining, and independent post-commit causes.
 func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 	t := s.T()
-	// scenario contains the nested teardown outcome under test.
 	for _, scenario := range []struct {
-		// name identifies the teardown scenario.
-		name string
-		// source contains an independent nested failure.
+		name   string
 		source error
 	}{
 		{name: "expected cancellation", source: nil},
@@ -36,9 +33,7 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 			synctest.Test(t, func(t *testing.T) {
 				// Arrange a committed operation with nested work still active when the policy returns.
 				service, policy, owner := newManualPolicyOperationFixture(t)
-				// sessions supplies replacement persistence behavior.
 				sessions := service.compactionSessions.(*MockCompactionSessions)
-				// candidate contains the proposed replacement.
 				candidate := session.CompactionEntry{
 					Summary:          "summary",
 					FirstKeptEntryID: "leaf",
@@ -49,7 +44,6 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 					EstimatedCost: mo.None[session.EstimatedCost](),
 					Details:       mo.None[[]byte](),
 				}
-				// receipt contains the durable replacement entry.
 				receipt := newManualTestReceipt(candidate)
 				sessions.EXPECT().
 					CommitReplacement(gomock.Any(), gomock.Any(), candidate, gomock.Any(), gomock.Any()).
@@ -63,7 +57,6 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 				joined := make(chan struct{})
 				policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 					func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
-						// err contains the replacement commit failure.
 						if _, err := service.CommitPolicyReplacement(
 							ctx,
 							owner.ExtensionID,
@@ -73,7 +66,6 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 						); err != nil {
 							return false, err
 						}
-						// release and err contain child admission ownership and its failure.
 						release, err := service.BeginCompactionChild(
 							owner.ExtensionID,
 							owner.RuntimeID,
@@ -82,11 +74,10 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 						if err != nil {
 							return false, err
 						}
-						// childContext and unlink contain parent-linked cancellation and its release.
 						childContext, unlink := service.LinkCompactionChild(ctx, invocation.LifecycleID)
 						go func() {
 							<-childContext.Done()
-							// cause retains the worker outcome before it releases its linkage.
+							// Capture the worker outcome before unlinking cancellation.
 							cause := errors.Join(childContext.Err(), scenario.source)
 							unlink()
 							close(joined)

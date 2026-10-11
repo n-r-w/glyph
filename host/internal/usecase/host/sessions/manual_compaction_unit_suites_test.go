@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// projectReplacementPreservesBoundaryCauseSuite owns an independent scenario context.
+// projectReplacementPreservesBoundaryCauseSuite isolates candidate boundary rejection.
 type projectReplacementPreservesBoundaryCauseSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -17,9 +17,9 @@ type projectReplacementPreservesBoundaryCauseSuite struct {
 
 // TestProjectReplacementPreservesBoundaryCause checks projection exposes the boundary rejection cause before mutation.
 func TestProjectReplacementPreservesBoundaryCause(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the boundary-rejection suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through candidate projection with an outside boundary.
+	// Assert the complete structural cause before mutation in TestScenario.
 	suite.Run(t, &projectReplacementPreservesBoundaryCauseSuite{Suite: suite.Suite{}})
 }

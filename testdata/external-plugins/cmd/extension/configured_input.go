@@ -22,9 +22,7 @@ type configuredInputReport struct {
 // requestConfiguredInput exercises image content and invalid input through the public SDK.
 func requestConfiguredInput(ctx context.Context, instructions string) (*extensionv1.ToolResult, error) {
 	const (
-		// configuredImageMediaType identifies the fixture's PNG image payload.
 		configuredImageMediaType = "image/png"
-		// configuredAfterImageText marks the text block after the image.
 		configuredAfterImageText = "after image"
 	)
 	binding, err := extensionsdk.ContextFrom(ctx)
@@ -66,27 +64,18 @@ func collectConfiguredInputErrors(
 	request *extensionv1.ConfiguredModelRequest,
 ) map[string]string {
 	const (
-		// emptyConfiguredContent identifies the empty content rejection case.
-		emptyConfiguredContent = "empty content"
-		// missingConfiguredPayload identifies the missing payload rejection case.
-		missingConfiguredPayload = "missing payload"
-		// emptyConfiguredText identifies the empty text rejection case.
-		emptyConfiguredText = "empty text"
-		// missingConfiguredMediaType identifies the missing media type rejection case.
+		emptyConfiguredContent     = "empty content"
+		missingConfiguredPayload   = "missing payload"
+		emptyConfiguredText        = "empty text"
 		missingConfiguredMediaType = "missing media type"
-		// emptyConfiguredImageData identifies the empty image data rejection case.
-		emptyConfiguredImageData = "empty image data"
-		// assistantConfiguredImage identifies the assistant image rejection case.
-		assistantConfiguredImage = "assistant image"
-		// unknownConfiguredRole identifies the unknown role rejection case.
-		unknownConfiguredRole = "unknown role"
-		// unsupportedConfiguredImage identifies the unsupported image rejection case.
+		emptyConfiguredImageData   = "empty image data"
+		assistantConfiguredImage   = "assistant image"
+		unknownConfiguredRole      = "unknown role"
 		unsupportedConfiguredImage = "unsupported image"
 		// unknownConfiguredRoleValue is the invalid author role used in rejection checks.
 		unknownConfiguredRoleValue = 99
 		// configuredTextOnlyModelID selects the model that rejects image input.
-		configuredTextOnlyModelID = "gpt-active"
-		// configuredUnexpectedSuccess marks a rejection case that completed without an error.
+		configuredTextOnlyModelID   = "gpt-active"
 		configuredUnexpectedSuccess = "unexpected success"
 	)
 	failures := make(map[string]string)

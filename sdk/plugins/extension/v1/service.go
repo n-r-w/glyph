@@ -143,11 +143,9 @@ func (prepared *handlePrepared) Run(
 	if prepared.binding != nil {
 		operationContext = context.WithValue(ctx, invocationContextKey{}, prepared.binding)
 	}
-	// policy and present identify replacement authority for handler execution.
 	if policy, present := prepared.policy.Get(); present {
 		operationContext = context.WithValue(operationContext, compactionPolicyContextKey{}, &policy)
 	}
-	// parentID and present identify the nested-work lifetime for handler execution.
 	if parentID, present := prepared.parentCompactionID.Get(); present {
 		operationContext = context.WithValue(
 			operationContext,

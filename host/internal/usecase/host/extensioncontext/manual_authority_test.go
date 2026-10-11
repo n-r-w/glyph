@@ -29,7 +29,6 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
 			assert.NotEmpty(t, invocation.LifecycleID)
 			assert.NotEqual(t, invocation.OperationID, invocation.LifecycleID)
-			// mistakenRelease and err contain admission with the mutation authority ID.
 			mistakenRelease, err := service.BeginCompactionChild(
 				owner.ExtensionID,
 				owner.RuntimeID,
@@ -39,7 +38,6 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 			if mistakenRelease != nil {
 				mistakenRelease(nil)
 			}
-			// release and err contain admission with the nested-work lifetime ID.
 			release, err := service.BeginCompactionChild(
 				owner.ExtensionID,
 				owner.RuntimeID,
@@ -48,9 +46,7 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 			if err != nil {
 				return false, errors.Join(errors.New("separate lifetime correlation is unavailable"), err)
 			}
-			// runContext contains the values supplied by the child caller.
 			runContext := context.WithValue(ctx, struct{}{}, "Run context value")
-			// childContext and unlink contain parent-linked cancellation and its release.
 			childContext, unlink := service.LinkCompactionChild(runContext, invocation.LifecycleID)
 			assert.Equal(t, "Run context value", childContext.Value(struct{}{}))
 			assert.NoError(t, childContext.Err())
@@ -76,23 +72,16 @@ func newManualPolicyOperationFixture(
 ) (*Service, *MockPolicyRuntime, PolicyOwner) {
 	t.Helper()
 	controller := gomock.NewController(t)
-	// runtime supplies the captured runtime identity.
 	runtime := NewMockRuntimeState(controller)
-	// sessions supplies the active session identity.
 	sessions := NewMockSessionState(controller)
-	// policy supplies policy invocation and observer behavior.
 	policy := NewMockPolicyRuntime(controller)
-	// handlers contains the captured observer set.
 	handlers := contextcompaction.HandlerSet{}
 	if len(observers) != 0 {
 		handlers = observers[0]
 	}
 	policy.EXPECT().SnapshotCompactionHandlers().Return(handlers)
-	// compactionSessions supplies snapshot and replacement behavior.
 	compactionSessions := NewMockCompactionSessions(controller)
-	// identity identifies the captured session incarnation.
 	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
-	// owner identifies the registered policy handler and runtime.
 	owner := PolicyOwner{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "manual"}
 	runtime.EXPECT().ContextRuntime(owner.ExtensionID).Return(owner.RuntimeID, true).AnyTimes()
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
@@ -104,7 +93,6 @@ func newManualPolicyOperationFixture(
 		History:      nil,
 		Previous:     mo.None[session.CompactionEntry](),
 	})
-	// service owns the manual operation under test.
 	service := New(runtime, sessions)
 	service.BindManualPolicy(policy, compactionSessions)
 	return service, policy, owner

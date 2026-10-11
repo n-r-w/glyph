@@ -15,7 +15,7 @@ type compactionPolicyContextKey struct{}
 // parentCompactionContextKey identifies non-authorizing nested-work correlation.
 type parentCompactionContextKey struct{}
 
-// CompactionPolicyContext supplies immutable policy input and scoped replacement operations.
+// CompactionPolicyContext supplies captured input and operation-scoped policy services.
 type CompactionPolicyContext struct {
 	// invocation retains the immutable policy input.
 	invocation *extensionpb.CompactionPolicyInvocation
@@ -30,11 +30,9 @@ func (p *CompactionPolicyContext) StartProjectReplacement(
 	ctx context.Context,
 	candidate *extensionpb.CompactionResult,
 ) (*CompactionProjectionOperation, error) {
-	// request contains the parent-bound candidate projection request.
 	request := new(extensionpb.ExtensionRequest)
 	request.SetParentCompactionId(p.parentCompactionID)
 	request.SetProjectCompaction(p.newCandidateRequest(candidate))
-	// started and err contain the admitted Host operation and its start failure.
 	started, err := p.extension.initiator.start(ctx, request)
 	if err != nil {
 		return nil, err
@@ -47,11 +45,9 @@ func (p *CompactionPolicyContext) StartReplaceHistory(
 	ctx context.Context,
 	candidate *extensionpb.CompactionResult,
 ) (*CompactionReplacementOperation, error) {
-	// request contains the parent-bound durable replacement request.
 	request := new(extensionpb.ExtensionRequest)
 	request.SetParentCompactionId(p.parentCompactionID)
 	request.SetReplaceCompaction(p.newCandidateRequest(candidate))
-	// started and err contain the admitted Host operation and its start failure.
 	started, err := p.extension.initiator.start(ctx, request)
 	if err != nil {
 		return nil, err
@@ -82,7 +78,6 @@ type CompactionProjectionOperation struct {
 
 // Wait awaits the candidate's structurally valid model history.
 func (o *CompactionProjectionOperation) Wait(ctx context.Context) (*extensionpb.CompactionProjection, error) {
-	// completed and err contain the collected projection result and operation failure.
 	completed, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -98,7 +93,6 @@ type CompactionReplacementOperation struct {
 
 // Wait awaits the durable replacement receipt and diagnostics.
 func (o *CompactionReplacementOperation) Wait(ctx context.Context) (*extensionpb.CompactResult, error) {
-	// completed and err contain the collected replacement receipt and operation failure.
 	completed, err := o.operation.wait(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -108,7 +102,6 @@ func (o *CompactionReplacementOperation) Wait(ctx context.Context) (*extensionpb
 
 // FindCompactionPolicy retrieves authority issued only to the owning policy invocation.
 func FindCompactionPolicy(ctx context.Context) (*CompactionPolicyContext, bool) {
-	// policy contains invocation authority; found indicates its presence.
 	policy, found := ctx.Value(compactionPolicyContextKey{}).(*CompactionPolicyContext)
 	return policy, found
 }

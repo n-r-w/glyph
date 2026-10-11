@@ -101,7 +101,6 @@ func hostEventEnvelope(id string, event *extensionpb.HostEvent) *extensionpb.Ope
 
 // handleHostRequest admits extension-initiated work without executing it on stream receipt.
 func (c *Connection) handleHostRequest(id string, request *extensionpb.ExtensionRequest) error {
-	// kind identifies the initiated Host request contract.
 	kind := classifyHostRequest(request)
 	if id == "" || kind == hostRequestInvalid {
 		return c.rejectHostRequest(
@@ -110,15 +109,12 @@ func (c *Connection) handleHostRequest(id string, request *extensionpb.Extension
 			errors.New("extension-initiated operation identifier and implemented request payload are required"),
 		)
 	}
-	// prepare admits Host work for the operation owner.
 	prepare := func() (operation.Prepared[*extensionpb.HostProgress, *extensionpb.HostCompleted], error) {
 		if kind == hostRequestCancel {
-			// target identifies the Host operation to cancel.
 			target := request.GetCancel().GetTargetOperationId()
 			if target == "" {
 				return nil, Reject(rejectionCodeInvalidArgument, errors.New("cancellation target is required"))
 			}
-			// cancel holds the cancellation handle; active reports target ownership.
 			cancel, active := c.hostOwner.Cancellation(target)
 			if !active {
 				return nil, Reject(
@@ -129,13 +125,11 @@ func (c *Connection) handleHostRequest(id string, request *extensionpb.Extension
 			return &hostCancellationPrepared{cancel: cancel}, nil
 		}
 		c.mutex.Lock()
-		// service holds the bound Host dispatcher.
 		service := c.hostService
 		c.mutex.Unlock()
 		if service == nil {
 			return nil, Reject(rejectionCodeNotReady, errors.New("extension-initiated Host dispatch is not bound"))
 		}
-		// admitted holds prepared Host work; err contains the preparation error.
 		admitted, err := service.Prepare(c.ctx, id, request)
 		if err != nil {
 			return nil, err
@@ -145,14 +139,11 @@ func (c *Connection) handleHostRequest(id string, request *extensionpb.Extension
 		}
 		return &hostPrepared{operation: admitted, kind: kind}, nil
 	}
-	// err contains the operation-owner admission error.
 	if err := c.hostOwner.Start(id, prepare); err != nil {
 		if errors.Is(err, operation.ErrIdentifierInUse) {
 			return c.rejectHostRequest(id, rejectionCodeOperationIDInUse, err)
 		}
-		// rejection contains the typed admission rejection; ok reports its presence.
 		if rejection, ok := errors.AsType[*RejectionError](err); ok {
-			// validationErr contains the rejection-category contract error.
 			if validationErr := kind.validateHostRejectionCode(rejection.Code()); validationErr != nil {
 				return errors.Join(validationErr, err)
 			}
@@ -185,7 +176,6 @@ func (p *hostPrepared) Run(
 	ctx context.Context,
 	reporter operation.Reporter[*extensionpb.HostProgress],
 ) operation.Outcome[*extensionpb.HostCompleted] {
-	// result contains the terminal payload; err contains the execution error.
 	result, err := p.operation.Run(ctx, &HostProgressReporter{reporter: reporter})
 	if err != nil {
 		return operationOutcome[*extensionpb.HostCompleted](err)

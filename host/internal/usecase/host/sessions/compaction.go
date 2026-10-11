@@ -50,10 +50,8 @@ func (s *Service) commitCompaction(
 		s.mutex.Unlock()
 		return session.Entry{}, err
 	}
-	// releaseRuntime ends runtime protection for the owning commit.
 	releaseRuntime := func() {}
 	if guard != nil {
-		// release ends runtime protection; err contains any protection failure.
 		release, err := guard()
 		if err != nil {
 			s.mutex.Unlock()

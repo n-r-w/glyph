@@ -28,9 +28,7 @@ func (s *Service) compactManualPolicy(
 	ctx context.Context,
 	instructions mo.Option[string],
 ) (ManualCompactionResult, error) {
-	// binding contains the selected conversation model and reasoning choice.
 	binding := s.catalog.ActiveBinding()
-	// input contains the captured model request for manual policy execution.
 	input := ProviderRequest{
 		Instructions: s.manualInstructions, Model: binding.Model,
 		ReasoningChoice: binding.ReasoningChoice, History: nil, Tools: s.manualTools.Tools(),
@@ -43,7 +41,6 @@ func (s *Service) CompactManual(
 	ctx context.Context,
 	instructions mo.Option[string],
 ) (ui.ManualCompactionResult, error) {
-	// result contains the durable manual outcome; err contains the terminal failure.
 	result, err := s.compactManualPolicy(ctx, instructions)
 	return ui.ManualCompactionResult{Committed: result.Committed, Canceled: result.Canceled}, err
 }
@@ -53,7 +50,6 @@ func (s *Service) CompactProgrammatic(
 	ctx context.Context,
 	instructions mo.Option[string],
 ) (programmatic.ManualCompactionResult, error) {
-	// result contains the durable manual outcome; err contains the terminal failure.
 	result, err := s.compactManualPolicy(ctx, instructions)
 	return programmatic.ManualCompactionResult{Committed: result.Committed, Canceled: result.Canceled}, err
 }
@@ -68,7 +64,6 @@ func (s *Service) CompactExtension(
 	if err := s.manualPreparation.ValidateContext(extensionID, runtimeID, reference); err != nil {
 		return controllerextension.CompactionResult{}, err
 	}
-	// result contains the durable manual outcome; err contains the terminal failure.
 	result, err := s.compactManualPolicy(ctx, instructions)
 	return controllerextension.CompactionResult{Committed: result.Committed, Canceled: result.Canceled}, err
 }

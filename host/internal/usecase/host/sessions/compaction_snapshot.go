@@ -41,7 +41,6 @@ func (s *Service) ProjectCompaction(
 	entries []session.Entry,
 	compaction session.CompactionEntry,
 ) ([]agent.HistoryEntry, error) {
-	// leaf identifies the captured branch endpoint for structural validation.
 	leaf := mo.None[string]()
 	if len(entries) != 0 {
 		leaf = mo.Some(entries[len(entries)-1].ID)
@@ -62,7 +61,6 @@ func projectCompactionHistory(
 		return nil, err
 	}
 	owned := cloneEntries(entries)
-	// tree contains the captured branch for boundary validation; err contains construction failure.
 	tree, err := session.NewTree(owned, leaf, nil)
 	if err != nil {
 		return nil, err
@@ -70,7 +68,6 @@ func projectCompactionHistory(
 	if boundaryErr := tree.ValidateCompactionBoundary(compaction.FirstKeptEntryID, leaf); boundaryErr != nil {
 		return nil, boundaryErr
 	}
-	// leafID identifies the parent of the temporary projection marker.
 	leafID := owned[len(owned)-1].ID
 	owned = append(owned, session.Entry{
 		ID: ephemeralCompactionID, ParentID: mo.Some(leafID), CreatedAt: time.Time{},

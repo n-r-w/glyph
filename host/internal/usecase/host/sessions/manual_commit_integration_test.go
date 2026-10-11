@@ -17,7 +17,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
-// commitReplacementRecordsBeforePublicationSuite owns an independent scenario context.
+// commitReplacementRecordsBeforePublicationSuite isolates receipt recording and failed publication.
 type commitReplacementRecordsBeforePublicationSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -26,10 +26,10 @@ type commitReplacementRecordsBeforePublicationSuite struct {
 // TestCommitReplacementRecordsBeforePublication checks receipt recording before publication
 // and retention of its failure cause.
 func TestCommitReplacementRecordsBeforePublication(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the publication-failure suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through persistence with a failed publication acknowledgement.
+	// Assert receipt recording, runtime release, and preserved originals in TestScenario.
 	suite.Run(t, &commitReplacementRecordsBeforePublicationSuite{Suite: suite.Suite{}})
 }
 
@@ -37,22 +37,15 @@ func TestCommitReplacementRecordsBeforePublication(t *testing.T) {
 func (s *commitReplacementRecordsBeforePublicationSuite) TestScenario() {
 	t := s.T()
 	// Arrange persistence with a failed publication acknowledgement.
-	// entries contains the original branch before replacement.
 	entries := []session.Entry{newCompactionUserEntry("kept", mo.None[string](), "retained")}
-	// publisher supplies the failed delivery acknowledgement.
 	publisher := NewMockEntryPublisher(gomock.NewController(t))
-	// service and identity identify the session owner and its commit authority.
 	service, identity := newCompactionBoundaryTestService(t, entries, "kept", mo.Some[EntryPublisher](publisher))
-	// snapshot contains the captured branch for replacement.
 	snapshot := extensioncontext.CompactionSnapshot{
 		Identity: identity, ActiveLeafID: mo.Some("kept"), Entries: entries,
 		History: nil, Previous: mo.None[session.CompactionEntry](),
 	}
-	// recorded contains the receipt observed before publication.
 	recorded := mo.None[session.Entry]()
-	// runtimeReleased indicates release of the commit runtime guard.
 	runtimeReleased := false
-	// cause contains the publication delivery failure.
 	cause := errors.New("delivery failed: complete writer source")
 	publisher.EXPECT().PublishSessionEntry(gomock.Any()).DoAndReturn(
 		func(entry session.Entry) (func(context.Context) error, error) {
@@ -65,7 +58,6 @@ func (s *commitReplacementRecordsBeforePublicationSuite) TestScenario() {
 	)
 
 	// Act by committing with a runtime guard and a Host receipt recorder.
-	// committed and err contain the durable replacement receipt and delivery failure.
 	committed, err := service.CommitReplacement(t.Context(), snapshot, newCompactionBoundaryEntry("kept"),
 		func() (func(), error) { return func() { runtimeReleased = true }, nil },
 		func(entry session.Entry) { recorded = mo.Some(entry) },

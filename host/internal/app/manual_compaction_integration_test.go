@@ -34,13 +34,10 @@ const (
 
 // TestScenario checks public replacement and subsequent provider input.
 func (s *programmaticManualCompactionUsesRegisteredPolicySuite) TestScenario() {
-	// manualFixtureStoredOriginals identifies original-history retrieval after replacement.
 	const manualFixtureStoredOriginals = "stored-originals"
 
-	// manualFixturePolicyruntimeid names the captured policy runtime field.
 	const manualFixturePolicyruntimeid = "policyRuntimeId"
 
-	// manualFixtureManualReplacement identifies the Programmatic replacement request.
 	const manualFixtureManualReplacement = "manual-replacement"
 
 	t := s.T()
@@ -102,7 +99,6 @@ func (s *programmaticManualCompactionUsesRegisteredPolicySuite) TestScenario() {
 
 // TestScenario checks explicit owner absence through the public client.
 func (s *programmaticManualCompactionRejectsAbsentPolicySuite) TestScenario() {
-	// manualFixtureManualAbsence identifies the absent-policy request.
 	const manualFixtureManualAbsence = "manual-absence"
 
 	t := s.T()
@@ -146,22 +142,16 @@ func requestProgrammaticCompaction(
 
 // buildManualPolicyFixture builds an extension that uses only the public SDK.
 func buildManualPolicyFixture(t *testing.T) string {
-	// manualFixtureTestdata names the fixture source directory.
 	const manualFixtureTestdata = "testdata"
 
-	// manualFixtureGo selects the Go build executable.
 	const manualFixtureGo = "go"
 
-	// manualFixtureExternalPlugins names the external-plugin fixture module directory.
 	const manualFixtureExternalPlugins = "external-plugins"
 
-	// manualFixtureBuild selects Go command compilation.
 	const manualFixtureBuild = "build"
 
-	// manualFixtureCmdCompactionPolicy selects the public policy command package.
 	const manualFixtureCmdCompactionPolicy = "./cmd/compaction-policy"
 
-	// manualFixtureO selects the build output path.
 	const manualFixtureO = "-o"
 
 	t.Helper()
@@ -258,10 +248,8 @@ func (s *uIManualCompactionUsesRegisteredPolicySuite) TestScenario() {
 
 // TestScenario checks cancellation, stale capture, and durable failure receipts.
 func (s *programmaticManualCompactionTerminalStatesSuite) TestScenario() {
-	// manualFixtureTerminalState identifies the manual terminal-state request.
 	const manualFixtureTerminalState = "terminal-state"
 
-	// manualFixtureStoredTerminalState identifies original-history retrieval after a terminal outcome.
 	const manualFixtureStoredTerminalState = "stored-terminal-state"
 
 	t := s.T()
@@ -388,10 +376,8 @@ func (s *uIManualCompactionTerminalStatesSuite) TestScenario() {
 
 // TestScenario checks explicit owner cardinality through registration.
 func (s *programmaticManualCompactionRejectsAmbiguousOwnersSuite) TestScenario() {
-	// manualFixtureAnotherPolicy names the second registered policy executable.
 	const manualFixtureAnotherPolicy = "another-policy"
 
-	// manualFixtureAmbiguousPolicy identifies the ambiguous-owner request.
 	const manualFixtureAmbiguousPolicy = "ambiguous-policy"
 
 	t := s.T()

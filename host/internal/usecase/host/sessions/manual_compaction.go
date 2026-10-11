@@ -12,7 +12,6 @@ import (
 
 // CaptureCompaction supplies one immutable original branch and prepared model input.
 func (s *Service) CaptureCompaction() extensioncontext.CompactionSnapshot {
-	// captured contains the detached session branch and prepared model context.
 	captured := s.CompactionSnapshot()
 	return extensioncontext.CompactionSnapshot{
 		Identity: captured.Identity, ActiveLeafID: captured.ActiveLeafID,

@@ -177,11 +177,11 @@ type uiCancellationFailureSuite struct {
 
 // TestUICancellationFixtureRetainsRequestFailure checks an acquired SDK cancellation failure.
 func TestUICancellationFixtureRetainsRequestFailure(t *testing.T) {
-	// Arrange the public fixture setting.
+	// Arrange a failing public UI cancellation request.
 	t.Setenv(manualFixtureGlyphManualCancelFailure, manualFixtureEnabled)
-	// Act by running the public scenario.
+	// Act through cancellation followed by observer release.
 	suite.Run(t, &uiCancellationFailureSuite{Suite: suite.Suite{}})
-	// Assert the public outcome in the suite scenario.
+	// Assert the complete cancellation failure and durable receipt in TestScenario.
 }
 
 // TestScenario checks cancellation failure collection through the real UI fixture.

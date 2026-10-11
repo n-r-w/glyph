@@ -13,7 +13,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// captureCompactionSuppliesPreparedHistorySuite owns an independent scenario context.
+// captureCompactionSuppliesPreparedHistorySuite isolates original and prepared-history capture.
 type captureCompactionSuppliesPreparedHistorySuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -21,10 +21,10 @@ type captureCompactionSuppliesPreparedHistorySuite struct {
 
 // TestCaptureCompactionSuppliesPreparedHistory checks detached original entries and prepared history in the snapshot.
 func TestCaptureCompactionSuppliesPreparedHistory(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the history-capture suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through capture of a branch with an existing replacement.
+	// Assert detached originals and prepared history in TestScenario.
 	suite.Run(t, &captureCompactionSuppliesPreparedHistorySuite{Suite: suite.Suite{}})
 }
 
@@ -32,18 +32,15 @@ func TestCaptureCompactionSuppliesPreparedHistory(t *testing.T) {
 func (s *captureCompactionSuppliesPreparedHistorySuite) TestScenario() {
 	t := s.T()
 	// Arrange a branch whose original prefix has a persisted replacement.
-	// entries contains the original branch and its persisted replacement marker.
 	entries := []session.Entry{
 		newCompactionUserEntry("old", mo.None[string](), "original"),
 		newCompactionUserEntry("kept", mo.Some("old"), "retained"),
 		newCompactionMarkerEntry("marker", "kept", "replacement", "kept"),
 	}
-	// service and identity identify the active session owner and session identity.
 	service, identity := newCompactionHistoryTestService(t, entries, "marker")
 	service.contextHistory = storedCompactedHistoryFromEntries(entries)
 
 	// Act by capturing the active session once.
-	// captured contains detached original entries and prepared model history.
 	captured := service.CaptureCompaction()
 
 	// Assert that original entries and prepared replacement history are both available.

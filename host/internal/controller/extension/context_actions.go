@@ -48,7 +48,6 @@ func (o *contextOperation) prepareSelectionAction(command SelectionCommand) (con
 	command.ExtensionID = o.service.extensionID
 	command.RuntimeID = o.service.runtimeID
 	command.Context = o.reference
-	// prepared owns selection execution and its admission release.
 	prepared, err := o.service.selection.PrepareExtensionSelection(command)
 	if err != nil {
 		return nil, mapSelectionRejection(err)
@@ -80,20 +79,15 @@ func (o *contextOperation) runManualCompaction(
 	reporter *extensionsdk.HostProgressReporter,
 	instructions mo.Option[string],
 ) (*extensionpb.HostCompleted, error) {
-	// result contains the selected operation completion.
 	result := new(extensionpb.HostCompleted)
-	// progress contains the manual compaction running frame.
 	progress := new(extensionpb.HostProgress)
 	progress.SetCompaction(extensionpb.CompactionProgress_builder{Stage: new(compactionRunningStage)}.Build())
-	// err contains the progress delivery failure.
 	if err := reporter.Report(ctx, progress); err != nil {
 		return nil, extensionsdk.Fail(internalFailureCode, fmt.Errorf("report compaction progress: %w", err))
 	}
-	// compacted and compactionErr contain the manual result and acquired failure.
 	compacted, compactionErr := o.service.compaction.CompactExtension(
 		ctx, o.service.extensionID, o.service.runtimeID, o.reference, instructions,
 	)
-	// mapped and err contain the public compaction completion and mapping failure.
 	mapped, err := mapCompactionCompletion(ctx, compacted, compactionErr)
 	if err != nil {
 		return nil, err
@@ -108,11 +102,8 @@ func (o *contextOperation) runSelection(
 	ctx context.Context,
 	selection PreparedSelection,
 ) (*extensionpb.HostCompleted, error) {
-	// result contains the selected operation completion.
 	result := new(extensionpb.HostCompleted)
-	// selectionResult contains the committed selection outcome.
 	selectionResult := selection.Run(ctx)
-	// mapped and err contain the public selection completion and mapping failure.
 	mapped, err := mapSelectionResult(selectionResult)
 	if err != nil {
 		return nil, err
@@ -127,9 +118,7 @@ func (o *contextOperation) runAppendMessage(
 	ctx context.Context,
 	message appendMessageRequest,
 ) (*extensionpb.HostCompleted, error) {
-	// result contains the selected operation completion.
 	result := new(extensionpb.HostCompleted)
-	// appended and err contain the visible message receipt and append failure.
 	appended, err := o.service.contexts.AppendExtensionMessage(
 		ctx, o.service.extensionID, o.service.runtimeID, o.reference,
 		message.entryType, message.text, message.visibility,
@@ -137,15 +126,12 @@ func (o *contextOperation) runAppendMessage(
 	if err != nil {
 		return nil, mapContextFailure("append extension message", err)
 	}
-	// mapped and err contain the public message entry and mapping failure.
 	mapped, err := mapSessionEntry(appended.Entry)
 	if err != nil {
 		return nil, extensionsdk.Fail(internalFailureCode, err)
 	}
-	// issues contains public message delivery diagnostics.
 	issues := make([]*extensionpb.AppendExtensionMessageIssue, 0, len(appended.Issues))
 	for issueIndex := range appended.Issues {
-		// issue identifies the current message delivery diagnostic.
 		issue := &appended.Issues[issueIndex]
 		if issue.Code != deliveryFailedIssueCode {
 			return nil, extensionsdk.Fail(
@@ -172,9 +158,7 @@ func (o *contextOperation) runAppendValue(
 	ctx context.Context,
 	value appendRequest,
 ) (*extensionpb.HostCompleted, error) {
-	// result contains the selected operation completion.
 	result := new(extensionpb.HostCompleted)
-	// entry and err contain the hidden entry receipt and append failure.
 	entry, err := o.service.contexts.AppendExtension(
 		ctx, o.service.extensionID, o.service.runtimeID, o.reference,
 		value.entryType, value.data,
@@ -182,7 +166,6 @@ func (o *contextOperation) runAppendValue(
 	if err != nil {
 		return nil, mapContextFailure("append extension entry", err)
 	}
-	// mapped and err contain the public hidden entry and mapping failure.
 	mapped, err := mapSessionEntry(entry)
 	if err != nil {
 		return nil, extensionsdk.Fail(internalFailureCode, err)
@@ -194,16 +177,13 @@ func (o *contextOperation) runAppendValue(
 
 // runSessionState returns the active branch snapshot.
 func (o *contextOperation) runSessionState(ctx context.Context) (*extensionpb.HostCompleted, error) {
-	// result contains the selected operation completion.
 	result := new(extensionpb.HostCompleted)
-	// snapshot and err contain the active branch state and read failure.
 	snapshot, err := o.service.contexts.ReadSessionState(
 		ctx, o.service.extensionID, o.service.runtimeID, o.reference,
 	)
 	if err != nil {
 		return nil, mapContextFailure("read extension session state", err)
 	}
-	// mapped and err contain the public branch state and mapping failure.
 	mapped, err := mapSessionState(snapshot)
 	if err != nil {
 		return nil, extensionsdk.Fail(internalFailureCode, err)
@@ -219,19 +199,15 @@ func (o *contextOperation) runConfiguredModel(
 	reporter *extensionsdk.HostProgressReporter,
 	configured configuredRequest,
 ) (*extensionpb.HostCompleted, error) {
-	// result contains the selected operation completion.
 	result := new(extensionpb.HostCompleted)
-	// response and err contain the configured model result and request failure.
 	response, err := o.service.models.Request(
 		ctx, o.service.extensionID, o.service.runtimeID, o.reference,
 		configured.selection, configured.instructions, configured.history,
 		func(progress ConfiguredRetryProgress) error {
-			// value contains the public retry progress payload.
 			value := extensionpb.ConfiguredModelRetryProgress_builder{
 				CompletedAttempts: new(progress.CompletedAttempts), AttemptLimit: new(progress.AttemptLimit),
 				DelayMilliseconds: new(progress.Delay.Milliseconds()), Error: new(progress.Error),
 			}.Build()
-			// frame contains the configured model retry progress event.
 			frame := new(extensionpb.HostProgress)
 			frame.SetConfiguredModelRetry(value)
 			return reporter.Report(ctx, frame)
@@ -240,7 +216,6 @@ func (o *contextOperation) runConfiguredModel(
 	if err != nil {
 		return nil, mapModelFailure("request configured model", err)
 	}
-	// mapped and err contain the public model response and mapping failure.
 	mapped, err := mapConfiguredResponse(response)
 	if err != nil {
 		return nil, extensionsdk.Fail(internalFailureCode, err)
@@ -252,9 +227,7 @@ func (o *contextOperation) runConfiguredModel(
 
 // runModelCatalog returns the model catalog.
 func (o *contextOperation) runModelCatalog(ctx context.Context) (*extensionpb.HostCompleted, error) {
-	// result contains the selected operation completion.
 	result := new(extensionpb.HostCompleted)
-	// catalog and err contain the model catalog and read failure.
 	catalog, err := o.service.models.ReadModels(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
 	if err != nil {
 		return nil, mapModelFailure("read model catalog", err)
@@ -266,9 +239,7 @@ func (o *contextOperation) runModelCatalog(ctx context.Context) (*extensionpb.Ho
 
 // runProviderCatalog returns the provider catalog.
 func (o *contextOperation) runProviderCatalog(ctx context.Context) (*extensionpb.HostCompleted, error) {
-	// result contains the selected operation completion.
 	result := new(extensionpb.HostCompleted)
-	// providers and err contain the provider catalog and read failure.
 	providers, err := o.service.models.ReadProviders(ctx, o.service.extensionID, o.service.runtimeID, o.reference)
 	if err != nil {
 		return nil, mapModelFailure("read provider catalog", err)

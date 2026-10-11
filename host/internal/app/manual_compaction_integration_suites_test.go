@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/suite"
 )
 
-// uIManualCancellationStopsObserverModelSuite owns an independent scenario context.
+// uIManualCancellationStopsObserverModelSuite isolates UI cancellation of observer-owned model work.
 type uIManualCancellationStopsObserverModelSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -19,14 +19,14 @@ type uIManualCancellationStopsObserverModelSuite struct {
 // TestUIManualCancellationStopsObserverModel checks UI owner cancellation joins observer model work and retains the
 // durable receipt.
 func TestUIManualCancellationStopsObserverModel(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange observer-owned model work for the UI caller.
 	t.Setenv(manualFixtureGlyphReferenceObserverModel, manualFixtureEnabled)
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through the UI cancellation scenario.
+	// Assert joined observer work and the durable receipt in TestScenario.
 	suite.Run(t, &uIManualCancellationStopsObserverModelSuite{Suite: suite.Suite{}})
 }
 
-// extensionManualCancellationStopsObserverModelSuite owns an independent scenario context.
+// extensionManualCancellationStopsObserverModelSuite isolates Extension cancellation of observer-owned model work.
 type extensionManualCancellationStopsObserverModelSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -35,14 +35,15 @@ type extensionManualCancellationStopsObserverModelSuite struct {
 // TestExtensionManualCancellationStopsObserverModel checks Extension owner cancellation joins observer model work
 // and retains the durable receipt.
 func TestExtensionManualCancellationStopsObserverModel(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange observer-owned model work for the Extension caller.
 	t.Setenv(manualFixtureGlyphReferenceObserverModel, manualFixtureEnabled)
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through the Extension cancellation scenario.
+	// Assert joined observer work and the durable receipt in TestScenario.
 	suite.Run(t, &extensionManualCancellationStopsObserverModelSuite{Suite: suite.Suite{}})
 }
 
-// programmaticManualCancellationStopsObserverModelSuite owns an independent scenario context.
+// programmaticManualCancellationStopsObserverModelSuite isolates Programmatic cancellation
+// of observer-owned model work.
 type programmaticManualCancellationStopsObserverModelSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -51,14 +52,15 @@ type programmaticManualCancellationStopsObserverModelSuite struct {
 // TestProgrammaticManualCancellationStopsObserverModel checks Programmatic owner cancellation joins observer model
 // work and retains the durable receipt.
 func TestProgrammaticManualCancellationStopsObserverModel(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange observer-owned model work for the Programmatic caller.
 	t.Setenv(manualFixtureGlyphReferenceObserverModel, manualFixtureEnabled)
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through the Programmatic cancellation scenario.
+	// Assert joined observer work and the durable receipt in TestScenario.
 	suite.Run(t, &programmaticManualCancellationStopsObserverModelSuite{Suite: suite.Suite{}})
 }
 
-// programmaticManualCompactionUsesRegisteredPolicySuite owns an independent scenario context.
+// programmaticManualCompactionUsesRegisteredPolicySuite isolates Programmatic replacement
+// and subsequent provider input.
 type programmaticManualCompactionUsesRegisteredPolicySuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -67,18 +69,17 @@ type programmaticManualCompactionUsesRegisteredPolicySuite struct {
 // TestProgrammaticManualCompactionUsesRegisteredPolicy checks registered-policy replacement and subsequent
 // Programmatic provider input.
 func TestProgrammaticManualCompactionUsesRegisteredPolicy(t *testing.T) {
-	// manualFixturePolicyInputJson names the policy-input evidence file.
 	const manualFixturePolicyInputJson = "policy-input.json"
 
-	// Arrange independent scenario configuration.
+	// Arrange capture of the public policy invocation input.
 	inputPath := filepath.Join(t.TempDir(), manualFixturePolicyInputJson)
 	t.Setenv(manualFixtureGlyphReferencePolicyInput, inputPath)
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through Programmatic replacement and the next conversation request.
+	// Assert captured policy input and replacement projection in TestScenario.
 	suite.Run(t, &programmaticManualCompactionUsesRegisteredPolicySuite{Suite: suite.Suite{}})
 }
 
-// programmaticManualCompactionRejectsAbsentPolicySuite owns an independent scenario context.
+// programmaticManualCompactionRejectsAbsentPolicySuite isolates Programmatic admission with no registered policy.
 type programmaticManualCompactionRejectsAbsentPolicySuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -87,14 +88,14 @@ type programmaticManualCompactionRejectsAbsentPolicySuite struct {
 // TestProgrammaticManualCompactionRejectsAbsentPolicy checks the public Programmatic failure when the policy owner
 // is absent.
 func TestProgrammaticManualCompactionRejectsAbsentPolicy(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the owner-absence suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through Programmatic admission with no registered policy.
+	// Assert the distinct owner-absence failure in TestScenario.
 	suite.Run(t, &programmaticManualCompactionRejectsAbsentPolicySuite{Suite: suite.Suite{}})
 }
 
-// uIManualCompactionUsesRegisteredPolicySuite owns an independent scenario context.
+// uIManualCompactionUsesRegisteredPolicySuite isolates UI replacement and subsequent provider input.
 type uIManualCompactionUsesRegisteredPolicySuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -102,14 +103,14 @@ type uIManualCompactionUsesRegisteredPolicySuite struct {
 
 // TestUIManualCompactionUsesRegisteredPolicy checks registered-policy replacement and subsequent UI provider input.
 func TestUIManualCompactionUsesRegisteredPolicy(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange the public UI compaction fixture.
 	t.Setenv(appUIBehaviorEnvironment, manualUIBehavior)
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through UI replacement and the next conversation request.
+	// Assert the durable receipt and replacement projection in TestScenario.
 	suite.Run(t, &uIManualCompactionUsesRegisteredPolicySuite{Suite: suite.Suite{}})
 }
 
-// programmaticManualCompactionTerminalStatesSuite owns an independent scenario context.
+// programmaticManualCompactionTerminalStatesSuite isolates Programmatic cancellation and failure outcomes.
 type programmaticManualCompactionTerminalStatesSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -118,14 +119,14 @@ type programmaticManualCompactionTerminalStatesSuite struct {
 // TestProgrammaticManualCompactionTerminalStates checks Programmatic cancellation, stale capture, and durable
 // failure receipts.
 func TestProgrammaticManualCompactionTerminalStates(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange policy-input capture for Programmatic terminal scenarios.
 	t.Setenv(manualFixtureGlyphReferencePolicyInput, filepath.Join(t.TempDir(), manualFixtureInputJson))
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through Programmatic cancellation and failure scenarios.
+	// Assert preserved originals and receipt-dependent outcomes in TestScenario.
 	suite.Run(t, &programmaticManualCompactionTerminalStatesSuite{Suite: suite.Suite{}})
 }
 
-// uIManualCompactionTerminalStatesSuite owns an independent scenario context.
+// uIManualCompactionTerminalStatesSuite isolates UI cancellation and failure outcomes.
 type uIManualCompactionTerminalStatesSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -133,14 +134,14 @@ type uIManualCompactionTerminalStatesSuite struct {
 
 // TestUIManualCompactionTerminalStates checks public UI failure and cancellation results.
 func TestUIManualCompactionTerminalStates(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange the public UI fixture for terminal outcomes.
 	t.Setenv(appUIBehaviorEnvironment, manualUIBehavior)
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through UI cancellation and failure scenarios.
+	// Assert preserved originals and receipt-dependent outcomes in TestScenario.
 	suite.Run(t, &uIManualCompactionTerminalStatesSuite{Suite: suite.Suite{}})
 }
 
-// programmaticManualCompactionRejectsAmbiguousOwnersSuite owns an independent scenario context.
+// programmaticManualCompactionRejectsAmbiguousOwnersSuite isolates registration with competing policy owners.
 type programmaticManualCompactionRejectsAmbiguousOwnersSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -148,14 +149,14 @@ type programmaticManualCompactionRejectsAmbiguousOwnersSuite struct {
 
 // TestProgrammaticManualCompactionRejectsAmbiguousOwners checks registration rejects multiple policy owners.
 func TestProgrammaticManualCompactionRejectsAmbiguousOwners(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the owner-ambiguity suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through registration with competing policy owners.
+	// Assert rejection of owner ambiguity in TestScenario.
 	suite.Run(t, &programmaticManualCompactionRejectsAmbiguousOwnersSuite{Suite: suite.Suite{}})
 }
 
-// extensionManualCompactionTerminalStatesSuite owns an independent scenario context.
+// extensionManualCompactionTerminalStatesSuite isolates Extension cancellation and failure outcomes.
 type extensionManualCompactionTerminalStatesSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -164,17 +165,16 @@ type extensionManualCompactionTerminalStatesSuite struct {
 // TestExtensionManualCompactionTerminalStates checks session-bound Extension failure, cancellation, and durable
 // receipts.
 func TestExtensionManualCompactionTerminalStates(t *testing.T) {
-	// manualFixtureDisabled disables a reference fixture mode.
 	const manualFixtureDisabled = "0"
 
-	// Arrange independent scenario configuration.
+	// Arrange policy registration for the Extension terminal scenarios.
 	t.Setenv(manualFixtureGlyphReferencePolicyDisabled, manualFixtureDisabled)
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through session-bound Extension cancellation and failure scenarios.
+	// Assert preserved originals and receipt-dependent outcomes in TestScenario.
 	suite.Run(t, &extensionManualCompactionTerminalStatesSuite{Suite: suite.Suite{}})
 }
 
-// programmaticManualCancellationStopsNestedModelSuite owns an independent scenario context.
+// programmaticManualCancellationStopsNestedModelSuite isolates cancellation of policy-owned model work.
 type programmaticManualCancellationStopsNestedModelSuite struct {
 	// Suite owns scenario assertions and lifecycle.
 	suite.Suite
@@ -182,9 +182,9 @@ type programmaticManualCancellationStopsNestedModelSuite struct {
 
 // TestProgrammaticManualCancellationStopsNestedModel checks owning cancellation joins nested policy model work.
 func TestProgrammaticManualCancellationStopsNestedModel(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange policy-input capture for nested cancellation scenarios.
 	t.Setenv(manualFixtureGlyphReferencePolicyInput, filepath.Join(t.TempDir(), manualFixtureInputJson))
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through Programmatic cancellation during nested model execution.
+	// Assert joined policy and participant model work in TestScenario.
 	suite.Run(t, &programmaticManualCancellationStopsNestedModelSuite{Suite: suite.Suite{}})
 }

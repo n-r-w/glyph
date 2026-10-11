@@ -13,21 +13,13 @@ import (
 func assertConfiguredInputErrors(t *testing.T, failures map[string]string) {
 	t.Helper()
 	const (
-		// emptyConfiguredContent identifies the empty content rejection in the fixture report.
-		emptyConfiguredContent = "empty content"
-		// missingConfiguredPayload identifies the missing payload rejection in the fixture report.
-		missingConfiguredPayload = "missing payload"
-		// emptyConfiguredText identifies the empty text rejection in the fixture report.
-		emptyConfiguredText = "empty text"
-		// missingConfiguredMediaType identifies the missing media type rejection in the fixture report.
+		emptyConfiguredContent     = "empty content"
+		missingConfiguredPayload   = "missing payload"
+		emptyConfiguredText        = "empty text"
 		missingConfiguredMediaType = "missing media type"
-		// emptyConfiguredImageData identifies the empty image data rejection in the fixture report.
-		emptyConfiguredImageData = "empty image data"
-		// assistantConfiguredImage identifies the assistant image rejection in the fixture report.
-		assistantConfiguredImage = "assistant image"
-		// unknownConfiguredRole identifies the unknown role rejection in the fixture report.
-		unknownConfiguredRole = "unknown role"
-		// unsupportedConfiguredImage identifies the unsupported image rejection in the fixture report.
+		emptyConfiguredImageData   = "empty image data"
+		assistantConfiguredImage   = "assistant image"
+		unknownConfiguredRole      = "unknown role"
 		unsupportedConfiguredImage = "unsupported image"
 	)
 	expected := map[string]string{

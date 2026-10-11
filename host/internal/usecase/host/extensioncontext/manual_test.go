@@ -18,14 +18,12 @@ func (s *manualPolicyRejectsAmbiguousOwnersSuite) TestScenario() {
 	t := s.T()
 	// Arrange two registered owners and a session that must not be captured.
 	controller := gomock.NewController(t)
-	// runtime supplies the competing registered policy owners.
 	runtime := NewMockPolicyRuntime(controller)
 	runtime.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).AnyTimes()
 	runtime.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{
 		{ExtensionID: "first", RuntimeID: "generation-a", HandlerID: "policy"},
 		{ExtensionID: "second", RuntimeID: "generation-b", HandlerID: "policy"},
 	})
-	// service owns the ambiguous-owner admission scenario.
 	service := New(NewMockRuntimeState(controller), NewMockSessionState(controller))
 	service.policyRuntime = runtime
 	service.compactionSessions = NewMockCompactionSessions(controller)
@@ -43,11 +41,9 @@ func (s *manualPolicyRejectsAbsentOwnerSuite) TestScenario() {
 	t := s.T()
 	// Arrange a runtime with no registered policy and a session that must not be captured.
 	controller := gomock.NewController(t)
-	// runtime supplies the empty policy owner set.
 	runtime := NewMockPolicyRuntime(controller)
 	runtime.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).AnyTimes()
 	runtime.EXPECT().SnapshotCompactionPolicies().Return(nil)
-	// service owns the absent-owner admission scenario.
 	service := New(NewMockRuntimeState(controller), NewMockSessionState(controller))
 	service.policyRuntime = runtime
 	service.compactionSessions = NewMockCompactionSessions(controller)

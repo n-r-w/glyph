@@ -26,10 +26,10 @@ type parentGuardSuite struct {
 
 // TestManualCommitGuardRejectsCanceledParentWithLiveChild checks cancellation before append.
 func TestManualCommitGuardRejectsCanceledParentWithLiveChild(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the persistence-guard suite.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through parent cancellation with a live admitted child.
+	// Assert synchronous persistence rejection and joined child release in TestScenario.
 	suite.Run(t, &parentGuardSuite{Suite: suite.Suite{}})
 }
 
@@ -38,12 +38,9 @@ func (s *parentGuardSuite) TestScenario() {
 	t := s.T()
 	// Arrange a live child whose parent is canceled immediately before the persistence guard.
 	service, policy, owner := newManualPolicyOperationFixture(t)
-	// cause is the parent cancellation failure before persistence.
 	cause := errors.New("original parent canceled before append")
-	// parent and cancel own the invocation lifetime.
 	parent, cancel := context.WithCancelCause(t.Context())
 	defer cancel(nil)
-	// candidate contains the proposed replacement.
 	candidate := session.CompactionEntry{
 		Summary:          "summary",
 		FirstKeptEntryID: "leaf",
@@ -54,17 +51,13 @@ func (s *parentGuardSuite) TestScenario() {
 		EstimatedCost: mo.None[session.EstimatedCost](),
 		Details:       mo.None[[]byte](),
 	}
-	// childReleased indicates completion of the admitted child.
 	childReleased := false
-	// appended indicates durable replacement in the fixture.
 	appended := false
-	// sessions supplies guarded replacement behavior.
 	sessions := service.compactionSessions.(*MockCompactionSessions)
 	sessions.EXPECT().CommitReplacement(gomock.Any(), gomock.Any(), candidate, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(child context.Context, snapshot CompactionSnapshot, value session.CompactionEntry, guard ContextCommitGuard, record func(session.Entry)) (session.Entry, error) {
 			cancel(cause)
 			require.NoError(t, child.Err())
-			// unlock and err contain guard ownership and its cancellation failure.
 			unlock, err := guard()
 			if err != nil {
 				require.ErrorIs(t, err, cause)
@@ -77,7 +70,6 @@ func (s *parentGuardSuite) TestScenario() {
 		})
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
-			// release and err contain child admission ownership and its failure.
 			release, err := service.BeginCompactionChild(owner.ExtensionID, owner.RuntimeID, invocation.LifecycleID)
 			if err != nil {
 				return false, err

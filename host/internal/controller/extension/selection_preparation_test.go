@@ -34,20 +34,15 @@ func TestSelectionPreparationRetainsAdmittedChildCause(t *testing.T) {
 
 // TestScenario checks the returned cause and exactly-once child/runtime settlement.
 func (s *selectionPreparationSuite) TestScenario() {
-	// selectionPreparationNotFound identifies an unknown catalog model.
 	const selectionPreparationNotFound = "not_found"
-	// publicSelectionNotFound identifies the public rejection category.
 	const publicSelectionNotFound = "NOT_FOUND"
 	t := s.T()
 	// Arrange both the admitted-child request and the ordinary uncorrelated request.
 	for _, scenario := range []struct {
-		// name identifies the preparation ownership scenario.
-		name string
-		// parent identifies an admitted parent lifetime when present.
+		name   string
 		parent mo.Option[string]
 	}{{name: "admitted child", parent: mo.Some("lifetime")}, {name: "ordinary selection", parent: mo.None[string]()}} {
 		t.Run(scenario.name, func(t *testing.T) {
-			// parent and correlated supply the wire lifetime and child admission condition.
 			parent, correlated := scenario.parent.Get()
 			mocks := gomock.NewController(t)
 			contexts := NewMockContextOperations(mocks)
@@ -55,17 +50,11 @@ func (s *selectionPreparationSuite) TestScenario() {
 			runtime := NewMockRuntimeOperations(mocks)
 			selection := NewMockModelSelection(mocks)
 			policy := NewMockCompactionPolicyOperations(mocks)
-			// reference identifies the validated session binding.
 			reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
-			// source contains the underlying selection-preparation cause.
 			source := errors.New("catalog preparation source")
-			// classified contains the source with its shared selection category.
 			classified := selectionFailureValue{code: selectionPreparationNotFound, cause: source}
-			// runtimeReleases counts completed runtime reservation cleanup.
 			runtimeReleases := 0
-			// childReleases counts the owning child's once-only settlement.
 			childReleases := 0
-			// childCause contains the first acquired child outcome.
 			var childCause error
 			// childOnce models the production child release's once-only callback contract.
 			var childOnce sync.Once
@@ -82,11 +71,9 @@ func (s *selectionPreparationSuite) TestScenario() {
 				Kind: SelectionCommandModel, ExtensionID: "extension", RuntimeID: "runtime", Context: reference,
 				Provider: "provider", Model: "missing", ReasoningChoice: "",
 			}).Return(nil, classified)
-			// service owns the shared controller preparation path.
 			service := New(models, contexts, runtime, "extension", "runtime")
 			service.BindSelection(selection)
 			service.BindPolicyOperations(policy)
-			// request contains an ordinary model selection and optional parent correlation.
 			request := new(extensionpb.ExtensionRequest)
 			request.SetParentCompactionId(parent)
 			request.SetSelectModel(extensionpb.SelectModelRequest_builder{
@@ -104,7 +91,6 @@ func (s *selectionPreparationSuite) TestScenario() {
 			require.Nil(t, operation)
 			require.ErrorIs(t, err, source)
 			require.ErrorContains(t, err, source.Error())
-			// rejection holds the public rejection for category assertions.
 			var rejection *extensionsdk.RejectionError
 			require.ErrorAs(t, err, &rejection)
 			require.Equal(t, publicSelectionNotFound, rejection.Code())

@@ -23,14 +23,10 @@ var _ extensionsdk.HandleOperation = (*outcomeOperation)(nil)
 // Run captures the public outcome and optionally performs ordinary observer work.
 func (o *outcomeOperation) Run(ctx context.Context) (*extensionpb.HandleResponse, error) {
 	const (
-		// outcomeEnvironment selects the captured public outcome artifact.
-		outcomeEnvironment = "GLYPH_REFERENCE_OUTCOME"
-		// observerFailureEnvironment selects an ordinary observer failure.
+		outcomeEnvironment         = "GLYPH_REFERENCE_OUTCOME"
 		observerFailureEnvironment = "GLYPH_REFERENCE_OBSERVER_FAILURE"
-		// observerModelEnvironment selects actual observer-owned model work.
-		observerModelEnvironment = "GLYPH_REFERENCE_OBSERVER_MODEL"
-		// observerCause contains the complete original observer failure.
-		observerCause = "reference compaction observer failure: original observer cause"
+		observerModelEnvironment   = "GLYPH_REFERENCE_OBSERVER_MODEL"
+		observerCause              = "reference compaction observer failure: original observer cause"
 	)
 
 	if _, authority := extensionsdk.FindCompactionPolicy(ctx); authority {
@@ -40,12 +36,10 @@ func (o *outcomeOperation) Run(ctx context.Context) (*extensionpb.HandleResponse
 		return newPolicyFailure(err), nil
 	}
 	if os.Getenv(observerModelEnvironment) == fixtureEnabledValue && o.outcome.GetState() != nil {
-		// binding provides ordinary session request access.
 		binding, err := extensionsdk.ContextFrom(ctx)
 		if err != nil {
 			return newPolicyFailure(err), nil
 		}
-		// request contains the public operation input.
 		request := o.outcome.GetState().GetCurrentRequest()
 		if err = waitPolicyConfiguredModel(ctx, binding, request.GetModel(), request.GetReasoningChoice()); err != nil {
 			return newPolicyFailure(err), nil
@@ -54,7 +48,6 @@ func (o *outcomeOperation) Run(ctx context.Context) (*extensionpb.HandleResponse
 	if os.Getenv(observerFailureEnvironment) == fixtureEnabledValue {
 		return newPolicyFailure(errors.New(observerCause)), nil
 	}
-	// response contains the acquired terminal completion.
 	response := new(extensionpb.HandleResponse)
 	if o.outcome.GetCommitted() != nil && o.outcome.GetError() == "" {
 		response.SetCompactionSuccess(new(extensionpb.CompactionObserverAction))
@@ -72,15 +65,12 @@ func newReferencePolicyState(
 	input *extensionpb.CompactionPolicyInvocation,
 	result *extensionpb.CompactionResult,
 ) *extensionpb.CompactionPolicyState {
-	// prefix contains entries replaced by the summary.
 	prefix := make([]*extensionpb.CompactionInputEntry, 0)
-	// suffix contains entries retained after the summary.
 	suffix := make([]*extensionpb.CompactionInputEntry, 0)
 	// retained marks the retained boundary and subsequent entries.
 	retained := false
 	for _, entry := range input.GetEntries() {
 		retained = retained || entry.GetEntry().GetId() == result.GetFirstKeptEntryId()
-		// projected contains the public projection result.
 		projected := extensionpb.CompactionInputEntry_builder{
 			Entry:           entry.GetEntry(),
 			EstimatedTokens: new(int64(0)),
@@ -91,7 +81,6 @@ func newReferencePolicyState(
 			prefix = append(prefix, projected)
 		}
 	}
-	// request contains the public operation input.
 	request := extensionpb.CompactionRequest_builder{
 		Trigger: new(
 			extensionpb.CompactionTrigger_COMPACTION_TRIGGER_MANUAL,
@@ -122,14 +111,11 @@ func newReferencePolicyState(
 func startCallerCancellation(
 	ctx context.Context, listener net.Listener,
 ) (ownerContext context.Context, finish func() error) {
-	// owner retains the initiating cancellation cause for pending caller work.
+	// Propagate the initiating cancellation cause to pending caller work.
 	owner, cancel := context.WithCancelCause(ctx)
-	// accepted identifies connection cleanup after the worker is joined.
 	accepted := false
-	// joined contains all worker failures after connection cleanup.
 	joined := make(chan error, 1)
 	go func() {
-		// connection owns the accepted cancellation stream.
 		connection, acceptErr := listener.Accept()
 		if acceptErr != nil {
 			cancel(acceptErr)
@@ -142,9 +128,7 @@ func startCallerCancellation(
 	}()
 	return owner, func() error {
 		cancel(nil)
-		// closeErr contains acquired listener cleanup failure.
 		closeErr := listener.Close()
-		// workerErr contains the acquired cause after all worker resource cleanup.
 		workerErr := <-joined
 		// A successful owning close caused an ordinary interrupted accept. An already
 		// closed listener reports a close failure, so its unexpected accept cause remains.

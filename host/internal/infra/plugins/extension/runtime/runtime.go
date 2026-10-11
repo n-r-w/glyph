@@ -134,18 +134,13 @@ func (r *Runtime) composeExecutionFailure(
 	received, progress, cancellation error,
 ) error {
 	const (
-		// executionFailureFormat identifies the failed tool and retains its causes.
 		executionFailureFormat = "execute extension tool %q: %w"
-		// progressFailureFormat identifies failure to deliver extension progress.
-		progressFailureFormat = "deliver extension progress: %w"
-		// protocolFailureFormat identifies the failed tool and its protocol violation.
-		protocolFailureFormat = "execute extension tool %q: extension protocol violation: %w"
+		progressFailureFormat  = "deliver extension progress: %w"
+		protocolFailureFormat  = "execute extension tool %q: extension protocol violation: %w"
 	)
 
 	// The composer checks both operations because a terminal peer error can accompany a cancellation connection failure.
-	// unavailable records whether the failure requires Host unavailability classification.
 	unavailable := isConnectionFailure(received) || isConnectionFailure(cancellation)
-	// resultErr carries the selected diagnostic and every acquired cause.
 	var resultErr error
 	switch {
 	case ctx.Err() != nil:
@@ -156,14 +151,11 @@ func (r *Runtime) composeExecutionFailure(
 		resultErr = fmt.Errorf(executionFailureFormat, toolName, received)
 	default:
 		unavailable = true
-		// receivedCode contains the transport status for diagnostic selection.
 		receivedCode := status.Code(received)
-		// receivedCause retains the acquired failure and any transport cancellation identity.
 		receivedCause := received
 		if receivedCode == codes.Canceled {
 			receivedCause = errors.Join(context.Canceled, received)
 		}
-		// diagnosticFormat contains the tool failure template for the received status.
 		diagnosticFormat := executionFailureFormat
 		if receivedCode == codes.FailedPrecondition {
 			diagnosticFormat = protocolFailureFormat

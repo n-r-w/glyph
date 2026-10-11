@@ -20,23 +20,20 @@ type handlerMatrixSuite struct {
 
 // TestHandlerPayloadContracts checks every registered current kind and malformed payload.
 func TestHandlerPayloadContracts(t *testing.T) {
-	// Arrange independent scenario configuration.
+	// Arrange parallel execution of the handler payload matrix.
 	t.Parallel()
-	// Act: run the suite scenario.
-	// Assert: the scenario method checks the public result.
+	// Act through matching and malformed handler payloads.
+	// Assert the registration-kind contract for each payload in TestScenario.
 	suite.Run(t, &handlerMatrixSuite{Suite: suite.Suite{}})
 }
 
 // TestScenario checks handler payload matching, missing fields, and unknown kinds.
 func (s *handlerMatrixSuite) TestScenario() {
 	t := s.T()
-	// kindFailureFormat identifies the handler discriminator in an assertion failure.
 	const kindFailureFormat = "kind %d"
 	// Arrange one public payload for every current handler kind.
 	for _, scenario := range []struct {
-		// kind identifies the registered handler payload contract.
-		kind extensionpb.HandlerKind
-		// request contains the corresponding typed payload.
+		kind    extensionpb.HandlerKind
 		request *extensionpb.HandleRequest
 	}{
 		{kind: extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST, request: func() *extensionpb.HandleRequest {

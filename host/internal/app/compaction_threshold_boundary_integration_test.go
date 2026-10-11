@@ -23,38 +23,30 @@ type thresholdBoundarySuite struct {
 
 // TestThresholdCompactionPreservesSplitBoundaryCause checks the retained automatic projection error contract.
 func TestThresholdCompactionPreservesSplitBoundaryCause(t *testing.T) {
-	// Arrange the public fixture setting.
-	// splitBoundaryEnvironment names the tool-result boundary fixture setting.
+	// Arrange a handler that splits a tool call from its result.
 	const splitBoundaryEnvironment = "GLYPH_THRESHOLD_SPLIT_BOUNDARY"
 	t.Setenv(splitBoundaryEnvironment, manualFixtureEnabled)
-	// Act by running the public scenario.
+	// Act through threshold-triggered conversation preparation.
 	suite.Run(t, &thresholdBoundarySuite{Suite: suite.Suite{}})
-	// Assert the public outcome in the suite scenario.
+	// Assert the original split-boundary cause and no replacement in TestScenario.
 }
 
 // TestScenario checks structural failure from a real public threshold-compaction request.
 func (s *thresholdBoundarySuite) TestScenario() {
 	t := s.T()
 	const (
-		// historyOperation identifies the original public conversation turn.
-		historyOperation = "threshold-history"
-		// selectionOperation identifies the smaller-model selection.
+		historyOperation   = "threshold-history"
 		selectionOperation = "threshold-model"
-		// nextOperation identifies the public threshold-triggering request.
-		nextOperation = "threshold-next"
-		// storedOperation identifies original-entry retrieval after rejection.
-		storedOperation = "threshold-stored"
+		nextOperation      = "threshold-next"
+		storedOperation    = "threshold-stored"
 		// compactOwner identifies the registered automatic result producer.
 		compactOwner = "01-compact"
-		// providerID identifies the configured conversation provider.
-		providerID = "openai-codex"
+		providerID   = "openai-codex"
 		// modelID identifies the smaller context-capacity model.
-		modelID = "gpt-test"
-		// failureCode identifies retained extension compaction failure.
+		modelID     = "gpt-test"
 		failureCode = "EXTENSION_FAILED"
 	)
 	// Arrange real tool-call history and a registered automatic handler that splits its boundary.
-	// modelMarker locates the smaller model configuration.
 	const modelMarker = "- id: gpt-test"
 	at := strings.Index(configuredRequestSettings, modelMarker)
 	require.Positive(t, at)

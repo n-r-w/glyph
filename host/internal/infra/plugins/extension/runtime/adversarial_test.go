@@ -81,7 +81,6 @@ var _ extensionpb.ExtensionServiceServer = (*adversarialServer)(nil)
 
 // Open serves the selected direct protocol fixture scenario.
 func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer) error {
-	// shutdownHostWorkPrefix identifies the protocol family with admitted nested Host work.
 	const shutdownHostWorkPrefix = "shutdown-host-work"
 
 	register, err := stream.Recv()
@@ -271,14 +270,10 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 func (s *adversarialServer) serveShutdownHostWork(
 	stream extensionpb.ExtensionService_OpenServer, execute *extensionpb.OpenRequest,
 ) error {
-	// nestedHostWorkID identifies the Host operation admitted before invocation failure.
 	const nestedHostWorkID = "nested-host-work"
 
-	// id identifies the public invocation in shutdown protocol output.
 	id := execute.GetOperationId()
-	// request contains the nested Host operation required for the shutdown scenario.
 	request := new(extensionpb.ExtensionRequest)
-	// binding holds the caller context identity for nested Host admission.
 	binding := execute.GetRequest().GetExecute().GetContext()
 	if execute.GetRequest().GetHandle() != nil {
 		binding = execute.GetRequest().GetHandle().GetContext()
@@ -296,7 +291,6 @@ func (s *adversarialServer) serveShutdownHostWork(
 	}
 	// Wait for admission before failing the invocation that shares this connection.
 	for {
-		// response contains the Host admission acknowledgment.
 		response, receiveErr := stream.Recv()
 		if receiveErr != nil {
 			return receiveErr
@@ -310,7 +304,6 @@ func (s *adversarialServer) serveShutdownHostWork(
 			return err
 		}
 		for {
-			// response contains the owner Close request.
 			response, receiveErr := stream.Recv()
 			if receiveErr != nil {
 				return receiveErr
@@ -329,7 +322,6 @@ func (s *adversarialServer) serveShutdownHostWork(
 		}
 	}
 	if s.mode == shutdownHostWorkCancelMode || s.mode == shutdownHostWorkCancelHandlerMode {
-		// cancellation contains the caller request expected after Host admission.
 		cancellation, receiveErr := stream.Recv()
 		if receiveErr != nil {
 			return receiveErr
@@ -344,10 +336,8 @@ func (s *adversarialServer) serveShutdownHostWork(
 
 // sendEmptyToolCompletion supplies a malformed tool completion for protocol-failure tests.
 func sendEmptyToolCompletion(stream extensionpb.ExtensionService_OpenServer, id string) error {
-	// completedEvent holds the malformed tool result used to fail the invocation.
 	completedEvent := new(extensionpb.ExtensionCompleted)
 	completedEvent.SetTool(extensionpb.ToolResult_builder{IsError: new(false), Contents: nil}.Build())
-	// event contains the malformed completion for the public protocol.
 	event := new(extensionpb.ExtensionEvent)
 	event.SetCompleted(completedEvent)
 	if err := stream.Send(extensionResponse(id, event)); err != nil {
