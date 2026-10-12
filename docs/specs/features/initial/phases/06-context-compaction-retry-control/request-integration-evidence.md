@@ -8,7 +8,9 @@ The [migration plan](migration-plan.md#sequential-implementation-units) records 
 
 The public SDK exposes `CompactionPolicyContext.StartRequestHandler` and `CompactionRequestOperation.Wait`. The Extension controller admits the asynchronous Host request under the policy lifetime. Its consumer-owned command and response types preserve the dependency direction described in the target solution.
 
-The operation owner checks policy authority and captured membership. It issues an ordinary session context for the selected generation and creates a separate participant lifetime. The runtime manager invokes exactly one request handler through its registered-generation mechanism. The runtime adapter returns the handler's typed action to the policy extension.
+The operation owner checks policy authority and captured membership. It issues an ordinary session context for the selected generation and creates a separate participant lifetime. The runtime manager invokes exactly one request handler through its registered-generation mechanism. The runtime adapter returns the handler's typed action to the operation owner.
+
+Before returning the action to the policy extension, the owner checks the returned result's extension attribution. For example, if a handler from `extension-a` attributes its replacement to `extension-b`, Host returns failure with both identifiers. Model-attributed replacements retain their supplied model source.
 
 `extensioncontext.PolicyRuntime.InvokeCompactionRequest` uses participant, invocation, action, and nested request/result types owned by `extensioncontext`. The runtime manager converts these values at its dispatch boundary. It reuses captured-generation resolution, operation accounting, and runtime invocation. The retained `contextcompaction` automatic and overflow consumer uses `HandleCompactionRequest` with its own contracts. The runtime manager dispatches both `InvokeCompactionRequest` and `HandleCompactionRequest` through the runtime's request-handler mechanism.
 
@@ -24,13 +26,14 @@ The first handler replaces the request and supplies a result. The second derives
 
 The SDK synchronously clones the complete participant invocation before enqueue. The reference policy passes its selected original, current request, and current result directly to that ownership boundary. It keeps the initial separation between original and current requests.
 
-The policy validates each action before installing its independent request and result values. After cancellation, failure, or an invalid action, the policy stops composition and requests no replacement. A cleared result produces an explicit reference-policy failure in this unit. Generator invocation belongs to UNT-06.
+The policy validates each action's shape before installing its independent request and result values. After cancellation, failure, or an invalid action, the policy stops composition and requests no replacement. When request handlers leave no result, the reference policy invokes its selected generator as described in the [generator integration evidence](generator-integration-evidence.md).
 
 Host returns the action and retains operation ownership. The reference extension owns the composition loop and the original values.
 
 ## Permanent public evidence
 
 - `TestProgrammaticManualRequestHandlers` exercises real application, runtime, SDK, and session wiring. It checks registration order, same-runtime and separate-runtime generations, detached originals, request-only and result-only replacement, result clearing, terminal actions, preserved history, and the next actual provider request.
+- `TestReplacementProducerIdentity` in the public request-handler suite checks rejection of another extension's attribution before later handlers or session mutation. It compares failure-observer state with the preceding accepted request and result. Its successful cases check source metadata and details presence through public and stored projections. The model case also checks all six usage counters.
 - The reference request handlers create participant input artifacts with exclusive creation. The tests compare each handler's original request with the first captured original. They check the independent current values and the absence of a later participant after terminal actions.
 - The Programmatic, UI, and Extension manual terminal-state suites include request-handler cancellation, failure, invalid action, and a handled participant-child preparation rejection followed by a later handler failure. They check the acquired composition state, both preparation and handler causes, and absence of a replacement.
 - `TestProgrammaticManualCancellationStopsNestedModel` includes participant-owned configured-model work. When the public parent operation is canceled, Host stops that provider work before terminal return. The original history remains intact.
@@ -89,6 +92,14 @@ A further close-only regression failed when cleanup discarded a completely read 
 The capture transport retains received rejection status, headers and every acquired body byte, including partial reception. It combines acquired read and close causes. A read cause indicates incomplete reception. When capture succeeds, the capture transport replays the body for the SDK. The capture transport owns the original rejection body and closes it once. When the SDK exposes only the inner error object of the received envelope, the provider preserves the full received envelope. In this case, the provider also retains the SDK error identity without repeating the inner diagnostic. The provider supplies a usable received structured code to the shared classifier, with status fallback and received retry metadata. The driver settles SSE cleanup before terminal publication and combines acquired execution, handler and cleanup causes. When the caller cancels the request, the driver retains the aborted outcome alongside acquired failure text. `TestDriverReceivedDiagnostics` and `TestDriverStreamCleanup` check these provider boundaries. `TestProgrammaticManualProviderFailures` checks these public diagnostics, the structured overflow category, cancellation-overlap causes and retained history. Pure cancellation and ordinary retry behavior remain covered by their established tests.
 
 The later rejection-envelope, overflow-classification, partial-capture, and cancellation-with-cleanup regressions have recorded corrective RED/GREEN cycles. Their RED runs compiled the Codex files from `823ec09` through overlays and failed on the expected assertions. Subsequent GREEN runs used the restored implementation with identical test source. The historical evidence limits above remain.
+
+### Request-result producer identity correction
+
+The public `other-extension` case first failed because Host returned the mismatched result without rejecting it. The same test passed after Host compared its attributed producer with the selected participant. The RED and immediate GREEN runs used identical test and fixture files; only the Host implementation differed. The extension and model cases passed in RED and remain characterization checks.
+
+All 33 final verification commands for checkpoint `487fe8a` finished with exit 0 on identical before-and-after source maps. Each of the three producer cases passed 20 race-enabled repetitions. Coverage was 83.7%, above the required 80.0%. Seven standard-suite skips remain evidence gaps for their named behavior.
+
+Historical launcher, source-inspection and reviewer shell-substitution attempts did not all have prior log/result pairs. These procedural failures remain explicit; later records do not reconstruct missing reservations. Earlier lint failures, a failed audit condition and formatter changes also remain recorded. Every command in the final verification matrix had prior exclusive log/result reservation. The independent analyst approved the source after reviewing the public regressions and complete final matrix.
 
 ## Migration boundary
 

@@ -117,6 +117,7 @@ UNT-07 through UNT-11 remain pending in the approved order. PHS-06.1 is incomple
   - `2cf86e8`: shared configured-input image fixture construction and named configured-input protocol values.
   - `53f4c06`: single-owner runtime-unavailability classification with complete error causes.
   - `efdd9cf`: separate shutdown scenario helpers, removal of duplicate registration cleanup, and named shutdown modes and formatting templates.
+  - `487fe8a`: request-handler result producer identity validation. The [correction evidence](request-integration-evidence.md#request-result-producer-identity-correction) describes public rejection, metadata preservation, and verification limits.
   - All code correction units passed CodeQuality, full checks, and independent review.
 - Document clarity and status corrections: linked progress and phase ordering, positive behavior statements, explicit component ownership, split design blocks, and resumed-work status passed CodeQuality and independent review. Local references, anchors, and whitespace checks passed. This document-only unit changed no code.
 
