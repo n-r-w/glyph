@@ -95,7 +95,9 @@ type PolicyInvocation struct {
 	// Input contains the captured outbound model selection, instructions, and tools.
 	Input modelexecution.ProviderRequest
 	// Requests contains captured request participants in registration order.
-	Requests []RequestParticipant
+	Requests []Participant
+	// Generators contains captured generator registrations.
+	Generators []Participant
 	// Instructions contains the caller's manual guidance.
 	Instructions mo.Option[string]
 	// RecordState retains acquired diagnostic state independently of the durable receipt.
@@ -104,10 +106,12 @@ type PolicyInvocation struct {
 
 // PolicyRuntime supplies registered policy identity and asynchronous invocation.
 type PolicyRuntime interface {
+	// InvokeCompactionGenerator invokes one captured generator.
+	InvokeCompactionGenerator(context.Context, Participant, extension.Context, RequestInvocation) (Result, error)
 	// InvokeCompactionRequest invokes one captured policy request participant.
 	InvokeCompactionRequest(
 		context.Context,
-		RequestParticipant,
+		Participant,
 		extension.Context,
 		RequestInvocation,
 	) (RequestAction, error)

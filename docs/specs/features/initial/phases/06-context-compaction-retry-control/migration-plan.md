@@ -109,7 +109,7 @@ Follow the [approved system integration](solution.md#phs-061-integration-proposa
 
 UNT-01 through UNT-10 are behavior slices. UNT-11 is Cleanup. Every unit starts only after the previous unit passes the [completion checks](#unit-completion-and-review).
 
-UNT-06 through UNT-11 remain pending in the approved order below. PHS-06.1 is incomplete.
+Preparation of the UNT-06 generator implementation is [unfinished](generator-integration-evidence.md). Report-only code and text reviews are complete, and the collected correction batch is prepared with targeted checks. Complete project verification and independent acceptance remain pending. UNT-07 through UNT-11 have not started. PHS-06.1 is incomplete.
 
 - Accepted units: UNT-01 (`5165a14`), UNT-02 (`bf62186`), UNT-03 (`23f2f55`), UNT-04 (`85f7b9a`), and UNT-05 (`4181ae2`) passed full checks, code-quality review, and independent review. The [request-handler integration evidence](request-integration-evidence.md) describes UNT-05 behavior, corrective RED/GREEN cycles, and evidence limits. See [configured-model input](solution.md#configured-model-image-input), [runtime shutdown](solution.md#tracked-runtime-shutdown), and [manual policy integration evidence](manual-integration-evidence.md) for behavior and checks. The [SDK connection failure tests](../../../../../../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../../../../../../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check failure reporting before shutdown and owner cleanup through `Close`.
 - Retained baseline: `64bcecd`. Safe quality corrections: `1612ae5`.

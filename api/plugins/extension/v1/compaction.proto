@@ -258,18 +258,20 @@ message CompactionPolicyInvocation {
   // The captured policy runtime generation.
   string policy_runtime_id = 13;
   // The captured request handlers in registration order.
-  repeated CompactionRequestParticipant request_participants = 14;
+  repeated CompactionParticipant request_participants = 14;
+  // The captured generators in registration order.
+  repeated CompactionParticipant generator_participants = 15;
 }
 
-// CompactionRequestParticipant identifies one captured request handler.
-message CompactionRequestParticipant {
+// CompactionParticipant identifies one captured compaction capability.
+message CompactionParticipant {
   // The extension that registered the handler.
   string extension_id = 1;
   // The captured runtime generation.
   string runtime_id = 2;
   // The extension-local handler identifier.
   string handler_id = 3;
-  // The handler position in the captured request registration sequence.
+  // The position in the captured registration sequence for this capability kind.
   int64 registration_order = 4;
 }
 
@@ -280,8 +282,20 @@ message InvokeCompactionRequestRequest {
   // The authority for the current policy operation.
   string operation_id = 2;
   // The captured request participant selected by the policy.
-  CompactionRequestParticipant participant = 3;
+  CompactionParticipant participant = 3;
   // The original and composed values selected by the policy.
+  CompactionRequestInvocation invocation = 4;
+}
+
+// InvokeCompactionGeneratorRequest contains the inputs for one captured generator selected by the policy.
+message InvokeCompactionGeneratorRequest {
+  // The session binding for the policy runtime.
+  ExtensionContextRef context = 1;
+  // The authority for the current policy operation.
+  string operation_id = 2;
+  // The captured generator selected by the policy.
+  CompactionParticipant participant = 3;
+  // The immutable original and final current request.
   CompactionRequestInvocation invocation = 4;
 }
 

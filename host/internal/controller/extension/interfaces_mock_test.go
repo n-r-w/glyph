@@ -591,6 +591,21 @@ func (mr *MockCompactionPolicyOperationsMockRecorder) CommitPolicyReplacement(ct
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitPolicyReplacement", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).CommitPolicyReplacement), ctx, extensionID, runtimeID, operationID, candidate)
 }
 
+// InvokePolicyGenerator mocks base method.
+func (m *MockCompactionPolicyOperations) InvokePolicyGenerator(arg0 context.Context, arg1, arg2 string, arg3 CompactionGeneratorCommand) (session.CompactionEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InvokePolicyGenerator", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(session.CompactionEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InvokePolicyGenerator indicates an expected call of InvokePolicyGenerator.
+func (mr *MockCompactionPolicyOperationsMockRecorder) InvokePolicyGenerator(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvokePolicyGenerator", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).InvokePolicyGenerator), arg0, arg1, arg2, arg3)
+}
+
 // InvokePolicyRequest mocks base method.
 func (m *MockCompactionPolicyOperations) InvokePolicyRequest(ctx context.Context, extensionID, runtimeID string, command CompactionRequestCommand) (CompactionRequestResponse, error) {
 	m.ctrl.T.Helper()

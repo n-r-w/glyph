@@ -104,6 +104,9 @@ func (s *policyService) PrepareHandle(
 	ctx context.Context,
 	request *extensionpb.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
+	if request.GetCompactionGenerate() != nil {
+		return &referenceGeneratorOperation{invocation: request.GetCompactionGenerate()}, nil
+	}
 	if request.GetCompactionRequest() != nil {
 		return &referenceRequestOperation{
 			handlerID:  request.GetHandlerId(),
@@ -151,6 +154,12 @@ func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterRespon
 	)
 
 	handlers := make([]*extensionpb.HandlerDescriptor, 0)
+	if filepath.Base(os.Args[0]) == referenceGeneratorExecutable {
+		return extensionpb.RegisterResponse_builder{
+			Tools:    nil,
+			Handlers: newReferenceGeneratorDescriptors(),
+		}.Build(), nil
+	}
 	if filepath.Base(os.Args[0]) == referenceRequestsExecutable {
 		return extensionpb.RegisterResponse_builder{Tools: nil, Handlers: newReferenceRequestDescriptors()}.Build(), nil
 	}
@@ -187,6 +196,9 @@ func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterRespon
 	}
 	if os.Getenv(referenceSeparateRequestsEnvironment) != fixtureEnabledValue {
 		handlers = append(handlers, newReferenceRequestDescriptors()...)
+	}
+	if os.Getenv(referenceSeparateGeneratorEnvironment) != fixtureEnabledValue {
+		handlers = append(handlers, newReferenceGeneratorDescriptors()...)
 	}
 	return extensionpb.RegisterResponse_builder{Tools: nil, Handlers: handlers}.Build(), nil
 }

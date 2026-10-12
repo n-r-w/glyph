@@ -14,7 +14,7 @@ import (
 // InvokeCompactionRequest invokes the participant's compaction request handler in the captured runtime.
 func (s *Service) InvokeCompactionRequest(
 	ctx context.Context,
-	participant extensioncontext.RequestParticipant,
+	participant extensioncontext.Participant,
 	binding extension.Context,
 	invocation extensioncontext.RequestInvocation,
 ) (extensioncontext.RequestAction, error) {

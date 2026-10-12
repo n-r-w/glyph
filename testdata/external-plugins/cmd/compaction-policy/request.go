@@ -130,10 +130,10 @@ func (o *policyOperation) composeRequests(
 		}
 		o.installRequestAction(action)
 	}
-	if o.state.GetResult() == nil {
-		return nil, false, errors.New("reference composition has no result")
+	if o.state.GetResult() != nil {
+		return o.state.GetResult(), false, nil
 	}
-	return o.state.GetResult(), false, nil
+	return o.generateResult(ctx, input)
 }
 
 // validateReferenceRequestAction checks the shape of a participant action.

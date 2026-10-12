@@ -181,17 +181,27 @@ func newManualCompactionProviderTransport(t *testing.T) (*MockHTTPRoundTripper, 
 			if err != nil {
 				return nil, err
 			}
-			bodies.append(encoded)
+			position := bodies.append(encoded)
+			response := finalResponseSSE
+			statusCode := http.StatusOK
+			const configuredModelMatch = `"model":"` + configuredRequestModelID + `"`
+			if bytes.Contains(encoded, []byte(configuredModelMatch)) {
+				response = configuredModelResponseSSE
+				if os.Getenv(manualGeneratorRetryEnvironment) == manualFixtureEnabled && position == 3 {
+					response = `{"error":{"message":"generator retry provider source","type":"server_error"}}`
+					statusCode = http.StatusServiceUnavailable
+				}
+			}
 			return &http.Response{
 				Status:     "",
-				StatusCode: http.StatusOK,
+				StatusCode: statusCode,
 				Proto:      "",
 				ProtoMajor: 0,
 				ProtoMinor: 0,
 				Header: make(
 					http.Header,
 				),
-				Body:             io.NopCloser(bytes.NewBufferString(finalResponseSSE)),
+				Body:             io.NopCloser(bytes.NewBufferString(response)),
 				ContentLength:    0,
 				TransferEncoding: nil,
 				Close:            false,

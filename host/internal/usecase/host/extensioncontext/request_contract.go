@@ -10,21 +10,21 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
-// RequestParticipant identifies one captured request-handler capability.
-type RequestParticipant struct {
+// Participant identifies one captured compaction capability.
+type Participant struct {
 	// ExtensionID identifies the participant's extension.
 	ExtensionID string
 	// RuntimeID identifies the captured runtime generation.
 	RuntimeID string
-	// HandlerID identifies the registered request handler.
+	// HandlerID identifies the registered capability.
 	HandlerID string
 }
 
-// newRequestParticipants supplies captured request capabilities to their policy owner.
-func newRequestParticipants(handlers []contextcompaction.Handler) []RequestParticipant {
-	participants := make([]RequestParticipant, len(handlers))
+// newParticipants supplies captured capabilities to their policy owner.
+func newParticipants(handlers []contextcompaction.Handler) []Participant {
+	participants := make([]Participant, len(handlers))
 	for index := range handlers {
-		participants[index] = RequestParticipant{
+		participants[index] = Participant{
 			ExtensionID: handlers[index].ExtensionID,
 			RuntimeID:   handlers[index].RuntimeID,
 			HandlerID:   handlers[index].HandlerID,

@@ -37,6 +37,11 @@ func TestProgrammaticManualRequestHandlers(t *testing.T) {
 	// Arrange serialized fixture configuration and an independent public-entry suite.
 	t.Setenv(manualRequestInputsEnvironment, "")
 	t.Setenv(manualSeparateRequestsEnvironment, "")
+	t.Setenv(manualGeneratorsEnvironment, "")
+	t.Setenv(manualGeneratorModeEnvironment, "")
+	t.Setenv(manualSeparateGeneratorEnvironment, "")
+	t.Setenv(manualGeneratorRetryEnvironment, "")
+	t.Setenv(manualGeneratorProgressEnvironment, "")
 	// Act through public request composition and handler terminal actions.
 	// Assert original history, captured inputs, and terminal causes in each scenario.
 	suite.Run(t, &manualRequestHandlersSuite{Suite: suite.Suite{}})
@@ -64,7 +69,21 @@ func (s *manualRequestHandlersSuite) TestClearResult() {
 	// Arrange the result-clearing fixture in runScenario.
 	// Act through the public compaction operation in runScenario.
 	// Assert preserved request changes and cleared result in runScenario.
-	s.runScenario(manualRequestClearGuidance, "", "reference composition has no result", false)
+	s.runScenario(
+		manualRequestClearGuidance,
+		"",
+		"reference policy requires exactly one captured generator; received 0",
+		false,
+	)
+}
+
+// TestSameRuntimeGenerator checks replacement after a request handler clears the supplied result.
+func (s *manualRequestHandlersSuite) TestSameRuntimeGenerator() {
+	// Arrange a generator registered in the policy runtime.
+	s.T().Setenv(manualGeneratorsEnvironment, manualFixtureEnabled)
+	// Act through public manual compaction in runScenario.
+	// Assert the generated replacement and preserved original history in runScenario.
+	s.runScenario(manualRequestClearGuidance, manualGeneratorSummary, "", false)
 }
 
 // TestCancellation checks that an explicit handler cancellation ends composition before mutation.
@@ -127,6 +146,12 @@ func (s *manualRequestHandlersSuite) runScenario(guidance, summary, failure stri
 		require.NoError(t, readErr)
 		require.NoError(t, os.WriteFile(filepath.Join(directory, manualRequestExecutable), binary, 0o700))
 	}
+	if os.Getenv(manualSeparateGeneratorEnvironment) == manualFixtureEnabled {
+		const generatorExecutable = "reference-generator"
+		binary, readErr := os.ReadFile(filepath.Join(directory, manualFixtureReferencePolicy))
+		require.NoError(t, readErr)
+		require.NoError(t, os.WriteFile(filepath.Join(directory, generatorExecutable), binary, 0o700))
+	}
 	paths := testPaths(t, configuredRequestSettings)
 	writeProgrammaticCredentials(t, paths)
 	transport, bodies := newManualCompactionProviderTransport(t)
@@ -169,6 +194,38 @@ func (s *manualRequestHandlersSuite) runScenario(guidance, summary, failure stri
 	originalCount, markerCount := countManualStoredEntries(stored)
 	require.Equal(t, 1, originalCount)
 	actual := bodies.snapshot()
+	if os.Getenv(manualGeneratorModeEnvironment) == manualGeneratorImagesMode {
+		nestedCount := 1
+		if os.Getenv(manualGeneratorRetryEnvironment) == manualFixtureEnabled {
+			nestedCount = 2
+		}
+		require.Len(t, actual, 3+nestedCount)
+		for _, nested := range actual[2 : 2+nestedCount] {
+			assertConfiguredProviderRequest(t, nested, "", true)
+		}
+		if nestedCount == 2 {
+			require.JSONEq(t, string(actual[2]), string(actual[3]))
+		}
+		actual = append(actual[:2], actual[2+nestedCount])
+		marker := terminal.GetCompleted().GetCompaction().GetCommitted().GetCompaction()
+		require.Equal(t, configuredRequestModelID, marker.GetSource().GetModel().GetModelId())
+		require.Equal(
+			t,
+			programmaticpb.ReasoningChoice_REASONING_CHOICE_HIGH,
+			marker.GetSource().GetModel().GetReasoningChoice(),
+		)
+		usage := marker.GetSource().GetModel().GetUsage()
+		require.NotNil(t, usage)
+		require.Equal(t, int64(4), usage.GetInputTokens())
+		require.Equal(t, int64(4), usage.GetOutputTokens())
+		require.Equal(t, int64(2), usage.GetCacheReadTokens())
+		require.Equal(t, int64(1), usage.GetCacheWriteTokens())
+		require.Equal(t, int64(3), usage.GetReasoningTokens())
+		require.Equal(t, int64(11), usage.GetTotalTokens())
+		require.True(t, marker.HasDetails())
+		require.Empty(t, marker.GetDetails())
+		assertOuterRequestUnaffected(t, actual[2])
+	}
 	require.Len(t, actual, 3)
 	if summary != "" {
 		require.Equal(t, 1, markerCount)
@@ -206,6 +263,14 @@ func assertManualRequestInputs(t *testing.T, directory, policyPath, guidance str
 	require.NoError(t, err)
 	policy := new(extensionpb.CompactionPolicyInvocation)
 	require.NoError(t, protojson.Unmarshal(encoded, policy))
+	if os.Getenv(manualSeparateGeneratorEnvironment) == manualFixtureEnabled {
+		generators := policy.GetGeneratorParticipants()
+		require.Len(t, generators, 1)
+		require.NotEqual(t, policy.GetPolicyRuntimeId(), generators[0].GetRuntimeId())
+		require.Equal(t, int64(0), generators[0].GetRegistrationOrder())
+		require.NotEmpty(t, generators[0].GetExtensionId())
+		require.NotEmpty(t, generators[0].GetHandlerId())
+	}
 	participants := policy.GetRequestParticipants()
 	require.Len(t, participants, 5)
 	expectedIDs := []string{

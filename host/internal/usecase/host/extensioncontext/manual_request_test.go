@@ -51,9 +51,19 @@ func (s *policyRequestInvocationSuite) TestSelectedActionAndAuthority() {
 		contextcompaction.HandlerSet{Requests: handlers, Generators: nil, Results: nil, Successes: nil, Failures: nil},
 	)
 	runtime.EXPECT().
-		InvokeCompactionRequest(gomock.Any(), RequestParticipant{ExtensionID: handlers[1].ExtensionID, RuntimeID: handlers[1].RuntimeID, HandlerID: handlers[1].HandlerID}, gomock.Any(), gomock.Any()).
+		InvokeCompactionRequest(
+			gomock.Any(),
+			Participant{
+				ExtensionID: handlers[1].ExtensionID,
+				RuntimeID:   handlers[1].RuntimeID,
+				HandlerID:   handlers[1].HandlerID,
+			},
+			gomock.Any(), gomock.Any(),
+		).
 		DoAndReturn(
-			func(ctx context.Context, target RequestParticipant, bound extension.Context, input RequestInvocation) (RequestAction, error) {
+			func(
+				ctx context.Context, target Participant, bound extension.Context, input RequestInvocation,
+			) (RequestAction, error) {
 				require.Equal(t, "selected", target.HandlerID)
 				require.Equal(t, owner.RuntimeID, bound.RuntimeInstanceID)
 				lifetime, present := input.ParentCompactionID.Get()
@@ -90,7 +100,7 @@ func (s *policyRequestInvocationSuite) TestSelectedActionAndAuthority() {
 		)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (bool, error) {
-			require.Equal(t, newRequestParticipants(handlers), input.Requests)
+			require.Equal(t, newParticipants(handlers), input.Requests)
 			command := newPolicyRequestCommand(input.OperationID, handlers[1], 1)
 			response, err := service.InvokePolicyRequest(ctx, captured.ExtensionID, bound.RuntimeInstanceID, command)
 			require.NoError(t, err)
@@ -222,9 +232,15 @@ func (s *policyRequestInvocationSuite) TestHandledNestedCause() {
 	nestedCause := errors.New("handled participant child source")
 	terminalCause := errors.New("terminal policy source")
 	runtime.EXPECT().
-		InvokeCompactionRequest(gomock.Any(), RequestParticipant{ExtensionID: handler.ExtensionID, RuntimeID: handler.RuntimeID, HandlerID: handler.HandlerID}, gomock.Any(), gomock.Any()).
+		InvokeCompactionRequest(
+			gomock.Any(),
+			Participant{ExtensionID: handler.ExtensionID, RuntimeID: handler.RuntimeID, HandlerID: handler.HandlerID},
+			gomock.Any(), gomock.Any(),
+		).
 		DoAndReturn(
-			func(ctx context.Context, target RequestParticipant, bound extension.Context, input RequestInvocation) (RequestAction, error) {
+			func(
+				ctx context.Context, target Participant, bound extension.Context, input RequestInvocation,
+			) (RequestAction, error) {
 				release, err := service.BeginCompactionChild(
 					target.ExtensionID,
 					bound.RuntimeInstanceID,
@@ -342,7 +358,7 @@ func newPolicyRequestCommand(
 	}
 	return extensioncontroller.CompactionRequestCommand{
 		OperationID: operationID,
-		Participant: extensioncontroller.CompactionRequestParticipant{
+		Participant: extensioncontroller.CompactionParticipant{
 			ExtensionID:       handler.ExtensionID,
 			RuntimeID:         handler.RuntimeID,
 			HandlerID:         handler.HandlerID,

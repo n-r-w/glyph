@@ -195,6 +195,21 @@ func (m *MockPolicyRuntime) EXPECT() *MockPolicyRuntimeMockRecorder {
 	return m.recorder
 }
 
+// InvokeCompactionGenerator mocks base method.
+func (m *MockPolicyRuntime) InvokeCompactionGenerator(arg0 context.Context, arg1 Participant, arg2 extension.Context, arg3 RequestInvocation) (Result, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InvokeCompactionGenerator", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(Result)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InvokeCompactionGenerator indicates an expected call of InvokeCompactionGenerator.
+func (mr *MockPolicyRuntimeMockRecorder) InvokeCompactionGenerator(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvokeCompactionGenerator", reflect.TypeOf((*MockPolicyRuntime)(nil).InvokeCompactionGenerator), arg0, arg1, arg2, arg3)
+}
+
 // InvokeCompactionPolicy mocks base method.
 func (m *MockPolicyRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 PolicyOwner, arg2 extension.Context, arg3 PolicyInvocation) (bool, error) {
 	m.ctrl.T.Helper()
@@ -211,7 +226,7 @@ func (mr *MockPolicyRuntimeMockRecorder) InvokeCompactionPolicy(arg0, arg1, arg2
 }
 
 // InvokeCompactionRequest mocks base method.
-func (m *MockPolicyRuntime) InvokeCompactionRequest(arg0 context.Context, arg1 RequestParticipant, arg2 extension.Context, arg3 RequestInvocation) (RequestAction, error) {
+func (m *MockPolicyRuntime) InvokeCompactionRequest(arg0 context.Context, arg1 Participant, arg2 extension.Context, arg3 RequestInvocation) (RequestAction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InvokeCompactionRequest", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(RequestAction)

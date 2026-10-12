@@ -108,6 +108,8 @@ message ExtensionRequest {
     CompactionCandidateRequest replace_compaction = 13;
     // A request to invoke one captured request handler selected by the policy owner.
     InvokeCompactionRequestRequest invoke_compaction_request = 14;
+    // A request to invoke one captured generator selected by the policy owner.
+    InvokeCompactionGeneratorRequest invoke_compaction_generator = 15;
   }
 }
 
@@ -155,6 +157,8 @@ message HostCompleted {
     CompactResult replace_compaction = 11;
     // The action returned by the selected request handler.
     CompactionRequestAction invoke_compaction_request = 12;
+    // The complete result returned by the selected generator.
+    CompactionResult invoke_compaction_generator = 13;
   }
 }
 

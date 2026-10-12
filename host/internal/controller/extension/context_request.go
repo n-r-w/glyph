@@ -52,8 +52,9 @@ func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 		}
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
 		return newAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
-	case extensionpb.ExtensionRequest_InvokeCompactionRequest_case:
-		return newPolicyRequestContextRequest(mapped, request.GetInvokeCompactionRequest())
+	case extensionpb.ExtensionRequest_InvokeCompactionRequest_case,
+		extensionpb.ExtensionRequest_InvokeCompactionGenerator_case:
+		return newPolicyParticipantContextRequest(mapped, request)
 	case extensionpb.ExtensionRequest_ProjectCompaction_case:
 		return newPolicyCandidateContextRequest(mapped, request.GetProjectCompaction(), policyCandidateProjection)
 	case extensionpb.ExtensionRequest_ReplaceCompaction_case:
@@ -207,7 +208,7 @@ func newPolicyRequestContextRequest(
 	target := wire.GetParticipant()
 	command := CompactionRequestCommand{
 		OperationID: wire.GetOperationId(),
-		Participant: CompactionRequestParticipant{
+		Participant: CompactionParticipant{
 			ExtensionID:       target.GetExtensionId(),
 			RuntimeID:         target.GetRuntimeId(),
 			HandlerID:         target.GetHandlerId(),

@@ -3,16 +3,12 @@ package extensioncontext
 
 import (
 	"context"
-	"crypto/rand"
-	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/samber/mo"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 // InvokePolicyRequest invokes one captured participant under a separate non-authorizing lifetime.
@@ -25,52 +21,17 @@ func (s *Service) InvokePolicyRequest(
 	if err != nil {
 		return extensioncontroller.CompactionRequestResponse{}, err
 	}
-	participant, err := parent.findRequestParticipant(command.Participant)
+	participant, err := parent.findParticipant(command.Participant, parent.requests)
 	if err != nil {
 		return extensioncontroller.CompactionRequestResponse{}, err
 	}
-	bound, err := s.IssueContext(participant.ExtensionID)
+	childContext, child, bound, err := s.beginParticipant(ctx, parent, participant, requestParticipantKind)
 	if err != nil {
-		return extensioncontroller.CompactionRequestResponse{}, fmt.Errorf(
-			"issue captured request participant context: %w",
-			err,
-		)
+		return extensioncontroller.CompactionRequestResponse{}, err
 	}
-	s.mutex.Lock()
-	incarnation := s.bindings[participant.ExtensionID].incarnation
-	s.mutex.Unlock()
-	if bound.RuntimeInstanceID != participant.RuntimeID || bound.SessionID != parent.snapshot.Identity.ID ||
-		incarnation != parent.snapshot.Identity.Incarnation {
-		return extensioncontroller.CompactionRequestResponse{}, errors.New(
-			"captured request participant runtime or session changed before invocation",
-		)
-	}
-	// lifetimeID identifies nested work without granting policy authority.
-	lifetimeID := rand.Text()
-	childContext, cancel := context.WithTimeout(ctx, s.participantTimeout)
-	child := &compactionOperation{
-		authorityID:          "",
-		lifecycleID:          lifetimeID,
-		owner:                PolicyOwner(participant),
-		snapshot:             CompactionSnapshot{},
-		requests:             nil,
-		context:              childContext,
-		cancel:               cancel,
-		mutex:                sync.Mutex{},
-		children:             sync.WaitGroup{},
-		closed:               false,
-		replacementRequested: false,
-		receipt:              mo.None[session.Entry](),
-		causes:               nil,
-		terminalError:        nil,
-		state:                mo.None[contextcompaction.PolicyState](),
-	}
-	s.mutex.Lock()
-	s.compactionOperations[lifetimeID] = child
-	s.mutex.Unlock()
 	invocation := RequestInvocation{
 		ParentCompactionID: mo.Some(
-			lifetimeID,
+			child.lifecycleID,
 		),
 		Original:      newRequest(command.Original),
 		Current:       newRequest(command.Current),
@@ -80,21 +41,9 @@ func (s *Service) InvokePolicyRequest(
 		invocation.CurrentResult = mo.Some(newResult(result))
 	}
 	action, invokeErr := s.policyRuntime.InvokeCompactionRequest(childContext, participant, bound, invocation)
-	// Capture execution failure before child.finish cancels the lifetime during normal teardown.
-	executionErr := errors.Join(childContext.Err(), context.Cause(childContext))
-	_, acquired, terminal := child.finish()
-	s.mutex.Lock()
-	delete(s.compactionOperations, lifetimeID)
-	s.mutex.Unlock()
-	parent.mutex.Lock()
-	parent.causes = errors.Join(parent.causes, acquired)
-	parent.mutex.Unlock()
-	if err = errors.Join(invokeErr, executionErr, terminal, ctx.Err(), context.Cause(ctx)); err != nil {
+	if err = s.finishParticipant(ctx, childContext, parent, child, invokeErr); err != nil {
 		return extensioncontroller.CompactionRequestResponse{}, fmt.Errorf(
-			"request participant %q generation %q: %w",
-			participant.HandlerID,
-			participant.RuntimeID,
-			errors.Join(err, acquired),
+			"request participant %q generation %q: %w", participant.HandlerID, participant.RuntimeID, err,
 		)
 	}
 	response := extensioncontroller.CompactionRequestResponse{

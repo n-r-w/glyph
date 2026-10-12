@@ -27,7 +27,9 @@ type compactionOperation struct {
 	// snapshot contains the immutable session input.
 	snapshot CompactionSnapshot
 	// requests contains the captured request capabilities in registration order.
-	requests []RequestParticipant
+	requests []Participant
+	// generators contains captured generator registrations.
+	generators []Participant
 	// context is intentionally retained parent lifetime: a temporary decision and technical debt.
 	// It supplies synchronous cancellation checks before persistence and owned child cancellation/joins.
 	// TODO: Remove this field when an explicit-context parent-owner handoff preserves synchronous checks,
@@ -93,32 +95,33 @@ func (o *compactionOperation) diagnosticState() mo.Option[contextcompaction.Poli
 	return o.state.MapValue(contextcompaction.PolicyState.Clone)
 }
 
-// findRequestParticipant resolves one captured request registration.
-func (o *compactionOperation) findRequestParticipant(
-	target extensioncontroller.CompactionRequestParticipant,
-) (RequestParticipant, error) {
+// findParticipant resolves the policy's selection against captured registrations.
+func (o *compactionOperation) findParticipant(
+	target extensioncontroller.CompactionParticipant,
+	participants []Participant,
+) (Participant, error) {
 	o.mutex.Lock()
 	if o.closed || o.context.Err() != nil {
 		o.mutex.Unlock()
-		return RequestParticipant{}, errors.Join(
+		return Participant{}, errors.Join(
 			errors.New("compaction operation has ended"),
 			o.context.Err(),
 			context.Cause(o.context),
 		)
 	}
 	// Membership includes the captured registration position and runtime generation.
-	if target.RegistrationOrder < 0 || target.RegistrationOrder >= int64(len(o.requests)) {
+	if target.RegistrationOrder < 0 || target.RegistrationOrder >= int64(len(participants)) {
 		o.mutex.Unlock()
-		return RequestParticipant{}, errors.New(
-			"request participant is not captured by the compaction operation",
+		return Participant{}, errors.New(
+			"participant is not captured by the compaction operation",
 		)
 	}
-	participant := o.requests[target.RegistrationOrder]
+	participant := participants[target.RegistrationOrder]
 	o.mutex.Unlock()
 	if participant.ExtensionID != target.ExtensionID || participant.RuntimeID != target.RuntimeID ||
 		participant.HandlerID != target.HandlerID {
-		return RequestParticipant{}, errors.New(
-			"request participant identity does not match the captured registration",
+		return Participant{}, errors.New(
+			"participant identity does not match the captured registration",
 		)
 	}
 	return participant, nil

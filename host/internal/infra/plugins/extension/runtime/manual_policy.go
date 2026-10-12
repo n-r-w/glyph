@@ -101,9 +101,16 @@ func mapPolicyInvocation(
 	if value, present := invocation.Instructions.Get(); present {
 		instructions = new(value)
 	}
-	participants := make([]*extensionpb.CompactionRequestParticipant, len(invocation.Requests))
+	participants := make([]*extensionpb.CompactionParticipant, len(invocation.Requests))
 	for order, participant := range invocation.Requests {
-		participants[order] = extensionpb.CompactionRequestParticipant_builder{
+		participants[order] = extensionpb.CompactionParticipant_builder{
+			ExtensionId: new(participant.ExtensionID), RuntimeId: new(participant.RuntimeID),
+			HandlerId: new(participant.HandlerID), RegistrationOrder: new(int64(order)),
+		}.Build()
+	}
+	generators := make([]*extensionpb.CompactionParticipant, len(invocation.Generators))
+	for order, participant := range invocation.Generators {
+		generators[order] = extensionpb.CompactionParticipant_builder{
 			ExtensionId: new(participant.ExtensionID), RuntimeId: new(participant.RuntimeID),
 			HandlerId: new(participant.HandlerID), RegistrationOrder: new(int64(order)),
 		}.Build()
@@ -123,10 +130,11 @@ func mapPolicyInvocation(
 		Instructions: new(
 			invocation.Input.Instructions,
 		),
-		Tools:               tools,
-		UserInstructions:    instructions,
-		PolicyRuntimeId:     new(runtimeID),
-		RequestParticipants: participants,
+		Tools:                 tools,
+		UserInstructions:      instructions,
+		PolicyRuntimeId:       new(runtimeID),
+		RequestParticipants:   participants,
+		GeneratorParticipants: generators,
 	}.Build(), nil
 }
 

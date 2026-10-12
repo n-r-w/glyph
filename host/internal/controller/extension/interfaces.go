@@ -249,6 +249,8 @@ type RuntimeOperations interface {
 
 // CompactionPolicyOperations supplies scoped lifetime, projection, and durable mutation.
 type CompactionPolicyOperations interface {
+	// InvokePolicyGenerator routes one selected captured generator.
+	InvokePolicyGenerator(context.Context, string, string, CompactionGeneratorCommand) (session.CompactionEntry, error)
 	// InvokePolicyRequest routes one selected captured request handler.
 	InvokePolicyRequest(
 		ctx context.Context,

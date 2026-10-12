@@ -43,6 +43,7 @@ func (o *policyOperation) replaceHistory(
 	if projectionErr := projectPolicyReplacement(ctx, o.policy, candidate); projectionErr != nil {
 		return o.attachAcquiredState(newPolicyFailure(projectionErr)), nil
 	}
+	o.state.SetResult(candidate)
 	replacement, err := o.policy.StartReplaceHistory(ctx, candidate)
 	if err != nil {
 		return o.attachAcquiredState(newPolicyFailure(fmt.Errorf("start reference replacement: %w", err))), nil

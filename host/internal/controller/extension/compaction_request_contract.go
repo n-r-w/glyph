@@ -45,15 +45,15 @@ const (
 	CompactionResultClear
 )
 
-// CompactionRequestParticipant identifies one captured request capability.
-type CompactionRequestParticipant struct {
+// CompactionParticipant identifies one captured compaction capability.
+type CompactionParticipant struct {
 	// ExtensionID identifies the producer.
 	ExtensionID string
 	// RuntimeID identifies the captured generation.
 	RuntimeID string
 	// HandlerID identifies the registered capability.
 	HandlerID string
-	// RegistrationOrder identifies the position in the captured request sequence.
+	// RegistrationOrder identifies the position in the captured capability sequence.
 	RegistrationOrder int64
 }
 
@@ -215,7 +215,7 @@ type CompactionRequestCommand struct {
 	// OperationID identifies policy invocation authority.
 	OperationID string
 	// Participant identifies the captured target.
-	Participant CompactionRequestParticipant
+	Participant CompactionParticipant
 	// Original contains the immutable initial request.
 	Original CompactionRequestValue
 	// Current contains the current request.

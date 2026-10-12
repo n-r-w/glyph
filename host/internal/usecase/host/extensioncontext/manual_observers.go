@@ -70,6 +70,7 @@ func (s *Service) finishManualOutcome(
 			},
 			snapshot:             CompactionSnapshot{},
 			requests:             nil,
+			generators:           nil,
 			context:              parent,
 			cancel:               cancel,
 			mutex:                sync.Mutex{},

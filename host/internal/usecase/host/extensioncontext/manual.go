@@ -36,7 +36,8 @@ func (s *Service) CompactManualPolicy(
 	result = modelexecution.ManualCompactionResult{Committed: mo.None[session.Entry](), Canceled: false}
 	// Use the observer generations captured at admission for terminal delivery.
 	handlers := s.policyRuntime.SnapshotCompactionHandlers()
-	requests := newRequestParticipants(handlers.Requests)
+	requests := newParticipants(handlers.Requests)
+	generators := newParticipants(handlers.Generators)
 	state := mo.None[contextcompaction.PolicyState]()
 	// Keep handled child failures for a later terminal failure.
 	var acquiredCauses error
@@ -81,6 +82,7 @@ func (s *Service) CompactManualPolicy(
 		owner:                owner,
 		snapshot:             snapshot,
 		requests:             requests,
+		generators:           generators,
 		context:              parentContext,
 		cancel:               cancel,
 		mutex:                sync.Mutex{},
@@ -101,6 +103,7 @@ func (s *Service) CompactManualPolicy(
 		LifecycleID:  lifecycleID,
 		Snapshot:     snapshot,
 		Requests:     requests,
+		Generators:   generators,
 		Input:        input,
 		Instructions: instructions, RecordState: operation.recordState,
 	}

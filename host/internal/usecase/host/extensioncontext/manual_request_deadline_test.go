@@ -79,7 +79,9 @@ func (s *policyRequestDeadlineSuite) TestScenario() {
 				runtime.EXPECT().
 					InvokeCompactionRequest(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).
 					DoAndReturn(
-						func(ctx context.Context, target RequestParticipant, bound extension.Context, input RequestInvocation) (RequestAction, error) {
+						func(
+							ctx context.Context, target Participant, bound extension.Context, input RequestInvocation,
+						) (RequestAction, error) {
 							release, err := service.BeginCompactionChild(
 								target.ExtensionID,
 								bound.RuntimeInstanceID,

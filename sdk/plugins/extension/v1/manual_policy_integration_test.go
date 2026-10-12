@@ -56,7 +56,7 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 		Instructions:        new(""),
 		Tools:               nil,
 		UserInstructions:    new("guidance"),
-		RequestParticipants: nil, PolicyRuntimeId: new("runtime"),
+		RequestParticipants: nil, GeneratorParticipants: nil, PolicyRuntimeId: new("runtime"),
 	}.Build()
 	service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).Return(handler, nil)
 	handler.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*extensionpb.HandleResponse, error) {

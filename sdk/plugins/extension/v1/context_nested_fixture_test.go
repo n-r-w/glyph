@@ -53,7 +53,7 @@ func expectNestedCompactionHost(
 				}.Build(),
 
 				ProjectCompaction: nil,
-				ReplaceCompaction: nil, InvokeCompactionRequest: nil,
+				ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
 			}.Build(), nil
 		},
 	)
@@ -95,7 +95,7 @@ func expectNestedRecoveryHost(
 				}.Build(),
 
 				ProjectCompaction: nil,
-				ReplaceCompaction: nil, InvokeCompactionRequest: nil,
+				ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
 			}.Build(), nil
 		})
 	recovery.EXPECT().Release()
@@ -122,7 +122,7 @@ func expectNestedModelMessageHosts(t *testing.T, host *MockHostService, configur
 		}.Build(),
 
 		ProjectCompaction: nil,
-		ReplaceCompaction: nil, InvokeCompactionRequest: nil,
+		ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
 	}.Build(), nil)
 	configured.EXPECT().Release()
 	host.EXPECT().
@@ -152,7 +152,7 @@ func expectNestedModelMessageHosts(t *testing.T, host *MockHostService, configur
 		}.Build(),
 
 		ProjectCompaction: nil,
-		ReplaceCompaction: nil, InvokeCompactionRequest: nil,
+		ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
 	}.Build(), nil)
 	message.EXPECT().Release()
 }
@@ -180,7 +180,7 @@ func expectNestedCatalogueHosts(
 		}.Build()}.Build(),
 
 		ProjectCompaction: nil,
-		ReplaceCompaction: nil, InvokeCompactionRequest: nil,
+		ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
 	}.Build(), nil)
 	models.EXPECT().Release()
 	host.EXPECT().
@@ -199,7 +199,7 @@ func expectNestedCatalogueHosts(
 		}}.Build(),
 
 		ProjectCompaction: nil,
-		ReplaceCompaction: nil, InvokeCompactionRequest: nil,
+		ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
 	}.Build(), nil)
 	providers.EXPECT().Release()
 }

@@ -61,7 +61,7 @@ func (r *Runtime) GenerateCompaction(
 	request := extensionpb.HandleRequest_builder{
 		HandlerId: new(handlerID), Context: mapContext(binding), CompactionGenerate: payload,
 
-		ParentCompactionId: nil,
+		ParentCompactionId: invocation.ParentCompactionID.ToPointer(),
 		CompactionPolicy:   nil,
 	}.Build()
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
