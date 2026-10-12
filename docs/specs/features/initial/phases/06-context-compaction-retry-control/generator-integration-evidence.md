@@ -1,10 +1,10 @@
-# Generator integration preparation
+# Generator integration evidence
 
-Preparation of the UNT-06 implementation is unfinished. It has no acceptance or unit commit. The [migration plan](migration-plan.md#sequential-implementation-units) records progress. Main, the coordinating assistant responsible for integration, oversees report-only code and text reviews and the collected correction batch. Both reviews are complete, and the batch is prepared with targeted checks. Main owns complete project verification after final edits and independent acceptance; both remain pending.
+This document describes UNT-06 behavior and verification. The [migration plan](migration-plan.md#sequential-implementation-units) records unit acceptance and subsequent work.
 
 The [target solution](solution.md#policy-invocation-and-participating-handlers) defines ownership. The [request-handler evidence](request-integration-evidence.md) describes the accepted foundation and its historical limits.
 
-## Prepared path
+## Implemented path
 
 Host captures request handlers and generators from one admitted handler snapshot. The public policy input supplies extension identifiers, runtime generations, handler identifiers and registration positions. `CompactionParticipant` is the generated public identity. Separate consumer-owned Host contracts retain the controller and integration boundaries. Current request callers use the generalized identity directly.
 
@@ -46,7 +46,13 @@ The reference policy installs a generated candidate after its existing projectio
 
 The selected-generator join fixture signals completion of tracked child work before its final lifetime release. It retains the fatal join assertion through testify. A deterministic overlay holds the test goroutine after release: the original ordering failed its join assertion, and the corrected ordering passed. No sleep, test retry or production join change was added.
 
-The new public rejected-candidate regression has fresh compiling assertion RED and corresponding GREEN. Approved wording corrections preserve ownership, caller limits and test sections. Complete project verification and independent acceptance remain pending.
+The new public rejected-candidate regression has fresh compiling assertion RED and corresponding GREEN. Approved wording corrections preserve ownership, caller limits and test sections.
+
+## Final verification
+
+All 33 final command records for code checkpoint `87699e9` have exit code 0 and identical before-and-after source maps. The commands include generation twice, formatting, fix dry-run analysis, lint, unit and integration tests, coverage, build, package loading, external-module checks, and repeated race regressions. The fix proposal is empty. Coverage is 83.8%, above the required 80.0%.
+
+Each listed public generator scenario passed 20 repetitions with race detection. Selected generator authority, binding and lifetime tests passed 200 executions across `-cpu=1,2`. Seven standard-suite skips remain recorded; no pass is claimed for those skipped behaviors.
 
 ## Evidence limits
 
@@ -56,7 +62,7 @@ Supplementary operation-owner and normalized-usage checks also have compiling co
 
 The initial Git inspection and an early diff inspection lacked reserved log/result pairs. Later verification commands reserve exclusive logs and result files and record their commands, working directories, source manifests and outcomes. Historical command records and overlay files remain outside the repository. This document contains no temporary evidence links. The permanent tests provide reproducible checks; readers cannot audit all historical records from this document alone.
 
-This preparation uses targeted checks. The integration-tagged lint scope follows the project task. The retained supplementary non-integration package lint run failed with established-unit findings and some new-line findings that were later corrected. A separate historical `golangci-lint` run used a changed-line scope and reported no findings in added or changed source. That restricted result is not a passing unrestricted package lint run. Unchanged-source findings remain outside this slice. Full project checks, acceptance and commit remain pending within UNT-06. No later unit starts from this preparation.
+Preparation used targeted checks before the final verification. The integration-tagged lint scope follows the project task. The retained supplementary non-integration package lint run failed with established-unit findings and some new-line findings that were later corrected. A separate historical `golangci-lint` run used a changed-line scope and reported no findings in added or changed source. That restricted result is not a passing unrestricted package lint run. Unchanged-source findings remain outside this slice.
 
 ## Migration boundary
 
