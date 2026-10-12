@@ -57,6 +57,11 @@ func (s *Service) InvokePolicyRequest(
 		response.Request = mo.Some(request.mapToControllerValue())
 	}
 	if result, present := action.Result.Get(); present {
+		if producer, attributed := result.Source.ExtensionID.Get(); attributed && producer != participant.ExtensionID {
+			return extensioncontroller.CompactionRequestResponse{}, fmt.Errorf(
+				"result producer %q does not match the selected extension %q", producer, participant.ExtensionID,
+			)
+		}
 		response.Result = mo.Some(
 			session.CompactionEntry{
 				Summary:          result.Summary,

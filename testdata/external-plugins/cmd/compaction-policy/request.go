@@ -352,7 +352,22 @@ func (o *referenceRequestOperation) newSecondRequestAction() (*extensionpb.Compa
 
 // newThirdRequestAction creates the result-only replacement.
 func (o *referenceRequestOperation) newThirdRequestAction() (*extensionpb.CompactionRequestAction, error) {
-	const replacementDetails = "result-only-details"
+	const (
+		replacementDetails           = "result-only-details"
+		sourceEnvironment            = "GLYPH_REFERENCE_REQUEST_SOURCE"
+		otherExtensionSource         = "other-extension"
+		modelSource                  = "model"
+		forgedProducer               = "request-forged-producer"
+		resultProvider               = "request-result-provider"
+		resultModel                  = "request-result-model"
+		resultReasoning              = "high"
+		resultInputTokens      int64 = 4
+		resultOutputTokens     int64 = 4
+		resultCacheReadTokens  int64 = 2
+		resultCacheWriteTokens int64 = 1
+		resultReasoningTokens  int64 = 3
+		resultTotalTokens      int64 = 11
+	)
 	current, result := o.invocation.GetCurrent(), o.invocation.GetCurrentResult()
 	action := newReferencePreserveAction()
 	if current.GetInstructions() != referenceRequestSecondInstruction ||
@@ -362,6 +377,26 @@ func (o *referenceRequestOperation) newThirdRequestAction() (*extensionpb.Compac
 	replacement := proto.CloneOf(result)
 	replacement.SetSummary(referenceRequestFinalSummary)
 	replacement.SetDetails([]byte(replacementDetails))
+	switch os.Getenv(sourceEnvironment) {
+	case otherExtensionSource:
+		replacement.GetSource().SetExtensionId(forgedProducer)
+	case modelSource:
+		replacement.SetSource(extensionpb.BranchSummarySource_builder{
+			ExtensionId: nil,
+			Model: extensionpb.BranchSummaryModelSource_builder{
+				Selection: extensionpb.ModelSelection_builder{
+					ProviderId: new(resultProvider), ModelId: new(resultModel),
+					ReasoningChoice: new(resultReasoning),
+				}.Build(),
+				Usage: extensionpb.TokenUsage_builder{
+					InputTokens: new(resultInputTokens), OutputTokens: new(resultOutputTokens),
+					CacheReadTokens: new(resultCacheReadTokens), CacheWriteTokens: new(resultCacheWriteTokens),
+					ReasoningTokens: new(resultReasoningTokens), TotalTokens: new(resultTotalTokens),
+				}.Build(),
+			}.Build(),
+		}.Build())
+		replacement.SetDetails([]byte{})
+	}
 	action.SetResultAction(extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE)
 	action.SetResult(replacement)
 	return action, nil
