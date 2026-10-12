@@ -76,7 +76,13 @@ func (o *policyOperation) Run(ctx context.Context) (*extensionpb.HandleResponse,
 		Source:           source,
 		Details:          nil,
 	}.Build()
+	if os.Getenv(referenceCandidateRejectionEnvironment) == referenceCandidateDirect {
+		candidate.SetFirstKeptEntryId(referenceGeneratorOutsideBranch)
+	}
 	o.state = newReferencePolicyState(input, boundary)
+	if projectionErr := projectPolicyReplacement(ctx, o.policy, candidate); projectionErr != nil {
+		return o.attachAcquiredState(newPolicyFailure(projectionErr)), nil
+	}
 	o.state.SetResult(candidate)
-	return o.replaceHistory(ctx, candidate, input.GetUserInstructions())
+	return o.replaceHistory(ctx, input.GetUserInstructions())
 }

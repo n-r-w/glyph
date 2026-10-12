@@ -207,6 +207,8 @@ type RequestInvocation struct {
 
 // ResultInvocation carries immutable request and result states.
 type ResultInvocation struct {
+	// ParentCompactionID is the correlation ID for participant-owned nested work.
+	ParentCompactionID mo.Option[string]
 	// OriginalRequest is the immutable Host-produced request.
 	OriginalRequest Request
 	// CurrentRequest is the final request-handler state.

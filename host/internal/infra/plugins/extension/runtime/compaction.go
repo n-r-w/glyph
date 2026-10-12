@@ -26,24 +26,13 @@ func (r *Runtime) HandleCompactionRequest(
 	if err != nil {
 		return contextcompaction.RequestAction{}, err
 	}
-	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
-	request := extensionpb.HandleRequest_builder{
-		HandlerId: new(handlerID), Context: mapContext(binding), CompactionRequest: payload,
-
-		ParentCompactionId: invocation.ParentCompactionID.ToPointer(),
-		CompactionPolicy:   nil,
-	}.Build()
+	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
+	request.SetCompactionRequest(payload)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
 	if err != nil {
 		return contextcompaction.RequestAction{}, err
 	}
-	action := response.GetCompactionRequest()
-	if action == nil {
-		return contextcompaction.RequestAction{}, r.protocolViolation(
-			errors.New("compaction request handler returned another action kind"),
-		)
-	}
-	return mapCompactionRequestAction(action)
+	return r.decodeCompactionRequestResponse(response)
 }
 
 // GenerateCompaction invokes one public compaction generation capability.
@@ -57,24 +46,13 @@ func (r *Runtime) GenerateCompaction(
 	if err != nil {
 		return contextcompaction.Result{}, err
 	}
-	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
-	request := extensionpb.HandleRequest_builder{
-		HandlerId: new(handlerID), Context: mapContext(binding), CompactionGenerate: payload,
-
-		ParentCompactionId: invocation.ParentCompactionID.ToPointer(),
-		CompactionPolicy:   nil,
-	}.Build()
+	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
+	request.SetCompactionGenerate(payload)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
 	if err != nil {
 		return contextcompaction.Result{}, err
 	}
-	result := response.GetCompactionGenerate()
-	if result == nil {
-		return contextcompaction.Result{}, r.protocolViolation(
-			errors.New("compaction generator returned another action kind"),
-		)
-	}
-	return mapCompactionResultFromProto(result), nil
+	return r.decodeCompactionGeneratorResponse(response)
 }
 
 // HandleCompactionResult invokes one public compaction result handler.
@@ -88,24 +66,13 @@ func (r *Runtime) HandleCompactionResult(
 	if err != nil {
 		return contextcompaction.ResultAction{}, err
 	}
-	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
-	request := extensionpb.HandleRequest_builder{
-		HandlerId: new(handlerID), Context: mapContext(binding), CompactionResult: payload,
-
-		ParentCompactionId: nil,
-		CompactionPolicy:   nil,
-	}.Build()
+	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
+	request.SetCompactionResult(payload)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
 	if err != nil {
 		return contextcompaction.ResultAction{}, err
 	}
-	action := response.GetCompactionResult()
-	if action == nil {
-		return contextcompaction.ResultAction{}, r.protocolViolation(
-			errors.New("compaction result handler returned another action kind"),
-		)
-	}
-	return mapCompactionResultAction(action)
+	return r.decodeCompactionResultResponse(response)
 }
 
 // ObserveCompactionSuccess invokes one public committed-compaction observer.

@@ -261,6 +261,8 @@ message CompactionPolicyInvocation {
   repeated CompactionParticipant request_participants = 14;
   // The captured generators in registration order.
   repeated CompactionParticipant generator_participants = 15;
+  // The captured result handlers in registration order.
+  repeated CompactionParticipant result_participants = 16;
 }
 
 // CompactionParticipant identifies one captured compaction capability.
@@ -297,6 +299,18 @@ message InvokeCompactionGeneratorRequest {
   CompactionParticipant participant = 3;
   // The immutable original and final current request.
   CompactionRequestInvocation invocation = 4;
+}
+
+// InvokeCompactionResultRequest contains inputs for one captured result handler.
+message InvokeCompactionResultRequest {
+  // The session binding for the policy runtime.
+  ExtensionContextRef context = 1;
+  // The authority for the current policy operation.
+  string operation_id = 2;
+  // The captured result participant selected by the policy-owning extension.
+  CompactionParticipant participant = 3;
+  // The original and composed current request and result values, supplied as immutable inputs.
+  CompactionResultInvocation invocation = 4;
 }
 
 // CompactionPolicyResult acknowledges the policy operation.

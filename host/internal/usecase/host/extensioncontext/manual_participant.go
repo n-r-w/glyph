@@ -47,7 +47,7 @@ func (s *Service) beginParticipant(
 	childContext, cancel := context.WithTimeout(ctx, s.participantTimeout)
 	child = &compactionOperation{
 		authorityID: "", lifecycleID: lifetimeID, owner: PolicyOwner(participant),
-		snapshot: CompactionSnapshot{}, requests: nil, generators: nil,
+		snapshot: CompactionSnapshot{}, requests: nil, generators: nil, results: nil,
 		context: childContext, cancel: cancel, mutex: sync.Mutex{}, children: sync.WaitGroup{},
 		closed: false, replacementRequested: false, receipt: mo.None[session.Entry](),
 		causes: nil, terminalError: nil, state: mo.None[contextcompaction.PolicyState](),

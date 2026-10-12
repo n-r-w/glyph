@@ -20,7 +20,7 @@ func (o *policyOperation) runRequestPolicy(
 			newPolicyFailure(errors.New("reference policy requires an original user entry")),
 		), nil
 	}
-	result, canceled, err := o.composeRequests(ctx, input, boundary)
+	canceled, err := o.composeRequests(ctx, input, boundary)
 	if err != nil {
 		return o.attachAcquiredState(newPolicyFailure(err)), nil
 	}
@@ -31,20 +31,26 @@ func (o *policyOperation) runRequestPolicy(
 		)
 		return o.attachAcquiredState(response), nil
 	}
-	return o.replaceHistory(ctx, result, input.GetUserInstructions())
+	return o.replaceHistory(ctx, input.GetUserInstructions())
 }
 
 // replaceHistory requests the durable replacement selected by the policy.
 func (o *policyOperation) replaceHistory(
 	ctx context.Context,
-	candidate *extensionpb.CompactionResult,
 	guidance string,
 ) (*extensionpb.HandleResponse, error) {
-	if projectionErr := projectPolicyReplacement(ctx, o.policy, candidate); projectionErr != nil {
-		return o.attachAcquiredState(newPolicyFailure(projectionErr)), nil
+	canceled, composeErr := o.composeResults(ctx)
+	if composeErr != nil {
+		return o.attachAcquiredState(newPolicyFailure(composeErr)), nil
 	}
-	o.state.SetResult(candidate)
-	replacement, err := o.policy.StartReplaceHistory(ctx, candidate)
+	if canceled {
+		response := new(extensionpb.HandleResponse)
+		response.SetCompactionPolicy(
+			extensionpb.CompactionPolicyResult_builder{Canceled: new(true), State: nil, Error: nil}.Build(),
+		)
+		return o.attachAcquiredState(response), nil
+	}
+	replacement, err := o.policy.StartReplaceHistory(ctx, o.state.GetResult())
 	if err != nil {
 		return o.attachAcquiredState(newPolicyFailure(fmt.Errorf("start reference replacement: %w", err))), nil
 	}

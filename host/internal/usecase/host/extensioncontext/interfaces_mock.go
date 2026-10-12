@@ -240,6 +240,21 @@ func (mr *MockPolicyRuntimeMockRecorder) InvokeCompactionRequest(arg0, arg1, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvokeCompactionRequest", reflect.TypeOf((*MockPolicyRuntime)(nil).InvokeCompactionRequest), arg0, arg1, arg2, arg3)
 }
 
+// InvokeCompactionResult mocks base method.
+func (m *MockPolicyRuntime) InvokeCompactionResult(arg0 context.Context, arg1 Participant, arg2 extension.Context, arg3 ResultInvocation) (ResultAction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InvokeCompactionResult", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(ResultAction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InvokeCompactionResult indicates an expected call of InvokeCompactionResult.
+func (mr *MockPolicyRuntimeMockRecorder) InvokeCompactionResult(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvokeCompactionResult", reflect.TypeOf((*MockPolicyRuntime)(nil).InvokeCompactionResult), arg0, arg1, arg2, arg3)
+}
+
 // ObserveCompactionFailure mocks base method.
 func (m *MockPolicyRuntime) ObserveCompactionFailure(arg0 context.Context, arg1 contextcompaction.Handler, arg2 extension.Context, arg3 contextcompaction.OutcomeInvocation) error {
 	m.ctrl.T.Helper()

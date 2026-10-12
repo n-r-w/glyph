@@ -45,6 +45,7 @@ func (s *Service) composeResultHandlers(
 			)
 		}
 		action, err := s.runtime.HandleCompactionResult(ctx, handler, binding, ResultInvocation{
+			ParentCompactionID: mo.None[string](),
 			OriginalRequest: cloneRequest(
 				original,
 			),

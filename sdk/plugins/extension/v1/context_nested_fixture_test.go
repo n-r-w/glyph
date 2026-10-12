@@ -38,8 +38,14 @@ func expectNestedCompactionHost(
 			source := new(extensionpb.BranchSummarySource)
 			source.SetExtensionId("extension")
 			return extensionpb.HostCompleted_builder{
-				Cancel: nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil,
-				AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
+				Cancel:                 nil,
+				GetModels:              nil,
+				GetProviders:           nil,
+				ConfiguredModel:        nil,
+				AppendExtension:        nil,
+				GetSessionState:        nil,
+				AppendExtensionMessage: nil,
+				Selection:              nil,
 				Compact: extensionpb.CompactResult_builder{
 					Committed: extensionpb.CommittedCompaction_builder{
 						EntryId: new("compaction-entry"),
@@ -52,8 +58,11 @@ func expectNestedCompactionHost(
 					FailureCode: new(hostFailureCodeExtensionFailed),
 				}.Build(),
 
-				ProjectCompaction: nil,
-				ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
+				ProjectCompaction:         nil,
+				ReplaceCompaction:         nil,
+				InvokeCompactionRequest:   nil,
+				InvokeCompactionGenerator: nil,
+				InvokeCompactionResult:    nil,
 			}.Build(), nil
 		},
 	)
@@ -84,9 +93,15 @@ func expectNestedRecoveryHost(
 				ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload, Message: nil,
 			}.Build()
 			return extensionpb.HostCompleted_builder{
-				Compact: nil,
-				Cancel:  nil, GetModels: nil, GetProviders: nil, ConfiguredModel: nil, AppendExtension: nil,
-				AppendExtensionMessage: nil, Selection: nil, GetSessionState: extensionpb.GetSessionStateResult_builder{
+				Compact:                nil,
+				Cancel:                 nil,
+				GetModels:              nil,
+				GetProviders:           nil,
+				ConfiguredModel:        nil,
+				AppendExtension:        nil,
+				AppendExtensionMessage: nil,
+				Selection:              nil,
+				GetSessionState: extensionpb.GetSessionStateResult_builder{
 					SessionId: new(
 						"session",
 					),
@@ -94,8 +109,11 @@ func expectNestedRecoveryHost(
 					Entries:      []*extensionpb.SessionStateEntry{entry},
 				}.Build(),
 
-				ProjectCompaction: nil,
-				ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
+				ProjectCompaction:         nil,
+				ReplaceCompaction:         nil,
+				InvokeCompactionRequest:   nil,
+				InvokeCompactionGenerator: nil,
+				InvokeCompactionResult:    nil,
 			}.Build(), nil
 		})
 	recovery.EXPECT().Release()
@@ -113,16 +131,25 @@ func expectNestedModelMessageHosts(t *testing.T, host *MockHostService, configur
 	content := new(extensionpb.ConfiguredModelContent)
 	content.SetText(extensionpb.ConfiguredModelText_builder{Text: new("answer")}.Build())
 	configured.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Compact: nil,
-		Cancel:  nil, GetModels: nil, GetProviders: nil, AppendExtension: nil, GetSessionState: nil,
-		AppendExtensionMessage: nil, Selection: nil, ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
+		Compact:                nil,
+		Cancel:                 nil,
+		GetModels:              nil,
+		GetProviders:           nil,
+		AppendExtension:        nil,
+		GetSessionState:        nil,
+		AppendExtensionMessage: nil,
+		Selection:              nil,
+		ConfiguredModel: extensionpb.ConfiguredModelResult_builder{
 			Outcome: nil, ErrorMessage: nil, ProviderId: nil, ModelId: nil,
 			ResponseModelId: nil, ResponseId: nil, Usage: nil, Diagnostics: nil,
 			Content: []*extensionpb.ConfiguredModelContent{content},
 		}.Build(),
 
-		ProjectCompaction: nil,
-		ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
+		ProjectCompaction:         nil,
+		ReplaceCompaction:         nil,
+		InvokeCompactionRequest:   nil,
+		InvokeCompactionGenerator: nil,
+		InvokeCompactionResult:    nil,
 	}.Build(), nil)
 	configured.EXPECT().Release()
 	host.EXPECT().
@@ -151,8 +178,11 @@ func expectNestedModelMessageHosts(t *testing.T, host *MockHostService, configur
 			}.Build(), Issues: nil,
 		}.Build(),
 
-		ProjectCompaction: nil,
-		ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
+		ProjectCompaction:         nil,
+		ReplaceCompaction:         nil,
+		InvokeCompactionRequest:   nil,
+		InvokeCompactionGenerator: nil,
+		InvokeCompactionResult:    nil,
 	}.Build(), nil)
 	message.EXPECT().Release()
 }
@@ -171,16 +201,24 @@ func expectNestedCatalogueHosts(
 			return models, nil
 		})
 	models.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Compact: nil,
-		Cancel:  nil, GetProviders: nil, ConfiguredModel: nil,
-		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
+		Compact:                nil,
+		Cancel:                 nil,
+		GetProviders:           nil,
+		ConfiguredModel:        nil,
+		AppendExtension:        nil,
+		GetSessionState:        nil,
+		AppendExtensionMessage: nil,
+		Selection:              nil,
 
 		GetModels: extensionpb.GetModelsResult_builder{Models: nil, ActiveSelection: extensionpb.ModelSelection_builder{
 			ProviderId: new("provider"), ModelId: new("model"), ReasoningChoice: new(disabledReasoningChoice),
 		}.Build()}.Build(),
 
-		ProjectCompaction: nil,
-		ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
+		ProjectCompaction:         nil,
+		ReplaceCompaction:         nil,
+		InvokeCompactionRequest:   nil,
+		InvokeCompactionGenerator: nil,
+		InvokeCompactionResult:    nil,
 	}.Build(), nil)
 	models.EXPECT().Release()
 	host.EXPECT().
@@ -190,16 +228,24 @@ func expectNestedCatalogueHosts(
 			return providers, nil
 		})
 	providers.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-		Compact: nil,
-		Cancel:  nil, GetModels: nil, ConfiguredModel: nil,
-		AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil,
+		Compact:                nil,
+		Cancel:                 nil,
+		GetModels:              nil,
+		ConfiguredModel:        nil,
+		AppendExtension:        nil,
+		GetSessionState:        nil,
+		AppendExtensionMessage: nil,
+		Selection:              nil,
 
 		GetProviders: extensionpb.GetProvidersResult_builder{Providers: []*extensionpb.ProviderDescriptor{
 			extensionpb.ProviderDescriptor_builder{ProviderId: new("provider"), ModelIds: []string{"model"}}.Build(),
 		}}.Build(),
 
-		ProjectCompaction: nil,
-		ReplaceCompaction: nil, InvokeCompactionRequest: nil, InvokeCompactionGenerator: nil,
+		ProjectCompaction:         nil,
+		ReplaceCompaction:         nil,
+		InvokeCompactionRequest:   nil,
+		InvokeCompactionGenerator: nil,
+		InvokeCompactionResult:    nil,
 	}.Build(), nil)
 	providers.EXPECT().Release()
 }

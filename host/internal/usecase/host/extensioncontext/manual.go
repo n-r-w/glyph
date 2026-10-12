@@ -38,6 +38,7 @@ func (s *Service) CompactManualPolicy(
 	handlers := s.policyRuntime.SnapshotCompactionHandlers()
 	requests := newParticipants(handlers.Requests)
 	generators := newParticipants(handlers.Generators)
+	results := newParticipants(handlers.Results)
 	state := mo.None[contextcompaction.PolicyState]()
 	// Keep handled child failures for a later terminal failure.
 	var acquiredCauses error
@@ -83,6 +84,7 @@ func (s *Service) CompactManualPolicy(
 		snapshot:             snapshot,
 		requests:             requests,
 		generators:           generators,
+		results:              results,
 		context:              parentContext,
 		cancel:               cancel,
 		mutex:                sync.Mutex{},
@@ -104,6 +106,7 @@ func (s *Service) CompactManualPolicy(
 		Snapshot:     snapshot,
 		Requests:     requests,
 		Generators:   generators,
+		Results:      results,
 		Input:        input,
 		Instructions: instructions, RecordState: operation.recordState,
 	}

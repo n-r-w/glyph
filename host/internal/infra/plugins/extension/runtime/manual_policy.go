@@ -115,6 +115,13 @@ func mapPolicyInvocation(
 			HandlerId: new(participant.HandlerID), RegistrationOrder: new(int64(order)),
 		}.Build()
 	}
+	results := make([]*extensionpb.CompactionParticipant, len(invocation.Results))
+	for order, participant := range invocation.Results {
+		results[order] = extensionpb.CompactionParticipant_builder{
+			ExtensionId: new(participant.ExtensionID), RuntimeId: new(participant.RuntimeID),
+			HandlerId: new(participant.HandlerID), RegistrationOrder: new(int64(order)),
+		}.Build()
+	}
 	return extensionpb.CompactionPolicyInvocation_builder{
 		OperationId: new(invocation.OperationID),
 		SessionId:   new(snapshot.Identity.ID),
@@ -135,6 +142,7 @@ func mapPolicyInvocation(
 		PolicyRuntimeId:       new(runtimeID),
 		RequestParticipants:   participants,
 		GeneratorParticipants: generators,
+		ResultParticipants:    results,
 	}.Build(), nil
 }
 

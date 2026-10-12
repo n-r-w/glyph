@@ -46,7 +46,7 @@ func newPolicyGeneratorContextRequest(
 				ctx, o.service.extensionID, o.service.runtimeID, command,
 			)
 			if invokeErr != nil {
-				if isGeneratorCancellation(invokeErr) {
+				if isParticipantCancellation(invokeErr) {
 					return nil, invokeErr
 				}
 				if failure, classified := errors.AsType[interface {
@@ -72,8 +72,8 @@ func newPolicyGeneratorContextRequest(
 	return mapped, nil
 }
 
-// isGeneratorCancellation distinguishes explicit cancellation from classified or mixed failure.
-func isGeneratorCancellation(err error) bool {
+// isParticipantCancellation distinguishes explicit cancellation from classified or mixed failure.
+func isParticipantCancellation(err error) bool {
 	if _, classified := errors.AsType[interface {
 		error
 		Code() string
@@ -96,6 +96,9 @@ func newPolicyParticipantContextRequest(
 ) (contextRequest, error) {
 	if wire := request.GetInvokeCompactionRequest(); wire != nil {
 		return newPolicyRequestContextRequest(mapped, wire)
+	}
+	if wire := request.GetInvokeCompactionResult(); wire != nil {
+		return newPolicyResultContextRequest(mapped, wire)
 	}
 	return newPolicyGeneratorContextRequest(mapped, request.GetInvokeCompactionGenerator())
 }

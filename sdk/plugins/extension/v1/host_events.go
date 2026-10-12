@@ -43,6 +43,8 @@ const (
 	hostRequestCompactionRequest
 	// hostRequestCompactionGenerator identifies one scoped generator invocation.
 	hostRequestCompactionGenerator
+	// hostRequestCompactionResult identifies one captured result handler call.
+	hostRequestCompactionResult
 	// hostRequestCancel identifies targeted cancellation.
 	hostRequestCancel
 	// contextCodeStale identifies a permanently invalidated context binding.
@@ -282,6 +284,14 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 		hostRequestCompactionGenerator: {
 			requestCase: int(extensionpb.ExtensionRequest_InvokeCompactionGenerator_case),
 			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetInvokeCompactionGenerator() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures:    compactionFailures,
+			progress:    mo.None[hostProgressPredicate](),
+			selection:   false,
+		},
+		hostRequestCompactionResult: {
+			requestCase: int(extensionpb.ExtensionRequest_InvokeCompactionResult_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetInvokeCompactionResult() != nil },
 			validate:    mo.None[hostCompletionValidator](),
 			failures:    compactionFailures,
 			progress:    mo.None[hostProgressPredicate](),

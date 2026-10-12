@@ -621,6 +621,21 @@ func (mr *MockCompactionPolicyOperationsMockRecorder) InvokePolicyRequest(ctx, e
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvokePolicyRequest", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).InvokePolicyRequest), ctx, extensionID, runtimeID, command)
 }
 
+// InvokePolicyResult mocks base method.
+func (m *MockCompactionPolicyOperations) InvokePolicyResult(arg0 context.Context, arg1, arg2 string, arg3 CompactionResultCommand) (CompactionResultResponse, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "InvokePolicyResult", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(CompactionResultResponse)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// InvokePolicyResult indicates an expected call of InvokePolicyResult.
+func (mr *MockCompactionPolicyOperationsMockRecorder) InvokePolicyResult(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "InvokePolicyResult", reflect.TypeOf((*MockCompactionPolicyOperations)(nil).InvokePolicyResult), arg0, arg1, arg2, arg3)
+}
+
 // LinkCompactionChild mocks base method.
 func (m *MockCompactionPolicyOperations) LinkCompactionChild(ctx context.Context, lifecycleID string) (context.Context, func()) {
 	m.ctrl.T.Helper()

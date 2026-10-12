@@ -98,6 +98,8 @@ type PolicyInvocation struct {
 	Requests []Participant
 	// Generators contains captured generator registrations.
 	Generators []Participant
+	// Results contains captured result capabilities.
+	Results []Participant
 	// Instructions contains the caller's manual guidance.
 	Instructions mo.Option[string]
 	// RecordState retains acquired diagnostic state independently of the durable receipt.
@@ -106,6 +108,8 @@ type PolicyInvocation struct {
 
 // PolicyRuntime supplies registered policy identity and asynchronous invocation.
 type PolicyRuntime interface {
+	// InvokeCompactionResult invokes one captured result participant.
+	InvokeCompactionResult(context.Context, Participant, extension.Context, ResultInvocation) (ResultAction, error)
 	// InvokeCompactionGenerator invokes one captured generator.
 	InvokeCompactionGenerator(context.Context, Participant, extension.Context, RequestInvocation) (Result, error)
 	// InvokeCompactionRequest invokes one captured policy request participant.

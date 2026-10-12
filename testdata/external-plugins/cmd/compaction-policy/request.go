@@ -93,12 +93,12 @@ func (o *policyOperation) composeRequests(
 	ctx context.Context,
 	input *extensionpb.CompactionPolicyInvocation,
 	boundary string,
-) (*extensionpb.CompactionResult, bool, error) {
+) (bool, error) {
 	o.state = newReferencePolicyState(input, boundary)
 	original := o.state.GetOriginalRequest()
 	participants := input.GetRequestParticipants()
 	if len(participants) != referenceRequestParticipantCount {
-		return nil, false, fmt.Errorf(
+		return false, fmt.Errorf(
 			"reference policy requires five captured request handlers; received %d",
 			len(participants),
 		)
@@ -107,7 +107,7 @@ func (o *policyOperation) composeRequests(
 	for order, participant := range participants {
 		if participant.GetRegistrationOrder() != int64(order) || participant.GetExtensionId() == "" ||
 			participant.GetRuntimeId() == "" {
-			return nil, false, errors.New("captured request participant identity or order is incomplete")
+			return false, errors.New("captured request participant identity or order is incomplete")
 		}
 		invocation := extensionpb.CompactionRequestInvocation_builder{
 			Original:      original,
@@ -116,80 +116,34 @@ func (o *policyOperation) composeRequests(
 		}.Build()
 		operation, err := o.policy.StartRequestHandler(ctx, participant, invocation)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		action, err := operation.Wait(ctx)
 		if err != nil {
-			return nil, false, err
+			return false, err
 		}
 		if actionErr := validateReferenceRequestAction(action); actionErr != nil {
-			return nil, false, actionErr
+			return false, actionErr
 		}
 		if action.GetCancel() {
-			return nil, true, nil
+			return true, nil
 		}
-		o.installRequestAction(action)
+		if acceptanceErr := o.acceptRequestAction(ctx, action); acceptanceErr != nil {
+			return false, acceptanceErr
+		}
 	}
 	if o.state.GetResult() != nil {
-		return o.state.GetResult(), false, nil
+		return false, nil
 	}
-	return o.generateResult(ctx, input)
-}
-
-// validateReferenceRequestAction checks the shape of a participant action.
-func validateReferenceRequestAction(action *extensionpb.CompactionRequestAction) error {
-	if action.GetCancel() {
-		if action.GetRequestAction() != extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_UNSPECIFIED ||
-			action.GetResultAction() != extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_UNSPECIFIED ||
-			action.GetRequest() != nil ||
-			action.GetResult() != nil {
-			return errors.New("invalid reference request action: cancellation is exclusive")
-		}
-		return nil
+	result, canceled, err := o.generateResult(ctx, input)
+	if err != nil || canceled {
+		return canceled, err
 	}
-	if err := validateReferenceRequestChange(action); err != nil {
-		return err
+	if projectionErr := projectPolicyReplacement(ctx, o.policy, result); projectionErr != nil {
+		return false, projectionErr
 	}
-	return validateReferenceResultChange(action)
-}
-
-// validateReferenceRequestChange checks the independent current-request action.
-func validateReferenceRequestChange(action *extensionpb.CompactionRequestAction) error {
-	switch action.GetRequestAction() {
-	case extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_PRESERVE:
-		if action.GetRequest() != nil {
-			return errors.New("invalid reference request action: preserve has a replacement")
-		}
-	case extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE:
-		if action.GetRequest() == nil {
-			return errors.New("invalid reference request action: replacement is missing")
-		}
-	case extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_UNSPECIFIED:
-		return errors.New("invalid reference request action: request disposition is missing")
-	default:
-		return errors.New("invalid reference request action: unknown request disposition")
-	}
-	return nil
-}
-
-// validateReferenceResultChange checks the independent optional-result action.
-func validateReferenceResultChange(action *extensionpb.CompactionRequestAction) error {
-	switch action.GetResultAction() {
-	case extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_PRESERVE,
-		extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_CLEAR:
-		if action.GetResult() != nil {
-			return errors.New("invalid reference request action: result disposition has a replacement")
-		}
-	case extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE:
-		if action.GetResult() == nil || action.GetResult().GetSummary() == "" || action.GetResult().GetSource() == nil {
-			return errors.New("invalid reference request action: complete result is required")
-		}
-	case extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_UNSPECIFIED:
-		return errors.New("invalid reference request action: result disposition is missing")
-	default:
-		return errors.New("invalid reference request action: unknown result disposition")
-	}
-	return nil
+	o.state.SetResult(proto.CloneOf(result))
+	return false, nil
 }
 
 // referenceRequestOperation exercises request actions and ordinary nested session access.
@@ -276,19 +230,6 @@ func writeRequestInput(directory, handlerID string, input *extensionpb.Compactio
 	return errors.Join(writeErr, file.Close(), root.Close())
 }
 
-// installRequestAction updates the composed request and result values.
-func (o *policyOperation) installRequestAction(action *extensionpb.CompactionRequestAction) {
-	if action.GetRequestAction() == extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE {
-		o.state.SetCurrentRequest(action.GetRequest())
-	}
-	if action.GetResultAction() == extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE {
-		o.state.SetResult(action.GetResult())
-	}
-	if action.GetResultAction() == extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_CLEAR {
-		o.state.ClearResult()
-	}
-}
-
 // newReferencePreserveAction supplies independent request and result preservation.
 func newReferencePreserveAction() *extensionpb.CompactionRequestAction {
 	return extensionpb.CompactionRequestAction_builder{
@@ -325,6 +266,9 @@ func (o *referenceRequestOperation) newFirstRequestAction(
 		}.Build(),
 		Details: []byte(initialDetails),
 	}.Build()
+	if os.Getenv(referenceCandidateRejectionEnvironment) == referenceCandidateRequest {
+		supplied.SetFirstKeptEntryId(referenceGeneratorOutsideBranch)
+	}
 	action.SetRequestAction(extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE)
 	action.SetRequest(replacement)
 	action.SetResultAction(extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE)

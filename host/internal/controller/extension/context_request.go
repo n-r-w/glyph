@@ -53,7 +53,8 @@ func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
 		return newAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
 	case extensionpb.ExtensionRequest_InvokeCompactionRequest_case,
-		extensionpb.ExtensionRequest_InvokeCompactionGenerator_case:
+		extensionpb.ExtensionRequest_InvokeCompactionGenerator_case,
+		extensionpb.ExtensionRequest_InvokeCompactionResult_case:
 		return newPolicyParticipantContextRequest(mapped, request)
 	case extensionpb.ExtensionRequest_ProjectCompaction_case:
 		return newPolicyCandidateContextRequest(mapped, request.GetProjectCompaction(), policyCandidateProjection)

@@ -30,6 +30,8 @@ type compactionOperation struct {
 	requests []Participant
 	// generators contains captured generator registrations.
 	generators []Participant
+	// results contains captured result capabilities.
+	results []Participant
 	// context is intentionally retained parent lifetime: a temporary decision and technical debt.
 	// It supplies synchronous cancellation checks before persistence and owned child cancellation/joins.
 	// TODO: Remove this field when an explicit-context parent-owner handoff preserves synchronous checks,
