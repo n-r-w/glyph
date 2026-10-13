@@ -76,7 +76,8 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 	}.Build()
 	//nolint:exhaustruct_v5 // The handler builder sets only the active policy payload.
 	request := extensionpb.HandleRequest_builder{
-		HandlerId: new("policy"), Context: contextIdentity,
+		CompletedConversation: nil,
+		HandlerId:             new("policy"), Context: contextIdentity,
 		ParentCompactionId: new("lifetime"), CompactionPolicy: input,
 	}.Build()
 	hostRequest := new(extensionpb.HostRequest)

@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -170,16 +171,55 @@ func (m *MockConversationContext) EXPECT() *MockConversationContextMockRecorder 
 	return m.recorder
 }
 
-// ObserveCompletedConversation mocks base method.
-func (m *MockConversationContext) ObserveCompletedConversation(request ProviderRequest, response model.Response) {
+// RecordCompletedConversationUsage mocks base method.
+func (m *MockConversationContext) RecordCompletedConversationUsage(request ProviderRequest, response model.Response) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "ObserveCompletedConversation", request, response)
+	m.ctrl.Call(m, "RecordCompletedConversationUsage", request, response)
 }
 
-// ObserveCompletedConversation indicates an expected call of ObserveCompletedConversation.
-func (mr *MockConversationContextMockRecorder) ObserveCompletedConversation(request, response any) *gomock.Call {
+// RecordCompletedConversationUsage indicates an expected call of RecordCompletedConversationUsage.
+func (mr *MockConversationContextMockRecorder) RecordCompletedConversationUsage(request, response any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveCompletedConversation", reflect.TypeOf((*MockConversationContext)(nil).ObserveCompletedConversation), request, response)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordCompletedConversationUsage", reflect.TypeOf((*MockConversationContext)(nil).RecordCompletedConversationUsage), request, response)
+}
+
+// MockConversationObservations is a mock of ConversationObservations interface.
+type MockConversationObservations struct {
+	ctrl     *gomock.Controller
+	recorder *MockConversationObservationsMockRecorder
+	isgomock struct{}
+}
+
+// MockConversationObservationsMockRecorder is the mock recorder for MockConversationObservations.
+type MockConversationObservationsMockRecorder struct {
+	mock *MockConversationObservations
+}
+
+// NewMockConversationObservations creates a new mock instance.
+func NewMockConversationObservations(ctrl *gomock.Controller) *MockConversationObservations {
+	mock := &MockConversationObservations{ctrl: ctrl}
+	mock.recorder = &MockConversationObservationsMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockConversationObservations) EXPECT() *MockConversationObservationsMockRecorder {
+	return m.recorder
+}
+
+// CaptureConversationObservation mocks base method.
+func (m *MockConversationObservations) CaptureConversationObservation() (mo.Option[ConversationObservation], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CaptureConversationObservation")
+	ret0, _ := ret[0].(mo.Option[ConversationObservation])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CaptureConversationObservation indicates an expected call of CaptureConversationObservation.
+func (mr *MockConversationObservationsMockRecorder) CaptureConversationObservation() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CaptureConversationObservation", reflect.TypeOf((*MockConversationObservations)(nil).CaptureConversationObservation))
 }
 
 // MockContextPreparationFailure is a mock of ContextPreparationFailure interface.

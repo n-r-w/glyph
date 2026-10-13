@@ -67,7 +67,7 @@ func TestServiceCanceledRetryProgressDoesNotRestoreResetResponse(t *testing.T) {
 	)
 	service := New(catalog, observer, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Second}, MaxProviderDelay: 30 * time.Second,
-	}, nil, retryOutput)
+	}, nil, retryOutput, newTestConversationObservations(t))
 	var kinds []agentrun.StreamEventKind
 
 	// Act through the logical agent stream.

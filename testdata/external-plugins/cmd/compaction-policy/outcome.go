@@ -52,6 +52,11 @@ func (o *outcomeOperation) Run(ctx context.Context) (*extensionpb.HandleResponse
 	}
 	response := new(extensionpb.HandleResponse)
 	if o.outcome.GetCommitted() != nil && o.outcome.GetError() == "" {
+		if os.Getenv(conversationOverflowEnvironment) == fixtureEnabledValue {
+			if err := appendOverflowObservationMessage(ctx); err != nil {
+				return newPolicyFailure(err), nil
+			}
+		}
 		response.SetCompactionSuccess(new(extensionpb.CompactionObserverAction))
 	} else {
 		response.SetCompactionFailure(new(extensionpb.CompactionObserverAction))

@@ -56,7 +56,8 @@ func newCompactionParticipantRequest(
 	parent mo.Option[string],
 ) *extensionpb.HandleRequest {
 	return extensionpb.HandleRequest_builder{
-		HandlerId: new(handlerID), Context: mapContext(binding), ParentCompactionId: parent.ToPointer(),
+		CompletedConversation: nil,
+		HandlerId:             new(handlerID), Context: mapContext(binding), ParentCompactionId: parent.ToPointer(),
 		SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Lifecycle: nil,
 		ModelSelection: nil, ReasoningSelection: nil, Retry: nil,
 		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,

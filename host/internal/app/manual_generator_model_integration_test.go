@@ -45,7 +45,12 @@ func (s *manualRequestHandlersSuite) TestGeneratorConfiguredImages() {
 	// Arrange a generator that requests an image-capable configured model.
 	s.T().Setenv(manualGeneratorsEnvironment, manualFixtureEnabled)
 	s.T().Setenv(manualGeneratorModeEnvironment, manualGeneratorImagesMode)
+	observationPath := filepath.Join(s.T().TempDir(), "generator-conversation-observation.json")
+	s.T().Setenv(conversationObservationEnvironment, observationPath)
 	// Act through public manual compaction in runScenario.
 	// Assert ordered image input, explicit selection, result metadata and isolated conversation history.
 	s.runScenario(manualRequestClearGuidance, manualGeneratorSummary, "", false)
+	calls, err := filepath.Glob(observationPath + conversationObservationCallGlob)
+	s.Require().NoError(err)
+	s.Require().Len(calls, 3)
 }

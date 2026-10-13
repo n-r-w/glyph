@@ -82,26 +82,31 @@ func (prepared *preparedUIOperation) Run(
 	reporter operation.Reporter[controllerui.Frame],
 ) operation.Outcome[controllerui.Frame] {
 	result, err := prepared.run(ctx, reporter)
-	if err != nil {
-		if committed, ok := errors.AsType[*committedSelectionError](err); ok {
-			return operation.CompletedWithSource(result, committed.Unwrap())
+	if err == nil {
+		// Completed navigation can still carry declared handler and observer diagnostics.
+		var sources []error
+		if navigation, present := result.TreeNavigation.Get(); present {
+			for _, issue := range navigation.Issues {
+				sources = append(sources, errors.New(issue.Message))
+			}
 		}
-		if committed, ok := errors.AsType[*committedCompactionError](err); ok {
-			return operation.CompletedWithSource(result, committed.Unwrap())
-		}
-		if isPureCancellation(err) {
-			return operation.Canceled[controllerui.Frame]()
-		}
-		return operation.Failed[controllerui.Frame](prepared.failureCode(err), err)
+		return operation.CompletedWithSource(result, errors.Join(sources...))
 	}
-	// Completed navigation can still carry declared handler and observer diagnostics.
-	var sources []error
-	if navigation, present := result.TreeNavigation.Get(); present {
-		for _, issue := range navigation.Issues {
-			sources = append(sources, errors.New(issue.Message))
-		}
+	if committed, ok := errors.AsType[*committedSelectionError](err); ok {
+		return operation.CompletedWithSource(result, committed.Unwrap())
 	}
-	return operation.CompletedWithSource(result, errors.Join(sources...))
+	if committed, ok := errors.AsType[*committedCompactionError](err); ok {
+		return operation.CompletedWithSource(result, committed.Unwrap())
+	}
+	if isPureCancellation(err) {
+		if !errtree.IsPlainCancellation(err, func(cause error) bool {
+			return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+		}) {
+			return operation.CanceledWithSource[controllerui.Frame](err)
+		}
+		return operation.Canceled[controllerui.Frame]()
+	}
+	return operation.Failed[controllerui.Frame](prepared.failureCode(err), err)
 }
 
 // retryPolicy projects one atomic runtime-control snapshot into the UI contract.
@@ -112,21 +117,9 @@ func retryPolicy(control RetryControl) controllerui.RetryPolicy {
 	}
 }
 
-// isPureCancellation reports whether every leaf is a cancellation marker recognized by Host UI.
+// isPureCancellation checks current causes for cancellation markers recognized by Host UI.
 func isPureCancellation(err error) bool {
-	if _, categorized := errors.AsType[interface {
-		error
-		FailureCode() string
-	}](err); categorized {
-		return false
-	}
-	if _, categorized := errors.AsType[interface {
-		error
-		CompactionFailureCode() string
-	}](err); categorized {
-		return false
-	}
-	return errtree.AllLeavesMatch(err, func(cause error) bool {
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
 	})
 }

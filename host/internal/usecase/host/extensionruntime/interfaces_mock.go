@@ -229,6 +229,20 @@ func (mr *MockExtensionRuntimeMockRecorder) ObserveCompactionSuccess(arg0, arg1,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveCompactionSuccess", reflect.TypeOf((*MockExtensionRuntime)(nil).ObserveCompactionSuccess), arg0, arg1, arg2, arg3)
 }
 
+// ObserveConversation mocks base method.
+func (m *MockExtensionRuntime) ObserveConversation(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.ConversationObservation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObserveConversation", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ObserveConversation indicates an expected call of ObserveConversation.
+func (mr *MockExtensionRuntimeMockRecorder) ObserveConversation(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveConversation", reflect.TypeOf((*MockExtensionRuntime)(nil).ObserveConversation), arg0, arg1, arg2, arg3)
+}
+
 // ObserveLifecycle mocks base method.
 func (m *MockExtensionRuntime) ObserveLifecycle(arg0 context.Context, arg1 string, arg2 LifecycleInvocation) error {
 	m.ctrl.T.Helper()

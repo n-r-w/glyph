@@ -73,7 +73,7 @@ func TestServiceOversizedProviderDelayRunsHandlersBeforeMaximumEnforcement(t *te
 			service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Second},
 				MaxProviderDelay: 30 * time.Second,
-			}, handlers, nil)
+			}, handlers, nil, newTestConversationObservations(t))
 
 			// Act through one configured request.
 			_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
@@ -119,7 +119,7 @@ func TestServiceProviderDelayIsHandlerLowerBound(t *testing.T) {
 	handlers.EXPECT().HandleRetry(gomock.Any(), second, gomock.Any()).Times(0)
 	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
 		Enabled: true, MaxRetries: 0, Delays: nil, MaxProviderDelay: 30 * time.Second,
-	}, handlers, nil)
+	}, handlers, nil, newTestConversationObservations(t))
 
 	// Act through one configured request after the built-in attempt allowance is exhausted.
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
@@ -160,7 +160,7 @@ func TestServiceStoppedDecisionCannotUndercutProviderDelay(t *testing.T) {
 	handlers.EXPECT().HandleRetry(gomock.Any(), second, gomock.Any()).Times(0)
 	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Second}, MaxProviderDelay: 30 * time.Second,
-	}, handlers, nil)
+	}, handlers, nil, newTestConversationObservations(t))
 
 	// Act through one configured request.
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
@@ -201,7 +201,7 @@ func TestServiceInvalidHandlerDecisionStopsComposition(t *testing.T) {
 	handlers.EXPECT().HandleRetry(gomock.Any(), second, gomock.Any()).Times(0)
 	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
-	}, handlers, nil)
+	}, handlers, nil, newTestConversationObservations(t))
 
 	// Act through one configured request.
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
@@ -260,7 +260,7 @@ func TestServiceRetryHandlersComposeOriginalAndCurrentInSnapshotOrder(t *testing
 	)
 	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
-	}, handlers, nil)
+	}, handlers, nil, newTestConversationObservations(t))
 
 	// Act through one logical configured request.
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)

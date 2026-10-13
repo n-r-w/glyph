@@ -45,7 +45,7 @@ func (prepared *hostPrepared) Run(
 			OperationResult{Frame: frame, Cancel: mo.None[operation.TerminalState]()}, outcome.SourceError(),
 		)
 	case operation.TerminalStateCanceled:
-		return operation.Canceled[OperationResult]()
+		return operation.CanceledWithSource[OperationResult](outcome.SourceError())
 	case operation.TerminalStateFailed:
 		return operation.Failed[OperationResult](outcome.Code(), outcome.Err())
 	default:

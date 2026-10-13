@@ -7,8 +7,10 @@ import (
 	"context"
 	"encoding/json/v2"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	uipb "github.com/n-r-w/glyph/pkg/plugins/ui/v1"
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
@@ -21,6 +23,8 @@ const (
 	manualGuidanceEnvironment = "GLYPH_PUBLIC_MANUAL_GUIDANCE"
 	// manualNoOwnerGuidance selects an empty-history no-owner call.
 	manualNoOwnerGuidance = "no-owner"
+	// manualUIFailedOutcome identifies a finalized failed response.
+	manualUIFailedOutcome = "failed"
 )
 
 // manualPublicReport contains the terminal outcome observed by a public client.
@@ -44,8 +48,6 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 	const manualFixtureManualUiSubmit = "manual-ui-submit-"
 
 	const manualFixtureManualUiStoredTree = "manual-ui-stored-tree"
-
-	const manualFixtureManualUiNext = "manual-ui-next"
 
 	if err := waitForIdle(ctx, host); err != nil {
 		return err
@@ -98,14 +100,8 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 		report.Canceled = outcome.GetCanceled()
 	}
 	if report.Committed {
-		next := new(uipb.UIRequest)
-		next.SetSubmit(uipb.SubmitCommand_builder{Text: new(manualNextText)}.Build())
-		operation, err := host.Start(ctx, manualFixtureManualUiNext, next)
-		if err != nil {
-			return err
-		}
-		if _, err := waitUIOperation(ctx, host, manualFixtureManualUiNext, operation, nil); err != nil {
-			return err
+		if followupErr := runManualUIFollowup(ctx, host, guidance); followupErr != nil {
+			return followupErr
 		}
 	}
 	treeRequest := new(uipb.UIRequest)
@@ -118,7 +114,25 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 	if err != nil {
 		return err
 	}
-	for _, entry := range treeCompleted.GetSessionTree().GetTree().GetEntries() {
+	entries := treeCompleted.GetSessionTree().GetTree().GetEntries()
+	if report.Committed && manualFollowupOwnerUnavailable(guidance) {
+		nextUsers, failedModels := 0, 0
+		for _, entry := range entries {
+			for _, content := range entry.GetUser().GetContent() {
+				if content.GetText() == manualNextText {
+					nextUsers++
+				}
+			}
+			if response := entry.GetModel(); response.GetOutcome() == manualUIFailedOutcome &&
+				strings.Contains(response.GetErrorMessage(), "unavailable") {
+				failedModels++
+			}
+		}
+		if nextUsers != 1 || failedModels != 1 {
+			return errors.New("unavailable-owner follow-up durable outcome is missing")
+		}
+	}
+	for _, entry := range entries {
 		if entry.GetCompaction() != nil {
 			report.Markers++
 		}
@@ -141,4 +155,47 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 		return err
 	}
 	return host.Close(ctx)
+}
+
+// runManualUIFollowup checks the follow-up conversation outcome and idle application availability.
+func runManualUIFollowup(ctx context.Context, host *uisdk.Host, guidance string) error {
+	const manualFixtureManualUiNext = "manual-ui-next"
+	next := new(uipb.UIRequest)
+	next.SetSubmit(uipb.SubmitCommand_builder{Text: new(manualNextText)}.Build())
+	operation, err := host.Start(ctx, manualFixtureManualUiNext, next)
+	if err != nil {
+		return err
+	}
+	if !manualFollowupOwnerUnavailable(guidance) {
+		_, terminalErr := waitUIOperation(ctx, host, manualFixtureManualUiNext, operation, nil)
+		return terminalErr
+	}
+	idle := false
+	_, followupErr := waitUIOperation(
+		ctx,
+		host,
+		manualFixtureManualUiNext,
+		operation,
+		func(notification *uisdk.Notification) {
+			if changed := notification.ConnectionEvent().GetAvailabilityChanged(); changed != nil {
+				idle = changed.GetAvailability() == uipb.Availability_AVAILABILITY_IDLE
+			}
+		},
+	)
+	failure, failed := errors.AsType[*uisdk.FailureError](followupErr)
+	if !failed {
+		if followupErr != nil {
+			return fmt.Errorf("unavailable-owner follow-up did not report failure: %w", followupErr)
+		}
+		return errors.New("unavailable-owner follow-up completed successfully")
+	}
+	if failure.Code() != conversationExtensionFailed ||
+		!strings.Contains(failure.Error(), "issue captured conversation policy context") ||
+		!strings.Contains(failure.Error(), "unavailable") {
+		return fmt.Errorf("unavailable-owner follow-up outcome: %w", failure)
+	}
+	if idle {
+		return nil
+	}
+	return waitForIdle(ctx, host)
 }

@@ -493,7 +493,7 @@ func newHandlerPayloadPredicates() map[extensionpb.HandlerKind]func(*extensionpb
 			return request.GetCompactionFailure() != nil
 		},
 		extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_POLICY: func(request *extensionpb.HandleRequest) bool {
-			return request.GetCompactionPolicy() != nil
+			return request.GetCompactionPolicy() != nil || request.GetCompletedConversation() != nil
 		},
 	}
 	for _, kind := range []extensionpb.HandlerKind{

@@ -12,9 +12,6 @@ import (
 
 // writePolicyArtifact writes one optional public protobuf artifact with owned permissions.
 func writePolicyArtifact(path string, message proto.Message) error {
-	// policyArtifactPermission restricts captured input to its fixture owner.
-	const policyArtifactPermission = 0o600
-
 	if path == "" {
 		return nil
 	}
@@ -22,6 +19,13 @@ func writePolicyArtifact(path string, message proto.Message) error {
 	if err != nil {
 		return err
 	}
+	return writePolicyArtifactBytes(path, encoded)
+}
+
+// writePolicyArtifactBytes stores a fixture artifact under its supplied directory.
+func writePolicyArtifactBytes(path string, encoded []byte) error {
+	// policyArtifactPermission is the file mode for owner-only reading and writing.
+	const policyArtifactPermission = 0o600
 	root, err := os.OpenRoot(filepath.Dir(path))
 	if err != nil {
 		return err

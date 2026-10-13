@@ -8,6 +8,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -106,8 +107,20 @@ type PolicyInvocation struct {
 	RecordState func(contextcompaction.PolicyState)
 }
 
+// ConversationObservation contains the completed provider attempt and nested-work correlation.
+type ConversationObservation struct {
+	// Input contains the actual successful attempt request.
+	Input modelexecution.ProviderRequest
+	// Response contains the complete provider response.
+	Response model.Response
+	// LifecycleID is the correlation ID for ordinary nested work.
+	LifecycleID string
+}
+
 // PolicyRuntime supplies registered policy identity and asynchronous invocation.
 type PolicyRuntime interface {
+	// ObserveConversation invokes the captured policy owner's completed-conversation handler.
+	ObserveConversation(context.Context, PolicyOwner, extension.Context, ConversationObservation) error
 	// InvokeCompactionResult invokes one captured result participant.
 	InvokeCompactionResult(context.Context, Participant, extension.Context, ResultInvocation) (ResultAction, error)
 	// InvokeCompactionGenerator invokes one captured generator.

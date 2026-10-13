@@ -100,6 +100,8 @@ type ExtensionRuntime interface {
 	ObserveCompactionSuccess(context.Context, string, extension.Context, contextcompaction.OutcomeInvocation) error
 	// ObserveCompactionFailure invokes one failed-compaction observer.
 	ObserveCompactionFailure(context.Context, string, extension.Context, contextcompaction.OutcomeInvocation) error
+	// ObserveConversation invokes the policy handler for a completed conversation.
+	ObserveConversation(context.Context, string, extension.Context, extensioncontext.ConversationObservation) error
 	// InvokeCompactionPolicy invokes one captured compaction policy capability.
 	InvokeCompactionPolicy(context.Context, string, extension.Context, extensioncontext.PolicyInvocation) (bool, error)
 	// ObserveLifecycle invokes one Agent Core lifecycle observer.

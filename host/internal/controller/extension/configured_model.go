@@ -124,8 +124,8 @@ func mapConfiguredInput(message *extensionpb.ConfiguredModelMessage) ([]model.In
 	return content, nil
 }
 
-// mapConfiguredResponse projects terminal content without opaque provider reasoning context.
-func mapConfiguredResponse(response model.Response) (*extensionpb.ConfiguredModelResult, error) {
+// MapModelResponse projects public terminal content and diagnostics.
+func MapModelResponse(response model.Response) (*extensionpb.ConfiguredModelResult, error) {
 	if err := response.ValidateTerminalContent(); err != nil {
 		return nil, fmt.Errorf("map configured model response: %w", err)
 	}

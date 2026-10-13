@@ -639,21 +639,9 @@ func isOperationCancellation(ctx context.Context, err error) bool {
 	return errors.Is(ctx.Err(), context.Canceled) && (err == nil || isPureCancellation(err))
 }
 
-// isPureCancellation reports whether every leaf is context.Canceled under Programmatic Control policy.
+// isPureCancellation checks current causes for context.Canceled under Programmatic Control policy.
 func isPureCancellation(err error) bool {
-	if _, categorized := errors.AsType[interface {
-		error
-		FailureCode() string
-	}](err); categorized {
-		return false
-	}
-	if _, categorized := errors.AsType[interface {
-		error
-		CompactionFailureCode() string
-	}](err); categorized {
-		return false
-	}
-	return errtree.AllLeavesMatch(err, func(cause error) bool {
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled)
 	})
 }

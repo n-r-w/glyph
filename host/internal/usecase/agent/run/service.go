@@ -341,11 +341,7 @@ func (s *Service) finalizeProviderError(
 		finalizeRetainedStreamedContent(response.Content)
 	}
 	outcome := model.OutcomeFailed
-	_, categorized := errors.AsType[interface {
-		error
-		FailureCode() string
-	}](providerErr)
-	if !categorized && isPureCancellation(providerErr) {
+	if isPureCancellation(providerErr) {
 		outcome = model.OutcomeAborted
 	}
 	errorMessage, hasErrorMessage := response.ErrorMessage.Get()
@@ -400,24 +396,20 @@ func (s *Service) finalizeProviderError(
 	}, false, combinedErr
 }
 
-// visibleErrorMessage returns abortedModelMessage for pure cancellation trees.
+// visibleErrorMessage formats terminal cancellation and failure text.
 // It preserves err.Error() for all other errors.
 func visibleErrorMessage(err error) string {
-	if isPureCancellation(err) {
+	if errtree.IsPlainCancellation(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+	}) {
 		return abortedModelMessage
 	}
 	return err.Error()
 }
 
-// isPureCancellation reports whether every leaf is a cancellation marker recognized by Agent Core.
+// isPureCancellation checks current causes for cancellation markers recognized by Agent Core.
 func isPureCancellation(err error) bool {
-	if _, categorized := errors.AsType[interface {
-		error
-		FailureCode() string
-	}](err); categorized {
-		return false
-	}
-	return errtree.AllLeavesMatch(err, func(cause error) bool {
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
 	})
 }

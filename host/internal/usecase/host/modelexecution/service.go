@@ -43,8 +43,10 @@ var (
 type Service struct {
 	// catalog resolves logical model selections to raw provider bindings.
 	catalog CatalogResolver
-	// conversationContext observes completed delivered agent responses.
+	// conversationContext records internal usage for subsequent conversation preparation.
 	conversationContext ConversationContext
+	// observations captures the admitted policy owner.
+	observations ConversationObservations
 	// contextPreparation owns threshold and overflow mutation for agent requests only.
 	contextPreparation ContextPreparation
 	// retryPolicy contains validated persistent policy values.
@@ -82,11 +84,12 @@ func New(
 	retryPolicy RetryPolicy,
 	retryHandlers RetryHandlers,
 	retryOutput RetryOutput,
+	observations ConversationObservations,
 ) *Service {
 	policy := retryPolicy
 	policy.Delays = append([]time.Duration(nil), retryPolicy.Delays...)
 	service := &Service{
-		catalog: catalog, conversationContext: conversationContext, contextPreparation: nil,
+		catalog: catalog, conversationContext: conversationContext, observations: observations, contextPreparation: nil,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
 		manualPreparation: nil, manualTools: nil, manualInstructions: "",
 	}
@@ -156,6 +159,10 @@ func (s *Service) Stream(
 	request agentrun.ModelRequest,
 	handle agentrun.StreamHandler,
 ) error {
+	observation, err := s.captureConversation(ctx)
+	if err != nil {
+		return err
+	}
 	// selection reconstructs the exact catalog key captured by Agent Core.
 	selection := model.Selection{
 		Provider:        request.Model.Provider,
@@ -181,7 +188,7 @@ func (s *Service) Stream(
 		return err
 	}
 	responseStarted := false
-	response, err := s.execute(
+	completion, err := s.execute(
 		ctx, binding.Provider, providerRequest,
 		func(event StreamEvent) error {
 			responseStarted = true
@@ -208,6 +215,10 @@ func (s *Service) Stream(
 		modelStreamMissingTerminalMessage,
 		s.overflowRecovery(),
 	)
+	response := completion.response
+	if err == nil {
+		err = completion.observe(ctx, observation)
+	}
 	if err != nil {
 		if response.Outcome.IsSome() {
 			deliveryErr := handle(agentrun.StreamEvent{
@@ -231,7 +242,7 @@ func (s *Service) Stream(
 	}); handleErr != nil {
 		return handleErr
 	}
-	s.conversationContext.ObserveCompletedConversation(providerRequest, response)
+	s.conversationContext.RecordCompletedConversationUsage(completion.input, response)
 	return nil
 }
 
@@ -287,7 +298,7 @@ func (s *Service) RequestConfigured(
 		Instructions: instructions, Model: binding.Model, ReasoningChoice: binding.ReasoningChoice,
 		History: ownedHistory, Tools: nil,
 	}
-	response, err := s.execute(
+	completion, err := s.execute(
 		ctx, binding.Provider, request, nil, func(value RetryProgress) error {
 			if progress == nil {
 				return nil
@@ -300,7 +311,7 @@ func (s *Service) RequestConfigured(
 	if err != nil {
 		return model.Response{}, fmt.Errorf("execute model request: %w", err)
 	}
-	return response, nil
+	return completion.response, nil
 }
 
 // clone detaches mutable request slices for one raw attempt.

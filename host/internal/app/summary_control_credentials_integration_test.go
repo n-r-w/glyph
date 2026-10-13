@@ -89,6 +89,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 					},
 					nil,
 					nil,
+					nil,
 				),
 				extensions,
 			)

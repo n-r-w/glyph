@@ -185,9 +185,13 @@ func newPreparationHarness(t *testing.T, initialText string, rebuiltText string)
 	sessions.EXPECT().CommitCompaction(gomock.Any(), identity, mo.Some("kept"), gomock.Any()).Return(committed, nil)
 	compactor := contextcompaction.New(sessions)
 	require.NoError(t, compactor.BindOrchestration(runtime, contexts, 20_000))
+	observations := modelexecution.NewMockConversationObservations(controller)
+	observations.EXPECT().
+		CaptureConversationObservation().
+		Return(mo.None[modelexecution.ConversationObservation](), nil)
 	execution := modelexecution.New(catalog, compactor, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-	}, nil, retryOutput)
+	}, nil, retryOutput, observations)
 	return preparationHarness{
 		execution: execution, provider: provider, retryOutput: retryOutput,
 		agentRequest: agentrun.ModelRequest{

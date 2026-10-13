@@ -1270,7 +1270,8 @@ func (operation *protocolHandleOperation) Run(
 			message = ""
 		}
 		return extensionpb.HandleResponse_builder{
-			CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+			CompletedConversation: nil,
+			CompactionRequest:     nil, CompactionGenerate: nil, CompactionResult: nil,
 			CompactionSuccess: nil, CompactionFailure: nil,
 			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,
@@ -1283,7 +1284,8 @@ func (operation *protocolHandleOperation) Run(
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	return extensionpb.HandleResponse_builder{
-		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+		CompletedConversation: nil,
+		CompactionRequest:     nil, CompactionGenerate: nil, CompactionResult: nil,
 		CompactionSuccess: nil, CompactionFailure: nil,
 		Retry:          nil,
 		ModelSelection: nil, ReasoningSelection: nil,

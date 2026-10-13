@@ -69,8 +69,8 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 		},
 	)
 	conversationContext := NewMockConversationContext(controller)
-	conversationContext.EXPECT().ObserveCompletedConversation(gomock.Any(), gomock.Any())
-	service := New(catalog, conversationContext, disabledRetryPolicy(), nil, nil)
+	conversationContext.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any())
+	service := New(catalog, conversationContext, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 	var received agentrun.StreamEvent
 
 	// Act through the Agent Core logical provider contract.
@@ -125,10 +125,10 @@ func TestServiceObservesTerminalConversationOnlyAfterDelivery(t *testing.T) {
 		},
 	)
 	delivered := false
-	observer.EXPECT().ObserveCompletedConversation(gomock.Any(), terminal).Do(
+	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), terminal).Do(
 		func(_ ProviderRequest, _ model.Response) { require.True(t, delivered) },
 	)
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil)
+	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 
 	// Act by delivering the terminal response to Agent Core.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -173,7 +173,7 @@ func TestServiceDoesNotObserveTerminalResponseRejectedByDelivery(t *testing.T) {
 		},
 	)
 	deliveryErr := errors.New("deliver terminal response")
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil)
+	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 
 	// Act by rejecting the terminal event at the conversation delivery boundary.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -414,7 +414,14 @@ func TestServiceConfiguredRequestRejectsMissingTerminal(t *testing.T) {
 // newTestService creates a service with a strict no-call conversation-context mock.
 func newTestService(t *testing.T, catalog CatalogResolver) *Service {
 	t.Helper()
-	return New(catalog, NewMockConversationContext(gomock.NewController(t)), disabledRetryPolicy(), nil, nil)
+	return New(
+		catalog,
+		NewMockConversationContext(gomock.NewController(t)),
+		disabledRetryPolicy(),
+		nil,
+		nil,
+		newTestConversationObservations(t),
+	)
 }
 
 // successTerminalEvent returns one complete successful raw provider terminal event.

@@ -87,11 +87,15 @@ func (s *extensionManualCompactionTerminalStatesSuite) TestScenario() {
 			require.Equal(t, 1, originals)
 			if scenario.committed {
 				require.Equal(t, 1, markers)
-				completeProgrammaticRequest(t, fixture, userRequest(manualFixtureNext, manualNextText))
-				actual := bodies.snapshot()
-				require.Contains(t, string(actual[len(actual)-1]), manualReferenceSummary)
-				require.Contains(t, string(actual[len(actual)-1]), manualRetainedText)
-				require.NotContains(t, string(actual[len(actual)-1]), manualOriginalText)
+				if manualFollowupOwnerUnavailable(scenario.guidance) {
+					assertManualUnavailableOwnerFollowup(t, fixture, bodies)
+				} else {
+					completeProgrammaticRequest(t, fixture, userRequest(manualFixtureNext, manualNextText))
+					actual := bodies.snapshot()
+					require.Contains(t, string(actual[len(actual)-1]), manualReferenceSummary)
+					require.Contains(t, string(actual[len(actual)-1]), manualRetainedText)
+					require.NotContains(t, string(actual[len(actual)-1]), manualOriginalText)
+				}
 			} else {
 				require.Zero(t, markers)
 			}

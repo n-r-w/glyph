@@ -10,6 +10,7 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/errtree"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -201,6 +202,11 @@ func (p *runPrepared) Run(
 		return operation.Failed[controller.Response](failureCode(err), err)
 	}
 	if errors.Is(ctx.Err(), context.Canceled) {
+		if runErr != nil && !errtree.IsPlainCancellation(runErr, func(cause error) bool {
+			return errors.Is(cause, context.Canceled)
+		}) {
+			return operation.CanceledWithSource[controller.Response](runErr)
+		}
 		return operation.Canceled[controller.Response]()
 	}
 	return operation.Completed(emptyResponse(p.operationID, controller.ResponseUserRequestCompleted))

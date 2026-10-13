@@ -96,6 +96,11 @@ func (s *handlerMatrixSuite) TestScenario() {
 			request.SetCompactionPolicy(new(extensionpb.CompactionPolicyInvocation))
 			return request
 		}()},
+		{kind: extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_POLICY, request: func() *extensionpb.HandleRequest {
+			request := new(extensionpb.HandleRequest)
+			request.SetCompletedConversation(new(extensionpb.CompletedConversationObservation))
+			return request
+		}()},
 		{kind: extensionpb.HandlerKind_HANDLER_KIND_AGENT_START, request: func() *extensionpb.HandleRequest {
 			invocation := new(extensionpb.LifecycleInvocation)
 			invocation.SetAgentStart(new(extensionpb.AgentStart))

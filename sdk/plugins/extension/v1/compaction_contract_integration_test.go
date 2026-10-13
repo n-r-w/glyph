@@ -81,7 +81,8 @@ func invokeCompactionHandler(
 		Original: compactionPublicRequest(), Current: compactionPublicRequest(), CurrentResult: nil,
 	}.Build()
 	handleBuilder := extensionpb.HandleRequest_builder{
-		HandlerId: new(handlerID), Context: testInvocationIdentity(),
+		CompletedConversation: nil,
+		HandlerId:             new(handlerID), Context: testInvocationIdentity(),
 		SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Lifecycle: nil,
 		ModelSelection: nil, ReasoningSelection: nil, Retry: nil,
 		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
@@ -131,6 +132,7 @@ func compactionHandlerResponse(requestHandler bool) *extensionpb.HandleResponse 
 		Summary: new(text), FirstKeptEntryId: new("kept"), Source: source, Details: nil,
 	}.Build()
 	builder := extensionpb.HandleResponse_builder{
+		CompletedConversation:    nil,
 		SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Error: nil, Lifecycle: nil,
 		ModelSelection: nil, ReasoningSelection: nil, Retry: nil,
 		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,

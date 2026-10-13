@@ -313,6 +313,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 		source := new(extensionpb.BranchSummarySource)
 		source.SetExtensionId("01-compact")
 		return extensionpb.HandleResponse_builder{
+			CompletedConversation: nil,
 			CompactionRequest: extensionpb.CompactionRequestAction_builder{
 				Cancel:        new(false),
 				RequestAction: new(extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE),
@@ -358,6 +359,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			}
 		}
 		return extensionpb.HandleResponse_builder{
+			CompletedConversation: nil,
 			CompactionRequest: extensionpb.CompactionRequestAction_builder{
 				Cancel:        new(false),
 				RequestAction: new(extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_PRESERVE),
@@ -403,7 +405,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 			}
 		}
 		return extensionpb.HandleResponse_builder{
-			CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+			CompletedConversation: nil,
+			CompactionRequest:     nil, CompactionGenerate: nil, CompactionResult: nil,
 			CompactionSuccess: extensionpb.CompactionObserverAction_builder{}.Build(),
 			CompactionFailure: nil, Retry: nil, ModelSelection: nil, ReasoningSelection: nil,
 			Lifecycle: nil, SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,
@@ -413,7 +416,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 		}.Build(), nil
 	case "supply":
 		return extensionpb.HandleResponse_builder{
-			CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+			CompletedConversation: nil,
+			CompactionRequest:     nil, CompactionGenerate: nil, CompactionResult: nil,
 			CompactionSuccess: nil, CompactionFailure: nil,
 			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,
@@ -434,7 +438,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 		}.Build(), nil
 	case "refine":
 		return extensionpb.HandleResponse_builder{
-			CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+			CompletedConversation: nil,
+			CompactionRequest:     nil, CompactionGenerate: nil, CompactionResult: nil,
 			CompactionSuccess: nil, CompactionFailure: nil,
 			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,
@@ -466,7 +471,8 @@ func (operation *handlerFixtureHandleOperation) Run(
 			return nil, err
 		}
 		return extensionpb.HandleResponse_builder{
-			CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
+			CompletedConversation: nil,
+			CompactionRequest:     nil, CompactionGenerate: nil, CompactionResult: nil,
 			CompactionSuccess: nil, CompactionFailure: nil,
 			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,

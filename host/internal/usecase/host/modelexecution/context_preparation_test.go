@@ -44,8 +44,8 @@ func TestServicePreparesInitialConversationContext(t *testing.T) {
 			return emitContextPreparationSuccess(handle)
 		},
 	)
-	observer.EXPECT().ObserveCompletedConversation(gomock.Any(), gomock.Any())
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil)
+	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any())
+	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 	service.BindContextPreparation(preparation)
 
 	// Act through the active-conversation stream.
@@ -75,7 +75,7 @@ func TestServicePreservesTypedPreparationFailure(t *testing.T) {
 	preparation.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).Return(
 		ProviderRequest{}, typedPreparationFailure{cause: errors.New("extension failed")},
 	)
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil)
+	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 	service.BindContextPreparation(preparation)
 
 	// Act before provider dispatch.
@@ -153,7 +153,7 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 			)
 			service := New(catalog, observer, RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-			}, nil, output)
+			}, nil, output, newTestConversationObservations(t))
 			service.BindContextPreparation(preparation)
 
 			// Act through the full initial context-preparation owner.
@@ -204,7 +204,7 @@ func TestServiceDisabledRetryClassifiesOverflowWithBoundRecovery(t *testing.T) {
 	})
 	service := New(catalog, observer, RetryPolicy{
 		Enabled: false, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-	}, nil, output)
+	}, nil, output, newTestConversationObservations(t))
 	service.BindContextPreparation(preparation)
 
 	// Act through the full model-execution owner.
@@ -287,7 +287,7 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			)
 			service := New(catalog, observer, RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-			}, nil, output)
+			}, nil, output, newTestConversationObservations(t))
 			service.BindContextPreparation(preparation)
 
 			// Act through the complete model-execution owner.
@@ -360,10 +360,12 @@ func TestServiceRecoversOneOverflowWithinRetryAllowance(t *testing.T) {
 		},
 	)
 	output.EXPECT().DeliverRetry(gomock.Any(), gomock.Any()).Return(nil)
-	observer.EXPECT().ObserveCompletedConversation(gomock.Any(), gomock.Any())
+	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any()).Do(
+		func(input ProviderRequest, _ model.Response) { require.Equal(t, changed, input.History) },
+	)
 	service := New(catalog, observer, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-	}, nil, output)
+	}, nil, output, newTestConversationObservations(t))
 	service.BindContextPreparation(preparation)
 
 	// Act through one logical agent request.

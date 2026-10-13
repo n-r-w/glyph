@@ -216,7 +216,7 @@ func (o *contextOperation) runConfiguredModel(
 	if err != nil {
 		return nil, mapModelFailure("request configured model", err)
 	}
-	mapped, err := mapConfiguredResponse(response)
+	mapped, err := MapModelResponse(response)
 	if err != nil {
 		return nil, extensionsdk.Fail(internalFailureCode, err)
 	}

@@ -65,7 +65,7 @@ func runHeadlessWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
-	// contextCompaction owns active-conversation sizing and completed-usage observations.
+	// contextCompaction owns active-conversation sizing and usage accounting.
 	contextCompaction := contextcompaction.New(sessionServices.active)
 	if err = contextCompaction.BindOrchestration(
 		extensions, contexts, configured.Compaction.RetainedContextTokens,
@@ -79,6 +79,7 @@ func runHeadlessWithPaths(
 		retryPolicy(configured),
 		extensions,
 		renderer,
+		contexts,
 	)
 	modelExecution.BindManualCompaction(contexts, tools, codingagent.Instructions())
 	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)

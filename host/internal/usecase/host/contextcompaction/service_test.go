@@ -344,7 +344,7 @@ func TestNewRequestMarksReportedUsageEstimate(t *testing.T) {
 		InputTokens: 5_500, OutputTokens: 3_000, CachedInputTokens: 1_000,
 		CacheWriteTokens: 500, ReasoningTokens: 200, TotalTokens: 10_000,
 	}))
-	service.ObserveCompletedConversation(request, response)
+	service.RecordCompletedConversationUsage(request, response)
 	next := request
 	next.History = append(
 		append([]agent.HistoryEntry(nil), request.History...),
@@ -381,7 +381,7 @@ func TestReportedUsageBaselineReusesOnlyAnExactCompletedConversationPrefix(t *te
 		InputTokens: 5_500, OutputTokens: 3_000, CachedInputTokens: 1_000,
 		CacheWriteTokens: 500, ReasoningTokens: 200, TotalTokens: 10_000,
 	}))
-	service.ObserveCompletedConversation(request, response)
+	service.RecordCompletedConversationUsage(request, response)
 	next := request
 	next.History = append(next.History, modelHistory(response), textHistory(string(make([]byte, 400))))
 
@@ -453,7 +453,7 @@ func TestCommittedCompactionInvalidatesBaselineDespitePublicationFailure(t *test
 	service := New(sessions)
 	request := baselineRequest()
 	response := baselineResponse(mo.Some(model.Usage{}))
-	service.ObserveCompletedConversation(request, response)
+	service.RecordCompletedConversationUsage(request, response)
 	next := request
 	next.History = append(next.History, modelHistory(response), textHistory("new"))
 	publicationErr := errors.New("client publication failed")
@@ -484,7 +484,7 @@ func TestReportedUsageBaselineRejectsChangedSessionIncarnation(t *testing.T) {
 	service := New(sessions)
 	request := baselineRequest()
 	response := baselineResponse(mo.Some(model.Usage{}))
-	service.ObserveCompletedConversation(request, response)
+	service.RecordCompletedConversationUsage(request, response)
 	next := request
 	next.History = append(next.History, modelHistory(response), textHistory("new"))
 	identity.Incarnation++
@@ -509,7 +509,7 @@ func TestReportedUsageBaselineRejectsChangedSessionID(t *testing.T) {
 	service := New(sessions)
 	request := baselineRequest()
 	response := baselineResponse(mo.Some(model.Usage{}))
-	service.ObserveCompletedConversation(request, response)
+	service.RecordCompletedConversationUsage(request, response)
 	next := request
 	next.History = append(next.History, modelHistory(response), textHistory("new"))
 	identity.ID = "session-b"
@@ -569,7 +569,7 @@ func TestReportedUsageBaselineRejectsIneligibleResponsesAndAcceptsPresentZero(t 
 				AnyTimes()
 			service := New(sessions)
 			request := baselineRequest()
-			service.ObserveCompletedConversation(request, test.response)
+			service.RecordCompletedConversationUsage(request, test.response)
 			next := request
 			next.History = append(next.History, modelHistory(test.response), textHistory(string(make([]byte, 400))))
 
@@ -605,7 +605,7 @@ func TestReportedUsageBaselineReusesNilToolCatalogue(t *testing.T) {
 		InputTokens: 5_500, OutputTokens: 3_000, CachedInputTokens: 1_000,
 		CacheWriteTokens: 500, ReasoningTokens: 200, TotalTokens: 10_000,
 	}))
-	service.ObserveCompletedConversation(request, response)
+	service.RecordCompletedConversationUsage(request, response)
 	next := request
 	next.History = append(next.History, modelHistory(response), textHistory(string(make([]byte, 400))))
 

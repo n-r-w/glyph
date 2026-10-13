@@ -97,8 +97,8 @@ func (s *Service) EstimateContext(request modelexecution.ProviderRequest) (int64
 	return normalizedUsageTotal(baseline.usage) + tailEstimate, nil
 }
 
-// ObserveCompletedConversation records eligible reported usage for a later request estimate.
-func (s *Service) ObserveCompletedConversation(request modelexecution.ProviderRequest, response model.Response) {
+// RecordCompletedConversationUsage records reported usage for a later request estimate.
+func (s *Service) RecordCompletedConversationUsage(request modelexecution.ProviderRequest, response model.Response) {
 	outcome, outcomePresent := response.Outcome.Get()
 	usage, usagePresent := response.Usage.Get()
 	if !outcomePresent || !usagePresent || !validNormalizedUsage(usage) ||

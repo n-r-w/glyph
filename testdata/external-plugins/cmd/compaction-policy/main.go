@@ -9,7 +9,9 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"sync"
+	"sync/atomic"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -26,6 +28,8 @@ const (
 
 // policyService supplies registration and policy invocation operations.
 type policyService struct {
+	// observations is the number of completed-conversation invocations.
+	observations atomic.Int64
 	// workerStart owns the one caller worker launch.
 	workerStart sync.Once
 	// listener owns ordinary caller coordination.
@@ -70,7 +74,7 @@ func main() {
 	)
 
 	service := &policyService{
-		workerStart: sync.Once{}, listener: nil,
+		observations: atomic.Int64{}, workerStart: sync.Once{}, listener: nil,
 		disabled: os.Getenv(disabledPolicyEnvironment) == fixtureEnabledValue ||
 			(os.Getenv(separateObserverEnvironment) == fixtureEnabledValue && filepath.Base(os.Args[0]) != policyHandlerID),
 		observe: os.Getenv(callerSocketEnvironment) != "" &&
@@ -96,6 +100,11 @@ func (s *policyService) PrepareRegister(
 	_ context.Context,
 	_ *extensionpb.RegisterRequest,
 ) (extensionsdk.RegisterOperation, error) {
+	if path := os.Getenv(conversationPolicyPIDEnvironment); path != "" {
+		if err := writePolicyArtifactBytes(path, []byte(strconv.Itoa(os.Getpid()))); err != nil {
+			return nil, err
+		}
+	}
 	return &policyRegistration{disabled: s.disabled, observe: s.observe}, nil
 }
 
@@ -104,6 +113,15 @@ func (s *policyService) PrepareHandle(
 	ctx context.Context,
 	request *extensionpb.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
+	if observation := request.GetCompletedConversation(); observation != nil {
+		if _, present := extensionsdk.FindCompactionPolicy(ctx); present {
+			return nil, extensionsdk.Reject(
+				invalidArgumentCode,
+				errors.New("conversation observation received mutation authority"),
+			)
+		}
+		return &conversationObservationOperation{input: observation, sequence: s.observations.Add(1)}, nil
+	}
 	if request.GetCompactionResult() != nil {
 		return &referenceResultOperation{
 			handlerID:  request.GetHandlerId(),
@@ -138,11 +156,14 @@ func (s *policyService) PrepareHandle(
 	return &policyOperation{policy: policy, state: nil}, nil
 }
 
-// PrepareExecute rejects tool execution for this policy-only extension.
+// PrepareExecute admits the observation fixture's model-callable tool.
 func (s *policyService) PrepareExecute(
 	_ context.Context,
-	_ *extensionpb.ExecuteRequest,
+	request *extensionpb.ExecuteRequest,
 ) (extensionsdk.ExecuteOperation, error) {
+	if request.GetToolName() == conversationToolName && os.Getenv(conversationToolEnvironment) != "" {
+		return &conversationToolOperation{}, nil
+	}
 	return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("reference policy has no tools"))
 }
 
@@ -204,15 +225,24 @@ func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterRespon
 		)
 	}
 	if os.Getenv(referenceSeparateRequestsEnvironment) != fixtureEnabledValue {
-		handlers = append(handlers, newReferenceRequestDescriptors()...)
+		requests := newReferenceRequestDescriptors()
+		if os.Getenv(conversationOverflowEnvironment) == fixtureEnabledValue {
+			requests = requests[:1]
+		}
+		handlers = append(handlers, requests...)
 	}
-	if os.Getenv(referenceSeparateGeneratorEnvironment) != fixtureEnabledValue {
+	if os.Getenv(referenceSeparateGeneratorEnvironment) != fixtureEnabledValue &&
+		os.Getenv(conversationOverflowEnvironment) != fixtureEnabledValue {
 		handlers = append(handlers, newReferenceGeneratorDescriptors()...)
 	}
-	if os.Getenv(referenceSeparateResultsEnvironment) != fixtureEnabledValue {
+	if os.Getenv(referenceSeparateResultsEnvironment) != fixtureEnabledValue &&
+		os.Getenv(conversationOverflowEnvironment) != fixtureEnabledValue {
 		handlers = append(handlers, newReferenceResultDescriptors()...)
 	}
-	return extensionpb.RegisterResponse_builder{Tools: nil, Handlers: handlers}.Build(), nil
+	return extensionpb.RegisterResponse_builder{
+		Tools:    newConversationObservationTools(),
+		Handlers: handlers,
+	}.Build(), nil
 }
 
 // Release completes registration admission.

@@ -252,10 +252,19 @@ type ProviderAttempt interface {
 	Stream(ctx context.Context, request ProviderRequest, handle StreamHandler) error
 }
 
-// ConversationContext observes completed agent calls for later estimation.
+// ConversationContext supplies internal usage accounting for active conversation preparation.
 type ConversationContext interface {
-	// ObserveCompletedConversation records one delivered terminal conversation response.
-	ObserveCompletedConversation(request ProviderRequest, response model.Response)
+	// RecordCompletedConversationUsage retains input and usage for subsequent context accounting.
+	RecordCompletedConversationUsage(request ProviderRequest, response model.Response)
+}
+
+// ConversationObservation receives a successful provider attempt before logical completion.
+type ConversationObservation func(context.Context, ProviderRequest, model.Response) error
+
+// ConversationObservations captures the optional policy owner for one logical execution.
+type ConversationObservations interface {
+	// CaptureConversationObservation retains the admitted policy owner.
+	CaptureConversationObservation() (mo.Option[ConversationObservation], error)
 }
 
 // ContextPreparationFailure exposes a compaction-owned category to the model-execution consumer.

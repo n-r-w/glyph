@@ -30,7 +30,7 @@ func (s *Service) execute(
 	terminalMissingError error,
 	missingTerminalMessage string,
 	recoverOverflow overflowRecoveryHandler,
-) (model.Response, error) {
+) (providerCompletion, error) {
 	policy := s.retryPolicySnapshot()
 	var handlers []RetryHandler
 	if policy.Enabled && s.retryHandlers != nil {
@@ -178,17 +178,18 @@ func (s *Service) execute(
 		}
 		return model.Response{}, backoff.RetryAfter(decision.Delay, attemptErr)
 	}, backoff.WithBackOff(backoff.NewConstantBackOff(0)), backoff.WithMaxTries(0), backoff.WithMaxElapsedTime(0))
+	completion := providerCompletion{response: response, input: request, causes: errors.Join(causes...)}
 	if retryErr == nil {
-		return response, nil
+		return completion, nil
 	}
 	details := backoff.AsRetryError(retryErr)
 	if details == nil {
-		return response, retryErr
+		return completion, retryErr
 	}
 	if ctx.Err() != nil && errors.Is(details.Cause, context.Cause(ctx)) {
-		return response, context.Cause(ctx)
+		return completion, context.Cause(ctx)
 	}
-	return response, details.LastErr
+	return completion, details.LastErr
 }
 
 // prepareOverflowRecovery applies the single allowed overflow recovery without masking typed failures.

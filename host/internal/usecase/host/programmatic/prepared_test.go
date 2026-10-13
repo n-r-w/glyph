@@ -22,6 +22,8 @@ import (
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
+//go:generate go tool mockgen -build_constraint=!integration -destination=current_cause_mock_test.go -package=programmatic github.com/n-r-w/glyph/host/internal/errtree CurrentCause
+
 // TestPreparedOwnerCancellationStopsSummaryNavigation verifies owner cancellation stops blocked summary work without commit.
 func TestPreparedOwnerCancellationStopsSummaryNavigation(t *testing.T) {
 	t.Parallel()
@@ -223,13 +225,17 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 	t.Parallel()
 
 	independentErr := errors.New(strings.Repeat("界", 4001) + " complete run failure suffix...")
+	recovered := errors.New("recovered programmatic provider cause")
+	boundary := NewMockCurrentCause(gomock.NewController(t))
+	boundary.EXPECT().CurrentCause().Return(context.Canceled).AnyTimes()
+	boundary.EXPECT().Error().Return(errors.Join(context.Canceled, recovered).Error()).AnyTimes()
 	originalMixedCause := errors.New("unique programmatic execution source")
 	originalMixedErr := fmt.Errorf(
 		"execute extension tool %q: %w",
 		"extension-tool",
 		errors.Join(context.Canceled, originalMixedCause),
 	)
-	tests := []struct {
+	type scenario struct {
 		name          string
 		activeErr     error
 		cancelCaller  bool
@@ -237,7 +243,8 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 		expectedCode  string
 		expectedCause error
 		expectedExact bool
-	}{
+	}
+	tests := []scenario{
 		{
 			name: "independent failure", activeErr: independentErr, cancelCaller: true,
 			expectedState: operation.TerminalStateFailed,
@@ -267,6 +274,35 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 			expectedCause: originalMixedCause, expectedExact: true,
 		},
 	}
+	tests = append(tests,
+		scenario{
+			name:          "recovered cancellation",
+			activeErr:     boundary,
+			cancelCaller:  true,
+			expectedState: operation.TerminalStateCanceled,
+			expectedCode:  "",
+			expectedCause: boundary,
+			expectedExact: false,
+		},
+		scenario{
+			name:          "current sibling after",
+			activeErr:     errors.Join(boundary, originalMixedCause),
+			cancelCaller:  true,
+			expectedState: operation.TerminalStateFailed,
+			expectedCode:  controller.FailureCodeInternal,
+			expectedCause: originalMixedCause,
+			expectedExact: true,
+		},
+		scenario{
+			name:          "current sibling before",
+			activeErr:     errors.Join(originalMixedCause, boundary),
+			cancelCaller:  true,
+			expectedState: operation.TerminalStateFailed,
+			expectedCode:  controller.FailureCodeInternal,
+			expectedCause: originalMixedCause,
+			expectedExact: true,
+		},
+	)
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
@@ -297,7 +333,12 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 			if test.expectedExact {
 				require.Same(t, test.activeErr, outcome.Err())
 			}
-			if test.expectedCause != nil {
+			if test.expectedState == operation.TerminalStateCanceled && test.expectedCause != nil {
+				require.Same(t, test.activeErr, outcome.SourceError())
+				require.ErrorIs(t, outcome.SourceError(), test.expectedCause)
+				require.Equal(t, test.activeErr.Error(), outcome.SourceError().Error())
+				require.NoError(t, outcome.Err())
+			} else if test.expectedCause != nil {
 				require.ErrorIs(t, outcome.Err(), test.expectedCause)
 				require.Equal(t, test.activeErr.Error(), outcome.Err().Error())
 			} else {

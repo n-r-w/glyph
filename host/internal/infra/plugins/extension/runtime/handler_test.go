@@ -110,7 +110,8 @@ func TestMapSelectionHandlerRoundTripPreservesTargetsAndReplacement(t *testing.T
 	mapped, err := mapHandleRequest("selection", invocation)
 	require.NoError(t, err)
 	response := extensionpb.HandleResponse_builder{
-		Retry: nil, ModelSelection: extensionpb.SelectionHandlerAction_builder{
+		CompletedConversation: nil,
+		Retry:                 nil, ModelSelection: extensionpb.SelectionHandlerAction_builder{
 			Replace: extensionpb.ModelSelection_builder{
 				ProviderId: new(string(replacement.Provider)), ModelId: new(string(replacement.Model)),
 				ReasoningChoice: new(string(replacement.ReasoningChoice)),
@@ -137,8 +138,9 @@ func TestMapSelectionResponseDefersInvalidActionToCapability(t *testing.T) {
 	// Arrange a model-selection invocation and an action for another handler kind.
 	invocation := handlerInvocation(extensionruntime.InvocationModelSelection)
 	response := extensionpb.HandleResponse_builder{
-		Retry:       nil,
-		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
+		CompletedConversation: nil,
+		Retry:                 nil,
+		SessionTree:           extensionpb.SessionTreeAction_builder{}.Build(),
 
 		CompactionPolicy: nil,
 	}.Build()
@@ -172,8 +174,9 @@ func TestMapHandleResponseReturnsOrdinaryHandlerError(t *testing.T) {
 			// Arrange one typed ordinary handler failure with exact source text.
 			//nolint:exhaustruct_v5 // The response builder sets only the ordinary error outcome.
 			response := extensionpb.HandleResponse_builder{
-				Retry: nil,
-				Error: extensionpb.HandlerError_builder{Message: new(test.message)}.Build(),
+				CompletedConversation: nil,
+				Retry:                 nil,
+				Error:                 extensionpb.HandlerError_builder{Message: new(test.message)}.Build(),
 
 				CompactionPolicy: nil,
 			}.Build()
@@ -195,8 +198,9 @@ func TestMapHandleResponseRejectsAnotherActionKind(t *testing.T) {
 	// Arrange a request-handler invocation and an observer-only response.
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
 	response := extensionpb.HandleResponse_builder{
-		Retry:       nil,
-		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
+		CompletedConversation: nil,
+		Retry:                 nil,
+		SessionTree:           extensionpb.SessionTreeAction_builder{}.Build(),
 
 		CompactionPolicy: nil,
 	}.Build()

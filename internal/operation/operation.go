@@ -84,6 +84,12 @@ func Canceled[R any]() Outcome[R] {
 	return Outcome[R]{state: TerminalStateCanceled, result: zero, code: "", err: nil, source: nil}
 }
 
+// CanceledWithSource constructs cancellation with retained diagnostics.
+func CanceledWithSource[R any](source error) Outcome[R] {
+	var zero R
+	return Outcome[R]{state: TerminalStateCanceled, result: zero, code: "", err: nil, source: source}
+}
+
 // Failed constructs a failed outcome with a machine code and internal error.
 func Failed[R any](code string, err error) Outcome[R] {
 	if code == "" {

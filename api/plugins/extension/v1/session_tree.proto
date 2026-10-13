@@ -43,6 +43,8 @@ message HandleRequest {
     CompactionOutcome compaction_failure = 14;
     // The immutable input for the owning compaction policy.
     CompactionPolicyInvocation compaction_policy = 15;
+    // A successful conversation attempt for the captured policy owner.
+    CompletedConversationObservation completed_conversation = 17;
   }
 }
 
@@ -73,6 +75,8 @@ message HandleResponse {
     CompactionObserverAction compaction_failure = 13;
     // The policy completion acknowledgement.
     CompactionPolicyResult compaction_policy = 14;
+    // The completed-conversation acknowledgement.
+    CompactionObserverAction completed_conversation = 15;
   }
 }
 

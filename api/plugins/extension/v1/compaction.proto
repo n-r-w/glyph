@@ -9,6 +9,24 @@ import "api/plugins/extension/v1/tool.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
 
+// CompletedConversationObservation contains the successful conversation attempt without private replay bytes.
+message CompletedConversationObservation {
+  // The actual attempt's configured model descriptor.
+  ModelDescriptor model = 1;
+  // The actual attempt's reasoning choice.
+  string reasoning_choice = 2;
+  // The instruction string, including an empty string.
+  string instructions = 3;
+  // The actual provider-neutral model history with raw private byte counts.
+  repeated CompactionHistoryRecord history = 4;
+  // The available model-callable tools.
+  repeated CompactionToolDefinition tools = 5;
+  // The complete public provider response, including optional usage.
+  ConfiguredModelResult response = 6;
+  // The response's raw private replay byte count.
+  int64 response_private_payload_bytes = 7;
+}
+
 // CompactionTrigger identifies why Host started active-conversation compaction.
 enum CompactionTrigger {
   // No trigger was provided.

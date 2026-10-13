@@ -173,6 +173,9 @@ func (o *referenceRequestOperation) Run(ctx context.Context) (*extensionpb.Handl
 	if err != nil {
 		return nil, err
 	}
+	if os.Getenv(conversationOverflowEnvironment) == fixtureEnabledValue {
+		return o.completeOverflowReplacement(bound)
+	}
 	if inputErr := validateReferenceRequestInput(o.invocation); inputErr != nil {
 		return nil, inputErr
 	}

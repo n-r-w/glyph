@@ -24,6 +24,8 @@ import (
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
+//go:generate go tool mockgen -build_constraint=!integration -destination=current_cause_mock_test.go -package=ui github.com/n-r-w/glyph/host/internal/errtree CurrentCause
+
 // TestCompactionFailureCategoryRemainsPublic verifies UI failure mapping keeps orchestration identity.
 func TestCompactionFailureCategoryRemainsPublic(t *testing.T) {
 	t.Parallel()
@@ -261,27 +263,27 @@ func TestPrepareReservesSessionMutationBeforeRun(t *testing.T) {
 func TestPreparedCancellationClassifiesPureAndMixedErrors(t *testing.T) {
 	t.Parallel()
 
+	recovered := errors.New("recovered UI provider cause")
+	boundary := NewMockCurrentCause(gomock.NewController(t))
+	boundary.EXPECT().CurrentCause().Return(context.Canceled).AnyTimes()
+	boundary.EXPECT().Error().Return(errors.Join(context.Canceled, recovered).Error()).AnyTimes()
+	independent := errors.New("unique UI execution source")
 	for _, test := range []struct {
 		name          string
-		mixed         bool
+		runErr        error
 		expectedState operation.TerminalState
 	}{
-		{name: "pure cancellation", mixed: false, expectedState: operation.TerminalStateCanceled},
-		{name: "joined independent failure", mixed: true, expectedState: operation.TerminalStateFailed},
+		{name: "pure cancellation", runErr: context.Canceled, expectedState: operation.TerminalStateCanceled},
+		{name: "joined independent failure", runErr: fmt.Errorf("execute extension tool %q: %w", "extension-tool", errors.Join(context.Canceled, independent)), expectedState: operation.TerminalStateFailed},
+		{name: "recovered cancellation", runErr: boundary, expectedState: operation.TerminalStateCanceled},
+		{name: "current sibling after", runErr: errors.Join(boundary, independent), expectedState: operation.TerminalStateFailed},
+		{name: "current sibling before", runErr: errors.Join(independent, boundary), expectedState: operation.TerminalStateFailed},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 
 			// Arrange one prepared operation with a controlled source result.
-			runErr := error(context.Canceled)
-			if test.mixed {
-				independentCause := errors.New("unique UI execution source")
-				runErr = fmt.Errorf(
-					"execute extension tool %q: %w",
-					"extension-tool",
-					errors.Join(context.Canceled, independentCause),
-				)
-			}
+			runErr := test.runErr
 			prepared := &preparedUIOperation{
 				run: func(context.Context, operation.Reporter[controllerui.Frame]) (controllerui.Frame, error) {
 					return controllerui.Frame{}, runErr
@@ -293,10 +295,17 @@ func TestPreparedCancellationClassifiesPureAndMixedErrors(t *testing.T) {
 			// Act through operation outcome classification.
 			outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 
-			// Assert pure cancellation stays canceled and mixed failure keeps the original object.
+			// Assert that the adapter retains cancellation diagnostics and the original current failure.
 			assert.Equal(t, test.expectedState, outcome.State())
-			if test.mixed {
+			if test.expectedState == operation.TerminalStateFailed {
 				require.Same(t, runErr, outcome.Err())
+			} else if runErr == boundary {
+				require.NoError(t, outcome.Err())
+				require.Same(t, boundary, outcome.SourceError())
+				require.Equal(t, boundary.Error(), outcome.SourceError().Error())
+			} else {
+				require.NoError(t, outcome.Err())
+				require.NoError(t, outcome.SourceError())
 			}
 		})
 	}

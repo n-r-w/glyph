@@ -283,6 +283,20 @@ func (mr *MockPolicyRuntimeMockRecorder) ObserveCompactionSuccess(arg0, arg1, ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveCompactionSuccess", reflect.TypeOf((*MockPolicyRuntime)(nil).ObserveCompactionSuccess), arg0, arg1, arg2, arg3)
 }
 
+// ObserveConversation mocks base method.
+func (m *MockPolicyRuntime) ObserveConversation(arg0 context.Context, arg1 PolicyOwner, arg2 extension.Context, arg3 ConversationObservation) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ObserveConversation", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ObserveConversation indicates an expected call of ObserveConversation.
+func (mr *MockPolicyRuntimeMockRecorder) ObserveConversation(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveConversation", reflect.TypeOf((*MockPolicyRuntime)(nil).ObserveConversation), arg0, arg1, arg2, arg3)
+}
+
 // SnapshotCompactionHandlers mocks base method.
 func (m *MockPolicyRuntime) SnapshotCompactionHandlers() contextcompaction.HandlerSet {
 	m.ctrl.T.Helper()

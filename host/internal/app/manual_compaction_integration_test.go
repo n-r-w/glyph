@@ -184,6 +184,27 @@ func newManualCompactionProviderTransport(t *testing.T) (*MockHTTPRoundTripper, 
 			position := bodies.append(encoded)
 			response := finalResponseSSE
 			statusCode := http.StatusOK
+			if os.Getenv(conversationProviderResponseEnvironment) == manualFixtureEnabled {
+				response = conversationResponseSSE
+			}
+			if os.Getenv(conversationProviderResponseEnvironment) == conversationResponseZero {
+				response = conversationZeroResponseSSE
+			}
+			if os.Getenv(conversationProviderResponseEnvironment) == conversationResponseLength {
+				response = conversationLengthResponseSSE
+			}
+			if os.Getenv(conversationToolEnvironment) != "" && position == 1 {
+				response = conversationToolResponseSSE
+			}
+			if os.Getenv(conversationProviderOverflowEnvironment) == manualFixtureEnabled && position == 3 {
+				response = `{"error":{"message":"provider context limit source",` +
+					`"type":"invalid_request_error","code":"context_length_exceeded"}}`
+				statusCode = http.StatusBadRequest
+			}
+			if os.Getenv(conversationProviderRetryEnvironment) == manualFixtureEnabled && position == 1 {
+				response = `{"error":{"message":"prior conversation provider cause","type":"server_error"}}`
+				statusCode = http.StatusServiceUnavailable
+			}
 			const configuredModelMatch = `"model":"` + configuredRequestModelID + `"`
 			if bytes.Contains(encoded, []byte(configuredModelMatch)) {
 				response = configuredModelResponseSSE
@@ -310,10 +331,14 @@ func (s *programmaticManualCompactionTerminalStatesSuite) TestScenario() {
 			require.Equal(t, 1, originalCount)
 			if scenario.committed {
 				require.Equal(t, 1, markerCount)
-				completeProgrammaticRequest(t, fixture, userRequest(manualFixtureNext, manualNextText))
-				actual := bodies.snapshot()
-				require.Contains(t, string(actual[len(actual)-1]), manualReferenceSummary)
-				require.NotContains(t, string(actual[len(actual)-1]), manualOriginalText)
+				if manualFollowupOwnerUnavailable(scenario.guidance) {
+					assertManualUnavailableOwnerFollowup(t, fixture, bodies)
+				} else {
+					completeProgrammaticRequest(t, fixture, userRequest(manualFixtureNext, manualNextText))
+					actual := bodies.snapshot()
+					require.Contains(t, string(actual[len(actual)-1]), manualReferenceSummary)
+					require.NotContains(t, string(actual[len(actual)-1]), manualOriginalText)
+				}
 			} else {
 				require.Zero(t, markerCount)
 			}
@@ -375,8 +400,12 @@ func (s *uIManualCompactionTerminalStatesSuite) TestScenario() {
 			if scenario.committed {
 				require.Equal(t, 1, report.Markers)
 				actual := bodies.snapshot()
-				require.Contains(t, string(actual[len(actual)-1]), manualReferenceSummary)
-				require.NotContains(t, string(actual[len(actual)-1]), manualOriginalText)
+				if manualFollowupOwnerUnavailable(scenario.guidance) {
+					require.Len(t, actual, 2)
+				} else {
+					require.Contains(t, string(actual[len(actual)-1]), manualReferenceSummary)
+					require.NotContains(t, string(actual[len(actual)-1]), manualOriginalText)
+				}
 			} else {
 				require.Zero(t, report.Markers)
 			}

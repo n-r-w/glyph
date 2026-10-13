@@ -85,9 +85,13 @@ func TestCoreRetainsConcurrentProviderTimeoutIdentityWithAttemptsRemaining(t *te
 			return nil
 		},
 	).AnyTimes()
+	observations := modelexecution.NewMockConversationObservations(controller)
+	observations.EXPECT().
+		CaptureConversationObservation().
+		Return(mo.None[modelexecution.ConversationObservation](), nil)
 	execution := modelexecution.New(catalog, conversation, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 2, Delays: []time.Duration{0, 0}, MaxProviderDelay: 30 * time.Second,
-	}, nil, retryOutput)
+	}, nil, retryOutput, observations)
 	core := agentrun.New("", execution, tools, events, historyStore)
 
 	// Act through the complete Agent Core run boundary.
@@ -197,9 +201,13 @@ func TestCoreDoesNotRestoreDiscardedAttemptAfterRetryProgressFailure(t *testing.
 			return nil
 		},
 	).AnyTimes()
+	observations := modelexecution.NewMockConversationObservations(controller)
+	observations.EXPECT().
+		CaptureConversationObservation().
+		Return(mo.None[modelexecution.ConversationObservation](), nil)
 	execution := modelexecution.New(catalog, conversation, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
-	}, nil, retryOutput)
+	}, nil, retryOutput, observations)
 	core := agentrun.New("", execution, tools, events, historyStore)
 
 	// Act through Agent Core and the actual result returned by backoff.
