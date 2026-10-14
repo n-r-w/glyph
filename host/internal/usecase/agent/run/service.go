@@ -12,7 +12,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"

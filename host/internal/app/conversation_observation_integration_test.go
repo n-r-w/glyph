@@ -397,6 +397,8 @@ func (s *conversationObservationSuite) assertHeldObservation(cancel, independent
 			}
 			if completed && cancel && !independent {
 				require.NotNil(t, event.GetCanceled())
+				require.Contains(t, event.GetCanceled().GetMessage(), "prior conversation provider cause")
+				require.Contains(t, event.GetCanceled().GetMessage(), context.Canceled.Error())
 			}
 		}
 	}

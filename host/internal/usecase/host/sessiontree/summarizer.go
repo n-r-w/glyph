@@ -12,7 +12,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 const (
@@ -80,14 +80,14 @@ func classifyModelRequestError(ctx context.Context, err error) error {
 		return fmt.Errorf("%w: %w", ErrModelFailed, err)
 	}
 	if contextErr := ctx.Err(); contextErr != nil && isPureModelRequestCancellation(err) {
-		return contextErr
+		return errors.Join(err, contextErr)
 	}
 	return fmt.Errorf("%w: %w", ErrModelFailed, err)
 }
 
-// isPureModelRequestCancellation reports whether every acquired source cause is cancellation.
+// isPureModelRequestCancellation checks current model-request causes for cancellation markers.
 func isPureModelRequestCancellation(err error) bool {
-	return errtree.AllLeavesMatch(err, func(cause error) bool {
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
 	})
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/n-r-w/glyph/internal/errtree"
+
 	"github.com/samber/mo"
 
 	plugininput "github.com/n-r-w/glyph/plugins/ui/tui/internal/controller/plugin"
@@ -164,14 +166,16 @@ func (service *Service) Notify(input plugininput.Notification) error {
 			service.foreground = ""
 		}
 	}
-	if input.Kind == plugininput.NotificationFailed {
-		if !errors.Is(input.Failure, context.Canceled) {
-			service.model = service.model.applyEvent(
-				operationErrorEvent(pending.command, input.FailureCode, input.Failure),
-			)
+	match := func(leaf error) bool { return errors.Is(leaf, context.Canceled) }
+	switch {
+	case input.Kind != plugininput.NotificationFailed:
+		if err := service.applyInput(input.Payload); err != nil {
+			return err
 		}
-	} else if err := service.applyInput(input.Payload); err != nil {
-		return err
+	case !errtree.IsCurrentCancellation(input.Failure, match):
+		service.model = service.model.applyEvent(operationErrorEvent(pending.command, input.FailureCode, input.Failure))
+	case !errtree.IsPlainCancellation(input.Failure, match):
+		service.model = service.model.applyEvent(textEvent(eventInformation, input.Failure.Error()))
 	}
 	service.publish()
 	return nil

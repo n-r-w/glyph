@@ -86,7 +86,7 @@ func (r *Runtime) Execute(
 	binding extension.Context,
 ) (tool.Result, error) {
 	if err := ctx.Err(); err != nil {
-		return tool.Result{}, fmt.Errorf("execute extension tool %q: %w", toolName, err)
+		return tool.Result{}, fmt.Errorf(executionFailureFormat, toolName, err)
 	}
 
 	request := new(extensionpb.HostRequest)
@@ -98,71 +98,68 @@ func (r *Runtime) Execute(
 		"runtime_instance_id", binding.RuntimeInstanceID, "session_id", binding.SessionID)
 	started, err := r.connection.Start(ctx, operationID, request)
 	if err != nil {
-		return tool.Result{}, r.composeExecutionFailure(ctx, toolName, err, nil, nil)
+		return tool.Result{}, mapExecutionStartError(ctx, toolName, err)
 	}
-	var progressDeliveryErr error
-	completed, err := started.Wait(ctx, func(progress *extensionpb.ToolProgress) error {
+	completed, waitErr := r.waitForOperation(ctx, operationID, started, func(progress *extensionpb.ToolProgress) error {
 		mapped, mapErr := mapProgress(progress)
 		if mapErr != nil {
 			return mapErr
 		}
-		progressDeliveryErr = handleProgress(mapped)
-		return progressDeliveryErr
+		return handleProgress(mapped)
 	})
-	if err != nil {
-		var cancellationErr error
-		if shouldCancelFailedExecution(ctx.Err(), progressDeliveryErr, err) {
-			cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
-		}
-		return tool.Result{}, r.composeExecutionFailure(ctx, toolName, err, progressDeliveryErr, cancellationErr)
+	if waitErr != nil {
+		waitErr = fmt.Errorf(executionFailureFormat, toolName, errors.Join(ctx.Err(), waitErr))
+	}
+	if completed == nil {
+		return tool.Result{}, waitErr
 	}
 	result := completed.GetTool()
 	if result == nil {
-		return tool.Result{}, r.protocolViolation(errors.New("tool completion payload is missing"))
+		return tool.Result{}, errors.Join(
+			waitErr,
+			r.protocolViolation(errors.New("tool completion payload is missing")),
+		)
 	}
 	contents, err := mapResultContents(result.GetContents())
 	if err != nil {
-		return tool.Result{}, r.protocolViolation(err)
+		return tool.Result{}, errors.Join(waitErr, r.protocolViolation(err))
 	}
-	return tool.Result{Contents: contents, IsError: result.GetIsError()}, nil
+	return tool.Result{Contents: contents, IsError: result.GetIsError()}, waitErr
 }
 
-// composeExecutionFailure builds the classified tool failure from acquired causes.
-func (r *Runtime) composeExecutionFailure(
+// executionFailureFormat supplies the tool identifier in execution diagnostics.
+const executionFailureFormat = "execute extension tool %q: %w"
+
+// retainReceivedCancellation projects the standard cancellation identity from a received transport status.
+func retainReceivedCancellation(received error) error {
+	if status.Code(received) == codes.Canceled {
+		return errors.Join(context.Canceled, received)
+	}
+	return received
+}
+
+// mapExecutionStartError maps an extension operation's start failure.
+func mapExecutionStartError(
 	ctx context.Context,
 	toolName string,
-	received, progress, cancellation error,
+	received error,
 ) error {
-	const (
-		executionFailureFormat = "execute extension tool %q: %w"
-		progressFailureFormat  = "deliver extension progress: %w"
-		protocolFailureFormat  = "execute extension tool %q: extension protocol violation: %w"
-	)
-
-	// The composer checks both operations because a terminal peer error can accompany a cancellation connection failure.
-	unavailable := isConnectionFailure(received) || isConnectionFailure(cancellation)
+	const protocolFailureFormat = "execute extension tool %q: extension protocol violation: %w"
+	unavailable := isConnectionFailure(received)
 	var resultErr error
 	switch {
 	case ctx.Err() != nil:
-		resultErr = fmt.Errorf(executionFailureFormat, toolName, errors.Join(ctx.Err(), received, progress))
-	case progress != nil:
-		resultErr = fmt.Errorf(progressFailureFormat, errors.Join(progress, received))
+		resultErr = fmt.Errorf(executionFailureFormat, toolName, errors.Join(ctx.Err(), received))
 	case isExtensionTerminalError(received):
 		resultErr = fmt.Errorf(executionFailureFormat, toolName, received)
 	default:
 		unavailable = true
-		receivedCode := status.Code(received)
-		receivedCause := received
-		if receivedCode == codes.Canceled {
-			receivedCause = errors.Join(context.Canceled, received)
-		}
 		diagnosticFormat := executionFailureFormat
-		if receivedCode == codes.FailedPrecondition {
+		if status.Code(received) == codes.FailedPrecondition {
 			diagnosticFormat = protocolFailureFormat
 		}
-		resultErr = fmt.Errorf(diagnosticFormat, toolName, receivedCause)
+		resultErr = fmt.Errorf(diagnosticFormat, toolName, retainReceivedCancellation(received))
 	}
-	resultErr = errors.Join(resultErr, cancellation)
 	if unavailable {
 		resultErr = errors.Join(extensionruntime.ErrExtensionUnavailable, resultErr)
 	}
@@ -201,14 +198,6 @@ func (r *Runtime) cancelOperation(ctx context.Context, targetID string) error {
 		return fmt.Errorf("wait for cancellation of extension operation %q: %w", targetID, err)
 	}
 	return nil
-}
-
-// shouldCancelFailedExecution reports whether usable connection work can still require cancellation.
-func shouldCancelFailedExecution(ctxErr, progressDeliveryErr, operationErr error) bool {
-	if isConnectionFailure(operationErr) {
-		return false
-	}
-	return ctxErr != nil || progressDeliveryErr != nil || !isExtensionTerminalError(operationErr)
 }
 
 // isExtensionTerminalError reports an operation terminal outcome that leaves the stream usable.

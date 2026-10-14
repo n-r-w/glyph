@@ -38,19 +38,22 @@ func (r *Runtime) ObserveLifecycle(
 	if err != nil {
 		return r.handlerOperationError(ctx, handlerID, err)
 	}
-	completed, err := started.Wait(ctx, nil)
-	if err != nil {
-		return r.resolveHandlerWaitError(ctx, handlerID, operationID, err)
+	completed, waitErr := r.waitForOperation(ctx, operationID, started, nil)
+	if waitErr != nil {
+		waitErr = r.handlerOperationError(ctx, handlerID, waitErr)
+	}
+	if completed == nil {
+		return waitErr
 	}
 	response := completed.GetHandle()
 	if response == nil {
-		return r.protocolViolation(errors.New("lifecycle observer response is missing"))
+		return errors.Join(waitErr, r.protocolViolation(errors.New("lifecycle observer response is missing")))
 	}
 	if handlerErr := response.GetError(); handlerErr != nil {
-		return newOrdinaryHandlerError(handlerErr.GetMessage())
+		return errors.Join(waitErr, newOrdinaryHandlerError(handlerErr.GetMessage()))
 	}
 	if response.GetLifecycle() == nil {
-		return r.protocolViolation(errors.New("lifecycle observer returned another action kind"))
+		return errors.Join(waitErr, r.protocolViolation(errors.New("lifecycle observer returned another action kind")))
 	}
-	return nil
+	return waitErr
 }

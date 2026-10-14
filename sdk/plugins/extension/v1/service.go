@@ -7,6 +7,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/internal/errtree"
 	"github.com/n-r-w/glyph/internal/operation"
 	operationv1 "github.com/n-r-w/glyph/pkg/operation/v1"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -245,30 +246,26 @@ func (prepared *cancellationPrepared) Release() {}
 
 // operationOutcome maps public operation errors to shared terminal outcomes.
 func operationOutcome[R any](err error) operation.Outcome[R] {
-	if _, received := errors.AsType[*contextOperationError](err); received {
-		return operation.Failed[R](failureCodeInternal, err)
+	var firstFailure *FailureError
+	for node := range errtree.IterateCurrentErrors(err) {
+		//nolint:errorlint // operationOutcome checks the current node; errors.As also inspects diagnostic descendants.
+		if _, received := node.(*contextOperationError); received {
+			return operation.Failed[R](failureCodeInternal, err)
+		}
+		//nolint:errorlint // operationOutcome asserts the current type; errors.As could find a diagnostic FailureError.
+		if failure, ok := node.(*FailureError); ok && firstFailure == nil {
+			firstFailure = failure
+		}
 	}
-	if failure, ok := errors.AsType[*FailureError](err); ok {
-		return operation.Failed[R](failure.Code(), err)
+	if firstFailure != nil {
+		return operation.Failed[R](firstFailure.Code(), err)
 	}
-	if isCancellationOnly(err) {
+	match := func(leaf error) bool { return errors.Is(leaf, context.Canceled) }
+	if errtree.IsCurrentCancellation(err, match) {
+		if !errtree.IsPlainCancellation(err, match) {
+			return operation.CanceledWithSource[R](err)
+		}
 		return operation.Canceled[R]()
 	}
 	return operation.Failed[R](failureCodeInternal, err)
-}
-
-// isCancellationOnly recognizes pure cancellation without dropping independent leaves from ordinary joined errors.
-func isCancellationOnly(err error) bool {
-	if joined, ok := err.(interface{ Unwrap() []error }); ok {
-		for _, cause := range joined.Unwrap() {
-			if !isCancellationOnly(cause) {
-				return false
-			}
-		}
-		return errors.Is(err, context.Canceled)
-	}
-	if cause := errors.Unwrap(err); cause != nil {
-		return isCancellationOnly(cause)
-	}
-	return errors.Is(err, context.Canceled)
 }

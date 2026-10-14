@@ -309,9 +309,10 @@ func TestActiveInitializationCleanupWaitsForRelease(t *testing.T) {
 }
 
 // newBlockedConnectionMockService configures a service that does not consume connection events.
-func newBlockedConnectionMockService(t *testing.T) *MockService {
+func newBlockedConnectionMockService(t *testing.T, runStarted chan struct{}) *MockService {
 	t.Helper()
 	return newInitializedMockService(t, func(ctx context.Context, _ *Host) error {
+		close(runStarted)
 		<-ctx.Done()
 		return context.Cause(ctx)
 	})
@@ -343,7 +344,8 @@ func TestEnvelopeOperationIdentifiersFailStream(t *testing.T) {
 			t.Parallel()
 
 			// Arrange one initialized SDK connection.
-			client := TestClient(t, newBlockedConnectionMockService(t))
+			runStarted := make(chan struct{})
+			client := TestClient(t, newBlockedConnectionMockService(t, runStarted))
 			stream, err := client.Open(t.Context())
 			require.NoError(t, err)
 			sendIntegrationInitialization(t, stream)
@@ -351,6 +353,9 @@ func TestEnvelopeOperationIdentifiersFailStream(t *testing.T) {
 				_, err = stream.Recv()
 				require.NoError(t, err)
 			}
+
+			// The SDK can deliver Initialized before Run starts; wait for Run entry before sending malformed input.
+			<-runStarted
 
 			// Act by sending a non-operation envelope with an operation identifier.
 			require.NoError(t, stream.Send(test.message()))
@@ -412,9 +417,10 @@ func TestConnectionEventQueueOverflowClosesResourceExhausted(t *testing.T) {
 }
 
 // newConnectionReceiveMockService configures one connection-event delivery attempt.
-func newConnectionReceiveMockService(t *testing.T) *MockService {
+func newConnectionReceiveMockService(t *testing.T, runStarted chan struct{}) *MockService {
 	t.Helper()
 	return newInitializedMockService(t, func(ctx context.Context, host *Host) error {
+		close(runStarted)
 		_, err := host.Receive(ctx)
 		return err
 	})
@@ -454,7 +460,8 @@ func TestMalformedConnectionEventsFailBeforeDelivery(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			// Arrange client and stream for the real SDK stream to verify required connection-event fields.
-			client := TestClient(t, newConnectionReceiveMockService(t))
+			runStarted := make(chan struct{})
+			client := TestClient(t, newConnectionReceiveMockService(t, runStarted))
 			stream, err := client.Open(t.Context())
 			require.NoError(t, err)
 			sendIntegrationInitialization(t, stream)
@@ -462,6 +469,9 @@ func TestMalformedConnectionEventsFailBeforeDelivery(t *testing.T) {
 				_, err = stream.Recv()
 				require.NoError(t, err)
 			}
+			// The SDK can deliver Initialized before Run starts; wait for Run entry before sending malformed input.
+			<-runStarted
+
 			// Act by invoking the real SDK stream to exercise required connection-event fields.
 			require.NoError(t, stream.Send(uiv1.OpenRequest_builder{
 				OperationId: new(""), Request: nil, Event: nil, ConnectionEvent: test.event, Close: nil,

@@ -45,6 +45,8 @@ const (
 	configuredEmptyInputMode = "configured-input-empty"
 	// configuredRequestProgressMode records configured-model retry progress.
 	configuredRequestProgressMode = "configured-request-progress"
+	// configuredRequestCancellationMode selects received cancellation after a configured retry.
+	configuredRequestCancellationMode = "configured-request-cancellation"
 	// configuredRequestFailuresMode records SDK failures from Wait and WaitWithProgress.
 	configuredRequestFailuresMode = "configured-request-failures"
 	// sessionStateMode appends or recovers one durable hidden checkpoint.
@@ -250,6 +252,7 @@ func (s *service) PrepareExecute(
 		configuredEmptyRequestMode,
 		configuredEmptyInputMode,
 		configuredRequestProgressMode,
+		configuredRequestCancellationMode,
 		configuredRequestFailuresMode,
 		sessionStateMode,
 		selectionMode,
@@ -418,6 +421,8 @@ func (operation *executeOperation) Run(
 		return requestConfiguredInput(ctx, "")
 	case configuredRequestProgressMode:
 		return requestConfiguredModelWithProgress(ctx)
+	case configuredRequestCancellationMode:
+		return requestConfiguredModelCancellation(ctx)
 	case configuredRequestFailuresMode:
 		return requestConfiguredModelFailures(ctx)
 	case sessionStateMode:

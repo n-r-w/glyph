@@ -9,7 +9,7 @@ import (
 	"github.com/samber/mo"
 
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -227,22 +227,16 @@ func isPureOwningCancellation(ctx context.Context, err error) bool {
 	if ctx.Err() == nil {
 		return false
 	}
-	if _, typed := errors.AsType[interface {
-		error
-		CompactionFailureCode() string
-	}](err); typed {
-		return false
-	}
 	ownerCause := context.Cause(ctx)
-	return errtree.AllLeavesMatch(err, func(cause error) bool {
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) ||
 			errors.Is(cause, ownerCause)
 	})
 }
 
-// isPureCancellation reports whether every acquired error leaf is a cancellation sentinel.
+// isPureCancellation checks current causes for caller cancellation markers.
 func isPureCancellation(err error) bool {
-	return errtree.AllLeavesMatch(err, func(cause error) bool {
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
 	})
 }

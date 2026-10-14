@@ -19,7 +19,10 @@ message Rejected {
 }
 
 // Canceled reports that an operation stopped because it was canceled.
-message Canceled {}
+message Canceled {
+  // The complete diagnostic text for a canceled operation; an absent or empty value represents plain cancellation.
+  string message = 1;
+}
 
 // Failed reports that an operation failed.
 message Failed {

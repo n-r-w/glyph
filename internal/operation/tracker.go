@@ -38,7 +38,7 @@ type Event[P, R any] struct {
 	Result R
 	// Code contains a machine code for EventFailed or EventRejected.
 	Code string
-	// Message contains complete error text for EventFailed or EventRejected.
+	// Message contains complete failure, rejection or optional canceled diagnostic text.
 	Message string
 }
 

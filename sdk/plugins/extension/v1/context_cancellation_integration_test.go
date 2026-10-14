@@ -5,6 +5,8 @@ package extensionv1
 import (
 	"context"
 	"errors"
+	"fmt"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -13,15 +15,16 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// TestContextStartAndWaitHaveSeparateCancellation verifies nonblocking start, local wait cancellation, and targeted
-// cancellation.
+// TestContextStartAndWaitHaveSeparateCancellation checks separate local and received cancellation through the SDK.
 func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 	t.Parallel()
 
-	// Arrange: withhold first acceptance, then control two accepted Host reads independently.
+	// Arrange withheld admission, plain cancellation and a diagnosed Host target with joined release.
 	controller := gomock.NewController(t)
 	service := NewMockService(controller)
 	registration := NewMockRegisterOperation(controller)
@@ -29,6 +32,19 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 	host := NewMockHostService(controller)
 	first := NewMockHostOperation(controller)
 	second := NewMockHostOperation(controller)
+	third := NewMockHostOperation(controller)
+	source := diagnostic.NewCurrentCause(context.Canceled,
+		errors.New("configured retry diagnostic\nUnicode: λ\n"+strings.Repeat("retained detail ", 512)+"  "))
+	thirdRequest := make(chan *extensionpb.ExtensionRequest, 1)
+	thirdRunning := make(chan struct{})
+	thirdCanceled := make(chan struct{})
+	thirdReleased := make(chan struct{})
+	thirdGate := make(chan struct{})
+	cancelThirdGate := make(chan struct{})
+	localThirdWait := make(chan error, 1)
+	receivedThirdWait := make(chan error, 1)
+	releaseThird := sync.OnceFunc(func() { close(thirdGate) })
+	allowThirdCancellation := sync.OnceFunc(func() { close(cancelThirdGate) })
 	admissionEntered := make(chan struct{})
 	admissionGate := make(chan struct{})
 	firstRunning := make(chan struct{})
@@ -74,6 +90,20 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 			return nil, ctx.Err()
 		})
 	second.EXPECT().Release().Do(func() { close(secondReleased) })
+	host.EXPECT().Prepare(gomock.Any(), gomock.Any(), gomock.Any()).
+		DoAndReturn(func(_ context.Context, _ string, request *extensionpb.ExtensionRequest) (HostOperation, error) {
+			thirdRequest <- request
+			return third, nil
+		})
+	third.EXPECT().Run(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(ctx context.Context, _ *HostProgressReporter) (*extensionpb.HostCompleted, error) {
+			close(thirdRunning)
+			<-ctx.Done()
+			close(thirdCanceled)
+			<-thirdGate
+			return nil, source
+		})
+	third.EXPECT().Release().Do(func() { close(thirdReleased) })
 	execution.EXPECT().
 		Run(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, _ *ProgressReporter) (*extensionpb.ToolResult, error) {
@@ -123,11 +153,28 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 			if !errors.Is(err, context.Canceled) {
 				return nil, errors.New("operation-start cancellation did not cancel the Host target")
 			}
+			thirdContext, cancelThird := context.WithCancel(ctx)
+			defer cancelThird()
+			configured, err = binding.StartConfiguredModel(thirdContext, input)
+			if err != nil {
+				return nil, err
+			}
+			<-thirdRunning
+			localContext, cancelLocal := context.WithCancel(ctx)
+			cancelLocal()
+			_, localErr := configured.Wait(localContext)
+			localThirdWait <- localErr
+			<-cancelThirdGate
+			cancelThird()
+			_, receivedErr := configured.Wait(ctx)
+			receivedThirdWait <- receivedErr
 			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil
 		})
 	connection := openContextTestConnection(t, service, host)
 	t.Cleanup(releaseAdmission)
 	t.Cleanup(releaseFirst)
+	t.Cleanup(releaseThird)
+	t.Cleanup(allowThirdCancellation)
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	defer cancel()
 	registrationRequest := new(extensionpb.HostRequest)
@@ -159,11 +206,50 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 	default:
 	}
 	releaseFirst()
+	awaitHostDisconnectSignal(t, ctx, thirdRunning, "diagnostic target start")
+	localErr := <-localThirdWait
+	require.ErrorIs(t, localErr, context.Canceled)
+	assert.True(t, errtree.IsPlainCancellation(localErr, func(err error) bool {
+		return errors.Is(err, context.Canceled)
+	}))
+	select {
+	case <-thirdCanceled:
+		t.Fatal("local Wait interruption canceled the diagnostic target")
+	default:
+	}
+	allowThirdCancellation()
+	awaitHostDisconnectSignal(t, ctx, thirdCanceled, "diagnostic target cancellation")
+	select {
+	case <-thirdReleased:
+		t.Fatal("Host target released before its blocked Run returned")
+	default:
+	}
+	releaseThird()
 	_, err = invoked.Wait(ctx, nil)
 
-	// Assert: the first read completed, the second target was canceled, and stream shutdown joins all work.
+	// Assert successful, plain-canceled and diagnosed-canceled targets join release before connection shutdown.
 	require.NoError(t, err)
 	awaitHostDisconnectSignal(t, ctx, secondReleased, "canceled target release")
+	awaitHostDisconnectSignal(t, ctx, thirdReleased, "diagnostic target release")
+	requestReceived := <-thirdRequest
+	require.NotNil(t, requestReceived.GetConfiguredModel())
+	assert.Empty(t, requestReceived.GetParentCompactionId())
+	receivedErr := <-receivedThirdWait
+	var canceled *CanceledError
+	require.ErrorAs(t, receivedErr, &canceled)
+	require.ErrorIs(t, receivedErr, context.Canceled)
+	assert.Contains(t, receivedErr.Error(), source.Error())
+	assert.True(t, errtree.IsCurrentCancellation(receivedErr, func(err error) bool {
+		return errors.Is(err, context.Canceled)
+	}))
+	assert.False(t, errtree.IsPlainCancellation(receivedErr, func(err error) bool {
+		return errors.Is(err, context.Canceled)
+	}))
+	wrapped := fmt.Errorf("configured receiver: %w", receivedErr)
+	var wrappedCanceled *CanceledError
+	require.ErrorAs(t, wrapped, &wrappedCanceled)
+	assert.Same(t, canceled, wrappedCanceled)
+	require.ErrorIs(t, wrapped, receivedErr)
 	assert.NoError(t, connection.Close())
 }
 

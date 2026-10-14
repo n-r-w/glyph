@@ -4,6 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
+	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
+
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 // RejectionError reports a request that did not create an operation.
@@ -13,6 +17,9 @@ type RejectionError struct {
 	// cause preserves the complete rejection cause.
 	cause error
 }
+
+// The current-cause classifier recognizes this rejection's category.
+var _ errtree.CodedError = (*RejectionError)(nil)
 
 // Error returns the complete rejection text.
 func (e *RejectionError) Error() string { return e.cause.Error() }
@@ -41,6 +48,9 @@ type FailureError struct {
 	// cause preserves the complete failure cause.
 	cause error
 }
+
+// The current-cause classifier recognizes this failure's category.
+var _ errtree.CodedError = (*FailureError)(nil)
 
 // Error returns the complete failure text.
 func (e *FailureError) Error() string { return e.cause.Error() }
@@ -85,6 +95,10 @@ func newRemoteFailure(code, message string) error {
 }
 
 // newCanceledError constructs the public cancellation result.
-func newCanceledError() error {
-	return &CanceledError{cause: fmt.Errorf("UI operation canceled: %w", context.Canceled)}
+func newCanceledError(message string) error {
+	cause := fmt.Errorf("UI operation canceled: %w", context.Canceled)
+	if message != "" {
+		return &CanceledError{cause: diagnostic.NewCurrentCause(cause, errors.New(message))}
+	}
+	return &CanceledError{cause: cause}
 }

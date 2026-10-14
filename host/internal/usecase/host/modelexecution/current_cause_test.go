@@ -9,11 +9,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
+
 	"github.com/samber/mo"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 // TestCurrentCancellationRetainsRecoveredDiagnostics checks terminal disposition across wrappers and siblings.
@@ -26,7 +28,7 @@ func TestCurrentCancellationRetainsRecoveredDiagnostics(t *testing.T) {
 		RetryDelay:     mo.None[time.Duration](),
 		Cause:          recovered,
 	}
-	boundary := &currentCauseError{current: context.Canceled, recovered: history}
+	boundary := diagnostic.NewCurrentCause(context.Canceled, history)
 	independent := errors.New("independent terminal cause")
 	classified := &LogicalFailureError{Category: FailureExtensionFailed, Cause: context.Canceled}
 	cases := []struct {
@@ -45,10 +47,10 @@ func TestCurrentCancellationRetainsRecoveredDiagnostics(t *testing.T) {
 		},
 		{
 			name: "cancellation diagnostic history",
-			cause: &currentCauseError{
-				current:   context.Canceled,
-				recovered: fmt.Errorf("prior canceled attempt: %w", context.Canceled),
-			},
+			cause: diagnostic.NewCurrentCause(
+				context.Canceled,
+				fmt.Errorf("prior canceled attempt: %w", context.Canceled),
+			),
 			canceled: true,
 			plain:    false,
 		},

@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 
+	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
+
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 
@@ -306,6 +308,9 @@ func (c *Service) applyInitializationTerminal(
 	case operation.EventRejected, operation.EventFailed:
 		return newInitializationError(event.Code, event.Message)
 	case operation.EventCanceled:
+		if event.Message != "" {
+			return diagnostic.NewCurrentCause(context.Canceled, errors.New(event.Message))
+		}
 		return context.Canceled
 	case operation.EventAccepted, operation.EventRunning, operation.EventProgress:
 		return nil
@@ -383,6 +388,7 @@ func mapUIOperationEvent(response *uiv1.OpenResponse) operation.Event[struct{}, 
 		mapped.Kind, mapped.Result = operation.EventCompleted, event.GetCompleted()
 	case uiv1.UIEvent_Canceled_case:
 		mapped.Kind = operation.EventCanceled
+		mapped.Message = event.GetCanceled().GetMessage()
 	case uiv1.UIEvent_Failed_case:
 		mapped.Kind, mapped.Code, mapped.Message = operation.EventFailed,
 			event.GetFailed().GetCode(), event.GetFailed().GetMessage()

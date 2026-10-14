@@ -64,7 +64,11 @@ func (d *hostDelivery) Terminal(
 		result, _ := outcome.Result()
 		event.SetCompleted(result)
 	case operation.TerminalStateCanceled:
-		event.SetCanceled(new(operationpb.Canceled))
+		var message *string
+		if source := outcome.SourceError(); source != nil {
+			message = new(source.Error())
+		}
+		event.SetCanceled(operationpb.Canceled_builder{Message: message}.Build())
 	case operation.TerminalStateFailed:
 		if err := validateHostOutputFailureCode(outcome.Code()); err != nil {
 			return d.terminalFailure(errors.Join(err, outcome.Err()))

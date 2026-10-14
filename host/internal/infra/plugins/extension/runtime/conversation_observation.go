@@ -47,11 +47,11 @@ func (r *Runtime) ObserveConversation(
 	request.SetParentCompactionId(invocation.LifecycleID)
 	request.SetCompletedConversation(input)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if err != nil {
+	if response == nil || response.GetError() != nil {
 		return err
 	}
 	if response.GetCompletedConversation() == nil {
-		return r.protocolViolation(errors.New("completed conversation acknowledgement is missing"))
+		return errors.Join(err, r.protocolViolation(errors.New("completed conversation acknowledgement is missing")))
 	}
-	return nil
+	return err
 }

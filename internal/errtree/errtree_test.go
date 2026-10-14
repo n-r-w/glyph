@@ -39,7 +39,7 @@ func TestAllLeavesMatch(t *testing.T) {
 			// Act by traversing all error leaves.
 			actual := AllLeavesMatch(test.err, match)
 
-			// Assert every leaf must satisfy the supplied policy.
+			// Assert that AllLeavesMatch rejects nil and mixed errors and accepts matching error trees.
 			assert.Equal(t, test.expected, actual)
 		})
 	}

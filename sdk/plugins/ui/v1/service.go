@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	// failureCodeInternal identifies an internal UI operation failure.
+	failureCodeInternal = "INTERNAL"
 	// notificationQueueCapacity bounds pending UI state notifications.
 	notificationQueueCapacity = 64
 	// unknownSDKOperationKind identifies an unsupported SDK-owned request kind in logs.
@@ -84,11 +86,11 @@ func (p *initializePrepared) Run(
 		if failure, ok := errors.AsType[*FailureError](err); ok {
 			return operation.Failed[*uiv1.UICompleted](failure.Code(), err)
 		}
-		return operation.Failed[*uiv1.UICompleted]("INTERNAL", err)
+		return operation.Failed[*uiv1.UICompleted](failureCodeInternal, err)
 	}
 	if initialized == nil {
 		return operation.Failed[*uiv1.UICompleted](
-			"INTERNAL",
+			failureCodeInternal,
 			errors.New("initialize UI: initialized result is required"),
 		)
 	}
@@ -122,7 +124,7 @@ func (p *cancellationPrepared) Run(
 	}
 	if remainingErr != nil {
 		return operation.Failed[*uiv1.UICompleted](
-			"INTERNAL", fmt.Errorf("cancel UI operation %q: %w", p.target, remainingErr),
+			failureCodeInternal, fmt.Errorf("cancel UI operation %q: %w", p.target, err),
 		)
 	}
 	mapped := operationv1.TerminalState_TERMINAL_STATE_UNSPECIFIED
@@ -189,7 +191,11 @@ func (d *uiDelivery) Terminal(
 		result, _ := outcome.Result()
 		event.SetCompleted(result)
 	case operation.TerminalStateCanceled:
-		event.SetCanceled(new(operationv1.Canceled))
+		var message *string
+		if source := outcome.SourceError(); source != nil {
+			message = new(source.Error())
+		}
+		event.SetCanceled(operationv1.Canceled_builder{Message: message}.Build())
 	case operation.TerminalStateFailed:
 		slog.ErrorContext(d.ctx, "UI SDK operation failed",
 			slog.String("operation_id", id), slog.String("operation_kind", d.takeKind(id)),
@@ -695,6 +701,7 @@ func mapHostEvent(id string, event *uiv1.HostEvent) operation.Event[*uiv1.HostPr
 		mapped.Kind, mapped.Result = operation.EventCompleted, event.GetCompleted()
 	case uiv1.HostEvent_Canceled_case:
 		mapped.Kind = operation.EventCanceled
+		mapped.Message = event.GetCanceled().GetMessage()
 	case uiv1.HostEvent_Failed_case:
 		failure := event.GetFailed()
 		mapped.Kind, mapped.Code, mapped.Message = operation.EventFailed, failure.GetCode(), failure.GetMessage()

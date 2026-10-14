@@ -24,7 +24,7 @@ import (
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
-//go:generate go tool mockgen -build_constraint=!integration -destination=current_cause_mock_test.go -package=ui github.com/n-r-w/glyph/host/internal/errtree CurrentCause
+//go:generate go tool mockgen -build_constraint=!integration -destination=current_cause_mock_test.go -package=ui github.com/n-r-w/glyph/internal/errtree CurrentCause
 
 // TestCompactionFailureCategoryRemainsPublic verifies UI failure mapping keeps orchestration identity.
 func TestCompactionFailureCategoryRemainsPublic(t *testing.T) {

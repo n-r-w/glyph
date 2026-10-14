@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -22,7 +24,7 @@ import (
 func TestCoreCurrentCancellationRetainsDiagnostics(t *testing.T) {
 	t.Parallel()
 	recovered := errors.New("recovered provider detail")
-	boundary := &currentCauseError{current: context.Canceled, recovered: recovered}
+	boundary := diagnostic.NewCurrentCause(context.Canceled, recovered)
 	independent := errors.New("independent terminal detail")
 	classified := &LogicalFailureError{Category: FailureExtensionFailed, Cause: context.Canceled}
 	for _, scenario := range []struct {
@@ -36,9 +38,13 @@ func TestCoreCurrentCancellationRetainsDiagnostics(t *testing.T) {
 			name: "ordinary wrapper", cause: fmt.Errorf("logical stream: %w", boundary),
 			outcome: agent.RunOutcomeAborted, later: false,
 		},
-		{name: "cancellation-only recovered text", cause: &currentCauseError{
-			current: context.Canceled, recovered: fmt.Errorf("recovered canceled attempt: %w", context.Canceled),
-		}, outcome: agent.RunOutcomeAborted, later: false},
+		{
+			name: "cancellation-only recovered text",
+			cause: diagnostic.NewCurrentCause(
+				context.Canceled, fmt.Errorf("recovered canceled attempt: %w", context.Canceled),
+			),
+			outcome: agent.RunOutcomeAborted, later: false,
+		},
 		{
 			name: "independent before", cause: errors.Join(independent, boundary),
 			outcome: agent.RunOutcomeFailed, later: false,

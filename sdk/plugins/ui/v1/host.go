@@ -345,7 +345,7 @@ func (o *Operation) waitResult(
 	case operation.EventCompleted:
 		return event.Result, nil
 	case operation.EventCanceled:
-		return nil, newCanceledError()
+		return nil, newCanceledError(event.Message)
 	case operation.EventFailed:
 		return nil, newRemoteFailure(event.Code, event.Message)
 	case operation.EventRejected:

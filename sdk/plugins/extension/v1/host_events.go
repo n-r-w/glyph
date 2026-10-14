@@ -460,6 +460,7 @@ func mapHostEvent(
 		return event, true, nil
 	case extensionpb.HostEvent_Canceled_case:
 		event.Kind = operation.EventCanceled
+		event.Message = payload.GetCanceled().GetMessage()
 		return event, true, nil
 	case extensionpb.HostEvent_Failed_case:
 		event.Kind, event.Code, event.Message = operation.EventFailed, payload.GetFailed().

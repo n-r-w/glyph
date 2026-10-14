@@ -2,6 +2,8 @@ package programmatic
 
 import (
 	"errors"
+
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 const (
@@ -56,6 +58,9 @@ type RejectionError struct {
 	// cause is the complete rejection reason.
 	cause error
 }
+
+// The current-cause classifier recognizes this rejection's category.
+var _ errtree.CodedError = (*RejectionError)(nil)
 
 // Error returns the complete rejection cause text.
 func (e *RejectionError) Error() string {

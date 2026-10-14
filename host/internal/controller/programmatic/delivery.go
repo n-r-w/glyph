@@ -91,7 +91,11 @@ func (d *streamDelivery) Terminal(id string, outcome operation.Outcome[Response]
 		}
 		event.SetCompleted(completed)
 	case operation.TerminalStateCanceled:
-		event.SetCanceled(new(operationv1.Canceled))
+		var message *string
+		if source := outcome.SourceError(); source != nil {
+			message = new(source.Error())
+		}
+		event.SetCanceled(operationv1.Canceled_builder{Message: message}.Build())
 	case operation.TerminalStateFailed:
 		failureErr := outcome.Err()
 		if failureErr == nil || failureErr.Error() == "" {

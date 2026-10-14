@@ -10,8 +10,8 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/errtree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 const (
@@ -493,24 +493,18 @@ func classifyCompactionFailure(cause error) error {
 // classifyExtensionInvocation separates pure owner cancellation from independent extension failure.
 func classifyExtensionInvocation(ctx context.Context, cause error) (bool, error) {
 	if isPureOwningCancellation(ctx, cause) {
-		return true, context.Cause(ctx)
+		return true, joinContextCause(ctx, cause)
 	}
 	return false, extensionFailure(joinContextCause(ctx, cause))
 }
 
-// isPureOwningCancellation reports whether every untyped failure leaf belongs to the canceled owner.
+// isPureOwningCancellation reports whether the current compaction causes indicate owning-context cancellation.
 func isPureOwningCancellation(ctx context.Context, cause error) bool {
 	if ctx.Err() == nil {
 		return false
 	}
-	if _, typed := errors.AsType[interface {
-		error
-		CompactionFailureCode() string
-	}](cause); typed {
-		return false
-	}
 	owningCause := context.Cause(ctx)
-	return errtree.AllLeavesMatch(cause, func(leaf error) bool {
+	return errtree.IsCurrentCancellation(cause, func(leaf error) bool {
 		return errors.Is(leaf, context.Canceled) || errors.Is(leaf, context.DeadlineExceeded) ||
 			errors.Is(leaf, owningCause)
 	})

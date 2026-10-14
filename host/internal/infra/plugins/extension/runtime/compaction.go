@@ -29,10 +29,11 @@ func (r *Runtime) HandleCompactionRequest(
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionRequest(payload)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if err != nil {
+	if response == nil || response.GetError() != nil {
 		return contextcompaction.RequestAction{}, err
 	}
-	return r.decodeCompactionRequestResponse(response)
+	action, decodeErr := r.decodeCompactionRequestResponse(response)
+	return action, errors.Join(err, decodeErr)
 }
 
 // GenerateCompaction invokes one public compaction generation capability.
@@ -49,10 +50,11 @@ func (r *Runtime) GenerateCompaction(
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionGenerate(payload)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if err != nil {
+	if response == nil || response.GetError() != nil {
 		return contextcompaction.Result{}, err
 	}
-	return r.decodeCompactionGeneratorResponse(response)
+	result, decodeErr := r.decodeCompactionGeneratorResponse(response)
+	return result, errors.Join(err, decodeErr)
 }
 
 // HandleCompactionResult invokes one public compaction result handler.
@@ -69,10 +71,11 @@ func (r *Runtime) HandleCompactionResult(
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionResult(payload)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if err != nil {
+	if response == nil || response.GetError() != nil {
 		return contextcompaction.ResultAction{}, err
 	}
-	return r.decodeCompactionResultResponse(response)
+	action, decodeErr := r.decodeCompactionResultResponse(response)
+	return action, errors.Join(err, decodeErr)
 }
 
 // ObserveCompactionSuccess invokes one public committed-compaction observer.
@@ -120,13 +123,13 @@ func (r *Runtime) observeCompaction(
 		builder.CompactionFailure = payload
 	}
 	response, err := r.runCompactionHandler(ctx, handlerID, builder.Build())
-	if err != nil {
+	if response == nil || response.GetError() != nil {
 		return err
 	}
 	if success && response.GetCompactionSuccess() == nil || !success && response.GetCompactionFailure() == nil {
-		return r.protocolViolation(errors.New("compaction observer returned another action kind"))
+		return errors.Join(err, r.protocolViolation(errors.New("compaction observer returned another action kind")))
 	}
-	return nil
+	return err
 }
 
 // runCompactionHandler executes one compaction payload through the existing handler operation path.
@@ -142,18 +145,21 @@ func (r *Runtime) runCompactionHandler(
 	if err != nil {
 		return nil, r.handlerOperationError(ctx, handlerID, err)
 	}
-	completed, err := started.Wait(ctx, nil)
-	if err != nil {
-		return nil, r.resolveHandlerWaitError(ctx, handlerID, operationID, err)
+	completed, waitErr := r.waitForOperation(ctx, operationID, started, nil)
+	if waitErr != nil {
+		waitErr = r.handlerOperationError(ctx, handlerID, waitErr)
+	}
+	if completed == nil {
+		return nil, waitErr
 	}
 	response := completed.GetHandle()
 	if response == nil {
-		return nil, r.protocolViolation(errors.New("compaction handler response is missing"))
+		return nil, errors.Join(waitErr, r.protocolViolation(errors.New("compaction handler response is missing")))
 	}
 	if handlerErr := response.GetError(); handlerErr != nil {
-		return response, newOrdinaryHandlerError(handlerErr.GetMessage())
+		return response, errors.Join(waitErr, newOrdinaryHandlerError(handlerErr.GetMessage()))
 	}
-	return response, nil
+	return response, waitErr
 }
 
 // mapCompactionRequestInvocation projects immutable and current request state.

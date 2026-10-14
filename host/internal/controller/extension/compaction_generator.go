@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -74,19 +74,7 @@ func newPolicyGeneratorContextRequest(
 
 // isParticipantCancellation distinguishes explicit cancellation from classified or mixed failure.
 func isParticipantCancellation(err error) bool {
-	if _, classified := errors.AsType[interface {
-		error
-		Code() string
-	}](err); classified {
-		return false
-	}
-	if _, classified := errors.AsType[interface {
-		error
-		CompactionFailureCode() string
-	}](err); classified {
-		return false
-	}
-	return errtree.AllLeavesMatch(err, func(leaf error) bool { return errors.Is(leaf, context.Canceled) })
+	return errtree.IsCurrentCancellation(err, func(leaf error) bool { return errors.Is(leaf, context.Canceled) })
 }
 
 // newPolicyParticipantContextRequest selects the decoder for a captured participant's operation.

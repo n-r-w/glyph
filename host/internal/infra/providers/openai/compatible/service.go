@@ -16,10 +16,10 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/errtree"
 	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
 	openaifailure "github.com/n-r-w/glyph/host/internal/infra/providers/openai"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 const (

@@ -10,7 +10,7 @@ import (
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -113,7 +113,7 @@ func (p *commandPrepared) Run(
 			return operation.CompletedWithSource(response, err)
 		}
 		if isOperationCancellation(ctx, err) {
-			return operation.Canceled[controller.Response]()
+			return newCanceledCommandOutcome(err)
 		}
 		return operation.Failed[controller.Response](failureCode(err), err)
 	}
@@ -157,11 +157,19 @@ func (p *commandPrepared) runSelection(ctx context.Context) operation.Outcome[co
 		)
 	}
 	if isOperationCancellation(ctx, result.Source) {
-		return operation.Canceled[controller.Response]()
+		return newCanceledCommandOutcome(result.Source)
 	}
 	rejected := p.service.selectionRejected(p.command, result.Source)
 	rejection := rejected.Rejection.MustGet()
 	return operation.Failed[controller.Response](failureCodeForRejection(rejection.Code), rejection.Cause)
+}
+
+// newCanceledCommandOutcome preserves acquired diagnostics for canceled commands.
+func newCanceledCommandOutcome(cause error) operation.Outcome[controller.Response] {
+	if errtree.IsPlainCancellation(cause, func(leaf error) bool { return errors.Is(leaf, context.Canceled) }) {
+		return operation.Canceled[controller.Response]()
+	}
+	return operation.CanceledWithSource[controller.Response](cause)
 }
 
 // Release frees the session-mutation reservation when present.

@@ -256,7 +256,7 @@ func (s *Service) prepareProviderContext(ctx context.Context, request ProviderRe
 		return prepared, nil
 	}
 	if isPureOwningCancellation(ctx, err) {
-		return ProviderRequest{}, context.Cause(ctx)
+		return ProviderRequest{}, joinOwningContextCause(ctx, err)
 	}
 	wrapped := fmt.Errorf("prepare conversation context: %w", joinOwningContextCause(ctx, err))
 	return ProviderRequest{}, contextPreparationLogicalFailure(wrapped)

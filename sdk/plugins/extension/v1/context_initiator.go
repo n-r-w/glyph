@@ -192,7 +192,7 @@ func (o *contextOperation) wait(
 			case operation.EventCompleted:
 				return event.Result, nil
 			case operation.EventCanceled:
-				return nil, newCanceledError()
+				return nil, newCanceledError(event.Message)
 			case operation.EventFailed:
 				return nil, &contextOperationError{
 					id:    o.id,

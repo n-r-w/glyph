@@ -22,7 +22,7 @@ import (
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
-//go:generate go tool mockgen -build_constraint=!integration -destination=current_cause_mock_test.go -package=programmatic github.com/n-r-w/glyph/host/internal/errtree CurrentCause
+//go:generate go tool mockgen -build_constraint=!integration -destination=current_cause_mock_test.go -package=programmatic github.com/n-r-w/glyph/internal/errtree CurrentCause
 
 // TestPreparedOwnerCancellationStopsSummaryNavigation verifies owner cancellation stops blocked summary work without commit.
 func TestPreparedOwnerCancellationStopsSummaryNavigation(t *testing.T) {

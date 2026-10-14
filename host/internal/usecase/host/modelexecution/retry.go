@@ -8,11 +8,13 @@ import (
 	"slices"
 	"time"
 
+	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
+
 	"github.com/cenkalti/backoff/v7"
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 // overflowRecoveryHandler rebuilds one rejected active-conversation request after compaction.
@@ -82,7 +84,8 @@ func (s *Service) execute(
 				))
 			}
 			if isPureOwningCancellation(ctx, attemptErr) {
-				return model.Response{}, backoff.Permanent(context.Cause(ctx))
+				retained := diagnostic.NewCurrentCause(joinOwningContextCause(ctx, attemptErr), errors.Join(causes...))
+				return model.Response{}, backoff.Permanent(retained)
 			}
 			acquiredCauses := append(slices.Clone(causes), attemptErr, context.Cause(ctx))
 			return failedResponse, backoff.Permanent(logicalFailure(FailureInternal, acquiredCauses))
@@ -116,7 +119,11 @@ func (s *Service) execute(
 			})
 			if handlerErr != nil {
 				if isPureOwningCancellation(ctx, handlerErr) {
-					return model.Response{}, backoff.Permanent(context.Cause(ctx))
+					retained := diagnostic.NewCurrentCause(
+						joinOwningContextCause(ctx, handlerErr),
+						errors.Join(causes...),
+					)
+					return model.Response{}, backoff.Permanent(retained)
 				}
 				causes = append(causes, fmt.Errorf("retry handler %q: %w", handler.HandlerID, handlerErr))
 				return failedResponse, backoff.Permanent(logicalFailure(FailureExtensionFailed, causes))
@@ -170,7 +177,7 @@ func (s *Service) execute(
 				Delay: decision.Delay, Error: attemptErr.Error(),
 			}); progressErr != nil {
 				if isPureOwningCancellation(ctx, progressErr) {
-					return model.Response{}, backoff.Permanent(context.Cause(ctx))
+					return model.Response{}, backoff.Permanent(joinOwningContextCause(ctx, progressErr))
 				}
 				causes = append(causes, fmt.Errorf("deliver retry progress: %w", progressErr))
 				return model.Response{}, backoff.Permanent(logicalFailure(FailureInternal, causes))
@@ -206,7 +213,7 @@ func prepareOverflowRecovery(
 	recovered, err := recoverOverflow(ctx, request)
 	if err != nil {
 		if isPureOwningCancellation(ctx, err) {
-			return ProviderRequest{}, false, context.Cause(ctx)
+			return ProviderRequest{}, false, joinOwningContextCause(ctx, err)
 		}
 		causes = append(causes, fmt.Errorf("recover context overflow: %w", joinOwningContextCause(ctx, err)))
 		return ProviderRequest{}, false, contextPreparationLogicalFailure(errors.Join(causes...))
@@ -329,16 +336,13 @@ func terminalProviderFailure(
 	return logicalFailure(FailureModelFailed, causes)
 }
 
-// isPureOwningCancellation reports whether every error leaf belongs to the canceled owning context.
+// isPureOwningCancellation reports whether the current causes indicate owning-context cancellation.
 func isPureOwningCancellation(ctx context.Context, err error) bool {
 	if ctx.Err() == nil {
 		return false
 	}
-	if _, typed := errors.AsType[ContextPreparationFailure](err); typed {
-		return false
-	}
 	owningCause := context.Cause(ctx)
-	return errtree.AllLeavesMatch(err, func(cause error) bool {
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded) ||
 			errors.Is(cause, owningCause)
 	})

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 
 	"github.com/stretchr/testify/require"
 

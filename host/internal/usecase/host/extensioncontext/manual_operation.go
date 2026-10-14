@@ -12,8 +12,8 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/errtree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 // compactionOperation owns one snapshot, mutation receipt, and nested-work lifetime.
@@ -78,7 +78,7 @@ func (o *compactionOperation) finish() (mo.Option[session.Entry], error, error) 
 
 // isOwningCancellation distinguishes expected child shutdown from independent failure.
 func (o *compactionOperation) isOwningCancellation(cause error) bool {
-	return errtree.AllLeavesMatch(cause, func(leaf error) bool {
+	return errtree.IsCurrentCancellation(cause, func(leaf error) bool {
 		return errors.Is(leaf, o.context.Err()) || errors.Is(context.Cause(o.context), leaf)
 	})
 }

@@ -369,7 +369,7 @@ func (o *Operation) handleEvent(
 		}
 		return event.Result, true, nil
 	case operation.EventCanceled:
-		return nil, true, newCanceledError()
+		return nil, true, newCanceledError(event.Message)
 	case operation.EventFailed:
 		return nil, true, newRemoteFailure(event.Code, event.Message)
 	case operation.EventRejected:
@@ -589,6 +589,7 @@ func mapTerminalExtensionEvent(
 		}
 	case extensionpb.ExtensionEvent_Canceled_case:
 		mapped.Kind = operation.EventCanceled
+		mapped.Message = event.GetCanceled().GetMessage()
 	case extensionpb.ExtensionEvent_Failed_case:
 		mapped.Kind = operation.EventFailed
 		mapped.Code = event.GetFailed().GetCode()

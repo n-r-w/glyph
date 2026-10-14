@@ -215,8 +215,13 @@ func newProtocolMockService(t *testing.T, fixture *protocolService) extensionsdk
 
 // isAdversarialMode identifies modes served by the direct protocol fixture.
 func isAdversarialMode(mode string) bool {
+	if strings.HasPrefix(mode, settlementPeerPrefix) {
+		return true
+	}
 	switch mode {
-	case shutdownHostWorkActiveMode,
+	case receivedTransportCancellationMode,
+		receivedTransportCancellationAfterProgressMode,
+		shutdownHostWorkActiveMode,
 		shutdownHostWorkMode,
 		shutdownHostWorkLossMode,
 		shutdownHostWorkCancelMode,

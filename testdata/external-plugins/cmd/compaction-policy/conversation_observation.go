@@ -57,7 +57,7 @@ func (o *conversationObservationOperation) Run(ctx context.Context) (*extensionp
 			o.input.GetModel(),
 			o.input.GetReasoningChoice(),
 		); modelErr != nil && os.Getenv(conversationAcknowledgeFailureEnvironment) != fixtureEnabledValue {
-			return newPolicyFailure(modelErr), nil
+			return nil, modelErr
 		}
 	}
 	if os.Getenv(conversationFailureEnvironment) == fixtureEnabledValue {

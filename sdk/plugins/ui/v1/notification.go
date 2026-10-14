@@ -54,7 +54,7 @@ func operationNotification(
 		notification.completed = event.Result
 	case operation.EventCanceled:
 		notification.kind = NotificationFailed
-		notification.operationErr = newCanceledError()
+		notification.operationErr = newCanceledError(event.Message)
 	case operation.EventFailed:
 		notification.kind = NotificationFailed
 		notification.operationErr = newRemoteFailure(event.Code, event.Message)

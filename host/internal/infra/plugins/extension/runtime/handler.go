@@ -66,18 +66,21 @@ func (r *Runtime) Handle(
 	if err != nil {
 		return extensionruntime.HandlerAction{}, r.handlerOperationError(ctx, handlerID, err)
 	}
-	completed, err := started.Wait(ctx, nil)
-	if err != nil {
-		return extensionruntime.HandlerAction{}, r.resolveHandlerWaitError(ctx, handlerID, operationID, err)
+	completed, waitErr := r.waitForOperation(ctx, operationID, started, nil)
+	if waitErr != nil {
+		waitErr = r.handlerOperationError(ctx, handlerID, waitErr)
 	}
-	mappedResponse, err := mapHandleResponse(request, completed.GetHandle())
-	if err != nil {
-		if handlerErr, ok := errors.AsType[ordinaryHandlerError](err); ok {
-			return extensionruntime.HandlerAction{}, handlerErr
+	if completed == nil {
+		return extensionruntime.HandlerAction{}, waitErr
+	}
+	mappedResponse, decodeErr := mapHandleResponse(request, completed.GetHandle())
+	if decodeErr != nil {
+		if handlerErr, ok := errors.AsType[ordinaryHandlerError](decodeErr); ok {
+			return extensionruntime.HandlerAction{}, errors.Join(waitErr, handlerErr)
 		}
-		return extensionruntime.HandlerAction{}, r.protocolViolation(err)
+		return extensionruntime.HandlerAction{}, errors.Join(waitErr, r.protocolViolation(decodeErr))
 	}
-	return mappedResponse, nil
+	return mappedResponse, waitErr
 }
 
 // handlerOperationError preserves operation errors and classifies stream failures as unavailability.
@@ -98,23 +101,6 @@ func (r *Runtime) handlerOperationError(ctx context.Context, handlerID string, e
 		handlerID,
 		err,
 	)
-}
-
-// resolveHandlerWaitError settles cancellation and classifies a failed handler connection for its owner.
-func (r *Runtime) resolveHandlerWaitError(
-	ctx context.Context,
-	handlerID, operationID string,
-	operationErr error,
-) error {
-	var cancellationErr error
-	if ctx.Err() != nil && !isConnectionFailure(operationErr) {
-		cancellationErr = r.cancelOperation(context.WithoutCancel(ctx), operationID)
-	}
-	resultErr := errors.Join(r.handlerOperationError(ctx, handlerID, operationErr), cancellationErr)
-	if isConnectionFailure(cancellationErr) {
-		resultErr = errors.Join(extensionruntime.ErrExtensionUnavailable, resultErr)
-	}
-	return resultErr
 }
 
 // mapHandleRequest encodes the runtime-owned filtered operation payload.

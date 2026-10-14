@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 
+	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
+
 	"github.com/samber/mo"
 
 	controllerextension "github.com/n-r-w/glyph/host/internal/controller/extension"
@@ -62,12 +64,9 @@ func IsPureObservationCancellation(ctx context.Context, cause error) bool {
 func observationFailure(ctx context.Context, cause, attempts error) error {
 	current := joinOwningContextCause(ctx, cause)
 	if attempts != nil {
-		current = &currentCauseError{current: current, recovered: attempts}
+		current = diagnostic.NewCurrentCause(current, attempts)
 	}
 	if IsPureObservationCancellation(ctx, cause) {
-		if attempts == nil {
-			return context.Cause(ctx)
-		}
 		return current
 	}
 	return &LogicalFailureError{Category: FailureExtensionFailed, Cause: current}

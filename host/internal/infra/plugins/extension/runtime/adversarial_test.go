@@ -165,6 +165,9 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 		<-stream.Context().Done()
 		return context.Cause(stream.Context())
 	}
+	if strings.HasPrefix(s.mode, settlementPeerPrefix+"rejected-") {
+		return s.serveShutdownHostWork(stream, execute)
+	}
 	if err = stream.Send(extensionResponse(id, acceptedExtensionEvent())); err != nil {
 		return err
 	}
@@ -177,6 +180,20 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 	}
 	completed := toolCompletedEvent()
 	switch s.mode {
+	case receivedTransportCancellationMode:
+		return status.Error(codes.Canceled, receivedTransportCancellationText)
+	case receivedTransportCancellationAfterProgressMode:
+		if err = stream.Send(extensionResponse(id, toolProgressEvent())); err != nil {
+			return err
+		}
+		cancellation, receiveErr := stream.Recv()
+		if receiveErr != nil {
+			return receiveErr
+		}
+		if cancellation.GetRequest().GetCancel() == nil {
+			return errors.New("expected cancellation request after progress")
+		}
+		return status.Error(codes.Canceled, receivedTransportCancellationText)
 	case "unsupported-failure":
 		if err = stream.Send(extensionResponse(id, failedExtensionEvent(
 			"UNSUPPORTED", "complete peer failure text",
@@ -299,6 +316,9 @@ func (s *adversarialServer) serveShutdownHostWork(
 		if response.GetEvent().GetRunning() != nil {
 			break
 		}
+	}
+	if strings.HasPrefix(s.mode, settlementPeerPrefix) {
+		return s.serveSettlement(stream, execute)
 	}
 	if s.mode == shutdownHostWorkActiveMode {
 		if err := stream.Send(extensionResponse(id, toolProgressEvent())); err != nil {

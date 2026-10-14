@@ -109,7 +109,11 @@ func (delivery *extensionDelivery) Terminal(
 		}
 		event.SetCompleted(result.completed)
 	case operation.TerminalStateCanceled:
-		event.SetCanceled(new(operationv1.Canceled))
+		var message *string
+		if source := outcome.SourceError(); source != nil {
+			message = new(source.Error())
+		}
+		event.SetCanceled(operationv1.Canceled_builder{Message: message}.Build())
 	case operation.TerminalStateFailed:
 		invocation := delivery.takeInvocation(id)
 		slog.ErrorContext(

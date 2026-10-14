@@ -10,7 +10,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 const (
@@ -167,9 +167,9 @@ func (s *Service) Request(
 	return response, nil
 }
 
-// isPureCancellation reports whether every configured-request failure leaf is caller cancellation.
+// isPureCancellation checks current configured-request causes for caller cancellation.
 func isPureCancellation(err error) bool {
-	return errtree.AllLeavesMatch(err, func(cause error) bool {
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
 	})
 }

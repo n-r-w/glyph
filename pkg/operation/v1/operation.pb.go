@@ -276,9 +276,12 @@ func (b0 Rejected_builder) Build() *Rejected {
 
 // Canceled reports that an operation stopped because it was canceled.
 type Canceled struct {
-	state         protoimpl.MessageState `protogen:"opaque.v1"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Message     *string                `protobuf:"bytes,1,opt,name=message"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
 }
 
 func (x *Canceled) Reset() {
@@ -306,15 +309,48 @@ func (x *Canceled) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
+func (x *Canceled) GetMessage() string {
+	if x != nil {
+		if x.xxx_hidden_Message != nil {
+			return *x.xxx_hidden_Message
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *Canceled) SetMessage(v string) {
+	x.xxx_hidden_Message = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *Canceled) HasMessage() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *Canceled) ClearMessage() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Message = nil
+}
+
 type Canceled_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The complete diagnostic text for a canceled operation; an absent or empty value represents plain cancellation.
+	Message *string
 }
 
 func (b0 Canceled_builder) Build() *Canceled {
 	m0 := &Canceled{}
 	b, x := &b0, m0
 	_, _ = b, x
+	if b.Message != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Message = b.Message
+	}
 	return m0
 }
 
@@ -645,9 +681,9 @@ const file_api_operation_v1_operation_proto_rawDesc = "" +
 	"\aRunning\"8\n" +
 	"\bRejected\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
-	"\amessage\x18\x02 \x01(\tR\amessage\"\n" +
-	"\n" +
-	"\bCanceled\"6\n" +
+	"\amessage\x18\x02 \x01(\tR\amessage\"$\n" +
+	"\bCanceled\x12\x18\n" +
+	"\amessage\x18\x01 \x01(\tR\amessage\"6\n" +
 	"\x06Failed\x12\x12\n" +
 	"\x04code\x18\x01 \x01(\tR\x04code\x12\x18\n" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"A\n" +

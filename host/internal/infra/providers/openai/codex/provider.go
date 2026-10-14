@@ -10,9 +10,9 @@ import (
 	"time"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/errtree"
 	providerconsts "github.com/n-r-w/glyph/host/internal/infra/providers"
 	openaifailure "github.com/n-r-w/glyph/host/internal/infra/providers/openai"
+	"github.com/n-r-w/glyph/internal/errtree"
 
 	openai "github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/option"

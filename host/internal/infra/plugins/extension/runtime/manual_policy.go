@@ -33,7 +33,13 @@ func (r *Runtime) InvokeCompactionPolicy(
 	request.SetParentCompactionId(invocation.LifecycleID)
 	request.SetCompactionPolicy(input)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
+	if response == nil || response.GetError() != nil {
+		return false, err
+	}
 	result := response.GetCompactionPolicy()
+	if result == nil {
+		return false, errors.Join(err, r.protocolViolation(errors.New("compaction policy response is missing")))
+	}
 	if result.GetError() != "" {
 		err = errors.Join(err, newOrdinaryHandlerError(result.GetError()))
 	}
@@ -46,9 +52,6 @@ func (r *Runtime) InvokeCompactionPolicy(
 	}
 	if err != nil {
 		return result.GetCanceled(), err
-	}
-	if result == nil {
-		return false, r.protocolViolation(errors.New("compaction policy response is missing"))
 	}
 	return result.GetCanceled(), nil
 }

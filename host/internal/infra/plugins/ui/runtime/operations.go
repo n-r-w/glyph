@@ -88,7 +88,11 @@ func (delivery *operationDelivery) Terminal(
 		}
 	case operation.TerminalStateCanceled:
 		event := new(uiv1.HostEvent)
-		event.SetCanceled(new(operationv1.Canceled))
+		var message *string
+		if source := outcome.SourceError(); source != nil {
+			message = new(source.Error())
+		}
+		event.SetCanceled(operationv1.Canceled_builder{Message: message}.Build())
 		request = hostEventRequest(id, event)
 	case operation.TerminalStateFailed:
 		slog.ErrorContext(
