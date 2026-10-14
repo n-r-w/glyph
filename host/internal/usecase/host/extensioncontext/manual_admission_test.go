@@ -41,14 +41,14 @@ func (s *parentAdmissionSuite) TestScenario() {
 	parent, cancel := context.WithCancelCause(t.Context())
 	defer cancel(nil)
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, target PolicyOwner, binding extension.Context, invocation PolicyInvocation) (bool, error) {
+		func(ctx context.Context, target PolicyOwner, binding extension.Context, invocation PolicyInvocation) (PolicyDisposition, error) {
 			cancel(cause)
 			release, err := service.BeginCompactionChild(owner.ExtensionID, owner.RuntimeID, invocation.LifecycleID)
 			// Assert the rejected child's acquired cause independently of the eventual parent error.
 			require.Nil(t, release)
 			require.ErrorIs(t, err, cause)
 			require.ErrorContains(t, err, cause.Error())
-			return true, nil
+			return PolicyCanceled, nil
 		})
 	// Act through the admitted parent operation.
 	_, err := service.CompactManualPolicy(parent, modelexecution.ProviderRequest{}, mo.None[string]())

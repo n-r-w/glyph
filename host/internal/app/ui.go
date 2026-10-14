@@ -105,7 +105,7 @@ func runUIWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
-	// contextCompaction owns active-conversation sizing and usage accounting.
+	// contextCompaction supplies legacy overflow recovery and usage accounting.
 	contextCompaction := contextcompaction.New(sessionServices.active)
 	if err = contextCompaction.BindOrchestration(
 		extensions, contexts, configured.Compaction.RetainedContextTokens,
@@ -121,6 +121,9 @@ func runUIWithPaths(
 		transport,
 		contexts,
 	)
+	if err = modelExecution.BindOverflowRecovery(contextCompaction); err != nil {
+		return fmt.Errorf("bind UI overflow recovery: %w", err)
+	}
 	modelExecution.BindManualCompaction(contexts, tools, codingagent.Instructions())
 	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
 	sessionServices.active.BindPricingCatalog(providerCatalog)

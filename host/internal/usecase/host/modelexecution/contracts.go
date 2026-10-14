@@ -258,28 +258,11 @@ type ConversationContext interface {
 	RecordCompletedConversationUsage(request ProviderRequest, response model.Response)
 }
 
-// ConversationObservation receives a successful provider attempt before logical completion.
-type ConversationObservation func(context.Context, ProviderRequest, model.Response) error
-
-// ConversationObservations captures the optional policy owner for one logical execution.
-type ConversationObservations interface {
-	// CaptureConversationObservation retains the admitted policy owner.
-	CaptureConversationObservation() (mo.Option[ConversationObservation], error)
-}
-
 // ContextPreparationFailure exposes a compaction-owned category to the model-execution consumer.
 type ContextPreparationFailure interface {
 	error
 	// CompactionFailureCode returns the stable compaction category.
 	CompactionFailureCode() string
-}
-
-// ContextPreparation owns active-conversation threshold and overflow compaction.
-type ContextPreparation interface {
-	// PrepareContext validates and compacts one agent request before its initial provider attempt.
-	PrepareContext(context.Context, ProviderRequest) (ProviderRequest, error)
-	// RecoverOverflow compacts one rejected agent request before its single changed replacement attempt.
-	RecoverOverflow(context.Context, ProviderRequest) (ProviderRequest, error)
 }
 
 // CatalogBinding binds one validated selection to its raw provider attempt.

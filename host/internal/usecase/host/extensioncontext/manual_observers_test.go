@@ -56,10 +56,10 @@ func (s *manualObserverFailureRetainsHandledPolicyCausesSuite) TestScenario() {
 			return receipt, nil
 		})
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
+		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (PolicyDisposition, error) {
 			release, err := service.BeginCompactionChild(owner.ExtensionID, owner.RuntimeID, invocation.LifecycleID)
 			if err != nil {
-				return false, err
+				return PolicyReplaced, err
 			}
 			release(childCause)
 			_, err = service.CommitPolicyReplacement(
@@ -69,7 +69,7 @@ func (s *manualObserverFailureRetainsHandledPolicyCausesSuite) TestScenario() {
 				invocation.OperationID,
 				candidate,
 			)
-			return false, err
+			return PolicyReplaced, err
 		})
 	policy.EXPECT().ObserveCompactionSuccess(gomock.Any(), first, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, target contextcompaction.Handler, bound extension.Context, outcome contextcompaction.OutcomeInvocation) error {
@@ -144,7 +144,7 @@ func (s *manualUnavailableObserverRetainsCausesSuite) TestScenario() {
 	result := modelexecution.ManualCompactionResult{Committed: mo.Some(session.Entry{}), Canceled: false}
 
 	// Act through terminal notification settlement.
-	err := service.finishManualOutcome(
+	err := service.finishPolicyOutcome(
 		t.Context(),
 		handlers,
 		mo.None[contextcompaction.PolicyState](),

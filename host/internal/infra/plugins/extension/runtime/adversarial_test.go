@@ -41,6 +41,13 @@ const (
 	shutdownHostWorkCancelHandlerMode = "shutdown-host-work-cancel-handler"
 )
 
+const (
+	// policyCanceledDiagnosticMode selects cancellation metadata with an independent failure.
+	policyCanceledDiagnosticMode = "policy-canceled-diagnostic"
+	// policyIndependentDiagnostic is the peer's declared failure text.
+	policyIndependentDiagnostic = "independent policy diagnostic"
+)
+
 // adversarialPlugin registers a direct generated server for malformed public-protocol tests.
 type adversarialPlugin struct {
 	// NetRPCUnsupportedPlugin disables unsupported net/rpc transport.
@@ -230,6 +237,20 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 			return status.Error(codes.Unknown, "unknown cancellation transport failed")
 		}
 		return status.Error(codes.Unavailable, "cancellation transport failed")
+	case policyCanceledDiagnosticMode:
+		response := new(extensionpb.HandleResponse)
+		response.SetCompactionPolicy(extensionpb.CompactionPolicyResult_builder{
+			Disposition: extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED.Enum(),
+			State:       nil, Error: new(policyIndependentDiagnostic),
+		}.Build())
+		completion := new(extensionpb.ExtensionCompleted)
+		completion.SetHandle(response)
+		terminal := new(extensionpb.ExtensionEvent)
+		terminal.SetCompleted(completion)
+		if err = stream.Send(extensionResponse(id, terminal)); err != nil {
+			return err
+		}
+		return nil
 	case "missing-result":
 		return nil
 	case "duplicate-result":
@@ -261,8 +282,9 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 	case "mismatched-handler":
 		completedEvent := new(extensionpb.ExtensionCompleted)
 		completedEvent.SetHandle(extensionpb.HandleResponse_builder{
-			CompletedConversation: nil,
-			CompactionRequest:     nil, CompactionGenerate: nil, CompactionResult: nil,
+			CompactionOutgoingInput: nil,
+			CompletedConversation:   nil,
+			CompactionRequest:       nil, CompactionGenerate: nil, CompactionResult: nil,
 			CompactionSuccess: nil, CompactionFailure: nil,
 			Retry:          nil,
 			ModelSelection: nil, ReasoningSelection: nil,

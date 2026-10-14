@@ -247,6 +247,48 @@ message CompactionToolDefinition {
   string grammar_input_property = 2;
 }
 
+// CompactionPolicyPurpose identifies the caller's preparation intent.
+enum CompactionPolicyPurpose {
+  // No preparation intent was supplied.
+  COMPACTION_POLICY_PURPOSE_UNSPECIFIED = 0;
+  // The caller requested a replacement explicitly.
+  COMPACTION_POLICY_PURPOSE_MANUAL = 1;
+  // The owner chooses whether ordinary conversation input needs replacement.
+  COMPACTION_POLICY_PURPOSE_AUTOMATIC = 2;
+}
+
+// CompactionPolicyDisposition identifies the owner's completed decision.
+enum CompactionPolicyDisposition {
+  // No completed decision was supplied.
+  COMPACTION_POLICY_DISPOSITION_UNSPECIFIED = 0;
+  // The owner accepts the original captured history.
+  COMPACTION_POLICY_DISPOSITION_PRESERVE = 1;
+  // The owner requested durable replacement.
+  COMPACTION_POLICY_DISPOSITION_REPLACED = 2;
+  // The owner canceled preparation.
+  COMPACTION_POLICY_DISPOSITION_CANCELED = 3;
+}
+
+// CompactionOutgoingInput supplies the final conversation input for policy acceptance.
+message CompactionOutgoingInput {
+  // The captured session identifier.
+  string session_id = 1;
+  // The captured session incarnation.
+  int64 session_incarnation = 2;
+  // The outgoing branch position, when present.
+  string active_leaf_id = 3;
+  // The frozen conversation model.
+  ModelDescriptor model = 4;
+  // The frozen reasoning choice.
+  string reasoning_choice = 5;
+  // The conversation instructions, including an empty string.
+  string instructions = 6;
+  // The available conversation tools.
+  repeated CompactionToolDefinition tools = 7;
+  // The outgoing history with private replay bytes excluded.
+  repeated CompactionHistoryRecord history = 8;
+}
+
 // CompactionPolicyInvocation supplies immutable conversation input and replacement authority.
 message CompactionPolicyInvocation {
   // The scoped authority for this policy operation.
@@ -281,6 +323,8 @@ message CompactionPolicyInvocation {
   repeated CompactionParticipant generator_participants = 15;
   // The captured result handlers in registration order.
   repeated CompactionParticipant result_participants = 16;
+  // The caller's preparation intent.
+  CompactionPolicyPurpose purpose = 17;
 }
 
 // CompactionParticipant identifies one captured compaction capability.
@@ -337,8 +381,8 @@ message CompactionPolicyResult {
   string error = 3;
   // Acquired original and last valid composed state, when available.
   CompactionPolicyState state = 2;
-  // Whether the policy canceled before replacement.
-  bool canceled = 1;
+  // The owner's completed decision, required on success.
+  CompactionPolicyDisposition disposition = 1;
 }
 
 // CompactionCandidateRequest supplies a complete candidate through scoped policy authority.

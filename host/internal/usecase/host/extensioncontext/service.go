@@ -88,8 +88,9 @@ var (
 	_ contextcompaction.ContextIssuer = (*Service)(nil)
 	// Service implements the model execution manual preparation contract.
 	_ modelexecution.ManualCompactionPreparation = (*Service)(nil)
-	_ modelexecution.ConversationObservations    = (*Service)(nil)
-	_ extensioncontroller.ContextOperations      = (*Service)(nil)
+	// Service captures the policy owner for conversation preparation and observation.
+	_ modelexecution.ConversationPolicies   = (*Service)(nil)
+	_ extensioncontroller.ContextOperations = (*Service)(nil)
 	// Service implements the controller policy authority contract.
 	_ extensioncontroller.CompactionPolicyOperations = (*Service)(nil)
 	_ extensionmodels.ContextValidator               = (*Service)(nil)

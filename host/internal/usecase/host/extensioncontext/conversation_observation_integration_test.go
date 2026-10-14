@@ -15,6 +15,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -43,7 +44,16 @@ func TestConversationObservationClassifiedSessionFailure(t *testing.T) {
 			sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 			policies.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner})
 			contexts := New(runtime, sessions)
-			contexts.BindManualPolicy(policies, NewMockCompactionSessions(controller), 5*time.Minute)
+			compactions := NewMockCompactionSessions(controller)
+			compactions.EXPECT().CaptureCompaction().Return(CompactionSnapshot{
+				Identity: identity, ActiveLeafID: mo.None[string](), Entries: nil,
+				History: nil, Previous: mo.None[session.CompactionEntry](),
+			})
+			policies.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{})
+			policies.EXPECT().
+				InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).
+				Return(PolicyPreserve, nil)
+			contexts.BindPolicy(policies, compactions, 5*time.Minute)
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			acquired := &ContextError{code: persistenceUnavailableCode, cause: context.Canceled}

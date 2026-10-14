@@ -76,7 +76,7 @@ func (s *policyResultSuite) TestSelectedAction() {
 		})
 	runtime.EXPECT().
 		InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+		DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			require.Equal(t, newParticipants([]contextcompaction.Handler{first, selected}), input.Results)
 			command := newPolicyResultCommand(input.OperationID, selected, 1)
 			response, err := service.InvokePolicyResult(ctx, captured.ExtensionID, binding.RuntimeInstanceID, command)
@@ -88,7 +88,7 @@ func (s *policyResultSuite) TestSelectedAction() {
 			default:
 				require.FailNow(t, "result children were not joined")
 			}
-			return true, nil
+			return PolicyCanceled, nil
 		})
 	// Act through manual operation ownership.
 	outcome, err := service.CompactManualPolicy(t.Context(), modelexecution.ProviderRequest{}, mo.None[string]())
@@ -116,7 +116,7 @@ func (s *policyResultSuite) TestMembership() {
 	)
 	runtime.EXPECT().
 		InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+		DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			for _, scenario := range []string{"authority", "caller", "runtime", "handler", "negative order", "outside order", "wrong kind"} {
 				t.Run(scenario, func(t *testing.T) {
 					command := newPolicyResultCommand(input.OperationID, handler, 0)
@@ -148,7 +148,7 @@ func (s *policyResultSuite) TestMembership() {
 					require.ErrorContains(t, err, want)
 				})
 			}
-			return true, nil
+			return PolicyCanceled, nil
 		})
 	// Act through the admitted parent.
 	_, err := service.CompactManualPolicy(t.Context(), modelexecution.ProviderRequest{}, mo.None[string]())
@@ -188,7 +188,7 @@ func (s *policyResultSuite) TestRetainedFailure() {
 		})
 	runtime.EXPECT().
 		InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+		DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			_, err := service.InvokePolicyResult(
 				ctx,
 				captured.ExtensionID,
@@ -197,7 +197,7 @@ func (s *policyResultSuite) TestRetainedFailure() {
 			)
 			require.ErrorIs(t, err, invokeCause)
 			require.ErrorIs(t, err, cleanupCause)
-			return false, err
+			return PolicyReplaced, err
 		})
 	// Act through the owning manual operation.
 	_, err := service.CompactManualPolicy(t.Context(), modelexecution.ProviderRequest{}, mo.None[string]())

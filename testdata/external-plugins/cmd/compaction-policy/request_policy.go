@@ -25,9 +25,8 @@ func (o *policyOperation) runRequestPolicy(
 		return o.attachAcquiredState(newPolicyFailure(err)), nil
 	}
 	if canceled {
-		response := new(extensionpb.HandleResponse)
-		response.SetCompactionPolicy(
-			extensionpb.CompactionPolicyResult_builder{Canceled: new(true), State: nil, Error: nil}.Build(),
+		response := newPolicyDecisionResponse(
+			extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED,
 		)
 		return o.attachAcquiredState(response), nil
 	}
@@ -44,9 +43,8 @@ func (o *policyOperation) replaceHistory(
 		return o.attachAcquiredState(newPolicyFailure(composeErr)), nil
 	}
 	if canceled {
-		response := new(extensionpb.HandleResponse)
-		response.SetCompactionPolicy(
-			extensionpb.CompactionPolicyResult_builder{Canceled: new(true), State: nil, Error: nil}.Build(),
+		response := newPolicyDecisionResponse(
+			extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED,
 		)
 		return o.attachAcquiredState(response), nil
 	}

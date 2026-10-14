@@ -96,7 +96,7 @@ func (s *admissionWireSuite) TestScenario() {
 	policy := extensioncontext.NewMockPolicyRuntime(mocks)
 	policy.EXPECT().SnapshotCompactionPolicies().Return([]extensioncontext.PolicyOwner{owner})
 	policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{})
-	contexts.BindManualPolicy(policy, sessionOwner, 5*time.Minute)
+	contexts.BindPolicy(policy, sessionOwner, 5*time.Minute)
 	cause := errors.New("original owner cause before controller admission")
 	parent, cancel := context.WithCancelCause(t.Context())
 	defer cancel(nil)
@@ -104,7 +104,7 @@ func (s *admissionWireSuite) TestScenario() {
 		func(
 			ctx context.Context, target extensioncontext.PolicyOwner,
 			binding extension.Context, invocation extensioncontext.PolicyInvocation,
-		) (bool, error) {
+		) (extensioncontext.PolicyDisposition, error) {
 			cancel(cause)
 			// The explicit live test invocation isolates admission from cancellation of the peer handler itself.
 			canceled, received := runtimes.InvokeCompactionPolicy(

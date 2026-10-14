@@ -56,7 +56,7 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 				// joined signals completion of the nested worker.
 				joined := make(chan struct{})
 				policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
+					func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (PolicyDisposition, error) {
 						if _, err := service.CommitPolicyReplacement(
 							ctx,
 							owner.ExtensionID,
@@ -64,7 +64,7 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 							invocation.OperationID,
 							candidate,
 						); err != nil {
-							return false, err
+							return PolicyReplaced, err
 						}
 						release, err := service.BeginCompactionChild(
 							owner.ExtensionID,
@@ -72,7 +72,7 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 							invocation.LifecycleID,
 						)
 						if err != nil {
-							return false, err
+							return PolicyReplaced, err
 						}
 						childContext, unlink := service.LinkCompactionChild(ctx, invocation.LifecycleID)
 						go func() {
@@ -84,7 +84,7 @@ func (s *manualPolicyOwnsNestedTeardownSuite) TestScenario() {
 							// Release parent ownership only after all observed worker work is complete.
 							release(cause)
 						}()
-						return false, nil
+						return PolicyReplaced, nil
 					},
 				)
 

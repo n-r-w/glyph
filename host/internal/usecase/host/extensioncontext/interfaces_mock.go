@@ -211,10 +211,10 @@ func (mr *MockPolicyRuntimeMockRecorder) InvokeCompactionGenerator(arg0, arg1, a
 }
 
 // InvokeCompactionPolicy mocks base method.
-func (m *MockPolicyRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 PolicyOwner, arg2 extension.Context, arg3 PolicyInvocation) (bool, error) {
+func (m *MockPolicyRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 PolicyOwner, arg2 extension.Context, arg3 PolicyInvocation) (PolicyDisposition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InvokeCompactionPolicy", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(bool)
+	ret0, _ := ret[0].(PolicyDisposition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -323,6 +323,20 @@ func (m *MockPolicyRuntime) SnapshotCompactionPolicies() []PolicyOwner {
 func (mr *MockPolicyRuntimeMockRecorder) SnapshotCompactionPolicies() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SnapshotCompactionPolicies", reflect.TypeOf((*MockPolicyRuntime)(nil).SnapshotCompactionPolicies))
+}
+
+// ValidateOutgoingInput mocks base method.
+func (m *MockPolicyRuntime) ValidateOutgoingInput(arg0 context.Context, arg1 PolicyOwner, arg2 extension.Context, arg3 OutgoingInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateOutgoingInput", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateOutgoingInput indicates an expected call of ValidateOutgoingInput.
+func (mr *MockPolicyRuntimeMockRecorder) ValidateOutgoingInput(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateOutgoingInput", reflect.TypeOf((*MockPolicyRuntime)(nil).ValidateOutgoingInput), arg0, arg1, arg2, arg3)
 }
 
 // MockCompactionSessions is a mock of CompactionSessions interface.

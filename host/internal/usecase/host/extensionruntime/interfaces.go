@@ -103,7 +103,14 @@ type ExtensionRuntime interface {
 	// ObserveConversation invokes the policy handler for a completed conversation.
 	ObserveConversation(context.Context, string, extension.Context, extensioncontext.ConversationObservation) error
 	// InvokeCompactionPolicy invokes one captured compaction policy capability.
-	InvokeCompactionPolicy(context.Context, string, extension.Context, extensioncontext.PolicyInvocation) (bool, error)
+	InvokeCompactionPolicy(
+		context.Context,
+		string,
+		extension.Context,
+		extensioncontext.PolicyInvocation,
+	) (extensioncontext.PolicyDisposition, error)
+	// ValidateOutgoingInput invokes the captured policy's final input check.
+	ValidateOutgoingInput(context.Context, string, extension.Context, extensioncontext.OutgoingInput) error
 	// ObserveLifecycle invokes one Agent Core lifecycle observer.
 	ObserveLifecycle(context.Context, string, LifecycleInvocation) error
 	// Execute invokes one tool operation.

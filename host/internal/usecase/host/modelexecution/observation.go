@@ -13,13 +13,13 @@ import (
 )
 
 // captureConversation captures the admitted policy owner.
-func (s *Service) captureConversation(ctx context.Context) (mo.Option[ConversationObservation], error) {
-	if s.observations == nil {
-		return mo.None[ConversationObservation](), errors.New("conversation observation dependency is unavailable")
+func (s *Service) captureConversation(ctx context.Context) (mo.Option[CapturedConversation], error) {
+	if s.policies == nil {
+		return mo.None[CapturedConversation](), errors.New("conversation policy dependency is unavailable")
 	}
-	observation, err := s.observations.CaptureConversationObservation()
+	observation, err := s.policies.CaptureConversation()
 	if err != nil {
-		return mo.None[ConversationObservation](), observationFailure(ctx, err, nil)
+		return mo.None[CapturedConversation](), observationFailure(ctx, err, nil)
 	}
 	return observation, nil
 }
@@ -37,7 +37,7 @@ type providerCompletion struct {
 // observe delivers the successful attempt to its admitted policy owner.
 func (completion providerCompletion) observe(
 	ctx context.Context,
-	observation mo.Option[ConversationObservation],
+	observation mo.Option[CapturedConversation],
 ) error {
 	outcome, present := completion.response.Outcome.Get()
 	if !present || (outcome != model.OutcomeStop && outcome != model.OutcomeToolUse && outcome != model.OutcomeLength) {
@@ -47,7 +47,7 @@ func (completion providerCompletion) observe(
 	if !captured {
 		return nil
 	}
-	if err := observe(ctx, completion.input, completion.response); err != nil {
+	if err := observe.Observe(ctx, completion.input, completion.response); err != nil {
 		return observationFailure(ctx, err, completion.causes)
 	}
 	return nil

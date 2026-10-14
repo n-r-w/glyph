@@ -187,10 +187,10 @@ func (mr *MockExtensionRuntimeMockRecorder) HandleCompactionResult(arg0, arg1, a
 }
 
 // InvokeCompactionPolicy mocks base method.
-func (m *MockExtensionRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.PolicyInvocation) (bool, error) {
+func (m *MockExtensionRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.PolicyInvocation) (extensioncontext.PolicyDisposition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InvokeCompactionPolicy", arg0, arg1, arg2, arg3)
-	ret0, _ := ret[0].(bool)
+	ret0, _ := ret[0].(extensioncontext.PolicyDisposition)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -270,6 +270,20 @@ func (m *MockExtensionRuntime) Register(ctx context.Context) (Registration, erro
 func (mr *MockExtensionRuntimeMockRecorder) Register(ctx any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Register", reflect.TypeOf((*MockExtensionRuntime)(nil).Register), ctx)
+}
+
+// ValidateOutgoingInput mocks base method.
+func (m *MockExtensionRuntime) ValidateOutgoingInput(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.OutgoingInput) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateOutgoingInput", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// ValidateOutgoingInput indicates an expected call of ValidateOutgoingInput.
+func (mr *MockExtensionRuntimeMockRecorder) ValidateOutgoingInput(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateOutgoingInput", reflect.TypeOf((*MockExtensionRuntime)(nil).ValidateOutgoingInput), arg0, arg1, arg2, arg3)
 }
 
 // MockRuntimeFactory is a mock of RuntimeFactory interface.

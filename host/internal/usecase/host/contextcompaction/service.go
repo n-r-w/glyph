@@ -48,7 +48,7 @@ type Service struct {
 
 var (
 	_ modelexecution.ConversationContext = (*Service)(nil)
-	_ modelexecution.ContextPreparation  = (*Service)(nil)
+	_ modelexecution.OverflowRecovery    = (*Service)(nil)
 )
 
 // New creates the context-compaction owner.

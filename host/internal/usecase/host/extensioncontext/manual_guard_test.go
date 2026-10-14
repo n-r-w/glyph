@@ -69,10 +69,10 @@ func (s *parentGuardSuite) TestScenario() {
 			return newManualTestReceipt(value), nil
 		})
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
+		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (PolicyDisposition, error) {
 			release, err := service.BeginCompactionChild(owner.ExtensionID, owner.RuntimeID, invocation.LifecycleID)
 			if err != nil {
-				return false, err
+				return PolicyReplaced, err
 			}
 			_, err = service.CommitPolicyReplacement(
 				t.Context(),
@@ -83,7 +83,7 @@ func (s *parentGuardSuite) TestScenario() {
 			)
 			release(err)
 			childReleased = true
-			return false, err
+			return PolicyReplaced, err
 		})
 	// Act through the owning manual operation.
 	result, err := service.CompactManualPolicy(parent, modelexecution.ProviderRequest{}, mo.None[string]())

@@ -63,7 +63,7 @@ func (s *manualPolicyRetainsReceiptAfterPolicyFailureSuite) TestScenario() {
 	service.policyRuntime = policy
 	service.compactionSessions = compactionSessions
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
+		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (PolicyDisposition, error) {
 			committed, err := service.CommitPolicyReplacement(
 				ctx,
 				owner.ExtensionID,
@@ -81,7 +81,7 @@ func (s *manualPolicyRetainsReceiptAfterPolicyFailureSuite) TestScenario() {
 				candidate,
 			)
 			require.ErrorContains(t, secondErr, "replacement already requested")
-			return false, policyCause
+			return PolicyReplaced, policyCause
 		},
 	)
 

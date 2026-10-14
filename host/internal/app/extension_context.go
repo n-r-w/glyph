@@ -22,7 +22,7 @@ func bindExtensionContexts(
 	participantTimeout time.Duration,
 ) *extensioncontext.Service {
 	contexts := extensioncontext.New(runtimes, sessions.active)
-	contexts.BindManualPolicy(runtimes, sessions.active, participantTimeout)
+	contexts.BindPolicy(runtimes, sessions.active, participantTimeout)
 	toolService.BindContextIssuer(contexts)
 	sessions.tree.BindContextIssuer(contexts)
 	return contexts

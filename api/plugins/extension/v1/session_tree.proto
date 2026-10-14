@@ -45,6 +45,8 @@ message HandleRequest {
     CompactionPolicyInvocation compaction_policy = 15;
     // A successful conversation attempt for the captured policy owner.
     CompletedConversationObservation completed_conversation = 17;
+    // The final outgoing input for the captured policy owner.
+    CompactionOutgoingInput compaction_outgoing_input = 18;
   }
 }
 
@@ -77,6 +79,8 @@ message HandleResponse {
     CompactionPolicyResult compaction_policy = 14;
     // The completed-conversation acknowledgement.
     CompactionObserverAction completed_conversation = 15;
+    // Acceptance of the final outgoing input.
+    CompactionObserverAction compaction_outgoing_input = 16;
   }
 }
 

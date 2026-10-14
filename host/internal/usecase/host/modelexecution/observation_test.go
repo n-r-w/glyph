@@ -21,12 +21,12 @@ import (
 )
 
 // newTestConversationObservations creates a mock for conversations without a policy owner.
-func newTestConversationObservations(t *testing.T) *MockConversationObservations {
+func newTestConversationObservations(t *testing.T) *MockConversationPolicies {
 	t.Helper()
-	observations := NewMockConversationObservations(gomock.NewController(t))
+	observations := NewMockConversationPolicies(gomock.NewController(t))
 	observations.EXPECT().
-		CaptureConversationObservation().
-		Return(mo.None[ConversationObservation](), nil).
+		CaptureConversation().
+		Return(mo.None[CapturedConversation](), nil).
 		AnyTimes()
 	return observations
 }
@@ -73,7 +73,7 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 				RecordCompletedConversationUsage(gomock.Any(), gomock.Any()).
 				AnyTimes().
 				Do(func(ProviderRequest, model.Response) { accountingWritten = true })
-			observations := NewMockConversationObservations(controller)
+			observations := NewMockConversationPolicies(controller)
 			selection := model.Selection{
 				Provider:        "provider",
 				Model:           "model",
@@ -131,9 +131,11 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 				Cause:          priorSecond,
 			}
 			observerCause := errors.New("original observer cause")
-			observations.EXPECT().
-				CaptureConversationObservation().
-				Return(mo.Some(ConversationObservation(func(_ context.Context, input ProviderRequest, actual model.Response) error {
+			captured := newTestPreservingCapture(t)
+			observations.EXPECT().CaptureConversation().Return(mo.Some[CapturedConversation](captured), nil)
+			captured.EXPECT().
+				Observe(gomock.Any(), gomock.Any(), gomock.Any()).
+				DoAndReturn(func(_ context.Context, input ProviderRequest, actual model.Response) error {
 					require.Equal(t, "original input", input.History[0].User.MustGet().Content[0].Text.MustGet())
 					require.Equal(t, response, actual)
 					if scenario.canceled {
@@ -141,7 +143,7 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 						return context.Cause(ctx)
 					}
 					return observerCause
-				})), nil)
+				})
 			calls := 0
 			provider.EXPECT().
 				Stream(gomock.Any(), gomock.Any(), gomock.Any()).AnyTimes().

@@ -122,8 +122,9 @@ func TestCanceledServerSendUsesActualConfirmationAtCollection(t *testing.T) {
 				newHandleRequest := func(id string) *extensionpb.OpenRequest {
 					payload := new(extensionpb.HostRequest)
 					payload.SetHandle(extensionpb.HandleRequest_builder{
-						CompletedConversation: nil,
-						CompactionRequest:     nil, CompactionGenerate: nil, CompactionResult: nil,
+						CompactionOutgoingInput: nil,
+						CompletedConversation:   nil,
+						CompactionRequest:       nil, CompactionGenerate: nil, CompactionResult: nil,
 						CompactionSuccess: nil, CompactionFailure: nil,
 						Retry:          nil,
 						ModelSelection: nil, ReasoningSelection: nil,

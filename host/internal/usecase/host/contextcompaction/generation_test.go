@@ -4,78 +4,15 @@ package contextcompaction
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
-
-// TestPrepareContextRejectsPostCommitGrowthAboveCapturedBudget verifies actual outbound history is re-estimated.
-func TestPrepareContextRejectsPostCommitGrowthAboveCapturedBudget(t *testing.T) {
-	t.Parallel()
-	// Arrange threshold compaction that commits before a success observer adds model-visible context.
-	controller := gomock.NewController(t)
-	sessions := NewMockSessionState(controller)
-	runtime := NewMockRuntime(controller)
-	contexts := NewMockContextIssuer(controller)
-	request := baselineRequest()
-	request.Model.ContextWindow = 10_000
-	request.Model.MaxTokens = 1_000
-	request.History = []agent.HistoryEntry{textHistory(strings.Repeat("oversized ", 5_000))}
-	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
-	entries := []session.Entry{
-		compactionUserEntry("u1", mo.None[string](), "old"),
-		compactionUserEntry("u2", mo.Some("u1"), "kept"),
-	}
-	before := Snapshot{
-		Identity: identity, ActiveLeafID: mo.Some("u2"), Entries: entries,
-		Context: request.History, Previous: mo.None[session.CompactionEntry](),
-	}
-	after := cloneSnapshot(before)
-	after.Context = []agent.HistoryEntry{textHistory(strings.Repeat("observer growth ", 5_000))}
-	sessions.EXPECT().CompactionSnapshot().Return(before)
-	sessions.EXPECT().CompactionSnapshot().Return(after)
-	sessions.EXPECT().ContextSession().Return(identity)
-	sessions.EXPECT().ProjectSuffix(gomock.Any(), gomock.Any()).Return(request.History, nil).AnyTimes()
-	handler := Handler{ExtensionID: "extension", RuntimeID: "runtime", HandlerID: "supply"}
-	runtime.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{
-		Requests: []Handler{handler}, Generators: nil, Results: nil, Successes: nil, Failures: nil,
-	})
-	expectCompactionContext(contexts, "extension")
-	ready := Result{
-		Summary: "summary", FirstKeptEntryID: "u2",
-		Source: session.CompactionSource{
-			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
-		},
-		Details: mo.None[[]byte](),
-	}
-	runtime.EXPECT().HandleCompactionRequest(gomock.Any(), handler, gomock.Any(), gomock.Any()).Return(
-		RequestAction{
-			Cancel: false, RequestAction: RequestActionPreserve, Request: mo.None[Request](),
-			ResultAction: ResultActionReplace, Result: mo.Some(ready),
-		}, nil,
-	)
-	sessions.EXPECT().ProjectCompaction(gomock.Any(), gomock.Any()).Return(
-		[]agent.HistoryEntry{textHistory("small compacted request")}, nil,
-	).AnyTimes()
-	committed := compactionMarkerEntry("compaction", "u2", ready)
-	sessions.EXPECT().CommitCompaction(gomock.Any(), identity, mo.Some("u2"), gomock.Any()).Return(committed, nil)
-	service := New(sessions)
-	require.NoError(t, service.BindOrchestration(runtime, contexts, 20_000))
-
-	// Act through the production threshold preparation entry point.
-	_, err := service.PrepareContext(t.Context(), request)
-
-	// Assert the durable marker remains committed but the known oversized projection is not returned for dispatch.
-	require.ErrorContains(t, err, "after compaction")
-	require.ErrorContains(t, err, "exceeds input budget")
-}
 
 // TestCompactResultClearingInvokesGenerator verifies clear composition removes a supplied ready result.
 func TestCompactResultClearingInvokesGenerator(t *testing.T) {

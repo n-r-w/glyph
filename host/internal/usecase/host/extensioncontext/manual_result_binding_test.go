@@ -51,14 +51,14 @@ func (s *policyResultSuite) TestChangedBinding() {
 				CaptureCompaction().
 				Return(CompactionSnapshot{Identity: identity, ActiveLeafID: mo.Some("leaf"), Entries: nil, History: nil, Previous: mo.None[session.CompactionEntry]()})
 			service := New(runtimes, sessions)
-			service.BindManualPolicy(runtime, snapshots, 5*time.Minute)
+			service.BindPolicy(runtime, snapshots, 5*time.Minute)
 			want := "captured result participant runtime or session changed"
 			if !available {
 				want = "unavailable"
 			}
 			runtime.EXPECT().
 				InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).
-				DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+				DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 					if scenario == "session" {
 						current.ID = "other-session"
 					}
@@ -72,7 +72,7 @@ func (s *policyResultSuite) TestChangedBinding() {
 						newPolicyResultCommand(input.OperationID, handler, 0),
 					)
 					require.ErrorContains(t, err, want)
-					return false, err
+					return PolicyReplaced, err
 				})
 			// Act through admitted manual policy ownership.
 			outcome, err := service.CompactManualPolicy(

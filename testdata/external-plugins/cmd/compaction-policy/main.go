@@ -113,6 +113,15 @@ func (s *policyService) PrepareHandle(
 	ctx context.Context,
 	request *extensionpb.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
+	if outgoing := request.GetCompactionOutgoingInput(); outgoing != nil {
+		if _, present := extensionsdk.FindCompactionPolicy(ctx); present {
+			return nil, extensionsdk.Reject(
+				invalidArgumentCode,
+				errors.New("outgoing input check received mutation authority"),
+			)
+		}
+		return &outgoingInputOperation{input: outgoing}, nil
+	}
 	if observation := request.GetCompletedConversation(); observation != nil {
 		if _, present := extensionsdk.FindCompactionPolicy(ctx); present {
 			return nil, extensionsdk.Reject(
@@ -254,7 +263,7 @@ func (o *policyOperation) completeReplacement(guidance string) *extensionpb.Hand
 		unavailableObserverGuidance = "lose-shared-owner-after-commit"
 		invalidStateGuidance        = "invalid-state-after-commit"
 		invalidStateCause           = "reference invalid diagnostic producer: original policy failure cause"
-		lostStateGuidance           = "lose-state-after-commit"
+		lostStateGuidance           = policyLoseAfterCommit
 		// lostStateExit identifies deliberate loss of the policy process after persistence.
 		lostStateExit   = 23
 		failureGuidance = "fail-after-commit"
@@ -271,9 +280,24 @@ func (o *policyOperation) completeReplacement(guidance string) *extensionpb.Hand
 	if guidance == failureGuidance {
 		return o.attachAcquiredState(newPolicyFailure(errors.New(failureCause)))
 	}
+	const (
+		// automaticPreserveAfterCommit names the scenario where the policy acknowledges preservation after mutation.
+		automaticPreserveAfterCommit = "preserve-after-commit"
+		// automaticCanceledAfter names the scenario where the policy ends preparation after mutation.
+		automaticCanceledAfter = "canceled-after"
+	)
+	disposition := extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_REPLACED
+	if o.policy.Input().GetPurpose() == extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC {
+		switch os.Getenv(automaticModeEnvironment) {
+		case automaticPreserveAfterCommit:
+			disposition = extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_PRESERVE
+		case automaticCanceledAfter:
+			disposition = extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED
+		}
+	}
 	response := new(extensionpb.HandleResponse)
 	response.SetCompactionPolicy(
-		extensionpb.CompactionPolicyResult_builder{State: nil, Error: nil, Canceled: new(false)}.Build(),
+		extensionpb.CompactionPolicyResult_builder{State: nil, Error: nil, Disposition: disposition.Enum()}.Build(),
 	)
 	return o.attachAcquiredState(response)
 }
@@ -286,7 +310,11 @@ func (o *policyOperation) attachAcquiredState(response *extensionpb.HandleRespon
 	failure := response.GetError().GetMessage()
 	result := response.GetCompactionPolicy()
 	if result == nil {
-		result = extensionpb.CompactionPolicyResult_builder{State: nil, Error: nil, Canceled: new(false)}.Build()
+		result = extensionpb.CompactionPolicyResult_builder{
+			State:       nil,
+			Error:       nil,
+			Disposition: extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_REPLACED.Enum(),
+		}.Build()
 		response.SetCompactionPolicy(result)
 	}
 	result.SetState(o.state)

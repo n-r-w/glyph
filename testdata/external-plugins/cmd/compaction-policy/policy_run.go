@@ -10,16 +10,26 @@ import (
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
-// Run executes one reference manual policy invocation.
+// Run selects the reference action for the captured invocation.
 func (o *policyOperation) Run(ctx context.Context) (*extensionpb.HandleResponse, error) {
+	input := o.policy.Input()
+	if input.GetPurpose() == extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC {
+		return o.runAutomatic(ctx, input)
+	}
+	return o.runReplacement(ctx, input)
+}
+
+// runReplacement commits the reference candidate through scoped authority.
+func (o *policyOperation) runReplacement(
+	ctx context.Context,
+	input *extensionpb.CompactionPolicyInvocation,
+) (*extensionpb.HandleResponse, error) {
 	const (
 		referenceSummary = "Reference policy replacement summary."
 		cancelGuidance   = "cancel-before-commit"
 		staleGuidance    = "change-branch-before-commit"
-		waitGuidance     = "wait-for-caller-cancel"
+		waitGuidance     = policyWaitBeforeCommit
 	)
-
-	input := o.policy.Input()
 	const admissionProbeGuidance = "request-after-parent-cancellation"
 	if input.GetUserInstructions() == admissionProbeGuidance {
 		return requestCanceledParentAdmission(ctx)
@@ -32,13 +42,12 @@ func (o *policyOperation) Run(ctx context.Context) (*extensionpb.HandleResponse,
 		return o.runRequestPolicy(ctx, input)
 	}
 	if input.GetUserInstructions() == cancelGuidance {
-		response := new(extensionpb.HandleResponse)
-		response.SetCompactionPolicy(
-			extensionpb.CompactionPolicyResult_builder{State: nil, Error: nil, Canceled: new(true)}.Build(),
+		response := newPolicyDecisionResponse(
+			extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED,
 		)
 		return o.attachAcquiredState(response), nil
 	}
-	boundary := findPolicyBoundary(input.GetEntries())
+	boundary := findReplacementBoundary(input)
 	if boundary == "" {
 		return o.attachAcquiredState(
 			newPolicyFailure(errors.New("reference policy requires an original user entry")),

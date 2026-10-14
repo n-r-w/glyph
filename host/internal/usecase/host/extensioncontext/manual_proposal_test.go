@@ -44,14 +44,14 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 		},
 	)
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
+		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (PolicyDisposition, error) {
 			release, err := service.BeginCompactionChild(
 				owner.ExtensionID,
 				owner.RuntimeID,
 				invocation.LifecycleID,
 			)
 			if err != nil {
-				return false, err
+				return PolicyReplaced, err
 			}
 			childContext, unlink := service.LinkCompactionChild(ctx, invocation.LifecycleID)
 			_, proposalErr := service.ProjectPolicyReplacement(
@@ -71,7 +71,7 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 				invocation.OperationID,
 				candidate,
 			)
-			return false, err
+			return PolicyReplaced, err
 		},
 	)
 

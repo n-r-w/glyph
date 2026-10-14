@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"strings"
 
 	"google.golang.org/protobuf/proto"
 
@@ -51,17 +52,41 @@ func (o *outcomeOperation) Run(ctx context.Context) (*extensionpb.HandleResponse
 		return newPolicyFailure(errors.New(observerCause)), nil
 	}
 	response := new(extensionpb.HandleResponse)
-	if o.outcome.GetCommitted() != nil && o.outcome.GetError() == "" {
-		if os.Getenv(conversationOverflowEnvironment) == fixtureEnabledValue {
-			if err := appendOverflowObservationMessage(ctx); err != nil {
-				return newPolicyFailure(err), nil
-			}
-		}
-		response.SetCompactionSuccess(new(extensionpb.CompactionObserverAction))
-	} else {
+	if o.outcome.GetCommitted() == nil || o.outcome.GetError() != "" {
 		response.SetCompactionFailure(new(extensionpb.CompactionObserverAction))
+		return response, nil
 	}
+	if err := appendOutcomeContext(ctx); err != nil {
+		return newPolicyFailure(err), nil
+	}
+	response.SetCompactionSuccess(new(extensionpb.CompactionObserverAction))
 	return response, nil
+}
+
+// appendOutcomeContext supplies model-visible growth after durable replacement.
+func appendOutcomeContext(ctx context.Context) error {
+	const (
+		// automaticOutcomeAppend is context added before the outgoing capture.
+		automaticOutcomeAppend = "automatic observer append"
+		// automaticObserverAppendEnvironment names the environment variable for adding visible context
+		// during outcome observation.
+		automaticObserverAppendEnvironment = "GLYPH_REFERENCE_AUTOMATIC_APPEND"
+	)
+	if os.Getenv(automaticObserverAppendEnvironment) == fixtureEnabledValue {
+		message := automaticOutcomeAppend
+		if os.Getenv(automaticModeEnvironment) == automaticRejectFinal {
+			const growthText = " observer growth "
+			const growthRepeats = 5_000
+			message += strings.Repeat(growthText, growthRepeats)
+		}
+		if err := appendAutomaticMessage(ctx, message); err != nil {
+			return err
+		}
+	}
+	if os.Getenv(conversationOverflowEnvironment) == fixtureEnabledValue {
+		return appendOverflowObservationMessage(ctx)
+	}
+	return nil
 }
 
 // Release completes ordinary outcome observation.
@@ -88,10 +113,12 @@ func newReferencePolicyState(
 			prefix = append(prefix, projected)
 		}
 	}
+	trigger := extensionpb.CompactionTrigger_COMPACTION_TRIGGER_MANUAL
+	if input.GetPurpose() == extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC {
+		trigger = extensionpb.CompactionTrigger_COMPACTION_TRIGGER_THRESHOLD
+	}
 	request := extensionpb.CompactionRequest_builder{
-		Trigger: new(
-			extensionpb.CompactionTrigger_COMPACTION_TRIGGER_MANUAL,
-		),
+		Trigger:         trigger.Enum(),
 		RetryIntent:     new(false),
 		Instructions:    new(input.GetUserInstructions()),
 		Model:           input.GetModel(),

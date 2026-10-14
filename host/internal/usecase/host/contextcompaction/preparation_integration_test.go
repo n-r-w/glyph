@@ -22,25 +22,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
-// TestModelExecutionUsesProductionThresholdCompaction verifies the actual preparation owner rebuilds provider history.
-func TestModelExecutionUsesProductionThresholdCompaction(t *testing.T) {
-	t.Parallel()
-	// Arrange actual compaction and model-execution services with mocked external boundaries.
-	harness := newPreparationHarness(t, strings.Repeat("oversized ", 5_000), "small compacted request")
-	harness.provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, request modelexecution.ProviderRequest, handle modelexecution.StreamHandler) error {
-			require.Equal(t, "small compacted request", request.History[0].User.MustGet().Text(""))
-			return emitPreparationTerminal(handle)
-		},
-	)
-
-	// Act through the production logical model-execution boundary.
-	err := harness.execution.Stream(t.Context(), harness.agentRequest, func(agentrun.StreamEvent) error { return nil })
-
-	// Assert threshold preparation committed and dispatched only the rebuilt compacted projection.
-	require.NoError(t, err)
-}
-
 // TestModelExecutionOverflowRecoveryRejectsPostCommitGrowth verifies recovery never dispatches known oversized context.
 func TestModelExecutionOverflowRecoveryRejectsPostCommitGrowth(t *testing.T) {
 	t.Parallel()
@@ -185,13 +166,23 @@ func newPreparationHarness(t *testing.T, initialText string, rebuiltText string)
 	sessions.EXPECT().CommitCompaction(gomock.Any(), identity, mo.Some("kept"), gomock.Any()).Return(committed, nil)
 	compactor := contextcompaction.New(sessions)
 	require.NoError(t, compactor.BindOrchestration(runtime, contexts, 20_000))
-	observations := modelexecution.NewMockConversationObservations(controller)
+	captured := modelexecution.NewMockCapturedConversation(controller)
+	captured.EXPECT().
+		Prepare(gomock.Any(), gomock.Any()).
+		DoAndReturn(func(
+			_ context.Context, input modelexecution.ProviderRequest,
+		) (modelexecution.ConversationPreparation, error) {
+			return modelexecution.ConversationPreparation{History: input.History, Committed: false}, nil
+		})
+	captured.EXPECT().Observe(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	observations := modelexecution.NewMockConversationPolicies(controller)
 	observations.EXPECT().
-		CaptureConversationObservation().
-		Return(mo.None[modelexecution.ConversationObservation](), nil)
+		CaptureConversation().
+		Return(mo.Some[modelexecution.CapturedConversation](captured), nil)
 	execution := modelexecution.New(catalog, compactor, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
 	}, nil, retryOutput, observations)
+	require.NoError(t, execution.BindOverflowRecovery(compactor))
 	return preparationHarness{
 		execution: execution, provider: provider, retryOutput: retryOutput,
 		agentRequest: agentrun.ModelRequest{
@@ -236,19 +227,4 @@ func preparationEntry(id string, parentID mo.Option[string], text string) sessio
 		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		Compaction: mo.None[session.CompactionEntry](),
 	}
-}
-
-// emitPreparationTerminal emits one complete successful raw provider response.
-func emitPreparationTerminal(handle modelexecution.StreamHandler) error {
-	return handle(modelexecution.StreamEvent{
-		Kind: modelexecution.StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](),
-		Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
-		ToolCall: mo.None[model.ToolCall](),
-		Response: mo.Some(model.Response{
-			Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
-			Provider: mo.Some(model.ProviderID("provider")), Model: mo.Some(model.ID("model")),
-			ResponseModel: mo.None[model.ID](), ResponseID: mo.None[string](),
-			Usage: mo.None[model.Usage](), Diagnostics: nil,
-		}),
-	})
 }

@@ -22,10 +22,10 @@ func (r *Runtime) InvokeCompactionPolicy(
 	handlerID string,
 	binding extension.Context,
 	invocation extensioncontext.PolicyInvocation,
-) (bool, error) {
+) (extensioncontext.PolicyDisposition, error) {
 	input, err := mapPolicyInvocation(invocation, binding.RuntimeInstanceID)
 	if err != nil {
-		return false, fmt.Errorf("map compaction policy input: %w", err)
+		return 0, fmt.Errorf("map compaction policy input: %w", err)
 	}
 	request := new(extensionpb.HandleRequest)
 	request.SetHandlerId(handlerID)
@@ -33,12 +33,15 @@ func (r *Runtime) InvokeCompactionPolicy(
 	request.SetParentCompactionId(invocation.LifecycleID)
 	request.SetCompactionPolicy(input)
 	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if response == nil || response.GetError() != nil {
-		return false, err
+	if response == nil {
+		return 0, err
 	}
 	result := response.GetCompactionPolicy()
 	if result == nil {
-		return false, errors.Join(err, r.protocolViolation(errors.New("compaction policy response is missing")))
+		if err != nil {
+			return 0, err
+		}
+		return 0, r.protocolViolation(errors.New("compaction policy response is missing"))
 	}
 	if result.GetError() != "" {
 		err = errors.Join(err, newOrdinaryHandlerError(result.GetError()))
@@ -46,14 +49,24 @@ func (r *Runtime) InvokeCompactionPolicy(
 	if rawState := result.GetState(); rawState != nil {
 		acquired, stateErr := mapPolicyStateFromProto(rawState)
 		if stateErr != nil {
-			return result.GetCanceled(), errors.Join(err, stateErr)
+			err = errors.Join(err, stateErr)
+		} else {
+			invocation.RecordState(acquired)
 		}
-		invocation.RecordState(acquired)
+	}
+	switch result.GetDisposition() {
+	case extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_PRESERVE:
+		return extensioncontext.PolicyPreserve, err
+	case extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_REPLACED:
+		return extensioncontext.PolicyReplaced, err
+	case extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED:
+		return extensioncontext.PolicyCanceled, err
+	case extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_UNSPECIFIED:
 	}
 	if err != nil {
-		return result.GetCanceled(), err
+		return 0, err
 	}
-	return result.GetCanceled(), nil
+	return 0, r.protocolViolation(errors.New("compaction policy disposition is unspecified or unknown"))
 }
 
 // mapPolicyInvocation encodes immutable input without private replay payloads.
@@ -61,6 +74,15 @@ func mapPolicyInvocation(
 	invocation extensioncontext.PolicyInvocation,
 	runtimeID string,
 ) (*extensionpb.CompactionPolicyInvocation, error) {
+	var purpose extensionpb.CompactionPolicyPurpose
+	switch invocation.Purpose {
+	case extensioncontext.PolicyPurposeManual:
+		purpose = extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_MANUAL
+	case extensioncontext.PolicyPurposeAutomatic:
+		purpose = extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC
+	default:
+		return nil, errors.New("compaction policy purpose is unspecified or unknown")
+	}
 	snapshot := invocation.Snapshot
 	if snapshot.Identity.Incarnation > math.MaxInt64 {
 		return nil, errors.New("session incarnation exceeds the policy input range")
@@ -146,6 +168,7 @@ func mapPolicyInvocation(
 		RequestParticipants:   participants,
 		GeneratorParticipants: generators,
 		ResultParticipants:    results,
+		Purpose:               purpose.Enum(),
 	}.Build(), nil
 }
 

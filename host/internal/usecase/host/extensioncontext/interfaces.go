@@ -87,6 +87,8 @@ type PolicyOwner struct {
 
 // PolicyInvocation supplies the immutable input and scoped replacement authority.
 type PolicyInvocation struct {
+	// Purpose identifies manual or automatic preparation.
+	Purpose PolicyPurpose
 	// OperationID identifies the parent replacement operation.
 	OperationID string
 	// LifecycleID identifies the non-authorizing parent lifetime.
@@ -151,7 +153,9 @@ type PolicyRuntime interface {
 	// SnapshotCompactionPolicies captures registered policy generations.
 	SnapshotCompactionPolicies() []PolicyOwner
 	// InvokeCompactionPolicy invokes the captured policy handler.
-	InvokeCompactionPolicy(context.Context, PolicyOwner, extension.Context, PolicyInvocation) (bool, error)
+	InvokeCompactionPolicy(context.Context, PolicyOwner, extension.Context, PolicyInvocation) (PolicyDisposition, error)
+	// ValidateOutgoingInput asks the captured owner to accept frozen conversation input.
+	ValidateOutgoingInput(context.Context, PolicyOwner, extension.Context, OutgoingInput) error
 }
 
 // CompactionSessions supplies session capture, candidate projection, and durable replacement.

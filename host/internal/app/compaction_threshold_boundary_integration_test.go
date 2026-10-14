@@ -5,6 +5,8 @@ package app
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -39,14 +41,12 @@ func (s *thresholdBoundarySuite) TestScenario() {
 		selectionOperation = "threshold-model"
 		nextOperation      = "threshold-next"
 		storedOperation    = "threshold-stored"
-		// compactOwner identifies the registered automatic result producer.
-		compactOwner = "01-compact"
-		providerID   = "openai-codex"
+		providerID         = "openai-codex"
 		// modelID identifies the smaller context-capacity model.
 		modelID     = "gpt-test"
-		failureCode = "EXTENSION_FAILED"
+		failureCode = "COMPACTION_FAILED"
 	)
-	// Arrange real tool-call history and a registered automatic handler that splits its boundary.
+	// Arrange real tool-call history and a policy owner that selects a split boundary.
 	const modelMarker = "- id: gpt-test"
 	at := strings.Index(configuredRequestSettings, modelMarker)
 	require.Positive(t, at)
@@ -58,7 +58,12 @@ func (s *thresholdBoundarySuite) TestScenario() {
 	paths := testPaths(t, settings)
 	writeProgrammaticCredentials(t, paths)
 	directory := buildToolsExecutable(t)
-	writeHandlerFixtureScript(t, directory, compactOwner, handlerFixtureCompactionSupplyMode, "")
+	policyDirectory := buildManualPolicyFixture(t)
+	policyExecutable, err := os.ReadFile(filepath.Join(policyDirectory, manualFixtureReferencePolicy))
+	require.NoError(t, err)
+	require.NoError(t, os.WriteFile(filepath.Join(directory, manualFixtureReferencePolicy), policyExecutable, 0o755))
+	t.Setenv(automaticFixtureModeEnvironment, automaticFixtureSplitBoundaryMode)
+	t.Setenv(automaticFixtureTargetEnvironment, "next request")
 	count := &atomic.Int32{}
 	previous := http.DefaultTransport
 	http.DefaultTransport = newDeterministicCodexTransport(t, count, nil)
@@ -80,17 +85,12 @@ func (s *thresholdBoundarySuite) TestScenario() {
 		}.Build())
 	})
 
-	// Act by requesting conversation work that triggers threshold preparation before provider execution.
+	// Act by submitting conversation work so the captured policy owner proposes a replacement before provider execution.
 	require.NoError(t, fixture.stream.Send(userRequest(nextOperation, "next request")))
-	var message string
-	for message == "" {
-		response, err := fixture.stream.Recv()
-		require.NoError(t, err)
-		if response.GetOperationId() == nextOperation && response.GetEvent().GetFailed() != nil {
-			require.Equal(t, failureCode, response.GetEvent().GetFailed().GetCode())
-			message = response.GetEvent().GetFailed().GetMessage()
-		}
-	}
+	terminal := receiveAutomaticTerminal(t, fixture, nextOperation).GetEvent()
+	require.NotNil(t, terminal.GetFailed(), automaticUnexpectedTerminalFormat, terminal)
+	require.Equal(t, failureCode, terminal.GetFailed().GetCode())
+	message := terminal.GetFailed().GetMessage()
 
 	// Assert that Host retains the specific split boundary cause and adds no replacement.
 	require.Contains(t, message, "compaction boundary cannot separate a tool call from its result")

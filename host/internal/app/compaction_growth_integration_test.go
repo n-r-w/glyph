@@ -30,20 +30,14 @@ import (
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
-// TestPreparationRetainsCommitAndRejectsRealObserverContextGrowth verifies the assembled threshold path.
-func TestPreparationRetainsCommitAndRejectsRealObserverContextGrowth(t *testing.T) {
-	t.Parallel()
-	runRealObserverContextGrowth(t, false)
-}
-
 // TestRecoveryRetainsCommitAndRejectsRealObserverContextGrowth verifies the assembled overflow path.
 func TestRecoveryRetainsCommitAndRejectsRealObserverContextGrowth(t *testing.T) {
 	t.Parallel()
-	runRealObserverContextGrowth(t, true)
+	runRealObserverContextGrowth(t)
 }
 
 // runRealObserverContextGrowth exercises real commit and observer append through one automatic entry point.
-func runRealObserverContextGrowth(t *testing.T, recoverOverflow bool) {
+func runRealObserverContextGrowth(t *testing.T) {
 	t.Helper()
 	// Arrange a real session owner and public extension that appends visible context from its success observer.
 	controller := gomock.NewController(t)
@@ -113,11 +107,7 @@ func runRealObserverContextGrowth(t *testing.T, recoverOverflow bool) {
 	}
 
 	// Act through production compaction, real commit, public observer append, and final sizing.
-	if recoverOverflow {
-		_, err = compactor.RecoverOverflow(t.Context(), request)
-	} else {
-		_, err = compactor.PrepareContext(t.Context(), request)
-	}
+	_, err = compactor.RecoverOverflow(t.Context(), request)
 
 	// Assert the durable marker and observer append remain while the oversized outbound request is rejected.
 	require.ErrorContains(t, err, "after compaction")

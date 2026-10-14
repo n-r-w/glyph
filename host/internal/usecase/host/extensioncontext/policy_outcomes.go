@@ -3,10 +3,8 @@ package extensioncontext
 
 import (
 	"context"
-	"crypto/rand"
 	"errors"
 	"fmt"
-	"sync"
 
 	"github.com/samber/mo"
 
@@ -15,8 +13,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
-// finishManualOutcome publishes terminal state and retains all acquired failure causes.
-func (s *Service) finishManualOutcome(
+// finishPolicyOutcome publishes captured compaction outcomes and retains acquired failure causes.
+func (s *Service) finishPolicyOutcome(
 	ctx context.Context,
 	handlers contextcompaction.HandlerSet,
 	state mo.Option[contextcompaction.PolicyState],
@@ -57,47 +55,21 @@ func (s *Service) finishManualOutcome(
 				handler.RuntimeID,
 			), cause, policyCauses, acquiredCauses)
 		}
-		// lifetimeID correlates nested observer work without mutation authority.
-		lifetimeID := rand.Text()
-		parent, cancel := context.WithCancel(ctx)
-		operation := &compactionOperation{
-			authorityID: "",
-			lifecycleID: lifetimeID,
-			owner: PolicyOwner{
-				ExtensionID: handler.ExtensionID,
-				RuntimeID:   handler.RuntimeID,
-				HandlerID:   handler.HandlerID,
-			},
-			snapshot:             CompactionSnapshot{},
-			requests:             nil,
-			generators:           nil,
-			results:              nil,
-			context:              parent,
-			cancel:               cancel,
-			mutex:                sync.Mutex{},
-			children:             sync.WaitGroup{},
-			closed:               false,
-			replacementRequested: false,
-			receipt:              mo.None[session.Entry](),
-			causes:               nil,
-			terminalError:        nil,
-			state:                mo.None[contextcompaction.PolicyState](),
-		}
-		s.mutex.Lock()
-		s.compactionOperations[lifetimeID] = operation
-		s.mutex.Unlock()
-		outcome.ParentCompactionID = mo.Some(lifetimeID)
+		operation := s.newLifetime(ctx, PolicyOwner{
+			ExtensionID: handler.ExtensionID, RuntimeID: handler.RuntimeID, HandlerID: handler.HandlerID,
+		})
+		outcome.ParentCompactionID = mo.Some(operation.lifecycleID)
 		outcome.State = state.MapValue(contextcompaction.PolicyState.Clone)
 		outcome.Committed = result.Committed.MapValue(session.Entry.Clone)
 		if failure {
-			err = s.policyRuntime.ObserveCompactionFailure(parent, handler, binding, outcome)
+			err = s.policyRuntime.ObserveCompactionFailure(operation.context, handler, binding, outcome)
 		} else {
-			err = s.policyRuntime.ObserveCompactionSuccess(parent, handler, binding, outcome)
+			err = s.policyRuntime.ObserveCompactionSuccess(operation.context, handler, binding, outcome)
 		}
 		_, acquiredErr, terminalErr := operation.finish()
 		acquiredCauses = errors.Join(acquiredCauses, acquiredErr)
 		s.mutex.Lock()
-		delete(s.compactionOperations, lifetimeID)
+		delete(s.compactionOperations, operation.lifecycleID)
 		s.mutex.Unlock()
 		err = errors.Join(err, terminalErr)
 		if err != nil {

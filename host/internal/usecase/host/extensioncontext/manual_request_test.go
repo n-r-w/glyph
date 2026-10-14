@@ -99,7 +99,7 @@ func (s *policyRequestInvocationSuite) TestSelectedActionAndAuthority() {
 			},
 		)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (bool, error) {
+		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			require.Equal(t, newParticipants(handlers), input.Requests)
 			command := newPolicyRequestCommand(input.OperationID, handlers[1], 1)
 			response, err := service.InvokePolicyRequest(ctx, captured.ExtensionID, bound.RuntimeInstanceID, command)
@@ -112,7 +112,7 @@ func (s *policyRequestInvocationSuite) TestSelectedActionAndAuthority() {
 			require.Equal(t, "initial request", command.Original.Instructions.MustGet())
 			require.Equal(t, "initial request", command.Current.Instructions.MustGet())
 			require.True(t, command.CurrentResult.IsSome(), "Host must return rather than apply the action")
-			return true, nil
+			return PolicyCanceled, nil
 		},
 	)
 	// Act through the admitted policy operation.
@@ -139,7 +139,7 @@ func (s *policyRequestInvocationSuite) TestAuthorityAndMembershipRejection() {
 		},
 	)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (bool, error) {
+		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			cases := []struct {
 				name       string
 				mutate     func(*extensioncontroller.CompactionRequestCommand)
@@ -203,7 +203,7 @@ func (s *policyRequestInvocationSuite) TestAuthorityAndMembershipRejection() {
 				// Assert rejection before any dispatch.
 				assert.Error(t, err, testCase.name)
 			}
-			return true, nil
+			return PolicyCanceled, nil
 		},
 	)
 	// Act through the owning operation.
@@ -258,7 +258,7 @@ func (s *policyRequestInvocationSuite) TestHandledNestedCause() {
 			},
 		)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (bool, error) {
+		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			// Act through one participant and then a terminal policy failure.
 			_, err := service.InvokePolicyRequest(
 				ctx,
@@ -267,7 +267,7 @@ func (s *policyRequestInvocationSuite) TestHandledNestedCause() {
 				newPolicyRequestCommand(input.OperationID, handler, 0),
 			)
 			require.NoError(t, err, "handled child failure must not fail a valid participant action")
-			return false, terminalCause
+			return PolicyReplaced, terminalCause
 		},
 	)
 	// Act through the owning policy operation.
@@ -305,9 +305,9 @@ func (s *policyRequestInvocationSuite) TestUnavailableCapturedGeneration() {
 		CaptureCompaction().
 		Return(CompactionSnapshot{Identity: identity, ActiveLeafID: mo.Some("leaf"), Entries: nil, History: nil, Previous: mo.None[session.CompactionEntry]()})
 	service := New(runtimeState, sessions)
-	service.BindManualPolicy(runtime, snapshots, 5*time.Minute)
+	service.BindPolicy(runtime, snapshots, 5*time.Minute)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (bool, error) {
+		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			_, err := service.InvokePolicyRequest(
 				ctx,
 				captured.ExtensionID,
@@ -315,7 +315,7 @@ func (s *policyRequestInvocationSuite) TestUnavailableCapturedGeneration() {
 				newPolicyRequestCommand(input.OperationID, handler, 0),
 			)
 			assert.ErrorContains(t, err, "captured request participant runtime or session changed")
-			return false, err
+			return PolicyReplaced, err
 		},
 	)
 	// Act through the owning operation without an expectation for participant dispatch.

@@ -41,6 +41,7 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 	}.Build(), nil)
 	registration.EXPECT().Release()
 	input := extensionpb.CompactionPolicyInvocation_builder{
+		Purpose:            extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_MANUAL.Enum(),
 		OperationId:        new("parent"),
 		SessionId:          new("session"),
 		SessionIncarnation: new(int64(1)),
@@ -93,5 +94,9 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 	policyResult := completed.GetHandle().GetCompactionPolicy()
 	require.NotNil(t, policyResult)
 	require.Empty(t, policyResult.GetError())
-	require.False(t, policyResult.GetCanceled())
+	require.Equal(
+		t,
+		extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_REPLACED,
+		policyResult.GetDisposition(),
+	)
 }

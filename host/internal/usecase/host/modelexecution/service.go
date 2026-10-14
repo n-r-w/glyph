@@ -43,12 +43,12 @@ var (
 type Service struct {
 	// catalog resolves logical model selections to raw provider bindings.
 	catalog CatalogResolver
-	// conversationContext records internal usage for subsequent conversation preparation.
+	// conversationContext records usage for remaining legacy overflow accounting.
 	conversationContext ConversationContext
-	// observations captures the admitted policy owner.
-	observations ConversationObservations
-	// contextPreparation owns threshold and overflow mutation for agent requests only.
-	contextPreparation ContextPreparation
+	// policies captures preparation and observation for the admitted owner.
+	policies ConversationPolicies
+	// overflow supplies legacy overflow recovery.
+	overflow OverflowRecovery
 	// retryPolicy contains validated persistent policy values.
 	retryPolicy RetryPolicy
 	// retryEnabled contains process-local runtime enablement.
@@ -84,40 +84,37 @@ func New(
 	retryPolicy RetryPolicy,
 	retryHandlers RetryHandlers,
 	retryOutput RetryOutput,
-	observations ConversationObservations,
+	policies ConversationPolicies,
 ) *Service {
 	policy := retryPolicy
 	policy.Delays = append([]time.Duration(nil), retryPolicy.Delays...)
 	service := &Service{
-		catalog: catalog, conversationContext: conversationContext, observations: observations, contextPreparation: nil,
+		catalog: catalog, conversationContext: conversationContext, policies: policies, overflow: nil,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
 		manualPreparation: nil, manualTools: nil, manualInstructions: "",
-	}
-	if preparation, ok := conversationContext.(ContextPreparation); ok {
-		service.contextPreparation = preparation
 	}
 	service.retryEnabled.Store(policy.Enabled)
 	return service
 }
 
-// BindContextPreparation connects active-conversation preparation without affecting configured requests.
-func (s *Service) BindContextPreparation(preparation ContextPreparation) error {
-	if s.contextPreparation != nil {
-		return errors.New("context preparation is already bound")
+// BindOverflowRecovery connects legacy overflow recovery.
+func (s *Service) BindOverflowRecovery(recovery OverflowRecovery) error {
+	if s.overflow != nil {
+		return errors.New("overflow recovery is already bound")
 	}
-	if preparation == nil {
-		return errors.New("context preparation is required")
+	if recovery == nil {
+		return errors.New("overflow recovery is required")
 	}
-	s.contextPreparation = preparation
+	s.overflow = recovery
 	return nil
 }
 
-// overflowRecovery returns the agent-only overflow callback when preparation is connected.
-func (s *Service) overflowRecovery() overflowRecoveryHandler {
-	if s.contextPreparation == nil {
+// overflowRecovery supplies the legacy callback for an admitted owner.
+func (s *Service) overflowRecovery(hasOwner bool) overflowRecoveryHandler {
+	if !hasOwner || s.overflow == nil {
 		return nil
 	}
-	return s.contextPreparation.RecoverOverflow
+	return s.overflow.RecoverOverflow
 }
 
 // SetRetryEnabled changes process-local enablement for later logical executions.
@@ -159,7 +156,7 @@ func (s *Service) Stream(
 	request agentrun.ModelRequest,
 	handle agentrun.StreamHandler,
 ) error {
-	observation, err := s.captureConversation(ctx)
+	captured, err := s.captureConversation(ctx)
 	if err != nil {
 		return err
 	}
@@ -183,7 +180,7 @@ func (s *Service) Stream(
 		Instructions: request.Instructions, Model: binding.Model, ReasoningChoice: binding.ReasoningChoice,
 		History: ownedHistory, Tools: request.Tools,
 	}
-	providerRequest, err = s.prepareProviderContext(ctx, providerRequest)
+	providerRequest, err = s.prepareProviderContext(ctx, providerRequest, captured)
 	if err != nil {
 		return err
 	}
@@ -213,11 +210,11 @@ func (s *Service) Stream(
 		},
 		errModelStreamTerminalMissingResponse,
 		modelStreamMissingTerminalMessage,
-		s.overflowRecovery(),
+		s.overflowRecovery(captured.IsSome()),
 	)
 	response := completion.response
 	if err == nil {
-		err = completion.observe(ctx, observation)
+		err = completion.observe(ctx, captured)
 	}
 	if err != nil {
 		if response.Outcome.IsSome() {
@@ -246,16 +243,23 @@ func (s *Service) Stream(
 	return nil
 }
 
-// prepareProviderContext runs optional threshold preparation and preserves typed compaction failures.
-func (s *Service) prepareProviderContext(ctx context.Context, request ProviderRequest) (ProviderRequest, error) {
-	if s.contextPreparation == nil {
+// prepareProviderContext obtains policy-selected history for provider dispatch.
+func (s *Service) prepareProviderContext(
+	ctx context.Context,
+	request ProviderRequest,
+	capture mo.Option[CapturedConversation],
+) (ProviderRequest, error) {
+	owner, present := capture.Get()
+	if !present {
 		return request, nil
 	}
-	prepared, err := s.contextPreparation.PrepareContext(ctx, request)
+	frozen := request.cloneBinding()
+	prepared, err := owner.Prepare(ctx, frozen)
 	if err == nil {
-		return prepared, nil
+		request.History = prepared.History
+		return request, nil
 	}
-	if isPureOwningCancellation(ctx, err) {
+	if !prepared.Committed && isPureOwningCancellation(ctx, err) {
 		return ProviderRequest{}, joinOwningContextCause(ctx, err)
 	}
 	wrapped := fmt.Errorf("prepare conversation context: %w", joinOwningContextCause(ctx, err))
@@ -320,6 +324,13 @@ func (request ProviderRequest) clone() (ProviderRequest, error) {
 	if err != nil {
 		return ProviderRequest{}, fmt.Errorf("clone provider request history: %w", err)
 	}
+	cloned := request.cloneBinding()
+	cloned.History = history
+	return cloned, nil
+}
+
+// cloneBinding detaches model and tool definitions while retaining the caller's history.
+func (request ProviderRequest) cloneBinding() ProviderRequest {
 	tools := make([]tool.Descriptor, len(request.Tools))
 	for index := range request.Tools {
 		tools[index] = request.Tools[index]
@@ -327,8 +338,8 @@ func (request ProviderRequest) clone() (ProviderRequest, error) {
 	}
 	return ProviderRequest{
 		Instructions: request.Instructions, Model: request.Model.Clone(), ReasoningChoice: request.ReasoningChoice,
-		History: history, Tools: tools,
-	}, nil
+		History: request.History, Tools: tools,
+	}
 }
 
 // missingTerminalFailure classifies one incomplete raw provider attempt without selecting retry policy.

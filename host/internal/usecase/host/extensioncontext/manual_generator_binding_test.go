@@ -64,13 +64,13 @@ func (s *policyGeneratorSuite) TestChangedBinding() {
 				Previous:     mo.None[session.CompactionEntry](),
 			})
 			service := New(runtimeState, sessions)
-			service.BindManualPolicy(runtime, snapshots, 5*time.Minute)
+			service.BindPolicy(runtime, snapshots, 5*time.Minute)
 			want := "captured generator participant runtime or session changed"
 			if !available {
 				want = "unavailable"
 			}
 			runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-				func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+				func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 					if scenario == "session ID" {
 						current.ID = "other-session"
 					}
@@ -84,7 +84,7 @@ func (s *policyGeneratorSuite) TestChangedBinding() {
 						newPolicyGeneratorCommand(input.OperationID, handler, 0),
 					)
 					require.ErrorContains(t, err, want)
-					return false, err
+					return PolicyReplaced, err
 				},
 			)
 			// Act through the admitted policy operation without an expectation for generator dispatch.

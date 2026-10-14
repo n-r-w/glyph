@@ -11,13 +11,14 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
-// BindManualPolicy supplies runtime invocation and durable replacement services.
-func (s *Service) BindManualPolicy(
+// BindPolicy supplies runtime invocation and durable replacement services.
+func (s *Service) BindPolicy(
 	runtime PolicyRuntime,
 	sessions CompactionSessions,
 	participantTimeout time.Duration,
@@ -36,20 +37,18 @@ func (s *Service) CompactManualPolicy(
 	result = modelexecution.ManualCompactionResult{Committed: mo.None[session.Entry](), Canceled: false}
 	// Use the observer generations captured at admission for terminal delivery.
 	handlers := s.policyRuntime.SnapshotCompactionHandlers()
-	requests := newParticipants(handlers.Requests)
-	generators := newParticipants(handlers.Generators)
-	results := newParticipants(handlers.Results)
-	state := mo.None[contextcompaction.PolicyState]()
-	// Keep handled child failures for a later terminal failure.
-	var acquiredCauses error
+	notified := false
 	defer func() {
-		terminalCause = s.finishManualOutcome(
+		if notified {
+			return
+		}
+		terminalCause = s.finishPolicyOutcome(
 			ctx,
 			handlers,
-			state,
+			mo.None[contextcompaction.PolicyState](),
 			result,
 			terminalCause,
-			acquiredCauses,
+			nil,
 		)
 	}()
 	owners := s.policyRuntime.SnapshotCompactionPolicies()
@@ -72,6 +71,47 @@ func (s *Service) CompactManualPolicy(
 		incarnation != snapshot.Identity.Incarnation {
 		return result, errors.New("captured compaction policy runtime or session changed before invocation")
 	}
+	notified = true
+	result, _, terminalCause = s.runPolicy(
+		ctx,
+		owner,
+		bound,
+		snapshot,
+		handlers,
+		PolicyPurposeManual,
+		input,
+		instructions,
+	)
+	return result, terminalCause
+}
+
+// runPolicy owns one captured composition invocation and its outcome delivery.
+func (s *Service) runPolicy(
+	ctx context.Context,
+	owner PolicyOwner,
+	bound extension.Context,
+	snapshot CompactionSnapshot,
+	handlers contextcompaction.HandlerSet,
+	purpose PolicyPurpose,
+	input modelexecution.ProviderRequest,
+	instructions mo.Option[string],
+) (result modelexecution.ManualCompactionResult, disposition PolicyDisposition, terminalCause error) {
+	result = modelexecution.ManualCompactionResult{Committed: mo.None[session.Entry](), Canceled: false}
+	requests := newParticipants(handlers.Requests)
+	generators := newParticipants(handlers.Generators)
+	results := newParticipants(handlers.Results)
+	state := mo.None[contextcompaction.PolicyState]()
+	var acquiredCauses error
+	defer func() {
+		if purpose == PolicyPurposeAutomatic && disposition == PolicyPreserve && result.Committed.IsNone() &&
+			terminalCause == nil {
+			return
+		}
+		terminalCause = s.finishPolicyOutcome(ctx, handlers, state, result, terminalCause, acquiredCauses)
+		if purpose == PolicyPurposeAutomatic && result.Canceled && terminalCause == nil {
+			terminalCause = errors.Join(errors.New("compaction policy canceled automatic preparation"), acquiredCauses)
+		}
+	}()
 	// operationID identifies the policy mutation authority.
 	operationID := rand.Text()
 	// lifecycleID identifies the nested-work lifetime.
@@ -101,7 +141,7 @@ func (s *Service) CompactManualPolicy(
 	s.compactionOperations[lifecycleID] = operation
 	s.mutex.Unlock()
 	invocation := PolicyInvocation{
-		OperationID:  operationID,
+		Purpose: purpose, OperationID: operationID,
 		LifecycleID:  lifecycleID,
 		Snapshot:     snapshot,
 		Requests:     requests,
@@ -110,7 +150,8 @@ func (s *Service) CompactManualPolicy(
 		Input:        input,
 		Instructions: instructions, RecordState: operation.recordState,
 	}
-	canceled, policyErr := s.policyRuntime.InvokeCompactionPolicy(parentContext, owner, bound, invocation)
+	var policyErr error
+	disposition, policyErr = s.policyRuntime.InvokeCompactionPolicy(parentContext, owner, bound, invocation)
 	committed, acquiredErr, terminalErr := operation.finish()
 	acquiredCauses = acquiredErr
 	state = operation.diagnosticState()
@@ -120,7 +161,7 @@ func (s *Service) CompactManualPolicy(
 	s.mutex.Unlock()
 	result.Committed = committed
 	_, hasReceipt := committed.Get()
-	result.Canceled = canceled && !hasReceipt
+	result.Canceled = disposition == PolicyCanceled && !hasReceipt
 	if policyErr != nil {
 		policyErr = fmt.Errorf(
 			"invoke compaction policy %q generation %q: %w",
@@ -130,14 +171,9 @@ func (s *Service) CompactManualPolicy(
 		)
 	}
 	terminalErr = errors.Join(policyErr, terminalErr, ctx.Err(), context.Cause(ctx))
-	if canceled && hasReceipt {
-		terminalErr = errors.Join(terminalErr, errors.New("compaction policy canceled after durable replacement"))
-	}
-	if !hasReceipt && !canceled && terminalErr == nil {
-		terminalErr = errors.New("compaction policy finished without replacement or cancellation")
-	}
+	terminalErr = errors.Join(terminalErr, disposition.validateCompletion(purpose, hasReceipt, terminalErr))
 	if terminalErr != nil {
-		return result, terminalErr
+		return result, disposition, terminalErr
 	}
-	return result, nil
+	return result, disposition, nil
 }

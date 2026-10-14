@@ -86,7 +86,7 @@ func (s *policyGeneratorSuite) TestSelectedResult() {
 			},
 		)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+		func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			require.Equal(t, newParticipants([]contextcompaction.Handler{first, selected}), input.Generators)
 			command := newPolicyGeneratorCommand(input.OperationID, selected, 1)
 			command.Current.Instructions = mo.Some("final request")
@@ -101,7 +101,7 @@ func (s *policyGeneratorSuite) TestSelectedResult() {
 			default:
 				require.FailNow(t, "generator child was not joined")
 			}
-			return true, nil
+			return PolicyCanceled, nil
 		},
 	)
 	// Act through the admitted manual operation.
@@ -121,7 +121,7 @@ func (s *policyGeneratorSuite) TestMembership() {
 		Requests: nil, Generators: []contextcompaction.Handler{handler}, Results: nil, Successes: nil, Failures: nil,
 	})
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+		func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 			for _, scenario := range []string{
 				"authority", "caller", "extension", "runtime", "handler", "negative order", "outside order",
 			} {
@@ -156,7 +156,7 @@ func (s *policyGeneratorSuite) TestMembership() {
 					require.ErrorContains(t, err, want)
 				})
 			}
-			return true, nil
+			return PolicyCanceled, nil
 		},
 	)
 	// Act through the owning policy operation.
@@ -235,7 +235,7 @@ func (s *policyGeneratorSuite) TestDeadline() {
 						},
 					)
 				runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+					func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 						_, err := service.InvokePolicyGenerator(
 							ctx,
 							captured.ExtensionID,
@@ -243,7 +243,7 @@ func (s *policyGeneratorSuite) TestDeadline() {
 							newPolicyGeneratorCommand(input.OperationID, handler, 0),
 						)
 						require.True(t, joined)
-						return false, err
+						return PolicyReplaced, err
 					},
 				)
 				// Act through manual policy ownership under the fake clock.

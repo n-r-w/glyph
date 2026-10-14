@@ -292,6 +292,10 @@ func (o *referenceRequestOperation) newSecondRequestAction() (*extensionpb.Compa
 	}
 	replacement := proto.CloneOf(original)
 	replacement.SetInstructions(referenceRequestSecondInstruction)
+	if original.GetTrigger() == extensionpb.CompactionTrigger_COMPACTION_TRIGGER_THRESHOLD {
+		const summaryModelID = "gpt-test"
+		replacement.GetModel().SetModelId(summaryModelID)
+	}
 	action.SetRequestAction(extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE)
 	action.SetRequest(replacement)
 	return action, nil

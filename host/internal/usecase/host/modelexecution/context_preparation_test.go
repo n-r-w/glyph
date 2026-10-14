@@ -25,17 +25,17 @@ func TestServicePreparesInitialConversationContext(t *testing.T) {
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
 	observer := NewMockConversationContext(controller)
-	preparation := NewMockContextPreparation(controller)
+	preparation := NewMockCapturedConversation(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
 	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 	}, nil)
 	preparedHistory := []agent.HistoryEntry{textHistoryEntry("compacted")}
-	preparation.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, request ProviderRequest) (ProviderRequest, error) {
+	preparation.EXPECT().Prepare(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request ProviderRequest) (ConversationPreparation, error) {
 			request.History = preparedHistory
-			return request, nil
+			return ConversationPreparation{History: request.History, Committed: false}, nil
 		},
 	)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -45,8 +45,7 @@ func TestServicePreparesInitialConversationContext(t *testing.T) {
 		},
 	)
 	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any())
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
-	service.BindContextPreparation(preparation)
+	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestCapturedPolicies(t, preparation))
 
 	// Act through the active-conversation stream.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -66,17 +65,16 @@ func TestServicePreservesTypedPreparationFailure(t *testing.T) {
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
 	observer := NewMockConversationContext(controller)
-	preparation := NewMockContextPreparation(controller)
+	preparation := NewMockCapturedConversation(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
 	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 	}, nil)
-	preparation.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).Return(
-		ProviderRequest{}, typedPreparationFailure{cause: errors.New("extension failed")},
+	preparation.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(
+		ConversationPreparation{}, typedPreparationFailure{cause: errors.New("extension failed")},
 	)
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
-	service.BindContextPreparation(preparation)
+	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestCapturedPolicies(t, preparation))
 
 	// Act before provider dispatch.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -115,12 +113,17 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 	for _, testCase := range []struct {
 		name         string
 		mixed        bool
+		committed    bool
 		expectedCode mo.Option[string]
 	}{
-		{name: "pure owning cancellation", mixed: false, expectedCode: mo.None[string]()},
+		{name: "pure owning cancellation", mixed: false, committed: false, expectedCode: mo.None[string]()},
 		{
-			name: "typed failure with concurrent cancellation", mixed: true,
+			name: "typed failure with concurrent cancellation", mixed: true, committed: false,
 			expectedCode: mo.Some(string(FailureExtensionFailed)),
+		},
+		{
+			name: "owning cancellation after durable replacement", mixed: false, committed: true,
+			expectedCode: mo.Some(string(FailureCompactionFailed)),
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -130,7 +133,7 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 			catalog := NewMockCatalogResolver(controller)
 			provider := NewMockProviderAttempt(controller)
 			observer := NewMockConversationContext(controller)
-			preparation := NewMockContextPreparation(controller)
+			preparation := NewMockCapturedConversation(controller)
 			output := NewMockRetryOutput(controller)
 			selection := model.Selection{
 				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
@@ -142,19 +145,23 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 			callerCause := errors.New("user canceled initial preparation")
 			independentCause := errors.New("extension failed during initial preparation")
 			ctx, cancel := context.WithCancelCause(t.Context())
-			preparation.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(_ context.Context, _ ProviderRequest) (ProviderRequest, error) {
+			preparation.EXPECT().Prepare(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, _ ProviderRequest) (ConversationPreparation, error) {
 					cancel(callerCause)
 					if testCase.mixed {
-						return ProviderRequest{}, typedPreparationFailure{cause: independentCause}
+						return ConversationPreparation{
+							History:   nil,
+							Committed: testCase.committed,
+						}, typedPreparationFailure{
+							cause: independentCause,
+						}
 					}
-					return ProviderRequest{}, callerCause
+					return ConversationPreparation{History: nil, Committed: testCase.committed}, callerCause
 				},
 			)
 			service := New(catalog, observer, RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-			}, nil, output, newTestConversationObservations(t))
-			service.BindContextPreparation(preparation)
+			}, nil, output, newTestCapturedPolicies(t, preparation))
 
 			// Act through the full initial context-preparation owner.
 			err := service.Stream(ctx, agentrun.ModelRequest{
@@ -162,8 +169,9 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 				History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
 			}, func(_ agentrun.StreamEvent) error { return nil })
 
-			// Assert pure cancellation is untyped and mixed failure retains category and every cause.
+			// Assert pre-commit owning cancellation stays untyped while committed or independent failures retain causes.
 			require.ErrorIs(t, err, callerCause)
+			require.ErrorContains(t, err, callerCause.Error())
 			failure, found := errors.AsType[interface {
 				error
 				FailureCode() string
@@ -171,7 +179,11 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 			if expected, present := testCase.expectedCode.Get(); present {
 				require.True(t, found)
 				require.Equal(t, expected, failure.FailureCode())
-				require.ErrorIs(t, err, independentCause)
+				if testCase.mixed {
+					require.ErrorIs(t, err, independentCause)
+				} else {
+					require.NotErrorIs(t, err, independentCause)
+				}
 			} else {
 				require.False(t, found)
 				require.NotErrorIs(t, err, independentCause)
@@ -188,24 +200,21 @@ func TestServiceDisabledRetryClassifiesOverflowWithBoundRecovery(t *testing.T) {
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
 	observer := NewMockConversationContext(controller)
-	preparation := NewMockContextPreparation(controller)
+	preparation := NewMockOverflowRecovery(controller)
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
 	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 	}, nil)
-	preparation.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, request ProviderRequest) (ProviderRequest, error) { return request, nil },
-	)
 	providerCause := errors.New("provider context overflow with retry disabled")
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
 		Classification: ProviderFailureContextOverflow, RetryDelay: mo.None[time.Duration](), Cause: providerCause,
 	})
 	service := New(catalog, observer, RetryPolicy{
 		Enabled: false, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-	}, nil, output, newTestConversationObservations(t))
-	service.BindContextPreparation(preparation)
+	}, nil, output, newTestPreservingPolicies(t))
+	service.BindOverflowRecovery(preparation)
 
 	// Act through the full model-execution owner.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -253,7 +262,7 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			catalog := NewMockCatalogResolver(controller)
 			provider := NewMockProviderAttempt(controller)
 			observer := NewMockConversationContext(controller)
-			preparation := NewMockContextPreparation(controller)
+			preparation := NewMockOverflowRecovery(controller)
 			output := NewMockRetryOutput(controller)
 			selection := model.Selection{
 				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
@@ -262,9 +271,6 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
 				Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 			}, nil)
-			preparation.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(_ context.Context, request ProviderRequest) (ProviderRequest, error) { return request, nil },
-			)
 			providerCause := errors.New("handled provider context overflow")
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
 				Classification: ProviderFailureContextOverflow,
@@ -287,8 +293,8 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			)
 			service := New(catalog, observer, RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-			}, nil, output, newTestConversationObservations(t))
-			service.BindContextPreparation(preparation)
+			}, nil, output, newTestPreservingPolicies(t))
+			service.BindOverflowRecovery(preparation)
 
 			// Act through the complete model-execution owner.
 			err := service.Stream(ctx, agentrun.ModelRequest{
@@ -328,16 +334,13 @@ func TestServiceRecoversOneOverflowWithinRetryAllowance(t *testing.T) {
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
 	observer := NewMockConversationContext(controller)
-	preparation := NewMockContextPreparation(controller)
+	preparation := NewMockOverflowRecovery(controller)
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
 	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 	}, nil)
-	preparation.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, request ProviderRequest) (ProviderRequest, error) { return request, nil },
-	)
 	changed := []agent.HistoryEntry{textHistoryEntry("summary"), textHistoryEntry("suffix")}
 	preparation.EXPECT().RecoverOverflow(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ProviderRequest) (ProviderRequest, error) {
@@ -365,8 +368,8 @@ func TestServiceRecoversOneOverflowWithinRetryAllowance(t *testing.T) {
 	)
 	service := New(catalog, observer, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-	}, nil, output, newTestConversationObservations(t))
-	service.BindContextPreparation(preparation)
+	}, nil, output, newTestPreservingPolicies(t))
+	service.BindOverflowRecovery(preparation)
 
 	// Act through one logical agent request.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{

@@ -46,13 +46,13 @@ func (s *manualPolicyUsesOneCapturedSessionSuite) TestScenario() {
 	compactionSessions.EXPECT().CaptureCompaction().Return(snapshot)
 	cause := errors.New("captured runtime became unavailable: original transport cause")
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, actualOwner PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
+		func(ctx context.Context, actualOwner PolicyOwner, bound extension.Context, invocation PolicyInvocation) (PolicyDisposition, error) {
 			require.Equal(t, owner, actualOwner)
 			require.Equal(t, owner.RuntimeID, bound.RuntimeInstanceID)
 			require.NotEmpty(t, invocation.OperationID)
 			require.Equal(t, snapshot, invocation.Snapshot)
 			require.Equal(t, mo.Some("manual guidance"), invocation.Instructions)
-			return false, cause
+			return PolicyReplaced, cause
 		},
 	)
 	service := New(runtime, sessions)

@@ -10,26 +10,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
-// PrepareContext checks the initial request against its captured input budget.
-func (s *Service) PrepareContext(
-	ctx context.Context,
-	request modelexecution.ProviderRequest,
-) (modelexecution.ProviderRequest, error) {
-	owned := cloneProviderRequest(request)
-	estimate, err := s.EstimateContext(owned)
-	if err != nil {
-		return modelexecution.ProviderRequest{}, fmt.Errorf("estimate conversation context: %w", err)
-	}
-	inputBudget := owned.Model.ContextWindow - owned.Model.MaxTokens
-	if inputBudget < 0 {
-		return modelexecution.ProviderRequest{}, errors.New("model response budget exceeds its context window")
-	}
-	if estimate <= inputBudget {
-		return owned, nil
-	}
-	return s.compactAndRebuild(ctx, TriggerThreshold, mo.None[string](), false, owned)
-}
-
 // RecoverOverflow compacts one provider-rejected request before a changed replacement attempt.
 func (s *Service) RecoverOverflow(
 	ctx context.Context,

@@ -181,7 +181,11 @@ func runScopedPolicyHandler(
 	}
 	response := new(extensionpb.HandleResponse)
 	response.SetCompactionPolicy(
-		extensionpb.CompactionPolicyResult_builder{State: nil, Error: nil, Canceled: new(false)}.Build(),
+		extensionpb.CompactionPolicyResult_builder{
+			State:       nil,
+			Error:       nil,
+			Disposition: extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_REPLACED.Enum(),
+		}.Build(),
 	)
 	return response, nil
 }

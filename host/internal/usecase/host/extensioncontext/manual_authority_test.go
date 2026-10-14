@@ -27,7 +27,7 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 	// Arrange one admitted policy invocation.
 	service, policy, owner := newManualPolicyOperationFixture(t)
 	policy.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (bool, error) {
+		func(ctx context.Context, target PolicyOwner, bound extension.Context, invocation PolicyInvocation) (PolicyDisposition, error) {
 			assert.NotEmpty(t, invocation.LifecycleID)
 			assert.NotEqual(t, invocation.OperationID, invocation.LifecycleID)
 			mistakenRelease, err := service.BeginCompactionChild(
@@ -45,7 +45,7 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 				invocation.LifecycleID,
 			)
 			if err != nil {
-				return false, errors.Join(errors.New("separate lifetime correlation is unavailable"), err)
+				return PolicyReplaced, errors.Join(errors.New("separate lifetime correlation is unavailable"), err)
 			}
 			runContext := context.WithValue(ctx, struct{}{}, "Run context value")
 			childContext, unlink := service.LinkCompactionChild(runContext, invocation.LifecycleID)
@@ -53,7 +53,7 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 			assert.NoError(t, childContext.Err())
 			unlink()
 			release(nil)
-			return true, nil
+			return PolicyCanceled, nil
 		},
 	)
 
@@ -95,6 +95,6 @@ func newManualPolicyOperationFixture(
 		Previous:     mo.None[session.CompactionEntry](),
 	})
 	service := New(runtime, sessions)
-	service.BindManualPolicy(policy, compactionSessions, 5*time.Minute)
+	service.BindPolicy(policy, compactionSessions, 5*time.Minute)
 	return service, policy, owner
 }

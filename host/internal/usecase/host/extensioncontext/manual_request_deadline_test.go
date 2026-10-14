@@ -107,7 +107,7 @@ func (s *policyRequestDeadlineSuite) TestScenario() {
 						},
 					)
 				runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
-					func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (bool, error) {
+					func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 						_, err := service.InvokePolicyRequest(
 							ctx,
 							captured.ExtensionID,
@@ -115,7 +115,7 @@ func (s *policyRequestDeadlineSuite) TestScenario() {
 							newPolicyRequestCommand(input.OperationID, handler, 0),
 						)
 						require.True(t, childJoined)
-						return false, err
+						return PolicyReplaced, err
 					},
 				)
 				// Act through the owning manual operation.

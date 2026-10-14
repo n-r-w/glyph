@@ -14,7 +14,6 @@ import (
 	reflect "reflect"
 
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
-	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -183,45 +182,6 @@ func (mr *MockConversationContextMockRecorder) RecordCompletedConversationUsage(
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordCompletedConversationUsage", reflect.TypeOf((*MockConversationContext)(nil).RecordCompletedConversationUsage), request, response)
 }
 
-// MockConversationObservations is a mock of ConversationObservations interface.
-type MockConversationObservations struct {
-	ctrl     *gomock.Controller
-	recorder *MockConversationObservationsMockRecorder
-	isgomock struct{}
-}
-
-// MockConversationObservationsMockRecorder is the mock recorder for MockConversationObservations.
-type MockConversationObservationsMockRecorder struct {
-	mock *MockConversationObservations
-}
-
-// NewMockConversationObservations creates a new mock instance.
-func NewMockConversationObservations(ctrl *gomock.Controller) *MockConversationObservations {
-	mock := &MockConversationObservations{ctrl: ctrl}
-	mock.recorder = &MockConversationObservationsMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockConversationObservations) EXPECT() *MockConversationObservationsMockRecorder {
-	return m.recorder
-}
-
-// CaptureConversationObservation mocks base method.
-func (m *MockConversationObservations) CaptureConversationObservation() (mo.Option[ConversationObservation], error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CaptureConversationObservation")
-	ret0, _ := ret[0].(mo.Option[ConversationObservation])
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// CaptureConversationObservation indicates an expected call of CaptureConversationObservation.
-func (mr *MockConversationObservationsMockRecorder) CaptureConversationObservation() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CaptureConversationObservation", reflect.TypeOf((*MockConversationObservations)(nil).CaptureConversationObservation))
-}
-
 // MockContextPreparationFailure is a mock of ContextPreparationFailure interface.
 type MockContextPreparationFailure struct {
 	ctrl     *gomock.Controller
@@ -272,60 +232,6 @@ func (m *MockContextPreparationFailure) Error() string {
 func (mr *MockContextPreparationFailureMockRecorder) Error() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockContextPreparationFailure)(nil).Error))
-}
-
-// MockContextPreparation is a mock of ContextPreparation interface.
-type MockContextPreparation struct {
-	ctrl     *gomock.Controller
-	recorder *MockContextPreparationMockRecorder
-	isgomock struct{}
-}
-
-// MockContextPreparationMockRecorder is the mock recorder for MockContextPreparation.
-type MockContextPreparationMockRecorder struct {
-	mock *MockContextPreparation
-}
-
-// NewMockContextPreparation creates a new mock instance.
-func NewMockContextPreparation(ctrl *gomock.Controller) *MockContextPreparation {
-	mock := &MockContextPreparation{ctrl: ctrl}
-	mock.recorder = &MockContextPreparationMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockContextPreparation) EXPECT() *MockContextPreparationMockRecorder {
-	return m.recorder
-}
-
-// PrepareContext mocks base method.
-func (m *MockContextPreparation) PrepareContext(arg0 context.Context, arg1 ProviderRequest) (ProviderRequest, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "PrepareContext", arg0, arg1)
-	ret0, _ := ret[0].(ProviderRequest)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// PrepareContext indicates an expected call of PrepareContext.
-func (mr *MockContextPreparationMockRecorder) PrepareContext(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContext", reflect.TypeOf((*MockContextPreparation)(nil).PrepareContext), arg0, arg1)
-}
-
-// RecoverOverflow mocks base method.
-func (m *MockContextPreparation) RecoverOverflow(arg0 context.Context, arg1 ProviderRequest) (ProviderRequest, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecoverOverflow", arg0, arg1)
-	ret0, _ := ret[0].(ProviderRequest)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RecoverOverflow indicates an expected call of RecoverOverflow.
-func (mr *MockContextPreparationMockRecorder) RecoverOverflow(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverOverflow", reflect.TypeOf((*MockContextPreparation)(nil).RecoverOverflow), arg0, arg1)
 }
 
 // MockCatalogResolver is a mock of CatalogResolver interface.

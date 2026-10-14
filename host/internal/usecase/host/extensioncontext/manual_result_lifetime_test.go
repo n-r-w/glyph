@@ -81,14 +81,14 @@ func (s *policyResultSuite) TestDeadline() {
 					})
 				runtime.EXPECT().
 					InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).
-					DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (bool, error) {
+					DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
 						_, err := service.InvokePolicyResult(
 							ctx,
 							captured.ExtensionID,
 							binding.RuntimeInstanceID,
 							newPolicyResultCommand(input.OperationID, handler, 0),
 						)
-						return false, err
+						return PolicyReplaced, err
 					})
 				// Act through manual ownership under the fake clock.
 				outcome, err := service.CompactManualPolicy(caller, modelexecution.ProviderRequest{}, mo.None[string]())

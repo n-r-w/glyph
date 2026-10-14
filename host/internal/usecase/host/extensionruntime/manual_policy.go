@@ -10,6 +10,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
+// capturedPolicyUnavailableFormat identifies an unavailable captured policy generation.
+const capturedPolicyUnavailableFormat = "%w: compaction policy %q generation %q is unavailable"
+
 // SnapshotCompactionPolicies captures registered policy generations in registration order.
 func (s *Service) SnapshotCompactionPolicies() []extensioncontext.PolicyOwner {
 	s.mutex.RLock()
@@ -23,17 +26,17 @@ func (s *Service) InvokeCompactionPolicy(
 	policy extensioncontext.PolicyOwner,
 	binding extension.Context,
 	invocation extensioncontext.PolicyInvocation,
-) (bool, error) {
+) (extensioncontext.PolicyDisposition, error) {
 	owner, available := s.beginOperation(policy.ExtensionID, policy.RuntimeID)
 	if !available {
-		return false, fmt.Errorf(
-			"%w: compaction policy %q generation %q is unavailable",
+		return 0, fmt.Errorf(
+			capturedPolicyUnavailableFormat,
 			ErrExtensionUnavailable,
 			policy.ExtensionID,
 			policy.RuntimeID,
 		)
 	}
-	canceled, err := owner.state.runtime.InvokeCompactionPolicy(ctx, policy.HandlerID, binding, invocation)
+	disposition, err := owner.state.runtime.InvokeCompactionPolicy(ctx, policy.HandlerID, binding, invocation)
 	s.finishAndReport(ctx, owner, err)
-	return canceled, err
+	return disposition, err
 }
