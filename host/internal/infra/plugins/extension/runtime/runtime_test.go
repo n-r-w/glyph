@@ -110,7 +110,7 @@ func TestFactoryRuntimeSurvivesStartupContextCancellation(t *testing.T) {
 		runtimeHelperEnvironment,
 		os.Args[0],
 	)
-	require.NoError(t, os.WriteFile(scriptPath, []byte(script), 0o700))
+	require.NoError(t, writeRuntimeExecutable(scriptPath, script))
 	startupContext, cancelStartup := context.WithCancel(t.Context())
 
 	// Act: start the runtime and cancel only its startup context.
