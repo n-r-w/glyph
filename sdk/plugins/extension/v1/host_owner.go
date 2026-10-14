@@ -33,9 +33,9 @@ func (d *hostDelivery) Running(id string) error {
 	event.SetRunning(new(operationpb.Running))
 	err := d.connection.writer.Enqueue(hostEventEnvelope(id, event), nil)
 	if err != nil {
-		d.connection.fail(mapDeliveryError(err))
+		return d.connection.sendError(err)
 	}
-	return err
+	return nil
 }
 
 // Progress publishes one configured-model retry progress event.
@@ -48,9 +48,9 @@ func (d *hostDelivery) Progress(id string, progress *extensionpb.HostProgress) e
 	event.SetProgress(progress)
 	err := d.connection.writer.Enqueue(hostEventEnvelope(id, event), nil)
 	if err != nil {
-		d.connection.fail(mapDeliveryError(err))
+		return d.connection.sendError(err)
 	}
-	return err
+	return nil
 }
 
 // Terminal publishes the result or complete closed-category failure.
@@ -93,9 +93,9 @@ func (d *hostDelivery) terminalFailure(cause error) (*operation.Acknowledgement,
 func (d *hostDelivery) send(id string, event *extensionpb.HostEvent) (*operation.Acknowledgement, error) {
 	ack, err := d.connection.writer.EnqueueAcknowledged(hostEventEnvelope(id, event), nil)
 	if err != nil {
-		d.connection.fail(mapDeliveryError(err))
+		return ack, d.connection.sendError(err)
 	}
-	return ack, err
+	return ack, nil
 }
 
 // hostEventEnvelope constructs an event in the extension initiator namespace.

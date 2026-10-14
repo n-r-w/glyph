@@ -42,7 +42,14 @@ type Connection interface {
 	// Cancel stops the actual RPC stream before transport-dependent cleanup joins.
 	Cancel()
 	CloseSend() error
-	AttachOutput(context.Context, func(error)) (*operation.Writer[*uiv1.OpenRequest], OperationOutput)
+	// AttachOutput binds ordered output to receive resolution and the shared request half-close.
+	// The receiver closes the supplied signal; the caller supplies an idempotent request half-close.
+	AttachOutput(
+		context.Context,
+		<-chan struct{},
+		func() error,
+		func(error),
+	) (*operation.Writer[*uiv1.OpenRequest], OperationOutput)
 	ClearOutput()
 }
 

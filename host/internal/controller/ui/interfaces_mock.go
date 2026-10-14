@@ -253,18 +253,18 @@ func (m *MockConnection) EXPECT() *MockConnectionMockRecorder {
 }
 
 // AttachOutput mocks base method.
-func (m *MockConnection) AttachOutput(arg0 context.Context, arg1 func(error)) (*operation.Writer[*uiv1.OpenRequest], OperationOutput) {
+func (m *MockConnection) AttachOutput(arg0 context.Context, arg1 <-chan struct{}, arg2 func() error, arg3 func(error)) (*operation.Writer[*uiv1.OpenRequest], OperationOutput) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "AttachOutput", arg0, arg1)
+	ret := m.ctrl.Call(m, "AttachOutput", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*operation.Writer[*uiv1.OpenRequest])
 	ret1, _ := ret[1].(OperationOutput)
 	return ret0, ret1
 }
 
 // AttachOutput indicates an expected call of AttachOutput.
-func (mr *MockConnectionMockRecorder) AttachOutput(arg0, arg1 any) *gomock.Call {
+func (mr *MockConnectionMockRecorder) AttachOutput(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachOutput", reflect.TypeOf((*MockConnection)(nil).AttachOutput), arg0, arg1)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AttachOutput", reflect.TypeOf((*MockConnection)(nil).AttachOutput), arg0, arg1, arg2, arg3)
 }
 
 // Cancel mocks base method.

@@ -85,6 +85,8 @@ type Connection struct {
 	completionFailures error
 	// writerDone reports completion of the writer goroutine.
 	writerDone chan error
+	// receiveResolved marks the definitive receive outcome before owned work joins.
+	receiveResolved chan struct{}
 	// receiveDone reports completion of the receive goroutine.
 	receiveDone chan error
 	// closeOnce limits normal closure to one caller.
@@ -140,14 +142,13 @@ func (c *Client) Open(ctx context.Context) (*Connection, error) {
 		completionErr:      nil,
 		completionFailures: nil,
 		writerDone:         make(chan error, 1),
+		receiveResolved:    make(chan struct{}),
 		receiveDone:        make(chan error, 1),
 		closeOnce:          sync.Once{},
 	}
 	connection.writer = operation.NewWriter(func(request *extensionpb.OpenRequest) error {
 		if sendErr := stream.Send(request); sendErr != nil {
-			mapped := mapStreamError(sendErr)
-			connection.fail(mapped)
-			return mapped
+			return connection.sendError(sendErr)
 		}
 		return nil
 	})
@@ -159,7 +160,8 @@ func (c *Client) Open(ctx context.Context) (*Connection, error) {
 	go func() { writerResult <- connection.writer.Run(streamContext) }()
 	go func() {
 		writerErr := <-writerResult
-		if writerErr != nil && !errors.Is(writerErr, context.Canceled) {
+		if writerErr != nil && !errors.Is(writerErr, context.Canceled) &&
+			(!errors.Is(writerErr, io.EOF) || !isTransportClosureOnly(writerErr)) {
 			connection.fail(writerErr)
 		}
 		connection.writerDone <- writerErr
@@ -197,9 +199,7 @@ func (c *Connection) Start(
 		OperationId: new(id), Request: request, Close: nil,
 	}.Build()
 	if err = c.writer.Enqueue(message, nil); err != nil {
-		mapped := mapDeliveryError(err)
-		c.fail(mapped)
-		return nil, fmt.Errorf("queue extension operation %q: %w", id, mapped)
+		return nil, fmt.Errorf("queue extension operation %q: %w", id, c.sendError(err))
 	}
 	return &Operation{connection: c, id: id, kind: kind, events: events}, nil
 }
@@ -235,8 +235,7 @@ func (c *Connection) Close() error {
 
 			OperationId: new(""), Request: nil, Close: new(operationpb.CloseConnection),
 		}.Build(), nil); err != nil {
-			mapped := mapDeliveryError(err)
-			c.fail(mapped)
+			_ = c.sendError(err)
 		}
 		c.hostOwner.Close()
 		c.join()
@@ -391,6 +390,8 @@ func (c *Cancellation) Wait(ctx context.Context) (*operationpb.CancelCompleted, 
 // receive routes both operation directions without running admitted work.
 func (c *Connection) receive() error {
 	defer c.hostOwner.Close()
+	// A worker can be waiting on a send acknowledgement, so resolve receive before joining it.
+	defer close(c.receiveResolved)
 	for {
 		response, err := c.stream.Recv()
 		if errors.Is(err, io.EOF) {
@@ -632,6 +633,21 @@ func completedMatches(kind requestKind, completed *extensionpb.ExtensionComplete
 	default:
 		return false
 	}
+}
+
+// sendError resolves client delivery failures so the connection can report them.
+func (c *Connection) sendError(err error) error {
+	if errors.Is(err, io.EOF) && isTransportClosureOnly(err) {
+		// Client send EOF is provisional until the sole receiver obtains the server outcome.
+		<-c.receiveResolved
+		if receiveErr := c.connectionError(); receiveErr != nil {
+			return receiveErr
+		}
+		return mapDeliveryError(err)
+	}
+	mapped := mapDeliveryError(err)
+	c.fail(mapped)
+	return mapped
 }
 
 // fail cancels stream work and closes tracked event queues.

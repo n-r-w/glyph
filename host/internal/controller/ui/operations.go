@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
 	"sync/atomic"
 
 	"github.com/samber/mo"
@@ -90,7 +91,9 @@ func (*hostCancellationPrepared) Release() {}
 func (c *Service) runOperations(ctx context.Context, session Session) error {
 	connectionContext, cancelConnection := context.WithCancelCause(context.WithoutCancel(ctx))
 	defer cancelConnection(context.Canceled)
-	writer, delivery := c.connection.AttachOutput(connectionContext, cancelConnection)
+	receiveResolved := make(chan struct{})
+	closeSend := sync.OnceValue(c.connection.CloseSend)
+	writer, delivery := c.connection.AttachOutput(connectionContext, receiveResolved, closeSend, cancelConnection)
 	owner := operation.NewOwner[Frame, OperationResult](connectionContext, delivery)
 	stopActivation := session.Activate(ctx)
 	writerDone := make(chan error, 1)
@@ -100,6 +103,7 @@ func (c *Service) runOperations(ctx context.Context, session Session) error {
 	receiveDone := make(chan error, 1)
 	go func() {
 		receiveDone <- c.receiveOperations(connectionContext, owner, delivery, session, closing, peerClose)
+		close(receiveResolved)
 	}()
 
 	exit := awaitOperationLoopExit(ctx, connectionContext, closing, peerClose, writerDone, receiveDone)
@@ -107,9 +111,17 @@ func (c *Service) runOperations(ctx context.Context, session Session) error {
 	stopActivation()
 	var cleanupErr error
 	if exit.requestedClose {
-		cleanupErr = c.closeRequestedOperations(connectionContext, owner, delivery, writer, writerDone, receiveDone)
+		cleanupErr = c.closeRequestedOperations(
+			connectionContext,
+			owner,
+			delivery,
+			writer,
+			writerDone,
+			receiveDone,
+			closeSend,
+		)
 	} else {
-		cleanupErr = c.closeFailedOperations(cancelConnection, owner, writer, writerDone, receiveDone, exit)
+		cleanupErr = c.closeFailedOperations(cancelConnection, owner, writer, writerDone, receiveDone, exit, closeSend)
 	}
 	exitErr := WithoutTransportClosureLeaves(exit.err)
 	result := JoinOutputSources(errors.Join(exitErr, cleanupErr), owner.SourceErrors(), writer.SourceErrors())
@@ -177,6 +189,7 @@ func (c *Service) closeRequestedOperations(
 	writer *operation.Writer[*uiv1.OpenRequest],
 	writerDone <-chan error,
 	receiveDone <-chan error,
+	closeSend func() error,
 ) error {
 	var result error
 	acknowledgement, err := delivery.CloseConnection()
@@ -190,7 +203,7 @@ func (c *Service) closeRequestedOperations(
 		}
 	}
 	transportFailed := result != nil
-	result = errors.Join(result, c.finishRequestedWriter(writer, writerDone, false, transportFailed))
+	result = errors.Join(result, c.finishRequestedWriter(writer, writerDone, false, transportFailed, closeSend))
 	if err = WithoutTransportClosureLeaves(<-receiveDone); err != nil {
 		result = errors.Join(result, err)
 	}
@@ -203,6 +216,7 @@ func (c *Service) finishRequestedWriter(
 	writerDone <-chan error,
 	writerFinished bool,
 	transportFailed bool,
+	closeSend func() error,
 ) error {
 	writer.Close()
 	if transportFailed {
@@ -214,7 +228,7 @@ func (c *Service) finishRequestedWriter(
 			result = errors.Join(result, err)
 		}
 	}
-	if err := c.connection.CloseSend(); err != nil {
+	if err := closeSend(); err != nil {
 		result = errors.Join(result, fmt.Errorf("close UI request stream: %w", err))
 	}
 	return result
@@ -228,6 +242,7 @@ func (c *Service) closeFailedOperations(
 	writerDone <-chan error,
 	receiveDone <-chan error,
 	exit operationLoopExit,
+	closeSend func() error,
 ) error {
 	if exit.err != nil {
 		cancelConnection(exit.err)
@@ -241,7 +256,7 @@ func (c *Service) closeFailedOperations(
 			result = errors.Join(result, writerErr)
 		}
 	}
-	if err := c.connection.CloseSend(); err != nil {
+	if err := closeSend(); err != nil {
 		result = errors.Join(result, fmt.Errorf("close UI request stream: %w", err))
 	}
 	if !exit.receiveFinished {

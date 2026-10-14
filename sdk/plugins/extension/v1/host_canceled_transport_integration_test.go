@@ -41,7 +41,7 @@ func TestHostCanceledTransport(t *testing.T) {
 	connection := &Connection{
 		ctx: ctx, cancel: cancel, stream: nil, writer: writer, tracker: nil, hostOwner: nil, hostService: nil,
 		mutex: sync.Mutex{}, kinds: nil, err: nil, completionErr: nil, completionFailures: nil,
-		writerDone: nil, receiveDone: nil, closeOnce: sync.Once{},
+		writerDone: nil, receiveResolved: nil, receiveDone: nil, closeOnce: sync.Once{},
 	}
 	delivery := &hostDelivery{connection: connection}
 	source := diagnostic.NewCurrentCause(

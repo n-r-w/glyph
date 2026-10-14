@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"sync"
 
@@ -172,6 +173,8 @@ func (delivery *operationDelivery) Reject(id, code string, cause error) error {
 // AttachOutput creates the ordered writer shared by operation and connection events.
 func (c *Service) AttachOutput(
 	ctx context.Context,
+	receiveResolved <-chan struct{},
+	closeSend func() error,
 	fail func(error),
 ) (*operation.Writer[*uiv1.OpenRequest], controllerui.OperationOutput) {
 	delivery := &operationDelivery{
@@ -179,7 +182,21 @@ func (c *Service) AttachOutput(
 		fail:  func(err error) { fail(fmt.Errorf("deliver UI operation event: %w", err)) },
 		mutex: sync.Mutex{}, kinds: make(map[string]string),
 	}
-	writer := operation.NewWriter(c.stream.Send)
+	writer := operation.NewWriter(func(request *uiv1.OpenRequest) error {
+		err := c.stream.Send(request)
+		if errors.Is(err, io.EOF) && controllerui.WithoutTransportClosureLeaves(err) == nil {
+			// After the sole Send call returns, the writer can half-close requests
+			// to release the receiver without overlapping Send.
+			closeErr := closeSend()
+			// Wait for the receiver's definitive outcome before the writer
+			// resolves acknowledgements or returns failures to stopped-writer producers.
+			<-receiveResolved
+			if closeErr != nil {
+				return errors.Join(err, fmt.Errorf("close UI request stream: %w", closeErr))
+			}
+		}
+		return err
+	})
 	delivery.writer = writer
 	c.mutex.Lock()
 	c.writer = writer

@@ -133,9 +133,10 @@ func isolatedHostDelivery(t *testing.T) (*Connection, *hostDelivery, <-chan *ext
 		kinds:         make(map[string]requestKind),
 		err:           nil,
 		completionErr: nil, completionFailures: nil,
-		writerDone:  nil,
-		receiveDone: nil,
-		closeOnce:   sync.Once{},
+		writerDone:      nil,
+		receiveResolved: nil,
+		receiveDone:     nil,
+		closeOnce:       sync.Once{},
 	}
 	delivery := &hostDelivery{connection: connection}
 	connection.hostOwner = operation.NewOwner[*extensionpb.HostProgress, *extensionpb.HostCompleted](ctx, delivery)
