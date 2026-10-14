@@ -1,6 +1,6 @@
 # Completed-conversation observation integration evidence
 
-Status: UNT-08 includes the collected corrections and the shared cancellation-settlement implementation. UNT-08 remains unaccepted. PHS-06.1 remains incomplete. Report-only code and text reviews precede the collected correction batch, full verification and fresh independent acceptance.
+Status: UNT-08 is accepted at corrective commit `fed40b6`, following checkpoint `8d3146f`. [Final verification and acceptance](#final-verification-and-acceptance) records the reviewed source, checks and evidence limits. PHS-06.1 remains incomplete; UNT-09 through UNT-11 remain pending.
 
 ## Scope
 
@@ -49,7 +49,7 @@ Targeted preparation commands:
 
 Codex unit/integration preservation, the public reference fixture, interface guard and both compile-only build variants passed on the earlier preservation-resume source. Those checks are separate from final post-correction verification. Compile-only `-run ^$` commands are not behavioral evidence.
 
-Command logs and exact file maps for failed, skipped, compile/setup, mutation and historical attempts are retained in temporary local storage outside the repository. This document records commands, results and source identities; the raw records are not included in the repository. Before UNT-08 can close or UNT-09 can start, the collected correction batch, full post-review project verification and fresh independent acceptance must be complete.
+Command logs and exact file maps for failed, skipped, compile/setup, mutation and historical attempts are retained in temporary local storage outside the repository. This document records commands, results and source identities; the raw records are not included in the repository. The [final verification and acceptance](#final-verification-and-acceptance) section records completion of the correction batch, post-review checks and independent review.
 
 ## Collected cancellation correction
 
@@ -75,7 +75,7 @@ All five terminal encoders write complete canceled source text to the shared `Ca
 
 TUI displays diagnosed cancellation as information and clears foreground ownership. Plain cancellation remains quiet. The production `operation.Owner` retains its established acknowledgement and source-retirement behavior. Host continues to exclude configured execution from conversation observation and enforce synchronous live commit guards. Core's selected-outcome rules are unchanged. Host restores received transport cancellation identity on the path described below.
 
-With corrective overlays that compiled, the test runner reported assertion failures for these changes: clearing canceled text in each actual sender or mapper, skipping completed-payload decoding, or accepting inactivity without an original terminal. These overlays show test sensitivity after implementation; they do not reconstruct first-ever edit order. Compile/setup failures and every historical verification attempt remain in the retained evidence. The extended final matrix contains the earlier preservation commands and additional commands for shared traversal, SDK/UI/TUI, serialized canceled transport and deterministic settlement repetitions. Its final post-review execution and independent acceptance remain pending.
+With corrective overlays that compiled, the test runner reported assertion failures for these changes: clearing canceled text in each actual sender or mapper, skipping completed-payload decoding, or accepting inactivity without an original terminal. These overlays show test sensitivity after implementation; they do not reconstruct first-ever edit order. Compile/setup failures and every historical verification attempt remain in the retained evidence. The extended final matrix contains the earlier preservation commands and additional commands for shared traversal, SDK/UI/TUI, serialized canceled transport and deterministic settlement repetitions. The [final verification and acceptance](#final-verification-and-acceptance) section records the completed post-review execution and independent review.
 
 ## Source-specific preparation results
 
@@ -104,7 +104,7 @@ Exact commands for that prepared source:
 - `go test -json -race -count=1 -timeout=600s -tags=integration ./host/internal/app -run '^Test(.*Manual.*|UICancellationFixtureRetainsRequestFailure|ThresholdCompactionPreservesSplitBoundaryCause|PublicConfiguredRequestAcrossApplicationModes|ProgrammaticSummaryPreflightsCredentials.*)$'`
 - `bash -c 'cd testdata/external-plugins && go list ./... && go build ./...'`
 
-These preparation results precede the received-transport correction below. The 56-command final post-review matrix and fresh independent acceptance remain pending on the corrected source.
+These preparation results precede the received-transport correction below. They remain separate from the [final corrected-source verification](#final-verification-and-acceptance).
 
 ## Received transport cancellation
 
@@ -117,3 +117,83 @@ When the original SDK operation receives a gRPC `codes.Canceled` connection erro
 The public `TestReceivedTransportCancellationStopsCore` uses the real application, Core, Host tool adapters, extension Runtime and gRPC peer. Only the external model HTTP transport is replaced. A corrective overlay that removed the projection compiled and failed an Aborted-run assertion. This overlay shows causal sensitivity after implementation, not first-ever edit order.
 
 On source `0333a6429ef29f2c74fbad2876cfd175c2664ea22f07017a50f11c48a0d0f7f3`, the public test passed three repetitions with `go test -json -race -count=3 -timeout=300s -tags=integration ./host/internal/app -run "^TestReceivedTransportCancellationStopsCore$"`. The test checks a live caller, two finalized requested calls, execution of only the first call, one model request, the Aborted run summary with received diagnostics, the selected ToolUse response and a failed public terminal with those diagnostics. This is entry-point evidence for the received transport scenario. It does not establish universal preservation or final acceptance.
+
+## Live SDK receiver checks
+
+The public [`TestConfiguredRetryCancellationThroughExtension`](../../../../../../host/internal/app/configured_cancellation_integration_test.go) invokes an ordinary configured request through a compiled external tool. Host executes configured retry and cancellation after a provider SSE failure. The Extension SDK receives the canceled terminal with the complete provider error. The fixture replaces the provider's HTTP transport with a generated mock; Host retry, cancellation and SDK routing use production components. The test also checks local Wait interruption, receiver-local error identity after wrapping, joined shutdown and bounded provider work.
+
+[`TestContextStartAndWaitHaveSeparateCancellation`](../../../../../../sdk/plugins/extension/v1/context_cancellation_integration_test.go) checks the connected SDK ownership boundary separately. After the caller interrupts Wait, the unparented target remains running. After Start-context cancellation, a later live Wait receives the diagnostic-bearing terminal and the test verifies joined Release. A generated HostService mock supplies representative diagnostics.
+
+[`TestHostUICanceledTransport`](../../../../../../host/internal/infra/plugins/ui/runtime/canceled_transport_integration_test.go) connects the Host encoder and Writer through a real Open stream to the UI SDK tracker. Both the original operation's Wait and Host.Receive retain the complete diagnostic text and local cancellation identity. The same connection checks plain cancellation and an independent coded failure. The fixture supplies a diagnosed Host outcome; the public observation checks establish production of that outcome, and TUI presentation tests check its informational display.
+
+For five sensitivity runs, the test runner used overlays to omit Extension sender text, Extension reader mapping, UI sender text, UI reader mapping and configured sender text on the public retry path. Each selected live test compiled and failed on diagnostic-content or plain-versus-rich assertions. Unoverlaid runs passed afterward. These checks establish corrective sensitivity on source `019310a6bc7eef3d0b9fe8f621740260532ed5bebd73d331413a8ccb5435c4a1`; they do not establish first-ever edit order. The final source includes a later behavior-preserving constant extraction.
+
+## Final verification and acceptance
+
+Main accepted complete UNT-08 after a fresh independent Analyst reviewed the entire change from `e1852a0391fe5f552f255fb4dc1d41b5531f3fec`, including checkpoint `8d3146f0e5a22f702bc097247a5d5acdb8d1eab9` and corrective commit `fed40b6d3253413d695f817ccf3767b2059d8afe`. The Analyst found no remaining source defect or missing production wiring. Main used the approved unit-level acceptance authority. UNT-08 is the accepted unit; the later migration units remain pending.
+
+The final verification source has identity `663fae7c944ab844a05ca4af74dffda40e91563f3e7addf9bd122cf5f9b3b48f` and 1,267 file-map entries. Corrective commit `fed40b6` preserves that source. This documentation-only closure follows the verified code commit.
+
+All 56 final command records finished with exit 0 after the last code edit. The verifier reserved exclusive log/result pairs before execution. Main and the independent reviewer compared all 112 before/after file maps with the frozen map. The generator and formatter kept the source unchanged. `task fix_dry_run` produced an empty proposal. Coverage was 84.0%, above the required 80.0%.
+
+The final matrix included these project checks:
+
+| Command | Result |
+| --- | --- |
+| `task generate`, twice | Both runs passed with unchanged source |
+| `task fmt` | Passed with unchanged source |
+| `task fix_dry_run` | Passed; no proposal |
+| `task lint` | Passed |
+| `task test` | Passed |
+| `task itest` | Passed with the platform exclusions below |
+| `env 'GOFLAGS=-v -count=1' task itest` | Passed uncached with the same platform exclusions |
+| `task test-coverage` | Passed |
+| `task build` | Passed |
+| `go list ./...` | Passed |
+| `go list -tags=integration ./...` | Passed |
+| `git diff --check` | Passed |
+| `bash -c 'cd testdata/external-plugins && go list ./... && go build ./...'` | Passed; compilation and package evidence |
+| `go test -json -race -count=1 -timeout=240s ./...` | 1,706 leaf passes, no skips or failures |
+| `go test -json -race -count=1 -timeout=3600s -tags=integration ./...` | 1,201 leaf passes, seven skips, no failures |
+| `go test -json -count=1 -run "^$" ./...` | Passed; compilation only |
+| `go test -json -count=1 -tags=integration -run "^$" ./...` | Passed; compilation only |
+
+Repeated preservation checks covered manual replacement, request/generator/result participants, runtime settlement, callback provenance, received transport cancellation, Core outcomes, configured execution and SDK/UI/TUI consumers. The public configured cancellation scenario passed 20 times in this final command:
+
+```sh
+go test -json -race -count=20 -timeout=1800s -tags=integration ./host/internal/app -run "^Test(ConfiguredRetryCancellationThroughExtension|PublicConfiguredRequestAcrossApplicationModes|ProgrammaticSummaryPreflightsCredentials.*)$"
+```
+
+Both live SDK receiver tests passed 20 times in the full integration-package repetition:
+
+```sh
+go test -json -race -count=20 -timeout=1800s -tags=integration ./sdk/plugins/extension/v1 ./sdk/plugins/ui/v1 ./host/internal/controller/programmatic ./host/internal/infra/plugins/ui/runtime
+```
+
+Across explicit Go JSON records, the final matrix reported 90,199 passed leaf events, seven skipped leaf events and no failed leaf events. These totals include repetitions and exclude suite ancestors and package events. External default `go test -json -count=1 ./...` found no tests; it supplies compilation evidence only. The explicit compile-only commands above also supply no behavioral evidence.
+
+### Platform limits
+
+Seven integration tests were skipped on Linux. Acceptance does not claim that these platform-specific paths passed:
+
+| Package | Test | Required platform behavior |
+| --- | --- | --- |
+| `internal/testsupport/tui` | `TestEarlyFailureCleanup` | Darwin arm64 PTY cleanup |
+| `plugins/ui/tui/internal/app` | `TestStandardTUIPTY` | Darwin arm64 PTY acceptance |
+| `host/internal/app` | `TestRunWithPathsHeadlessPersistenceFailurePreservesContext` | Darwin directory-permission enforcement |
+| `host/internal/app` | `TestLifecycleObserverThroughStandardTUI` | Darwin arm64 PTY acceptance |
+| `host/internal/app` | `TestClientAppSuites/Programmatic/TestResumeRecoveryPersistenceFailureProcessPath` | Darwin chflags injection |
+| `host/internal/app` | `TestStandardTUIHostSmoke` | Darwin arm64 PTY acceptance |
+| `host/internal/app` | `TestStandardTUIHostRuntimePersistenceFailures` | Darwin arm64 PTY acceptance |
+
+### Historical process limits
+
+`TestOwnerRetainsCanceledSourceBeforeReleaseAndTerminal` in [canceled_source_test.go](../../../../../../internal/operation/canceled_source_test.go) and `TestHostPreparedRetainsCanceledSource` in [operations_source_test.go](../../../../../../host/internal/controller/ui/operations_source_test.go) were initially added after implementation without retained original RED. Later clean overlays produced assertion failures and subsequent GREEN runs passed. The original panic/setup attempts remain retained. This evidence establishes regression sensitivity and does not reconstruct the original test-first sequence.
+
+Each of six CodeQuality checkers ran one initial shell inspection before reserving exclusive log/result files. Their tool transcripts retain the outputs. Later reserved checks do not establish reservation compliance for those six invocations.
+
+Main accepted the unit with these historical limitations explicitly disclosed. The decision makes no claim of original process compliance and grants no future exception. Earlier failed matrices, setup failures, source mutations and authorized signal-artifact cleanup retain their original records and source identities. Their results are separate from the final-source verification above.
+
+## Open questions
+
+None for UNT-08 acceptance.
