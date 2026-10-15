@@ -46,10 +46,7 @@ type Service struct {
 	baseline mo.Option[reportedUsageBaseline]
 }
 
-var (
-	_ modelexecution.ConversationContext = (*Service)(nil)
-	_ modelexecution.OverflowRecovery    = (*Service)(nil)
-)
+var _ modelexecution.ConversationContext = (*Service)(nil)
 
 // New creates the context-compaction owner.
 func New(sessions SessionState) *Service {

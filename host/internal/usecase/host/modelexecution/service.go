@@ -43,12 +43,10 @@ var (
 type Service struct {
 	// catalog resolves logical model selections to raw provider bindings.
 	catalog CatalogResolver
-	// conversationContext records usage for remaining legacy overflow accounting.
+	// conversationContext records completed-conversation usage for later context estimates.
 	conversationContext ConversationContext
 	// policies captures preparation and observation for the admitted owner.
 	policies ConversationPolicies
-	// overflow supplies legacy overflow recovery.
-	overflow OverflowRecovery
 	// retryPolicy contains validated persistent policy values.
 	retryPolicy RetryPolicy
 	// retryEnabled contains process-local runtime enablement.
@@ -89,32 +87,12 @@ func New(
 	policy := retryPolicy
 	policy.Delays = append([]time.Duration(nil), retryPolicy.Delays...)
 	service := &Service{
-		catalog: catalog, conversationContext: conversationContext, policies: policies, overflow: nil,
+		catalog: catalog, conversationContext: conversationContext, policies: policies,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
 		manualPreparation: nil, manualTools: nil, manualInstructions: "",
 	}
 	service.retryEnabled.Store(policy.Enabled)
 	return service
-}
-
-// BindOverflowRecovery connects legacy overflow recovery.
-func (s *Service) BindOverflowRecovery(recovery OverflowRecovery) error {
-	if s.overflow != nil {
-		return errors.New("overflow recovery is already bound")
-	}
-	if recovery == nil {
-		return errors.New("overflow recovery is required")
-	}
-	s.overflow = recovery
-	return nil
-}
-
-// overflowRecovery supplies the legacy callback for an admitted owner.
-func (s *Service) overflowRecovery(hasOwner bool) overflowRecoveryHandler {
-	if !hasOwner || s.overflow == nil {
-		return nil
-	}
-	return s.overflow.RecoverOverflow
 }
 
 // SetRetryEnabled changes process-local enablement for later logical executions.
@@ -184,6 +162,7 @@ func (s *Service) Stream(
 	if err != nil {
 		return err
 	}
+	recoverOverflow := selectCapturedOverflowRecovery(captured)
 	responseStarted := false
 	completion, err := s.execute(
 		ctx, binding.Provider, providerRequest,
@@ -210,7 +189,7 @@ func (s *Service) Stream(
 		},
 		errModelStreamTerminalMissingResponse,
 		modelStreamMissingTerminalMessage,
-		s.overflowRecovery(captured.IsSome()),
+		recoverOverflow,
 	)
 	response := completion.response
 	if err == nil {

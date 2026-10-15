@@ -14,13 +14,16 @@ const (
 	PolicyPurposeManual PolicyPurpose = iota + 1
 	// PolicyPurposeAutomatic lets the owner choose whether to replace history.
 	PolicyPurposeAutomatic
+	// PolicyPurposeOverflow lets the owner recover a rejected conversation input.
+	PolicyPurposeOverflow
 )
 
 // PolicyDisposition identifies the owner's completed decision.
 type PolicyDisposition int
 
 const (
-	// PolicyPreserve means the owner accepts the original captured history.
+	// PolicyPreserve means the owner keeps captured history during automatic preparation or declines overflow recovery.
+	// Invalid for manual compaction.
 	PolicyPreserve PolicyDisposition = iota + 1
 	// PolicyReplaced means the owner acknowledges a durable replacement.
 	PolicyReplaced

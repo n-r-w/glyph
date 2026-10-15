@@ -7,6 +7,8 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // SnapshotCompactionHandlers captures accepted registration membership and runtime generations.
@@ -106,9 +108,10 @@ func (s *Service) ObserveCompactionFailure(
 func (s *Service) compactionOwner(handler contextcompaction.Handler) (operationOwner, error) {
 	owner, available := s.beginOperation(handler.ExtensionID, handler.RuntimeID)
 	if !available {
-		return operationOwner{}, fmt.Errorf(
-			"%w: extension handler %q is unavailable", ErrExtensionUnavailable, handler.HandlerID,
-		)
+		return operationOwner{}, &extensioncontext.PolicyOperationError{
+			Category: modelexecution.FailureExtensionFailed,
+			Cause:    fmt.Errorf("%w: extension handler %q is unavailable", ErrExtensionUnavailable, handler.HandlerID),
+		}
 	}
 	return owner, nil
 }

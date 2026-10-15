@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"errors"
-	"fmt"
 	"os"
 	"path/filepath"
 	"slices"
@@ -97,11 +96,8 @@ func (o *policyOperation) composeRequests(
 	o.state = newReferencePolicyState(input, boundary)
 	original := o.state.GetOriginalRequest()
 	participants := input.GetRequestParticipants()
-	if len(participants) != referenceRequestParticipantCount {
-		return false, fmt.Errorf(
-			"reference policy requires five captured request handlers; received %d",
-			len(participants),
-		)
+	if err := validateReferenceParticipantCount(input.GetPurpose(), len(participants)); err != nil {
+		return false, err
 	}
 	// The extension chooses registration order; Host routes each individual selection.
 	for order, participant := range participants {

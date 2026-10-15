@@ -21,6 +21,7 @@ func (s *Service) finishPolicyOutcome(
 	result modelexecution.ManualCompactionResult,
 	cause, policyCauses error,
 ) error {
+	terminalSource := selectPolicyOperationCategory(cause)
 	if cause != nil {
 		cause = errors.Join(cause, policyCauses)
 		policyCauses = nil
@@ -42,18 +43,25 @@ func (s *Service) finishPolicyOutcome(
 	for _, handler := range observers {
 		binding, err := s.IssueContext(handler.ExtensionID)
 		if err != nil {
-			return fmt.Errorf(
+			err = NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, err)
+			combined := fmt.Errorf(
 				"issue compaction observer %q context: %w",
 				handler.HandlerID,
 				errors.Join(cause, policyCauses, err, acquiredCauses),
 			)
+			return retainPolicyOutcomeSource(terminalSource, err, combined)
 		}
 		if binding.RuntimeInstanceID != handler.RuntimeID {
-			return errors.Join(fmt.Errorf(
+			unavailable := NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, fmt.Errorf(
 				"captured compaction observer %q generation %q is unavailable",
 				handler.HandlerID,
 				handler.RuntimeID,
-			), cause, policyCauses, acquiredCauses)
+			))
+			return retainPolicyOutcomeSource(
+				terminalSource,
+				unavailable,
+				errors.Join(cause, policyCauses, unavailable, acquiredCauses),
+			)
 		}
 		operation := s.newLifetime(ctx, PolicyOwner{
 			ExtensionID: handler.ExtensionID, RuntimeID: handler.RuntimeID, HandlerID: handler.HandlerID,
@@ -71,14 +79,30 @@ func (s *Service) finishPolicyOutcome(
 		s.mutex.Lock()
 		delete(s.compactionOperations, operation.lifecycleID)
 		s.mutex.Unlock()
-		err = errors.Join(err, terminalErr)
+		err = NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, errors.Join(err, terminalErr))
 		if err != nil {
-			return errors.Join(
+			combined := errors.Join(
 				cause,
 				policyCauses,
 				fmt.Errorf("compaction observer %q: %w", handler.HandlerID, errors.Join(err, acquiredCauses)),
 			)
+			return retainPolicyOutcomeSource(terminalSource, err, combined)
 		}
 	}
 	return cause
+}
+
+// retainPolicyOutcomeSource keeps terminal selection separate from acquired outcome diagnostics.
+func retainPolicyOutcomeSource(
+	preceding mo.Option[modelexecution.FailureCategory],
+	current, combined error,
+) error {
+	category, present := preceding.Get()
+	if !present {
+		category, present = selectPolicyOperationCategory(current).Get()
+	}
+	if !present {
+		return combined
+	}
+	return &PolicyOperationError{Category: category, Cause: combined}
 }

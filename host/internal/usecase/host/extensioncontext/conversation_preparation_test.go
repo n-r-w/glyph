@@ -5,6 +5,7 @@ package extensioncontext
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/samber/mo"
@@ -96,9 +97,11 @@ func TestAutomaticPreserveUsesCapturedSession(t *testing.T) {
 // TestAutomaticReplacementChecksNotifiedHistory checks final input capture, receipt retention and lifecycle-only validation.
 func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 	t.Parallel()
-	for _, scenario := range []string{"accepted", "rejected", "canceled"} {
-		t.Run(scenario, func(t *testing.T) {
+	for _, name := range []string{"accepted", "rejected", "canceled", "overflow accepted", "overflow rejected", "overflow invocation", "overflow canceled"} {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
+			overflow := strings.HasPrefix(name, "overflow ")
+			scenario := strings.TrimPrefix(name, "overflow ")
 			// Arrange one captured replacement and a success observer that grows outgoing history.
 			controller := gomock.NewController(t)
 			runtime := NewMockRuntimeState(controller)
@@ -202,6 +205,9 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 					// A later append changes the next projection after the outgoing input was captured.
 					outgoing.History = append(outgoing.History, newAutomaticTestHistory("later append"))
 					if scenario == "rejected" {
+						return NewPolicyOperationError(ctx, modelexecution.FailureCompactionFailed, finalCause)
+					}
+					if scenario == "invocation" {
 						return finalCause
 					}
 					if scenario == "canceled" {
@@ -220,8 +226,13 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 				History:         nil,
 				Tools:           nil,
 			}
-			// Act through automatic preparation and its captured final input check.
-			prepared, err := capture.MustGet().Prepare(ctx, input)
+			// Act through conversation preparation and its captured final input check.
+			var prepared modelexecution.ConversationPreparation
+			if overflow {
+				prepared, err = capture.MustGet().RecoverOverflow(ctx, input, errors.New("provider overflow"))
+			} else {
+				prepared, err = capture.MustGet().Prepare(ctx, input)
+			}
 			// Assert durable outcome, notified input isolation and absence of policy authority during the final check.
 			require.NoError(t, commitCause)
 			require.True(t, prepared.Committed)
@@ -243,6 +254,20 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 			}
 			if scenario == "canceled" {
 				require.ErrorIs(t, err, context.Canceled)
+			}
+			if scenario == "invocation" {
+				require.ErrorIs(t, err, finalCause)
+			}
+			failure, classified := errors.AsType[modelexecution.ContextPreparationFailure](err)
+			if overflow && scenario != "accepted" {
+				require.True(t, classified)
+				expected := modelexecution.FailureCompactionFailed
+				if scenario == "invocation" {
+					expected = modelexecution.FailureExtensionFailed
+				}
+				require.Equal(t, string(expected), failure.CompactionFailureCode())
+			} else {
+				require.False(t, classified)
 			}
 			require.Empty(t, service.compactionOperations)
 		})

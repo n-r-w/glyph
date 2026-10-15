@@ -255,13 +255,17 @@ enum CompactionPolicyPurpose {
   COMPACTION_POLICY_PURPOSE_MANUAL = 1;
   // The owner chooses whether ordinary conversation input needs replacement.
   COMPACTION_POLICY_PURPOSE_AUTOMATIC = 2;
+  // The owner chooses recovery after a provider context overflow.
+  COMPACTION_POLICY_PURPOSE_OVERFLOW = 3;
 }
 
 // CompactionPolicyDisposition identifies the owner's completed decision.
 enum CompactionPolicyDisposition {
   // No completed decision was supplied.
   COMPACTION_POLICY_DISPOSITION_UNSPECIFIED = 0;
-  // The owner accepts the original captured history.
+  // During automatic preparation, the owner accepts the captured history.
+  // During overflow recovery, the owner declines recovery.
+  // Invalid for manual compaction.
   COMPACTION_POLICY_DISPOSITION_PRESERVE = 1;
   // The owner requested durable replacement.
   COMPACTION_POLICY_DISPOSITION_REPLACED = 2;
@@ -325,6 +329,10 @@ message CompactionPolicyInvocation {
   repeated CompactionParticipant result_participants = 16;
   // The caller's preparation intent.
   CompactionPolicyPurpose purpose = 17;
+  // The complete permitted provider error text.
+  // When purpose is COMPACTION_POLICY_PURPOSE_OVERFLOW, this field is required and may contain an empty string.
+  // For other purposes, this field is absent.
+  string overflow_error = 18;
 }
 
 // CompactionParticipant identifies one captured compaction capability.

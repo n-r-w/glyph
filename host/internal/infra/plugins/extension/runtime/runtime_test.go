@@ -219,7 +219,9 @@ func isAdversarialMode(mode string) bool {
 		return true
 	}
 	switch mode {
-	case policyCanceledDiagnosticMode,
+	case outgoingSemanticMode,
+		outgoingProtocolMode,
+		policyCanceledDiagnosticMode,
 		receivedTransportCancellationMode,
 		receivedTransportCancellationAfterProgressMode,
 		shutdownHostWorkActiveMode,

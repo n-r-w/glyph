@@ -159,9 +159,17 @@ func (s *Service) validateContextLocked(
 	}
 	instance, available := s.runtime.ContextRuntime(extensionID)
 	identity := s.session.ContextSession()
-	if !available || instance != runtimeID || identity.ID != reference.SessionID ||
-		identity.Incarnation != issued.incarnation {
-		return binding{}, staleBinding(extensionID, "runtime or active-session incarnation was replaced")
+	if !available || instance != runtimeID {
+		return binding{}, &PolicyOperationError{
+			Category: modelexecution.FailureExtensionFailed,
+			Cause:    staleBinding(extensionID, "runtime or active-session incarnation was replaced"),
+		}
+	}
+	if identity.ID != reference.SessionID || identity.Incarnation != issued.incarnation {
+		return binding{}, &PolicyOperationError{
+			Category: modelexecution.FailureCompactionFailed,
+			Cause:    staleBinding(extensionID, "runtime or active-session incarnation was replaced"),
+		}
 	}
 	return issued, nil
 }

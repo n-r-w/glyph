@@ -27,6 +27,8 @@ type ConversationPreparation struct {
 type CapturedConversation interface {
 	// Prepare obtains policy-accepted history for the frozen conversation binding.
 	Prepare(context.Context, ProviderRequest) (ConversationPreparation, error)
+	// RecoverOverflow obtains replacement history after a rejected provider attempt.
+	RecoverOverflow(context.Context, ProviderRequest, error) (ConversationPreparation, error)
 	// Observe reports the successful provider attempt before logical completion.
 	Observe(context.Context, ProviderRequest, model.Response) error
 }
@@ -35,12 +37,6 @@ type CapturedConversation interface {
 type ConversationPolicies interface {
 	// CaptureConversation retains owner and participant generations.
 	CaptureConversation() (mo.Option[CapturedConversation], error)
-}
-
-// OverflowRecovery supplies the remaining legacy overflow integration.
-type OverflowRecovery interface {
-	// RecoverOverflow compacts one rejected agent request before its single changed replacement attempt.
-	RecoverOverflow(context.Context, ProviderRequest) (ProviderRequest, error)
 }
 
 // ManualCompactionResult contains the durable outcome of an admitted manual operation.

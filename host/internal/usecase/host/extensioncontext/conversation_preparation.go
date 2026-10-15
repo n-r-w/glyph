@@ -14,6 +14,16 @@ func (c *capturedConversation) Prepare(
 	ctx context.Context,
 	input modelexecution.ProviderRequest,
 ) (modelexecution.ConversationPreparation, error) {
+	return c.prepare(ctx, input, PolicyPurposeAutomatic, mo.None[string]())
+}
+
+// prepare obtains policy-accepted session history for a captured conversation binding.
+func (c *capturedConversation) prepare(
+	ctx context.Context,
+	input modelexecution.ProviderRequest,
+	purpose PolicyPurpose,
+	overflowError mo.Option[string],
+) (modelexecution.ConversationPreparation, error) {
 	prepared := modelexecution.ConversationPreparation{History: nil, Committed: false}
 	if err := c.validate(); err != nil {
 		return prepared, err
@@ -29,9 +39,10 @@ func (c *capturedConversation) Prepare(
 		c.binding,
 		snapshot,
 		c.handlers,
-		PolicyPurposeAutomatic,
+		purpose,
 		input,
 		mo.None[string](),
+		overflowError,
 	)
 	prepared.Committed = result.Committed.IsSome()
 	if err != nil {
@@ -56,7 +67,7 @@ func (c *capturedConversation) Prepare(
 		c.binding,
 		OutgoingInput{Snapshot: outgoing, Input: input, LifecycleID: operation.lifecycleID},
 	)
-	err = c.finishLifetime(ctx, operation, err)
+	err = NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, c.finishLifetime(ctx, operation, err))
 	if err != nil {
 		return prepared, err
 	}

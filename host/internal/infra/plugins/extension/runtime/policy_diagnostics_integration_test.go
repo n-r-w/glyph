@@ -20,8 +20,9 @@ func TestPolicyCancellationDecisionRetainsDiagnostic(t *testing.T) {
 	_, err := peer.Register(t.Context())
 	require.NoError(t, err)
 	invocation := extensioncontext.PolicyInvocation{
-		Purpose:     extensioncontext.PolicyPurposeManual,
-		OperationID: "policy-diagnostic", LifecycleID: "policy-diagnostic-lifetime",
+		Purpose:       extensioncontext.PolicyPurposeManual,
+		OverflowError: mo.None[string](),
+		OperationID:   "policy-diagnostic", LifecycleID: "policy-diagnostic-lifetime",
 		Snapshot: extensioncontext.CompactionSnapshot{}, Input: modelexecution.ProviderRequest{},
 		Requests: nil, Generators: nil, Results: nil, Instructions: mo.None[string](), RecordState: nil,
 	}

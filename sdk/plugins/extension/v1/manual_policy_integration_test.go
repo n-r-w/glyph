@@ -42,6 +42,7 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 	registration.EXPECT().Release()
 	input := extensionpb.CompactionPolicyInvocation_builder{
 		Purpose:            extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_MANUAL.Enum(),
+		OverflowError:      nil,
 		OperationId:        new("parent"),
 		SessionId:          new("session"),
 		SessionIncarnation: new(int64(1)),

@@ -81,6 +81,7 @@ func (s *Service) CompactManualPolicy(
 		PolicyPurposeManual,
 		input,
 		instructions,
+		mo.None[string](),
 	)
 	return result, terminalCause
 }
@@ -95,6 +96,7 @@ func (s *Service) runPolicy(
 	purpose PolicyPurpose,
 	input modelexecution.ProviderRequest,
 	instructions mo.Option[string],
+	overflowError mo.Option[string],
 ) (result modelexecution.ManualCompactionResult, disposition PolicyDisposition, terminalCause error) {
 	result = modelexecution.ManualCompactionResult{Committed: mo.None[session.Entry](), Canceled: false}
 	requests := newParticipants(handlers.Requests)
@@ -103,13 +105,20 @@ func (s *Service) runPolicy(
 	state := mo.None[contextcompaction.PolicyState]()
 	var acquiredCauses error
 	defer func() {
-		if purpose == PolicyPurposeAutomatic && disposition == PolicyPreserve && result.Committed.IsNone() &&
+		if purpose != PolicyPurposeManual && disposition == PolicyPreserve && result.Committed.IsNone() &&
 			terminalCause == nil {
 			return
 		}
 		terminalCause = s.finishPolicyOutcome(ctx, handlers, state, result, terminalCause, acquiredCauses)
-		if purpose == PolicyPurposeAutomatic && result.Canceled && terminalCause == nil {
-			terminalCause = errors.Join(errors.New("compaction policy canceled automatic preparation"), acquiredCauses)
+		if purpose != PolicyPurposeManual && result.Canceled && terminalCause == nil {
+			canceled := errors.New("compaction policy canceled automatic preparation")
+			if purpose == PolicyPurposeOverflow {
+				canceled = errors.New("compaction policy canceled overflow recovery")
+			}
+			terminalCause = &PolicyOperationError{
+				Category: modelexecution.FailureCompactionFailed,
+				Cause:    errors.Join(canceled, acquiredCauses),
+			}
 		}
 	}()
 	// operationID identifies the policy mutation authority.
@@ -141,7 +150,7 @@ func (s *Service) runPolicy(
 	s.compactionOperations[lifecycleID] = operation
 	s.mutex.Unlock()
 	invocation := PolicyInvocation{
-		Purpose: purpose, OperationID: operationID,
+		Purpose: purpose, OverflowError: overflowError, OperationID: operationID,
 		LifecycleID:  lifecycleID,
 		Snapshot:     snapshot,
 		Requests:     requests,
@@ -162,7 +171,9 @@ func (s *Service) runPolicy(
 	result.Committed = committed
 	_, hasReceipt := committed.Get()
 	result.Canceled = disposition == PolicyCanceled && !hasReceipt
+	operationCause := terminalErr
 	if policyErr != nil {
+		policyErr = NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, policyErr)
 		policyErr = fmt.Errorf(
 			"invoke compaction policy %q generation %q: %w",
 			owner.ExtensionID,
@@ -170,8 +181,14 @@ func (s *Service) runPolicy(
 			policyErr,
 		)
 	}
-	terminalErr = errors.Join(policyErr, terminalErr, ctx.Err(), context.Cause(ctx))
-	terminalErr = errors.Join(terminalErr, disposition.validateCompletion(purpose, hasReceipt, terminalErr))
+	terminalErr = errors.Join(operationCause, policyErr, ctx.Err(), context.Cause(ctx))
+	completionErr := NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed,
+		disposition.validateCompletion(purpose, hasReceipt, terminalErr))
+	terminalSource := selectPolicyTerminalSource(ctx, operationCause, policyErr, completionErr)
+	terminalErr = errors.Join(terminalErr, completionErr)
+	if category, present := terminalSource.Get(); present {
+		terminalErr = &PolicyOperationError{Category: category, Cause: terminalErr}
+	}
 	if terminalErr != nil {
 		return result, disposition, terminalErr
 	}

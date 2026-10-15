@@ -13,6 +13,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -22,9 +23,14 @@ func (r *Runtime) InvokeCompactionPolicy(
 	handlerID string,
 	binding extension.Context,
 	invocation extensioncontext.PolicyInvocation,
-) (extensioncontext.PolicyDisposition, error) {
+) (disposition extensioncontext.PolicyDisposition, terminalCause error) {
+	category := modelexecution.FailureExtensionFailed
+	defer func() {
+		terminalCause = extensioncontext.NewPolicyOperationError(ctx, category, terminalCause)
+	}()
 	input, err := mapPolicyInvocation(invocation, binding.RuntimeInstanceID)
 	if err != nil {
+		category = modelexecution.FailureInternal
 		return 0, fmt.Errorf("map compaction policy input: %w", err)
 	}
 	request := new(extensionpb.HandleRequest)
@@ -32,7 +38,8 @@ func (r *Runtime) InvokeCompactionPolicy(
 	request.SetContext(mapContext(binding))
 	request.SetParentCompactionId(invocation.LifecycleID)
 	request.SetCompactionPolicy(input)
-	response, err := r.runCompactionHandler(ctx, handlerID, request)
+	completion, err := r.runCompactionHandler(ctx, handlerID, request)
+	response := completion.Response
 	if response == nil {
 		return 0, err
 	}
@@ -74,14 +81,9 @@ func mapPolicyInvocation(
 	invocation extensioncontext.PolicyInvocation,
 	runtimeID string,
 ) (*extensionpb.CompactionPolicyInvocation, error) {
-	var purpose extensionpb.CompactionPolicyPurpose
-	switch invocation.Purpose {
-	case extensioncontext.PolicyPurposeManual:
-		purpose = extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_MANUAL
-	case extensioncontext.PolicyPurposeAutomatic:
-		purpose = extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC
-	default:
-		return nil, errors.New("compaction policy purpose is unspecified or unknown")
+	purpose, overflowError, err := mapPolicyPurpose(invocation.Purpose, invocation.OverflowError)
+	if err != nil {
+		return nil, err
 	}
 	snapshot := invocation.Snapshot
 	if snapshot.Identity.Incarnation > math.MaxInt64 {
@@ -90,9 +92,9 @@ func mapPolicyInvocation(
 	entries := make([]*extensionpb.CompactionSnapshotEntry, 0, len(snapshot.Entries))
 	for index := range snapshot.Entries {
 		entry := &snapshot.Entries[index]
-		projected, err := mapSessionEntry(extensionmanager.ProjectTreeEntry(*entry))
-		if err != nil {
-			return nil, err
+		projected, projectionErr := mapSessionEntry(extensionmanager.ProjectTreeEntry(*entry))
+		if projectionErr != nil {
+			return nil, projectionErr
 		}
 		var privateBytes int64
 		if response, present := entry.Model.Get(); present {
@@ -169,6 +171,7 @@ func mapPolicyInvocation(
 		GeneratorParticipants: generators,
 		ResultParticipants:    results,
 		Purpose:               purpose.Enum(),
+		OverflowError:         overflowError,
 	}.Build(), nil
 }
 

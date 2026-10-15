@@ -8,6 +8,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // capturedPolicyUnavailableFormat identifies an unavailable captured policy generation.
@@ -29,14 +30,15 @@ func (s *Service) InvokeCompactionPolicy(
 ) (extensioncontext.PolicyDisposition, error) {
 	owner, available := s.beginOperation(policy.ExtensionID, policy.RuntimeID)
 	if !available {
-		return 0, fmt.Errorf(
+		return 0, extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, fmt.Errorf(
 			capturedPolicyUnavailableFormat,
 			ErrExtensionUnavailable,
 			policy.ExtensionID,
 			policy.RuntimeID,
-		)
+		))
 	}
 	disposition, err := owner.state.runtime.InvokeCompactionPolicy(ctx, policy.HandlerID, binding, invocation)
+	err = extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, err)
 	s.finishAndReport(ctx, owner, err)
 	return disposition, err
 }

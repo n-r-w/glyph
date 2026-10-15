@@ -192,15 +192,15 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 	}
 }
 
-// TestServiceDisabledRetryClassifiesOverflowWithBoundRecovery verifies disabled retry keeps context-limit identity.
-func TestServiceDisabledRetryClassifiesOverflowWithBoundRecovery(t *testing.T) {
+// TestServiceDisabledRetryClassifiesOverflowWithCapturedOwner checks overflow without retry admission.
+func TestServiceDisabledRetryClassifiesOverflowWithCapturedOwner(t *testing.T) {
 	t.Parallel()
-	// Arrange disabled retry with production-style context preparation bound to the service.
+	// Arrange disabled retry with a captured conversation owner.
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
 	observer := NewMockConversationContext(controller)
-	preparation := NewMockOverflowRecovery(controller)
+	preparation := newTestPreservingCapture(t)
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
@@ -213,8 +213,7 @@ func TestServiceDisabledRetryClassifiesOverflowWithBoundRecovery(t *testing.T) {
 	})
 	service := New(catalog, observer, RetryPolicy{
 		Enabled: false, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-	}, nil, output, newTestPreservingPolicies(t))
-	service.BindOverflowRecovery(preparation)
+	}, nil, output, newTestCapturedPolicies(t, preparation))
 
 	// Act through the full model-execution owner.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -236,23 +235,22 @@ func TestServiceDisabledRetryClassifiesOverflowWithBoundRecovery(t *testing.T) {
 func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 	t.Parallel()
 	for _, testCase := range []struct {
-		name           string
-		typed          bool
-		independent    bool
-		expectedCode   mo.Option[string]
-		retainOverflow bool
+		name         string
+		typed        bool
+		independent  bool
+		expectedCode mo.Option[string]
 	}{
 		{
 			name: "pure owning cancellation", typed: false, independent: false,
-			expectedCode: mo.None[string](), retainOverflow: false,
+			expectedCode: mo.None[string](),
 		},
 		{
 			name: "typed cancellation terminal", typed: true, independent: false,
-			expectedCode: mo.Some(string(FailureExtensionFailed)), retainOverflow: true,
+			expectedCode: mo.Some(string(FailureExtensionFailed)),
 		},
 		{
 			name: "typed failure with concurrent cancellation", typed: true, independent: true,
-			expectedCode: mo.Some(string(FailureExtensionFailed)), retainOverflow: true,
+			expectedCode: mo.Some(string(FailureExtensionFailed)),
 		},
 	} {
 		t.Run(testCase.name, func(t *testing.T) {
@@ -262,7 +260,7 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			catalog := NewMockCatalogResolver(controller)
 			provider := NewMockProviderAttempt(controller)
 			observer := NewMockConversationContext(controller)
-			preparation := NewMockOverflowRecovery(controller)
+			preparation := newTestPreservingCapture(t)
 			output := NewMockRetryOutput(controller)
 			selection := model.Selection{
 				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
@@ -279,22 +277,31 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			callerCause := errors.New("user canceled overflow recovery")
 			independentCause := errors.New("extension failed while cancellation arrived")
 			ctx, cancel := context.WithCancelCause(t.Context())
-			preparation.EXPECT().RecoverOverflow(gomock.Any(), gomock.Any()).DoAndReturn(
-				func(_ context.Context, _ ProviderRequest) (ProviderRequest, error) {
+			preparation.EXPECT().RecoverOverflow(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, _ ProviderRequest, _ error) (ConversationPreparation, error) {
 					cancel(callerCause)
 					if testCase.typed {
 						if testCase.independent {
-							return ProviderRequest{}, typedPreparationFailure{cause: independentCause}
+							return ConversationPreparation{
+								History:   nil,
+								Committed: false,
+							}, typedPreparationFailure{
+								cause: independentCause,
+							}
 						}
-						return ProviderRequest{}, typedPreparationFailure{cause: callerCause}
+						return ConversationPreparation{
+							History:   nil,
+							Committed: false,
+						}, typedPreparationFailure{
+							cause: callerCause,
+						}
 					}
-					return ProviderRequest{}, callerCause
+					return ConversationPreparation{History: nil, Committed: false}, callerCause
 				},
 			)
 			service := New(catalog, observer, RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-			}, nil, output, newTestPreservingPolicies(t))
-			service.BindOverflowRecovery(preparation)
+			}, nil, output, newTestCapturedPolicies(t, preparation))
 
 			// Act through the complete model-execution owner.
 			err := service.Stream(ctx, agentrun.ModelRequest{
@@ -317,24 +324,20 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			} else {
 				require.False(t, found)
 			}
-			if testCase.retainOverflow {
-				require.ErrorIs(t, err, providerCause)
-			} else {
-				require.NotErrorIs(t, err, providerCause)
-			}
+			require.ErrorIs(t, err, providerCause)
 		})
 	}
 }
 
-// TestServiceRecoversOneOverflowWithinRetryAllowance verifies recovery changes context and consumes one repeat.
-func TestServiceRecoversOneOverflowWithinRetryAllowance(t *testing.T) {
+// TestServiceRecoversAdmittedOverflowsWithinRetryAllowance checks repeated recovery on one captured owner.
+func TestServiceRecoversAdmittedOverflowsWithinRetryAllowance(t *testing.T) {
 	t.Parallel()
-	// Arrange one overflowing attempt followed by a successful changed request.
+	// Arrange two overflows and one captured owner with two admitted replacements.
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
 	observer := NewMockConversationContext(controller)
-	preparation := NewMockOverflowRecovery(controller)
+	preparation := newTestPreservingCapture(t)
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
@@ -342,34 +345,44 @@ func TestServiceRecoversOneOverflowWithinRetryAllowance(t *testing.T) {
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 	}, nil)
 	changed := []agent.HistoryEntry{textHistoryEntry("summary"), textHistoryEntry("suffix")}
-	preparation.EXPECT().RecoverOverflow(gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, request ProviderRequest) (ProviderRequest, error) {
-			request.History = changed
-			return request, nil
+	overflow := &ProviderFailureError{
+		Classification: ProviderFailureContextOverflow, RetryDelay: mo.None[time.Duration](),
+		Cause: errors.New("provider context overflow\nsource α"),
+	}
+	preparation.EXPECT().RecoverOverflow(gomock.Any(), gomock.Any(), overflow).Times(2).DoAndReturn(
+		func(_ context.Context, request ProviderRequest, source error) (ConversationPreparation, error) {
+			require.Same(t, overflow, source)
+			require.Equal(t, descriptor, request.Model)
+			require.Equal(t, selection.ReasoningChoice, request.ReasoningChoice)
+			require.Equal(t, "instructions", request.Instructions)
+			return ConversationPreparation{History: changed, Committed: true}, nil
 		},
 	)
 	calls := 0
-	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).DoAndReturn(
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Times(3).DoAndReturn(
 		func(_ context.Context, request ProviderRequest, handle StreamHandler) error {
 			calls++
-			if calls == 1 {
-				return &ProviderFailureError{
-					Classification: ProviderFailureContextOverflow, RetryDelay: mo.None[time.Duration](),
-					Cause: errors.New("provider context overflow"),
-				}
+			if calls <= 2 {
+				return overflow
 			}
 			require.Equal(t, changed, request.History)
 			return emitContextPreparationSuccess(handle)
 		},
 	)
-	output.EXPECT().DeliverRetry(gomock.Any(), gomock.Any()).Return(nil)
+	output.EXPECT().DeliverRetry(gomock.Any(), gomock.Any()).Times(2).DoAndReturn(
+		func(_ context.Context, progress RetryProgress) error {
+			require.EqualValues(t, 3, progress.AttemptLimit)
+			require.EqualValues(t, calls, progress.CompletedAttempts)
+			require.Zero(t, progress.Delay)
+			return nil
+		},
+	)
 	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any()).Do(
 		func(input ProviderRequest, _ model.Response) { require.Equal(t, changed, input.History) },
 	)
 	service := New(catalog, observer, RetryPolicy{
-		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
-	}, nil, output, newTestPreservingPolicies(t))
-	service.BindOverflowRecovery(preparation)
+		Enabled: true, MaxRetries: 2, Delays: []time.Duration{0, 0}, MaxProviderDelay: time.Second,
+	}, nil, output, newTestCapturedPolicies(t, preparation))
 
 	// Act through one logical agent request.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -377,9 +390,9 @@ func TestServiceRecoversOneOverflowWithinRetryAllowance(t *testing.T) {
 		History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
 	}, func(_ agentrun.StreamEvent) error { return nil })
 
-	// Assert exactly one changed replacement attempt completed.
+	// Assert both admitted overflows reached the captured owner before logical success.
 	require.NoError(t, err)
-	require.Equal(t, 2, calls)
+	require.Equal(t, 3, calls)
 }
 
 // textHistoryEntry creates one text-only provider-neutral history value.

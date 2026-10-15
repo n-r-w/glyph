@@ -87,8 +87,10 @@ type PolicyOwner struct {
 
 // PolicyInvocation supplies the immutable input and scoped replacement authority.
 type PolicyInvocation struct {
-	// Purpose identifies manual or automatic preparation.
+	// Purpose identifies the caller's preparation intent.
 	Purpose PolicyPurpose
+	// OverflowError contains the rejected provider attempt's permitted error text.
+	OverflowError mo.Option[string]
 	// OperationID identifies the parent replacement operation.
 	OperationID string
 	// LifecycleID identifies the non-authorizing parent lifetime.

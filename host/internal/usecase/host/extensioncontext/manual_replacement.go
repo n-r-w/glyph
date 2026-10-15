@@ -7,6 +7,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // ProjectPolicyReplacement supplies the validated candidate history for the owning invocation.
@@ -64,7 +65,8 @@ func (s *Service) CommitPolicyReplacement(
 		); cancellationErr != nil {
 			return nil, cancellationErr
 		}
-		return s.runtime.BeginContextCommit(extensionID, runtimeID)
+		release, guardErr := s.runtime.BeginContextCommit(extensionID, runtimeID)
+		return release, NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, guardErr)
 	}
 	committed, err := s.compactionSessions.CommitReplacement(
 		ctx,
@@ -74,6 +76,11 @@ func (s *Service) CommitPolicyReplacement(
 		operation.recordReceipt,
 	)
 	operation.mutex.Lock()
+	category := modelexecution.FailureCompactionFailed
+	if operation.receipt.IsSome() {
+		category = modelexecution.FailureInternal
+	}
+	err = NewPolicyOperationError(ctx, category, err)
 	operation.causes = errors.Join(operation.causes, err)
 	operation.terminalError = errors.Join(operation.terminalError, err)
 	operation.mutex.Unlock()

@@ -73,6 +73,21 @@ func (mr *MockCapturedConversationMockRecorder) Prepare(arg0, arg1 any) *gomock.
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Prepare", reflect.TypeOf((*MockCapturedConversation)(nil).Prepare), arg0, arg1)
 }
 
+// RecoverOverflow mocks base method.
+func (m *MockCapturedConversation) RecoverOverflow(arg0 context.Context, arg1 ProviderRequest, arg2 error) (ConversationPreparation, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RecoverOverflow", arg0, arg1, arg2)
+	ret0, _ := ret[0].(ConversationPreparation)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// RecoverOverflow indicates an expected call of RecoverOverflow.
+func (mr *MockCapturedConversationMockRecorder) RecoverOverflow(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverOverflow", reflect.TypeOf((*MockCapturedConversation)(nil).RecoverOverflow), arg0, arg1, arg2)
+}
+
 // MockConversationPolicies is a mock of ConversationPolicies interface.
 type MockConversationPolicies struct {
 	ctrl     *gomock.Controller
@@ -110,45 +125,6 @@ func (m *MockConversationPolicies) CaptureConversation() (mo.Option[CapturedConv
 func (mr *MockConversationPoliciesMockRecorder) CaptureConversation() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CaptureConversation", reflect.TypeOf((*MockConversationPolicies)(nil).CaptureConversation))
-}
-
-// MockOverflowRecovery is a mock of OverflowRecovery interface.
-type MockOverflowRecovery struct {
-	ctrl     *gomock.Controller
-	recorder *MockOverflowRecoveryMockRecorder
-	isgomock struct{}
-}
-
-// MockOverflowRecoveryMockRecorder is the mock recorder for MockOverflowRecovery.
-type MockOverflowRecoveryMockRecorder struct {
-	mock *MockOverflowRecovery
-}
-
-// NewMockOverflowRecovery creates a new mock instance.
-func NewMockOverflowRecovery(ctrl *gomock.Controller) *MockOverflowRecovery {
-	mock := &MockOverflowRecovery{ctrl: ctrl}
-	mock.recorder = &MockOverflowRecoveryMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockOverflowRecovery) EXPECT() *MockOverflowRecoveryMockRecorder {
-	return m.recorder
-}
-
-// RecoverOverflow mocks base method.
-func (m *MockOverflowRecovery) RecoverOverflow(arg0 context.Context, arg1 ProviderRequest) (ProviderRequest, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RecoverOverflow", arg0, arg1)
-	ret0, _ := ret[0].(ProviderRequest)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// RecoverOverflow indicates an expected call of RecoverOverflow.
-func (mr *MockOverflowRecoveryMockRecorder) RecoverOverflow(arg0, arg1 any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecoverOverflow", reflect.TypeOf((*MockOverflowRecovery)(nil).RecoverOverflow), arg0, arg1)
 }
 
 // MockManualCompactionPreparation is a mock of ManualCompactionPreparation interface.

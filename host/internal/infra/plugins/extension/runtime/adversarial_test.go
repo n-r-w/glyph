@@ -237,6 +237,19 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 			return status.Error(codes.Unknown, "unknown cancellation transport failed")
 		}
 		return status.Error(codes.Unavailable, "cancellation transport failed")
+	case outgoingSemanticMode, outgoingProtocolMode:
+		response := new(extensionpb.HandleResponse)
+		if s.mode == outgoingSemanticMode {
+			response.SetError(extensionpb.HandlerError_builder{Message: new(outgoingSemanticText)}.Build())
+		}
+		completion := new(extensionpb.ExtensionCompleted)
+		completion.SetHandle(response)
+		terminal := new(extensionpb.ExtensionEvent)
+		terminal.SetCompleted(completion)
+		if err = stream.Send(extensionResponse(id, terminal)); err != nil {
+			return err
+		}
+		return nil
 	case policyCanceledDiagnosticMode:
 		response := new(extensionpb.HandleResponse)
 		response.SetCompactionPolicy(extensionpb.CompactionPolicyResult_builder{

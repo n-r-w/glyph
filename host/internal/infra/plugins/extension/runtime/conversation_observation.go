@@ -46,7 +46,8 @@ func (r *Runtime) ObserveConversation(
 	request.SetContext(mapContext(binding))
 	request.SetParentCompactionId(invocation.LifecycleID)
 	request.SetCompletedConversation(input)
-	response, err := r.runCompactionHandler(ctx, handlerID, request)
+	completion, err := r.runCompactionHandler(ctx, handlerID, request)
+	response := completion.Response
 	if response == nil || response.GetError() != nil {
 		return err
 	}

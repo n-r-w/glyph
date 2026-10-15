@@ -11,7 +11,9 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -28,8 +30,8 @@ func (r *Runtime) HandleCompactionRequest(
 	}
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionRequest(payload)
-	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if response == nil || response.GetError() != nil {
+	response, err := r.runCompactionParticipant(ctx, handlerID, request)
+	if response == nil {
 		return contextcompaction.RequestAction{}, err
 	}
 	action, decodeErr := r.decodeCompactionRequestResponse(response)
@@ -49,8 +51,8 @@ func (r *Runtime) GenerateCompaction(
 	}
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionGenerate(payload)
-	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if response == nil || response.GetError() != nil {
+	response, err := r.runCompactionParticipant(ctx, handlerID, request)
+	if response == nil {
 		return contextcompaction.Result{}, err
 	}
 	result, decodeErr := r.decodeCompactionGeneratorResponse(response)
@@ -70,8 +72,8 @@ func (r *Runtime) HandleCompactionResult(
 	}
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionResult(payload)
-	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if response == nil || response.GetError() != nil {
+	response, err := r.runCompactionParticipant(ctx, handlerID, request)
+	if response == nil {
 		return contextcompaction.ResultAction{}, err
 	}
 	action, decodeErr := r.decodeCompactionResultResponse(response)
@@ -105,9 +107,14 @@ func (r *Runtime) observeCompaction(
 	binding extension.Context,
 	invocation contextcompaction.OutcomeInvocation,
 	success bool,
-) error {
+) (terminalCause error) {
+	category := modelexecution.FailureExtensionFailed
+	defer func() {
+		terminalCause = extensioncontext.NewPolicyOperationError(ctx, category, terminalCause)
+	}()
 	payload, err := mapCompactionOutcome(invocation)
 	if err != nil {
+		category = modelexecution.FailureInternal
 		return err
 	}
 	//nolint:exhaustruct_v5 // The protobuf builder sets only the active compaction payload.
@@ -122,7 +129,8 @@ func (r *Runtime) observeCompaction(
 	} else {
 		builder.CompactionFailure = payload
 	}
-	response, err := r.runCompactionHandler(ctx, handlerID, builder.Build())
+	completion, err := r.runCompactionHandler(ctx, handlerID, builder.Build())
+	response := completion.Response
 	if response == nil || response.GetError() != nil {
 		return err
 	}
@@ -137,29 +145,47 @@ func (r *Runtime) runCompactionHandler(
 	ctx context.Context,
 	handlerID string,
 	request *extensionpb.HandleRequest,
-) (*extensionpb.HandleResponse, error) {
+) (compactionHandlerCompletion, error) {
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)
 	operationID := r.operationID()
 	started, err := r.connection.Start(ctx, operationID, hostRequest)
 	if err != nil {
-		return nil, r.handlerOperationError(ctx, handlerID, err)
+		err = extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed,
+			r.handlerOperationError(ctx, handlerID, err))
+		return compactionHandlerCompletion{Response: nil, InvocationCause: err}, err
 	}
 	completed, waitErr := r.waitForOperation(ctx, operationID, started, nil)
 	if waitErr != nil {
-		waitErr = r.handlerOperationError(ctx, handlerID, waitErr)
+		waitErr = extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed,
+			r.handlerOperationError(ctx, handlerID, waitErr))
 	}
 	if completed == nil {
-		return nil, waitErr
+		return compactionHandlerCompletion{Response: nil, InvocationCause: waitErr}, waitErr
 	}
 	response := completed.GetHandle()
 	if response == nil {
-		return nil, errors.Join(waitErr, r.protocolViolation(errors.New("compaction handler response is missing")))
+		cause := extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed,
+			errors.Join(waitErr, r.protocolViolation(errors.New("compaction handler response is missing"))))
+		return compactionHandlerCompletion{Response: nil, InvocationCause: cause}, cause
 	}
+	completion := compactionHandlerCompletion{Response: response, InvocationCause: waitErr}
 	if handlerErr := response.GetError(); handlerErr != nil {
-		return response, errors.Join(waitErr, newOrdinaryHandlerError(handlerErr.GetMessage()))
+		cause := error(newOrdinaryHandlerError(handlerErr.GetMessage()))
+		if request.GetCompactionOutgoingInput() == nil {
+			cause = extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, cause)
+		}
+		return completion, errors.Join(waitErr, cause)
 	}
-	return response, waitErr
+	return completion, waitErr
+}
+
+// compactionHandlerCompletion contains received handler data and a separate invocation failure.
+type compactionHandlerCompletion struct {
+	// Response contains the acquired handler completion.
+	Response *extensionpb.HandleResponse
+	// InvocationCause contains start, wait, and protocol failures separately from a received semantic rejection.
+	InvocationCause error
 }
 
 // mapCompactionRequestInvocation projects immutable and current request state.

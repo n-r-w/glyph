@@ -469,6 +469,8 @@ func (s *conversationObservationSuite) TestOverflowRebuiltInput() {
 	t := s.T()
 	// Arrange short retained history and a single external context rejection.
 	t.Setenv(conversationProviderOverflowEnvironment, manualFixtureEnabled)
+	policyInputPath := filepath.Join(t.TempDir(), "overflow-policy-input.json")
+	t.Setenv(manualFixtureGlyphReferencePolicyInput, policyInputPath)
 	directory := buildManualPolicyFixture(t)
 	paths := testPaths(t, configuredRequestSettings+"compaction:\n  retainedContextTokens: 8\n")
 	writeProgrammaticCredentials(t, paths)
@@ -484,6 +486,13 @@ func (s *conversationObservationSuite) TestOverflowRebuiltInput() {
 	// Assert actual provider input and observation contain the same committed replacement and appended message.
 	attempts := bodies.snapshot()
 	require.Len(t, attempts, 4)
+	policyBytes, err := os.ReadFile(policyInputPath)
+	require.NoError(t, err)
+	policyInput := new(extensionpb.CompactionPolicyInvocation)
+	require.NoError(t, protojson.Unmarshal(policyBytes, policyInput))
+	require.Equal(t, extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_OVERFLOW, policyInput.GetPurpose())
+	require.True(t, policyInput.HasOverflowError())
+	require.NotEmpty(t, policyInput.GetOverflowError())
 	encoded, err := os.ReadFile(os.Getenv(conversationObservationEnvironment))
 	require.NoError(t, err)
 	for _, text := range []string{

@@ -13,10 +13,18 @@ import (
 // Run selects the reference action for the captured invocation.
 func (o *policyOperation) Run(ctx context.Context) (*extensionpb.HandleResponse, error) {
 	input := o.policy.Input()
-	if input.GetPurpose() == extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC {
+	switch input.GetPurpose() {
+	case extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC:
 		return o.runAutomatic(ctx, input)
+	case extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_MANUAL:
+		return o.runReplacement(ctx, input)
+	case extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_OVERFLOW:
+		return o.runOverflow(ctx, input)
+	case extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_UNSPECIFIED:
+		return newPolicyFailure(errors.New("reference policy purpose is unspecified or unknown")), nil
+	default:
+		return newPolicyFailure(errors.New("reference policy purpose is unspecified or unknown")), nil
 	}
-	return o.runReplacement(ctx, input)
 }
 
 // runReplacement commits the reference candidate through scoped authority.

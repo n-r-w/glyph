@@ -50,6 +50,8 @@ func (s *adversarialServer) serveSettlement(
 				response.SetLifecycle(new(extensionpb.LifecycleAction))
 			case original.GetRequest().GetHandle().GetCompactionFailure() != nil:
 				response.SetCompactionFailure(new(extensionpb.CompactionObserverAction))
+			case original.GetRequest().GetHandle().GetCompactionOutgoingInput() != nil:
+				response.SetError(extensionpb.HandlerError_builder{Message: new(outgoingSemanticText)}.Build())
 			default:
 				response.SetSessionTree(new(extensionpb.SessionTreeAction))
 			}
@@ -74,6 +76,15 @@ func (s *adversarialServer) serveSettlement(
 		)
 	}
 	cancellationEvent := rejectedExtensionEvent("TARGET_NOT_ACTIVE", "original operation already settled")
+	if strings.Contains(s.mode, "independent-cancel") {
+		cancellationEvent = failedExtensionEvent(fixtureInternalFailureCode, outgoingInvocationText)
+		if err := stream.Send(extensionResponse(cancellation.GetOperationId(), acceptedExtensionEvent())); err != nil {
+			return err
+		}
+		if err := stream.Send(extensionResponse(cancellation.GetOperationId(), runningExtensionEvent())); err != nil {
+			return err
+		}
+	}
 	if strings.Contains(s.mode, "cancel-canceled") {
 		cancellationEvent = new(extensionpb.ExtensionEvent)
 		cancellationEvent.SetCanceled(

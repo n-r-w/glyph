@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"reflect"
 	"slices"
 	"time"
 
@@ -17,8 +16,17 @@ import (
 	"github.com/n-r-w/glyph/internal/errtree"
 )
 
-// overflowRecoveryHandler rebuilds one rejected active-conversation request after compaction.
-type overflowRecoveryHandler func(context.Context, ProviderRequest) (ProviderRequest, error)
+// overflowRecoveryHandler obtains history and durable-replacement status from the captured conversation owner.
+type overflowRecoveryHandler func(context.Context, ProviderRequest, error) (ConversationPreparation, error)
+
+// selectCapturedOverflowRecovery selects recovery from the admitted conversation owner.
+func selectCapturedOverflowRecovery(captured mo.Option[CapturedConversation]) overflowRecoveryHandler {
+	owner, present := captured.Get()
+	if !present {
+		return nil
+	}
+	return owner.RecoverOverflow
+}
 
 // execute runs one provider request through the captured retry policy and handler snapshot.
 //
@@ -41,7 +49,6 @@ func (s *Service) execute(
 	var causes []error
 	var failedResponse model.Response
 	completedAttempts := int64(0)
-	overflowRecovered := false
 	response, retryErr := backoff.Retry(ctx, func() (model.Response, error) {
 		completedAttempts++
 		terminal := mo.None[model.Response]()
@@ -164,8 +171,8 @@ func (s *Service) execute(
 		}
 		if providerFailure.Classification == ProviderFailureContextOverflow {
 			var recoveryErr error
-			request, overflowRecovered, recoveryErr = prepareOverflowRecovery(
-				ctx, request, overflowRecovered, recoverOverflow, causes,
+			request, recoveryErr = prepareOverflowRecovery(
+				ctx, request, attemptErr, recoverOverflow, causes,
 			)
 			if recoveryErr != nil {
 				return failedResponse, backoff.Permanent(recoveryErr)
@@ -201,30 +208,29 @@ func (s *Service) execute(
 	return completion, details.LastErr
 }
 
-// prepareOverflowRecovery applies the single allowed overflow recovery without masking typed failures.
+// prepareOverflowRecovery settles captured recovery within an admitted provider retry.
 func prepareOverflowRecovery(
 	ctx context.Context,
 	request ProviderRequest,
-	alreadyRecovered bool,
+	source error,
 	recoverOverflow overflowRecoveryHandler,
 	causes []error,
-) (ProviderRequest, bool, error) {
-	if alreadyRecovered {
-		return ProviderRequest{}, true, logicalFailure(FailureContextLimit, causes)
-	}
-	recovered, err := recoverOverflow(ctx, request)
+) (ProviderRequest, error) {
+	recovered, err := recoverOverflow(ctx, request.cloneBinding(), source)
 	if err != nil {
-		if isPureOwningCancellation(ctx, err) {
-			return ProviderRequest{}, false, joinOwningContextCause(ctx, err)
+		if !recovered.Committed && isPureOwningCancellation(ctx, err) {
+			return request, diagnostic.NewCurrentCause(joinOwningContextCause(ctx, err), errors.Join(causes...))
 		}
+		current, _ := errors.AsType[*LogicalFailureError](contextPreparationLogicalFailure(err))
+		category := current.Category
 		causes = append(causes, fmt.Errorf("recover context overflow: %w", joinOwningContextCause(ctx, err)))
-		return ProviderRequest{}, false, contextPreparationLogicalFailure(errors.Join(causes...))
+		return request, logicalFailure(category, causes)
 	}
-	if reflect.DeepEqual(recovered, request) {
-		causes = append(causes, errors.New("overflow compaction returned an unchanged request"))
-		return ProviderRequest{}, false, logicalFailure(FailureContextLimit, causes)
+	if !recovered.Committed {
+		return request, logicalFailure(FailureContextLimit, causes)
 	}
-	return recovered, true, nil
+	request.History = recovered.History
+	return request, nil
 }
 
 // concurrentProviderFailure classifies a provider failure acquired with caller cancellation.

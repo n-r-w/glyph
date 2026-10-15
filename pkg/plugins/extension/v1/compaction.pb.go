@@ -182,6 +182,8 @@ const (
 	CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_MANUAL CompactionPolicyPurpose = 1
 	// The owner chooses whether ordinary conversation input needs replacement.
 	CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC CompactionPolicyPurpose = 2
+	// The owner chooses recovery after a provider context overflow.
+	CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_OVERFLOW CompactionPolicyPurpose = 3
 )
 
 // Enum value maps for CompactionPolicyPurpose.
@@ -190,11 +192,13 @@ var (
 		0: "COMPACTION_POLICY_PURPOSE_UNSPECIFIED",
 		1: "COMPACTION_POLICY_PURPOSE_MANUAL",
 		2: "COMPACTION_POLICY_PURPOSE_AUTOMATIC",
+		3: "COMPACTION_POLICY_PURPOSE_OVERFLOW",
 	}
 	CompactionPolicyPurpose_value = map[string]int32{
 		"COMPACTION_POLICY_PURPOSE_UNSPECIFIED": 0,
 		"COMPACTION_POLICY_PURPOSE_MANUAL":      1,
 		"COMPACTION_POLICY_PURPOSE_AUTOMATIC":   2,
+		"COMPACTION_POLICY_PURPOSE_OVERFLOW":    3,
 	}
 )
 
@@ -226,7 +230,9 @@ type CompactionPolicyDisposition int32
 const (
 	// No completed decision was supplied.
 	CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_UNSPECIFIED CompactionPolicyDisposition = 0
-	// The owner accepts the original captured history.
+	// During automatic preparation, the owner accepts the captured history.
+	// During overflow recovery, the owner declines recovery.
+	// Invalid for manual compaction.
 	CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_PRESERVE CompactionPolicyDisposition = 1
 	// The owner requested durable replacement.
 	CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_REPLACED CompactionPolicyDisposition = 2
@@ -3351,6 +3357,7 @@ type CompactionPolicyInvocation struct {
 	xxx_hidden_GeneratorParticipants *[]*CompactionParticipant    `protobuf:"bytes,15,rep,name=generator_participants,json=generatorParticipants"`
 	xxx_hidden_ResultParticipants    *[]*CompactionParticipant    `protobuf:"bytes,16,rep,name=result_participants,json=resultParticipants"`
 	xxx_hidden_Purpose               CompactionPolicyPurpose      `protobuf:"varint,17,opt,name=purpose,enum=glyph.plugins.extension.v1.CompactionPolicyPurpose"`
+	xxx_hidden_OverflowError         *string                      `protobuf:"bytes,18,opt,name=overflow_error,json=overflowError"`
 	XXX_raceDetectHookData           protoimpl.RaceDetectHookData
 	XXX_presence                     [1]uint32
 	unknownFields                    protoimpl.UnknownFields
@@ -3536,24 +3543,34 @@ func (x *CompactionPolicyInvocation) GetPurpose() CompactionPolicyPurpose {
 	return CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_UNSPECIFIED
 }
 
+func (x *CompactionPolicyInvocation) GetOverflowError() string {
+	if x != nil {
+		if x.xxx_hidden_OverflowError != nil {
+			return *x.xxx_hidden_OverflowError
+		}
+		return ""
+	}
+	return ""
+}
+
 func (x *CompactionPolicyInvocation) SetOperationId(v string) {
 	x.xxx_hidden_OperationId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 18)
 }
 
 func (x *CompactionPolicyInvocation) SetSessionId(v string) {
 	x.xxx_hidden_SessionId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 18)
 }
 
 func (x *CompactionPolicyInvocation) SetSessionIncarnation(v int64) {
 	x.xxx_hidden_SessionIncarnation = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 18)
 }
 
 func (x *CompactionPolicyInvocation) SetActiveLeafId(v string) {
 	x.xxx_hidden_ActiveLeafId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 18)
 }
 
 func (x *CompactionPolicyInvocation) SetEntries(v []*CompactionSnapshotEntry) {
@@ -3574,12 +3591,12 @@ func (x *CompactionPolicyInvocation) SetModel(v *ModelDescriptor) {
 
 func (x *CompactionPolicyInvocation) SetReasoningChoice(v string) {
 	x.xxx_hidden_ReasoningChoice = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 8, 18)
 }
 
 func (x *CompactionPolicyInvocation) SetInstructions(v string) {
 	x.xxx_hidden_Instructions = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 9, 18)
 }
 
 func (x *CompactionPolicyInvocation) SetTools(v []*CompactionToolDefinition) {
@@ -3588,12 +3605,12 @@ func (x *CompactionPolicyInvocation) SetTools(v []*CompactionToolDefinition) {
 
 func (x *CompactionPolicyInvocation) SetUserInstructions(v string) {
 	x.xxx_hidden_UserInstructions = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 11, 18)
 }
 
 func (x *CompactionPolicyInvocation) SetPolicyRuntimeId(v string) {
 	x.xxx_hidden_PolicyRuntimeId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 12, 18)
 }
 
 func (x *CompactionPolicyInvocation) SetRequestParticipants(v []*CompactionParticipant) {
@@ -3610,7 +3627,12 @@ func (x *CompactionPolicyInvocation) SetResultParticipants(v []*CompactionPartic
 
 func (x *CompactionPolicyInvocation) SetPurpose(v CompactionPolicyPurpose) {
 	x.xxx_hidden_Purpose = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 16, 17)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 16, 18)
+}
+
+func (x *CompactionPolicyInvocation) SetOverflowError(v string) {
+	x.xxx_hidden_OverflowError = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 17, 18)
 }
 
 func (x *CompactionPolicyInvocation) HasOperationId() bool {
@@ -3690,6 +3712,13 @@ func (x *CompactionPolicyInvocation) HasPurpose() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 16)
 }
 
+func (x *CompactionPolicyInvocation) HasOverflowError() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 17)
+}
+
 func (x *CompactionPolicyInvocation) ClearOperationId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_OperationId = nil
@@ -3743,6 +3772,11 @@ func (x *CompactionPolicyInvocation) ClearPurpose() {
 	x.xxx_hidden_Purpose = CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_UNSPECIFIED
 }
 
+func (x *CompactionPolicyInvocation) ClearOverflowError() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 17)
+	x.xxx_hidden_OverflowError = nil
+}
+
 type CompactionPolicyInvocation_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -3780,6 +3814,10 @@ type CompactionPolicyInvocation_builder struct {
 	ResultParticipants []*CompactionParticipant
 	// The caller's preparation intent.
 	Purpose *CompactionPolicyPurpose
+	// The complete permitted provider error text.
+	// When purpose is COMPACTION_POLICY_PURPOSE_OVERFLOW, this field is required and may contain an empty string.
+	// For other purposes, this field is absent.
+	OverflowError *string
 }
 
 func (b0 CompactionPolicyInvocation_builder) Build() *CompactionPolicyInvocation {
@@ -3787,19 +3825,19 @@ func (b0 CompactionPolicyInvocation_builder) Build() *CompactionPolicyInvocation
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.OperationId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 18)
 		x.xxx_hidden_OperationId = b.OperationId
 	}
 	if b.SessionId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 18)
 		x.xxx_hidden_SessionId = b.SessionId
 	}
 	if b.SessionIncarnation != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 18)
 		x.xxx_hidden_SessionIncarnation = *b.SessionIncarnation
 	}
 	if b.ActiveLeafId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 18)
 		x.xxx_hidden_ActiveLeafId = b.ActiveLeafId
 	}
 	x.xxx_hidden_Entries = &b.Entries
@@ -3807,28 +3845,32 @@ func (b0 CompactionPolicyInvocation_builder) Build() *CompactionPolicyInvocation
 	x.xxx_hidden_Previous = b.Previous
 	x.xxx_hidden_Model = b.Model
 	if b.ReasoningChoice != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 8, 18)
 		x.xxx_hidden_ReasoningChoice = b.ReasoningChoice
 	}
 	if b.Instructions != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 9, 18)
 		x.xxx_hidden_Instructions = b.Instructions
 	}
 	x.xxx_hidden_Tools = &b.Tools
 	if b.UserInstructions != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 11, 18)
 		x.xxx_hidden_UserInstructions = b.UserInstructions
 	}
 	if b.PolicyRuntimeId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 12, 18)
 		x.xxx_hidden_PolicyRuntimeId = b.PolicyRuntimeId
 	}
 	x.xxx_hidden_RequestParticipants = &b.RequestParticipants
 	x.xxx_hidden_GeneratorParticipants = &b.GeneratorParticipants
 	x.xxx_hidden_ResultParticipants = &b.ResultParticipants
 	if b.Purpose != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 16, 17)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 16, 18)
 		x.xxx_hidden_Purpose = *b.Purpose
+	}
+	if b.OverflowError != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 17, 18)
+		x.xxx_hidden_OverflowError = b.OverflowError
 	}
 	return m0
 }
@@ -4922,7 +4964,7 @@ const file_api_plugins_extension_v1_compaction_proto_rawDesc = "" +
 	"\x10reasoning_choice\x18\x05 \x01(\tR\x0freasoningChoice\x12\"\n" +
 	"\finstructions\x18\x06 \x01(\tR\finstructions\x12J\n" +
 	"\x05tools\x18\a \x03(\v24.glyph.plugins.extension.v1.CompactionToolDefinitionR\x05tools\x12M\n" +
-	"\ahistory\x18\b \x03(\v23.glyph.plugins.extension.v1.CompactionHistoryRecordR\ahistory\"\xdc\b\n" +
+	"\ahistory\x18\b \x03(\v23.glyph.plugins.extension.v1.CompactionHistoryRecordR\ahistory\"\x83\t\n" +
 	"\x1aCompactionPolicyInvocation\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12\x1d\n" +
 	"\n" +
@@ -4942,7 +4984,8 @@ const file_api_plugins_extension_v1_compaction_proto_rawDesc = "" +
 	"\x14request_participants\x18\x0e \x03(\v21.glyph.plugins.extension.v1.CompactionParticipantR\x13requestParticipants\x12h\n" +
 	"\x16generator_participants\x18\x0f \x03(\v21.glyph.plugins.extension.v1.CompactionParticipantR\x15generatorParticipants\x12b\n" +
 	"\x13result_participants\x18\x10 \x03(\v21.glyph.plugins.extension.v1.CompactionParticipantR\x12resultParticipants\x12M\n" +
-	"\apurpose\x18\x11 \x01(\x0e23.glyph.plugins.extension.v1.CompactionPolicyPurposeR\apurpose\"\xa7\x01\n" +
+	"\apurpose\x18\x11 \x01(\x0e23.glyph.plugins.extension.v1.CompactionPolicyPurposeR\apurpose\x12%\n" +
+	"\x0eoverflow_error\x18\x12 \x01(\tR\roverflowError\"\xa7\x01\n" +
 	"\x15CompactionParticipant\x12!\n" +
 	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
 	"\n" +
@@ -4994,11 +5037,12 @@ const file_api_plugins_extension_v1_compaction_proto_rawDesc = "" +
 	")COMPACTION_RESULT_DISPOSITION_UNSPECIFIED\x10\x00\x12*\n" +
 	"&COMPACTION_RESULT_DISPOSITION_PRESERVE\x10\x01\x12)\n" +
 	"%COMPACTION_RESULT_DISPOSITION_REPLACE\x10\x02\x12'\n" +
-	"#COMPACTION_RESULT_DISPOSITION_CLEAR\x10\x03*\x93\x01\n" +
+	"#COMPACTION_RESULT_DISPOSITION_CLEAR\x10\x03*\xbb\x01\n" +
 	"\x17CompactionPolicyPurpose\x12)\n" +
 	"%COMPACTION_POLICY_PURPOSE_UNSPECIFIED\x10\x00\x12$\n" +
 	" COMPACTION_POLICY_PURPOSE_MANUAL\x10\x01\x12'\n" +
-	"#COMPACTION_POLICY_PURPOSE_AUTOMATIC\x10\x02*\xd0\x01\n" +
+	"#COMPACTION_POLICY_PURPOSE_AUTOMATIC\x10\x02\x12&\n" +
+	"\"COMPACTION_POLICY_PURPOSE_OVERFLOW\x10\x03*\xd0\x01\n" +
 	"\x1bCompactionPolicyDisposition\x12-\n" +
 	")COMPACTION_POLICY_DISPOSITION_UNSPECIFIED\x10\x00\x12*\n" +
 	"&COMPACTION_POLICY_DISPOSITION_PRESERVE\x10\x01\x12*\n" +

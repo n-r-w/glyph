@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"errors"
 	"os"
+	"path/filepath"
+
+	"google.golang.org/protobuf/encoding/protojson"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -34,8 +38,23 @@ func (o *conversationToolOperation) Run(
 		IsError:  new(false),
 		Contents: []*extensionpb.ToolResultContent{content},
 	}.Build()
-	if err := writePolicyArtifact(os.Getenv(conversationToolEnvironment), result); err != nil {
+	encoded, err := protojson.Marshal(result)
+	if err != nil {
 		return nil, err
+	}
+	path := os.Getenv(conversationToolEnvironment)
+	root, err := os.OpenRoot(filepath.Dir(path))
+	if err != nil {
+		return nil, err
+	}
+	const artifactPermission = 0o600
+	artifact, err := root.OpenFile(filepath.Base(path), os.O_CREATE|os.O_WRONLY|os.O_APPEND, artifactPermission)
+	if err != nil {
+		return nil, errors.Join(err, root.Close())
+	}
+	_, writeErr := artifact.Write(append(encoded, '\n'))
+	if finishErr := errors.Join(writeErr, artifact.Close(), root.Close()); finishErr != nil {
+		return nil, finishErr
 	}
 	return result, nil
 }

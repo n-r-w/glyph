@@ -11,6 +11,8 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 // ValidateOutgoingInput invokes the captured policy's final input check.
@@ -19,16 +21,23 @@ func (r *Runtime) ValidateOutgoingInput(
 	handlerID string,
 	binding extension.Context,
 	input extensioncontext.OutgoingInput,
-) error {
+) (terminalCause error) {
+	category := modelexecution.FailureExtensionFailed
+	defer func() {
+		terminalCause = extensioncontext.NewPolicyOperationError(ctx, category, terminalCause)
+	}()
 	if input.Snapshot.Identity.Incarnation > math.MaxInt64 {
+		category = modelexecution.FailureInternal
 		return errors.New("session incarnation exceeds the outgoing input range")
 	}
 	history, err := controllerextension.MapCompactionHistory(input.Input.History)
 	if err != nil {
+		category = modelexecution.FailureInternal
 		return fmt.Errorf("map outgoing conversation history: %w", err)
 	}
 	tools, err := mapPolicyTools(input.Input.Tools)
 	if err != nil {
+		category = modelexecution.FailureInternal
 		return fmt.Errorf("map outgoing conversation tools: %w", err)
 	}
 	var leaf *string
@@ -54,8 +63,19 @@ func (r *Runtime) ValidateOutgoingInput(
 	request.SetContext(mapContext(binding))
 	request.SetParentCompactionId(input.LifecycleID)
 	request.SetCompactionOutgoingInput(outgoing)
-	response, err := r.runCompactionHandler(ctx, handlerID, request)
-	if response == nil || response.GetError() != nil {
+	completion, err := r.runCompactionHandler(ctx, handlerID, request)
+	response := completion.Response
+	if response == nil {
+		return err
+	}
+	if response.GetError() != nil {
+		invocationCanceled := ctx.Err() != nil &&
+			errtree.IsCurrentCancellation(completion.InvocationCause, func(node error) bool {
+				return errors.Is(node, ctx.Err()) || errors.Is(node, context.Cause(ctx))
+			})
+		if completion.InvocationCause == nil || invocationCanceled {
+			category = modelexecution.FailureCompactionFailed
+		}
 		return err
 	}
 	if response.GetCompactionOutgoingInput() == nil {

@@ -78,7 +78,7 @@ func runProgrammaticWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
-	// contextCompaction supplies legacy overflow recovery and usage accounting.
+	// contextCompaction supplies conversation usage accounting.
 	contextCompaction := contextcompaction.New(sessionServices.active)
 	if err = contextCompaction.BindOrchestration(
 		extensions, contexts, configured.Compaction.RetainedContextTokens,
@@ -94,9 +94,6 @@ func runProgrammaticWithPaths(
 		delivery,
 		contexts,
 	)
-	if err = modelExecution.BindOverflowRecovery(contextCompaction); err != nil {
-		return fmt.Errorf("bind Programmatic overflow recovery: %w", err)
-	}
 	modelExecution.BindManualCompaction(contexts, tools, codingagent.Instructions())
 	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
 	sessionServices.active.BindPricingCatalog(providerCatalog)

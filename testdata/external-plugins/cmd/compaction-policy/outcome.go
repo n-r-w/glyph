@@ -114,12 +114,19 @@ func newReferencePolicyState(
 		}
 	}
 	trigger := extensionpb.CompactionTrigger_COMPACTION_TRIGGER_MANUAL
-	if input.GetPurpose() == extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC {
+	retryIntent := false
+	switch input.GetPurpose() {
+	case extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_UNSPECIFIED,
+		extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_MANUAL:
+	case extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC:
 		trigger = extensionpb.CompactionTrigger_COMPACTION_TRIGGER_THRESHOLD
+	case extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_OVERFLOW:
+		trigger = extensionpb.CompactionTrigger_COMPACTION_TRIGGER_OVERFLOW
+		retryIntent = true
 	}
 	request := extensionpb.CompactionRequest_builder{
 		Trigger:         trigger.Enum(),
-		RetryIntent:     new(false),
+		RetryIntent:     new(retryIntent),
 		Instructions:    new(input.GetUserInstructions()),
 		Model:           input.GetModel(),
 		ReasoningChoice: new(input.GetReasoningChoice()),
