@@ -68,9 +68,8 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 			})
 		},
 	)
-	conversationContext := NewMockConversationContext(controller)
-	conversationContext.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any())
-	service := New(catalog, conversationContext, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
+
+	service := New(catalog, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 	var received agentrun.StreamEvent
 
 	// Act through the Agent Core logical provider contract.
@@ -91,67 +90,15 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 	assert.Equal(t, "question", history[0].User.MustGet().Content[0].Text.MustGet())
 }
 
-// TestServiceObservesTerminalConversationOnlyAfterDelivery verifies the baseline observation boundary.
-func TestServiceObservesTerminalConversationOnlyAfterDelivery(t *testing.T) {
-	t.Parallel()
-
-	// Arrange one terminal agent response and an observer that checks delivery happened first.
-	controller := gomock.NewController(t)
-	catalog := NewMockCatalogResolver(controller)
-	provider := NewMockProviderAttempt(controller)
-	observer := NewMockConversationContext(controller)
-	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
-	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
-		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
-	terminal := model.Response{
-		Content: []model.Content{{
-			Kind: model.ContentText, Text: mo.Some("answer"), Final: true,
-			ProviderContext: mo.None[model.ProviderContext](), ToolCall: mo.None[model.ToolCall](),
-		}},
-		Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
-		Provider: mo.Some(selection.Provider), Model: mo.Some(selection.Model),
-		ResponseModel: mo.Some(selection.Model), ResponseID: mo.Some("response"),
-		Usage: mo.Some(model.Usage{}), Diagnostics: nil,
-	}
-	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ ProviderRequest, handle StreamHandler) error {
-			return handle(StreamEvent{
-				Kind: StreamEventDone, Position: mo.None[int](), Content: mo.None[model.Content](),
-				Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
-				ToolCall: mo.None[model.ToolCall](), Response: mo.Some(terminal),
-			})
-		},
-	)
-	delivered := false
-	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), terminal).Do(
-		func(_ ProviderRequest, _ model.Response) { require.True(t, delivered) },
-	)
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
-
-	// Act by delivering the terminal response to Agent Core.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-		History: nil, Tools: nil,
-	}, func(_ agentrun.StreamEvent) error {
-		delivered = true
-		return nil
-	})
-
-	// Assert the logical stream succeeds after the observer receives the completed response.
-	require.NoError(t, err)
-}
-
-// TestServiceDoesNotObserveTerminalResponseRejectedByDelivery verifies failed client delivery creates no baseline.
-func TestServiceDoesNotObserveTerminalResponseRejectedByDelivery(t *testing.T) {
+// TestServiceReturnsTerminalDeliveryFailure checks propagation of a rejected terminal event.
+func TestServiceReturnsTerminalDeliveryFailure(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one terminal response whose Agent Core delivery callback fails.
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	observer := NewMockConversationContext(controller)
+
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	descriptor := modelDescriptor(selection)
 	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
@@ -173,7 +120,7 @@ func TestServiceDoesNotObserveTerminalResponseRejectedByDelivery(t *testing.T) {
 		},
 	)
 	deliveryErr := errors.New("deliver terminal response")
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
+	service := New(catalog, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 
 	// Act by rejecting the terminal event at the conversation delivery boundary.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -181,7 +128,7 @@ func TestServiceDoesNotObserveTerminalResponseRejectedByDelivery(t *testing.T) {
 		History: nil, Tools: nil,
 	}, func(_ agentrun.StreamEvent) error { return deliveryErr })
 
-	// Assert the delivery error returns and the strict observer receives no call.
+	// Assert the delivery error reaches the logical caller.
 	require.ErrorIs(t, err, deliveryErr)
 }
 
@@ -411,12 +358,11 @@ func TestServiceConfiguredRequestRejectsMissingTerminal(t *testing.T) {
 	}
 }
 
-// newTestService creates a service with a strict no-call conversation-context mock.
+// newTestService creates a single-attempt service without a captured policy owner.
 func newTestService(t *testing.T, catalog CatalogResolver) *Service {
 	t.Helper()
 	return New(
 		catalog,
-		NewMockConversationContext(gomock.NewController(t)),
 		disabledRetryPolicy(),
 		nil,
 		nil,

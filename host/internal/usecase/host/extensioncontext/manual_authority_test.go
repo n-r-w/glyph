@@ -14,8 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
-
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -69,14 +67,14 @@ func (s *manualPolicySeparatesAuthorityFromLifetimeSuite) TestScenario() {
 // newManualPolicyOperationFixture supplies one captured owner and session for scoped-operation tests.
 func newManualPolicyOperationFixture(
 	t *testing.T,
-	observers ...contextcompaction.HandlerSet,
+	observers ...HandlerSet,
 ) (*Service, *MockPolicyRuntime, PolicyOwner) {
 	t.Helper()
 	controller := gomock.NewController(t)
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
 	policy := NewMockPolicyRuntime(controller)
-	handlers := contextcompaction.HandlerSet{}
+	handlers := HandlerSet{}
 	if len(observers) != 0 {
 		handlers = observers[0]
 	}

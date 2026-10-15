@@ -146,42 +146,6 @@ func (mr *MockProviderAttemptMockRecorder) Stream(ctx, request, handle any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Stream", reflect.TypeOf((*MockProviderAttempt)(nil).Stream), ctx, request, handle)
 }
 
-// MockConversationContext is a mock of ConversationContext interface.
-type MockConversationContext struct {
-	ctrl     *gomock.Controller
-	recorder *MockConversationContextMockRecorder
-	isgomock struct{}
-}
-
-// MockConversationContextMockRecorder is the mock recorder for MockConversationContext.
-type MockConversationContextMockRecorder struct {
-	mock *MockConversationContext
-}
-
-// NewMockConversationContext creates a new mock instance.
-func NewMockConversationContext(ctrl *gomock.Controller) *MockConversationContext {
-	mock := &MockConversationContext{ctrl: ctrl}
-	mock.recorder = &MockConversationContextMockRecorder{mock}
-	return mock
-}
-
-// EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockConversationContext) EXPECT() *MockConversationContextMockRecorder {
-	return m.recorder
-}
-
-// RecordCompletedConversationUsage mocks base method.
-func (m *MockConversationContext) RecordCompletedConversationUsage(request ProviderRequest, response model.Response) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "RecordCompletedConversationUsage", request, response)
-}
-
-// RecordCompletedConversationUsage indicates an expected call of RecordCompletedConversationUsage.
-func (mr *MockConversationContextMockRecorder) RecordCompletedConversationUsage(request, response any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RecordCompletedConversationUsage", reflect.TypeOf((*MockConversationContext)(nil).RecordCompletedConversationUsage), request, response)
-}
-
 // MockContextPreparationFailure is a mock of ContextPreparationFailure interface.
 type MockContextPreparationFailure struct {
 	ctrl     *gomock.Controller

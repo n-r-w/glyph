@@ -1,9 +1,6 @@
-// Package contextcompaction owns conversation context sizing and compaction coordination.
-package contextcompaction
+package extensioncontext
 
-import (
-	"github.com/samber/mo"
-)
+import "github.com/samber/mo"
 
 // PolicyState contains acquired original and last valid composed values.
 type PolicyState struct {
@@ -17,8 +14,8 @@ type PolicyState struct {
 
 // Clone detaches the acquired diagnostic values.
 func (s PolicyState) Clone() PolicyState {
-	s.OriginalRequest = cloneRequest(s.OriginalRequest)
-	s.CurrentRequest = cloneRequest(s.CurrentRequest)
-	s.Result = cloneOptionalResult(s.Result)
+	s.OriginalRequest = s.OriginalRequest.clone()
+	s.CurrentRequest = s.CurrentRequest.clone()
+	s.Result = s.Result.MapValue(Result.clone)
 	return s
 }

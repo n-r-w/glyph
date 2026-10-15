@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
@@ -15,16 +14,11 @@ func (s *Service) InvokeCompactionGenerator(
 	binding extension.Context,
 	invocation extensioncontext.RequestInvocation,
 ) (extensioncontext.Result, error) {
-	handler := contextcompaction.Handler{
-		ExtensionID: participant.ExtensionID, RuntimeID: participant.RuntimeID, HandlerID: participant.HandlerID,
-	}
-	owner, err := s.compactionOwner(handler)
+	owner, err := s.compactionOwner(participant)
 	if err != nil {
 		return extensioncontext.Result{}, err
 	}
-	result, invokeErr := owner.state.runtime.GenerateCompaction(
-		ctx, participant.HandlerID, binding, mapPolicyRequestInvocation(invocation),
-	)
+	result, invokeErr := owner.state.runtime.GenerateCompaction(ctx, participant.HandlerID, binding, invocation)
 	s.finishAndReport(ctx, owner, invokeErr)
-	return mapPolicyResponseResult(result), invokeErr
+	return result, invokeErr
 }

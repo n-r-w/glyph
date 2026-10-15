@@ -11,7 +11,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 const (
@@ -50,7 +49,7 @@ func (s *Service) beginParticipant(
 		snapshot: CompactionSnapshot{}, requests: nil, generators: nil, results: nil,
 		context: childContext, cancel: cancel, mutex: sync.Mutex{}, children: sync.WaitGroup{},
 		closed: false, replacementRequested: false, receipt: mo.None[session.Entry](),
-		causes: nil, terminalError: nil, state: mo.None[contextcompaction.PolicyState](),
+		causes: nil, terminalError: nil, state: mo.None[PolicyState](),
 	}
 	s.mutex.Lock()
 	s.compactionOperations[lifetimeID] = child

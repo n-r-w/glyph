@@ -18,7 +18,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
 	runtimeadapter "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
@@ -95,7 +94,7 @@ func (s *admissionWireSuite) TestScenario() {
 	owner := runtimes.SnapshotCompactionPolicies()[0]
 	policy := extensioncontext.NewMockPolicyRuntime(mocks)
 	policy.EXPECT().SnapshotCompactionPolicies().Return([]extensioncontext.PolicyOwner{owner})
-	policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{})
+	policy.EXPECT().SnapshotCompactionHandlers().Return(extensioncontext.HandlerSet{})
 	contexts.BindPolicy(policy, sessionOwner, 5*time.Minute)
 	cause := errors.New("original owner cause before controller admission")
 	parent, cancel := context.WithCancelCause(t.Context())

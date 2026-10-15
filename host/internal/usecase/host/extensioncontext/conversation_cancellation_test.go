@@ -13,7 +13,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -31,7 +30,7 @@ func TestAutomaticCancellationRetainsHandledChildCause(t *testing.T) {
 	runtime.EXPECT().ContextRuntime(owner.ExtensionID).Return(owner.RuntimeID, true).AnyTimes()
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
-	policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).Times(1)
+	policy.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).Times(1)
 	compactions.EXPECT().
 		CaptureCompaction().
 		Return(CompactionSnapshot{Identity: identity, ActiveLeafID: mo.None[string](), Entries: nil, History: nil, Previous: mo.None[session.CompactionEntry]()})

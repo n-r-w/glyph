@@ -9,7 +9,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -31,7 +30,7 @@ func TestAutomaticCapturedOwnerUnavailable(t *testing.T) {
 		DoAndReturn(func(string) (string, bool) { return owner.RuntimeID, available })
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	policies.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
-	policies.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).Times(1)
+	policies.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).Times(1)
 	service := New(runtime, sessions)
 	service.BindPolicy(policies, compactions, 0)
 	captured, err := service.CaptureConversation()

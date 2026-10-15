@@ -7,7 +7,6 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 )
 
 // Participant identifies one captured compaction capability.
@@ -20,20 +19,21 @@ type Participant struct {
 	HandlerID string
 }
 
-// newParticipants supplies captured capabilities to their policy owner.
-func newParticipants(handlers []contextcompaction.Handler) []Participant {
-	participants := make([]Participant, len(handlers))
-	for index := range handlers {
-		participants[index] = Participant{
-			ExtensionID: handlers[index].ExtensionID,
-			RuntimeID:   handlers[index].RuntimeID,
-			HandlerID:   handlers[index].HandlerID,
-		}
-	}
-	return participants
+// HandlerSet contains one operation's captured capability membership.
+type HandlerSet struct {
+	// Requests contains request participants in registration order.
+	Requests []Participant
+	// Generators contains registered replacement implementations.
+	Generators []Participant
+	// Results contains result participants in registration order.
+	Results []Participant
+	// Successes contains committed-outcome observers in registration order.
+	Successes []Participant
+	// Failures contains failure-outcome observers in registration order.
+	Failures []Participant
 }
 
-// Trigger identifies why Host started one active-conversation compaction.
+// Trigger identifies the compaction intent supplied by the policy.
 type Trigger uint8
 
 const (
@@ -45,11 +45,11 @@ const (
 	TriggerOverflow
 )
 
-// InputEntry contains one projected branch entry and its Host fallback estimate.
+// InputEntry contains one projected branch entry and its extension-supplied estimate.
 type InputEntry struct {
 	// Entry is the embedded provider-neutral branch projection.
 	session.Entry
-	// EstimatedTokens is the Host-computed fallback estimate for this entry.
+	// EstimatedTokens is the extension-supplied token estimate for this entry.
 	EstimatedTokens int64
 }
 
@@ -85,30 +85,53 @@ func (value InputEntry) mapToControllerEntry() extensioncontroller.CompactionReq
 type Request struct {
 	// Trigger identifies the operation entry point.
 	Trigger Trigger
-	// RetryIntent reports whether success permits one overflow replacement attempt.
+	// RetryIntent contains the policy's overflow-retry intent.
 	RetryIntent bool
 	// Instructions contains optional manual guidance.
 	Instructions mo.Option[string]
-	// Model contains the captured agent model descriptor.
+	// Model contains the descriptor supplied for summary composition.
 	Model model.Descriptor
-	// ReasoningChoice contains the captured agent reasoning selection.
+	// ReasoningChoice contains the selection supplied for summary composition.
 	ReasoningChoice model.ReasoningChoice
-	// Prefix contains the proposed newly summarized branch entries with fallback estimates.
+	// Prefix contains the proposed summarized entries with extension-supplied estimates.
 	Prefix []InputEntry
-	// Suffix contains the proposed preserved branch entries with fallback estimates.
+	// Suffix contains the proposed retained entries with extension-supplied estimates.
 	Suffix []InputEntry
 	// Previous contains the preceding summary marker when present.
 	Previous mo.Option[session.CompactionEntry]
-	// ContextTokens is the estimate for the captured outbound request.
+	// ContextTokens is the extension-supplied context estimate.
 	ContextTokens int64
 	// ContextTokensEstimated is required and identifies ContextTokens as an estimate.
 	ContextTokensEstimated bool
-	// ContextWindow is the captured model context capacity.
+	// ContextWindow contains the composition model's context capacity.
 	ContextWindow int64
-	// ResponseBudget is the captured generated-output reserve.
+	// ResponseBudget contains the composition output reserve.
 	ResponseBudget int64
-	// RetainedBudget is the configured recent-context target.
+	// RetainedBudget is the extension-supplied recent-context target.
 	RetainedBudget int64
+}
+
+// clone detaches the composition request's mutable values.
+func (value Request) clone() Request {
+	value.Model = value.Model.Clone()
+	value.Prefix = cloneInputEntries(value.Prefix)
+	value.Suffix = cloneInputEntries(value.Suffix)
+	value.Previous = value.Previous.MapValue(session.CompactionEntry.Clone)
+	return value
+}
+
+// cloneInputEntries detaches projected entries and retains supplied estimates.
+func cloneInputEntries(entries []InputEntry) []InputEntry {
+	if entries == nil {
+		return nil
+	}
+	cloned := make([]InputEntry, len(entries))
+	for index := range entries {
+		cloned[index] = InputEntry{
+			Entry: entries[index].Clone(), EstimatedTokens: entries[index].EstimatedTokens,
+		}
+	}
+	return cloned
 }
 
 // newRequest supplies admitted request values to the policy participant.
@@ -165,6 +188,15 @@ type Result struct {
 	Details mo.Option[[]byte]
 }
 
+// clone detaches optional extension details.
+func (result Result) clone() Result {
+	result.Details = result.Details.MapValue(cloneResultDetails)
+	return result
+}
+
+// cloneResultDetails detaches opaque composition details.
+func cloneResultDetails(value []byte) []byte { return append([]byte(nil), value...) }
+
 // newResult supplies admitted summary state to the policy participant.
 func newResult(value session.CompactionEntry) Result {
 	return Result{
@@ -215,7 +247,7 @@ type RequestAction struct {
 type RequestInvocation struct {
 	// ParentCompactionID correlates nested work with a non-authorizing parent lifetime.
 	ParentCompactionID mo.Option[string]
-	// Original is the immutable Host-produced request.
+	// Original is the immutable policy-supplied request.
 	Original Request
 	// Current is the request left by preceding handlers.
 	Current Request

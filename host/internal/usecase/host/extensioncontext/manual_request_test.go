@@ -19,7 +19,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -42,13 +41,13 @@ func TestPolicyRequestInvocation(t *testing.T) {
 func (s *policyRequestInvocationSuite) TestSelectedActionAndAuthority() {
 	t := s.T()
 	// Arrange two captured handlers in the policy's own runtime.
-	handlers := []contextcompaction.Handler{
+	handlers := []Participant{
 		{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "not-selected"},
 		{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "selected"},
 	}
 	service, runtime, owner := newManualPolicyOperationFixture(
 		t,
-		contextcompaction.HandlerSet{Requests: handlers, Generators: nil, Results: nil, Successes: nil, Failures: nil},
+		HandlerSet{Requests: handlers, Generators: nil, Results: nil, Successes: nil, Failures: nil},
 	)
 	runtime.EXPECT().
 		InvokeCompactionRequest(
@@ -100,7 +99,7 @@ func (s *policyRequestInvocationSuite) TestSelectedActionAndAuthority() {
 		)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, captured PolicyOwner, bound extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
-			require.Equal(t, newParticipants(handlers), input.Requests)
+			require.Equal(t, handlers, input.Requests)
 			command := newPolicyRequestCommand(input.OperationID, handlers[1], 1)
 			response, err := service.InvokePolicyRequest(ctx, captured.ExtensionID, bound.RuntimeInstanceID, command)
 			require.NoError(t, err)
@@ -127,11 +126,11 @@ func (s *policyRequestInvocationSuite) TestSelectedActionAndAuthority() {
 func (s *policyRequestInvocationSuite) TestAuthorityAndMembershipRejection() {
 	t := s.T()
 	// Arrange one captured request handler without a dispatch expectation.
-	handler := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "selected"}
+	handler := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "selected"}
 	service, runtime, owner := newManualPolicyOperationFixture(
 		t,
-		contextcompaction.HandlerSet{
-			Requests:   []contextcompaction.Handler{handler},
+		HandlerSet{
+			Requests:   []Participant{handler},
 			Generators: nil,
 			Results:    nil,
 			Successes:  nil,
@@ -218,11 +217,11 @@ func (s *policyRequestInvocationSuite) TestAuthorityAndMembershipRejection() {
 func (s *policyRequestInvocationSuite) TestHandledNestedCause() {
 	t := s.T()
 	// Arrange a participant that handles a nested failure before returning a valid action.
-	handler := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "selected"}
+	handler := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "selected"}
 	service, runtime, owner := newManualPolicyOperationFixture(
 		t,
-		contextcompaction.HandlerSet{
-			Requests:   []contextcompaction.Handler{handler},
+		HandlerSet{
+			Requests:   []Participant{handler},
 			Generators: nil,
 			Results:    nil,
 			Successes:  nil,
@@ -288,7 +287,7 @@ func (s *policyRequestInvocationSuite) TestUnavailableCapturedGeneration() {
 	runtime := NewMockPolicyRuntime(controller)
 	snapshots := NewMockCompactionSessions(controller)
 	owner := PolicyOwner{ExtensionID: "policy", RuntimeID: "policy-generation", HandlerID: "manual"}
-	handler := contextcompaction.Handler{
+	handler := Participant{
 		ExtensionID: "participant",
 		RuntimeID:   "captured-generation",
 		HandlerID:   "selected",
@@ -300,7 +299,7 @@ func (s *policyRequestInvocationSuite) TestUnavailableCapturedGeneration() {
 	runtime.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner})
 	runtime.EXPECT().
 		SnapshotCompactionHandlers().
-		Return(contextcompaction.HandlerSet{Requests: []contextcompaction.Handler{handler}, Generators: nil, Results: nil, Successes: nil, Failures: nil})
+		Return(HandlerSet{Requests: []Participant{handler}, Generators: nil, Results: nil, Successes: nil, Failures: nil})
 	snapshots.EXPECT().
 		CaptureCompaction().
 		Return(CompactionSnapshot{Identity: identity, ActiveLeafID: mo.Some("leaf"), Entries: nil, History: nil, Previous: mo.None[session.CompactionEntry]()})
@@ -328,7 +327,7 @@ func (s *policyRequestInvocationSuite) TestUnavailableCapturedGeneration() {
 // newPolicyRequestCommand supplies complete independent request and result input values.
 func newPolicyRequestCommand(
 	operationID string,
-	handler contextcompaction.Handler,
+	handler Participant,
 	order int64,
 ) extensioncontroller.CompactionRequestCommand {
 	request := extensioncontroller.CompactionRequestValue{

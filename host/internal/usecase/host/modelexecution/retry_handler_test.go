@@ -70,7 +70,7 @@ func TestServiceOversizedProviderDelayRunsHandlersBeforeMaximumEnforcement(t *te
 					return test.action, test.handlerErr
 				},
 			)
-			service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+			service := New(catalog, RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Second},
 				MaxProviderDelay: 30 * time.Second,
 			}, handlers, nil, newTestConversationObservations(t))
@@ -117,7 +117,7 @@ func TestServiceProviderDelayIsHandlerLowerBound(t *testing.T) {
 		},
 	)
 	handlers.EXPECT().HandleRetry(gomock.Any(), second, gomock.Any()).Times(0)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 0, Delays: nil, MaxProviderDelay: 30 * time.Second,
 	}, handlers, nil, newTestConversationObservations(t))
 
@@ -158,7 +158,7 @@ func TestServiceStoppedDecisionCannotUndercutProviderDelay(t *testing.T) {
 		}),
 	}, nil)
 	handlers.EXPECT().HandleRetry(gomock.Any(), second, gomock.Any()).Times(0)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Second}, MaxProviderDelay: 30 * time.Second,
 	}, handlers, nil, newTestConversationObservations(t))
 
@@ -199,7 +199,7 @@ func TestServiceInvalidHandlerDecisionStopsComposition(t *testing.T) {
 		}),
 	}, nil)
 	handlers.EXPECT().HandleRetry(gomock.Any(), second, gomock.Any()).Times(0)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, handlers, nil, newTestConversationObservations(t))
 
@@ -258,7 +258,7 @@ func TestServiceRetryHandlersComposeOriginalAndCurrentInSnapshotOrder(t *testing
 			return handle(successTerminalEvent(selection))
 		},
 	)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, handlers, nil, newTestConversationObservations(t))
 

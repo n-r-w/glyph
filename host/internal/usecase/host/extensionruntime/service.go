@@ -15,7 +15,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -53,7 +52,7 @@ type Service struct {
 	// retryHandlers contains accepted retry handlers in registration order.
 	retryHandlers []modelexecution.RetryHandler
 	// compactionHandlers contains accepted compaction capabilities in registration order.
-	compactionHandlers contextcompaction.HandlerSet
+	compactionHandlers extensioncontext.HandlerSet
 	// compactionPolicies contains registered policy identities, including unavailable generations.
 	compactionPolicies []extensioncontext.PolicyOwner
 }
@@ -66,7 +65,6 @@ var (
 	_ lifecycle.Runtime                     = (*Service)(nil)
 	_ modelselection.Runtime                = (*Service)(nil)
 	_ modelexecution.RetryHandlers          = (*Service)(nil)
-	_ contextcompaction.Runtime             = (*Service)(nil)
 	_ extensioncontext.RuntimeState         = (*Service)(nil)
 	_ extensioncontext.PolicyRuntime        = (*Service)(nil)
 	_ extensioncontroller.RuntimeOperations = (*Service)(nil)
@@ -129,7 +127,7 @@ func New(
 		reporting:        sync.WaitGroup{},
 		reportErrors:     nil,
 		retryHandlers:    nil,
-		compactionHandlers: contextcompaction.HandlerSet{
+		compactionHandlers: extensioncontext.HandlerSet{
 			Requests: nil, Generators: nil, Results: nil, Successes: nil, Failures: nil,
 		},
 		compactionPolicies: nil,

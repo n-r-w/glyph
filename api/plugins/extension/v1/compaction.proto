@@ -27,7 +27,7 @@ message CompletedConversationObservation {
   int64 response_private_payload_bytes = 7;
 }
 
-// CompactionTrigger identifies why Host started active-conversation compaction.
+// CompactionTrigger identifies the compaction intent supplied by the policy.
 enum CompactionTrigger {
   // No trigger was provided.
   COMPACTION_TRIGGER_UNSPECIFIED = 0;
@@ -49,15 +49,15 @@ message CompactionInputEntry {
 
 // CompactionRequest contains one complete immutable or composed request state.
 message CompactionRequest {
-  // Why Host started compaction.
+  // The policy's compaction intent.
   CompactionTrigger trigger = 1;
-  // Whether success permits an overflow replacement attempt.
+  // The policy's overflow-retry intent.
   bool retry_intent = 2;
   // Optional manual guidance.
   string instructions = 3;
-  // The captured agent model descriptor.
+  // The model descriptor supplied for summary composition.
   ModelDescriptor model = 4;
-  // The captured reasoning choice.
+  // The reasoning choice supplied for summary composition.
   string reasoning_choice = 5;
   // The proposed newly summarized branch prefix with producer estimates.
   repeated CompactionInputEntry prefix = 6;
@@ -73,7 +73,7 @@ message CompactionRequest {
   int64 context_window = 11;
   // The captured generated-output reserve.
   int64 response_budget = 12;
-  // The configured recent-context target.
+  // The extension-supplied recent-context target.
   int64 retained_budget = 13;
 }
 

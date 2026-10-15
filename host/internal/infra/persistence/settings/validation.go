@@ -20,8 +20,6 @@ const (
 	defaultMaxRetries int64 = 3
 	// defaultMaxProviderDelay is the approved maximum accepted Retry-After value.
 	defaultMaxProviderDelay = 30 * time.Second
-	// defaultRetainedContextTokens is the approved recent unsummarized context target.
-	defaultRetainedContextTokens int64 = 20_000
 )
 
 // defaultRetryDelays returns the approved ordered retry schedule.
@@ -89,19 +87,14 @@ func validateCompaction(configured mo.Option[compactionFile]) (Compaction, error
 	// defaultParticipantTimeout is the Host invocation duration for compaction participants.
 	const defaultParticipantTimeout = 5 * time.Minute
 
-	value := defaultRetainedContextTokens
 	timeout := defaultParticipantTimeout
 	if raw, present := configured.Get(); present {
-		value = raw.RetainedContextTokens.OrElse(defaultRetainedContextTokens)
 		timeout = raw.ParticipantTimeout.OrElse(defaultParticipantTimeout)
-	}
-	if value < 0 {
-		return Compaction{}, errors.New("compaction.retainedContextTokens must be nonnegative")
 	}
 	if timeout <= 0 {
 		return Compaction{}, errors.New("compaction.participantTimeout must be positive")
 	}
-	return Compaction{RetainedContextTokens: value, ParticipantTimeout: timeout}, nil
+	return Compaction{ParticipantTimeout: timeout}, nil
 }
 
 // validateRetry applies defaults and rejects unusable retry schedules.

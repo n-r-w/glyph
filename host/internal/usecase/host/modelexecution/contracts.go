@@ -252,12 +252,6 @@ type ProviderAttempt interface {
 	Stream(ctx context.Context, request ProviderRequest, handle StreamHandler) error
 }
 
-// ConversationContext supplies internal usage accounting for active conversation preparation.
-type ConversationContext interface {
-	// RecordCompletedConversationUsage retains input and usage for subsequent context accounting.
-	RecordCompletedConversationUsage(request ProviderRequest, response model.Response)
-}
-
 // ContextPreparationFailure exposes a compaction-owned category to the model-execution consumer.
 type ContextPreparationFailure interface {
 	error

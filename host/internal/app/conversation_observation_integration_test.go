@@ -472,7 +472,7 @@ func (s *conversationObservationSuite) TestOverflowRebuiltInput() {
 	policyInputPath := filepath.Join(t.TempDir(), "overflow-policy-input.json")
 	t.Setenv(manualFixtureGlyphReferencePolicyInput, policyInputPath)
 	directory := buildManualPolicyFixture(t)
-	paths := testPaths(t, configuredRequestSettings+"compaction:\n  retainedContextTokens: 8\n")
+	paths := testPaths(t, configuredRequestSettings)
 	writeProgrammaticCredentials(t, paths)
 	transport, bodies := newManualCompactionProviderTransport(t)
 	previous := http.DefaultTransport

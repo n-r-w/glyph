@@ -3,7 +3,6 @@ package extensionruntime
 import (
 	"github.com/samber/mo"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 
@@ -115,21 +114,17 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 	observed := make(map[string]*runtimeState)
 	retryHandlers := make([]modelexecution.RetryHandler, 0)
 	policies := make([]extensioncontext.PolicyOwner, 0)
-	compactionHandlers := contextcompaction.HandlerSet{
+	compactionHandlers := extensioncontext.HandlerSet{
 		Requests: nil, Generators: nil, Results: nil, Successes: nil, Failures: nil,
 	}
-	collectors := map[startup.RawHandlerKind]func(contextcompaction.Handler){
-		startup.RawHandlerKindCompactionPolicy: func(handler contextcompaction.Handler) {
+	collectors := map[startup.RawHandlerKind]func(extensioncontext.Participant){
+		startup.RawHandlerKindCompactionPolicy: func(handler extensioncontext.Participant) {
 			policies = append(
 				policies,
-				extensioncontext.PolicyOwner{
-					ExtensionID: handler.ExtensionID,
-					RuntimeID:   handler.RuntimeID,
-					HandlerID:   handler.HandlerID,
-				},
+				extensioncontext.PolicyOwner(handler),
 			)
 		},
-		startup.RawHandlerKindRetry: func(handler contextcompaction.Handler) {
+		startup.RawHandlerKindRetry: func(handler extensioncontext.Participant) {
 			retryHandlers = append(
 				retryHandlers,
 				modelexecution.RetryHandler{
@@ -139,19 +134,19 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 				},
 			)
 		},
-		startup.RawHandlerKindCompactionRequest: func(handler contextcompaction.Handler) {
+		startup.RawHandlerKindCompactionRequest: func(handler extensioncontext.Participant) {
 			compactionHandlers.Requests = append(compactionHandlers.Requests, handler)
 		},
-		startup.RawHandlerKindCompactionGenerate: func(handler contextcompaction.Handler) {
+		startup.RawHandlerKindCompactionGenerate: func(handler extensioncontext.Participant) {
 			compactionHandlers.Generators = append(compactionHandlers.Generators, handler)
 		},
-		startup.RawHandlerKindCompactionResult: func(handler contextcompaction.Handler) {
+		startup.RawHandlerKindCompactionResult: func(handler extensioncontext.Participant) {
 			compactionHandlers.Results = append(compactionHandlers.Results, handler)
 		},
-		startup.RawHandlerKindCompactionSuccess: func(handler contextcompaction.Handler) {
+		startup.RawHandlerKindCompactionSuccess: func(handler extensioncontext.Participant) {
 			compactionHandlers.Successes = append(compactionHandlers.Successes, handler)
 		},
-		startup.RawHandlerKindCompactionFailure: func(handler contextcompaction.Handler) {
+		startup.RawHandlerKindCompactionFailure: func(handler extensioncontext.Participant) {
 			compactionHandlers.Failures = append(compactionHandlers.Failures, handler)
 		},
 	}
@@ -161,7 +156,7 @@ func (s *Service) Accept(registrations []startup.AcceptedRegistration) {
 			for _, handler := range registration.Handlers {
 				if collect, supported := collectors[handler.Kind]; supported {
 					collect(
-						contextcompaction.Handler{
+						extensioncontext.Participant{
 							ExtensionID: registration.ID,
 							RuntimeID:   state.instanceID,
 							HandlerID:   handler.ID,

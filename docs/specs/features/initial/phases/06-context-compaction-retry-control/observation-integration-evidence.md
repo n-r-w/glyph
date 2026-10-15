@@ -1,6 +1,6 @@
 # Completed-conversation observation integration evidence
 
-Status: UNT-08 is accepted at corrective commit `fed40b6`, following checkpoint `8d3146f`. [Final verification and acceptance](#final-verification-and-acceptance) records the reviewed source, checks and evidence limits. PHS-06.1 remains incomplete; UNT-09 through UNT-11 remain pending.
+Status: UNT-08 is accepted at corrective commit `fed40b6`, following checkpoint `8d3146f`. [Final verification and acceptance](#final-verification-and-acceptance) records the reviewed source, checks and evidence limits. The remaining-unit status and legacy accounting callback described here are historical at `fed40b6`. The [migration plan](migration-plan.md#sequential-implementation-units) owns current progress.
 
 ## Scope
 

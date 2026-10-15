@@ -43,8 +43,6 @@ var (
 type Service struct {
 	// catalog resolves logical model selections to raw provider bindings.
 	catalog CatalogResolver
-	// conversationContext records completed-conversation usage for later context estimates.
-	conversationContext ConversationContext
 	// policies captures preparation and observation for the admitted owner.
 	policies ConversationPolicies
 	// retryPolicy contains validated persistent policy values.
@@ -78,7 +76,6 @@ var (
 // New creates the logical model-execution owner from one validated retry policy.
 func New(
 	catalog CatalogResolver,
-	conversationContext ConversationContext,
 	retryPolicy RetryPolicy,
 	retryHandlers RetryHandlers,
 	retryOutput RetryOutput,
@@ -87,7 +84,7 @@ func New(
 	policy := retryPolicy
 	policy.Delays = append([]time.Duration(nil), retryPolicy.Delays...)
 	service := &Service{
-		catalog: catalog, conversationContext: conversationContext, policies: policies,
+		catalog: catalog, policies: policies,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
 		manualPreparation: nil, manualTools: nil, manualInstructions: "",
 	}
@@ -218,7 +215,6 @@ func (s *Service) Stream(
 	}); handleErr != nil {
 		return handleErr
 	}
-	s.conversationContext.RecordCompletedConversationUsage(completion.input, response)
 	return nil
 }
 

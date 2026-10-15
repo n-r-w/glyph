@@ -12,7 +12,6 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/internal/errtree"
 )
 
@@ -54,7 +53,7 @@ type compactionOperation struct {
 	// terminalError retains irreversible commit and independent teardown failures.
 	terminalError error
 	// state retains only diagnostic values received from the policy.
-	state mo.Option[contextcompaction.PolicyState]
+	state mo.Option[PolicyState]
 }
 
 // recordReceipt retains persistence independently of policy transport completion.
@@ -84,17 +83,17 @@ func (o *compactionOperation) isOwningCancellation(cause error) bool {
 }
 
 // recordState retains acquired composition values independently of persistence.
-func (o *compactionOperation) recordState(state contextcompaction.PolicyState) {
+func (o *compactionOperation) recordState(state PolicyState) {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
 	o.state = mo.Some(state.Clone())
 }
 
 // diagnosticState supplies detached acquired values for terminal notification.
-func (o *compactionOperation) diagnosticState() mo.Option[contextcompaction.PolicyState] {
+func (o *compactionOperation) diagnosticState() mo.Option[PolicyState] {
 	o.mutex.Lock()
 	defer o.mutex.Unlock()
-	return o.state.MapValue(contextcompaction.PolicyState.Clone)
+	return o.state.MapValue(PolicyState.Clone)
 }
 
 // findParticipant resolves the policy's selection against captured registrations.

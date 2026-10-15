@@ -155,20 +155,19 @@ func (s *SettingsSuite) TestLoadParsesRetryPolicy() {
 	}, loaded.Retry)
 }
 
-// TestLoadParsesCompactionPolicy verifies the retained-context target replaces its default.
-func (s *SettingsSuite) TestLoadParsesCompactionPolicy() {
+// TestLoadParsesParticipantTimeout checks the configured participant duration.
+func (s *SettingsSuite) TestLoadParsesParticipantTimeout() {
 	// Arrange valid settings with one explicit compaction mapping.
 	path := writeSettings(s.T(), validSettings(`compaction:
-  retainedContextTokens: 1234
   participantTimeout: 17s
 `))
 
 	// Act by loading the strict settings document.
 	loaded, err := New(path).Load()
 
-	// Assert the independent retained-context target is preserved.
+	// Assert the explicit participant duration is preserved.
 	s.Require().NoError(err)
-	s.Equal(Compaction{RetainedContextTokens: 1234, ParticipantTimeout: 17 * time.Second}, loaded.Compaction)
+	s.Equal(Compaction{ParticipantTimeout: 17 * time.Second}, loaded.Compaction)
 }
 
 // TestLoadParsesToolCapabilities verifies exact declarative capability mapping for an arbitrary model ID.
@@ -229,7 +228,7 @@ func (s *SettingsSuite) TestLoadAcceptsEachAPIKeySource() {
 
 // TestLoadParticipantTimeoutDefaults checks the default duration when the participant setting is omitted.
 func (s *SettingsSuite) TestLoadParticipantTimeoutDefaults() {
-	for _, extra := range []string{"", "compaction:\n  retainedContextTokens: 1234\n"} {
+	for _, extra := range []string{"", "compaction: {}\n"} {
 		// Arrange settings without a participant duration.
 		path := writeSettings(s.T(), validSettings(extra))
 		// Act through the YAML settings loader.

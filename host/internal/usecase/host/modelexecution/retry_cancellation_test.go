@@ -72,7 +72,7 @@ func TestRetryCancellationRetainsProviderCause(t *testing.T) {
 							return cancelProgress()
 						})
 				}
-				service := New(catalog, nil, RetryPolicy{
+				service := New(catalog, RetryPolicy{
 					Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Hour}, MaxProviderDelay: time.Hour,
 				}, nil, output, policies)
 
@@ -132,7 +132,7 @@ func TestServiceConcurrentNonRetryableFailureKeepsCategoryAndAllCauses(t *testin
 			},
 		),
 	)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, nil, newTestConversationObservations(t))
 
@@ -176,7 +176,7 @@ func TestServiceConcurrentProviderTimeoutKeepsExhaustionAndAllCauses(t *testing.
 			},
 		),
 	)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, nil, newTestConversationObservations(t))
 
@@ -220,7 +220,7 @@ func TestServiceConcurrentTransientExhaustionKeepsCategoryAndAllCauses(t *testin
 			},
 		),
 	)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, nil, newTestConversationObservations(t))
 
@@ -263,7 +263,7 @@ func TestServiceCancellationPreservesIndependentDeliveryFailure(t *testing.T) {
 			})
 		},
 	)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Second}, MaxProviderDelay: 30 * time.Second,
 	}, nil, nil, newTestConversationObservations(t))
 	independent := errors.New("deliver model content")
@@ -294,7 +294,7 @@ func TestServiceCustomCancellationDuringRetryDelayPreservesCause(t *testing.T) {
 		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
 			Classification: ProviderFailureTransient, RetryDelay: mo.None[time.Duration](), Cause: transientCause,
 		})
-		service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+		service := New(catalog, RetryPolicy{
 			Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Hour}, MaxProviderDelay: 30 * time.Second,
 		}, nil, nil, newTestConversationObservations(t))
 		ctx, cancel := context.WithCancelCause(t.Context())
@@ -333,7 +333,7 @@ func TestExecuteUntypedTimeoutKeepsInternalIdentity(t *testing.T) {
 	controller := gomock.NewController(t)
 	provider := NewMockProviderAttempt(controller)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(context.DeadlineExceeded)
-	service := New(NewMockCatalogResolver(controller), NewMockConversationContext(controller), RetryPolicy{
+	service := New(NewMockCatalogResolver(controller), RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, nil, newTestConversationObservations(t))
 	// Act through the shared logical execution state machine.
@@ -360,7 +360,7 @@ func TestExecuteRetryProgressTimeoutKeepsInternalIdentity(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
 		Classification: ProviderFailureTransient, RetryDelay: mo.None[time.Duration](), Cause: providerCause,
 	})
-	service := New(NewMockCatalogResolver(controller), NewMockConversationContext(controller), RetryPolicy{
+	service := New(NewMockCatalogResolver(controller), RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, nil, newTestConversationObservations(t))
 	// Act with a delivery callback that returns a cancellation sentinel while the caller remains active.
@@ -414,7 +414,7 @@ func TestServiceDisabledRetryIgnoresProviderDelayDuringConcurrentCancellation(t 
 					}
 				},
 			)
-			service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+			service := New(catalog, RetryPolicy{
 				Enabled: false, MaxRetries: 3, Delays: []time.Duration{time.Second, 2 * time.Second, 4 * time.Second},
 				MaxProviderDelay: 30 * time.Second,
 			}, nil, nil, newTestConversationObservations(t))

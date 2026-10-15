@@ -10,7 +10,6 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -22,17 +21,17 @@ func (r *Runtime) HandleCompactionRequest(
 	ctx context.Context,
 	handlerID string,
 	binding extension.Context,
-	invocation contextcompaction.RequestInvocation,
-) (contextcompaction.RequestAction, error) {
+	invocation extensioncontext.RequestInvocation,
+) (extensioncontext.RequestAction, error) {
 	payload, err := mapCompactionRequestInvocation(invocation)
 	if err != nil {
-		return contextcompaction.RequestAction{}, err
+		return extensioncontext.RequestAction{}, err
 	}
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionRequest(payload)
 	response, err := r.runCompactionParticipant(ctx, handlerID, request)
 	if response == nil {
-		return contextcompaction.RequestAction{}, err
+		return extensioncontext.RequestAction{}, err
 	}
 	action, decodeErr := r.decodeCompactionRequestResponse(response)
 	return action, errors.Join(err, decodeErr)
@@ -43,17 +42,17 @@ func (r *Runtime) GenerateCompaction(
 	ctx context.Context,
 	handlerID string,
 	binding extension.Context,
-	invocation contextcompaction.RequestInvocation,
-) (contextcompaction.Result, error) {
+	invocation extensioncontext.RequestInvocation,
+) (extensioncontext.Result, error) {
 	payload, err := mapCompactionRequestInvocation(invocation)
 	if err != nil {
-		return contextcompaction.Result{}, err
+		return extensioncontext.Result{}, err
 	}
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionGenerate(payload)
 	response, err := r.runCompactionParticipant(ctx, handlerID, request)
 	if response == nil {
-		return contextcompaction.Result{}, err
+		return extensioncontext.Result{}, err
 	}
 	result, decodeErr := r.decodeCompactionGeneratorResponse(response)
 	return result, errors.Join(err, decodeErr)
@@ -64,17 +63,17 @@ func (r *Runtime) HandleCompactionResult(
 	ctx context.Context,
 	handlerID string,
 	binding extension.Context,
-	invocation contextcompaction.ResultInvocation,
-) (contextcompaction.ResultAction, error) {
+	invocation extensioncontext.ResultInvocation,
+) (extensioncontext.ResultAction, error) {
 	payload, err := mapCompactionResultInvocation(invocation)
 	if err != nil {
-		return contextcompaction.ResultAction{}, err
+		return extensioncontext.ResultAction{}, err
 	}
 	request := newCompactionParticipantRequest(handlerID, binding, invocation.ParentCompactionID)
 	request.SetCompactionResult(payload)
 	response, err := r.runCompactionParticipant(ctx, handlerID, request)
 	if response == nil {
-		return contextcompaction.ResultAction{}, err
+		return extensioncontext.ResultAction{}, err
 	}
 	action, decodeErr := r.decodeCompactionResultResponse(response)
 	return action, errors.Join(err, decodeErr)
@@ -85,7 +84,7 @@ func (r *Runtime) ObserveCompactionSuccess(
 	ctx context.Context,
 	handlerID string,
 	binding extension.Context,
-	invocation contextcompaction.OutcomeInvocation,
+	invocation extensioncontext.OutcomeInvocation,
 ) error {
 	return r.observeCompaction(ctx, handlerID, binding, invocation, true)
 }
@@ -95,7 +94,7 @@ func (r *Runtime) ObserveCompactionFailure(
 	ctx context.Context,
 	handlerID string,
 	binding extension.Context,
-	invocation contextcompaction.OutcomeInvocation,
+	invocation extensioncontext.OutcomeInvocation,
 ) error {
 	return r.observeCompaction(ctx, handlerID, binding, invocation, false)
 }
@@ -105,7 +104,7 @@ func (r *Runtime) observeCompaction(
 	ctx context.Context,
 	handlerID string,
 	binding extension.Context,
-	invocation contextcompaction.OutcomeInvocation,
+	invocation extensioncontext.OutcomeInvocation,
 	success bool,
 ) (terminalCause error) {
 	category := modelexecution.FailureExtensionFailed
@@ -190,7 +189,7 @@ type compactionHandlerCompletion struct {
 
 // mapCompactionRequestInvocation projects immutable and current request state.
 func mapCompactionRequestInvocation(
-	invocation contextcompaction.RequestInvocation,
+	invocation extensioncontext.RequestInvocation,
 ) (*extensionpb.CompactionRequestInvocation, error) {
 	original, err := mapCompactionRequest(invocation.Original)
 	if err != nil {
@@ -211,7 +210,7 @@ func mapCompactionRequestInvocation(
 
 // mapCompactionResultInvocation projects immutable request and result state.
 func mapCompactionResultInvocation(
-	invocation contextcompaction.ResultInvocation,
+	invocation extensioncontext.ResultInvocation,
 ) (*extensionpb.CompactionResultInvocation, error) {
 	original, err := mapCompactionRequest(invocation.OriginalRequest)
 	if err != nil {
@@ -229,7 +228,7 @@ func mapCompactionResultInvocation(
 }
 
 // mapCompactionRequest projects one Host request without provider replay or hidden extension state.
-func mapCompactionRequest(request contextcompaction.Request) (*extensionpb.CompactionRequest, error) {
+func mapCompactionRequest(request extensioncontext.Request) (*extensionpb.CompactionRequest, error) {
 	prefix, err := mapCompactionEntries(request.Prefix)
 	if err != nil {
 		return nil, err
@@ -257,7 +256,7 @@ func mapCompactionRequest(request contextcompaction.Request) (*extensionpb.Compa
 }
 
 // mapCompactionEntries reuses the public session-entry projection for every source record.
-func mapCompactionEntries(entries []contextcompaction.InputEntry) ([]*extensionpb.CompactionInputEntry, error) {
+func mapCompactionEntries(entries []extensioncontext.InputEntry) ([]*extensionpb.CompactionInputEntry, error) {
 	mapped := make([]*extensionpb.CompactionInputEntry, len(entries))
 	for index := range entries {
 		value, err := mapSessionEntry(extensionruntime.ProjectTreeEntry(entries[index].Entry))
@@ -272,7 +271,7 @@ func mapCompactionEntries(entries []contextcompaction.InputEntry) ([]*extensionp
 }
 
 // mapCompactionResult projects one extension result.
-func mapCompactionResult(result contextcompaction.Result) *extensionpb.CompactionResult {
+func mapCompactionResult(result extensioncontext.Result) *extensionpb.CompactionResult {
 	builder := extensionpb.CompactionResult_builder{
 		Summary: new(result.Summary), FirstKeptEntryId: new(result.FirstKeptEntryID),
 		Source: mapSummarySource(result.Source), Details: nil,
@@ -284,8 +283,8 @@ func mapCompactionResult(result contextcompaction.Result) *extensionpb.Compactio
 }
 
 // mapCompactionResultFromProto decodes a supplied result and optional producer details.
-func mapCompactionResultFromProto(value *extensionpb.CompactionResult) contextcompaction.Result {
-	result := contextcompaction.Result{
+func mapCompactionResultFromProto(value *extensionpb.CompactionResult) extensioncontext.Result {
+	result := extensioncontext.Result{
 		Summary: value.GetSummary(), FirstKeptEntryID: value.GetFirstKeptEntryId(),
 		Source: extensioncontroller.DecodeCompactionSource(value.GetSource()), Details: mo.None[[]byte](),
 	}
@@ -298,18 +297,18 @@ func mapCompactionResultFromProto(value *extensionpb.CompactionResult) contextco
 // mapCompactionRequestAction maps explicit public action variants without repairing malformed shapes.
 func mapCompactionRequestAction(
 	action *extensionpb.CompactionRequestAction,
-) (contextcompaction.RequestAction, error) {
-	result := contextcompaction.RequestAction{
+) (extensioncontext.RequestAction, error) {
+	result := extensioncontext.RequestAction{
 		Cancel:        action.GetCancel(),
 		RequestAction: mapCompactionRequestDisposition(action.GetRequestAction()),
-		Request:       mo.None[contextcompaction.Request](),
+		Request:       mo.None[extensioncontext.Request](),
 		ResultAction:  mapCompactionResultDisposition(action.GetResultAction()),
-		Result:        mo.None[contextcompaction.Result](),
+		Result:        mo.None[extensioncontext.Result](),
 	}
 	if action.GetRequest() != nil {
 		replacement, err := mapCompactionRequestFromProto(action.GetRequest())
 		if err != nil {
-			return contextcompaction.RequestAction{}, err
+			return extensioncontext.RequestAction{}, err
 		}
 		result.Request = mo.Some(replacement)
 	}
@@ -322,25 +321,25 @@ func mapCompactionRequestAction(
 // mapCompactionResultAction maps explicit preservation, replacement, and cancellation variants.
 func mapCompactionResultAction(
 	action *extensionpb.CompactionResultAction,
-) (contextcompaction.ResultAction, error) {
+) (extensioncontext.ResultAction, error) {
 	disposition := action.GetResultAction()
 	if action.GetCancel() {
 		if disposition != extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_UNSPECIFIED ||
 			action.GetResult() != nil {
-			return contextcompaction.ResultAction{}, errors.New("compaction cancellation must be exclusive")
+			return extensioncontext.ResultAction{}, errors.New("compaction cancellation must be exclusive")
 		}
-		return contextcompaction.ResultAction{
-			Cancel: true, Preserve: false, Result: mo.None[contextcompaction.Result](),
+		return extensioncontext.ResultAction{
+			Cancel: true, ResultAction: 0, Result: mo.None[extensioncontext.Result](),
 		}, nil
 	}
 	if disposition != extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_PRESERVE &&
 		disposition != extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE {
-		return contextcompaction.ResultAction{}, errors.New("compaction result disposition is invalid")
+		return extensioncontext.ResultAction{}, errors.New("compaction result disposition is invalid")
 	}
-	result := contextcompaction.ResultAction{
-		Cancel:   false,
-		Preserve: disposition == extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_PRESERVE,
-		Result:   mo.None[contextcompaction.Result](),
+	result := extensioncontext.ResultAction{
+		Cancel:       false,
+		ResultAction: mapCompactionResultDisposition(disposition),
+		Result:       mo.None[extensioncontext.Result](),
 	}
 	if action.GetResult() != nil {
 		result.Result = mo.Some(mapCompactionResultFromProto(action.GetResult()))
@@ -349,7 +348,7 @@ func mapCompactionResultAction(
 }
 
 // mapCompactionOutcome projects terminal state and optional durable commit.
-func mapCompactionOutcome(invocation contextcompaction.OutcomeInvocation) (*extensionpb.CompactionOutcome, error) {
+func mapCompactionOutcome(invocation extensioncontext.OutcomeInvocation) (*extensionpb.CompactionOutcome, error) {
 	builder := extensionpb.CompactionOutcome_builder{
 		State:     nil,
 		Committed: nil,
@@ -376,21 +375,21 @@ func mapCompactionOutcome(invocation contextcompaction.OutcomeInvocation) (*exte
 }
 
 // mapCompactionRequestFromProto decodes a public replacement request.
-func mapCompactionRequestFromProto(value *extensionpb.CompactionRequest) (contextcompaction.Request, error) {
+func mapCompactionRequestFromProto(value *extensionpb.CompactionRequest) (extensioncontext.Request, error) {
 	if !value.HasContextTokensEstimated() || !value.GetContextTokensEstimated() {
-		return contextcompaction.Request{}, errors.New(
+		return extensioncontext.Request{}, errors.New(
 			"compaction context token estimate marker must be present and true",
 		)
 	}
 	prefix, err := mapCompactionEntriesFromProto(value.GetPrefix())
 	if err != nil {
-		return contextcompaction.Request{}, err
+		return extensioncontext.Request{}, err
 	}
 	suffix, err := mapCompactionEntriesFromProto(value.GetSuffix())
 	if err != nil {
-		return contextcompaction.Request{}, err
+		return extensioncontext.Request{}, err
 	}
-	return contextcompaction.Request{
+	return extensioncontext.Request{
 		Trigger:      mapCompactionTriggerFromProto(value.GetTrigger()),
 		RetryIntent:  value.GetRetryIntent(),
 		Instructions: optionalString(value.HasInstructions(), value.GetInstructions()),
@@ -410,8 +409,8 @@ func mapCompactionRequestFromProto(value *extensionpb.CompactionRequest) (contex
 }
 
 // mapCompactionEntriesFromProto decodes replacement entries and their token estimates.
-func mapCompactionEntriesFromProto(values []*extensionpb.CompactionInputEntry) ([]contextcompaction.InputEntry, error) {
-	entries := make([]contextcompaction.InputEntry, len(values))
+func mapCompactionEntriesFromProto(values []*extensionpb.CompactionInputEntry) ([]extensioncontext.InputEntry, error) {
+	entries := make([]extensioncontext.InputEntry, len(values))
 	for index := range values {
 		if values[index] == nil || values[index].GetEntry() == nil {
 			return nil, fmt.Errorf("map replacement compaction entry %d: payload is missing", index)
@@ -420,7 +419,7 @@ func mapCompactionEntriesFromProto(values []*extensionpb.CompactionInputEntry) (
 		if err != nil {
 			return nil, fmt.Errorf("map replacement compaction entry %d: %w", index, err)
 		}
-		entries[index] = contextcompaction.InputEntry{
+		entries[index] = extensioncontext.InputEntry{
 			Entry: entry, EstimatedTokens: values[index].GetEstimatedTokens(),
 		}
 	}
@@ -430,12 +429,12 @@ func mapCompactionEntriesFromProto(values []*extensionpb.CompactionInputEntry) (
 // mapCompactionRequestDisposition maps the closed public request action.
 func mapCompactionRequestDisposition(
 	value extensionpb.CompactionRequestDisposition,
-) contextcompaction.RequestActionKind {
+) extensioncontext.RequestActionKind {
 	switch value {
 	case extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_PRESERVE:
-		return contextcompaction.RequestActionPreserve
+		return extensioncontext.RequestActionPreserve
 	case extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE:
-		return contextcompaction.RequestActionReplace
+		return extensioncontext.RequestActionReplace
 	case extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_UNSPECIFIED:
 		return 0
 	default:
@@ -446,14 +445,14 @@ func mapCompactionRequestDisposition(
 // mapCompactionResultDisposition maps the closed public result action.
 func mapCompactionResultDisposition(
 	value extensionpb.CompactionResultDisposition,
-) contextcompaction.ResultActionKind {
+) extensioncontext.ResultActionKind {
 	switch value {
 	case extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_PRESERVE:
-		return contextcompaction.ResultActionPreserve
+		return extensioncontext.ResultActionPreserve
 	case extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE:
-		return contextcompaction.ResultActionReplace
+		return extensioncontext.ResultActionReplace
 	case extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_CLEAR:
-		return contextcompaction.ResultActionClear
+		return extensioncontext.ResultActionClear
 	case extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_UNSPECIFIED:
 		return 0
 	default:
@@ -462,14 +461,14 @@ func mapCompactionResultDisposition(
 }
 
 // mapCompactionTriggerFromProto maps the closed public trigger.
-func mapCompactionTriggerFromProto(value extensionpb.CompactionTrigger) contextcompaction.Trigger {
+func mapCompactionTriggerFromProto(value extensionpb.CompactionTrigger) extensioncontext.Trigger {
 	switch value {
 	case extensionpb.CompactionTrigger_COMPACTION_TRIGGER_MANUAL:
-		return contextcompaction.TriggerManual
+		return extensioncontext.TriggerManual
 	case extensionpb.CompactionTrigger_COMPACTION_TRIGGER_THRESHOLD:
-		return contextcompaction.TriggerThreshold
+		return extensioncontext.TriggerThreshold
 	case extensionpb.CompactionTrigger_COMPACTION_TRIGGER_OVERFLOW:
-		return contextcompaction.TriggerOverflow
+		return extensioncontext.TriggerOverflow
 	case extensionpb.CompactionTrigger_COMPACTION_TRIGGER_UNSPECIFIED:
 		return 0
 	default:
@@ -478,7 +477,7 @@ func mapCompactionTriggerFromProto(value extensionpb.CompactionTrigger) contextc
 }
 
 // mapCompactionTrigger maps the closed internal trigger.
-func mapCompactionTrigger(trigger contextcompaction.Trigger) extensionpb.CompactionTrigger {
+func mapCompactionTrigger(trigger extensioncontext.Trigger) extensionpb.CompactionTrigger {
 	return extensionpb.CompactionTrigger(trigger)
 }
 
@@ -491,7 +490,7 @@ func optionalString(present bool, value string) mo.Option[string] {
 }
 
 // mapPolicyState encodes acquired composition values for outcome observers.
-func mapPolicyState(state contextcompaction.PolicyState) (*extensionpb.CompactionPolicyState, error) {
+func mapPolicyState(state extensioncontext.PolicyState) (*extensionpb.CompactionPolicyState, error) {
 	original, err := mapCompactionRequest(state.OriginalRequest)
 	if err != nil {
 		return nil, err
@@ -512,23 +511,23 @@ func mapPolicyState(state contextcompaction.PolicyState) (*extensionpb.Compactio
 }
 
 // mapPolicyStateFromProto decodes the diagnostic state actually supplied by the policy.
-func mapPolicyStateFromProto(raw *extensionpb.CompactionPolicyState) (contextcompaction.PolicyState, error) {
+func mapPolicyStateFromProto(raw *extensionpb.CompactionPolicyState) (extensioncontext.PolicyState, error) {
 	if raw.GetOriginalRequest() == nil || raw.GetCurrentRequest() == nil {
-		return contextcompaction.PolicyState{}, errors.New(
+		return extensioncontext.PolicyState{}, errors.New(
 			"policy diagnostic original and current requests are required",
 		)
 	}
 	original, err := mapCompactionRequestFromProto(raw.GetOriginalRequest())
 	if err != nil {
-		return contextcompaction.PolicyState{}, err
+		return extensioncontext.PolicyState{}, err
 	}
 	current, err := mapCompactionRequestFromProto(raw.GetCurrentRequest())
 	if err != nil {
-		return contextcompaction.PolicyState{}, err
+		return extensioncontext.PolicyState{}, err
 	}
-	result := mo.None[contextcompaction.Result]()
+	result := mo.None[extensioncontext.Result]()
 	if value := raw.GetResult(); value != nil {
 		result = mo.Some(mapCompactionResultFromProto(value))
 	}
-	return contextcompaction.PolicyState{OriginalRequest: original, CurrentRequest: current, Result: result}, nil
+	return extensioncontext.PolicyState{OriginalRequest: original, CurrentRequest: current, Result: result}, nil
 }

@@ -15,7 +15,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
 )
@@ -47,7 +46,7 @@ func TestCapturedOverflowClassifiesCurrentSources(t *testing.T) {
 			runtime.EXPECT().ContextRuntime(owner.ExtensionID).Return(owner.RuntimeID, true).AnyTimes()
 			sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 			policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
-			policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).Times(1)
+			policy.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).Times(1)
 			compactions.EXPECT().CaptureCompaction().Return(CompactionSnapshot{
 				Identity: identity, ActiveLeafID: mo.None[string](), Entries: nil, History: nil,
 				Previous: mo.None[session.CompactionEntry](),
@@ -100,7 +99,7 @@ func TestCapturedOverflowRejectsChangedBinding(t *testing.T) {
 			}).AnyTimes()
 			sessions.EXPECT().ContextSession().DoAndReturn(func() session.Identity { return identity }).AnyTimes()
 			policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
-			policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).Times(1)
+			policy.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).Times(1)
 			service := New(runtime, sessions)
 			service.BindPolicy(policy, compactions, 0)
 			captured, err := service.CaptureConversation()
@@ -142,7 +141,7 @@ func TestCapturedOverflowUsesFreshSnapshot(t *testing.T) {
 	runtime.EXPECT().ContextRuntime(owner.ExtensionID).Return(owner.RuntimeID, true).AnyTimes()
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 	policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
-	policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).Times(1)
+	policy.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).Times(1)
 	service := New(runtime, sessions)
 	service.BindPolicy(policy, compactions, 0)
 	capture, err := service.CaptureConversation()

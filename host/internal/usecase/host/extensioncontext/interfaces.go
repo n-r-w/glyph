@@ -10,7 +10,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -108,7 +107,7 @@ type PolicyInvocation struct {
 	// Instructions contains the caller's manual guidance.
 	Instructions mo.Option[string]
 	// RecordState retains acquired diagnostic state independently of the durable receipt.
-	RecordState func(contextcompaction.PolicyState)
+	RecordState func(PolicyState)
 }
 
 // ConversationObservation contains the completed provider attempt and nested-work correlation.
@@ -137,20 +136,20 @@ type PolicyRuntime interface {
 		RequestInvocation,
 	) (RequestAction, error)
 	// SnapshotCompactionHandlers captures compaction participants and outcome observers in registration order.
-	SnapshotCompactionHandlers() contextcompaction.HandlerSet
+	SnapshotCompactionHandlers() HandlerSet
 	// ObserveCompactionSuccess invokes one captured committed-outcome observer.
 	ObserveCompactionSuccess(
 		context.Context,
-		contextcompaction.Handler,
+		Participant,
 		extension.Context,
-		contextcompaction.OutcomeInvocation,
+		OutcomeInvocation,
 	) error
 	// ObserveCompactionFailure invokes one captured failure-outcome observer.
 	ObserveCompactionFailure(
 		context.Context,
-		contextcompaction.Handler,
+		Participant,
 		extension.Context,
-		contextcompaction.OutcomeInvocation,
+		OutcomeInvocation,
 	) error
 	// SnapshotCompactionPolicies captures registered policy generations.
 	SnapshotCompactionPolicies() []PolicyOwner

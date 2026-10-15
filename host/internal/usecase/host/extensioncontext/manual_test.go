@@ -8,8 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
-
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -19,7 +17,7 @@ func (s *manualPolicyRejectsAmbiguousOwnersSuite) TestScenario() {
 	// Arrange two registered owners and a session that must not be captured.
 	controller := gomock.NewController(t)
 	runtime := NewMockPolicyRuntime(controller)
-	runtime.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).AnyTimes()
+	runtime.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).AnyTimes()
 	runtime.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{
 		{ExtensionID: "first", RuntimeID: "generation-a", HandlerID: "policy"},
 		{ExtensionID: "second", RuntimeID: "generation-b", HandlerID: "policy"},
@@ -42,7 +40,7 @@ func (s *manualPolicyRejectsAbsentOwnerSuite) TestScenario() {
 	// Arrange a runtime with no registered policy and a session that must not be captured.
 	controller := gomock.NewController(t)
 	runtime := NewMockPolicyRuntime(controller)
-	runtime.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).AnyTimes()
+	runtime.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).AnyTimes()
 	runtime.EXPECT().SnapshotCompactionPolicies().Return(nil)
 	service := New(NewMockRuntimeState(controller), NewMockSessionState(controller))
 	service.policyRuntime = runtime

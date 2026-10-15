@@ -24,7 +24,6 @@ import (
 	uiruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/ui/runtime"
 
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
@@ -105,17 +104,9 @@ func runUIWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
-	// contextCompaction supplies conversation usage accounting.
-	contextCompaction := contextcompaction.New(sessionServices.active)
-	if err = contextCompaction.BindOrchestration(
-		extensions, contexts, configured.Compaction.RetainedContextTokens,
-	); err != nil {
-		return fmt.Errorf("bind UI context compaction: %w", err)
-	}
 	// modelExecution owns every logical model request in the UI assembly.
 	modelExecution := modelexecution.New(
 		providerCatalog,
-		contextCompaction,
 		retryPolicy(configured),
 		extensions,
 		transport,

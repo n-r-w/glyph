@@ -61,7 +61,7 @@ Example: request handler A changes the current request; handler B supplies a com
 - Host records the actual committed entry in the compaction operation binding before reporting nested commit completion. If the extension result is lost after persistence, Host retains the durable outcome and rejects another replacement for that operation.
 - Host retains admission for the parent operation. Host must not reacquire that gate for nested handler calls, model calls, candidate projection, or the final mutation. The Host operation owner cancels and joins its nested work before releasing the compaction operation binding.
 
-The existing [session snapshot](../../../../../../host/internal/usecase/host/sessions/compaction_snapshot.go) and [compaction commit](../../../../../../host/internal/usecase/host/sessions/compaction.go) provide the snapshot and mutation foundations. The target paths replace the checkpoint's separate manual/orchestration snapshots and its installation of a result candidate before validation.
+The session owner captures detached entries and prepared history under one read lock in [CaptureCompaction](../../../../../../host/internal/usecase/host/sessions/manual_compaction.go). It applies the shared Agent Core history projection to the captured history. [CommitReplacement](../../../../../../host/internal/usecase/host/sessions/manual_compaction.go) uses the session-owned [commit boundary](../../../../../../host/internal/usecase/host/sessions/compaction.go), including synchronous guards and receipt recording before publication.
 
 #### Context observations and model access
 
@@ -126,7 +126,15 @@ During close, replacement, and pending rejection, the manager joins the state's 
 
 Fresh compiling RED/GREEN runs reproduced blocked failure workers, premature process shutdown, and cancellation that hid runtime unavailability. The [unit progress](migration-plan.md#sequential-implementation-units) records acceptance and coverage. Two consecutive generation runs produced identical output.
 
-#### Requirements coverage and design limits
+#### Integration contract ownership
+
+`extensioncontext` owns `HandlerSet`, `PolicyState`, and `OutcomeInvocation` alongside its participant, request, result, and action contracts. The runtime manager captures detached registration lists and dispatches those values directly through its existing `ExtensionRuntime` consumer boundary. The transport adapter decodes result dispositions into the integration's action enum. Transport checks and the policy participant's action-shape checks retain their separate boundaries.
+
+Host retains diagnostic-state cloning for each observer, session usage and cost accounting, and completed-conversation observation before logical success. Token estimates and budgets in composition requests are extension-supplied public data. Host configuration contains only the participant lifecycle duration for compaction. The standard bundled policy remains pending in PHS-06.2.
+
+UNT-11 source preparation removes the checkpoint policy package, its sizing and process-local usage baseline, the obsolete completed-usage callback, and their assembly connections. Cleanup acceptance remains pending under the [migration plan](migration-plan.md#sequential-implementation-units).
+
+### Requirements coverage and design limits
 
 - FRQ-01 through FRQ-01.1.1 and FRQ-01.14: one registered extension owns policy; Host integration is invocation and session access; Agent Core retains its compaction-free contracts.
 - FRQ-01.2 through FRQ-01.8 and FRQ-02: operation-scoped nested calls preserve ordered composition, immutable originals, independent state updates, generator bypass, custom generation, complete replacement, terminal errors, and cancellation for all triggers.
@@ -147,7 +155,7 @@ QST-01 is resolved for system-contract design. The [phased plan](migration-plan.
 
 ## Unaccepted Checkpoint Design
 
-The following design through [Implementation order and verification](#implementation-order-and-verification) describes the implemented Host-owned unit 4 checkpoint. It is retained as comparison and migration evidence. It does not define the target compaction ownership or settle the pending integration contract.
+The following design through [Implementation order and verification](#implementation-order-and-verification) describes the Host-owned unit 4 checkpoint at commit `690827f6631a1197972e50c48b196ab462576bbd`. References to `contextcompaction` in this section identify that historical source. This comparison evidence defines neither target ownership nor the accepted integration contract.
 
 ### Ownership and dependency direction
 
@@ -402,7 +410,7 @@ Before implementation closure, run `task generate` twice for contract/mock chang
 
 ## Implementation Evidence
 
-Units 0, 0.1, 1, 2, and 3 are implemented and committed. Unit 4 is retained as an unaccepted Host-owned checkpoint for the extension-policy migration. The old unit 5 is unimplemented and does not define the replacement integration contract or target migration. Passing checks do not close the following review findings:
+This section records the historical implementation and checks through checkpoint `690827f6631a1197972e50c48b196ab462576bbd`. Its commands and test names identify that source, including the retired Host-policy tests. They are not UNT-11 verification. Units 0, 0.1, 1, 2, and 3 were committed. Unit 4 was an unaccepted Host-owned checkpoint. The old unit 5 was unimplemented. Passing checkpoint checks did not close the following review findings:
 
 - `contextcompaction.Service.Compact` installs a result-handler replacement before validation, so failure observers can receive the rejected value instead of the last valid result.
 - `contextcompaction.Service.compactManual` and `Compact` capture separate session snapshots, so a concurrent extension append can separate token accounting from the entries exposed to handlers.
@@ -579,8 +587,8 @@ The old unit 5 remains unimplemented. The [migration plan](migration-plan.md#pha
 
 - Purpose: Define the bundled generator's observable result when the complete source does not fit one configured-model request.
 - Impact: Bounded multiple requests and explicit failure have different completion behavior, provider-call counts, usage/cost accounting, and cancellation paths. The implementer cannot select that behavior from the approved integration design.
-- Evidence: The target assigns summary-input budgeting to the extension but contains no oversized-source strategy. The [current generator route](../../../../../../host/internal/usecase/host/contextcompaction/orchestration.go) invokes a registered capability without implementing a summary algorithm. The bundled extension is not implemented. The [historical generator strategy](#bundled-compaction-extension) describes multi-call packing only within the unaccepted checkpoint design.
-- Reachable case: A long session moves to a smaller-context model. Using the checkpoint's [sizing policy](../../../../../../host/internal/usecase/host/contextcompaction/sizing.go), the checkpoint compactor estimates 100 text messages of 6,368 bytes each at 160,000 tokens. With the 20,000-token retained target, the checkpoint compactor keeps 13 messages. The remaining 87 messages contain 554,016 source bytes. For those bytes alone in one source-text record, the checkpoint compactor estimates 138,512 tokens. A model with 128,000 context tokens and 16,000 output tokens has a 112,000-token input budget. The checkpoint compactor's calculated token counts are estimates from the checkpoint sizing policy. They are not provider-request measurements.
+- Evidence: The target assigns summary-input budgeting to the extension but contains no oversized-source strategy. The [generator dispatch](../../../../../../host/internal/usecase/host/extensionruntime/policy_generator.go), `InvokeCompactionGenerator`, invokes the selected capability. The bundled extension is not implemented. The [historical generator strategy](#bundled-compaction-extension) describes multi-call packing only within the unaccepted checkpoint design.
+- Reachable case: A long session moves to a smaller-context model. Using the checkpoint's [sizing policy](#deterministic-fallback-estimate), the checkpoint compactor estimates 100 text messages of 6,368 bytes each at 160,000 tokens. With the 20,000-token retained target, the checkpoint compactor keeps 13 messages. The remaining 87 messages contain 554,016 source bytes. For those bytes alone in one source-text record, the checkpoint compactor estimates 138,512 tokens. A model with 128,000 context tokens and 16,000 output tokens has a 112,000-token input budget. The checkpoint compactor's calculated token counts are estimates from the checkpoint sizing policy. They are not provider-request measurements.
 - Required answer: Select the standard oversized-source behavior and define the summary model, complete-group handling, preceding-summary propagation, normalized usage/source accounting, cancellation, and terminal failures. Preserve the prohibition on Host fallback and silent source truncation.
 - Accounting constraint: The current result source represents one actual model selection with optional normalized usage. [Host cost estimation](../../../../../../host/internal/usecase/host/sessions/service.go) chooses pricing tiers from that one request-wide usage value. Summing usage from several calls can therefore differ from summing their separately estimated costs. The system contract does not promise arbitrary all-contributing-call cost; a future decision that requires per-call or multiple-model source accounting must review the contract before implementation.
 - Owner: PHS-06.2 extension-implementation design. The user explicitly deferred this algorithm decision from PHS-06.1.

@@ -16,7 +16,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -33,7 +32,7 @@ func TestAutomaticPreserveUsesCapturedSession(t *testing.T) {
 	owner := PolicyOwner{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "prepare"}
 	runtime.EXPECT().ContextRuntime(owner.ExtensionID).Return(owner.RuntimeID, true).AnyTimes()
 	sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
-	handlers := contextcompaction.HandlerSet{}
+	handlers := HandlerSet{}
 	policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
 	policy.EXPECT().SnapshotCompactionHandlers().Return(handlers).Times(1)
 	history := []agent.HistoryEntry{
@@ -110,7 +109,7 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 			compactions := NewMockCompactionSessions(controller)
 			identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 			owner := PolicyOwner{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "prepare"}
-			observer := contextcompaction.Handler{
+			observer := Participant{
 				ExtensionID: owner.ExtensionID,
 				RuntimeID:   owner.RuntimeID,
 				HandlerID:   "success",
@@ -120,7 +119,7 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 			policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
 			policy.EXPECT().
 				SnapshotCompactionHandlers().
-				Return(contextcompaction.HandlerSet{Requests: nil, Generators: nil, Results: nil, Successes: []contextcompaction.Handler{observer}, Failures: nil}).
+				Return(HandlerSet{Requests: nil, Generators: nil, Results: nil, Successes: []Participant{observer}, Failures: nil}).
 				Times(1)
 			original := []agent.HistoryEntry{newAutomaticTestHistory("original")}
 			snapshot := CompactionSnapshot{
@@ -168,7 +167,7 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 			notified := false
 			policy.EXPECT().
 				ObserveCompactionSuccess(gomock.Any(), observer, gomock.Any(), gomock.Any()).
-				DoAndReturn(func(_ context.Context, _ contextcompaction.Handler, _ extension.Context, _ contextcompaction.OutcomeInvocation) error {
+				DoAndReturn(func(_ context.Context, _ Participant, _ extension.Context, _ OutcomeInvocation) error {
 					notified = true
 					return nil
 				})

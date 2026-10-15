@@ -15,7 +15,6 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -39,14 +38,14 @@ func TestPolicyResultInvocation(t *testing.T) {
 func (s *policyResultSuite) TestSelectedAction() {
 	t := s.T()
 	// Arrange two result registrations and one explicit selection.
-	first := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "first-result"}
-	selected := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "second-result"}
+	first := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "first-result"}
+	selected := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "second-result"}
 	service, runtime, owner := newManualPolicyOperationFixture(
 		t,
-		contextcompaction.HandlerSet{
+		HandlerSet{
 			Requests:   nil,
 			Generators: nil,
-			Results:    []contextcompaction.Handler{first, selected},
+			Results:    []Participant{first, selected},
 			Successes:  nil,
 			Failures:   nil,
 		},
@@ -77,7 +76,7 @@ func (s *policyResultSuite) TestSelectedAction() {
 	runtime.EXPECT().
 		InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
-			require.Equal(t, newParticipants([]contextcompaction.Handler{first, selected}), input.Results)
+			require.Equal(t, []Participant{first, selected}, input.Results)
 			command := newPolicyResultCommand(input.OperationID, selected, 1)
 			response, err := service.InvokePolicyResult(ctx, captured.ExtensionID, binding.RuntimeInstanceID, command)
 			require.NoError(t, err)
@@ -102,14 +101,14 @@ func (s *policyResultSuite) TestSelectedAction() {
 func (s *policyResultSuite) TestMembership() {
 	t := s.T()
 	// Arrange disjoint request and result registrations with no allowed participant dispatch.
-	handler := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "result"}
-	wrong := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "request"}
+	handler := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "result"}
+	wrong := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "request"}
 	service, runtime, owner := newManualPolicyOperationFixture(
 		t,
-		contextcompaction.HandlerSet{
-			Requests:   []contextcompaction.Handler{wrong},
+		HandlerSet{
+			Requests:   []Participant{wrong},
 			Generators: nil,
-			Results:    []contextcompaction.Handler{handler},
+			Results:    []Participant{handler},
 			Successes:  nil,
 			Failures:   nil,
 		},
@@ -161,13 +160,13 @@ func (s *policyResultSuite) TestMembership() {
 func (s *policyResultSuite) TestRetainedFailure() {
 	t := s.T()
 	// Arrange an invoked participant with independent execution and child causes.
-	handler := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "result"}
+	handler := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "result"}
 	service, runtime, owner := newManualPolicyOperationFixture(
 		t,
-		contextcompaction.HandlerSet{
+		HandlerSet{
 			Requests:   nil,
 			Generators: nil,
-			Results:    []contextcompaction.Handler{handler},
+			Results:    []Participant{handler},
 			Successes:  nil,
 			Failures:   nil,
 		},
@@ -210,7 +209,7 @@ func (s *policyResultSuite) TestRetainedFailure() {
 // newPolicyResultCommand supplies detached original and current inputs for layer scenarios.
 func newPolicyResultCommand(
 	operationID string,
-	handler contextcompaction.Handler,
+	handler Participant,
 	order int64,
 ) extensioncontroller.CompactionResultCommand {
 	request := newPolicyRequestCommand(operationID, handler, order)

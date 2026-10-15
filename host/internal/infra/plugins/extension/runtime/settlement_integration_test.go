@@ -7,6 +7,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -14,7 +16,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	extensionruntime "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/internal/errtree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -68,8 +69,8 @@ func TestRuntimeCancellationSettlement(t *testing.T) {
 								ctx,
 								fixtureObserverID,
 								runtimeTestContext(),
-								contextcompaction.OutcomeInvocation{
-									State:              mo.None[contextcompaction.PolicyState](),
+								extensioncontext.OutcomeInvocation{
+									State:              mo.None[extensioncontext.PolicyState](),
 									ParentCompactionID: mo.None[string](),
 									Committed:          mo.None[session.Entry](),
 									Canceled:           true,

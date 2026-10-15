@@ -67,12 +67,7 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 			controller := gomock.NewController(t)
 			catalog := NewMockCatalogResolver(controller)
 			provider := NewMockProviderAttempt(controller)
-			accounting := NewMockConversationContext(controller)
-			accountingWritten := false
-			accounting.EXPECT().
-				RecordCompletedConversationUsage(gomock.Any(), gomock.Any()).
-				AnyTimes().
-				Do(func(ProviderRequest, model.Response) { accountingWritten = true })
+
 			observations := NewMockConversationPolicies(controller)
 			selection := model.Selection{
 				Provider:        "provider",
@@ -174,7 +169,7 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 			}
 			output := NewMockRetryOutput(controller)
 			output.EXPECT().DeliverRetry(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-			service := New(catalog, accounting, retry, nil, output, observations)
+			service := New(catalog, retry, nil, output, observations)
 			var terminal agentrun.StreamEvent
 			// Act through the model-execution service's conversation stream.
 			err := service.Stream(
@@ -194,7 +189,7 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 					return nil
 				},
 			)
-			// Assert that the service preserves the complete response with present zero-valued usage and private replay data, without writing a baseline.
+			// Assert the failed observation retains the complete response, present-zero usage, and private replay data.
 			if scenario.canceled {
 				require.ErrorIs(t, err, context.Canceled)
 				require.ErrorIs(t, err, priorFirst)
@@ -224,7 +219,6 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 			}
 			require.Equal(t, agentrun.StreamEventError, terminal.Kind)
 			require.Equal(t, response, terminal.Response.MustGet())
-			require.False(t, accountingWritten)
 		})
 	}
 }

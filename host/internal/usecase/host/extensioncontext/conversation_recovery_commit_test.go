@@ -13,7 +13,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -47,16 +46,16 @@ func TestCapturedOverflowCommitFailures(t *testing.T) {
 			runtime.EXPECT().ContextRuntime(owner.ExtensionID).Return(owner.RuntimeID, true).AnyTimes()
 			sessions.EXPECT().ContextSession().Return(identity).AnyTimes()
 			policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
-			observer := contextcompaction.Handler{
+			observer := Participant{
 				ExtensionID: owner.ExtensionID,
 				RuntimeID:   owner.RuntimeID,
 				HandlerID:   "success",
 			}
-			var successes []contextcompaction.Handler
+			var successes []Participant
 			if scenario.observer {
-				successes = []contextcompaction.Handler{observer}
+				successes = []Participant{observer}
 			}
-			policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{
+			policy.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{
 				Requests: nil, Generators: nil, Results: nil, Successes: successes, Failures: nil,
 			}).Times(1)
 			snapshot := CompactionSnapshot{

@@ -11,7 +11,6 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -85,7 +84,6 @@ type Service struct {
 }
 
 var (
-	_ contextcompaction.ContextIssuer = (*Service)(nil)
 	// Service implements the model execution manual preparation contract.
 	_ modelexecution.ManualCompactionPreparation = (*Service)(nil)
 	// Service captures the policy owner for conversation preparation and observation.

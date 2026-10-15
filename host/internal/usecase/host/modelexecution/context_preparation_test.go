@@ -24,7 +24,7 @@ func TestServicePreparesInitialConversationContext(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	observer := NewMockConversationContext(controller)
+
 	preparation := NewMockCapturedConversation(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
@@ -44,8 +44,7 @@ func TestServicePreparesInitialConversationContext(t *testing.T) {
 			return emitContextPreparationSuccess(handle)
 		},
 	)
-	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any())
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestCapturedPolicies(t, preparation))
+	service := New(catalog, disabledRetryPolicy(), nil, nil, newTestCapturedPolicies(t, preparation))
 
 	// Act through the active-conversation stream.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -64,7 +63,7 @@ func TestServicePreservesTypedPreparationFailure(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	observer := NewMockConversationContext(controller)
+
 	preparation := NewMockCapturedConversation(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
@@ -74,7 +73,7 @@ func TestServicePreservesTypedPreparationFailure(t *testing.T) {
 	preparation.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(
 		ConversationPreparation{}, typedPreparationFailure{cause: errors.New("extension failed")},
 	)
-	service := New(catalog, observer, disabledRetryPolicy(), nil, nil, newTestCapturedPolicies(t, preparation))
+	service := New(catalog, disabledRetryPolicy(), nil, nil, newTestCapturedPolicies(t, preparation))
 
 	// Act before provider dispatch.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{
@@ -132,7 +131,7 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 			controller := gomock.NewController(t)
 			catalog := NewMockCatalogResolver(controller)
 			provider := NewMockProviderAttempt(controller)
-			observer := NewMockConversationContext(controller)
+
 			preparation := NewMockCapturedConversation(controller)
 			output := NewMockRetryOutput(controller)
 			selection := model.Selection{
@@ -159,7 +158,7 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 					return ConversationPreparation{History: nil, Committed: testCase.committed}, callerCause
 				},
 			)
-			service := New(catalog, observer, RetryPolicy{
+			service := New(catalog, RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
 			}, nil, output, newTestCapturedPolicies(t, preparation))
 
@@ -199,7 +198,7 @@ func TestServiceDisabledRetryClassifiesOverflowWithCapturedOwner(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	observer := NewMockConversationContext(controller)
+
 	preparation := newTestPreservingCapture(t)
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
@@ -211,7 +210,7 @@ func TestServiceDisabledRetryClassifiesOverflowWithCapturedOwner(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
 		Classification: ProviderFailureContextOverflow, RetryDelay: mo.None[time.Duration](), Cause: providerCause,
 	})
-	service := New(catalog, observer, RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: false, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
 	}, nil, output, newTestCapturedPolicies(t, preparation))
 
@@ -259,7 +258,7 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			controller := gomock.NewController(t)
 			catalog := NewMockCatalogResolver(controller)
 			provider := NewMockProviderAttempt(controller)
-			observer := NewMockConversationContext(controller)
+
 			preparation := newTestPreservingCapture(t)
 			output := NewMockRetryOutput(controller)
 			selection := model.Selection{
@@ -299,7 +298,7 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 					return ConversationPreparation{History: nil, Committed: false}, callerCause
 				},
 			)
-			service := New(catalog, observer, RetryPolicy{
+			service := New(catalog, RetryPolicy{
 				Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
 			}, nil, output, newTestCapturedPolicies(t, preparation))
 
@@ -336,7 +335,7 @@ func TestServiceRecoversAdmittedOverflowsWithinRetryAllowance(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	observer := NewMockConversationContext(controller)
+
 	preparation := newTestPreservingCapture(t)
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
@@ -377,12 +376,17 @@ func TestServiceRecoversAdmittedOverflowsWithinRetryAllowance(t *testing.T) {
 			return nil
 		},
 	)
-	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any()).Do(
-		func(input ProviderRequest, _ model.Response) { require.Equal(t, changed, input.History) },
+	policies := NewMockConversationPolicies(controller)
+	policies.EXPECT().CaptureConversation().Return(mo.Some[CapturedConversation](preparation), nil).Times(1)
+	preparation.EXPECT().Observe(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).DoAndReturn(
+		func(_ context.Context, input ProviderRequest, _ model.Response) error {
+			require.Equal(t, changed, input.History)
+			return nil
+		},
 	)
-	service := New(catalog, observer, RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 2, Delays: []time.Duration{0, 0}, MaxProviderDelay: time.Second,
-	}, nil, output, newTestCapturedPolicies(t, preparation))
+	}, nil, output, policies)
 
 	// Act through one logical agent request.
 	err := service.Stream(t.Context(), agentrun.ModelRequest{

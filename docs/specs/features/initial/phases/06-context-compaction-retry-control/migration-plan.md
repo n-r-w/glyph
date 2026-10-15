@@ -49,7 +49,7 @@ The [ticket requirements and acceptance criteria](ticket.md#requirements) define
 
 The bundled compaction extension is the required runtime addition. The [technical solution](solution.md#host-placement-and-dependency-direction) defines Host integration placement and the minimal system contract. Bundled-extension package design belongs to PHS-06.2. No new Host compaction-policy service, shared-contract namespace, or general middleware platform is planned.
 
-The checkpoint's [Host compaction implementation](../../../../../../host/internal/usecase/host/contextcompaction), [model execution](../../../../../../host/internal/usecase/host/modelexecution), [session owner](../../../../../../host/internal/usecase/host/sessions), and [Extension SDK](../../../../../../sdk/plugins/extension/v1) are the starting points for the ownership map. Their present API shapes do not constrain the target contract.
+The checkpoint's Host policy source is `host/internal/usecase/host/contextcompaction` at commit `690827f6631a1197972e50c48b196ab462576bbd`. The live ownership map uses [extension integration](../../../../../../host/internal/usecase/host/extensioncontext), [model execution](../../../../../../host/internal/usecase/host/modelexecution), [session services](../../../../../../host/internal/usecase/host/sessions), and the [Extension SDK](../../../../../../sdk/plugins/extension/v1).
 
 ## Backward Compatibility
 
@@ -85,7 +85,7 @@ Independent acceptance`"]
 
 Each PHS-06.1 slice delivers one observable behavior through its public entry point. Configured-model image input, connection failure, and runtime shutdown have independent callers and checks. Later slices use those completed behaviors. Protocol declarations, SDK support, adapters, and fixtures arrive in the first slice that needs them. A reference extension verifies each system behavior independently of the standard bundled algorithm.
 
-During migration, `contextcompaction` serves only behaviors assigned to later slices. For example, after manual replacement moves to the policy extension, automatic preparation and overflow still use their existing paths until UNT-09 and UNT-10. Their internal usage state remains only while those paths consume it. A migrated behavior has one owner and no fallback to the old path. Each slice removes its superseded calls; UNT-11 removes the remaining package and shared residue.
+During UNT-01 through UNT-10, `contextcompaction` served behaviors assigned to later slices. Automatic preparation and overflow moved to the extension owner in UNT-09 and UNT-10. Each migrated behavior has one owner. UNT-11 removes the remaining package and shared residue after those caller migrations.
 
 Tests exercise history changes and public operation outcomes. There are no tests whose only purpose is to count new types, assert deleted functionality is absent, or compare mutable prompts.
 
@@ -109,7 +109,7 @@ Follow the [approved system integration](solution.md#phs-061-integration-proposa
 
 UNT-01 through UNT-10 are behavior slices. UNT-11 is Cleanup. Every unit starts only after the previous unit passes the [completion checks](#unit-completion-and-review).
 
-[UNT-10 overflow recovery](overflow-integration-evidence.md#final-verification-and-acceptance) is accepted at `904463b`, following the separate shared cancellation correction `33163d6`. Its evidence records the same-request completed-tool scenario, final checks, independent review and historical limits. UNT-11 remains pending. PHS-06.1 is incomplete.
+[UNT-10 overflow recovery](overflow-integration-evidence.md#final-verification-and-acceptance) is accepted at `904463b`, following the separate shared cancellation correction `33163d6`. Its evidence records the same-request completed-tool scenario, final checks, independent review and historical limits. UNT-11 source preparation is in progress; quality corrections, full final verification, and fresh independent acceptance remain pending. PHS-06.1 is incomplete.
 
 - Accepted units: UNT-01 (`5165a14`), UNT-02 (`bf62186`), UNT-03 (`23f2f55`), UNT-04 (`85f7b9a`), UNT-05 (`4181ae2`), UNT-06 (`87699e9`), UNT-07 (`d22e210`), UNT-08 (`fed40b6`), UNT-09 (`e4865d8`), and UNT-10 (`904463b`) passed full checks, code-quality review, and independent review. The [result-handler integration evidence](result-integration-evidence.md) describes UNT-07 behavior, final verification, and evidence limits. The [generator integration evidence](generator-integration-evidence.md) describes UNT-06 behavior, final verification, and evidence limits. The [request-handler integration evidence](request-integration-evidence.md) describes UNT-05 behavior, corrective RED/GREEN cycles, and evidence limits. See [configured-model input](solution.md#configured-model-image-input), [runtime shutdown](solution.md#tracked-runtime-shutdown), and [manual policy integration evidence](manual-integration-evidence.md) for behavior and checks. The [SDK connection failure tests](../../../../../../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../../../../../../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check failure reporting before shutdown and owner cleanup through `Close`.
 - Retained baseline: `64bcecd`. Safe quality corrections: `1612ae5`.

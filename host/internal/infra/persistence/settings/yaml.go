@@ -21,14 +21,12 @@ type settingsFile struct {
 	ActiveUI mo.Option[string] `yaml:"activeUI"`
 	// Retry contains raw Host retry policy overrides.
 	Retry mo.Option[retryFile] `yaml:"retry"`
-	// Compaction contains raw Host compaction policy overrides.
+	// Compaction contains raw compaction participant lifecycle overrides.
 	Compaction mo.Option[compactionFile] `yaml:"compaction"`
 }
 
-// compactionFile contains optional compaction policy and Host lifecycle overrides.
+// compactionFile contains optional compaction participant lifecycle overrides.
 type compactionFile struct {
-	// RetainedContextTokens contains the optional recent-context target.
-	RetainedContextTokens mo.Option[int64]
 	// ParticipantTimeout contains the optional participant invocation duration.
 	ParticipantTimeout mo.Option[time.Duration]
 }
@@ -179,19 +177,14 @@ func (configured *settingsFile) UnmarshalYAML(node *yaml.Node) error {
 	return nil
 }
 
-// UnmarshalYAML decodes strict compaction policy overrides while retaining scalar presence.
+// UnmarshalYAML decodes participant lifecycle overrides while retaining scalar presence.
 func (configured *compactionFile) UnmarshalYAML(node *yaml.Node) error {
 	const participantTimeoutKey = "participantTimeout"
 
-	fields, err := decodeYAMLMapping(node, "retainedContextTokens", participantTimeoutKey)
+	fields, err := decodeYAMLMapping(node, participantTimeoutKey)
 	if err != nil {
 		return err
 	}
-	value, err := decodeYAMLOption[int64](fields, "retainedContextTokens")
-	if err != nil {
-		return err
-	}
-	configured.RetainedContextTokens = value
 	timeout, err := decodeYAMLOption[time.Duration](fields, participantTimeoutKey)
 	if err != nil {
 		return fmt.Errorf("decode compaction.participantTimeout: %w", err)

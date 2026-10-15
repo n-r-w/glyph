@@ -1,6 +1,6 @@
 # Generator integration evidence
 
-This document describes UNT-06 behavior and verification. The [migration plan](migration-plan.md#sequential-implementation-units) records unit acceptance and subsequent work.
+This document records UNT-06 behavior and verification at `87699e9`. References to legacy generation and pending later units describe that historical source. The [migration plan](migration-plan.md#sequential-implementation-units) records unit acceptance and subsequent work.
 
 The [target solution](solution.md#policy-invocation-and-participating-handlers) defines ownership. The [request-handler evidence](request-integration-evidence.md) describes the accepted foundation and its historical limits.
 

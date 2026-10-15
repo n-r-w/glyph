@@ -12,7 +12,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -28,7 +27,7 @@ func (s *policyResultSuite) TestChangedBinding() {
 			runtime := NewMockPolicyRuntime(controller)
 			snapshots := NewMockCompactionSessions(controller)
 			owner := PolicyOwner{ExtensionID: "policy", RuntimeID: "policy-generation", HandlerID: "manual"}
-			handler := contextcompaction.Handler{
+			handler := Participant{
 				ExtensionID: "result-extension",
 				RuntimeID:   "result-generation",
 				HandlerID:   "result",
@@ -46,7 +45,7 @@ func (s *policyResultSuite) TestChangedBinding() {
 			runtime.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner})
 			runtime.EXPECT().
 				SnapshotCompactionHandlers().
-				Return(contextcompaction.HandlerSet{Requests: nil, Generators: nil, Results: []contextcompaction.Handler{handler}, Successes: nil, Failures: nil})
+				Return(HandlerSet{Requests: nil, Generators: nil, Results: []Participant{handler}, Successes: nil, Failures: nil})
 			snapshots.EXPECT().
 				CaptureCompaction().
 				Return(CompactionSnapshot{Identity: identity, ActiveLeafID: mo.Some("leaf"), Entries: nil, History: nil, Previous: mo.None[session.CompactionEntry]()})

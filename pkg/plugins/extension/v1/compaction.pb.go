@@ -20,7 +20,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-// CompactionTrigger identifies why Host started active-conversation compaction.
+// CompactionTrigger identifies the compaction intent supplied by the policy.
 type CompactionTrigger int32
 
 const (
@@ -956,15 +956,15 @@ func (x *CompactionRequest) ClearRetainedBudget() {
 type CompactionRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// Why Host started compaction.
+	// The policy's compaction intent.
 	Trigger *CompactionTrigger
-	// Whether success permits an overflow replacement attempt.
+	// The policy's overflow-retry intent.
 	RetryIntent *bool
 	// Optional manual guidance.
 	Instructions *string
-	// The captured agent model descriptor.
+	// The model descriptor supplied for summary composition.
 	Model *ModelDescriptor
-	// The captured reasoning choice.
+	// The reasoning choice supplied for summary composition.
 	ReasoningChoice *string
 	// The proposed newly summarized branch prefix with producer estimates.
 	Prefix []*CompactionInputEntry
@@ -980,7 +980,7 @@ type CompactionRequest_builder struct {
 	ContextWindow *int64
 	// The captured generated-output reserve.
 	ResponseBudget *int64
-	// The configured recent-context target.
+	// The extension-supplied recent-context target.
 	RetainedBudget *int64
 }
 

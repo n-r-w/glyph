@@ -16,7 +16,6 @@ import (
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
-	contextcompaction "github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -256,7 +255,7 @@ func (mr *MockPolicyRuntimeMockRecorder) InvokeCompactionResult(arg0, arg1, arg2
 }
 
 // ObserveCompactionFailure mocks base method.
-func (m *MockPolicyRuntime) ObserveCompactionFailure(arg0 context.Context, arg1 contextcompaction.Handler, arg2 extension.Context, arg3 contextcompaction.OutcomeInvocation) error {
+func (m *MockPolicyRuntime) ObserveCompactionFailure(arg0 context.Context, arg1 Participant, arg2 extension.Context, arg3 OutcomeInvocation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObserveCompactionFailure", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -270,7 +269,7 @@ func (mr *MockPolicyRuntimeMockRecorder) ObserveCompactionFailure(arg0, arg1, ar
 }
 
 // ObserveCompactionSuccess mocks base method.
-func (m *MockPolicyRuntime) ObserveCompactionSuccess(arg0 context.Context, arg1 contextcompaction.Handler, arg2 extension.Context, arg3 contextcompaction.OutcomeInvocation) error {
+func (m *MockPolicyRuntime) ObserveCompactionSuccess(arg0 context.Context, arg1 Participant, arg2 extension.Context, arg3 OutcomeInvocation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObserveCompactionSuccess", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -298,10 +297,10 @@ func (mr *MockPolicyRuntimeMockRecorder) ObserveConversation(arg0, arg1, arg2, a
 }
 
 // SnapshotCompactionHandlers mocks base method.
-func (m *MockPolicyRuntime) SnapshotCompactionHandlers() contextcompaction.HandlerSet {
+func (m *MockPolicyRuntime) SnapshotCompactionHandlers() HandlerSet {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "SnapshotCompactionHandlers")
-	ret0, _ := ret[0].(contextcompaction.HandlerSet)
+	ret0, _ := ret[0].(HandlerSet)
 	return ret0
 }
 

@@ -4,11 +4,9 @@ package app
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 	"time"
 
@@ -46,12 +44,6 @@ const (
 	handlerFixtureSupplyMode = "supply"
 	// handlerFixtureRefineMode selects the result refiner and observer handlers.
 	handlerFixtureRefineMode = "refine"
-	// handlerFixtureCompactionSupplyMode selects a custom compaction request result supplier.
-	handlerFixtureCompactionSupplyMode = "compaction-supply"
-	// handlerFixtureCompactionInvalidMode selects a malformed public request replacement.
-	handlerFixtureCompactionInvalidMode = "compaction-invalid"
-	// handlerFixtureCompactionCancelMode selects a request handler that ends through transport cancellation.
-	handlerFixtureCompactionCancelMode = "compaction-cancel"
 )
 
 // grpcHandlerFixture provides ordered request, result, and observer behavior from a child process.
@@ -248,30 +240,6 @@ func (operation *handlerFixtureRegisterOperation) Run(
 				Id: new("observe"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
 			}.Build(),
 		}
-	case handlerFixtureCompactionSupplyMode:
-		handlers = []*extensionpb.HandlerDescriptor{
-			extensionpb.HandlerDescriptor_builder{
-				Id: new("compact-supply"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_REQUEST),
-			}.Build(),
-			extensionpb.HandlerDescriptor_builder{
-				Id: new("compact-observe"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_SUCCESS),
-			}.Build(),
-		}
-	case handlerFixtureCompactionInvalidMode:
-		handlers = []*extensionpb.HandlerDescriptor{
-			extensionpb.HandlerDescriptor_builder{
-				Id: new("compact-invalid"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_REQUEST),
-			}.Build(),
-			extensionpb.HandlerDescriptor_builder{
-				Id: new("compact-later"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_REQUEST),
-			}.Build(),
-		}
-	case handlerFixtureCompactionCancelMode:
-		handlers = []*extensionpb.HandlerDescriptor{
-			extensionpb.HandlerDescriptor_builder{
-				Id: new("compact-cancel"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_COMPACTION_REQUEST),
-			}.Build(),
-		}
 	default:
 		return nil, fmt.Errorf("unknown handler fixture mode %q", fixture.mode)
 	}
@@ -293,130 +261,6 @@ func (operation *handlerFixtureHandleOperation) Run(
 		return operation.runSummaryControlHandler()
 	}
 	switch request.GetHandlerId() {
-	case "compact-invalid":
-		invocation := request.GetCompactionRequest()
-		if invocation == nil || invocation.GetCurrent() == nil {
-			return nil, fmt.Errorf("invalid compaction fixture received no current request")
-		}
-		replacement := invocation.GetCurrent()
-		var nested *extensionpb.SessionTreeCompaction
-		for _, input := range append(replacement.GetPrefix(), replacement.GetSuffix()...) {
-			if input != nil && input.GetEntry() != nil && input.GetEntry().GetCompaction() != nil {
-				nested = input.GetEntry().GetCompaction()
-				break
-			}
-		}
-		if nested == nil {
-			return nil, fmt.Errorf("invalid compaction fixture received no nested compaction marker")
-		}
-		nested.SetSummary("")
-		source := new(extensionpb.BranchSummarySource)
-		source.SetExtensionId("01-compact")
-		return extensionpb.HandleResponse_builder{
-			CompactionOutgoingInput: nil,
-			CompletedConversation:   nil,
-			CompactionRequest: extensionpb.CompactionRequestAction_builder{
-				Cancel:        new(false),
-				RequestAction: new(extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE),
-				Request:       replacement,
-				ResultAction:  new(extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE),
-				Result: extensionpb.CompactionResult_builder{
-					Summary: new("ready summary"), FirstKeptEntryId: new("tail"), Source: source, Details: nil,
-				}.Build(),
-			}.Build(),
-			CompactionGenerate: nil, CompactionResult: nil, CompactionSuccess: nil, CompactionFailure: nil,
-			Retry: nil, ModelSelection: nil, ReasoningSelection: nil, Lifecycle: nil,
-			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Error: nil,
-
-			CompactionPolicy: nil,
-		}.Build(), nil
-	case "compact-later":
-		return nil, errors.New("later compaction handler observed malformed nested marker")
-	case "compact-cancel":
-		return nil, context.Canceled
-	case "compact-supply":
-		invocation := request.GetCompactionRequest()
-		if invocation == nil || !invocation.GetOriginal().GetContextTokensEstimated() ||
-			!invocation.GetCurrent().GetContextTokensEstimated() {
-			return nil, fmt.Errorf("compaction request estimate marker is missing")
-		}
-		for _, state := range []*extensionpb.CompactionRequest{invocation.GetOriginal(), invocation.GetCurrent()} {
-			for _, input := range append(state.GetPrefix(), state.GetSuffix()...) {
-				if input == nil || input.GetEntry() == nil || !input.HasEstimatedTokens() ||
-					input.GetEstimatedTokens() <= 0 {
-					return nil, fmt.Errorf("compaction input entry estimate is missing")
-				}
-			}
-		}
-		const splitBoundaryEnvironment = "GLYPH_THRESHOLD_SPLIT_BOUNDARY"
-		// boundary identifies the first retained candidate entry.
-		boundary := "kept"
-		if os.Getenv(splitBoundaryEnvironment) == manualFixtureEnabled {
-			for _, input := range append(invocation.GetOriginal().GetPrefix(), invocation.GetOriginal().GetSuffix()...) {
-				if input.GetEntry().GetToolResult() != nil {
-					boundary = input.GetEntry().GetId()
-					break
-				}
-			}
-		}
-		return extensionpb.HandleResponse_builder{
-			CompactionOutgoingInput: nil,
-			CompletedConversation:   nil,
-			CompactionRequest: extensionpb.CompactionRequestAction_builder{
-				Cancel:        new(false),
-				RequestAction: new(extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_PRESERVE),
-				Request:       nil,
-				ResultAction:  new(extensionpb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_REPLACE),
-				Result: extensionpb.CompactionResult_builder{
-					Summary:          new("public custom summary"),
-					FirstKeptEntryId: new(boundary),
-					Source: extensionpb.BranchSummarySource_builder{
-						ExtensionId: new("01-compact"), Model: nil,
-					}.Build(),
-					Details: nil,
-				}.Build(),
-			}.Build(),
-			CompactionGenerate: nil, CompactionResult: nil, CompactionSuccess: nil, CompactionFailure: nil,
-			Retry: nil, ModelSelection: nil, ReasoningSelection: nil, Lifecycle: nil,
-			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Error: nil,
-
-			CompactionPolicy: nil,
-		}.Build(), nil
-	case "compact-observe":
-		if request.GetCompactionSuccess() == nil {
-			return nil, fmt.Errorf("compaction observer received no success outcome")
-		}
-		if s.observerPath != "" {
-			bound, err := extensionsdk.ContextFrom(ctx)
-			if err != nil {
-				return nil, err
-			}
-			appendOperation, err := bound.StartAppendExtensionMessage(
-				ctx,
-				extensionpb.AppendExtensionMessageRequest_builder{
-					Context: nil, EntryType: new("post-compaction-growth"),
-					Text:       new(strings.Repeat("observer growth ", 5_000)),
-					Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE),
-				}.Build(),
-			)
-			if err != nil {
-				return nil, err
-			}
-			if _, err = appendOperation.Wait(ctx); err != nil {
-				return nil, err
-			}
-		}
-		return extensionpb.HandleResponse_builder{
-			CompactionOutgoingInput: nil,
-			CompletedConversation:   nil,
-			CompactionRequest:       nil, CompactionGenerate: nil, CompactionResult: nil,
-			CompactionSuccess: extensionpb.CompactionObserverAction_builder{}.Build(),
-			CompactionFailure: nil, Retry: nil, ModelSelection: nil, ReasoningSelection: nil,
-			Lifecycle: nil, SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,
-			SessionTree: nil, Error: nil,
-
-			CompactionPolicy: nil,
-		}.Build(), nil
 	case "supply":
 		return extensionpb.HandleResponse_builder{
 			CompactionOutgoingInput: nil,

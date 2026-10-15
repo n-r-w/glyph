@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
-
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -26,7 +24,7 @@ func (s *manualPolicyRetainsReceiptAfterPolicyFailureSuite) TestScenario() {
 	runtime := NewMockRuntimeState(controller)
 	sessions := NewMockSessionState(controller)
 	policy := NewMockPolicyRuntime(controller)
-	policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).AnyTimes()
+	policy.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).AnyTimes()
 	compactionSessions := NewMockCompactionSessions(controller)
 	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	owner := PolicyOwner{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "manual"}

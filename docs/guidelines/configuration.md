@@ -70,7 +70,7 @@ Model limits and capabilities are configuration data. Check them against the pro
 | `providers` | Yes | Nonempty map of provider IDs to provider configurations. |
 | `activeUI` | No | Persisted UI plugin ID. Glyph converts it to lowercase, normalizes runs of whitespace, `_`, and `-` to one `-`, and rejects an empty result. |
 | `retry` | No | Model retry policy. Omitted fields use the defaults described below. |
-| `compaction` | No | Compaction settings, including the Host participant lifetime below. |
+| `compaction` | No | Host lifecycle settings for compaction participants. |
 
 `defaultProvider`, `defaultModel`, provider IDs, model IDs, API-key references, and compatibility keys must be nonempty and must not contain surrounding whitespace.
 
@@ -91,7 +91,7 @@ Each logical model execution snapshots these values and the runtime enabled stat
 
 Host reports the timeout and error causes obtained from the participant's nested work through the public operation outcome. Original session entries remain stored. During normal successful teardown, Host preserves the participant result.
 
-This duration is Host lifecycle configuration. Host applies this duration to request handlers invoked by the policy extension during manual compaction. The [migration plan](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) lists the planned generator and result-handler work.
+Host applies this duration to request handlers, generators, and result handlers invoked by the policy extension during manual, automatic, and overflow compaction. The policy owner's operation has the caller's lifetime. The extension owns token estimates, retained-history budgets, and compaction decisions. The [migration plan](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) describes the pending bundled policy.
 
 ## Extensions and tools
 

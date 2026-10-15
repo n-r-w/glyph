@@ -29,7 +29,7 @@ func TestServiceStreamResetsPartialResponseBeforeRetry(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	observer := NewMockConversationContext(controller)
+
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	descriptor := modelDescriptor(selection)
 	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
@@ -67,12 +67,11 @@ func TestServiceStreamResetsPartialResponseBeforeRetry(t *testing.T) {
 			})
 		},
 	)
-	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any()).Times(1)
 	retryOutput := NewMockRetryOutput(controller)
 	retryOutput.EXPECT().DeliverRetry(gomock.Any(), RetryProgress{
 		CompletedAttempts: 1, AttemptLimit: 2, Delay: 0, Error: "temporary source failure",
 	}).Return(nil)
-	service := New(catalog, observer, RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, retryOutput, newTestConversationObservations(t))
 	var kinds []agentrun.StreamEventKind
@@ -129,7 +128,7 @@ func TestServiceConfiguredRequestUsesConfiguredRetrySchedule(t *testing.T) {
 				})
 			},
 		)
-		service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+		service := New(catalog, RetryPolicy{
 			Enabled: true, MaxRetries: 3,
 			Delays:           []time.Duration{time.Second, 2 * time.Second, 4 * time.Second},
 			MaxProviderDelay: 30 * time.Second,
@@ -195,7 +194,7 @@ func TestServiceFinalFailureDeliversRetainedTerminalResponse(t *testing.T) {
 			}
 		},
 	)
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 3, Delays: []time.Duration{time.Second}, MaxProviderDelay: 30 * time.Second,
 	}, nil, nil, newTestConversationObservations(t))
 	var delivered []agentrun.StreamEvent
@@ -232,7 +231,7 @@ func TestServiceRejectsProviderDelayAboveMaximum(t *testing.T) {
 		Classification: ProviderFailureTransient, RetryDelay: mo.Some(31 * time.Second),
 		Cause: errors.New("provider rate limit"),
 	})
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Second}, MaxProviderDelay: 30 * time.Second,
 	}, nil, nil, newTestConversationObservations(t))
 
@@ -277,11 +276,10 @@ func TestServiceRetryAttemptsDeepCopyToolSchemas(t *testing.T) {
 			},
 		),
 	)
-	observer := NewMockConversationContext(controller)
-	observer.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any())
+
 	retryOutput := NewMockRetryOutput(controller)
 	retryOutput.EXPECT().DeliverRetry(gomock.Any(), gomock.Any()).Return(nil)
-	service := New(catalog, observer, RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, retryOutput, newTestConversationObservations(t))
 

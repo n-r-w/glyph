@@ -15,7 +15,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -41,13 +40,13 @@ func (s *policyRequestDeadlineSuite) TestScenario() {
 		t.Run(scenario, func(t *testing.T) {
 			synctest.Test(t, func(t *testing.T) {
 				// Arrange a captured participant with owned nested work.
-				handler := contextcompaction.Handler{
+				handler := Participant{
 					ExtensionID: "policy",
 					RuntimeID:   "generation",
 					HandlerID:   "bounded",
 				}
-				service, runtime, owner := newManualPolicyOperationFixture(t, contextcompaction.HandlerSet{
-					Requests: []contextcompaction.Handler{
+				service, runtime, owner := newManualPolicyOperationFixture(t, HandlerSet{
+					Requests: []Participant{
 						handler,
 					},
 					Generators: nil,

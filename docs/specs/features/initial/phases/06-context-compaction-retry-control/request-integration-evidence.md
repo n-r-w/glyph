@@ -1,5 +1,7 @@
 # Request-handler integration evidence
 
+This record describes UNT-05 source through correction `487fe8a`. Its duplicate runtime conversions and legacy `contextcompaction` route are historical migration evidence. The [integration contract ownership](solution.md#integration-contract-ownership) describes the cleanup source.
+
 The [migration plan](migration-plan.md#sequential-implementation-units) records implementation and acceptance status. The [target solution](solution.md#policy-invocation-and-participating-handlers) describes the system contract. The [manual integration evidence](manual-integration-evidence.md) describes the accepted manual foundation and its retained evidence limits.
 
 ## Implemented path

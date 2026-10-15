@@ -30,7 +30,7 @@ func TestCoreRetainsConcurrentProviderTimeoutIdentityWithAttemptsRemaining(t *te
 	controller := gomock.NewController(t)
 	catalog := modelexecution.NewMockCatalogResolver(controller)
 	provider := modelexecution.NewMockProviderAttempt(controller)
-	conversation := modelexecution.NewMockConversationContext(controller)
+
 	retryOutput := modelexecution.NewMockRetryOutput(controller)
 	tools := agentrun.NewMockToolRuntime(controller)
 	events := agentrun.NewMockEventSink(controller)
@@ -89,7 +89,7 @@ func TestCoreRetainsConcurrentProviderTimeoutIdentityWithAttemptsRemaining(t *te
 	observations.EXPECT().
 		CaptureConversation().
 		Return(mo.None[modelexecution.CapturedConversation](), nil)
-	execution := modelexecution.New(catalog, conversation, modelexecution.RetryPolicy{
+	execution := modelexecution.New(catalog, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 2, Delays: []time.Duration{0, 0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, retryOutput, observations)
 	core := agentrun.New("", execution, tools, events, historyStore)
@@ -118,7 +118,7 @@ func TestCoreDoesNotRestoreDiscardedAttemptAfterRetryProgressFailure(t *testing.
 	controller := gomock.NewController(t)
 	catalog := modelexecution.NewMockCatalogResolver(controller)
 	provider := modelexecution.NewMockProviderAttempt(controller)
-	conversation := modelexecution.NewMockConversationContext(controller)
+
 	retryOutput := modelexecution.NewMockRetryOutput(controller)
 	tools := agentrun.NewMockToolRuntime(controller)
 	events := agentrun.NewMockEventSink(controller)
@@ -205,7 +205,7 @@ func TestCoreDoesNotRestoreDiscardedAttemptAfterRetryProgressFailure(t *testing.
 	observations.EXPECT().
 		CaptureConversation().
 		Return(mo.None[modelexecution.CapturedConversation](), nil)
-	execution := modelexecution.New(catalog, conversation, modelexecution.RetryPolicy{
+	execution := modelexecution.New(catalog, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, retryOutput, observations)
 	core := agentrun.New("", execution, tools, events, historyStore)

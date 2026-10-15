@@ -25,7 +25,7 @@ func TestAbsentPolicyDispatchesOrdinaryHistory(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	accounting := NewMockConversationContext(controller)
+
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
 	history := []agent.HistoryEntry{textHistoryEntry("ordinary history")}
@@ -38,8 +38,7 @@ func TestAbsentPolicyDispatchesOrdinaryHistory(t *testing.T) {
 			return emitContextPreparationSuccess(handle)
 		},
 	)
-	accounting.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any())
-	execution := New(catalog, accounting, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
+	execution := New(catalog, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 	// Act through the logical conversation entry point.
 	err := execution.Stream(
 		t.Context(),
@@ -63,7 +62,7 @@ func TestAbsentPolicySuppressesCompactionOverflow(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	accounting := NewMockConversationContext(controller)
+
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
@@ -86,7 +85,6 @@ func TestAbsentPolicySuppressesCompactionOverflow(t *testing.T) {
 	output.EXPECT().DeliverRetry(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	execution := New(
 		catalog,
-		accounting,
 		RetryPolicy{Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 0},
 		nil,
 		output,

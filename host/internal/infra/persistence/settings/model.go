@@ -120,10 +120,8 @@ type Retry struct {
 	MaxProviderDelay time.Duration
 }
 
-// Compaction contains compaction policy and Host lifecycle settings.
+// Compaction contains Host lifecycle settings for compaction participants.
 type Compaction struct {
-	// RetainedContextTokens is the recent unsummarized context target.
-	RetainedContextTokens int64
 	// ParticipantTimeout is the timeout for one compaction participant invocation.
 	ParticipantTimeout time.Duration
 }
@@ -140,6 +138,6 @@ type Settings struct {
 	ActiveUI mo.Option[string]
 	// Retry contains the persistent retry policy and startup enablement.
 	Retry Retry
-	// Compaction contains persistent compaction policy and Host lifecycle settings.
+	// Compaction contains persistent Host lifecycle settings for compaction participants.
 	Compaction Compaction
 }

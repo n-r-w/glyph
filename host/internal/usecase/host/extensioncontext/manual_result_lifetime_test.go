@@ -14,7 +14,6 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -24,17 +23,17 @@ func (s *policyResultSuite) TestDeadline() {
 		s.Run(scenario, func() {
 			synctest.Test(s.T(), func(t *testing.T) {
 				// Arrange bounded result dispatch with an independently failing cleanup.
-				handler := contextcompaction.Handler{
+				handler := Participant{
 					ExtensionID: "policy",
 					RuntimeID:   "generation",
 					HandlerID:   "result",
 				}
 				service, runtime, owner := newManualPolicyOperationFixture(
 					t,
-					contextcompaction.HandlerSet{
+					HandlerSet{
 						Requests:   nil,
 						Generators: nil,
-						Results:    []contextcompaction.Handler{handler},
+						Results:    []Participant{handler},
 						Successes:  nil,
 						Failures:   nil,
 					},

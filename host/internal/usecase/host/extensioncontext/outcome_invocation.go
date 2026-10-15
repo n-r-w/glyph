@@ -1,5 +1,4 @@
-// Package contextcompaction owns conversation context sizing and compaction coordination.
-package contextcompaction
+package extensioncontext
 
 import (
 	"github.com/samber/mo"
@@ -19,11 +18,4 @@ type OutcomeInvocation struct {
 	Canceled bool
 	// Error contains complete terminal failure text when present.
 	Error mo.Option[string]
-}
-
-// Clone detaches every mutable outcome value.
-func (outcome OutcomeInvocation) Clone() OutcomeInvocation {
-	outcome.State = outcome.State.MapValue(PolicyState.Clone)
-	outcome.Committed = outcome.Committed.MapValue(session.Entry.Clone)
-	return outcome
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -114,14 +113,14 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 	compactions := NewMockCompactionSessions(controller)
 	catalog := modelexecution.NewMockCatalogResolver(controller)
 	provider := modelexecution.NewMockProviderAttempt(controller)
-	accounting := modelexecution.NewMockConversationContext(controller)
+
 	output := modelexecution.NewMockRetryOutput(controller)
 	identity := session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1}
 	owner := PolicyOwner{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "prepare"}
 	runtime.EXPECT().ContextRuntime(owner.ExtensionID).Return(owner.RuntimeID, true).AnyTimes()
 	state.EXPECT().ContextSession().Return(identity).AnyTimes()
 	policy.EXPECT().SnapshotCompactionPolicies().Return([]PolicyOwner{owner}).Times(1)
-	policy.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{}).Times(1)
+	policy.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{}).Times(1)
 	before := CompactionSnapshot{
 		Identity:     identity,
 		ActiveLeafID: mo.Some("kept"),
@@ -229,7 +228,7 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 		Return(modelexecution.CatalogBinding{
 			Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 		}, nil)
-	execution := modelexecution.New(catalog, accounting, modelexecution.RetryPolicy{
+	execution := modelexecution.New(catalog, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
 	}, nil, output, service)
 	return overflowExecutionHarness{

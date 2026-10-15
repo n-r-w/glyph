@@ -17,7 +17,6 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -40,11 +39,11 @@ type policyGeneratorSuite struct {
 func (s *policyGeneratorSuite) TestSelectedResult() {
 	t := s.T()
 	// Arrange two captured generators with the second selected explicitly by the policy.
-	first := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "first"}
-	selected := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "second"}
-	service, runtime, owner := newManualPolicyOperationFixture(t, contextcompaction.HandlerSet{
+	first := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "first"}
+	selected := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "second"}
+	service, runtime, owner := newManualPolicyOperationFixture(t, HandlerSet{
 		Requests:   nil,
-		Generators: []contextcompaction.Handler{first, selected},
+		Generators: []Participant{first, selected},
 		Results:    nil,
 		Successes:  nil,
 		Failures:   nil,
@@ -87,7 +86,7 @@ func (s *policyGeneratorSuite) TestSelectedResult() {
 		)
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
-			require.Equal(t, newParticipants([]contextcompaction.Handler{first, selected}), input.Generators)
+			require.Equal(t, []Participant{first, selected}, input.Generators)
 			command := newPolicyGeneratorCommand(input.OperationID, selected, 1)
 			command.Current.Instructions = mo.Some("final request")
 			result, err := service.InvokePolicyGenerator(ctx, captured.ExtensionID, binding.RuntimeInstanceID, command)
@@ -116,9 +115,9 @@ func (s *policyGeneratorSuite) TestSelectedResult() {
 func (s *policyGeneratorSuite) TestMembership() {
 	t := s.T()
 	// Arrange a captured generator and no allowed runtime dispatch.
-	handler := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "generator"}
-	service, runtime, owner := newManualPolicyOperationFixture(t, contextcompaction.HandlerSet{
-		Requests: nil, Generators: []contextcompaction.Handler{handler}, Results: nil, Successes: nil, Failures: nil,
+	handler := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "generator"}
+	service, runtime, owner := newManualPolicyOperationFixture(t, HandlerSet{
+		Requests: nil, Generators: []Participant{handler}, Results: nil, Successes: nil, Failures: nil,
 	})
 	runtime.EXPECT().InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, captured PolicyOwner, binding extension.Context, input PolicyInvocation) (PolicyDisposition, error) {
@@ -173,14 +172,14 @@ func (s *policyGeneratorSuite) TestDeadline() {
 			t := s.T()
 			synctest.Test(t, func(t *testing.T) {
 				// Arrange bounded generation and an independently failing child cleanup.
-				handler := contextcompaction.Handler{
+				handler := Participant{
 					ExtensionID: "policy",
 					RuntimeID:   "generation",
 					HandlerID:   "generator",
 				}
-				service, runtime, owner := newManualPolicyOperationFixture(t, contextcompaction.HandlerSet{
+				service, runtime, owner := newManualPolicyOperationFixture(t, HandlerSet{
 					Requests:   nil,
-					Generators: []contextcompaction.Handler{handler},
+					Generators: []Participant{handler},
 					Results:    nil,
 					Successes:  nil,
 					Failures:   nil,
@@ -265,7 +264,7 @@ func (s *policyGeneratorSuite) TestDeadline() {
 // newPolicyGeneratorCommand supplies complete original and current generator inputs.
 func newPolicyGeneratorCommand(
 	operationID string,
-	handler contextcompaction.Handler,
+	handler Participant,
 	order int64,
 ) extensioncontroller.CompactionGeneratorCommand {
 	request := newPolicyRequestCommand(operationID, handler, order)

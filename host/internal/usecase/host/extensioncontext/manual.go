@@ -13,7 +13,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -45,7 +44,7 @@ func (s *Service) CompactManualPolicy(
 		terminalCause = s.finishPolicyOutcome(
 			ctx,
 			handlers,
-			mo.None[contextcompaction.PolicyState](),
+			mo.None[PolicyState](),
 			result,
 			terminalCause,
 			nil,
@@ -92,17 +91,17 @@ func (s *Service) runPolicy(
 	owner PolicyOwner,
 	bound extension.Context,
 	snapshot CompactionSnapshot,
-	handlers contextcompaction.HandlerSet,
+	handlers HandlerSet,
 	purpose PolicyPurpose,
 	input modelexecution.ProviderRequest,
 	instructions mo.Option[string],
 	overflowError mo.Option[string],
 ) (result modelexecution.ManualCompactionResult, disposition PolicyDisposition, terminalCause error) {
 	result = modelexecution.ManualCompactionResult{Committed: mo.None[session.Entry](), Canceled: false}
-	requests := newParticipants(handlers.Requests)
-	generators := newParticipants(handlers.Generators)
-	results := newParticipants(handlers.Results)
-	state := mo.None[contextcompaction.PolicyState]()
+	requests := handlers.Requests
+	generators := handlers.Generators
+	results := handlers.Results
+	state := mo.None[PolicyState]()
 	var acquiredCauses error
 	defer func() {
 		if purpose != PolicyPurposeManual && disposition == PolicyPreserve && result.Committed.IsNone() &&
@@ -143,7 +142,7 @@ func (s *Service) runPolicy(
 		receipt:              mo.None[session.Entry](),
 		causes:               nil,
 		terminalError:        nil,
-		state:                mo.None[contextcompaction.PolicyState](),
+		state:                mo.None[PolicyState](),
 	}
 	s.mutex.Lock()
 	s.compactionOperations[operationID] = operation

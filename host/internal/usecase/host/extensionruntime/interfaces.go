@@ -6,7 +6,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
@@ -80,26 +79,26 @@ type ExtensionRuntime interface {
 		context.Context,
 		string,
 		extension.Context,
-		contextcompaction.RequestInvocation,
-	) (contextcompaction.RequestAction, error)
+		extensioncontext.RequestInvocation,
+	) (extensioncontext.RequestAction, error)
 	// GenerateCompaction invokes one compaction generation capability.
 	GenerateCompaction(
 		context.Context,
 		string,
 		extension.Context,
-		contextcompaction.RequestInvocation,
-	) (contextcompaction.Result, error)
+		extensioncontext.RequestInvocation,
+	) (extensioncontext.Result, error)
 	// HandleCompactionResult invokes one compaction result handler.
 	HandleCompactionResult(
 		context.Context,
 		string,
 		extension.Context,
-		contextcompaction.ResultInvocation,
-	) (contextcompaction.ResultAction, error)
+		extensioncontext.ResultInvocation,
+	) (extensioncontext.ResultAction, error)
 	// ObserveCompactionSuccess invokes one committed-compaction observer.
-	ObserveCompactionSuccess(context.Context, string, extension.Context, contextcompaction.OutcomeInvocation) error
+	ObserveCompactionSuccess(context.Context, string, extension.Context, extensioncontext.OutcomeInvocation) error
 	// ObserveCompactionFailure invokes one failed-compaction observer.
-	ObserveCompactionFailure(context.Context, string, extension.Context, contextcompaction.OutcomeInvocation) error
+	ObserveCompactionFailure(context.Context, string, extension.Context, extensioncontext.OutcomeInvocation) error
 	// ObserveConversation invokes the policy handler for a completed conversation.
 	ObserveConversation(context.Context, string, extension.Context, extensioncontext.ConversationObservation) error
 	// InvokeCompactionPolicy invokes one captured compaction policy capability.

@@ -94,8 +94,8 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 	}
 
 	// Act by committing one compaction against the captured incarnation and active leaf.
-	committed, err := service.CommitCompaction(
-		t.Context(), identity, mo.Some("r1"), compaction,
+	committed, err := service.CommitReplacement(
+		t.Context(), service.CaptureCompaction(), compaction, nil, nil,
 	)
 
 	// Assert persistence and publication completed with one durable marker.
@@ -193,18 +193,18 @@ func TestCommitCompactionRejectsBoundaryInsideToolGroup(t *testing.T) {
 		hidden,
 		compactionToolEntry("r1", "x1", "call"),
 	}
-	service, identity := newCompactionBoundaryTestService(t, entries, "r1", mo.None[EntryPublisher]())
+	service, _ := newCompactionBoundaryTestService(t, entries, "r1", mo.None[EntryPublisher]())
 
 	// Act by selecting the hidden entry between the owning model response and its result.
-	_, err := service.CommitCompaction(
-		t.Context(), identity, mo.Some("r1"),
+	_, err := service.CommitReplacement(
+		t.Context(), service.CaptureCompaction(),
 		session.CompactionEntry{
 			Summary: "summary", FirstKeptEntryID: "x1",
 			Source: session.CompactionSource{
 				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
 			},
 			EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
-		},
+		}, nil, nil,
 	)
 
 	// Assert validation fails before any storage or publication work.
@@ -226,11 +226,11 @@ func TestCommitCompactionAssociatesRepeatedToolIDsWithTheirModelResponses(t *tes
 		compactionModelEntry("m2", "u2", "same"),
 		compactionToolEntry("r2", "m2", "same"),
 	}
-	service, identity := newCompactionBoundaryTestService(t, entries, "r2", mo.None[EntryPublisher]())
+	service, _ := newCompactionBoundaryTestService(t, entries, "r2", mo.None[EntryPublisher]())
 
 	// Act by retaining the complete second model/tool turn.
-	_, err := service.CommitCompaction(
-		t.Context(), identity, mo.Some("r2"), newCompactionBoundaryEntry("m2"),
+	_, err := service.CommitReplacement(
+		t.Context(), service.CaptureCompaction(), newCompactionBoundaryEntry("m2"), nil, nil,
 	)
 
 	// Assert commit succeeds and model context contains only the summary and exact retained second turn.
@@ -268,11 +268,11 @@ func TestCommitCompactionAllowsLaterBoundaryAfterFailedOrAbortedCalls(t *testing
 			response.Outcome = mo.Some(test.outcome)
 			entries[1].Model = mo.Some(response)
 			entries = append(entries, newCompactionUserEntry("u2", mo.Some("m1"), "later"))
-			service, identity := newCompactionBoundaryTestService(t, entries, "u2", mo.None[EntryPublisher]())
+			service, _ := newCompactionBoundaryTestService(t, entries, "u2", mo.None[EntryPublisher]())
 
 			// Act by committing after the model-hidden failed response.
-			_, err := service.CommitCompaction(
-				t.Context(), identity, mo.Some("u2"), newCompactionBoundaryEntry("u2"),
+			_, err := service.CommitReplacement(
+				t.Context(), service.CaptureCompaction(), newCompactionBoundaryEntry("u2"), nil, nil,
 			)
 
 			// Assert absent results do not infer an active tool batch.
@@ -305,11 +305,11 @@ func TestCommitCompactionAllowsLaterBoundaryAfterInterruptedBatch(t *testing.T) 
 		compactionToolEntry("r1", "m1", "active"),
 		newCompactionUserEntry("u2", mo.Some("r1"), "later"),
 	)
-	service, identity := newCompactionBoundaryTestService(t, entries, "u2", mo.None[EntryPublisher]())
+	service, _ := newCompactionBoundaryTestService(t, entries, "u2", mo.None[EntryPublisher]())
 
 	// Act by committing after the interrupted batch and its single persisted result.
-	_, err := service.CommitCompaction(
-		t.Context(), identity, mo.Some("u2"), newCompactionBoundaryEntry("u2"),
+	_, err := service.CommitReplacement(
+		t.Context(), service.CaptureCompaction(), newCompactionBoundaryEntry("u2"), nil, nil,
 	)
 
 	// Assert the omitted skipped result does not infer an active tool batch.
@@ -328,18 +328,18 @@ func TestCommitCompactionRejectsBoundaryBeforeLatestCompaction(t *testing.T) {
 		newCompactionMarkerEntry("c1", "u2", "first summary", "u2"),
 		newCompactionUserEntry("u3", mo.Some("c1"), "later retained"),
 	}
-	service, identity := newCompactionBoundaryTestService(t, entries, "u3", mo.None[EntryPublisher]())
+	service, _ := newCompactionBoundaryTestService(t, entries, "u3", mo.None[EntryPublisher]())
 
 	// Act by moving the next retained boundary behind the preceding compaction boundary.
-	_, err := service.CommitCompaction(
-		t.Context(), identity, mo.Some("u3"),
+	_, err := service.CommitReplacement(
+		t.Context(), service.CaptureCompaction(),
 		session.CompactionEntry{
 			Summary: "second summary", FirstKeptEntryID: "u1",
 			Source: session.CompactionSource{
 				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
 			},
 			EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
-		},
+		}, nil, nil,
 	)
 
 	// Assert validation fails before persistence can reintroduce the summarized prefix.

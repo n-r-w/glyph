@@ -18,7 +18,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -63,7 +62,6 @@ var (
 	_ extensioncontext.SessionState = (*Service)(nil)
 	// Service implements session capture and replacement for the policy owner.
 	_ extensioncontext.CompactionSessions = (*Service)(nil)
-	_ contextcompaction.SessionState      = (*Service)(nil)
 )
 
 // New creates an active-session service without performing storage I/O.

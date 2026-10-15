@@ -83,7 +83,6 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				models,
 				modelexecution.New(
 					models,
-					modelexecution.NewMockConversationContext(controller),
 					modelexecution.RetryPolicy{
 						Enabled: false, MaxRetries: 0, Delays: nil, MaxProviderDelay: 0,
 					},

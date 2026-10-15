@@ -25,7 +25,7 @@ func TestServiceCanceledRetryProgressDoesNotRestoreResetResponse(t *testing.T) {
 	controller := gomock.NewController(t)
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
-	observer := NewMockConversationContext(controller)
+
 	retryOutput := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
@@ -65,7 +65,7 @@ func TestServiceCanceledRetryProgressDoesNotRestoreResetResponse(t *testing.T) {
 			return context.Canceled
 		},
 	)
-	service := New(catalog, observer, RetryPolicy{
+	service := New(catalog, RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Second}, MaxProviderDelay: 30 * time.Second,
 	}, nil, retryOutput, newTestConversationObservations(t))
 	var kinds []agentrun.StreamEventKind

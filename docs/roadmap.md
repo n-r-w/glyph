@@ -165,7 +165,7 @@ Status: In progress
 
 The policy-owning extension controls compaction, while Host and session services retain runtime and durable history responsibilities. Agent Core consumes prepared history. The [target ownership](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#target-ownership) defines the boundary.
 
-PHS-06.1 remains in progress. [Overflow recovery in UNT-10](specs/features/initial/phases/06-context-compaction-retry-control/overflow-integration-evidence.md#final-verification-and-acceptance) is accepted. Cleanup remains pending in UNT-11. The [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) records accepted units and pending work; its [phased plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) describes phase ordering.
+PHS-06.1 remains in progress. [Overflow recovery in UNT-10](specs/features/initial/phases/06-context-compaction-retry-control/overflow-integration-evidence.md#final-verification-and-acceptance) is accepted. UNT-11 cleanup source preparation is in progress. Quality corrections, full final verification, and independent acceptance remain pending. The [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) records accepted units and pending work; its [phased plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) describes phase ordering.
 
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)

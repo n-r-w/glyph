@@ -170,7 +170,6 @@ Panic-based value extraction also exists in:
 
 - `host/internal/controller/programmatic/delivery.go`
 - `host/internal/infra/persistence/sessions/codec.go`
-- `host/internal/usecase/host/contextcompaction/orchestration.go`
 - `host/internal/usecase/host/programmatic/prepared.go`
 - `host/internal/usecase/host/sessions/entry_history.go`
 - `host/internal/usecase/host/sessions/history.go`

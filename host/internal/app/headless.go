@@ -19,7 +19,6 @@ import (
 	extensionruntime "github.com/n-r-w/glyph/host/internal/infra/plugins/extension/runtime"
 
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
@@ -65,17 +64,9 @@ func runHeadlessWithPaths(
 	if err != nil {
 		return fmt.Errorf("create provider catalog: %w", err)
 	}
-	// contextCompaction supplies conversation usage accounting.
-	contextCompaction := contextcompaction.New(sessionServices.active)
-	if err = contextCompaction.BindOrchestration(
-		extensions, contexts, configured.Compaction.RetainedContextTokens,
-	); err != nil {
-		return fmt.Errorf("bind headless context compaction: %w", err)
-	}
 	// modelExecution owns every logical model request in the headless assembly.
 	modelExecution := modelexecution.New(
 		providerCatalog,
-		contextCompaction,
 		retryPolicy(configured),
 		extensions,
 		renderer,

@@ -3,6 +3,9 @@ package sessions
 
 import (
 	"context"
+	"slices"
+
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -12,10 +15,20 @@ import (
 
 // CaptureCompaction supplies one immutable original branch and prepared model input.
 func (s *Service) CaptureCompaction() extensioncontext.CompactionSnapshot {
-	captured := s.CompactionSnapshot()
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	entries := cloneEntries(s.active.Tree.ActiveBranch())
+	previous := mo.None[session.CompactionEntry]()
+	for index := range slices.Backward(entries) {
+		if value, present := entries[index].Compaction.Get(); present {
+			previous = mo.Some(value.Clone())
+			break
+		}
+	}
+	identity := s.ContextSession()
 	return extensioncontext.CompactionSnapshot{
-		Identity: captured.Identity, ActiveLeafID: captured.ActiveLeafID,
-		Entries: captured.Entries, History: agentrun.ProjectHistory(captured.Context), Previous: captured.Previous,
+		Identity: identity, ActiveLeafID: s.active.Tree.ActiveLeafID(), Entries: entries,
+		History: agentrun.ProjectHistory(cloneStoredHistory(s.contextHistory, false)), Previous: previous,
 	}
 }
 

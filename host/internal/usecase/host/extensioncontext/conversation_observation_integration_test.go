@@ -15,7 +15,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -49,7 +48,7 @@ func TestConversationObservationClassifiedSessionFailure(t *testing.T) {
 				Identity: identity, ActiveLeafID: mo.None[string](), Entries: nil,
 				History: nil, Previous: mo.None[session.CompactionEntry](),
 			})
-			policies.EXPECT().SnapshotCompactionHandlers().Return(contextcompaction.HandlerSet{})
+			policies.EXPECT().SnapshotCompactionHandlers().Return(HandlerSet{})
 			policies.EXPECT().
 				InvokeCompactionPolicy(gomock.Any(), owner, gomock.Any(), gomock.Any()).
 				Return(PolicyPreserve, nil)
@@ -92,11 +91,7 @@ func TestConversationObservationClassifiedSessionFailure(t *testing.T) {
 			)
 			catalog := modelexecution.NewMockCatalogResolver(controller)
 			provider := modelexecution.NewMockProviderAttempt(controller)
-			accounting := modelexecution.NewMockConversationContext(controller)
-			accountingWritten := false
-			accounting.EXPECT().RecordCompletedConversationUsage(gomock.Any(), gomock.Any()).AnyTimes().Do(
-				func(modelexecution.ProviderRequest, model.Response) { accountingWritten = true },
-			)
+
 			descriptor := model.Descriptor{
 				Provider:      "provider",
 				Model:         "model",
@@ -151,7 +146,6 @@ func TestConversationObservationClassifiedSessionFailure(t *testing.T) {
 			)
 			execution := modelexecution.New(
 				catalog,
-				accounting,
 				modelexecution.RetryPolicy{Enabled: false, MaxRetries: 0, Delays: nil, MaxProviderDelay: 0},
 				nil,
 				nil,
@@ -179,11 +173,11 @@ func TestConversationObservationClassifiedSessionFailure(t *testing.T) {
 				require.ErrorIs(t, err, acquired)
 				require.ErrorContains(t, err, persistenceUnavailableCode)
 				require.Equal(t, agentrun.StreamEventError, terminal.Kind)
-				require.False(t, accountingWritten)
+
 			} else {
 				require.NoError(t, err)
 				require.Equal(t, agentrun.StreamEventDone, terminal.Kind)
-				require.True(t, accountingWritten)
+
 				select {
 				case <-joined:
 				default:

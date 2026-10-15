@@ -76,7 +76,7 @@ func (x SessionTreeModelContentKind) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// SessionTreeEntry contains one provider-neutral abandoned-branch entry.
+// SessionTreeEntry contains one provider-neutral session entry projection.
 type SessionTreeEntry struct {
 	state                  protoimpl.MessageState     `protogen:"opaque.v1"`
 	xxx_hidden_Id          *string                    `protobuf:"bytes,1,opt,name=id"`

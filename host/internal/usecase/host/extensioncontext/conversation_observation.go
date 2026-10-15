@@ -12,7 +12,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -27,7 +26,7 @@ type capturedConversation struct {
 	// incarnation identifies the admitted session lifetime.
 	incarnation uint64
 	// handlers contains captured composition and outcome registrations.
-	handlers contextcompaction.HandlerSet
+	handlers HandlerSet
 }
 
 // capturedConversation supplies policy preparation and completed observation to model execution.
@@ -106,7 +105,7 @@ func (s *Service) newLifetime(ctx context.Context, owner PolicyOwner) *compactio
 		receipt:              mo.None[session.Entry](),
 		causes:               nil,
 		terminalError:        nil,
-		state:                mo.None[contextcompaction.PolicyState](),
+		state:                mo.None[PolicyState](),
 	}
 	s.mutex.Lock()
 	s.compactionOperations[operation.lifecycleID] = operation

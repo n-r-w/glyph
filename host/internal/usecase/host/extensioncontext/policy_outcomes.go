@@ -9,15 +9,14 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // finishPolicyOutcome publishes captured compaction outcomes and retains acquired failure causes.
 func (s *Service) finishPolicyOutcome(
 	ctx context.Context,
-	handlers contextcompaction.HandlerSet,
-	state mo.Option[contextcompaction.PolicyState],
+	handlers HandlerSet,
+	state mo.Option[PolicyState],
 	result modelexecution.ManualCompactionResult,
 	cause, policyCauses error,
 ) error {
@@ -26,7 +25,7 @@ func (s *Service) finishPolicyOutcome(
 		cause = errors.Join(cause, policyCauses)
 		policyCauses = nil
 	}
-	outcome := contextcompaction.OutcomeInvocation{
+	outcome := OutcomeInvocation{
 		State: state, ParentCompactionID: mo.None[string](), Committed: result.Committed,
 		Canceled: result.Canceled, Error: mo.None[string](),
 	}
@@ -63,11 +62,9 @@ func (s *Service) finishPolicyOutcome(
 				errors.Join(cause, policyCauses, unavailable, acquiredCauses),
 			)
 		}
-		operation := s.newLifetime(ctx, PolicyOwner{
-			ExtensionID: handler.ExtensionID, RuntimeID: handler.RuntimeID, HandlerID: handler.HandlerID,
-		})
+		operation := s.newLifetime(ctx, PolicyOwner(handler))
 		outcome.ParentCompactionID = mo.Some(operation.lifecycleID)
-		outcome.State = state.MapValue(contextcompaction.PolicyState.Clone)
+		outcome.State = state.MapValue(PolicyState.Clone)
 		outcome.Committed = result.Committed.MapValue(session.Entry.Clone)
 		if failure {
 			err = s.policyRuntime.ObserveCompactionFailure(operation.context, handler, binding, outcome)

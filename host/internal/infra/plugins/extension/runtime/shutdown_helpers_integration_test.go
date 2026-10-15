@@ -15,6 +15,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -24,7 +26,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/infra/plugins/extension/catalog"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	manager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
@@ -247,9 +248,9 @@ func assertManagerShutdownInvocation(
 				},
 			)
 		case shutdownCompactionInvocation:
-			_, invokeErr = fixture.service.GenerateCompaction(ctx, contextcompaction.Handler{
+			_, invokeErr = fixture.service.InvokeCompactionGenerator(ctx, extensioncontext.Participant{
 				ExtensionID: shutdownExtensionID, RuntimeID: fixture.instanceID, HandlerID: shutdownGeneratorID,
-			}, binding, contextcompaction.RequestInvocation{})
+			}, binding, extensioncontext.RequestInvocation{})
 		}
 		finished <- invokeErr
 	}()

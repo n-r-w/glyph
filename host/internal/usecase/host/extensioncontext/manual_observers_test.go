@@ -14,7 +14,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/contextcompaction"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -22,14 +21,14 @@ import (
 func (s *manualObserverFailureRetainsHandledPolicyCausesSuite) TestScenario() {
 	t := s.T()
 	// Arrange a handled child failure followed by successful persistence and a failing observer.
-	observer := contextcompaction.Handler{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "observer"}
+	observer := Participant{ExtensionID: "policy", RuntimeID: "generation", HandlerID: "observer"}
 	first := observer
 	first.HandlerID = "handled-observer"
-	handlers := contextcompaction.HandlerSet{
+	handlers := HandlerSet{
 		Requests:   nil,
 		Generators: nil,
 		Results:    nil,
-		Successes:  []contextcompaction.Handler{first, observer},
+		Successes:  []Participant{first, observer},
 		Failures:   nil,
 	}
 	service, policy, owner := newManualPolicyOperationFixture(t, handlers)
@@ -72,7 +71,7 @@ func (s *manualObserverFailureRetainsHandledPolicyCausesSuite) TestScenario() {
 			return PolicyReplaced, err
 		})
 	policy.EXPECT().ObserveCompactionSuccess(gomock.Any(), first, gomock.Any(), gomock.Any()).DoAndReturn(
-		func(ctx context.Context, target contextcompaction.Handler, bound extension.Context, outcome contextcompaction.OutcomeInvocation) error {
+		func(ctx context.Context, target Participant, bound extension.Context, outcome OutcomeInvocation) error {
 			lifetimeID := outcome.ParentCompactionID.OrEmpty()
 			release, err := service.BeginCompactionChild(
 				target.ExtensionID,
@@ -133,13 +132,13 @@ func (s *manualUnavailableObserverRetainsCausesSuite) TestScenario() {
 	service := New(runtime, sessions)
 	cause := errors.New("original policy RPC cause")
 	handled := errors.New("handled policy model cause")
-	observer := contextcompaction.Handler{ExtensionID: "observer", RuntimeID: "generation", HandlerID: "failure"}
-	handlers := contextcompaction.HandlerSet{
+	observer := Participant{ExtensionID: "observer", RuntimeID: "generation", HandlerID: "failure"}
+	handlers := HandlerSet{
 		Requests:   nil,
 		Generators: nil,
 		Results:    nil,
 		Successes:  nil,
-		Failures:   []contextcompaction.Handler{observer},
+		Failures:   []Participant{observer},
 	}
 	result := modelexecution.ManualCompactionResult{Committed: mo.Some(session.Entry{}), Canceled: false}
 
@@ -147,7 +146,7 @@ func (s *manualUnavailableObserverRetainsCausesSuite) TestScenario() {
 	err := service.finishPolicyOutcome(
 		t.Context(),
 		handlers,
-		mo.None[contextcompaction.PolicyState](),
+		mo.None[PolicyState](),
 		result,
 		cause,
 		handled,

@@ -14,16 +14,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
-// CommitCompaction validates and appends one compaction entry to the expected active branch.
-func (s *Service) CommitCompaction(
-	ctx context.Context,
-	expected session.Identity,
-	expectedLeafID mo.Option[string],
-	compaction session.CompactionEntry,
-) (session.Entry, error) {
-	return s.commitCompaction(ctx, expected, expectedLeafID, compaction, nil, nil)
-}
-
 // commitCompaction applies one durable replacement with optional runtime protection and receipt recording.
 func (s *Service) commitCompaction(
 	ctx context.Context,
