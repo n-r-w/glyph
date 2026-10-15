@@ -16,7 +16,91 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
+
+// TestRetryCancellationRetainsProviderCause checks both shared retry exits for ordinary and configured requests.
+func TestRetryCancellationRetainsProviderCause(t *testing.T) {
+	t.Parallel()
+	for _, entry := range []string{"configured", "ordinary"} {
+		for _, progressFails := range []bool{true, false} {
+			name := "pending delay"
+			if progressFails {
+				name = "progress delivery"
+			}
+			t.Run(entry+"/"+name, func(t *testing.T) {
+				t.Parallel()
+				// Arrange one transient attempt and cancellation before its admitted retry.
+				controller := gomock.NewController(t)
+				catalog := NewMockCatalogResolver(controller)
+				provider := NewMockProviderAttempt(controller)
+				selection := model.Selection{
+					Provider:        "provider",
+					Model:           "model",
+					ReasoningChoice: model.ReasoningChoiceLow,
+				}
+				binding := CatalogBinding{
+					Model:           modelDescriptor(selection),
+					ReasoningChoice: selection.ReasoningChoice,
+					Provider:        provider,
+				}
+				if entry == "configured" {
+					catalog.EXPECT().ResolveConfiguredBinding(gomock.Any(), selection).Return(binding, nil)
+				} else {
+					catalog.EXPECT().ResolveBinding(selection).Return(binding, nil)
+				}
+				source := errors.New("transient provider failure\nsource α")
+				provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
+					Classification: ProviderFailureTransient, RetryDelay: mo.None[time.Duration](), Cause: source,
+				})
+				ctx, cancel := context.WithCancel(t.Context())
+				defer cancel()
+				cancelProgress := func() error {
+					cancel()
+					if progressFails {
+						return context.Canceled
+					}
+					return nil
+				}
+				output := NewMockRetryOutput(controller)
+				var policies ConversationPolicies
+				if entry == "ordinary" {
+					policies = newTestConversationObservations(t)
+					output.EXPECT().
+						DeliverRetry(gomock.Any(), gomock.Any()).
+						DoAndReturn(func(context.Context, RetryProgress) error {
+							return cancelProgress()
+						})
+				}
+				service := New(catalog, nil, RetryPolicy{
+					Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Hour}, MaxProviderDelay: time.Hour,
+				}, nil, output, policies)
+
+				// Act through the selected public model-execution entry with owning cancellation.
+				var response model.Response
+				var err error
+				if entry == "configured" {
+					response, err = service.RequestConfigured(ctx, selection, "instructions", nil,
+						func(int64, int64, time.Duration, string) error { return cancelProgress() })
+				} else {
+					err = service.Stream(ctx, agentrun.ModelRequest{
+						Instructions: "instructions", Model: binding.Model, ReasoningChoice: selection.ReasoningChoice,
+						History: nil, Tools: nil,
+					}, func(agentrun.StreamEvent) error { return nil })
+				}
+
+				// Assert prior provider history remains diagnostic and the current outcome stays cancellation.
+				require.ErrorIs(t, err, context.Canceled)
+				require.ErrorIs(t, err, source)
+				require.Contains(t, err.Error(), source.Error())
+				require.True(t, errtree.IsCurrentCancellation(err, func(cause error) bool {
+					return errors.Is(cause, context.Canceled)
+				}))
+				require.Equal(t, model.Response{}, response)
+			})
+		}
+	}
+}
 
 // TestServiceConcurrentNonRetryableFailureKeepsCategoryAndAllCauses verifies cancellation cannot preempt classification.
 func TestServiceConcurrentNonRetryableFailureKeepsCategoryAndAllCauses(t *testing.T) {
@@ -228,74 +312,16 @@ func TestServiceCustomCancellationDuringRetryDelayPreservesCause(t *testing.T) {
 			},
 		)
 
-		// Assert the exact cancellation cause survives and intermediate response state is absent.
+		// Assert owning cancellation retains its custom cause and prior provider diagnostics without response state.
 		require.ErrorIs(t, err, cancellationCause)
-		assert.NotErrorIs(t, err, transientCause)
+		require.ErrorIs(t, err, transientCause)
+		require.Contains(t, err.Error(), cancellationCause.Error())
+		require.Contains(t, err.Error(), transientCause.Error())
+		require.True(t, errtree.IsCurrentCancellation(err, func(cause error) bool {
+			return errors.Is(cause, context.Canceled) || errors.Is(cause, cancellationCause)
+		}))
 		assert.True(t, response.Outcome.IsNone())
-	})
-}
-
-// TestServiceCancellationDuringRetryProgressIsPureAbort verifies output cancellation stays an abort.
-func TestServiceCancellationDuringRetryProgressIsPureAbort(t *testing.T) {
-	t.Parallel()
-
-	// Arrange one transient failure and caller cancellation reported by progress delivery.
-	controller := gomock.NewController(t)
-	catalog := NewMockCatalogResolver(controller)
-	provider := NewMockProviderAttempt(controller)
-	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	catalog.EXPECT().ResolveConfiguredBinding(gomock.Any(), selection).Return(CatalogBinding{
-		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
-	transientCause := errors.New("handled transient failure")
-	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
-		Classification: ProviderFailureTransient, RetryDelay: mo.None[time.Duration](), Cause: transientCause,
-	})
-	service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
-		Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Hour}, MaxProviderDelay: 30 * time.Second,
-	}, nil, nil, newTestConversationObservations(t))
-	ctx, cancel := context.WithCancel(t.Context())
-
-	// Act by returning pure cancellation from the configured-operation progress boundary.
-	_, err := service.RequestConfigured(ctx, selection, "", nil, func(int64, int64, time.Duration, string) error {
-		cancel()
-		return context.Canceled
-	})
-
-	// Assert handled retry failures stay diagnostic-only for a pure caller abort.
-	require.ErrorIs(t, err, context.Canceled)
-	assert.NotErrorIs(t, err, transientCause)
-}
-
-// TestServiceCancellationDuringRetryDelayStopsReplacementAttempt verifies cancelable production delay.
-func TestServiceCancellationDuringRetryDelayStopsReplacementAttempt(t *testing.T) {
-	synctest.Test(t, func(t *testing.T) {
-		// Arrange one transient failure and cancellation immediately after retry progress.
-		controller := gomock.NewController(t)
-		catalog := NewMockCatalogResolver(controller)
-		provider := NewMockProviderAttempt(controller)
-		selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-		catalog.EXPECT().ResolveConfiguredBinding(gomock.Any(), selection).Return(CatalogBinding{
-			Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-		}, nil)
-		transientCause := errors.New("temporary source failure")
-		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Times(1).Return(&ProviderFailureError{
-			Classification: ProviderFailureTransient, RetryDelay: mo.None[time.Duration](), Cause: transientCause,
-		})
-		service := New(catalog, NewMockConversationContext(controller), RetryPolicy{
-			Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Hour}, MaxProviderDelay: 30 * time.Second,
-		}, nil, nil, newTestConversationObservations(t))
-		ctx, cancel := context.WithCancel(t.Context())
-
-		// Act by canceling after progress and before the replacement attempt.
-		_, err := service.RequestConfigured(ctx, selection, "", nil, func(int64, int64, time.Duration, string) error {
-			cancel()
-			return nil
-		})
-
-		// Assert pure cancellation ends execution while the handled transient remains diagnostic-only.
-		require.ErrorIs(t, err, context.Canceled)
-		assert.NotErrorIs(t, err, transientCause)
+		require.Equal(t, model.Response{}, response)
 	})
 }
 

@@ -177,7 +177,9 @@ func (s *Service) execute(
 				Delay: decision.Delay, Error: attemptErr.Error(),
 			}); progressErr != nil {
 				if isPureOwningCancellation(ctx, progressErr) {
-					return model.Response{}, backoff.Permanent(joinOwningContextCause(ctx, progressErr))
+					return model.Response{}, backoff.Permanent(diagnostic.NewCurrentCause(
+						joinOwningContextCause(ctx, progressErr), errors.Join(causes...),
+					))
 				}
 				causes = append(causes, fmt.Errorf("deliver retry progress: %w", progressErr))
 				return model.Response{}, backoff.Permanent(logicalFailure(FailureInternal, causes))
@@ -194,7 +196,7 @@ func (s *Service) execute(
 		return completion, retryErr
 	}
 	if ctx.Err() != nil && errors.Is(details.Cause, context.Cause(ctx)) {
-		return completion, context.Cause(ctx)
+		return completion, diagnostic.NewCurrentCause(context.Cause(ctx), errors.Join(causes...))
 	}
 	return completion, details.LastErr
 }
