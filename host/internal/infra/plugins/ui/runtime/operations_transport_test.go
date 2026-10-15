@@ -550,17 +550,24 @@ func TestRunOperationsLocalCloseFailsNewRequestsBeforePeerClose(t *testing.T) {
 func TestRunOperationsPeerCloseFailsNewRequests(t *testing.T) {
 	t.Parallel()
 
-	// Arrange peer CloseConnection followed by a late request and response EOF.
+	// Arrange peer CloseConnection, then have mock Send observe Host Close before mock Recv returns the late request.
+	closeDelivered := make(chan struct{})
 	controller := gomock.NewController(t)
 	stream := NewMockUIService_OpenClient[uiv1.OpenRequest, uiv1.OpenResponse](controller)
 	stream.EXPECT().Context().Return(t.Context()).AnyTimes()
 	closeResponse := new(uiv1.OpenResponse)
 	closeResponse.SetClose(new(operationv1.CloseConnection))
 	stream.EXPECT().Recv().Return(closeResponse, nil)
-	stream.EXPECT().Recv().Return(operationRequest("late", "work"), nil)
+	stream.EXPECT().Recv().DoAndReturn(func() (*uiv1.OpenResponse, error) {
+		<-closeDelivered
+		return operationRequest("late", "work"), nil
+	})
 	sent := make(chan *uiv1.OpenRequest, 2)
 	stream.EXPECT().Send(gomock.Any()).AnyTimes().DoAndReturn(func(request *uiv1.OpenRequest) error {
 		sent <- request
+		if request.GetClose() != nil {
+			close(closeDelivered)
+		}
 		return nil
 	})
 	stream.EXPECT().CloseSend().Return(nil)
