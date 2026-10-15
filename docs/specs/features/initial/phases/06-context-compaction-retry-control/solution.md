@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06 Context compaction and retry control
 
-Status: PHS-06.1 system-contract design is approved. Implementation has resumed and remains incomplete; the [migration plan](migration-plan.md#sequential-implementation-units) owns detailed progress and links to phase ordering.
+Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress and remaining phase order.
 
 This document contains the target technical solution for PHS-06. The [unaccepted checkpoint design](#unaccepted-checkpoint-design) and [implementation evidence](#implementation-evidence) describe the earlier Host-owned implementation only. The [ticket](ticket.md) contains requirements and terminology; the [migration plan](migration-plan.md) describes subphase order and completion status.
 
@@ -132,7 +132,7 @@ Fresh compiling RED/GREEN runs reproduced blocked failure workers, premature pro
 
 Host retains diagnostic-state cloning for each observer, session usage and cost accounting, and completed-conversation observation before logical success. Token estimates and budgets in composition requests are extension-supplied public data. Host configuration contains only the participant lifecycle duration for compaction. The standard bundled policy remains pending in PHS-06.2.
 
-UNT-11 source preparation removes the checkpoint policy package, its sizing and process-local usage baseline, the obsolete completed-usage callback, and their assembly connections. Cleanup acceptance remains pending under the [migration plan](migration-plan.md#sequential-implementation-units).
+The [system acceptance record](system-integration-evidence.md#cleanup-and-preservation) describes the completed cleanup and retained session, runtime and retry contracts.
 
 ### Requirements coverage and design limits
 

@@ -1,8 +1,8 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: PHS-06.1 implementation has resumed and remains incomplete. See [unit progress](#sequential-implementation-units) and the [phased plan](#phased-plan).
+Status: PHS-06.1 is complete and accepted. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units) and [remaining phases](#phased-plan).
 
-Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation starts from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
+Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation started from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
 ## Key definitions and abbreviations
 
@@ -17,9 +17,9 @@ The [ticket](ticket.md#key-definitions-and-abbreviations) owns the detailed defi
 
 ### Resume point
 
-- The restored working baseline is `96f061c` with the retained dependency updates and TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build, and diff checks passed. Coverage was 82.7%. These checks establish the starting state; phase acceptance requires the public behaviors below.
-- Units 0 through 3 and the session-entry/projection foundation are implemented. The Host-owned unit 4 implementation is unaccepted. The bundled compaction extension is not implemented.
-- The approved [system integration design](solution.md#proposed-solution) and [phased plan](#phased-plan) define the continuation path. The [unit progress](#sequential-implementation-units) identifies the next implementation unit.
+- The next phase is [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension), which requires separate preparation and implementation authorization. The bundled policy and generator are not implemented.
+- The historical starting baseline was `96f061c`, with retained dependency updates and the TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build and diff checks passed at that point; coverage was 82.7%. The [system acceptance record](system-integration-evidence.md) contains the final PHS-06.1 results.
+- Checkpoint units 0 through 3 and the session foundation preceded the migration. The checkpoint's Host-owned unit 4 was unaccepted. After migrating its callers, the UNT-11 implementer removed the remaining Host policy.
 - After each completed migration phase, record its result, evidence, remaining blockers, and commit in this plan. The first phase without completed exit criteria is the resume point.
 
 ### Work boundaries
@@ -95,7 +95,7 @@ Reuse session history and extension runtime mechanisms. Determine only the integ
 
 ### Phase PHS-06.1 - Implement the extension-owned compaction system contract
 
-Status: In progress. System-contract design and its [scoped dry run](solution.md#phs-061-system-contract-dry-run-evidence) are complete. See [unit progress](#sequential-implementation-units) for accepted and pending implementation work.
+Status: Complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final checks, independent reviews and limits. The [scoped dry run](solution.md#phs-061-system-contract-dry-run-evidence) records the earlier design evidence.
 
 #### Goal
 
@@ -109,9 +109,9 @@ Follow the [approved system integration](solution.md#phs-061-integration-proposa
 
 UNT-01 through UNT-10 are behavior slices. UNT-11 is Cleanup. Every unit starts only after the previous unit passes the [completion checks](#unit-completion-and-review).
 
-[UNT-10 overflow recovery](overflow-integration-evidence.md#final-verification-and-acceptance) is accepted at `904463b`, following the separate shared cancellation correction `33163d6`. Its evidence records the same-request completed-tool scenario, final checks, independent review and historical limits. UNT-11 source preparation is in progress; quality corrections, full final verification, and fresh independent acceptance remain pending. PHS-06.1 is incomplete.
+[UNT-11 cleanup](system-integration-evidence.md#cleanup-and-preservation) is accepted at `9555cda`. All eleven units are accepted with the [historical evidence limits](system-integration-evidence.md#remaining-limits-and-historical-failures). The fresh phase-wide verification repeat and independent Critic review are complete; the [acceptance record](system-integration-evidence.md#final-verification-and-reviews) retains their evidence and limits.
 
-- Accepted units: UNT-01 (`5165a14`), UNT-02 (`bf62186`), UNT-03 (`23f2f55`), UNT-04 (`85f7b9a`), UNT-05 (`4181ae2`), UNT-06 (`87699e9`), UNT-07 (`d22e210`), UNT-08 (`fed40b6`), UNT-09 (`e4865d8`), and UNT-10 (`904463b`) passed full checks, code-quality review, and independent review. The [result-handler integration evidence](result-integration-evidence.md) describes UNT-07 behavior, final verification, and evidence limits. The [generator integration evidence](generator-integration-evidence.md) describes UNT-06 behavior, final verification, and evidence limits. The [request-handler integration evidence](request-integration-evidence.md) describes UNT-05 behavior, corrective RED/GREEN cycles, and evidence limits. See [configured-model input](solution.md#configured-model-image-input), [runtime shutdown](solution.md#tracked-runtime-shutdown), and [manual policy integration evidence](manual-integration-evidence.md) for behavior and checks. The [SDK connection failure tests](../../../../../../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../../../../../../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check failure reporting before shutdown and owner cleanup through `Close`.
+- Accepted units: UNT-01 (`5165a14`), UNT-02 (`bf62186`), UNT-03 (`23f2f55`), UNT-04 (`85f7b9a`), UNT-05 (`4181ae2`), UNT-06 (`87699e9`), UNT-07 (`d22e210`), UNT-08 (`fed40b6`), UNT-09 (`e4865d8`), UNT-10 (`904463b`), and UNT-11 (`9555cda`) passed full checks, code-quality review, and independent review. The [result-handler integration evidence](result-integration-evidence.md) describes UNT-07 behavior, final verification, and evidence limits. The [generator integration evidence](generator-integration-evidence.md) describes UNT-06 behavior, final verification, and evidence limits. The [request-handler integration evidence](request-integration-evidence.md) describes UNT-05 behavior, corrective RED/GREEN cycles, and evidence limits. See [configured-model input](solution.md#configured-model-image-input), [runtime shutdown](solution.md#tracked-runtime-shutdown), and [manual policy integration evidence](manual-integration-evidence.md) for behavior and checks. The [SDK connection failure tests](../../../../../../sdk/plugins/extension/v1/connection_failure_integration_test.go) and [Host-handler integration test](../../../../../../sdk/plugins/extension/v1/connection_handler_failure_integration_test.go) check failure reporting before shutdown and owner cleanup through `Close`.
 - Retained baseline: `64bcecd`. Safe quality corrections: `1612ae5`.
 - Accepted code corrections:
   - `2cf86e8`: shared configured-input image fixture construction and named configured-input protocol values.
@@ -121,8 +121,9 @@ UNT-01 through UNT-10 are behavior slices. UNT-11 is Cleanup. Every unit starts 
   - `aa7f0fd`: client send-EOF resolution in the Extension and UI Host clients.
   - `ac80f52`: guarded executable-fixture creation during concurrent forks. The [automatic integration evidence](automatic-integration-evidence.md#client-transport-and-fixture-corrections) describes both corrections and their checks.
   - `33163d6`: shared retry-progress and pending-delay cancellation diagnostics. The [overflow integration evidence](overflow-integration-evidence.md#shared-cancellation-correction) records the preserved provider causes and category regressions.
+  - `4d720d9`: the [peer-close fixture correction](system-integration-evidence.md#peer-close-fixture-correction) orders the late request after mock Send observes Host Close, preserving all assertions.
   - All code corrections passed CodeQuality, full checks on the combined final source, and independent review.
-- Document clarity and status corrections: linked progress and phase ordering, positive behavior statements, explicit component ownership, split design blocks, and resumed-work status passed CodeQuality and independent review. Local references, anchors, and whitespace checks passed. This document-only unit changed no code.
+- Document clarity and status corrections: linked progress and phase ordering, positive behavior statements, explicit component ownership, split design blocks and resumed-work status passed review. `10e1e49` records the later ownership and historical-evidence wording corrections. Local references, anchors and whitespace checks passed; these corrections changed no executable code.
 
 | Unit | Observable result and public-entry check | Executor role |
 |---|---|---|
