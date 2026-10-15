@@ -397,7 +397,6 @@ func (s *Service) finalizeProviderError(
 }
 
 // visibleErrorMessage formats terminal cancellation and failure text.
-// It preserves err.Error() for all other errors.
 func visibleErrorMessage(err error) string {
 	if errtree.IsPlainCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)

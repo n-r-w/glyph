@@ -1,5 +1,7 @@
 # Manual compaction integration evidence
 
+This document records the earlier manual-integration work. Descriptions of unmigrated callers and retired APIs are historical. The checks below are historical results; they do not verify UNT-11 source. The migration plan records current progress.
+
 The [migration plan](migration-plan.md#sequential-implementation-units) records unit order and acceptance. The [target solution](solution.md#manual-automatic-and-overflow-integration) describes outcome notification requirements.
 
 The [request-handler integration evidence](request-integration-evidence.md) describes the operation-bound participant calls added to this manual foundation.
@@ -59,7 +61,7 @@ Fresh compiling RED runs reproduced each missing cause and each detached observe
 
 ## Retained review corrections
 
-`sessions.Service.ProjectCompaction` returns history and its structural error. Both automatic callers preserve that cause. `TestThresholdCompactionPreservesSplitBoundaryCause` uses a public conversation request, actual tool-call/result history, a smaller selected model, and a real registered compaction handler. The test checks the split-boundary cause, supplemental failure code, unchanged provider-call count, and absence of a replacement.
+At the historical manual-integration stage, `sessions.Service.ProjectCompaction` returned history and its structural error. Both automatic callers preserve that cause. `TestThresholdCompactionPreservesSplitBoundaryCause` uses a public conversation request, actual tool-call/result history, a smaller selected model, and a real registered compaction handler. The test checks the split-boundary cause, supplemental failure code, unchanged provider-call count, and absence of a replacement.
 
 The Extension controller retains scalar lifetime identity and release ownership. At Run, the parent owner links the explicit child context to parent cancellation. The parent registry remains available until every admitted child releases. `TestManualCommitGuardRejectsCanceledParentWithLiveChild` checks the synchronous parent cause at the persistence guard while the child context remains live. The test checks no append, no receipt, and child release.
 

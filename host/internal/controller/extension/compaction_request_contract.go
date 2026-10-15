@@ -120,7 +120,7 @@ type CompactionRequestValue struct {
 	ContextTokens int64
 	// ContextTokensEstimated identifies an estimated count.
 	ContextTokensEstimated bool
-	// ContextWindow contains the captured context capacity.
+	// ContextWindow contains the extension-supplied context capacity for summary composition.
 	ContextWindow int64
 	// ResponseBudget contains the output reserve.
 	ResponseBudget int64

@@ -136,7 +136,7 @@ type PolicyRuntime interface {
 		extension.Context,
 		RequestInvocation,
 	) (RequestAction, error)
-	// SnapshotCompactionHandlers captures registered observer generations in order.
+	// SnapshotCompactionHandlers captures compaction participants and outcome observers in registration order.
 	SnapshotCompactionHandlers() contextcompaction.HandlerSet
 	// ObserveCompactionSuccess invokes one captured committed-outcome observer.
 	ObserveCompactionSuccess(
