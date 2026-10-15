@@ -165,11 +165,14 @@ Status: In progress
 
 The policy-owning extension controls compaction, while Host and session services retain runtime and durable history responsibilities. Agent Core consumes prepared history. The [target ownership](specs/features/initial/phases/06-context-compaction-retry-control/solution.md#target-ownership) defines the boundary.
 
-PHS-06.1 is complete. The [system acceptance record](specs/features/initial/phases/06-context-compaction-retry-control/system-integration-evidence.md) records all eleven accepted units, cleanup, final verification, independent reviews and remaining limits. The bundled policy and generator remain planned in PHS-06.2 and require separate implementation authorization. The [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) records accepted units; its [phased plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) describes the remaining phase order.
+PHS-06.1 is complete. The [system acceptance record](specs/features/initial/phases/06-context-compaction-retry-control/system-integration-evidence.md) records all eleven accepted units, cleanup, final verification, independent reviews and remaining limits. PHS-06.2 requirements and technical solution are approved, and the design dry run is complete. The bundled policy and generator remain unimplemented and require separate implementation authorization. The [migration plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) records accepted units; its [phased plan](specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) describes the remaining phase order.
 
 Documents:
 - [Ticket](specs/features/initial/phases/06-context-compaction-retry-control/ticket.md)
-- [Technical solution](specs/features/initial/phases/06-context-compaction-retry-control/solution.md)
+- [System technical solution](specs/features/initial/phases/06-context-compaction-retry-control/solution.md)
+- [PHS-06.2 problem statement](specs/features/initial/phases/06-context-compaction-retry-control/phs-06.2_problem.md)
+- [PHS-06.2 requirements](specs/features/initial/phases/06-context-compaction-retry-control/phs-06.2_prd.md)
+- [PHS-06.2 technical solution](specs/features/initial/phases/06-context-compaction-retry-control/phs-06.2_solution.md)
 
 ## PHS-08: Prompt, context, input, and provider middleware
 

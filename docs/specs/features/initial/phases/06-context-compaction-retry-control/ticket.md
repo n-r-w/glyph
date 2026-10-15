@@ -2,6 +2,8 @@
 
 Keep long sessions usable within model context limits.
 
+The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Those documents define the standard generator's accepted first-version limits and per-request compaction accounting. Implementation remains pending. This ticket owns the shared composition, session, and retry requirements.
+
 ## Key definitions and abbreviations
 
 - DEF-01: Context compaction. Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining suffix.
@@ -72,7 +74,7 @@ Out of scope:
 - FRQ-01.4: A request handler shall return a state update that independently preserves or replaces the current compaction request and preserves, sets, replaces, or clears the current result. Cancellation shall be an exclusive terminal action.
 - FRQ-01.5: The next request handler shall receive the unchanged original compaction request and the current state returned by the preceding handler. A handler can derive its returned state from the original compaction request, the current state, or both.
 - FRQ-01.6: When the request-handler chain finishes successfully without a current result, the policy-owning extension shall invoke the single registered compaction generator with the final current compaction request. The bundled extension shall supply that generator by default, and a custom extension shall be able to replace it. Zero or multiple registered generators shall fail compaction explicitly without a Host fallback or load-order selection. An existing current result shall bypass generator lookup and invocation entirely.
-- FRQ-01.7: A current compaction result shall contain a nonempty summary, the first preserved active-branch entry identifier, a usage state that is absent or contains normalized model usage, and a details state that is absent or contains opaque extension data.
+- FRQ-01.7: A current compaction result shall contain a nonempty summary, the first preserved active-branch entry identifier, explicit source accounting, and a details state that is absent or contains opaque extension data. The [PHS-06.2 accounting requirement](phs-06.2_prd.md#functional-requirements), FRQ-12, defines per-request accounting for persisted compaction results.
 - FRQ-01.7.1: After a result exists, result handlers shall run in registration order. Each result handler shall receive the original compaction request, the final current compaction request, the immutable original compaction result, and the current result returned by preceding result handlers, and shall preserve or replace the current result or cancel compaction. Cancellation shall be an exclusive terminal action.
 - FRQ-01.8: The policy-owning extension shall validate every handler action before exposing its returned state to the next handler. Host shall validate transport shape without applying compaction policy. An invalid action or handler error shall follow the [extension failure rule](../../prd.md#extension-failure-rule): stop compaction, report the complete error text, invoke no later handler, and append no compaction entry. Host shall not retry the failed extension or invoke another compaction implementation as a fallback.
 - FRQ-01.9: The session owner shall enforce structural and session validity against the final current result before atomically appending one compaction entry. Validation shall reject an empty summary, a kept-entry identifier outside the active branch, a boundary before the latest applicable compaction boundary, inconsistent source accounting, and a boundary that separates a tool result from its tool call. These checks shall not select or revise compaction policy.
@@ -166,7 +168,7 @@ None.
 
 ## Technical Supplement
 
-The [technical solution](solution.md) contains the approved target boundary, the unaccepted Host-owned checkpoint evidence, and the [tool-call argument representation](solution.md#tool-call-argument-representation). The [migration plan](migration-plan.md#sequential-implementation-units) owns implementation progress and links to the phase order and exit criteria. The solution owns the deferred [QST-01.1 decision](solution.md#qst-011-standard-summary-input-above-the-model-budget).
+The [technical solution](solution.md) contains the approved target boundary, the unaccepted Host-owned checkpoint evidence, and the [tool-call argument representation](solution.md#tool-call-argument-representation). The [migration plan](migration-plan.md#sequential-implementation-units) owns implementation progress and links to the phase order and exit criteria. The [PHS-06.2 technical solution](phs-06.2_solution.md) resolves [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) and defines standard generation and per-request accounting.
 
 ## References
 

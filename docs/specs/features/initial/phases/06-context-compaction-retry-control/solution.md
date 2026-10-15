@@ -1,8 +1,8 @@
 # Technical Solution: PHS-06 Context compaction and retry control
 
-Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress and remaining phase order.
+Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) is approved and has passed its design dry run; implementation remains pending. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress and remaining phase order.
 
-This document contains the target technical solution for PHS-06. The [unaccepted checkpoint design](#unaccepted-checkpoint-design) and [implementation evidence](#implementation-evidence) describe the earlier Host-owned implementation only. The [ticket](ticket.md) contains requirements and terminology; the [migration plan](migration-plan.md) describes subphase order and completion status.
+This document contains the PHS-06 ownership and PHS-06.1 integration design. The [PHS-06.2 solution](phs-06.2_solution.md) owns the standard extension design and its approved per-request accounting extension. The [unaccepted checkpoint design](#unaccepted-checkpoint-design) and [implementation evidence](#implementation-evidence) describe the earlier Host-owned implementation only. The [ticket](ticket.md) contains shared requirements and terminology; the [migration plan](migration-plan.md) describes subphase order and completion status.
 
 ## Problem Statement
 
@@ -558,7 +558,7 @@ Two consecutive final `task generate` runs produced the same generated-Protobuf 
 - `go list ./...`: all packages listed successfully.
 - `git diff --check`: no whitespace errors.
 
-The old unit 5 remains unimplemented. The [migration plan](migration-plan.md#phased-plan) defines the approved continuation from this checkpoint. The target [QST-01](#qst-01-minimal-extension-owned-compaction-integration) records the resolved system-contract design; [QST-01.1](#qst-011-standard-summary-input-above-the-model-budget) owns the deferred algorithm decision.
+The old unit 5 remains unimplemented. The [migration plan](migration-plan.md#phased-plan) defines the approved continuation from this checkpoint. The target [QST-01](#qst-01-minimal-extension-owned-compaction-integration) records the resolved system-contract design; [QST-01.1](#qst-011-standard-summary-input-above-the-model-budget) links to the separately approved PHS-06.2 generator design.
 
 ## Overengineering and Overspecification Considerations
 
@@ -579,20 +579,16 @@ The old unit 5 remains unimplemented. The [migration plan](migration-plan.md#pha
 - Proposal: [PHS-06.1 integration proposal](#phs-061-integration-proposal), including scoped nested invocation and session-owned snapshot/projection/commit operations.
 - Resolved decision: O6-1 permits ordinary conversation requests with no registered policy owner, without automatic compaction or overflow recovery. Manual compaction and registered-owner failures remain explicit failures.
 - Design approval: The user approved the integration boundaries and system implementation in PHS-06.1. The [phased plan](migration-plan.md#phased-plan) defines the system and bundled-extension boundaries.
-- Dry-run scope correction: The first review treated a bundled-generator algorithm choice as a system-contract blocker. The user deferred that choice to [QST-01.1](#qst-011-standard-summary-input-above-the-model-budget). Host supports one or multiple nested model requests through the approved contract. The user has approved no standard generator strategy under the system-contract design.
+- Dry-run scope correction: The first review treated a bundled-generator algorithm choice as a system-contract blocker. The user deferred that choice to [QST-01.1](#qst-011-standard-summary-input-above-the-model-budget). Host supports one or multiple nested model requests through the approved contract. The separately approved [PHS-06.2 design](phs-06.2_solution.md) now defines the standard generator.
 - Status: Resolved for system-contract design. The [scoped dry run](#phs-061-system-contract-dry-run-evidence) found no remaining system-contract blocker.
-- Resolution point: Design review is complete. See [unit progress](migration-plan.md#sequential-implementation-units) for implementation and acceptance work, and [QST-01.1](#qst-011-standard-summary-input-above-the-model-budget) for the deferred algorithm decision.
+- Resolution point: Design review is complete. See [unit progress](migration-plan.md#sequential-implementation-units) for implementation and acceptance work, and [QST-01.1](#qst-011-standard-summary-input-above-the-model-budget) for the separately resolved standard-generator decision.
 
 ### QST-01.1: Standard summary input above the model budget
 
-- Purpose: Define the bundled generator's observable result when the complete source does not fit one configured-model request.
-- Impact: Bounded multiple requests and explicit failure have different completion behavior, provider-call counts, usage/cost accounting, and cancellation paths. The implementer cannot select that behavior from the approved integration design.
-- Evidence: The target assigns summary-input budgeting to the extension but contains no oversized-source strategy. The [generator dispatch](../../../../../../host/internal/usecase/host/extensionruntime/policy_generator.go), `InvokeCompactionGenerator`, invokes the selected capability. The bundled extension is not implemented. The [historical generator strategy](#bundled-compaction-extension) describes multi-call packing only within the unaccepted checkpoint design.
-- Reachable case: A long session moves to a smaller-context model. Using the checkpoint's [sizing policy](#deterministic-fallback-estimate), the checkpoint compactor estimates 100 text messages of 6,368 bytes each at 160,000 tokens. With the 20,000-token retained target, the checkpoint compactor keeps 13 messages. The remaining 87 messages contain 554,016 source bytes. For those bytes alone in one source-text record, the checkpoint compactor estimates 138,512 tokens. A model with 128,000 context tokens and 16,000 output tokens has a 112,000-token input budget. The checkpoint compactor's calculated token counts are estimates from the checkpoint sizing policy. They are not provider-request measurements.
-- Required answer: Select the standard oversized-source behavior and define the summary model, complete-group handling, preceding-summary propagation, normalized usage/source accounting, cancellation, and terminal failures. Preserve the prohibition on Host fallback and silent source truncation.
-- Accounting constraint: The current result source represents one actual model selection with optional normalized usage. [Host cost estimation](../../../../../../host/internal/usecase/host/sessions/service.go) chooses pricing tiers from that one request-wide usage value. Summing usage from several calls can therefore differ from summing their separately estimated costs. The system contract does not promise arbitrary all-contributing-call cost; a future decision that requires per-call or multiple-model source accounting must review the contract before implementation.
-- Owner: PHS-06.2 extension-implementation design. The user explicitly deferred this algorithm decision from PHS-06.1.
-- Resolution point: Select the bundled extension's behavior before implementing its generator. This question does not block system-contract readiness or completion of PHS-06.1. The approved integration is unchanged.
+- Status: Resolved for design. PHS-06.2 implementation remains pending.
+- Purpose: Define standard generation for source that may exceed one configured-model request and define accounting for requests contributing to a persisted result.
+- Approved behavior: The [PHS-06.2 requirements](phs-06.2_prd.md#functional-requirements) own the first-version input limits and per-request accounting. The [generation design](phs-06.2_solution.md#d4-one-standard-generation-request) and [accounting design](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction) replace the deferred decision without adopting the historical checkpoint's packing algorithm.
+- Validation: An independent source-based dry run found no material blocker. The [readiness record](phs-06.2_solution.md#implementation-readiness) states its scope, limits, and implementation prerequisites. PHS-06.1 remains the accepted system foundation.
 
 ## References
 

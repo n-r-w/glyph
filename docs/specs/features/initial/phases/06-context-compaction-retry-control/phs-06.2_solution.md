@@ -1,0 +1,118 @@
+# Technical Solution: PHS-06.2 standard context compaction
+
+Status: Approved. Independent source-based dry run complete. Implementation pending; no implementation authorization is implied by this document.
+
+## Problem Statement
+
+The approved [problem statement](phs-06.2_problem.md) describes the long-session context limit. The [requirements](phs-06.2_prd.md) own expected behavior and accepted first-version limitations.
+
+[PHS-06.1](system-integration-evidence.md) is the existing system foundation. This solution adds the standard extension and the approved per-request accounting support. Host retains runtime and session services; Agent Core consumes prepared history. The [parent solution](solution.md#target-ownership) owns those boundaries.
+
+## Proposed Solution
+
+### D1: Standard extension and startup configuration
+
+Supply one executable extension under `plugins/extension/`, using the existing catalog and public Extension SDK. Follow the tools extension's separation of executable startup, application assembly, controller, use cases, and external-operation adapters. Keep policy and generation logic independent of wire representations and Host internals.
+
+The standard build includes the extension alongside the tools extension. Its normal registration exposes the policy and generator. Startup configuration can omit generator registration while retaining the policy, so a custom extension can supply the generator through the same composition path.
+
+Load the retained-history target and generator enablement from extension-prefixed environment variables at startup. The defaults are defined by [FRQ-01, FRQ-05, and FRQ-11](phs-06.2_prd.md#functional-requirements). Invalid configuration produces a startup error. A new Host configuration API, separate generator process, and dedicated summary-model setting are unnecessary for this scope.
+
+This approach reuses `plugins/extension/tools/internal/app/app.go`, `Serve`, the normal catalog loader, and `sdk/plugins/extension/v1/sdk.go`, `Connect`. The SDK's process configuration preserves the Host environment. The existing `--extension-dir` behavior continues to replace the whole catalog.
+
+### D2: Full-input estimates and conversation observations
+
+The policy estimates the actual prepared conversation input, including history, instructions, tool definitions, and Host-supplied sizes of private provider data. It reserves the selected conversation descriptor's `maxTokens` for the response. Automatic compaction starts when the estimate exceeds `contextWindow - maxTokens`; equality fits.
+
+Use a model-neutral content-size estimate rather than a provider tokenizer dependency. Text and JSON sizes, fixed message framing, and image count contribute separately. Encoded image bytes are not text-token evidence: changing compression or transport encoding must not change the estimate for the same image count. Host supplies private-payload sizes but performs no token estimation.
+
+For example, replacing a retained image with a larger encoding while preserving text and image count leaves this estimate unchanged. Images remain part of the ordinary conversation even though the standard generator excludes images from the summarized portion under FRQ-08.
+
+The policy keeps a detached observation anchor in memory for the issued session binding and model. It reuses reported conversation usage only for exact continuation of the observed input plus completed response, with matching reasoning, instructions, and tool definitions. It adds estimates for subsequent input growth. Missing usage, changed history or request shape, compaction, and plugin restart select content-based estimation. Summary-model calls do not update this conversation anchor.
+
+Synchronize access to the in-memory anchors. Each operation evaluates its immutable captured input. A durable observation store would add recovery work without improving correctness of the fallback estimate and is outside D2.
+
+The policy implements all existing owner callbacks: compaction decisions, completed-conversation acknowledgement, and outgoing-input validation. A registered owner participates in ordinary conversation completion even when it decides not to compact. `Runtime.ObserveConversation` requires a matching typed acknowledgement.
+
+### D3: Complete-message retention
+
+Select the retained suffix from the active branch's still-retained original entries, using the configured target and the same content estimator. On repeated compaction, begin at the preceding replacement's kept boundary and supply the preceding summary separately. Compaction markers and superseded original prefixes do not become fresh summary source.
+
+Move a proposed boundary as needed to keep each producing model response with its tool results. Treat the configured target as a recent-context target rather than a hard maximum for an indivisible group. Preserve original entry identities for Host structural validation.
+
+Manual compaction with no older portion to summarize fails explicitly before persistence. Automatic input below threshold is preserved. Oversized input with no reducible older portion may fail under the accepted first-version limitations. The policy does not invent an alternative boundary that discards required recent context.
+
+### D4: One standard generation request
+
+The standard generator makes one configured-model request through `ExtensionContext.StartConfiguredModel`. It uses the model and reasoning choice from the final composed request after request handlers. That choice does not change the captured model or budget of the main conversation.
+
+Prepare the preceding summary and newly summarized messages as structured source text, with roles and tool identities represented as data. Keep the summary task instruction separate from that source. Include caller guidance for manual compaction. The existing Glyph branch-summary serializer provides a local precedent for representing conversation source as data; the plugin does not import Host internal packages.
+
+Apply the [FRQ-08 input limits](phs-06.2_prd.md#functional-requirements) to standard generation only. A tool result has one shared text allowance across all its ordered text blocks, measured in Unicode code points, followed by one marker when text was removed. An intervening image does not reset the allowance. Original session records remain intact. Custom generators retain the existing public text/image input capability.
+
+Follow `validateSummaryResponse` in `host/internal/usecase/host/sessiontree/summarizer.go`: STOP or LENGTH with nonempty public text and no tool calls is usable. Failed, aborted, empty, or invalid responses fail generation with their complete cause. The standard result contains its actual model selection and reported usage for this request.
+
+A dedicated summary model, general multi-request packing, individual-message fragments, and a separate split-span summary are excluded. One request meets the approved first-version behavior with fewer generation states. Excessive source may therefore fail instead of triggering another generation strategy.
+
+### D5: Composition, projection, and persistence
+
+The policy owns immutable original values, current request/result state, and the order of participant calls. It uses the captured registration order and existing SDK operations to invoke one request handler, generator, or result handler at a time. Only a validated update replaces the last accepted state. The [shared composition requirements](ticket.md#functional-requirements) define preserve, replace, clear, cancel, and generator-cardinality behavior.
+
+A supplied result bypasses generator lookup. A cleared or absent result requires the single registered generator. The policy validates candidates through system projection before exposing an accepted result to later processing or requesting durable replacement.
+
+Before replacement, the policy sizes the candidate history together with the captured conversation instructions and tools. It uses the captured conversation model's budget, independently of any summary-model change by handlers. An oversized candidate fails before persistence.
+
+After automatic or overflow replacement and notifications, Host captures the actual outgoing history and invokes the existing outgoing-input callback. The policy checks that input again, without restarting composition. This preserves the system's distinction between a failure before persistence and a failure after a durable replacement.
+
+The relevant public SDK operations are `CompactionPolicyContext.StartRequestHandler`, `StartGenerator`, `StartResultHandler`, `StartProjectReplacement`, and `StartReplaceHistory`. Host retains runtime identity checks, session/branch validity, concurrent-mutation protection, one-commit authority, publication, and the durable receipt.
+
+### D6: Per-request accounting for persisted compaction
+
+Represent compaction source accounting as an extension-only source or an ordered collection of contributing model requests. Each request retains its actual model selection and optional normalized usage. Host calculates and persists the optional cost of each request using its own pricing data. Aggregate session values are derived from those records.
+
+Separate this compaction representation from the existing single-source branch-summary alias. Preserve branch-summary behavior while coordinating compaction contract, SDK mapping, storage, restoration, UI, and Programmatic Control changes. Replace affected formats with their callers; add no compatibility readers or aliases.
+
+Host must apply pricing tiers to each request before aggregation. Two individually small requests must not receive the tariff for one larger request merely because their token counts sum above that tariff's threshold. Keep valid zero usage distinct from missing usage. Missing usage makes the applicable token and cost totals unavailable; missing pricing makes cost unavailable. Available individual records remain inspectable.
+
+Each new compaction records only its contributing requests. The preceding summary's generation remains attributed to its original persisted entry. The standard generator contributes one request; custom generators can contribute several. This preserves the per-request accounting decision without adding multi-request generation to the standard plugin.
+
+This requires changing the current compaction paths around `session.CompactionSource`, `Service.compactionEstimatedCost`, session codecs, statistics, and public projections. `Service.estimatedUsageCost` provides the existing per-request tier calculation. Complete billing of failed or canceled generations remains outside [FRQ-12's scope](phs-06.2_prd.md#functional-requirements).
+
+### D7: Cancellation, failures, and overflow
+
+Use the existing asynchronous operation lifetimes and nested-operation cancellation. Handler failure or an invalid action stops composition with complete error text. The policy invokes no fallback implementation and schedules no extension retry.
+
+Host continues to own ordinary configured-model retries. Main-conversation overflow recovery invokes the same standard policy through the existing admitted retry path. The extension introduces no independent attempt allowance and does not replay completed tools.
+
+A precommit failure leaves the original history unchanged. A postcommit failure retains the durable replacement and its receipt with the complete subsequent cause. The policy does not replay an uncertain commit. `capturedConversation.prepare` and `RecoverOverflow` already supply the integration for these distinctions.
+
+## Overengineering and Overspecification Considerations
+
+Reuse the executable catalog, Extension SDK, operation lifetimes, configured-model calls, and session mutation services. Keep all standard policy and generation decisions in the extension. No alternate Host compaction implementation, middleware platform, tokenizer dependency, durable observation checkpoint, or new settings API is needed.
+
+The [requirements](phs-06.2_prd.md#scope-and-non-scope) own accepted information-loss and capacity limitations. Pi 1.2.0 was inspected as a behavior comparison. Its code, algorithms, and architecture are not implementation sources for this design.
+
+## Implementation Readiness
+
+The independent dry run and subsequent source review found no material blocker in the approved requirements or design. The analysis used repository baseline `00ba72ba4270c2bf423a8a5f2a203885d43ecef4` and traced public entry points, owner callbacks, composition, persistence, accounting, restoration, and client projections.
+
+The review reconciled per-result text truncation, image-count estimation, and the callbacks required by a registered policy owner. These preserve the approved behavior. The temporary implementation simulation is an internal workflow artifact and is not a permanent delivery plan.
+
+No implementation, software test, build, generation, lint, or coverage result is claimed by this dry run. Live-provider acceptance and estimate accuracy remain untested. Implementation must obtain fresh behavior and project-check evidence, including the existing public extension and application integration paths.
+
+Implementation requires separate authorization. The project-mandated environment loader, `github.com/caarlos0/env/v11`, is absent from the examined `go.mod`; adding a selected version requires dependency-change approval before that change. This prerequisite does not change the approved environment-configuration approach.
+
+## Open Questions
+
+None at the requirements or technical-solution level. Implementation authorization and dependency approval remain the prerequisites listed above.
+
+## References
+
+- [Problem statement](phs-06.2_problem.md) and [requirements](phs-06.2_prd.md): approved basis.
+- [Migration plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension): phase status and ordering.
+- [PHS-06.1 acceptance](system-integration-evidence.md): existing system support.
+- [Compaction contract](../../../../../../api/plugins/extension/v1/compaction.proto) and [configured-model contract](../../../../../../api/plugins/extension/v1/model.proto): public integration inputs and operations.
+- [Policy SDK](../../../../../../sdk/plugins/extension/v1/manual_policy.go): candidate projection and replacement operations.
+- [Conversation preparation](../../../../../../host/internal/usecase/host/extensioncontext/conversation_preparation.go) and [observation transport](../../../../../../host/internal/infra/plugins/extension/runtime/conversation_observation.go): final input checks and owner acknowledgements.
+- [Compaction persistence](../../../../../../host/internal/usecase/host/sessions/compaction.go) and [session cost calculation](../../../../../../host/internal/usecase/host/sessions/service.go): existing mutation and pricing owners.
+- [Tools extension assembly](../../../../../../plugins/extension/tools/internal/app/app.go): executable plugin precedent.

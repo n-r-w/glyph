@@ -1,6 +1,6 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: PHS-06.1 is complete and accepted. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units) and [remaining phases](#phased-plan).
+Status: PHS-06.1 is complete and accepted. PHS-06.2 requirements and technical solution are approved, and its design dry run is complete; implementation remains pending. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units) and [remaining phases](#phased-plan).
 
 Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation started from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
@@ -17,7 +17,7 @@ The [ticket](ticket.md#key-definitions-and-abbreviations) owns the detailed defi
 
 ### Resume point
 
-- The next phase is [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension), which requires separate preparation and implementation authorization. The bundled policy and generator are not implemented.
+- The next implementation phase is [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension). Its [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md) are approved and have passed the design dry run. The bundled policy and generator are not implemented; separate implementation authorization is required.
 - The historical starting baseline was `96f061c`, with retained dependency updates and the TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build and diff checks passed at that point; coverage was 82.7%. The [system acceptance record](system-integration-evidence.md) contains the final PHS-06.1 results.
 - Checkpoint units 0 through 3 and the session foundation preceded the migration. The checkpoint's Host-owned unit 4 was unaccepted. After migrating its callers, the UNT-11 implementer removed the remaining Host policy.
 - After each completed migration phase, record its result, evidence, remaining blockers, and commit in this plan. The first phase without completed exit criteria is the resume point.
@@ -169,7 +169,12 @@ Mocked capability fixtures can conceal an unwired real extension. Include produc
 
 ### Phase PHS-06.2 - Implement the standard bundled compaction extension
 
-Status: Planned. Depends on PHS-06.1 system acceptance. QST-01.1 belongs to this phase's preparation.
+Status: Design approved and dry run complete. Implementation pending. PHS-06.1 system acceptance is complete; QST-01.1 is resolved by the approved design.
+
+Documents:
+- [Problem statement](phs-06.2_problem.md)
+- [Requirements](phs-06.2_prd.md)
+- [Technical solution and design-validation outcome](phs-06.2_solution.md)
 
 #### Goal
 
@@ -177,10 +182,10 @@ Provide the standard coding agent with an enabled bundled policy and generator t
 
 #### Work
 
-- Resolve the standard oversized-summary and source-accounting strategy under QST-01.1.
+- Implement the approved [standard generation](phs-06.2_solution.md#d4-one-standard-generation-request) and [per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction).
 - Implement standard triggering, sizing, usage-baseline policy, retained-boundary selection, ordered composition, summary preparation/generation, and overflow decisions in the bundled extension.
 - Supply extension-local retained-history configuration and the approved default, with independent generator registration control.
-- Verify standard and custom composition through the accepted system path, including preceding summaries and image input.
+- Verify standard and custom composition through the accepted system path, including preceding summaries, the [standard input limits](phs-06.2_prd.md#functional-requirements), and preservation of custom configured-model image support.
 
 #### Deliverables
 
@@ -188,7 +193,7 @@ The standard bundled policy and generator with extension-local configuration and
 
 #### Exit criteria
 
-The standard coding-agent assembly enables the bundled extension. The ticket's standard-policy and default-generation acceptance criteria pass without adding a Host compaction algorithm.
+The standard coding-agent assembly enables the bundled extension. The [PHS-06.2 requirements](phs-06.2_prd.md) and the ticket's shared composition and session guarantees pass behavioral verification without adding a Host compaction algorithm.
 
 #### Risks
 
@@ -252,7 +257,7 @@ Use integration-tagged tests for assembled production components and real filesy
 
 ## Dependencies and Resourcing
 
-PHS-07 and PHS-04.1 are the ticket dependencies. The [phased plan](#phased-plan) defines preparation and ordering; PHS-06.2 requires separate implementation authorization. The old generator-only unit 5 is not the continuation path. The plan assumes no new dependency, staffing, or external service.
+PHS-07 and PHS-04.1 are the ticket dependencies. The [phased plan](#phased-plan) defines preparation and ordering; PHS-06.2 requires separate implementation authorization. Its [readiness record](phs-06.2_solution.md#implementation-readiness) also records the environment-loader dependency approval needed before implementation. The old generator-only unit 5 is not the continuation path.
 
 ## Project Definition of Done
 
@@ -264,7 +269,7 @@ No additional product behavior or integration API is assumed. Checkpoint `690827
 
 ## Open Questions
 
-The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) is resolved for system-contract design. The solution owns the deferred [QST-01.1 decision](solution.md#qst-011-standard-summary-input-above-the-model-budget); see [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) for its place in the phase order.
+The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. Its [implementation prerequisites](phs-06.2_solution.md#implementation-readiness) include separate implementation authorization and dependency-change approval.
 
 ## Standards Deviations
 
