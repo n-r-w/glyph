@@ -18,30 +18,40 @@ func mapCommittedCompaction(entry session.Entry) (*extensionpb.CommittedCompacti
 	}.Build(), nil
 }
 
-// mapCompactionSource projects the exclusive extension or model producer.
-func mapCompactionSource(source session.CompactionSource) *extensionpb.BranchSummarySource {
-	mapped := new(extensionpb.BranchSummarySource)
+// MapCompactionSource projects contributing request accounting.
+func MapCompactionSource(source session.CompactionSource) *extensionpb.CompactionSource {
+	mapped := new(extensionpb.CompactionSource)
 	if extensionID, present := source.ExtensionID.Get(); present {
 		mapped.SetExtensionId(extensionID)
 		return mapped
 	}
-	if modelSource, present := source.Model.Get(); present {
-		selection := modelSource.Selection
-		builder := extensionpb.BranchSummaryModelSource_builder{
-			Selection: extensionpb.ModelSelection_builder{
-				ProviderId: new(string(selection.Provider)), ModelId: new(string(selection.Model)),
-				ReasoningChoice: new(string(selection.ReasoningChoice)),
-			}.Build(),
-			Usage: nil,
+	if len(source.Requests) > 0 {
+		requests := make([]*extensionpb.CompactionModelRequest, len(source.Requests))
+		for index := range source.Requests {
+			request := &source.Requests[index]
+			selection := request.Selection
+			builder := extensionpb.CompactionModelRequest_builder{
+				Selection: extensionpb.ModelSelection_builder{
+					ProviderId: new(string(selection.Provider)), ModelId: new(string(selection.Model)),
+					ReasoningChoice: new(string(selection.ReasoningChoice)),
+				}.Build(), Usage: nil, EstimatedCost: nil,
+			}
+			if usage, present := request.Usage.Get(); present {
+				builder.Usage = extensionpb.TokenUsage_builder{
+					InputTokens: new(usage.InputTokens), OutputTokens: new(usage.OutputTokens),
+					CacheReadTokens: new(usage.CacheReadTokens), CacheWriteTokens: new(usage.CacheWriteTokens),
+					ReasoningTokens: new(usage.ReasoningTokens), TotalTokens: new(usage.TotalTokens),
+				}.Build()
+			}
+			if cost, present := request.EstimatedCost.Get(); present {
+				builder.EstimatedCost = extensionpb.EstimatedCost_builder{
+					Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
+					CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
+				}.Build()
+			}
+			requests[index] = builder.Build()
 		}
-		if usage, usagePresent := modelSource.Usage.Get(); usagePresent {
-			builder.Usage = extensionpb.TokenUsage_builder{
-				InputTokens: new(usage.InputTokens), OutputTokens: new(usage.OutputTokens),
-				CacheReadTokens: new(usage.CacheReadTokens), CacheWriteTokens: new(usage.CacheWriteTokens),
-				ReasoningTokens: new(usage.ReasoningTokens), TotalTokens: new(usage.TotalTokens),
-			}.Build()
-		}
-		mapped.SetModel(builder.Build())
+		mapped.SetModelRequests(extensionpb.CompactionModelRequests_builder{Requests: requests}.Build())
 	}
 	return mapped
 }
@@ -50,13 +60,7 @@ func mapCompactionSource(source session.CompactionSource) *extensionpb.BranchSum
 func MapCompactionMarker(value session.CompactionEntry) *extensionpb.SessionTreeCompaction {
 	builder := extensionpb.SessionTreeCompaction_builder{
 		Summary: new(value.Summary), FirstKeptEntryId: new(value.FirstKeptEntryID),
-		Source: mapCompactionSource(value.Source), EstimatedCost: nil, Details: nil,
-	}
-	if cost, costPresent := value.EstimatedCost.Get(); costPresent {
-		builder.EstimatedCost = extensionpb.EstimatedCost_builder{
-			Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
-			CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
-		}.Build()
+		Source: MapCompactionSource(value.Source), Details: nil,
 	}
 	if details, detailsPresent := value.Details.Get(); detailsPresent {
 		builder.Details = append([]byte(nil), details...)

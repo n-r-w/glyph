@@ -12,16 +12,19 @@ const (
 )
 
 // newReferenceHistoricalResultSource supplies a valid historical selection without usage.
-func newReferenceHistoricalResultSource() *extensionpb.BranchSummarySource {
-	return extensionpb.BranchSummarySource_builder{
+func newReferenceHistoricalResultSource() *extensionpb.CompactionSource {
+	return extensionpb.CompactionSource_builder{
 		ExtensionId: nil,
-		Model: extensionpb.BranchSummaryModelSource_builder{
-			Selection: extensionpb.ModelSelection_builder{
-				ProviderId:      new(referenceHistoricalProvider),
-				ModelId:         new(referenceHistoricalModel),
-				ReasoningChoice: new(referenceHistoricalReasoning),
-			}.Build(),
-			Usage: nil,
+		ModelRequests: extensionpb.CompactionModelRequests_builder{
+			Requests: []*extensionpb.CompactionModelRequest{extensionpb.CompactionModelRequest_builder{
+				Selection: extensionpb.ModelSelection_builder{
+					ProviderId:      new(referenceHistoricalProvider),
+					ModelId:         new(referenceHistoricalModel),
+					ReasoningChoice: new(referenceHistoricalReasoning),
+				}.Build(),
+				Usage:         nil,
+				EstimatedCost: nil,
+			}.Build()},
 		}.Build(),
 	}.Build()
 }

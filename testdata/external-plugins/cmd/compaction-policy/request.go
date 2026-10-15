@@ -259,9 +259,9 @@ func (o *referenceRequestOperation) newFirstRequestAction(
 	supplied := extensionpb.CompactionResult_builder{
 		Summary:          new(referenceRequestInitialSummary),
 		FirstKeptEntryId: new(original.GetSuffix()[0].GetEntry().GetId()),
-		Source: extensionpb.BranchSummarySource_builder{
-			ExtensionId: new(bound.Identity().GetExtensionId()),
-			Model:       nil,
+		Source: extensionpb.CompactionSource_builder{
+			ExtensionId:   new(bound.Identity().GetExtensionId()),
+			ModelRequests: nil,
 		}.Build(),
 		Details: []byte(initialDetails),
 	}.Build()
@@ -328,18 +328,21 @@ func (o *referenceRequestOperation) newThirdRequestAction() (*extensionpb.Compac
 	case otherExtensionSource:
 		replacement.GetSource().SetExtensionId(forgedProducer)
 	case modelSource:
-		replacement.SetSource(extensionpb.BranchSummarySource_builder{
+		replacement.SetSource(extensionpb.CompactionSource_builder{
 			ExtensionId: nil,
-			Model: extensionpb.BranchSummaryModelSource_builder{
-				Selection: extensionpb.ModelSelection_builder{
-					ProviderId: new(resultProvider), ModelId: new(resultModel),
-					ReasoningChoice: new(resultReasoning),
-				}.Build(),
-				Usage: extensionpb.TokenUsage_builder{
-					InputTokens: new(resultInputTokens), OutputTokens: new(resultOutputTokens),
-					CacheReadTokens: new(resultCacheReadTokens), CacheWriteTokens: new(resultCacheWriteTokens),
-					ReasoningTokens: new(resultReasoningTokens), TotalTokens: new(resultTotalTokens),
-				}.Build(),
+			ModelRequests: extensionpb.CompactionModelRequests_builder{
+				Requests: []*extensionpb.CompactionModelRequest{extensionpb.CompactionModelRequest_builder{
+					Selection: extensionpb.ModelSelection_builder{
+						ProviderId: new(resultProvider), ModelId: new(resultModel),
+						ReasoningChoice: new(resultReasoning),
+					}.Build(),
+					Usage: extensionpb.TokenUsage_builder{
+						InputTokens: new(resultInputTokens), OutputTokens: new(resultOutputTokens),
+						CacheReadTokens: new(resultCacheReadTokens), CacheWriteTokens: new(resultCacheWriteTokens),
+						ReasoningTokens: new(resultReasoningTokens), TotalTokens: new(resultTotalTokens),
+					}.Build(),
+					EstimatedCost: nil,
+				}.Build()},
 			}.Build(),
 		}.Build())
 		replacement.SetDetails([]byte{})

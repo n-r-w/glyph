@@ -29,10 +29,10 @@ func (s *manualPolicyCanRejectItsOwnProposalSuite) TestScenario() {
 		FirstKeptEntryID: "leaf",
 		Source: session.CompactionSource{
 			ExtensionID: mo.Some(owner.ExtensionID),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			Requests:    nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](),
-		Details:       mo.None[[]byte](),
+
+		Details: mo.None[[]byte](),
 	}
 	receipt := newManualTestReceipt(candidate)
 	rejected := errors.New("proposed boundary separates a tool call from its result")

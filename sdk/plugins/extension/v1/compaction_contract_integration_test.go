@@ -123,7 +123,7 @@ func compactionPublicRequest() *extensionpb.CompactionRequest {
 
 // compactionHandlerResponse creates either a supplied request result or generated result.
 func compactionHandlerResponse(requestHandler bool) *extensionpb.HandleResponse {
-	source := new(extensionpb.BranchSummarySource)
+	source := new(extensionpb.CompactionSource)
 	source.SetExtensionId("extension")
 	text := "generated"
 	if requestHandler {

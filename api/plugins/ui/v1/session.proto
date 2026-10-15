@@ -174,12 +174,41 @@ message Compaction {
   string summary = 1;
   // The first original entry retained after the summary.
   string first_kept_entry_id = 2;
-  // The actual producer and its optional model usage.
-  BranchSummarySource source = 3;
-  // Persisted estimated cost when available for a model source.
-  EstimatedCost estimated_cost = 4;
+  // The extension producer or ordered contributing model requests.
+  CompactionSource source = 3;
   // Opaque extension-owned result details when present.
-  bytes details = 5;
+  bytes details = 4;
+}
+
+// CompactionSource contains attribution to the extension or model requests that produced a summary.
+message CompactionSource {
+  // Exactly one producer alternative is required.
+  oneof source {
+    // The extension that produced the result without model requests.
+    string extension_id = 1;
+    // The nonempty ordered collection of contributing requests.
+    CompactionModelRequests model_requests = 2;
+  }
+}
+
+// CompactionModelRequests contains requests in contribution order.
+message CompactionModelRequests {
+  // Each request contributes only to this summary entry.
+  repeated CompactionModelRequest requests = 1;
+}
+
+// CompactionModelRequest contains accounting for one contributing model request.
+message CompactionModelRequest {
+  // The actual provider identifier.
+  string provider_id = 1;
+  // The actual model identifier.
+  string model_id = 2;
+  // The reasoning choice of this request.
+  ReasoningChoice reasoning_choice = 3;
+  // When reported, normalized usage is present even when zero.
+  TokenUsage usage = 4;
+  // When pricing and usage were available, this field contains the saved Host-calculated cost.
+  EstimatedCost estimated_cost = 5;
 }
 
 // BranchSummarySource identifies exactly one producer of a summary.
@@ -277,9 +306,9 @@ message SessionStatistics {
   int64 tool_results = 4;
   // User messages plus model responses plus tool results.
   int64 total_messages = 5;
-  // Tokens is absent when any stored model response has no usage.
+  // When any stored model response or contributing summary request has no usage, this field is absent.
   TokenUsage tokens = 6;
-  // Estimated cost is absent when any stored model response has no persisted cost.
+  // When any stored model response or contributing summary request has no saved cost, this field is absent.
   EstimatedCost estimated_cost = 7;
   // Cost breakdown is ordered by provider identifier and then model identifier.
   repeated ProviderModelCost cost_breakdown = 8;
@@ -305,7 +334,7 @@ message ProviderModelCost {
   string provider_id = 1;
   // The requested model identifier.
   string model_id = 2;
-  // Estimated cost is absent when any response in this group has no persisted cost.
+  // When any model response or contributing summary request in this group has no saved cost, this field is absent.
   EstimatedCost estimated_cost = 3;
 }
 

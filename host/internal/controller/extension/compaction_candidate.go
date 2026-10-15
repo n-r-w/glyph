@@ -7,7 +7,6 @@ import (
 
 	"github.com/samber/mo"
 
-	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -34,35 +33,15 @@ type policyCandidate struct {
 }
 
 // mapPolicyCandidateSource decodes the result's producer and normalized accounting.
-func mapPolicyCandidateSource(raw *extensionpb.BranchSummarySource) (session.CompactionSource, error) {
+func mapPolicyCandidateSource(raw *extensionpb.CompactionSource) (session.CompactionSource, error) {
 	if raw == nil {
 		return session.CompactionSource{}, errors.New("compaction result source is required")
 	}
-	if raw.HasExtensionId() {
-		return session.CompactionSource{
-			ExtensionID: mo.Some(raw.GetExtensionId()),
-			Model:       mo.None[session.BranchSummaryModelSource](),
-		}, nil
+	source := DecodeCompactionSource(raw)
+	if err := source.Validate(); err != nil {
+		return session.CompactionSource{}, err
 	}
-	produced := raw.GetModel()
-	if produced == nil || produced.GetSelection() == nil {
-		return session.CompactionSource{}, errors.New("compaction model source selection is required")
-	}
-	selection := produced.GetSelection()
-	usage := mo.None[session.TokenUsage]()
-	if reported := produced.GetUsage(); reported != nil {
-		usage = mo.Some(session.TokenUsage{
-			InputTokens: reported.GetInputTokens(), OutputTokens: reported.GetOutputTokens(),
-			CacheReadTokens: reported.GetCacheReadTokens(), CacheWriteTokens: reported.GetCacheWriteTokens(),
-			ReasoningTokens: reported.GetReasoningTokens(), TotalTokens: reported.GetTotalTokens(),
-		})
-	}
-	return session.CompactionSource{ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
-		Selection: model.Selection{
-			Provider: model.ProviderID(selection.GetProviderId()), Model: model.ID(selection.GetModelId()),
-			ReasoningChoice: model.ReasoningChoice(selection.GetReasoningChoice()),
-		}, Usage: usage,
-	})}, nil
+	return source, nil
 }
 
 // runPolicyCandidate maps the scoped session service outcome to its public result.

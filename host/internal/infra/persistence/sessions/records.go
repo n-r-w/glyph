@@ -307,9 +307,7 @@ type compactionRecord struct {
 	// FirstKeptEntryID identifies the first original entry retained after the summary.
 	FirstKeptEntryID string `json:"firstKeptEntryId"`
 	// Source contains the actual producer and its nested model usage.
-	Source branchSummarySourceRecord `json:"source"`
-	// EstimatedCost contains persisted summary cost when calculable.
-	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitzero"`
+	Source compactionSourceRecord `json:"source"`
 	// Details contains opaque extension-owned result data when present.
 	Details *[]byte `json:"details,omitzero"`
 }
@@ -392,4 +390,18 @@ type sessionInfoRecord struct {
 type recordType struct {
 	// Type identifies the session header or session information record shape.
 	Type string `json:"type"`
+}
+
+// compactionModelRequestRecord stores one contributing request.
+type compactionModelRequestRecord struct {
+	// Provider identifies the producing provider.
+	Provider string `json:"provider"`
+	// Model identifies the producing model.
+	Model string `json:"model"`
+	// ReasoningChoice contains the selected reasoning control.
+	ReasoningChoice model.ReasoningChoice `json:"reasoningChoice"`
+	// Usage contains reported token counts.
+	Usage *sessionUsageRecord `json:"usage,omitzero"`
+	// EstimatedCost contains the saved request cost estimate.
+	EstimatedCost *estimatedCostRecord `json:"estimatedCost,omitzero"`
 }

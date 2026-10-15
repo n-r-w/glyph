@@ -11,6 +11,8 @@ import (
 )
 
 const (
+	// referenceGeneratorReasoningChoice is the reasoning choice for configured-model fixtures.
+	referenceGeneratorReasoningChoice = "high"
 	// referenceGeneratorExecutable identifies the generator-only fixture process.
 	referenceGeneratorExecutable = "reference-generator"
 	// referenceSeparateGeneratorEnvironment selects a distinct generator process.
@@ -144,14 +146,18 @@ func (o *referenceGeneratorOperation) Run(ctx context.Context) (*extensionpb.Han
 	if mode == referenceGeneratorForgedProducer {
 		producer = referenceGeneratorFalseProducer
 	}
-	source := new(extensionpb.BranchSummarySource)
+	source := new(extensionpb.CompactionSource)
 	source.SetExtensionId(producer)
 	if mode == referenceGeneratorImages {
-		modelSource, modelErr := requestGeneratorModel(ctx, binding)
+		modelSource, modelErr := requestGeneratorModel(ctx, binding, referenceGeneratorReasoningChoice)
 		if modelErr != nil {
 			return nil, modelErr
 		}
-		source.SetModel(modelSource)
+		source.SetModelRequests(
+			extensionpb.CompactionModelRequests_builder{
+				Requests: []*extensionpb.CompactionModelRequest{modelSource},
+			}.Build(),
+		)
 	}
 	response := new(extensionpb.HandleResponse)
 	response.SetCompactionGenerate(o.newResult(source, mode))
@@ -160,7 +166,7 @@ func (o *referenceGeneratorOperation) Run(ctx context.Context) (*extensionpb.Han
 
 // newResult builds a generator candidate with its retained boundary and source.
 func (o *referenceGeneratorOperation) newResult(
-	source *extensionpb.BranchSummarySource,
+	source *extensionpb.CompactionSource,
 	mode string,
 ) *extensionpb.CompactionResult {
 	boundary := o.invocation.GetCurrent().GetSuffix()[0].GetEntry().GetId()

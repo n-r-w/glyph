@@ -87,9 +87,9 @@ func newCompactionMarkerEntry(id, parentID, summary, firstKeptID string) session
 	entry.Compaction = mo.Some(session.CompactionEntry{
 		Summary: summary, FirstKeptEntryID: firstKeptID,
 		Source: session.CompactionSource{
-			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+			ExtensionID: mo.Some("extension"), Requests: nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+		Details: mo.None[[]byte](),
 	})
 	return entry
 }
@@ -111,8 +111,8 @@ func newCompactionBoundaryEntry(firstKeptEntryID string) session.CompactionEntry
 	return session.CompactionEntry{
 		Summary: "summary", FirstKeptEntryID: firstKeptEntryID,
 		Source: session.CompactionSource{
-			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+			ExtensionID: mo.Some("extension"), Requests: nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+		Details: mo.None[[]byte](),
 	}
 }

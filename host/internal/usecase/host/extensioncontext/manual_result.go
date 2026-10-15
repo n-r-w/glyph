@@ -67,7 +67,6 @@ func (s *Service) InvokePolicyResult(
 				FirstKeptEntryID: result.FirstKeptEntryID,
 				Source:           result.Source,
 				Details:          result.Details,
-				EstimatedCost:    mo.None[session.EstimatedCost](),
 			},
 		)
 	}

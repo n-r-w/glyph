@@ -164,27 +164,27 @@ func validateCompaction(compaction *uiv1.Compaction) error {
 	if err := validateCompactionSource(compaction.GetSource()); err != nil {
 		return err
 	}
-	if cost := compaction.GetEstimatedCost(); cost != nil {
-		return validateEstimatedCost(cost)
-	}
 	return nil
 }
 
 // validateCompactionSource validates one exclusive extension or model producer.
-func validateCompactionSource(source *uiv1.BranchSummarySource) error {
+func validateCompactionSource(source *uiv1.CompactionSource) error {
 	switch source.WhichSource() {
-	case uiv1.BranchSummarySource_ExtensionId_case:
+	case uiv1.CompactionSource_ExtensionId_case:
 		if source.GetExtensionId() == "" {
 			return errors.New("Host compaction extension source is required")
 		}
-	case uiv1.BranchSummarySource_Model_case:
-		modelSource := source.GetModel()
-		if modelSource == nil || !modelSource.HasProviderId() || modelSource.GetProviderId() == "" ||
-			!modelSource.HasModelId() || modelSource.GetModelId() == "" || !modelSource.HasReasoningChoice() ||
-			modelSource.GetReasoningChoice() == uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
-			return errors.New("Host compaction model source fields are required")
+	case uiv1.CompactionSource_ModelRequests_case:
+		requests := source.GetModelRequests().GetRequests()
+		if len(requests) == 0 {
+			return errors.New("Host compaction model requests are required")
 		}
-	case uiv1.BranchSummarySource_Source_not_set_case:
+		for _, request := range requests {
+			if err := validateCompactionModelRequest(request); err != nil {
+				return err
+			}
+		}
+	case uiv1.CompactionSource_Source_not_set_case:
 		return errors.New("Host compaction source is required")
 	default:
 		return errors.New("Host compaction source is unknown")
@@ -196,6 +196,24 @@ func validateCompactionSource(source *uiv1.BranchSummarySource) error {
 func validateBranchSummary(summary *uiv1.BranchSummary) error {
 	if summary == nil || !summary.HasSummary() {
 		return errors.New("Host branch summary text is required")
+	}
+	return nil
+}
+
+// validateCompactionModelRequest checks public request accounting fields.
+func validateCompactionModelRequest(request *uiv1.CompactionModelRequest) error {
+	if request == nil || !request.HasProviderId() || request.GetProviderId() == "" ||
+		!request.HasModelId() || request.GetModelId() == "" || !request.HasReasoningChoice() ||
+		request.GetReasoningChoice() == uiv1.ReasoningChoice_REASONING_CHOICE_UNSPECIFIED {
+		return errors.New("Host compaction model request fields are required")
+	}
+	if cost := request.GetEstimatedCost(); cost != nil {
+		if !request.HasUsage() {
+			return errors.New("Host compaction cost requires usage")
+		}
+		if err := validateEstimatedCost(cost); err != nil {
+			return err
+		}
 	}
 	return nil
 }

@@ -41,10 +41,10 @@ func (s *manualPolicyRetainsReceiptAfterPolicyFailureSuite) TestScenario() {
 		FirstKeptEntryID: "leaf",
 		Source: session.CompactionSource{
 			ExtensionID: mo.Some(owner.ExtensionID),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			Requests:    nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](),
-		Details:       mo.None[[]byte](),
+
+		Details: mo.None[[]byte](),
 	}
 	receipt := newManualTestReceipt(candidate)
 	publicationCause := errors.New("publication failed: complete writer source")

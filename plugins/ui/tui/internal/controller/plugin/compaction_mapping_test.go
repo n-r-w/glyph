@@ -21,7 +21,7 @@ func TestMapSessionTreeEntryMapsCompaction(t *testing.T) {
 		Id: new("entry"), CreatedTime: timestamppb.New(time.Unix(1, 0).UTC()),
 		Compaction: uiv1.Compaction_builder{
 			Summary: new("summary"), FirstKeptEntryId: new("kept"),
-			Source: uiv1.BranchSummarySource_builder{ExtensionId: new("extension")}.Build(),
+			Source: uiv1.CompactionSource_builder{ExtensionId: new("extension")}.Build(),
 		}.Build(),
 	}.Build()
 
@@ -43,7 +43,7 @@ func TestMapRestoredTranscriptMapsCompactionSummary(t *testing.T) {
 		Id: new("entry"), CreatedTime: timestamppb.New(time.Unix(1, 0).UTC()),
 		Compaction: uiv1.Compaction_builder{
 			Summary: new("summary"), FirstKeptEntryId: new("kept"),
-			Source: uiv1.BranchSummarySource_builder{ExtensionId: new("extension")}.Build(),
+			Source: uiv1.CompactionSource_builder{ExtensionId: new("extension")}.Build(),
 		}.Build(),
 	}.Build()
 

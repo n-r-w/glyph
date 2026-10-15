@@ -49,6 +49,21 @@ const (
 // jsonObject contains one decoded JSON object.
 type jsonObject map[string]jsontext.Value
 
+// validateCompactionSourceRequiredFields checks the saved producer accounting shape.
+func (entry jsonObject) validateCompactionSourceRequiredFields() error {
+	const fieldCompactionRequests = "requests"
+
+	source, err := entry.requiredChild(fieldSummarySource, fieldSummaryExtensionID, fieldCompactionRequests)
+	if err != nil {
+		return err
+	}
+	return validateJSONArray(
+		source[fieldCompactionRequests],
+		fieldCompactionRequests,
+		validateCompactionRequestRequiredFields,
+	)
+}
+
 // validateHeaderRequiredFields rejects omitted or null scalar fields before header conversion.
 func validateHeaderRequiredFields(data []byte) error {
 	header, err := requiredJSONObject(data, "type", "version", "id", "createdAt", "cwd")
@@ -113,11 +128,7 @@ func validateEntryRequiredFields(data []byte, kind string) error {
 		if validationErr := entry.requireNonNullFields(fields...); validationErr != nil {
 			return validationErr
 		}
-		if validationErr := entry.validateSummarySourceRequiredFields(); validationErr != nil {
-			return validationErr
-		}
-		costFields := []string{fieldInput, fieldOutput, fieldCacheRead, fieldCacheWrite, fieldTotal}
-		return entry.validateOptionalRequiredObject("estimatedCost", costFields, costFields)
+		return entry.validateCompactionSourceRequiredFields()
 	default:
 		return errors.New("invalid session entry")
 	}

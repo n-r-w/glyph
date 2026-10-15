@@ -2506,9 +2506,8 @@ type Compaction struct {
 	state                       protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Summary          *string                `protobuf:"bytes,1,opt,name=summary"`
 	xxx_hidden_FirstKeptEntryId *string                `protobuf:"bytes,2,opt,name=first_kept_entry_id,json=firstKeptEntryId"`
-	xxx_hidden_Source           *BranchSummarySource   `protobuf:"bytes,3,opt,name=source"`
-	xxx_hidden_EstimatedCost    *EstimatedCost         `protobuf:"bytes,4,opt,name=estimated_cost,json=estimatedCost"`
-	xxx_hidden_Details          []byte                 `protobuf:"bytes,5,opt,name=details"`
+	xxx_hidden_Source           *CompactionSource      `protobuf:"bytes,3,opt,name=source"`
+	xxx_hidden_Details          []byte                 `protobuf:"bytes,4,opt,name=details"`
 	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
 	XXX_presence                [1]uint32
 	unknownFields               protoimpl.UnknownFields
@@ -2560,16 +2559,9 @@ func (x *Compaction) GetFirstKeptEntryId() string {
 	return ""
 }
 
-func (x *Compaction) GetSource() *BranchSummarySource {
+func (x *Compaction) GetSource() *CompactionSource {
 	if x != nil {
 		return x.xxx_hidden_Source
-	}
-	return nil
-}
-
-func (x *Compaction) GetEstimatedCost() *EstimatedCost {
-	if x != nil {
-		return x.xxx_hidden_EstimatedCost
 	}
 	return nil
 }
@@ -2583,20 +2575,16 @@ func (x *Compaction) GetDetails() []byte {
 
 func (x *Compaction) SetSummary(v string) {
 	x.xxx_hidden_Summary = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *Compaction) SetFirstKeptEntryId(v string) {
 	x.xxx_hidden_FirstKeptEntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
-func (x *Compaction) SetSource(v *BranchSummarySource) {
+func (x *Compaction) SetSource(v *CompactionSource) {
 	x.xxx_hidden_Source = v
-}
-
-func (x *Compaction) SetEstimatedCost(v *EstimatedCost) {
-	x.xxx_hidden_EstimatedCost = v
 }
 
 func (x *Compaction) SetDetails(v []byte) {
@@ -2604,7 +2592,7 @@ func (x *Compaction) SetDetails(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Details = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *Compaction) HasSummary() bool {
@@ -2628,18 +2616,11 @@ func (x *Compaction) HasSource() bool {
 	return x.xxx_hidden_Source != nil
 }
 
-func (x *Compaction) HasEstimatedCost() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_EstimatedCost != nil
-}
-
 func (x *Compaction) HasDetails() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *Compaction) ClearSummary() {
@@ -2656,12 +2637,8 @@ func (x *Compaction) ClearSource() {
 	x.xxx_hidden_Source = nil
 }
 
-func (x *Compaction) ClearEstimatedCost() {
-	x.xxx_hidden_EstimatedCost = nil
-}
-
 func (x *Compaction) ClearDetails() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_Details = nil
 }
 
@@ -2672,10 +2649,8 @@ type Compaction_builder struct {
 	Summary *string
 	// The first original entry retained after the summary.
 	FirstKeptEntryId *string
-	// The actual producer and its optional model usage.
-	Source *BranchSummarySource
-	// Persisted estimated cost when available for a model source.
-	EstimatedCost *EstimatedCost
+	// The extension producer or ordered contributing model requests.
+	Source *CompactionSource
 	// Opaque extension-owned result details when present.
 	Details []byte
 }
@@ -2685,19 +2660,452 @@ func (b0 Compaction_builder) Build() *Compaction {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Summary != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_Summary = b.Summary
 	}
 	if b.FirstKeptEntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_FirstKeptEntryId = b.FirstKeptEntryId
 	}
 	x.xxx_hidden_Source = b.Source
-	x.xxx_hidden_EstimatedCost = b.EstimatedCost
 	if b.Details != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
 		x.xxx_hidden_Details = b.Details
 	}
+	return m0
+}
+
+// CompactionSource contains attribution to the extension or model requests that produced a summary.
+type CompactionSource struct {
+	state             protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Source isCompactionSource_Source `protobuf_oneof:"source"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *CompactionSource) Reset() {
+	*x = CompactionSource{}
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionSource) ProtoMessage() {}
+
+func (x *CompactionSource) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionSource) GetExtensionId() string {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Source.(*compactionSource_ExtensionId); ok {
+			return x.ExtensionId
+		}
+	}
+	return ""
+}
+
+func (x *CompactionSource) GetModelRequests() *CompactionModelRequests {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Source.(*compactionSource_ModelRequests); ok {
+			return x.ModelRequests
+		}
+	}
+	return nil
+}
+
+func (x *CompactionSource) SetExtensionId(v string) {
+	x.xxx_hidden_Source = &compactionSource_ExtensionId{v}
+}
+
+func (x *CompactionSource) SetModelRequests(v *CompactionModelRequests) {
+	if v == nil {
+		x.xxx_hidden_Source = nil
+		return
+	}
+	x.xxx_hidden_Source = &compactionSource_ModelRequests{v}
+}
+
+func (x *CompactionSource) HasSource() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Source != nil
+}
+
+func (x *CompactionSource) HasExtensionId() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Source.(*compactionSource_ExtensionId)
+	return ok
+}
+
+func (x *CompactionSource) HasModelRequests() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Source.(*compactionSource_ModelRequests)
+	return ok
+}
+
+func (x *CompactionSource) ClearSource() {
+	x.xxx_hidden_Source = nil
+}
+
+func (x *CompactionSource) ClearExtensionId() {
+	if _, ok := x.xxx_hidden_Source.(*compactionSource_ExtensionId); ok {
+		x.xxx_hidden_Source = nil
+	}
+}
+
+func (x *CompactionSource) ClearModelRequests() {
+	if _, ok := x.xxx_hidden_Source.(*compactionSource_ModelRequests); ok {
+		x.xxx_hidden_Source = nil
+	}
+}
+
+const CompactionSource_Source_not_set_case case_CompactionSource_Source = 0
+const CompactionSource_ExtensionId_case case_CompactionSource_Source = 1
+const CompactionSource_ModelRequests_case case_CompactionSource_Source = 2
+
+func (x *CompactionSource) WhichSource() case_CompactionSource_Source {
+	if x == nil {
+		return CompactionSource_Source_not_set_case
+	}
+	switch x.xxx_hidden_Source.(type) {
+	case *compactionSource_ExtensionId:
+		return CompactionSource_ExtensionId_case
+	case *compactionSource_ModelRequests:
+		return CompactionSource_ModelRequests_case
+	default:
+		return CompactionSource_Source_not_set_case
+	}
+}
+
+type CompactionSource_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Exactly one producer alternative is required.
+
+	// Fields of oneof xxx_hidden_Source:
+	// The extension that produced the result without model requests.
+	ExtensionId *string
+	// The nonempty ordered collection of contributing requests.
+	ModelRequests *CompactionModelRequests
+	// -- end of xxx_hidden_Source
+}
+
+func (b0 CompactionSource_builder) Build() *CompactionSource {
+	m0 := &CompactionSource{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ExtensionId != nil {
+		x.xxx_hidden_Source = &compactionSource_ExtensionId{*b.ExtensionId}
+	}
+	if b.ModelRequests != nil {
+		x.xxx_hidden_Source = &compactionSource_ModelRequests{b.ModelRequests}
+	}
+	return m0
+}
+
+type case_CompactionSource_Source protoreflect.FieldNumber
+
+func (x case_CompactionSource_Source) String() string {
+	md := file_api_plugins_ui_v1_session_proto_msgTypes[17].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isCompactionSource_Source interface {
+	isCompactionSource_Source()
+}
+
+type compactionSource_ExtensionId struct {
+	// The extension that produced the result without model requests.
+	ExtensionId string `protobuf:"bytes,1,opt,name=extension_id,json=extensionId,oneof"`
+}
+
+type compactionSource_ModelRequests struct {
+	// The nonempty ordered collection of contributing requests.
+	ModelRequests *CompactionModelRequests `protobuf:"bytes,2,opt,name=model_requests,json=modelRequests,oneof"`
+}
+
+func (*compactionSource_ExtensionId) isCompactionSource_Source() {}
+
+func (*compactionSource_ModelRequests) isCompactionSource_Source() {}
+
+// CompactionModelRequests contains requests in contribution order.
+type CompactionModelRequests struct {
+	state               protoimpl.MessageState     `protogen:"opaque.v1"`
+	xxx_hidden_Requests *[]*CompactionModelRequest `protobuf:"bytes,1,rep,name=requests"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *CompactionModelRequests) Reset() {
+	*x = CompactionModelRequests{}
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionModelRequests) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionModelRequests) ProtoMessage() {}
+
+func (x *CompactionModelRequests) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionModelRequests) GetRequests() []*CompactionModelRequest {
+	if x != nil {
+		if x.xxx_hidden_Requests != nil {
+			return *x.xxx_hidden_Requests
+		}
+	}
+	return nil
+}
+
+func (x *CompactionModelRequests) SetRequests(v []*CompactionModelRequest) {
+	x.xxx_hidden_Requests = &v
+}
+
+type CompactionModelRequests_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Each request contributes only to this summary entry.
+	Requests []*CompactionModelRequest
+}
+
+func (b0 CompactionModelRequests_builder) Build() *CompactionModelRequests {
+	m0 := &CompactionModelRequests{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Requests = &b.Requests
+	return m0
+}
+
+// CompactionModelRequest contains accounting for one contributing model request.
+type CompactionModelRequest struct {
+	state                      protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_ProviderId      *string                `protobuf:"bytes,1,opt,name=provider_id,json=providerId"`
+	xxx_hidden_ModelId         *string                `protobuf:"bytes,2,opt,name=model_id,json=modelId"`
+	xxx_hidden_ReasoningChoice ReasoningChoice        `protobuf:"varint,3,opt,name=reasoning_choice,json=reasoningChoice,enum=glyph.plugins.ui.v1.ReasoningChoice"`
+	xxx_hidden_Usage           *TokenUsage            `protobuf:"bytes,4,opt,name=usage"`
+	xxx_hidden_EstimatedCost   *EstimatedCost         `protobuf:"bytes,5,opt,name=estimated_cost,json=estimatedCost"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
+}
+
+func (x *CompactionModelRequest) Reset() {
+	*x = CompactionModelRequest{}
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionModelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionModelRequest) ProtoMessage() {}
+
+func (x *CompactionModelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionModelRequest) GetProviderId() string {
+	if x != nil {
+		if x.xxx_hidden_ProviderId != nil {
+			return *x.xxx_hidden_ProviderId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionModelRequest) GetModelId() string {
+	if x != nil {
+		if x.xxx_hidden_ModelId != nil {
+			return *x.xxx_hidden_ModelId
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *CompactionModelRequest) GetReasoningChoice() ReasoningChoice {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 2) {
+			return x.xxx_hidden_ReasoningChoice
+		}
+	}
+	return ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
+}
+
+func (x *CompactionModelRequest) GetUsage() *TokenUsage {
+	if x != nil {
+		return x.xxx_hidden_Usage
+	}
+	return nil
+}
+
+func (x *CompactionModelRequest) GetEstimatedCost() *EstimatedCost {
+	if x != nil {
+		return x.xxx_hidden_EstimatedCost
+	}
+	return nil
+}
+
+func (x *CompactionModelRequest) SetProviderId(v string) {
+	x.xxx_hidden_ProviderId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+}
+
+func (x *CompactionModelRequest) SetModelId(v string) {
+	x.xxx_hidden_ModelId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+}
+
+func (x *CompactionModelRequest) SetReasoningChoice(v ReasoningChoice) {
+	x.xxx_hidden_ReasoningChoice = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+}
+
+func (x *CompactionModelRequest) SetUsage(v *TokenUsage) {
+	x.xxx_hidden_Usage = v
+}
+
+func (x *CompactionModelRequest) SetEstimatedCost(v *EstimatedCost) {
+	x.xxx_hidden_EstimatedCost = v
+}
+
+func (x *CompactionModelRequest) HasProviderId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *CompactionModelRequest) HasModelId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *CompactionModelRequest) HasReasoningChoice() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
+func (x *CompactionModelRequest) HasUsage() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Usage != nil
+}
+
+func (x *CompactionModelRequest) HasEstimatedCost() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_EstimatedCost != nil
+}
+
+func (x *CompactionModelRequest) ClearProviderId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_ProviderId = nil
+}
+
+func (x *CompactionModelRequest) ClearModelId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ModelId = nil
+}
+
+func (x *CompactionModelRequest) ClearReasoningChoice() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_ReasoningChoice = ReasoningChoice_REASONING_CHOICE_UNSPECIFIED
+}
+
+func (x *CompactionModelRequest) ClearUsage() {
+	x.xxx_hidden_Usage = nil
+}
+
+func (x *CompactionModelRequest) ClearEstimatedCost() {
+	x.xxx_hidden_EstimatedCost = nil
+}
+
+type CompactionModelRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The actual provider identifier.
+	ProviderId *string
+	// The actual model identifier.
+	ModelId *string
+	// The reasoning choice of this request.
+	ReasoningChoice *ReasoningChoice
+	// When reported, normalized usage is present even when zero.
+	Usage *TokenUsage
+	// When pricing and usage were available, this field contains the saved Host-calculated cost.
+	EstimatedCost *EstimatedCost
+}
+
+func (b0 CompactionModelRequest_builder) Build() *CompactionModelRequest {
+	m0 := &CompactionModelRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ProviderId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		x.xxx_hidden_ProviderId = b.ProviderId
+	}
+	if b.ModelId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		x.xxx_hidden_ModelId = b.ModelId
+	}
+	if b.ReasoningChoice != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		x.xxx_hidden_ReasoningChoice = *b.ReasoningChoice
+	}
+	x.xxx_hidden_Usage = b.Usage
+	x.xxx_hidden_EstimatedCost = b.EstimatedCost
 	return m0
 }
 
@@ -2711,7 +3119,7 @@ type BranchSummarySource struct {
 
 func (x *BranchSummarySource) Reset() {
 	*x = BranchSummarySource{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[17]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2723,7 +3131,7 @@ func (x *BranchSummarySource) String() string {
 func (*BranchSummarySource) ProtoMessage() {}
 
 func (x *BranchSummarySource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[17]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2850,7 +3258,7 @@ func (b0 BranchSummarySource_builder) Build() *BranchSummarySource {
 type case_BranchSummarySource_Source protoreflect.FieldNumber
 
 func (x case_BranchSummarySource_Source) String() string {
-	md := file_api_plugins_ui_v1_session_proto_msgTypes[17].Descriptor()
+	md := file_api_plugins_ui_v1_session_proto_msgTypes[20].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2890,7 +3298,7 @@ type BranchSummaryModelSource struct {
 
 func (x *BranchSummaryModelSource) Reset() {
 	*x = BranchSummaryModelSource{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[18]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2902,7 +3310,7 @@ func (x *BranchSummaryModelSource) String() string {
 func (*BranchSummaryModelSource) ProtoMessage() {}
 
 func (x *BranchSummaryModelSource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[18]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3062,7 +3470,7 @@ type SessionEntry struct {
 
 func (x *SessionEntry) Reset() {
 	*x = SessionEntry{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[19]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3074,7 +3482,7 @@ func (x *SessionEntry) String() string {
 func (*SessionEntry) ProtoMessage() {}
 
 func (x *SessionEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[19]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3413,7 +3821,7 @@ func (b0 SessionEntry_builder) Build() *SessionEntry {
 type case_SessionEntry_Entry protoreflect.FieldNumber
 
 func (x case_SessionEntry_Entry) String() string {
-	md := file_api_plugins_ui_v1_session_proto_msgTypes[19].Descriptor()
+	md := file_api_plugins_ui_v1_session_proto_msgTypes[22].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -3475,7 +3883,7 @@ type ToolResult struct {
 
 func (x *ToolResult) Reset() {
 	*x = ToolResult{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[20]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3487,7 +3895,7 @@ func (x *ToolResult) String() string {
 func (*ToolResult) ProtoMessage() {}
 
 func (x *ToolResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[20]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3632,7 +4040,7 @@ type UserMessage struct {
 
 func (x *UserMessage) Reset() {
 	*x = UserMessage{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[21]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3644,7 +4052,7 @@ func (x *UserMessage) String() string {
 func (*UserMessage) ProtoMessage() {}
 
 func (x *UserMessage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[21]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3693,7 +4101,7 @@ type UserContent struct {
 
 func (x *UserContent) Reset() {
 	*x = UserContent{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[22]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3705,7 +4113,7 @@ func (x *UserContent) String() string {
 func (*UserContent) ProtoMessage() {}
 
 func (x *UserContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[22]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3830,7 +4238,7 @@ func (b0 UserContent_builder) Build() *UserContent {
 type case_UserContent_Content protoreflect.FieldNumber
 
 func (x case_UserContent_Content) String() string {
-	md := file_api_plugins_ui_v1_session_proto_msgTypes[22].Descriptor()
+	md := file_api_plugins_ui_v1_session_proto_msgTypes[25].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -3866,7 +4274,7 @@ type UserImage struct {
 
 func (x *UserImage) Reset() {
 	*x = UserImage{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[23]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3878,7 +4286,7 @@ func (x *UserImage) String() string {
 func (*UserImage) ProtoMessage() {}
 
 func (x *UserImage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[23]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3978,7 +4386,7 @@ type SessionInformation struct {
 
 func (x *SessionInformation) Reset() {
 	*x = SessionInformation{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[24]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3990,7 +4398,7 @@ func (x *SessionInformation) String() string {
 func (*SessionInformation) ProtoMessage() {}
 
 func (x *SessionInformation) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[24]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4082,7 +4490,7 @@ type SessionStatistics struct {
 
 func (x *SessionStatistics) Reset() {
 	*x = SessionStatistics{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[25]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[28]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4094,7 +4502,7 @@ func (x *SessionStatistics) String() string {
 func (*SessionStatistics) ProtoMessage() {}
 
 func (x *SessionStatistics) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[25]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[28]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4295,9 +4703,9 @@ type SessionStatistics_builder struct {
 	ToolResults *int64
 	// User messages plus model responses plus tool results.
 	TotalMessages *int64
-	// Tokens is absent when any stored model response has no usage.
+	// When any stored model response or contributing summary request has no usage, this field is absent.
 	Tokens *TokenUsage
-	// Estimated cost is absent when any stored model response has no persisted cost.
+	// When any stored model response or contributing summary request has no saved cost, this field is absent.
 	EstimatedCost *EstimatedCost
 	// Cost breakdown is ordered by provider identifier and then model identifier.
 	CostBreakdown []*ProviderModelCost
@@ -4349,7 +4757,7 @@ type EstimatedCost struct {
 
 func (x *EstimatedCost) Reset() {
 	*x = EstimatedCost{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[26]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[29]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4361,7 +4769,7 @@ func (x *EstimatedCost) String() string {
 func (*EstimatedCost) ProtoMessage() {}
 
 func (x *EstimatedCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[26]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[29]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4548,7 +4956,7 @@ type ProviderModelCost struct {
 
 func (x *ProviderModelCost) Reset() {
 	*x = ProviderModelCost{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[27]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[30]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4560,7 +4968,7 @@ func (x *ProviderModelCost) String() string {
 func (*ProviderModelCost) ProtoMessage() {}
 
 func (x *ProviderModelCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[27]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[30]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4654,7 +5062,7 @@ type ProviderModelCost_builder struct {
 	ProviderId *string
 	// The requested model identifier.
 	ModelId *string
-	// Estimated cost is absent when any response in this group has no persisted cost.
+	// When any model response or contributing summary request in this group has no saved cost, this field is absent.
 	EstimatedCost *EstimatedCost
 }
 
@@ -4691,7 +5099,7 @@ type TokenUsage struct {
 
 func (x *TokenUsage) Reset() {
 	*x = TokenUsage{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[28]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[31]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4703,7 +5111,7 @@ func (x *TokenUsage) String() string {
 func (*TokenUsage) ProtoMessage() {}
 
 func (x *TokenUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[28]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[31]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4915,7 +5323,7 @@ type CreateSessionCommand struct {
 
 func (x *CreateSessionCommand) Reset() {
 	*x = CreateSessionCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[29]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[32]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4927,7 +5335,7 @@ func (x *CreateSessionCommand) String() string {
 func (*CreateSessionCommand) ProtoMessage() {}
 
 func (x *CreateSessionCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[29]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[32]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4959,7 +5367,7 @@ type ListSessionsCommand struct {
 
 func (x *ListSessionsCommand) Reset() {
 	*x = ListSessionsCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[30]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[33]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4971,7 +5379,7 @@ func (x *ListSessionsCommand) String() string {
 func (*ListSessionsCommand) ProtoMessage() {}
 
 func (x *ListSessionsCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[30]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[33]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5006,7 +5414,7 @@ type ResumeSessionCommand struct {
 
 func (x *ResumeSessionCommand) Reset() {
 	*x = ResumeSessionCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[31]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[34]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5018,7 +5426,7 @@ func (x *ResumeSessionCommand) String() string {
 func (*ResumeSessionCommand) ProtoMessage() {}
 
 func (x *ResumeSessionCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[31]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[34]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5086,7 +5494,7 @@ type SetSessionNameCommand struct {
 
 func (x *SetSessionNameCommand) Reset() {
 	*x = SetSessionNameCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[32]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[35]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5098,7 +5506,7 @@ func (x *SetSessionNameCommand) String() string {
 func (*SetSessionNameCommand) ProtoMessage() {}
 
 func (x *SetSessionNameCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[32]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[35]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5163,7 +5571,7 @@ type GetSessionInfoCommand struct {
 
 func (x *GetSessionInfoCommand) Reset() {
 	*x = GetSessionInfoCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[33]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[36]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5175,7 +5583,7 @@ func (x *GetSessionInfoCommand) String() string {
 func (*GetSessionInfoCommand) ProtoMessage() {}
 
 func (x *GetSessionInfoCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[33]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[36]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5207,7 +5615,7 @@ type GetSessionTreeCommand struct {
 
 func (x *GetSessionTreeCommand) Reset() {
 	*x = GetSessionTreeCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[34]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[37]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5219,7 +5627,7 @@ func (x *GetSessionTreeCommand) String() string {
 func (*GetSessionTreeCommand) ProtoMessage() {}
 
 func (x *GetSessionTreeCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[34]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[37]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5256,7 +5664,7 @@ type NavigateSessionTreeCommand struct {
 
 func (x *NavigateSessionTreeCommand) Reset() {
 	*x = NavigateSessionTreeCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[35]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[38]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5268,7 +5676,7 @@ func (x *NavigateSessionTreeCommand) String() string {
 func (*NavigateSessionTreeCommand) ProtoMessage() {}
 
 func (x *NavigateSessionTreeCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[35]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[38]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5401,7 +5809,7 @@ type ForkSessionCommand struct {
 
 func (x *ForkSessionCommand) Reset() {
 	*x = ForkSessionCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[36]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[39]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5413,7 +5821,7 @@ func (x *ForkSessionCommand) String() string {
 func (*ForkSessionCommand) ProtoMessage() {}
 
 func (x *ForkSessionCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[36]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[39]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5478,7 +5886,7 @@ type CloneSessionCommand struct {
 
 func (x *CloneSessionCommand) Reset() {
 	*x = CloneSessionCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[37]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[40]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5490,7 +5898,7 @@ func (x *CloneSessionCommand) String() string {
 func (*CloneSessionCommand) ProtoMessage() {}
 
 func (x *CloneSessionCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[37]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[40]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5526,7 +5934,7 @@ type SetEntryLabelCommand struct {
 
 func (x *SetEntryLabelCommand) Reset() {
 	*x = SetEntryLabelCommand{}
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[38]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[41]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -5538,7 +5946,7 @@ func (x *SetEntryLabelCommand) String() string {
 func (*SetEntryLabelCommand) ProtoMessage() {}
 
 func (x *SetEntryLabelCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[38]
+	mi := &file_api_plugins_ui_v1_session_proto_msgTypes[41]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -5709,14 +6117,26 @@ const file_api_plugins_ui_v1_session_proto_rawDesc = "" +
 	"\x0efirst_entry_id\x18\x02 \x01(\tR\ffirstEntryId\x12\"\n" +
 	"\rlast_entry_id\x18\x03 \x01(\tR\vlastEntryId\x12@\n" +
 	"\x06source\x18\x04 \x01(\v2(.glyph.plugins.ui.v1.BranchSummarySourceR\x06source\x12I\n" +
-	"\x0eestimated_cost\x18\x05 \x01(\v2\".glyph.plugins.ui.v1.EstimatedCostR\restimatedCost\"\xfc\x01\n" +
+	"\x0eestimated_cost\x18\x05 \x01(\v2\".glyph.plugins.ui.v1.EstimatedCostR\restimatedCost\"\xae\x01\n" +
 	"\n" +
 	"Compaction\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary\x12-\n" +
-	"\x13first_kept_entry_id\x18\x02 \x01(\tR\x10firstKeptEntryId\x12@\n" +
-	"\x06source\x18\x03 \x01(\v2(.glyph.plugins.ui.v1.BranchSummarySourceR\x06source\x12I\n" +
-	"\x0eestimated_cost\x18\x04 \x01(\v2\".glyph.plugins.ui.v1.EstimatedCostR\restimatedCost\x12\x18\n" +
-	"\adetails\x18\x05 \x01(\fR\adetails\"\x8b\x01\n" +
+	"\x13first_kept_entry_id\x18\x02 \x01(\tR\x10firstKeptEntryId\x12=\n" +
+	"\x06source\x18\x03 \x01(\v2%.glyph.plugins.ui.v1.CompactionSourceR\x06source\x12\x18\n" +
+	"\adetails\x18\x04 \x01(\fR\adetails\"\x98\x01\n" +
+	"\x10CompactionSource\x12#\n" +
+	"\fextension_id\x18\x01 \x01(\tH\x00R\vextensionId\x12U\n" +
+	"\x0emodel_requests\x18\x02 \x01(\v2,.glyph.plugins.ui.v1.CompactionModelRequestsH\x00R\rmodelRequestsB\b\n" +
+	"\x06source\"b\n" +
+	"\x17CompactionModelRequests\x12G\n" +
+	"\brequests\x18\x01 \x03(\v2+.glyph.plugins.ui.v1.CompactionModelRequestR\brequests\"\xa7\x02\n" +
+	"\x16CompactionModelRequest\x12\x1f\n" +
+	"\vprovider_id\x18\x01 \x01(\tR\n" +
+	"providerId\x12\x19\n" +
+	"\bmodel_id\x18\x02 \x01(\tR\amodelId\x12O\n" +
+	"\x10reasoning_choice\x18\x03 \x01(\x0e2$.glyph.plugins.ui.v1.ReasoningChoiceR\x0freasoningChoice\x125\n" +
+	"\x05usage\x18\x04 \x01(\v2\x1f.glyph.plugins.ui.v1.TokenUsageR\x05usage\x12I\n" +
+	"\x0eestimated_cost\x18\x05 \x01(\v2\".glyph.plugins.ui.v1.EstimatedCostR\restimatedCost\"\x8b\x01\n" +
 	"\x13BranchSummarySource\x12#\n" +
 	"\fextension_id\x18\x01 \x01(\tH\x00R\vextensionId\x12E\n" +
 	"\x05model\x18\x02 \x01(\v2-.glyph.plugins.ui.v1.BranchSummaryModelSourceH\x00R\x05modelB\b\n" +
@@ -5826,7 +6246,7 @@ const file_api_plugins_ui_v1_session_proto_rawDesc = "" +
 	"'SESSION_TREE_NAVIGATION_STATUS_CANCELED\x10\x02B/Z-github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1b\beditionsp\xe8\a"
 
 var file_api_plugins_ui_v1_session_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_api_plugins_ui_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 39)
+var file_api_plugins_ui_v1_session_proto_msgTypes = make([]protoimpl.MessageInfo, 42)
 var file_api_plugins_ui_v1_session_proto_goTypes = []any{
 	(ClientVisibility)(0),                 // 0: glyph.plugins.ui.v1.ClientVisibility
 	(SummaryMode)(0),                      // 1: glyph.plugins.ui.v1.SummaryMode
@@ -5848,90 +6268,97 @@ var file_api_plugins_ui_v1_session_proto_goTypes = []any{
 	(*SessionEntryAdded)(nil),             // 17: glyph.plugins.ui.v1.SessionEntryAdded
 	(*BranchSummary)(nil),                 // 18: glyph.plugins.ui.v1.BranchSummary
 	(*Compaction)(nil),                    // 19: glyph.plugins.ui.v1.Compaction
-	(*BranchSummarySource)(nil),           // 20: glyph.plugins.ui.v1.BranchSummarySource
-	(*BranchSummaryModelSource)(nil),      // 21: glyph.plugins.ui.v1.BranchSummaryModelSource
-	(*SessionEntry)(nil),                  // 22: glyph.plugins.ui.v1.SessionEntry
-	(*ToolResult)(nil),                    // 23: glyph.plugins.ui.v1.ToolResult
-	(*UserMessage)(nil),                   // 24: glyph.plugins.ui.v1.UserMessage
-	(*UserContent)(nil),                   // 25: glyph.plugins.ui.v1.UserContent
-	(*UserImage)(nil),                     // 26: glyph.plugins.ui.v1.UserImage
-	(*SessionInformation)(nil),            // 27: glyph.plugins.ui.v1.SessionInformation
-	(*SessionStatistics)(nil),             // 28: glyph.plugins.ui.v1.SessionStatistics
-	(*EstimatedCost)(nil),                 // 29: glyph.plugins.ui.v1.EstimatedCost
-	(*ProviderModelCost)(nil),             // 30: glyph.plugins.ui.v1.ProviderModelCost
-	(*TokenUsage)(nil),                    // 31: glyph.plugins.ui.v1.TokenUsage
-	(*CreateSessionCommand)(nil),          // 32: glyph.plugins.ui.v1.CreateSessionCommand
-	(*ListSessionsCommand)(nil),           // 33: glyph.plugins.ui.v1.ListSessionsCommand
-	(*ResumeSessionCommand)(nil),          // 34: glyph.plugins.ui.v1.ResumeSessionCommand
-	(*SetSessionNameCommand)(nil),         // 35: glyph.plugins.ui.v1.SetSessionNameCommand
-	(*GetSessionInfoCommand)(nil),         // 36: glyph.plugins.ui.v1.GetSessionInfoCommand
-	(*GetSessionTreeCommand)(nil),         // 37: glyph.plugins.ui.v1.GetSessionTreeCommand
-	(*NavigateSessionTreeCommand)(nil),    // 38: glyph.plugins.ui.v1.NavigateSessionTreeCommand
-	(*ForkSessionCommand)(nil),            // 39: glyph.plugins.ui.v1.ForkSessionCommand
-	(*CloneSessionCommand)(nil),           // 40: glyph.plugins.ui.v1.CloneSessionCommand
-	(*SetEntryLabelCommand)(nil),          // 41: glyph.plugins.ui.v1.SetEntryLabelCommand
-	(*timestamppb.Timestamp)(nil),         // 42: google.protobuf.Timestamp
-	(*OperationIssue)(nil),                // 43: glyph.plugins.ui.v1.OperationIssue
-	(*ModelResponse)(nil),                 // 44: glyph.plugins.ui.v1.ModelResponse
-	(ReasoningChoice)(0),                  // 45: glyph.plugins.ui.v1.ReasoningChoice
-	(*ToolResultContent)(nil),             // 46: glyph.plugins.ui.v1.ToolResultContent
+	(*CompactionSource)(nil),              // 20: glyph.plugins.ui.v1.CompactionSource
+	(*CompactionModelRequests)(nil),       // 21: glyph.plugins.ui.v1.CompactionModelRequests
+	(*CompactionModelRequest)(nil),        // 22: glyph.plugins.ui.v1.CompactionModelRequest
+	(*BranchSummarySource)(nil),           // 23: glyph.plugins.ui.v1.BranchSummarySource
+	(*BranchSummaryModelSource)(nil),      // 24: glyph.plugins.ui.v1.BranchSummaryModelSource
+	(*SessionEntry)(nil),                  // 25: glyph.plugins.ui.v1.SessionEntry
+	(*ToolResult)(nil),                    // 26: glyph.plugins.ui.v1.ToolResult
+	(*UserMessage)(nil),                   // 27: glyph.plugins.ui.v1.UserMessage
+	(*UserContent)(nil),                   // 28: glyph.plugins.ui.v1.UserContent
+	(*UserImage)(nil),                     // 29: glyph.plugins.ui.v1.UserImage
+	(*SessionInformation)(nil),            // 30: glyph.plugins.ui.v1.SessionInformation
+	(*SessionStatistics)(nil),             // 31: glyph.plugins.ui.v1.SessionStatistics
+	(*EstimatedCost)(nil),                 // 32: glyph.plugins.ui.v1.EstimatedCost
+	(*ProviderModelCost)(nil),             // 33: glyph.plugins.ui.v1.ProviderModelCost
+	(*TokenUsage)(nil),                    // 34: glyph.plugins.ui.v1.TokenUsage
+	(*CreateSessionCommand)(nil),          // 35: glyph.plugins.ui.v1.CreateSessionCommand
+	(*ListSessionsCommand)(nil),           // 36: glyph.plugins.ui.v1.ListSessionsCommand
+	(*ResumeSessionCommand)(nil),          // 37: glyph.plugins.ui.v1.ResumeSessionCommand
+	(*SetSessionNameCommand)(nil),         // 38: glyph.plugins.ui.v1.SetSessionNameCommand
+	(*GetSessionInfoCommand)(nil),         // 39: glyph.plugins.ui.v1.GetSessionInfoCommand
+	(*GetSessionTreeCommand)(nil),         // 40: glyph.plugins.ui.v1.GetSessionTreeCommand
+	(*NavigateSessionTreeCommand)(nil),    // 41: glyph.plugins.ui.v1.NavigateSessionTreeCommand
+	(*ForkSessionCommand)(nil),            // 42: glyph.plugins.ui.v1.ForkSessionCommand
+	(*CloneSessionCommand)(nil),           // 43: glyph.plugins.ui.v1.CloneSessionCommand
+	(*SetEntryLabelCommand)(nil),          // 44: glyph.plugins.ui.v1.SetEntryLabelCommand
+	(*timestamppb.Timestamp)(nil),         // 45: google.protobuf.Timestamp
+	(*OperationIssue)(nil),                // 46: glyph.plugins.ui.v1.OperationIssue
+	(*ModelResponse)(nil),                 // 47: glyph.plugins.ui.v1.ModelResponse
+	(ReasoningChoice)(0),                  // 48: glyph.plugins.ui.v1.ReasoningChoice
+	(*ToolResultContent)(nil),             // 49: glyph.plugins.ui.v1.ToolResultContent
 }
 var file_api_plugins_ui_v1_session_proto_depIdxs = []int32{
-	42, // 0: glyph.plugins.ui.v1.SessionInfo.created_time:type_name -> google.protobuf.Timestamp
-	42, // 1: glyph.plugins.ui.v1.SessionInfo.update_time:type_name -> google.protobuf.Timestamp
+	45, // 0: glyph.plugins.ui.v1.SessionInfo.created_time:type_name -> google.protobuf.Timestamp
+	45, // 1: glyph.plugins.ui.v1.SessionInfo.update_time:type_name -> google.protobuf.Timestamp
 	3,  // 2: glyph.plugins.ui.v1.SessionSummary.info:type_name -> glyph.plugins.ui.v1.SessionInfo
 	4,  // 3: glyph.plugins.ui.v1.SessionList.sessions:type_name -> glyph.plugins.ui.v1.SessionSummary
 	3,  // 4: glyph.plugins.ui.v1.SessionChanged.info:type_name -> glyph.plugins.ui.v1.SessionInfo
-	22, // 5: glyph.plugins.ui.v1.SessionChanged.entries:type_name -> glyph.plugins.ui.v1.SessionEntry
+	25, // 5: glyph.plugins.ui.v1.SessionChanged.entries:type_name -> glyph.plugins.ui.v1.SessionEntry
 	6,  // 6: glyph.plugins.ui.v1.SessionForked.session:type_name -> glyph.plugins.ui.v1.SessionChanged
 	6,  // 7: glyph.plugins.ui.v1.SessionCloned.session:type_name -> glyph.plugins.ui.v1.SessionChanged
 	13, // 8: glyph.plugins.ui.v1.EntryLabelSet.tree:type_name -> glyph.plugins.ui.v1.SessionTree
 	13, // 9: glyph.plugins.ui.v1.SessionTreeResult.tree:type_name -> glyph.plugins.ui.v1.SessionTree
 	13, // 10: glyph.plugins.ui.v1.SessionTreeNavigationProgress.tree:type_name -> glyph.plugins.ui.v1.SessionTree
-	22, // 11: glyph.plugins.ui.v1.SessionTreeNavigationProgress.active_branch:type_name -> glyph.plugins.ui.v1.SessionEntry
+	25, // 11: glyph.plugins.ui.v1.SessionTreeNavigationProgress.active_branch:type_name -> glyph.plugins.ui.v1.SessionEntry
 	2,  // 12: glyph.plugins.ui.v1.SessionTreeNavigationResult.status:type_name -> glyph.plugins.ui.v1.SessionTreeNavigationStatus
 	14, // 13: glyph.plugins.ui.v1.SessionTreeNavigationResult.created_summary:type_name -> glyph.plugins.ui.v1.SessionTreeEntry
-	43, // 14: glyph.plugins.ui.v1.SessionTreeNavigationResult.issues:type_name -> glyph.plugins.ui.v1.OperationIssue
+	46, // 14: glyph.plugins.ui.v1.SessionTreeNavigationResult.issues:type_name -> glyph.plugins.ui.v1.OperationIssue
 	14, // 15: glyph.plugins.ui.v1.SessionTree.entries:type_name -> glyph.plugins.ui.v1.SessionTreeEntry
-	42, // 16: glyph.plugins.ui.v1.SessionTreeEntry.created_time:type_name -> google.protobuf.Timestamp
-	24, // 17: glyph.plugins.ui.v1.SessionTreeEntry.user:type_name -> glyph.plugins.ui.v1.UserMessage
-	44, // 18: glyph.plugins.ui.v1.SessionTreeEntry.model:type_name -> glyph.plugins.ui.v1.ModelResponse
-	23, // 19: glyph.plugins.ui.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.ui.v1.ToolResult
+	45, // 16: glyph.plugins.ui.v1.SessionTreeEntry.created_time:type_name -> google.protobuf.Timestamp
+	27, // 17: glyph.plugins.ui.v1.SessionTreeEntry.user:type_name -> glyph.plugins.ui.v1.UserMessage
+	47, // 18: glyph.plugins.ui.v1.SessionTreeEntry.model:type_name -> glyph.plugins.ui.v1.ModelResponse
+	26, // 19: glyph.plugins.ui.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.ui.v1.ToolResult
 	15, // 20: glyph.plugins.ui.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.ui.v1.ExtensionEntry
 	18, // 21: glyph.plugins.ui.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.ui.v1.BranchSummary
 	16, // 22: glyph.plugins.ui.v1.SessionTreeEntry.extension_message:type_name -> glyph.plugins.ui.v1.ExtensionMessage
 	19, // 23: glyph.plugins.ui.v1.SessionTreeEntry.compaction:type_name -> glyph.plugins.ui.v1.Compaction
 	0,  // 24: glyph.plugins.ui.v1.ExtensionMessage.visibility:type_name -> glyph.plugins.ui.v1.ClientVisibility
 	14, // 25: glyph.plugins.ui.v1.SessionEntryAdded.entry:type_name -> glyph.plugins.ui.v1.SessionTreeEntry
-	20, // 26: glyph.plugins.ui.v1.BranchSummary.source:type_name -> glyph.plugins.ui.v1.BranchSummarySource
-	29, // 27: glyph.plugins.ui.v1.BranchSummary.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
-	20, // 28: glyph.plugins.ui.v1.Compaction.source:type_name -> glyph.plugins.ui.v1.BranchSummarySource
-	29, // 29: glyph.plugins.ui.v1.Compaction.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
-	21, // 30: glyph.plugins.ui.v1.BranchSummarySource.model:type_name -> glyph.plugins.ui.v1.BranchSummaryModelSource
-	45, // 31: glyph.plugins.ui.v1.BranchSummaryModelSource.reasoning_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
-	31, // 32: glyph.plugins.ui.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.ui.v1.TokenUsage
-	42, // 33: glyph.plugins.ui.v1.SessionEntry.created_time:type_name -> google.protobuf.Timestamp
-	24, // 34: glyph.plugins.ui.v1.SessionEntry.user:type_name -> glyph.plugins.ui.v1.UserMessage
-	44, // 35: glyph.plugins.ui.v1.SessionEntry.model:type_name -> glyph.plugins.ui.v1.ModelResponse
-	23, // 36: glyph.plugins.ui.v1.SessionEntry.tool_result:type_name -> glyph.plugins.ui.v1.ToolResult
-	18, // 37: glyph.plugins.ui.v1.SessionEntry.branch_summary:type_name -> glyph.plugins.ui.v1.BranchSummary
-	16, // 38: glyph.plugins.ui.v1.SessionEntry.extension_message:type_name -> glyph.plugins.ui.v1.ExtensionMessage
-	19, // 39: glyph.plugins.ui.v1.SessionEntry.compaction:type_name -> glyph.plugins.ui.v1.Compaction
-	46, // 40: glyph.plugins.ui.v1.ToolResult.contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
-	25, // 41: glyph.plugins.ui.v1.UserMessage.content:type_name -> glyph.plugins.ui.v1.UserContent
-	26, // 42: glyph.plugins.ui.v1.UserContent.image:type_name -> glyph.plugins.ui.v1.UserImage
-	3,  // 43: glyph.plugins.ui.v1.SessionInformation.info:type_name -> glyph.plugins.ui.v1.SessionInfo
-	28, // 44: glyph.plugins.ui.v1.SessionInformation.statistics:type_name -> glyph.plugins.ui.v1.SessionStatistics
-	31, // 45: glyph.plugins.ui.v1.SessionStatistics.tokens:type_name -> glyph.plugins.ui.v1.TokenUsage
-	29, // 46: glyph.plugins.ui.v1.SessionStatistics.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
-	30, // 47: glyph.plugins.ui.v1.SessionStatistics.cost_breakdown:type_name -> glyph.plugins.ui.v1.ProviderModelCost
-	29, // 48: glyph.plugins.ui.v1.ProviderModelCost.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
-	1,  // 49: glyph.plugins.ui.v1.NavigateSessionTreeCommand.summary_mode:type_name -> glyph.plugins.ui.v1.SummaryMode
-	50, // [50:50] is the sub-list for method output_type
-	50, // [50:50] is the sub-list for method input_type
-	50, // [50:50] is the sub-list for extension type_name
-	50, // [50:50] is the sub-list for extension extendee
-	0,  // [0:50] is the sub-list for field type_name
+	23, // 26: glyph.plugins.ui.v1.BranchSummary.source:type_name -> glyph.plugins.ui.v1.BranchSummarySource
+	32, // 27: glyph.plugins.ui.v1.BranchSummary.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
+	20, // 28: glyph.plugins.ui.v1.Compaction.source:type_name -> glyph.plugins.ui.v1.CompactionSource
+	21, // 29: glyph.plugins.ui.v1.CompactionSource.model_requests:type_name -> glyph.plugins.ui.v1.CompactionModelRequests
+	22, // 30: glyph.plugins.ui.v1.CompactionModelRequests.requests:type_name -> glyph.plugins.ui.v1.CompactionModelRequest
+	48, // 31: glyph.plugins.ui.v1.CompactionModelRequest.reasoning_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	34, // 32: glyph.plugins.ui.v1.CompactionModelRequest.usage:type_name -> glyph.plugins.ui.v1.TokenUsage
+	32, // 33: glyph.plugins.ui.v1.CompactionModelRequest.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
+	24, // 34: glyph.plugins.ui.v1.BranchSummarySource.model:type_name -> glyph.plugins.ui.v1.BranchSummaryModelSource
+	48, // 35: glyph.plugins.ui.v1.BranchSummaryModelSource.reasoning_choice:type_name -> glyph.plugins.ui.v1.ReasoningChoice
+	34, // 36: glyph.plugins.ui.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.ui.v1.TokenUsage
+	45, // 37: glyph.plugins.ui.v1.SessionEntry.created_time:type_name -> google.protobuf.Timestamp
+	27, // 38: glyph.plugins.ui.v1.SessionEntry.user:type_name -> glyph.plugins.ui.v1.UserMessage
+	47, // 39: glyph.plugins.ui.v1.SessionEntry.model:type_name -> glyph.plugins.ui.v1.ModelResponse
+	26, // 40: glyph.plugins.ui.v1.SessionEntry.tool_result:type_name -> glyph.plugins.ui.v1.ToolResult
+	18, // 41: glyph.plugins.ui.v1.SessionEntry.branch_summary:type_name -> glyph.plugins.ui.v1.BranchSummary
+	16, // 42: glyph.plugins.ui.v1.SessionEntry.extension_message:type_name -> glyph.plugins.ui.v1.ExtensionMessage
+	19, // 43: glyph.plugins.ui.v1.SessionEntry.compaction:type_name -> glyph.plugins.ui.v1.Compaction
+	49, // 44: glyph.plugins.ui.v1.ToolResult.contents:type_name -> glyph.plugins.ui.v1.ToolResultContent
+	28, // 45: glyph.plugins.ui.v1.UserMessage.content:type_name -> glyph.plugins.ui.v1.UserContent
+	29, // 46: glyph.plugins.ui.v1.UserContent.image:type_name -> glyph.plugins.ui.v1.UserImage
+	3,  // 47: glyph.plugins.ui.v1.SessionInformation.info:type_name -> glyph.plugins.ui.v1.SessionInfo
+	31, // 48: glyph.plugins.ui.v1.SessionInformation.statistics:type_name -> glyph.plugins.ui.v1.SessionStatistics
+	34, // 49: glyph.plugins.ui.v1.SessionStatistics.tokens:type_name -> glyph.plugins.ui.v1.TokenUsage
+	32, // 50: glyph.plugins.ui.v1.SessionStatistics.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
+	33, // 51: glyph.plugins.ui.v1.SessionStatistics.cost_breakdown:type_name -> glyph.plugins.ui.v1.ProviderModelCost
+	32, // 52: glyph.plugins.ui.v1.ProviderModelCost.estimated_cost:type_name -> glyph.plugins.ui.v1.EstimatedCost
+	1,  // 53: glyph.plugins.ui.v1.NavigateSessionTreeCommand.summary_mode:type_name -> glyph.plugins.ui.v1.SummaryMode
+	54, // [54:54] is the sub-list for method output_type
+	54, // [54:54] is the sub-list for method input_type
+	54, // [54:54] is the sub-list for extension type_name
+	54, // [54:54] is the sub-list for extension extendee
+	0,  // [0:54] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_session_proto_init() }
@@ -5951,10 +6378,14 @@ func file_api_plugins_ui_v1_session_proto_init() {
 		(*sessionTreeEntry_Compaction)(nil),
 	}
 	file_api_plugins_ui_v1_session_proto_msgTypes[17].OneofWrappers = []any{
+		(*compactionSource_ExtensionId)(nil),
+		(*compactionSource_ModelRequests)(nil),
+	}
+	file_api_plugins_ui_v1_session_proto_msgTypes[20].OneofWrappers = []any{
 		(*branchSummarySource_ExtensionId)(nil),
 		(*branchSummarySource_Model)(nil),
 	}
-	file_api_plugins_ui_v1_session_proto_msgTypes[19].OneofWrappers = []any{
+	file_api_plugins_ui_v1_session_proto_msgTypes[22].OneofWrappers = []any{
 		(*sessionEntry_User)(nil),
 		(*sessionEntry_Model)(nil),
 		(*sessionEntry_ToolResult)(nil),
@@ -5962,7 +6393,7 @@ func file_api_plugins_ui_v1_session_proto_init() {
 		(*sessionEntry_ExtensionMessage)(nil),
 		(*sessionEntry_Compaction)(nil),
 	}
-	file_api_plugins_ui_v1_session_proto_msgTypes[22].OneofWrappers = []any{
+	file_api_plugins_ui_v1_session_proto_msgTypes[25].OneofWrappers = []any{
 		(*userContent_Text)(nil),
 		(*userContent_Image)(nil),
 	}
@@ -5972,7 +6403,7 @@ func file_api_plugins_ui_v1_session_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_ui_v1_session_proto_rawDesc), len(file_api_plugins_ui_v1_session_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   39,
+			NumMessages:   42,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

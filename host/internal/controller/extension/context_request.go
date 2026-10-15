@@ -105,7 +105,7 @@ func newPolicyCandidateContextRequest(
 	mapped.reference = raw.GetContext()
 	candidate := policyCandidate{kind: kind, operationID: raw.GetOperationId(), value: session.CompactionEntry{
 		Summary: result.GetSummary(), FirstKeptEntryID: result.GetFirstKeptEntryId(), Source: source,
-		EstimatedCost: mo.None[session.EstimatedCost](), Details: details,
+		Details: details,
 	}}
 	mapped.admission = contextAdmissionCandidate
 	mapped.prepare = func(o *contextOperation) (contextAction, error) {
@@ -202,7 +202,6 @@ func newPolicyRequestContextRequest(
 				FirstKeptEntryID: supplied.GetFirstKeptEntryId(),
 				Source:           source,
 				Details:          details,
-				EstimatedCost:    mo.None[session.EstimatedCost](),
 			},
 		)
 	}

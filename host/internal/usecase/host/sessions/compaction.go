@@ -23,7 +23,7 @@ func (s *Service) commitCompaction(
 	guard func() (func(), error),
 	record func(session.Entry),
 ) (session.Entry, error) {
-	compaction.EstimatedCost = s.compactionEstimatedCost(compaction.Source)
+	compaction.Source = s.priceCompactionSource(compaction.Source)
 	if err := validateCompactionPayload(compaction); err != nil {
 		return session.Entry{}, err
 	}
@@ -93,17 +93,14 @@ func (s *Service) commitCompaction(
 	return committed, nil
 }
 
-// compactionEstimatedCost derives persisted accounting from the actual model source and Host pricing.
-func (s *Service) compactionEstimatedCost(source session.CompactionSource) mo.Option[session.EstimatedCost] {
-	modelSource, present := source.Model.Get()
-	if !present {
-		return mo.None[session.EstimatedCost]()
+// priceCompactionSource calculates each contributing request cost.
+func (s *Service) priceCompactionSource(source session.CompactionSource) session.CompactionSource {
+	source = source.Clone()
+	for index := range source.Requests {
+		request := &source.Requests[index]
+		request.EstimatedCost = s.estimatedUsageCost(request.Selection.Provider, request.Selection.Model, request.Usage)
 	}
-	return s.estimatedUsageCost(
-		modelSource.Selection.Provider,
-		modelSource.Selection.Model,
-		modelSource.Usage,
-	)
+	return source
 }
 
 // validateCompactionPayload checks fields that do not require active-branch state.
@@ -114,7 +111,7 @@ func validateCompactionPayload(compaction session.CompactionEntry) error {
 	if strings.TrimSpace(compaction.FirstKeptEntryID) == "" {
 		return errors.New("compaction first kept entry ID is empty")
 	}
-	if err := compaction.ValidateAccounting(); err != nil {
+	if err := compaction.Source.Validate(); err != nil {
 		return fmt.Errorf("validate compaction accounting: %w", err)
 	}
 	return nil

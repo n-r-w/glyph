@@ -43,18 +43,27 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 			persisted := command.Mutation.Entry.MustGet()
 			require.Equal(t, "r1", persisted.ParentID.MustGet())
 			marker := persisted.Compaction.MustGet()
+			require.Len(t, marker.Source.Requests, 2)
+			require.True(t, marker.Source.Requests[0].EstimatedCost.IsSome(), "Host must price the request")
 			require.Equal(t, "summary", marker.Summary)
 			require.Equal(t, session.EstimatedCost{
 				Input: 3, Output: 4, CacheRead: 0, CacheWrite: 0, Total: 7,
-			}, marker.EstimatedCost.MustGet())
+			}, marker.Source.Requests[0].EstimatedCost.MustGet())
+			require.Equal(t, marker.Source.Requests[0].EstimatedCost, marker.Source.Requests[1].EstimatedCost)
 			return ApplyResult{StoragePath: "/sessions/session.jsonl"}, nil
 		},
 	)
 	pricing.EXPECT().Pricing(model.ProviderID("summary-provider"), model.ID("summary-model")).Return(
 		mo.Some(model.Pricing{
-			Input: 1_000_000, Output: 2_000_000, CacheRead: 0, CacheWrite: 0, Tiers: nil,
+			Input:      1_000_000,
+			Output:     2_000_000,
+			CacheRead:  0,
+			CacheWrite: 0,
+			Tiers: []model.PricingTier{
+				{InputTokensAbove: 4, Input: 10_000_000, Output: 20_000_000, CacheRead: 0, CacheWrite: 0},
+			},
 		}),
-	)
+	).Times(2)
 	ids.EXPECT().NewID().Return("c1", nil)
 	clock.EXPECT().Now().Return(time.Unix(10, 0).UTC())
 	publisher.EXPECT().PublishSessionEntry(gomock.Any()).DoAndReturn(
@@ -77,7 +86,7 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 	compaction := session.CompactionEntry{
 		Summary: "summary", FirstKeptEntryID: "m1",
 		Source: session.CompactionSource{
-			ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
+			ExtensionID: mo.None[string](), Requests: []session.CompactionModelRequest{{
 				Selection: model.Selection{
 					Provider: "summary-provider", Model: "summary-model", ReasoningChoice: model.ReasoningChoiceLow,
 				},
@@ -85,15 +94,17 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 					InputTokens: 3, OutputTokens: 2, CacheReadTokens: 0,
 					CacheWriteTokens: 0, ReasoningTokens: 1, TotalTokens: 5,
 				}),
-			}),
+				EstimatedCost: mo.Some(session.EstimatedCost{
+					Input: 0.03, Output: 0.02, CacheRead: 0, CacheWrite: 0, Total: 0.05,
+				}),
+			}},
 		},
-		EstimatedCost: mo.Some(session.EstimatedCost{
-			Input: 0.03, Output: 0.02, CacheRead: 0, CacheWrite: 0, Total: 0.05,
-		}),
 		Details: mo.Some([]byte("details")),
 	}
 
-	// Act by committing one compaction against the captured incarnation and active leaf.
+	compaction.Source.Requests = append(compaction.Source.Requests, compaction.Source.Requests[0])
+	// Act by committing the compaction against the captured branch.
+	// The two requests each fall below the pricing-tier threshold.
 	committed, err := service.CommitReplacement(
 		t.Context(), service.CaptureCompaction(), compaction, nil, nil,
 	)
@@ -112,7 +123,7 @@ func TestCommitCompactionPersistsProjectsPublishesAndAccountsOnce(t *testing.T) 
 
 	// Assert persisted model and compaction usage are counted exactly once.
 	statistics := service.ActiveStatistics()
-	require.Equal(t, int64(15), statistics.TokenUsage.MustGet().TotalTokens)
+	require.Equal(t, int64(20), statistics.TokenUsage.MustGet().TotalTokens)
 }
 
 // TestCompactionEstimatedCostRequiresModelUsageAndPricing verifies Host-owned optional accounting.
@@ -131,9 +142,10 @@ func TestCompactionEstimatedCostRequiresModelUsageAndPricing(t *testing.T) {
 			name: "model usage absent",
 			source: session.CompactionSource{
 				ExtensionID: mo.None[string](),
-				Model: mo.Some(session.BranchSummaryModelSource{
+				Requests: []session.CompactionModelRequest{{
 					Selection: modelSelection, Usage: mo.None[session.TokenUsage](),
-				}),
+					EstimatedCost: mo.None[session.EstimatedCost](),
+				}},
 			},
 			expectPricing: false,
 		},
@@ -141,20 +153,21 @@ func TestCompactionEstimatedCostRequiresModelUsageAndPricing(t *testing.T) {
 			name: "model pricing absent",
 			source: session.CompactionSource{
 				ExtensionID: mo.None[string](),
-				Model: mo.Some(session.BranchSummaryModelSource{
+				Requests: []session.CompactionModelRequest{{
 					Selection: modelSelection,
 					Usage: mo.Some(session.TokenUsage{
 						InputTokens: 1, OutputTokens: 1, CacheReadTokens: 0,
 						CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 2,
 					}),
-				}),
+					EstimatedCost: mo.None[session.EstimatedCost](),
+				}},
 			},
 			expectPricing: true,
 		},
 		{
 			name: "extension source",
 			source: session.CompactionSource{
-				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+				ExtensionID: mo.Some("extension"), Requests: nil,
 			},
 			expectPricing: false,
 		},
@@ -170,10 +183,12 @@ func TestCompactionEstimatedCostRequiresModelUsageAndPricing(t *testing.T) {
 			service := New(nil, nil, nil, pricing, "/project")
 
 			// Act from the actual source rather than the active model.
-			cost := service.compactionEstimatedCost(testCase.source)
+			priced := service.priceCompactionSource(testCase.source)
 
 			// Assert missing model usage, pricing, or model source produces no invented cost.
-			require.True(t, cost.IsNone())
+			for _, request := range priced.Requests {
+				require.True(t, request.EstimatedCost.IsNone())
+			}
 		})
 	}
 }
@@ -201,9 +216,9 @@ func TestCommitCompactionRejectsBoundaryInsideToolGroup(t *testing.T) {
 		session.CompactionEntry{
 			Summary: "summary", FirstKeptEntryID: "x1",
 			Source: session.CompactionSource{
-				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+				ExtensionID: mo.Some("extension"), Requests: nil,
 			},
-			EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+			Details: mo.None[[]byte](),
 		}, nil, nil,
 	)
 
@@ -336,9 +351,9 @@ func TestCommitCompactionRejectsBoundaryBeforeLatestCompaction(t *testing.T) {
 		session.CompactionEntry{
 			Summary: "second summary", FirstKeptEntryID: "u1",
 			Source: session.CompactionSource{
-				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+				ExtensionID: mo.Some("extension"), Requests: nil,
 			},
-			EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+			Details: mo.None[[]byte](),
 		}, nil, nil,
 	)
 

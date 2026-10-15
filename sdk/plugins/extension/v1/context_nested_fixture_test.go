@@ -35,7 +35,7 @@ func expectNestedCompactionHost(
 			if err := reporter.Report(ctx, progress); err != nil {
 				return nil, err
 			}
-			source := new(extensionpb.BranchSummarySource)
+			source := new(extensionpb.CompactionSource)
 			source.SetExtensionId("extension")
 			return extensionpb.HostCompleted_builder{
 				Cancel:                 nil,
@@ -51,7 +51,7 @@ func expectNestedCompactionHost(
 						EntryId: new("compaction-entry"),
 						Compaction: extensionpb.SessionTreeCompaction_builder{
 							Summary: new("summary"), FirstKeptEntryId: new("kept"), Source: source,
-							EstimatedCost: nil, Details: nil,
+							Details: nil,
 						}.Build(),
 					}.Build(),
 					Canceled: new(false), Error: new("observer failed after commit"),

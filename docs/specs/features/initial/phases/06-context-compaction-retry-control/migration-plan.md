@@ -1,6 +1,6 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: PHS-06.1 is complete and accepted. PHS-06.2 requirements and technical solution are approved, and its design dry run is complete; implementation remains pending. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units) and [remaining phases](#phased-plan).
+Status: PHS-06.1 is complete and accepted. PHS-06.2 is in progress with accounting slice A1 implemented. The bundled policy and generator remain pending. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units) and [remaining phases](#phased-plan).
 
 Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation started from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
@@ -169,7 +169,7 @@ Mocked capability fixtures can conceal an unwired real extension. Include produc
 
 ### Phase PHS-06.2 - Implement the standard bundled compaction extension
 
-Status: Design approved and dry run complete. Implementation pending. PHS-06.1 system acceptance is complete; QST-01.1 is resolved by the approved design.
+Status: In progress. Design approval and the design dry run are complete. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). The bundled policy and generator remain pending.
 
 Documents:
 - [Problem statement](phs-06.2_problem.md)
@@ -182,7 +182,8 @@ Provide the standard coding agent with an enabled bundled policy and generator t
 
 #### Work
 
-- Implement the approved [standard generation](phs-06.2_solution.md#d4-one-standard-generation-request) and [per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction).
+- A1 implements [per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction), including public reference-extension tests, persistence, restoration, and client projections.
+- Implement the approved [standard generation](phs-06.2_solution.md#d4-one-standard-generation-request).
 - Implement standard triggering, sizing, usage-baseline policy, retained-boundary selection, ordered composition, summary preparation/generation, and overflow decisions in the bundled extension.
 - Supply extension-local retained-history configuration and the approved default, with independent generator registration control.
 - Verify standard and custom composition through the accepted system path, including preceding summaries, the [standard input limits](phs-06.2_prd.md#functional-requirements), and preservation of custom configured-model image support.

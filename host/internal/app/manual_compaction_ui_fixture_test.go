@@ -45,6 +45,9 @@ type manualPublicReport struct {
 
 // runManualUIFixture exercises public UI submit and manual-compaction operations.
 func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error) {
+	if sessionID := os.Getenv(accountingSessionEnvironment); sessionID != "" {
+		return runAccountingUIFixture(ctx, host, sessionID)
+	}
 	const manualFixtureManualUiSubmit = "manual-ui-submit-"
 
 	const manualFixtureManualUiStoredTree = "manual-ui-stored-tree"

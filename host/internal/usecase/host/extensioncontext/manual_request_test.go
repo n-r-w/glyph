@@ -350,10 +350,10 @@ func newPolicyRequestCommand(
 		FirstKeptEntryID: "leaf",
 		Source: session.CompactionSource{
 			ExtensionID: mo.Some(handler.ExtensionID),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			Requests:    nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](),
-		Details:       mo.None[[]byte](),
+
+		Details: mo.None[[]byte](),
 	}
 	return extensioncontroller.CompactionRequestCommand{
 		OperationID: operationID,

@@ -18,8 +18,8 @@ func TestValidateCompactionCompletionAcceptsCommittedFailure(t *testing.T) {
 	// Arrange one complete committed marker with post-commit failure text and category.
 	compaction := wire.Compaction_builder{
 		Summary: new("summary"), FirstKeptEntryId: new("kept"),
-		Source:        wire.BranchSummarySource_builder{ExtensionId: new("extension")}.Build(),
-		EstimatedCost: nil, Details: nil,
+		Source:  wire.CompactionSource_builder{ExtensionId: new("extension")}.Build(),
+		Details: nil,
 	}.Build()
 	entry := wire.SessionEntry_builder{
 		Id: new("compaction"), CreatedTime: timestamppb.New(time.Unix(1, 0).UTC()),
@@ -43,7 +43,7 @@ func TestValidateSessionCompactionAcceptsEntryAndTreeVariants(t *testing.T) {
 	// Arrange one complete extension-produced compaction payload.
 	compaction := wire.Compaction_builder{
 		Summary: new("summary"), FirstKeptEntryId: new("kept"),
-		Source:  wire.BranchSummarySource_builder{ExtensionId: new("extension")}.Build(),
+		Source:  wire.CompactionSource_builder{ExtensionId: new("extension")}.Build(),
 		Details: []byte{},
 	}.Build()
 	createdTime := timestamppb.New(time.Unix(1, 0).UTC())

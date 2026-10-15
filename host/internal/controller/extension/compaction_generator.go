@@ -59,7 +59,7 @@ func newPolicyGeneratorContextRequest(
 			}
 			response := extensionpb.CompactionResult_builder{
 				Summary: new(result.Summary), FirstKeptEntryId: new(result.FirstKeptEntryID),
-				Source: mapCompactionSource(result.Source), Details: nil,
+				Source: MapCompactionSource(result.Source), Details: nil,
 			}.Build()
 			if details, present := result.Details.Get(); present {
 				response.SetDetails(append([]byte{}, details...))

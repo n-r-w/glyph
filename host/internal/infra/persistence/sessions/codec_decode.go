@@ -318,7 +318,7 @@ func decodeCompaction(data []byte) (session.Entry, error) {
 	if record.ID == "" || record.Summary == "" || record.FirstKeptEntryID == "" {
 		return session.Entry{}, errors.New("invalid compaction entry")
 	}
-	cost, err := decodeEstimatedCost(record.EstimatedCost)
+	source, err := record.Source.decode()
 	if err != nil {
 		return session.Entry{}, err
 	}
@@ -328,9 +328,9 @@ func decodeCompaction(data []byte) (session.Entry, error) {
 	}
 	compaction := session.CompactionEntry{
 		Summary: record.Summary, FirstKeptEntryID: record.FirstKeptEntryID,
-		Source: decodeBranchSummarySource(record.Source), EstimatedCost: cost, Details: details,
+		Source: source, Details: details,
 	}
-	if validationErr := compaction.ValidateAccounting(); validationErr != nil {
+	if validationErr := compaction.Source.Validate(); validationErr != nil {
 		return session.Entry{}, validationErr
 	}
 	return session.Entry{

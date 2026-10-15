@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06.2 standard context compaction
 
-Status: Approved. Independent source-based dry run complete. Implementation pending; no implementation authorization is implied by this document.
+Status: Approved. The accounting slice A1 implements D6. The bundled policy and generator remain pending; PHS-06.2 is in progress.
 
 ## Problem Statement
 
@@ -68,15 +68,17 @@ The relevant public SDK operations are `CompactionPolicyContext.StartRequestHand
 
 ### D6: Per-request accounting for persisted compaction
 
-Represent compaction source accounting as an extension-only source or an ordered collection of contributing model requests. Each request retains its actual model selection and optional normalized usage. Host calculates and persists the optional cost of each request using its own pricing data. Aggregate session values are derived from those records.
+`CompactionSource` in [`host/internal/domain/session/compaction.go`](../../../../../../host/internal/domain/session/compaction.go) contains an extension-only source or an ordered collection of contributing model requests. Each `CompactionModelRequest` contains the actual model selection, optional normalized usage, and optional saved estimated cost. Host calculates each request's cost using its pricing data before aggregating session statistics.
 
-Separate this compaction representation from the existing single-source branch-summary alias. Preserve branch-summary behavior while coordinating compaction contract, SDK mapping, storage, restoration, UI, and Programmatic Control changes. Replace affected formats with their callers; add no compatibility readers or aliases.
+Compaction has its own source types in the Extension, UI, and Programmatic Control contracts and session storage. Branch summaries have a single-source representation and the accounting behavior defined in PHS-05.2. The Extension SDK exposes the generated compaction source messages. Host ignores costs supplied with a result. For model-generated summaries, each persisted marker contains the contributing request records with optional Host-calculated costs. The session repository restores those saved costs without consulting current pricing.
 
-Host must apply pricing tiers to each request before aggregation. Two individually small requests must not receive the tariff for one larger request merely because their token counts sum above that tariff's threshold. Keep valid zero usage distinct from missing usage. Missing usage makes the applicable token and cost totals unavailable; missing pricing makes cost unavailable. Available individual records remain inspectable.
+Host applies pricing tiers to each request before aggregation. For example, two requests with seven input tokens each remain below a ten-token pricing threshold. Host prices both requests at the base rate, although their combined input is fourteen tokens. When pricing is available and usage is present with a value of zero, the cost is also present and equals zero. When any request lacks usage, the session service returns unavailable aggregate token and cost totals. When pricing is missing, the session service returns unavailable aggregate cost. Clients can inspect the available accounting of each contributing request.
 
 Each new compaction records only its contributing requests. The preceding summary's generation remains attributed to its original persisted entry. The standard generator contributes one request; custom generators can contribute several. This preserves the per-request accounting decision without adding multi-request generation to the standard plugin.
 
-This requires changing the current compaction paths around `session.CompactionSource`, `Service.compactionEstimatedCost`, session codecs, statistics, and public projections. `Service.estimatedUsageCost` provides the existing per-request tier calculation. Complete billing of failed or canceled generations remains outside [FRQ-12's scope](phs-06.2_prd.md#functional-requirements).
+`Service.priceCompactionSource` in `host/internal/usecase/host/sessions/compaction.go` calls `Service.estimatedUsageCost` for each request. The session codecs persist the ordered request records and their optional costs. The session service sums each persisted entry's own records once, including entries whose summaries have been superseded. The standard TUI retains its summary-only marker display and uses the session-statistics projection for aggregate accounting. Complete billing of failed or canceled generations remains outside [FRQ-12's scope](phs-06.2_prd.md#functional-requirements).
+
+`TestCompactionAccountingPersistsRequestsAcrossClientsAndRestart` in `host/internal/app/compaction_accounting_integration_test.go` exercises a reference extension that makes two configured-model requests. It checks per-request tiers, zero and missing usage, missing pricing, repeated compaction, saved costs after restart with pricing removed, the previous summary passed through the Extension contract, and Programmatic Control and UI SDK projections. The bundled policy and generator remain outside A1.
 
 ### D7: Cancellation, failures, and overflow
 

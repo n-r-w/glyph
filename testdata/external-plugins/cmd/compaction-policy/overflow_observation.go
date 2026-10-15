@@ -30,9 +30,9 @@ func (o *referenceRequestOperation) completeOverflowReplacement(
 	action.SetResult(extensionpb.CompactionResult_builder{
 		Summary:          new(overflowObservationSummary),
 		FirstKeptEntryId: new(suffix[0].GetEntry().GetId()),
-		Source: extensionpb.BranchSummarySource_builder{
-			ExtensionId: new(binding.Identity().GetExtensionId()),
-			Model:       nil,
+		Source: extensionpb.CompactionSource_builder{
+			ExtensionId:   new(binding.Identity().GetExtensionId()),
+			ModelRequests: nil,
 		}.Build(),
 		Details: []byte{},
 	}.Build())

@@ -12,11 +12,11 @@ import (
 func requestGeneratorModel(
 	ctx context.Context,
 	binding *extensionsdk.ExtensionContext,
-) (*extensionpb.BranchSummaryModelSource, error) {
+	reasoningChoice string,
+) (*extensionpb.CompactionModelRequest, error) {
 	const (
 		providerID            = "openai-codex"
 		modelID               = "gpt-test"
-		reasoningChoice       = "high"
 		firstUserText         = "first user"
 		afterImageText        = "after image"
 		assistantText         = "assistant reply"
@@ -82,7 +82,11 @@ func requestGeneratorModel(
 			TotalTokens:      new(reported.GetTotalTokens()),
 		}.Build()
 	}
-	return extensionpb.BranchSummaryModelSource_builder{Selection: selection, Usage: usage}.Build(), nil
+	return extensionpb.CompactionModelRequest_builder{
+		Selection:     selection,
+		Usage:         usage,
+		EstimatedCost: nil,
+	}.Build(), nil
 }
 
 // writeGeneratorProgress records the configured operation's public retry outcome.

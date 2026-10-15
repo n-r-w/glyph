@@ -274,7 +274,7 @@ func mapCompactionEntries(entries []extensioncontext.InputEntry) ([]*extensionpb
 func mapCompactionResult(result extensioncontext.Result) *extensionpb.CompactionResult {
 	builder := extensionpb.CompactionResult_builder{
 		Summary: new(result.Summary), FirstKeptEntryId: new(result.FirstKeptEntryID),
-		Source: mapSummarySource(result.Source), Details: nil,
+		Source: extensioncontroller.MapCompactionSource(result.Source), Details: nil,
 	}
 	if details, present := result.Details.Get(); present {
 		builder.Details = append([]byte(nil), details...)

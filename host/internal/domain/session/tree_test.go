@@ -414,9 +414,9 @@ func treeCompactionEntry(id, parentID, firstKeptID string, createdAt time.Time) 
 	entry.Compaction = mo.Some(CompactionEntry{
 		Summary: "summary", FirstKeptEntryID: firstKeptID,
 		Source: CompactionSource{
-			ExtensionID: mo.Some("extension"), Model: mo.None[BranchSummaryModelSource](),
+			ExtensionID: mo.Some("extension"), Requests: nil,
 		},
-		EstimatedCost: mo.None[EstimatedCost](), Details: mo.None[[]byte](),
+		Details: mo.None[[]byte](),
 	})
 	return entry
 }

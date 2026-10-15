@@ -97,7 +97,7 @@ func TestCompactionCompletionMapsPostCommitFailure(t *testing.T) {
 	t.Parallel()
 	// Arrange one completed compaction with a durable post-commit failure.
 	completed := new(uiv1.HostCompleted)
-	source := new(uiv1.BranchSummarySource)
+	source := new(uiv1.CompactionSource)
 	source.SetExtensionId("extension")
 	completed.SetCompaction(uiv1.CompactionResult_builder{
 		Committed: uiv1.SessionEntry_builder{
@@ -105,7 +105,7 @@ func TestCompactionCompletionMapsPostCommitFailure(t *testing.T) {
 			User: nil, Model: nil, ToolResult: nil, BranchSummary: nil, ExtensionMessage: nil,
 			Compaction: uiv1.Compaction_builder{
 				Summary: new("summary"), FirstKeptEntryId: new("kept"), Source: source,
-				EstimatedCost: nil, Details: nil,
+				Details: nil,
 			}.Build(),
 		}.Build(),
 		Canceled: new(false), Error: new("publication failed after commit"), FailureCode: new("INTERNAL"),

@@ -134,10 +134,10 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 				FirstKeptEntryID: "leaf",
 				Source: session.CompactionSource{
 					ExtensionID: mo.Some(owner.ExtensionID),
-					Model:       mo.None[session.BranchSummaryModelSource](),
+					Requests:    nil,
 				},
-				EstimatedCost: mo.None[session.EstimatedCost](),
-				Details:       mo.None[[]byte](),
+
+				Details: mo.None[[]byte](),
 			}
 			receipt := newManualTestReceipt(candidate)
 			service := New(runtime, sessions)

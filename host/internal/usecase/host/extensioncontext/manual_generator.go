@@ -46,6 +46,6 @@ func (s *Service) InvokePolicyGenerator(
 	}
 	return session.CompactionEntry{
 		Summary: result.Summary, FirstKeptEntryID: result.FirstKeptEntryID,
-		Source: result.Source, Details: result.Details, EstimatedCost: mo.None[session.EstimatedCost](),
+		Source: result.Source, Details: result.Details,
 	}, nil
 }

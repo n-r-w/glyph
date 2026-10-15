@@ -176,8 +176,6 @@ type Compaction struct {
 	FirstKeptEntryID string
 	// Source identifies the actual producer and its model usage.
 	Source session.CompactionSource
-	// EstimatedCost contains persisted cost when available.
-	EstimatedCost mo.Option[session.EstimatedCost]
 	// Details contains optional opaque extension-owned result data.
 	Details mo.Option[[]byte]
 }

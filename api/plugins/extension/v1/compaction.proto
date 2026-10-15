@@ -83,8 +83,8 @@ message CompactionResult {
   string summary = 1;
   // The first original entry retained after the summary.
   string first_kept_entry_id = 2;
-  // The actual producer and optional model usage.
-  BranchSummarySource source = 3;
+  // The extension producer or ordered contributing model requests.
+  CompactionSource source = 3;
   // Optional opaque extension-owned data.
   bytes details = 4;
 }

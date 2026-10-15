@@ -217,14 +217,15 @@ func ProjectSessionEntry(entry session.Entry, position int) (SessionEntry, bool,
 		}, true, nil
 	}
 	if compaction, present := entry.Compaction.Get(); present {
+		compaction = compaction.Clone()
 		return SessionEntry{
 			ID: entry.ID, CreatedAt: entry.CreatedAt, Kind: SessionEntryCompaction,
 			User: mo.None[model.Message](), Model: mo.None[ModelResponse](),
 			ToolResult: mo.None[agent.ToolResult](), BranchSummary: mo.None[BranchSummary](),
 			Compaction: mo.Some(Compaction{
 				Summary: compaction.Summary, FirstKeptEntryID: compaction.FirstKeptEntryID,
-				Source: compaction.Source, EstimatedCost: compaction.EstimatedCost,
-				Details: compaction.Clone().Details,
+				Source:  compaction.Source,
+				Details: compaction.Details,
 			}), ExtensionMessage: mo.None[ExtensionMessage](),
 		}, true, nil
 	}

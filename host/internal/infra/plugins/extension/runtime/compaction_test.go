@@ -99,7 +99,7 @@ func publicCompactionRequest(entry *extensionpb.SessionTreeEntry) *extensionpb.C
 func TestCompactionResultActionRejectsInvalidDispositions(t *testing.T) {
 	t.Parallel()
 	// Arrange invalid clear, unspecified, and unknown dispositions with a replacement payload.
-	source := new(extensionpb.BranchSummarySource)
+	source := new(extensionpb.CompactionSource)
 	source.SetExtensionId("extension")
 	result := extensionpb.CompactionResult_builder{
 		Summary: new("summary"), FirstKeptEntryId: new("kept"), Source: source, Details: nil,

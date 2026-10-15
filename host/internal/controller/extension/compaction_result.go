@@ -95,6 +95,5 @@ func decodePolicyResult(input *extensionpb.CompactionResult) (session.Compaction
 		FirstKeptEntryID: input.GetFirstKeptEntryId(),
 		Source:           source,
 		Details:          mo.TupleToOption(append([]byte{}, input.GetDetails()...), input.HasDetails()),
-		EstimatedCost:    mo.None[session.EstimatedCost](),
 	}, nil
 }

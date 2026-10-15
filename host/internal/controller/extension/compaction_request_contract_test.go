@@ -31,17 +31,30 @@ func TestCompactionRequestValues(t *testing.T) {
 
 // TestPreviousMetadata checks that request replacement retains preceding marker details and accounting.
 func (s *compactionRequestValuesSuite) TestPreviousMetadata() {
+	const providerID = "summary-provider"
+	const modelID = "summary-model"
+
 	t := s.T()
 	// Arrange an original request with extension-owned opaque metadata and persisted cost.
 	previous := session.CompactionEntry{
 		Summary:          "preceding summary",
 		FirstKeptEntryID: "retained",
 		Source: session.CompactionSource{
-			ExtensionID: mo.Some("producer"),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			ExtensionID: mo.None[string](),
+			Requests: []session.CompactionModelRequest{{
+				Selection: model.Selection{
+					Provider: providerID, Model: modelID, ReasoningChoice: model.ReasoningChoiceOff,
+				},
+				Usage: mo.Some(session.TokenUsage{
+					InputTokens: 1, OutputTokens: 0, CacheReadTokens: 0,
+					CacheWriteTokens: 0, ReasoningTokens: 0, TotalTokens: 1,
+				}),
+				EstimatedCost: mo.Some(session.EstimatedCost{
+					Input: 0.25, Output: 0, CacheRead: 0, CacheWrite: 0, Total: 0.25,
+				}),
+			}},
 		},
-		EstimatedCost: mo.Some(session.EstimatedCost{Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10}),
-		Details:       mo.Some([]byte("opaque preceding data")),
+		Details: mo.Some([]byte("opaque preceding data")),
 	}
 	request := CompactionRequestValue{
 		Trigger:                CompactionRequestManual,
@@ -62,6 +75,13 @@ func (s *compactionRequestValuesSuite) TestPreviousMetadata() {
 	wire, err := request.encodePolicyRequest()
 	require.NoError(t, err)
 	decoded, err := decodePolicyRequest(wire)
+	incoming, sourceErr := mapPolicyCandidateSource(wire.GetPrevious().GetSource())
+	// Assert incoming results omit supplied costs while preceding markers retain saved accounting.
+	require.NoError(t, sourceErr)
+	require.Len(t, incoming.Requests, 1)
+	require.Equal(t, previous.Source.Requests[0].Selection, incoming.Requests[0].Selection)
+	require.Equal(t, previous.Source.Requests[0].Usage, incoming.Requests[0].Usage)
+	require.True(t, incoming.Requests[0].EstimatedCost.IsNone())
 	// Assert complete preceding state and detached mutable details.
 	require.NoError(t, err)
 	require.Equal(t, previous, decoded.Previous.MustGet())
@@ -79,10 +99,10 @@ func (s *compactionRequestValuesSuite) TestEntryMarkerMetadata() {
 		FirstKeptEntryID: "retained",
 		Source: session.CompactionSource{
 			ExtensionID: mo.Some("producer"),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			Requests:    nil,
 		},
-		EstimatedCost: mo.Some(session.EstimatedCost{Input: 1, Output: 2, CacheRead: 3, CacheWrite: 4, Total: 10}),
-		Details:       mo.Some([]byte("opaque preceding data")),
+
+		Details: mo.Some([]byte("opaque preceding data")),
 	}
 	entry := session.Entry{
 		ID:               "marker",

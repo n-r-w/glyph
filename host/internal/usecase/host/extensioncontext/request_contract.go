@@ -188,8 +188,9 @@ type Result struct {
 	Details mo.Option[[]byte]
 }
 
-// clone detaches optional extension details.
+// clone returns independently owned result metadata.
 func (result Result) clone() Result {
+	result.Source = result.Source.Clone()
 	result.Details = result.Details.MapValue(cloneResultDetails)
 	return result
 }

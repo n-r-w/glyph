@@ -123,12 +123,38 @@ message SessionTreeCompaction {
   string summary = 1;
   // The first original entry retained after the summary.
   string first_kept_entry_id = 2;
-  // The actual producer and its optional model usage.
-  BranchSummarySource source = 3;
-  // Persisted estimated cost when available for a model source.
-  EstimatedCost estimated_cost = 4;
+  // The extension producer or ordered contributing model requests.
+  CompactionSource source = 3;
   // Opaque extension-owned result details when present.
-  bytes details = 5;
+  bytes details = 4;
+}
+
+// CompactionSource contains attribution to the extension or model requests that produced a summary.
+message CompactionSource {
+  // Exactly one producer alternative is required.
+  oneof source {
+    // The extension that produced the result without model requests.
+    string extension_id = 1;
+    // The nonempty ordered collection of contributing requests.
+    CompactionModelRequests model_requests = 2;
+  }
+}
+
+// CompactionModelRequests contains requests in contribution order.
+message CompactionModelRequests {
+  // Each request contributes only to this summary entry.
+  repeated CompactionModelRequest requests = 1;
+}
+
+// CompactionModelRequest contains accounting for one contributing model request.
+message CompactionModelRequest {
+  // The actual provider, model, and reasoning choice.
+  ModelSelection selection = 1;
+  // When reported, normalized usage is present even when zero.
+  TokenUsage usage = 2;
+  // For persisted entries, Host calculates the cost.
+  // For supplied results, Host ignores this field.
+  EstimatedCost estimated_cost = 3;
 }
 
 // SessionTreeExtensionEntry identifies one model-hidden extension entry without exposing its payload.

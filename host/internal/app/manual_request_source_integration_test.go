@@ -90,7 +90,7 @@ func (s *manualRequestHandlersSuite) TestReplacementProducerIdentity() {
 				require.NotNil(t, marker)
 				require.True(t, marker.HasDetails())
 				if source == "model" {
-					model := marker.GetSource().GetModel()
+					model := marker.GetSource().GetModelRequests().GetRequests()[0]
 					require.NotNil(t, model)
 					require.Equal(t, "request-result-provider", model.GetProviderId())
 					require.Equal(t, "request-result-model", model.GetModelId())

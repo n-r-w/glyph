@@ -191,8 +191,8 @@ func decodeRequestModelContents(values []*extensionpb.SessionTreeModelContent) (
 	return contents, nil
 }
 
-// DecodeCompactionSource decodes producer metadata with its supplied field presence.
-func DecodeCompactionSource(wire *extensionpb.BranchSummarySource) session.BranchSummarySource {
+// DecodeBranchSummarySource decodes producer metadata.
+func DecodeBranchSummarySource(wire *extensionpb.BranchSummarySource) session.BranchSummarySource {
 	source := session.BranchSummarySource{
 		ExtensionID: mo.None[string](),
 		Model:       mo.None[session.BranchSummaryModelSource](),
@@ -276,4 +276,31 @@ func decodeRequestToolResult(result *extensionpb.SessionTreeToolResult) (agent.T
 		Contents: contents,
 		IsError:  result.GetIsError(),
 	}, nil
+}
+
+// DecodeCompactionSource decodes producer selections and reported usage.
+func DecodeCompactionSource(wire *extensionpb.CompactionSource) session.CompactionSource {
+	source := session.CompactionSource{ExtensionID: mo.None[string](), Requests: nil}
+	if wire == nil {
+		return source
+	}
+	if wire.HasExtensionId() {
+		source.ExtensionID = mo.Some(wire.GetExtensionId())
+	} else if records := wire.GetModelRequests(); records != nil {
+		source.Requests = make([]session.CompactionModelRequest, len(records.GetRequests()))
+		for index, record := range records.GetRequests() {
+			selection := record.GetSelection()
+			request := session.CompactionModelRequest{
+				Selection: model.Selection{
+					Provider: model.ProviderID(selection.GetProviderId()), Model: model.ID(selection.GetModelId()),
+					ReasoningChoice: model.ReasoningChoice(selection.GetReasoningChoice()),
+				}, Usage: mo.None[session.TokenUsage](), EstimatedCost: mo.None[session.EstimatedCost](),
+			}
+			if usage := record.GetUsage(); usage != nil {
+				request.Usage = mo.Some(decodeCompactionUsage(usage))
+			}
+			source.Requests[index] = request
+		}
+	}
+	return source
 }

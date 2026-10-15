@@ -22,9 +22,9 @@ func TestMapCompactionEntryCoversRestoredAndTreeContracts(t *testing.T) {
 	compaction := controllerui.Compaction{
 		Summary: "summary", FirstKeptEntryID: "kept",
 		Source: session.CompactionSource{
-			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+			ExtensionID: mo.Some("extension"), Requests: nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.Some([]byte("details")),
+		Details: mo.Some([]byte("details")),
 	}
 
 	// Act by mapping restored transcript and tree payloads.

@@ -80,8 +80,11 @@ func (o *policyOperation) runReplacement(
 			return o.attachAcquiredState(newPolicyFailure(modelErr)), nil
 		}
 	}
-	source := new(extensionpb.BranchSummarySource)
-	source.SetExtensionId(contextBinding.Identity().GetExtensionId())
+	source, err := requestReplacementSource(ctx, contextBinding, input.GetUserInstructions())
+	if err != nil {
+		return o.attachAcquiredState(newPolicyFailure(err)), nil
+	}
+
 	if input.GetUserInstructions() == staleGuidance {
 		if appendErr := appendPolicyBranchChange(ctx, contextBinding); appendErr != nil {
 			return o.attachAcquiredState(newPolicyFailure(appendErr)), nil

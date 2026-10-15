@@ -95,9 +95,9 @@ func TestManualCompactionPreservesCommittedFailureCategory(t *testing.T) {
 			committed := session.Entry{ID: "compaction", Compaction: mo.Some(session.CompactionEntry{
 				Summary: "summary", FirstKeptEntryID: "kept",
 				Source: session.CompactionSource{
-					ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+					ExtensionID: mo.Some("extension"), Requests: nil,
 				},
-				EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+				Details: mo.None[[]byte](),
 			})}
 			compactor.EXPECT().CompactProgrammatic(gomock.Any(), mo.None[string]()).Return(
 				ManualCompactionResult{Committed: mo.Some(committed), Canceled: false}, testCase.failure,
@@ -209,9 +209,9 @@ func TestManualCompactionReturnsCommittedState(t *testing.T) {
 	committed := session.Entry{ID: "compaction", Compaction: mo.Some(session.CompactionEntry{
 		Summary: "summary", FirstKeptEntryID: "kept",
 		Source: session.CompactionSource{
-			ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+			ExtensionID: mo.Some("extension"), Requests: nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.None[[]byte](),
+		Details: mo.None[[]byte](),
 	})}
 	compactor.EXPECT().CompactProgrammatic(gomock.Any(), mo.Some("preserve decisions")).Return(
 		ManualCompactionResult{Committed: mo.Some(committed), Canceled: false}, nil,

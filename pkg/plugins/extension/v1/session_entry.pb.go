@@ -1627,9 +1627,8 @@ type SessionTreeCompaction struct {
 	state                       protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Summary          *string                `protobuf:"bytes,1,opt,name=summary"`
 	xxx_hidden_FirstKeptEntryId *string                `protobuf:"bytes,2,opt,name=first_kept_entry_id,json=firstKeptEntryId"`
-	xxx_hidden_Source           *BranchSummarySource   `protobuf:"bytes,3,opt,name=source"`
-	xxx_hidden_EstimatedCost    *EstimatedCost         `protobuf:"bytes,4,opt,name=estimated_cost,json=estimatedCost"`
-	xxx_hidden_Details          []byte                 `protobuf:"bytes,5,opt,name=details"`
+	xxx_hidden_Source           *CompactionSource      `protobuf:"bytes,3,opt,name=source"`
+	xxx_hidden_Details          []byte                 `protobuf:"bytes,4,opt,name=details"`
 	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
 	XXX_presence                [1]uint32
 	unknownFields               protoimpl.UnknownFields
@@ -1681,16 +1680,9 @@ func (x *SessionTreeCompaction) GetFirstKeptEntryId() string {
 	return ""
 }
 
-func (x *SessionTreeCompaction) GetSource() *BranchSummarySource {
+func (x *SessionTreeCompaction) GetSource() *CompactionSource {
 	if x != nil {
 		return x.xxx_hidden_Source
-	}
-	return nil
-}
-
-func (x *SessionTreeCompaction) GetEstimatedCost() *EstimatedCost {
-	if x != nil {
-		return x.xxx_hidden_EstimatedCost
 	}
 	return nil
 }
@@ -1704,20 +1696,16 @@ func (x *SessionTreeCompaction) GetDetails() []byte {
 
 func (x *SessionTreeCompaction) SetSummary(v string) {
 	x.xxx_hidden_Summary = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
 }
 
 func (x *SessionTreeCompaction) SetFirstKeptEntryId(v string) {
 	x.xxx_hidden_FirstKeptEntryId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
-func (x *SessionTreeCompaction) SetSource(v *BranchSummarySource) {
+func (x *SessionTreeCompaction) SetSource(v *CompactionSource) {
 	x.xxx_hidden_Source = v
-}
-
-func (x *SessionTreeCompaction) SetEstimatedCost(v *EstimatedCost) {
-	x.xxx_hidden_EstimatedCost = v
 }
 
 func (x *SessionTreeCompaction) SetDetails(v []byte) {
@@ -1725,7 +1713,7 @@ func (x *SessionTreeCompaction) SetDetails(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_Details = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
 }
 
 func (x *SessionTreeCompaction) HasSummary() bool {
@@ -1749,18 +1737,11 @@ func (x *SessionTreeCompaction) HasSource() bool {
 	return x.xxx_hidden_Source != nil
 }
 
-func (x *SessionTreeCompaction) HasEstimatedCost() bool {
-	if x == nil {
-		return false
-	}
-	return x.xxx_hidden_EstimatedCost != nil
-}
-
 func (x *SessionTreeCompaction) HasDetails() bool {
 	if x == nil {
 		return false
 	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
 func (x *SessionTreeCompaction) ClearSummary() {
@@ -1777,12 +1758,8 @@ func (x *SessionTreeCompaction) ClearSource() {
 	x.xxx_hidden_Source = nil
 }
 
-func (x *SessionTreeCompaction) ClearEstimatedCost() {
-	x.xxx_hidden_EstimatedCost = nil
-}
-
 func (x *SessionTreeCompaction) ClearDetails() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 3)
 	x.xxx_hidden_Details = nil
 }
 
@@ -1793,10 +1770,8 @@ type SessionTreeCompaction_builder struct {
 	Summary *string
 	// The first original entry retained after the summary.
 	FirstKeptEntryId *string
-	// The actual producer and its optional model usage.
-	Source *BranchSummarySource
-	// Persisted estimated cost when available for a model source.
-	EstimatedCost *EstimatedCost
+	// The extension producer or ordered contributing model requests.
+	Source *CompactionSource
 	// Opaque extension-owned result details when present.
 	Details []byte
 }
@@ -1806,19 +1781,376 @@ func (b0 SessionTreeCompaction_builder) Build() *SessionTreeCompaction {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Summary != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
 		x.xxx_hidden_Summary = b.Summary
 	}
 	if b.FirstKeptEntryId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
 		x.xxx_hidden_FirstKeptEntryId = b.FirstKeptEntryId
 	}
 	x.xxx_hidden_Source = b.Source
-	x.xxx_hidden_EstimatedCost = b.EstimatedCost
 	if b.Details != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
 		x.xxx_hidden_Details = b.Details
 	}
+	return m0
+}
+
+// CompactionSource contains attribution to the extension or model requests that produced a summary.
+type CompactionSource struct {
+	state             protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Source isCompactionSource_Source `protobuf_oneof:"source"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *CompactionSource) Reset() {
+	*x = CompactionSource{}
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionSource) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionSource) ProtoMessage() {}
+
+func (x *CompactionSource) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionSource) GetExtensionId() string {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Source.(*compactionSource_ExtensionId); ok {
+			return x.ExtensionId
+		}
+	}
+	return ""
+}
+
+func (x *CompactionSource) GetModelRequests() *CompactionModelRequests {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Source.(*compactionSource_ModelRequests); ok {
+			return x.ModelRequests
+		}
+	}
+	return nil
+}
+
+func (x *CompactionSource) SetExtensionId(v string) {
+	x.xxx_hidden_Source = &compactionSource_ExtensionId{v}
+}
+
+func (x *CompactionSource) SetModelRequests(v *CompactionModelRequests) {
+	if v == nil {
+		x.xxx_hidden_Source = nil
+		return
+	}
+	x.xxx_hidden_Source = &compactionSource_ModelRequests{v}
+}
+
+func (x *CompactionSource) HasSource() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Source != nil
+}
+
+func (x *CompactionSource) HasExtensionId() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Source.(*compactionSource_ExtensionId)
+	return ok
+}
+
+func (x *CompactionSource) HasModelRequests() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Source.(*compactionSource_ModelRequests)
+	return ok
+}
+
+func (x *CompactionSource) ClearSource() {
+	x.xxx_hidden_Source = nil
+}
+
+func (x *CompactionSource) ClearExtensionId() {
+	if _, ok := x.xxx_hidden_Source.(*compactionSource_ExtensionId); ok {
+		x.xxx_hidden_Source = nil
+	}
+}
+
+func (x *CompactionSource) ClearModelRequests() {
+	if _, ok := x.xxx_hidden_Source.(*compactionSource_ModelRequests); ok {
+		x.xxx_hidden_Source = nil
+	}
+}
+
+const CompactionSource_Source_not_set_case case_CompactionSource_Source = 0
+const CompactionSource_ExtensionId_case case_CompactionSource_Source = 1
+const CompactionSource_ModelRequests_case case_CompactionSource_Source = 2
+
+func (x *CompactionSource) WhichSource() case_CompactionSource_Source {
+	if x == nil {
+		return CompactionSource_Source_not_set_case
+	}
+	switch x.xxx_hidden_Source.(type) {
+	case *compactionSource_ExtensionId:
+		return CompactionSource_ExtensionId_case
+	case *compactionSource_ModelRequests:
+		return CompactionSource_ModelRequests_case
+	default:
+		return CompactionSource_Source_not_set_case
+	}
+}
+
+type CompactionSource_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Exactly one producer alternative is required.
+
+	// Fields of oneof xxx_hidden_Source:
+	// The extension that produced the result without model requests.
+	ExtensionId *string
+	// The nonempty ordered collection of contributing requests.
+	ModelRequests *CompactionModelRequests
+	// -- end of xxx_hidden_Source
+}
+
+func (b0 CompactionSource_builder) Build() *CompactionSource {
+	m0 := &CompactionSource{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.ExtensionId != nil {
+		x.xxx_hidden_Source = &compactionSource_ExtensionId{*b.ExtensionId}
+	}
+	if b.ModelRequests != nil {
+		x.xxx_hidden_Source = &compactionSource_ModelRequests{b.ModelRequests}
+	}
+	return m0
+}
+
+type case_CompactionSource_Source protoreflect.FieldNumber
+
+func (x case_CompactionSource_Source) String() string {
+	md := file_api_plugins_extension_v1_session_entry_proto_msgTypes[11].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isCompactionSource_Source interface {
+	isCompactionSource_Source()
+}
+
+type compactionSource_ExtensionId struct {
+	// The extension that produced the result without model requests.
+	ExtensionId string `protobuf:"bytes,1,opt,name=extension_id,json=extensionId,oneof"`
+}
+
+type compactionSource_ModelRequests struct {
+	// The nonempty ordered collection of contributing requests.
+	ModelRequests *CompactionModelRequests `protobuf:"bytes,2,opt,name=model_requests,json=modelRequests,oneof"`
+}
+
+func (*compactionSource_ExtensionId) isCompactionSource_Source() {}
+
+func (*compactionSource_ModelRequests) isCompactionSource_Source() {}
+
+// CompactionModelRequests contains requests in contribution order.
+type CompactionModelRequests struct {
+	state               protoimpl.MessageState     `protogen:"opaque.v1"`
+	xxx_hidden_Requests *[]*CompactionModelRequest `protobuf:"bytes,1,rep,name=requests"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *CompactionModelRequests) Reset() {
+	*x = CompactionModelRequests{}
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionModelRequests) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionModelRequests) ProtoMessage() {}
+
+func (x *CompactionModelRequests) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionModelRequests) GetRequests() []*CompactionModelRequest {
+	if x != nil {
+		if x.xxx_hidden_Requests != nil {
+			return *x.xxx_hidden_Requests
+		}
+	}
+	return nil
+}
+
+func (x *CompactionModelRequests) SetRequests(v []*CompactionModelRequest) {
+	x.xxx_hidden_Requests = &v
+}
+
+type CompactionModelRequests_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Each request contributes only to this summary entry.
+	Requests []*CompactionModelRequest
+}
+
+func (b0 CompactionModelRequests_builder) Build() *CompactionModelRequests {
+	m0 := &CompactionModelRequests{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Requests = &b.Requests
+	return m0
+}
+
+// CompactionModelRequest contains accounting for one contributing model request.
+type CompactionModelRequest struct {
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Selection     *ModelSelection        `protobuf:"bytes,1,opt,name=selection"`
+	xxx_hidden_Usage         *TokenUsage            `protobuf:"bytes,2,opt,name=usage"`
+	xxx_hidden_EstimatedCost *EstimatedCost         `protobuf:"bytes,3,opt,name=estimated_cost,json=estimatedCost"`
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
+}
+
+func (x *CompactionModelRequest) Reset() {
+	*x = CompactionModelRequest{}
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CompactionModelRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CompactionModelRequest) ProtoMessage() {}
+
+func (x *CompactionModelRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *CompactionModelRequest) GetSelection() *ModelSelection {
+	if x != nil {
+		return x.xxx_hidden_Selection
+	}
+	return nil
+}
+
+func (x *CompactionModelRequest) GetUsage() *TokenUsage {
+	if x != nil {
+		return x.xxx_hidden_Usage
+	}
+	return nil
+}
+
+func (x *CompactionModelRequest) GetEstimatedCost() *EstimatedCost {
+	if x != nil {
+		return x.xxx_hidden_EstimatedCost
+	}
+	return nil
+}
+
+func (x *CompactionModelRequest) SetSelection(v *ModelSelection) {
+	x.xxx_hidden_Selection = v
+}
+
+func (x *CompactionModelRequest) SetUsage(v *TokenUsage) {
+	x.xxx_hidden_Usage = v
+}
+
+func (x *CompactionModelRequest) SetEstimatedCost(v *EstimatedCost) {
+	x.xxx_hidden_EstimatedCost = v
+}
+
+func (x *CompactionModelRequest) HasSelection() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Selection != nil
+}
+
+func (x *CompactionModelRequest) HasUsage() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Usage != nil
+}
+
+func (x *CompactionModelRequest) HasEstimatedCost() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_EstimatedCost != nil
+}
+
+func (x *CompactionModelRequest) ClearSelection() {
+	x.xxx_hidden_Selection = nil
+}
+
+func (x *CompactionModelRequest) ClearUsage() {
+	x.xxx_hidden_Usage = nil
+}
+
+func (x *CompactionModelRequest) ClearEstimatedCost() {
+	x.xxx_hidden_EstimatedCost = nil
+}
+
+type CompactionModelRequest_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The actual provider, model, and reasoning choice.
+	Selection *ModelSelection
+	// When reported, normalized usage is present even when zero.
+	Usage *TokenUsage
+	// For persisted entries, Host calculates the cost.
+	// For supplied results, Host ignores this field.
+	EstimatedCost *EstimatedCost
+}
+
+func (b0 CompactionModelRequest_builder) Build() *CompactionModelRequest {
+	m0 := &CompactionModelRequest{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Selection = b.Selection
+	x.xxx_hidden_Usage = b.Usage
+	x.xxx_hidden_EstimatedCost = b.EstimatedCost
 	return m0
 }
 
@@ -1835,7 +2167,7 @@ type SessionTreeExtensionEntry struct {
 
 func (x *SessionTreeExtensionEntry) Reset() {
 	*x = SessionTreeExtensionEntry{}
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1847,7 +2179,7 @@ func (x *SessionTreeExtensionEntry) String() string {
 func (*SessionTreeExtensionEntry) ProtoMessage() {}
 
 func (x *SessionTreeExtensionEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[11]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1949,7 +2281,7 @@ type BranchSummaryResult struct {
 
 func (x *BranchSummaryResult) Reset() {
 	*x = BranchSummaryResult{}
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1961,7 +2293,7 @@ func (x *BranchSummaryResult) String() string {
 func (*BranchSummaryResult) ProtoMessage() {}
 
 func (x *BranchSummaryResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[12]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2052,7 +2384,7 @@ type BranchSummarySource struct {
 
 func (x *BranchSummarySource) Reset() {
 	*x = BranchSummarySource{}
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2064,7 +2396,7 @@ func (x *BranchSummarySource) String() string {
 func (*BranchSummarySource) ProtoMessage() {}
 
 func (x *BranchSummarySource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[13]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2191,7 +2523,7 @@ func (b0 BranchSummarySource_builder) Build() *BranchSummarySource {
 type case_BranchSummarySource_Source protoreflect.FieldNumber
 
 func (x case_BranchSummarySource_Source) String() string {
-	md := file_api_plugins_extension_v1_session_entry_proto_msgTypes[13].Descriptor()
+	md := file_api_plugins_extension_v1_session_entry_proto_msgTypes[16].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2227,7 +2559,7 @@ type BranchSummaryModelSource struct {
 
 func (x *BranchSummaryModelSource) Reset() {
 	*x = BranchSummaryModelSource{}
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2239,7 +2571,7 @@ func (x *BranchSummaryModelSource) String() string {
 func (*BranchSummaryModelSource) ProtoMessage() {}
 
 func (x *BranchSummaryModelSource) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[14]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2329,7 +2661,7 @@ type TokenUsage struct {
 
 func (x *TokenUsage) Reset() {
 	*x = TokenUsage{}
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2341,7 +2673,7 @@ func (x *TokenUsage) String() string {
 func (*TokenUsage) ProtoMessage() {}
 
 func (x *TokenUsage) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[15]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2561,7 +2893,7 @@ type CommittedBranchSummary struct {
 
 func (x *CommittedBranchSummary) Reset() {
 	*x = CommittedBranchSummary{}
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2573,7 +2905,7 @@ func (x *CommittedBranchSummary) String() string {
 func (*CommittedBranchSummary) ProtoMessage() {}
 
 func (x *CommittedBranchSummary) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[16]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2794,7 +3126,7 @@ type EstimatedCost struct {
 
 func (x *EstimatedCost) Reset() {
 	*x = EstimatedCost{}
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2806,7 +3138,7 @@ func (x *EstimatedCost) String() string {
 func (*EstimatedCost) ProtoMessage() {}
 
 func (x *EstimatedCost) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[17]
+	mi := &file_api_plugins_extension_v1_session_entry_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3031,13 +3363,22 @@ const file_api_plugins_extension_v1_session_entry_proto_rawDesc = "" +
 	"\bcontents\x18\x03 \x03(\v2-.glyph.plugins.extension.v1.ToolResultContentR\bcontents\x12\x19\n" +
 	"\bis_error\x18\x04 \x01(\bR\aisError\"4\n" +
 	"\x18SessionTreeBranchSummary\x12\x18\n" +
-	"\asummary\x18\x01 \x01(\tR\asummary\"\x95\x02\n" +
+	"\asummary\x18\x01 \x01(\tR\asummary\"\xc0\x01\n" +
 	"\x15SessionTreeCompaction\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary\x12-\n" +
-	"\x13first_kept_entry_id\x18\x02 \x01(\tR\x10firstKeptEntryId\x12G\n" +
-	"\x06source\x18\x03 \x01(\v2/.glyph.plugins.extension.v1.BranchSummarySourceR\x06source\x12P\n" +
-	"\x0eestimated_cost\x18\x04 \x01(\v2).glyph.plugins.extension.v1.EstimatedCostR\restimatedCost\x12\x18\n" +
-	"\adetails\x18\x05 \x01(\fR\adetails\"]\n" +
+	"\x13first_kept_entry_id\x18\x02 \x01(\tR\x10firstKeptEntryId\x12D\n" +
+	"\x06source\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.CompactionSourceR\x06source\x12\x18\n" +
+	"\adetails\x18\x04 \x01(\fR\adetails\"\x9f\x01\n" +
+	"\x10CompactionSource\x12#\n" +
+	"\fextension_id\x18\x01 \x01(\tH\x00R\vextensionId\x12\\\n" +
+	"\x0emodel_requests\x18\x02 \x01(\v23.glyph.plugins.extension.v1.CompactionModelRequestsH\x00R\rmodelRequestsB\b\n" +
+	"\x06source\"i\n" +
+	"\x17CompactionModelRequests\x12N\n" +
+	"\brequests\x18\x01 \x03(\v22.glyph.plugins.extension.v1.CompactionModelRequestR\brequests\"\xf2\x01\n" +
+	"\x16CompactionModelRequest\x12H\n" +
+	"\tselection\x18\x01 \x01(\v2*.glyph.plugins.extension.v1.ModelSelectionR\tselection\x12<\n" +
+	"\x05usage\x18\x02 \x01(\v2&.glyph.plugins.extension.v1.TokenUsageR\x05usage\x12P\n" +
+	"\x0eestimated_cost\x18\x03 \x01(\v2).glyph.plugins.extension.v1.EstimatedCostR\restimatedCost\"]\n" +
 	"\x19SessionTreeExtensionEntry\x12!\n" +
 	"\fextension_id\x18\x01 \x01(\tR\vextensionId\x12\x1d\n" +
 	"\n" +
@@ -3083,7 +3424,7 @@ const file_api_plugins_extension_v1_session_entry_proto_rawDesc = "" +
 	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_session_entry_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_plugins_extension_v1_session_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
+var file_api_plugins_extension_v1_session_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_api_plugins_extension_v1_session_entry_proto_goTypes = []any{
 	(SessionTreeModelContentKind)(0),    // 0: glyph.plugins.extension.v1.SessionTreeModelContentKind
 	(*SessionTreeEntry)(nil),            // 1: glyph.plugins.extension.v1.SessionTreeEntry
@@ -3097,45 +3438,52 @@ var file_api_plugins_extension_v1_session_entry_proto_goTypes = []any{
 	(*SessionTreeToolResult)(nil),       // 9: glyph.plugins.extension.v1.SessionTreeToolResult
 	(*SessionTreeBranchSummary)(nil),    // 10: glyph.plugins.extension.v1.SessionTreeBranchSummary
 	(*SessionTreeCompaction)(nil),       // 11: glyph.plugins.extension.v1.SessionTreeCompaction
-	(*SessionTreeExtensionEntry)(nil),   // 12: glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	(*BranchSummaryResult)(nil),         // 13: glyph.plugins.extension.v1.BranchSummaryResult
-	(*BranchSummarySource)(nil),         // 14: glyph.plugins.extension.v1.BranchSummarySource
-	(*BranchSummaryModelSource)(nil),    // 15: glyph.plugins.extension.v1.BranchSummaryModelSource
-	(*TokenUsage)(nil),                  // 16: glyph.plugins.extension.v1.TokenUsage
-	(*CommittedBranchSummary)(nil),      // 17: glyph.plugins.extension.v1.CommittedBranchSummary
-	(*EstimatedCost)(nil),               // 18: glyph.plugins.extension.v1.EstimatedCost
-	(ClientVisibility)(0),               // 19: glyph.plugins.extension.v1.ClientVisibility
-	(*ToolResultContent)(nil),           // 20: glyph.plugins.extension.v1.ToolResultContent
-	(*ModelSelection)(nil),              // 21: glyph.plugins.extension.v1.ModelSelection
+	(*CompactionSource)(nil),            // 12: glyph.plugins.extension.v1.CompactionSource
+	(*CompactionModelRequests)(nil),     // 13: glyph.plugins.extension.v1.CompactionModelRequests
+	(*CompactionModelRequest)(nil),      // 14: glyph.plugins.extension.v1.CompactionModelRequest
+	(*SessionTreeExtensionEntry)(nil),   // 15: glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	(*BranchSummaryResult)(nil),         // 16: glyph.plugins.extension.v1.BranchSummaryResult
+	(*BranchSummarySource)(nil),         // 17: glyph.plugins.extension.v1.BranchSummarySource
+	(*BranchSummaryModelSource)(nil),    // 18: glyph.plugins.extension.v1.BranchSummaryModelSource
+	(*TokenUsage)(nil),                  // 19: glyph.plugins.extension.v1.TokenUsage
+	(*CommittedBranchSummary)(nil),      // 20: glyph.plugins.extension.v1.CommittedBranchSummary
+	(*EstimatedCost)(nil),               // 21: glyph.plugins.extension.v1.EstimatedCost
+	(ClientVisibility)(0),               // 22: glyph.plugins.extension.v1.ClientVisibility
+	(*ToolResultContent)(nil),           // 23: glyph.plugins.extension.v1.ToolResultContent
+	(*ModelSelection)(nil),              // 24: glyph.plugins.extension.v1.ModelSelection
 }
 var file_api_plugins_extension_v1_session_entry_proto_depIdxs = []int32{
 	3,  // 0: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
 	6,  // 1: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
 	9,  // 2: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
 	10, // 3: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
-	12, // 4: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	15, // 4: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
 	2,  // 5: glyph.plugins.extension.v1.SessionTreeEntry.extension_message:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionMessage
 	11, // 6: glyph.plugins.extension.v1.SessionTreeEntry.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
-	19, // 7: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
+	22, // 7: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
 	4,  // 8: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
 	5,  // 9: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
 	7,  // 10: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
 	0,  // 11: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
 	8,  // 12: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
-	20, // 13: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	14, // 14: glyph.plugins.extension.v1.SessionTreeCompaction.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	18, // 15: glyph.plugins.extension.v1.SessionTreeCompaction.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	14, // 16: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	15, // 17: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
-	21, // 18: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	16, // 19: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	14, // 20: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	18, // 21: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	22, // [22:22] is the sub-list for method output_type
-	22, // [22:22] is the sub-list for method input_type
-	22, // [22:22] is the sub-list for extension type_name
-	22, // [22:22] is the sub-list for extension extendee
-	0,  // [0:22] is the sub-list for field type_name
+	23, // 13: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	12, // 14: glyph.plugins.extension.v1.SessionTreeCompaction.source:type_name -> glyph.plugins.extension.v1.CompactionSource
+	13, // 15: glyph.plugins.extension.v1.CompactionSource.model_requests:type_name -> glyph.plugins.extension.v1.CompactionModelRequests
+	14, // 16: glyph.plugins.extension.v1.CompactionModelRequests.requests:type_name -> glyph.plugins.extension.v1.CompactionModelRequest
+	24, // 17: glyph.plugins.extension.v1.CompactionModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	19, // 18: glyph.plugins.extension.v1.CompactionModelRequest.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
+	21, // 19: glyph.plugins.extension.v1.CompactionModelRequest.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	17, // 20: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	18, // 21: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
+	24, // 22: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	19, // 23: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
+	17, // 24: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	21, // 25: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	26, // [26:26] is the sub-list for method output_type
+	26, // [26:26] is the sub-list for method input_type
+	26, // [26:26] is the sub-list for extension type_name
+	26, // [26:26] is the sub-list for extension extendee
+	0,  // [0:26] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_entry_proto_init() }
@@ -3159,7 +3507,11 @@ func file_api_plugins_extension_v1_session_entry_proto_init() {
 		(*sessionTreeUserContent_Text)(nil),
 		(*sessionTreeUserContent_Image)(nil),
 	}
-	file_api_plugins_extension_v1_session_entry_proto_msgTypes[13].OneofWrappers = []any{
+	file_api_plugins_extension_v1_session_entry_proto_msgTypes[11].OneofWrappers = []any{
+		(*compactionSource_ExtensionId)(nil),
+		(*compactionSource_ModelRequests)(nil),
+	}
+	file_api_plugins_extension_v1_session_entry_proto_msgTypes[16].OneofWrappers = []any{
 		(*branchSummarySource_ExtensionId)(nil),
 		(*branchSummarySource_Model)(nil),
 	}
@@ -3169,7 +3521,7 @@ func file_api_plugins_extension_v1_session_entry_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_session_entry_proto_rawDesc), len(file_api_plugins_extension_v1_session_entry_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   18,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

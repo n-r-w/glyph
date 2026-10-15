@@ -53,7 +53,7 @@ func (s *policyGeneratorSuite) TestSelectedResult() {
 		FirstKeptEntryID: "leaf",
 		Source: session.CompactionSource{
 			ExtensionID: mo.Some("policy"),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			Requests:    nil,
 		},
 		Details: mo.Some([]byte{}),
 	}

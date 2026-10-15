@@ -220,10 +220,9 @@ func newPolicyResultCommand(
 		FirstKeptEntryID: "leaf",
 		Source: session.CompactionSource{
 			ExtensionID: mo.Some("previous-producer"),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			Requests:    nil,
 		},
-		Details:       mo.None[[]byte](),
-		EstimatedCost: mo.None[session.EstimatedCost](),
+		Details: mo.None[[]byte](),
 	}
 	result := original
 	result.Summary = "current result"

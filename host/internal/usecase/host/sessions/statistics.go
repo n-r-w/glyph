@@ -104,9 +104,21 @@ func statisticsFromEntries(entries []session.Entry) session.Statistics {
 			)
 		}
 		if compaction, present := entry.Compaction.Get(); present {
-			accumulateSummaryAccounting(
-				compaction.Source, compaction.EstimatedCost, &usage, &statistics, &aggregateCost, groupCosts,
-			)
+			for index := range compaction.Source.Requests {
+				request := &compaction.Source.Requests[index]
+				if tokens, reported := request.Usage.Get(); reported {
+					usage = usage.Add(tokens)
+				} else {
+					statistics.TokenUsage = mo.None[session.TokenUsage]()
+				}
+				accumulateCost(
+					mo.Some(request.Selection.Provider),
+					mo.Some(request.Selection.Model),
+					request.EstimatedCost,
+					&aggregateCost,
+					groupCosts,
+				)
+			}
 		}
 	}
 	if statistics.TokenUsage.IsSome() {

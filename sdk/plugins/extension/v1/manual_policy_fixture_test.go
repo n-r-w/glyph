@@ -67,7 +67,7 @@ func expectScopedPolicyHosts(
 			EntryId: new("receipt"),
 			Compaction: extensionpb.SessionTreeCompaction_builder{
 				Summary: new(candidate.GetSummary()), FirstKeptEntryId: new(candidate.GetFirstKeptEntryId()),
-				Source: candidate.GetSource(), EstimatedCost: nil, Details: nil,
+				Source: candidate.GetSource(), Details: nil,
 			}.Build(),
 		}.Build(),
 		Canceled:    new(false),

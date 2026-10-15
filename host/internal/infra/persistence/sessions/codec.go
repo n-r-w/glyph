@@ -130,15 +130,8 @@ func encodeCompactionEntry(entry session.Entry, compaction session.CompactionEnt
 	if compaction.Summary == "" || compaction.FirstKeptEntryID == "" {
 		return nil, errors.New("invalid compaction entry")
 	}
-	if err := compaction.ValidateAccounting(); err != nil {
+	if err := compaction.Source.Validate(); err != nil {
 		return nil, err
-	}
-	var estimatedCost *estimatedCostRecord
-	if cost, present := compaction.EstimatedCost.Get(); present {
-		estimatedCost = &estimatedCostRecord{
-			Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
-			CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
-		}
 	}
 	var details *[]byte
 	if value, present := compaction.Details.Get(); present {
@@ -146,10 +139,14 @@ func encodeCompactionEntry(entry session.Entry, compaction session.CompactionEnt
 		details = &owned
 	}
 	return encodeLine(compactionRecord{
-		Type: recordTypeCompaction, ID: entry.ID, ParentID: entry.ParentID,
-		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano), Summary: compaction.Summary,
-		FirstKeptEntryID: compaction.FirstKeptEntryID, Source: encodeBranchSummarySource(compaction.Source),
-		EstimatedCost: estimatedCost, Details: details,
+		Type:             recordTypeCompaction,
+		ID:               entry.ID,
+		ParentID:         entry.ParentID,
+		CreatedAt:        entry.CreatedAt.Format(time.RFC3339Nano),
+		Summary:          compaction.Summary,
+		FirstKeptEntryID: compaction.FirstKeptEntryID,
+		Source:           encodeCompactionSource(compaction.Source),
+		Details:          details,
 	})
 }
 

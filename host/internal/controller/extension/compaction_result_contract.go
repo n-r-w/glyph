@@ -44,7 +44,7 @@ func (r CompactionResultResponse) encodePolicyResultAction() *extensionpb.Compac
 		candidate := extensionpb.CompactionResult_builder{
 			Summary:          new(result.Summary),
 			FirstKeptEntryId: new(result.FirstKeptEntryID),
-			Source:           mapCompactionSource(result.Source),
+			Source:           MapCompactionSource(result.Source),
 			Details:          nil,
 		}.Build()
 		if details, hasDetails := result.Details.Get(); hasDetails {

@@ -111,7 +111,7 @@ func (tree Tree) validateCompactionEntry(entry Entry, compaction CompactionEntry
 	if compaction.Summary == "" || compaction.FirstKeptEntryID == "" {
 		return errors.New("invalid compaction entry")
 	}
-	if err := compaction.ValidateAccounting(); err != nil {
+	if err := compaction.Source.Validate(); err != nil {
 		return err
 	}
 	parentID, parentPresent := entry.ParentID.Get()

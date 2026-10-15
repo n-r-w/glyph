@@ -314,24 +314,46 @@ func mapBranchSummarySource(source session.BranchSummarySource) (*uiv1.BranchSum
 
 // mapCompaction maps one persisted context-compaction marker and optional accounting.
 func mapCompaction(compaction controllerui.Compaction) (*uiv1.Compaction, error) {
-	domain := session.CompactionEntry{
-		Summary: compaction.Summary, FirstKeptEntryID: compaction.FirstKeptEntryID,
-		Source: compaction.Source, EstimatedCost: compaction.EstimatedCost, Details: compaction.Details,
-	}
-	if err := domain.ValidateAccounting(); err != nil {
+	if err := compaction.Source.Validate(); err != nil {
 		return nil, err
 	}
-	source, err := mapBranchSummarySource(compaction.Source)
-	if err != nil {
-		return nil, err
+	source := new(uiv1.CompactionSource)
+	if extensionID, present := compaction.Source.ExtensionID.Get(); present {
+		source.SetExtensionId(extensionID)
+	} else {
+		requests := make([]*uiv1.CompactionModelRequest, len(compaction.Source.Requests))
+		for index := range compaction.Source.Requests {
+			request := &compaction.Source.Requests[index]
+			choice, err := mapModelReasoningChoice(request.Selection.ReasoningChoice)
+			if err != nil {
+				return nil, err
+			}
+			builder := uiv1.CompactionModelRequest_builder{
+				ProviderId: new(string(request.Selection.Provider)), ModelId: new(string(request.Selection.Model)),
+				ReasoningChoice: new(choice), Usage: nil, EstimatedCost: nil,
+			}
+			if usage, reported := request.Usage.Get(); reported {
+				builder.Usage = uiv1.TokenUsage_builder{
+					InputTokens: new(usage.InputTokens), OutputTokens: new(usage.OutputTokens),
+					CacheReadTokens: new(usage.CacheReadTokens), CacheWriteTokens: new(usage.CacheWriteTokens),
+					ReasoningTokens: new(usage.ReasoningTokens), TotalTokens: new(usage.TotalTokens),
+				}.Build()
+			}
+			if cost, priced := request.EstimatedCost.Get(); priced {
+				builder.EstimatedCost = mapEstimatedCost(cost)
+			}
+			requests[index] = builder.Build()
+		}
+		source.SetModelRequests(uiv1.CompactionModelRequests_builder{Requests: requests}.Build())
 	}
 	wire := uiv1.Compaction_builder{
-		Summary: new(compaction.Summary), FirstKeptEntryId: new(compaction.FirstKeptEntryID), Source: source,
-		EstimatedCost: nil, Details: nil,
+		Summary: new(
+			compaction.Summary,
+		),
+		FirstKeptEntryId: new(compaction.FirstKeptEntryID),
+		Source:           source,
+		Details:          nil,
 	}.Build()
-	if cost, present := compaction.EstimatedCost.Get(); present {
-		wire.SetEstimatedCost(mapEstimatedCost(cost))
-	}
 	if details, present := compaction.Details.Get(); present {
 		wire.SetDetails(bytes.Clone(details))
 	}

@@ -208,13 +208,13 @@ func (s *manualRequestHandlersSuite) runScenario(guidance, summary, failure stri
 		}
 		actual = append(actual[:2], actual[2+nestedCount])
 		marker := terminal.GetCompleted().GetCompaction().GetCommitted().GetCompaction()
-		require.Equal(t, configuredRequestModelID, marker.GetSource().GetModel().GetModelId())
+		require.Equal(t, configuredRequestModelID, marker.GetSource().GetModelRequests().GetRequests()[0].GetModelId())
 		require.Equal(
 			t,
 			programmaticpb.ReasoningChoice_REASONING_CHOICE_HIGH,
-			marker.GetSource().GetModel().GetReasoningChoice(),
+			marker.GetSource().GetModelRequests().GetRequests()[0].GetReasoningChoice(),
 		)
-		usage := marker.GetSource().GetModel().GetUsage()
+		usage := marker.GetSource().GetModelRequests().GetRequests()[0].GetUsage()
 		require.NotNil(t, usage)
 		require.Equal(t, int64(4), usage.GetInputTokens())
 		require.Equal(t, int64(4), usage.GetOutputTokens())

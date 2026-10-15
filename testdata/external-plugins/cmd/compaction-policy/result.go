@@ -97,15 +97,22 @@ func (o *referenceResultOperation) Run(ctx context.Context) (*extensionpb.Handle
 	if o.handlerID == referenceResultFirst {
 		candidate := proto.CloneOf(o.invocation.GetCurrentResult())
 		candidate.SetSummary(referenceResultSummary)
-		source := new(extensionpb.BranchSummarySource)
+		source := new(extensionpb.CompactionSource)
 		source.SetExtensionId(binding.Identity().GetExtensionId())
 		candidate.SetSource(source)
 		if os.Getenv(referenceResultModeEnvironment) == referenceResultModel {
-			modelSource, modelErr := requestGeneratorModel(ctx, binding)
+			modelSource, modelErr := requestGeneratorModel(ctx, binding, referenceGeneratorReasoningChoice)
 			if modelErr != nil {
 				return nil, modelErr
 			}
-			candidate.SetSource(extensionpb.BranchSummarySource_builder{ExtensionId: nil, Model: modelSource}.Build())
+			candidate.SetSource(
+				extensionpb.CompactionSource_builder{
+					ExtensionId: nil,
+					ModelRequests: extensionpb.CompactionModelRequests_builder{
+						Requests: []*extensionpb.CompactionModelRequest{modelSource},
+					}.Build(),
+				}.Build(),
+			)
 		}
 		if os.Getenv(referenceResultModeEnvironment) == referenceResultHistorical {
 			candidate.SetSource(newReferenceHistoricalResultSource())

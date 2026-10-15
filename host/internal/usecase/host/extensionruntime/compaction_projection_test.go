@@ -26,9 +26,9 @@ func TestProjectTreeEntryPreservesPublicCompactionPayload(t *testing.T) {
 		Compaction: mo.Some(session.CompactionEntry{
 			Summary: "summary", FirstKeptEntryID: "kept",
 			Source: session.CompactionSource{
-				ExtensionID: mo.Some("extension"), Model: mo.None[session.BranchSummaryModelSource](),
+				ExtensionID: mo.Some("extension"), Requests: nil,
 			},
-			EstimatedCost: mo.None[session.EstimatedCost](), Details: mo.Some([]byte("details")),
+			Details: mo.Some([]byte("details")),
 		}),
 	}
 

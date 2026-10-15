@@ -135,10 +135,10 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 		FirstKeptEntryID: "kept",
 		Source: session.CompactionSource{
 			ExtensionID: mo.Some(owner.ExtensionID),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			Requests:    nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](),
-		Details:       mo.None[[]byte](),
+
+		Details: mo.None[[]byte](),
 	}
 	receipt := session.Entry{
 		ID: "receipt", ParentID: mo.Some("kept"), CreatedAt: time.Unix(1, 0),

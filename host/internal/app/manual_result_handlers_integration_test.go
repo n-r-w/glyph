@@ -155,7 +155,7 @@ func (s *manualResultHandlersSuite) runOrderedComposition(mode string, separate 
 		require.Equal(t, "reference-results", marker.GetSource().GetExtensionId())
 	}
 	if mode == "historical" {
-		modelSource := marker.GetSource().GetModel()
+		modelSource := marker.GetSource().GetModelRequests().GetRequests()[0]
 		require.Equal(t, "result-historical-provider", modelSource.GetProviderId())
 		require.Equal(t, "result-historical-model", modelSource.GetModelId())
 		require.Equal(t, programmaticpb.ReasoningChoice_REASONING_CHOICE_HIGH, modelSource.GetReasoningChoice())
@@ -172,7 +172,7 @@ func (s *manualResultHandlersSuite) runOrderedComposition(mode string, separate 
 	if mode == "model" {
 		require.Len(t, actual, 4)
 		assertConfiguredProviderRequest(t, actual[2], "", true)
-		modelSource := marker.GetSource().GetModel()
+		modelSource := marker.GetSource().GetModelRequests().GetRequests()[0]
 		require.Equal(t, configuredRequestModelID, modelSource.GetModelId())
 		require.Equal(t, programmaticpb.ReasoningChoice_REASONING_CHOICE_HIGH, modelSource.GetReasoningChoice())
 		usage := modelSource.GetUsage()

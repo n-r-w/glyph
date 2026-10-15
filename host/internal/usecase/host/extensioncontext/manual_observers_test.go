@@ -37,10 +37,10 @@ func (s *manualObserverFailureRetainsHandledPolicyCausesSuite) TestScenario() {
 		FirstKeptEntryID: "leaf",
 		Source: session.CompactionSource{
 			ExtensionID: mo.Some(owner.ExtensionID),
-			Model:       mo.None[session.BranchSummaryModelSource](),
+			Requests:    nil,
 		},
-		EstimatedCost: mo.None[session.EstimatedCost](),
-		Details:       mo.None[[]byte](),
+
+		Details: mo.None[[]byte](),
 	}
 	receipt := newManualTestReceipt(candidate)
 	childCause := errors.New("handled projection producer cause")

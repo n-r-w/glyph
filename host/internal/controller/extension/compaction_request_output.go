@@ -12,7 +12,7 @@ func encodePolicyRequestResult(result session.CompactionEntry) *extensionpb.Comp
 	wire := extensionpb.CompactionResult_builder{
 		Summary:          new(result.Summary),
 		FirstKeptEntryId: new(result.FirstKeptEntryID),
-		Source:           mapCompactionSource(result.Source),
+		Source:           MapCompactionSource(result.Source),
 		Details:          nil,
 	}.Build()
 	if details, present := result.Details.Get(); present {

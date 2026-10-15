@@ -13,25 +13,17 @@ func DecodeCompactionPrevious(wire *extensionpb.SessionTreeCompaction) mo.Option
 		return mo.None[session.CompactionEntry]()
 	}
 	source := DecodeCompactionSource(wire.GetSource())
-	cost := mo.None[session.EstimatedCost]()
-	if value := wire.GetEstimatedCost(); value != nil {
-		cost = mo.Some(
-			session.EstimatedCost{
-				Input:      value.GetInput(),
-				Output:     value.GetOutput(),
-				CacheRead:  value.GetCacheRead(),
-				CacheWrite: value.GetCacheWrite(),
-				Total:      value.GetTotal(),
-			},
-		)
+	for index, record := range wire.GetSource().GetModelRequests().GetRequests() {
+		if cost := record.GetEstimatedCost(); cost != nil {
+			source.Requests[index].EstimatedCost = mo.Some(session.EstimatedCost{
+				Input: cost.GetInput(), Output: cost.GetOutput(), CacheRead: cost.GetCacheRead(),
+				CacheWrite: cost.GetCacheWrite(), Total: cost.GetTotal(),
+			})
+		}
 	}
-	return mo.Some(
-		session.CompactionEntry{
-			Summary:          wire.GetSummary(),
-			FirstKeptEntryID: wire.GetFirstKeptEntryId(),
-			Source:           source,
-			EstimatedCost:    cost,
-			Details:          mo.TupleToOption(append([]byte(nil), wire.GetDetails()...), wire.HasDetails()),
-		},
-	)
+	return mo.Some(session.CompactionEntry{
+		Summary: wire.GetSummary(), FirstKeptEntryID: wire.GetFirstKeptEntryId(),
+		Source:  source,
+		Details: mo.TupleToOption(append([]byte(nil), wire.GetDetails()...), wire.HasDetails()),
+	})
 }

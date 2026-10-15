@@ -134,18 +134,12 @@ func mapSessionEntry(entry extensionruntime.TreeEntry) (*extensionpb.SessionTree
 		return builder.Build(), nil
 	}
 	if compaction, present := entry.Compaction.Get(); present {
-		if err := compaction.ValidateAccounting(); err != nil {
+		if err := compaction.Source.Validate(); err != nil {
 			return nil, fmt.Errorf("map compaction entry %q: %w", entry.ID, err)
 		}
 		mapped := extensionpb.SessionTreeCompaction_builder{
 			Summary: new(compaction.Summary), FirstKeptEntryId: new(compaction.FirstKeptEntryID),
-			Source: mapSummarySource(compaction.Source), EstimatedCost: nil, Details: nil,
-		}
-		if cost, costPresent := compaction.EstimatedCost.Get(); costPresent {
-			mapped.EstimatedCost = extensionpb.EstimatedCost_builder{
-				Input: new(cost.Input), Output: new(cost.Output), CacheRead: new(cost.CacheRead),
-				CacheWrite: new(cost.CacheWrite), Total: new(cost.Total),
-			}.Build()
+			Source: extensioncontroller.MapCompactionSource(compaction.Source), Details: nil,
 		}
 		if details, detailsPresent := compaction.Details.Get(); detailsPresent {
 			mapped.Details = bytes.Clone(details)
@@ -269,7 +263,7 @@ func mapOptionalSummaryResultFromProto(
 		return mo.None[extensionruntime.Summary]()
 	}
 	return mo.Some(extensionruntime.Summary{
-		Summary: result.GetSummary(), Source: extensioncontroller.DecodeCompactionSource(result.GetSource()),
+		Summary: result.GetSummary(), Source: extensioncontroller.DecodeBranchSummarySource(result.GetSource()),
 	})
 }
 

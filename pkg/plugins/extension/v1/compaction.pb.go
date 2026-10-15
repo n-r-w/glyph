@@ -1036,7 +1036,7 @@ type CompactionResult struct {
 	state                       protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_Summary          *string                `protobuf:"bytes,1,opt,name=summary"`
 	xxx_hidden_FirstKeptEntryId *string                `protobuf:"bytes,2,opt,name=first_kept_entry_id,json=firstKeptEntryId"`
-	xxx_hidden_Source           *BranchSummarySource   `protobuf:"bytes,3,opt,name=source"`
+	xxx_hidden_Source           *CompactionSource      `protobuf:"bytes,3,opt,name=source"`
 	xxx_hidden_Details          []byte                 `protobuf:"bytes,4,opt,name=details"`
 	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
 	XXX_presence                [1]uint32
@@ -1089,7 +1089,7 @@ func (x *CompactionResult) GetFirstKeptEntryId() string {
 	return ""
 }
 
-func (x *CompactionResult) GetSource() *BranchSummarySource {
+func (x *CompactionResult) GetSource() *CompactionSource {
 	if x != nil {
 		return x.xxx_hidden_Source
 	}
@@ -1113,7 +1113,7 @@ func (x *CompactionResult) SetFirstKeptEntryId(v string) {
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
 }
 
-func (x *CompactionResult) SetSource(v *BranchSummarySource) {
+func (x *CompactionResult) SetSource(v *CompactionSource) {
 	x.xxx_hidden_Source = v
 }
 
@@ -1179,8 +1179,8 @@ type CompactionResult_builder struct {
 	Summary *string
 	// The first original entry retained after the summary.
 	FirstKeptEntryId *string
-	// The actual producer and optional model usage.
-	Source *BranchSummarySource
+	// The extension producer or ordered contributing model requests.
+	Source *CompactionSource
 	// Optional opaque extension-owned data.
 	Details []byte
 }
@@ -4890,11 +4890,11 @@ const file_api_plugins_extension_v1_compaction_proto_rawDesc = "" +
 	" \x01(\bR\x16contextTokensEstimated\x12%\n" +
 	"\x0econtext_window\x18\v \x01(\x03R\rcontextWindow\x12'\n" +
 	"\x0fresponse_budget\x18\f \x01(\x03R\x0eresponseBudget\x12'\n" +
-	"\x0fretained_budget\x18\r \x01(\x03R\x0eretainedBudget\"\xbe\x01\n" +
+	"\x0fretained_budget\x18\r \x01(\x03R\x0eretainedBudget\"\xbb\x01\n" +
 	"\x10CompactionResult\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary\x12-\n" +
-	"\x13first_kept_entry_id\x18\x02 \x01(\tR\x10firstKeptEntryId\x12G\n" +
-	"\x06source\x18\x03 \x01(\v2/.glyph.plugins.extension.v1.BranchSummarySourceR\x06source\x12\x18\n" +
+	"\x13first_kept_entry_id\x18\x02 \x01(\tR\x10firstKeptEntryId\x12D\n" +
+	"\x06source\x18\x03 \x01(\v2,.glyph.plugins.extension.v1.CompactionSourceR\x06source\x12\x18\n" +
 	"\adetails\x18\x04 \x01(\fR\adetails\"\x86\x02\n" +
 	"\x1bCompactionRequestInvocation\x12I\n" +
 	"\boriginal\x18\x01 \x01(\v2-.glyph.plugins.extension.v1.CompactionRequestR\boriginal\x12G\n" +
@@ -5088,7 +5088,7 @@ var file_api_plugins_extension_v1_compaction_proto_goTypes = []any{
 	(*ConfiguredModelResult)(nil),            // 33: glyph.plugins.extension.v1.ConfiguredModelResult
 	(*SessionTreeEntry)(nil),                 // 34: glyph.plugins.extension.v1.SessionTreeEntry
 	(*SessionTreeCompaction)(nil),            // 35: glyph.plugins.extension.v1.SessionTreeCompaction
-	(*BranchSummarySource)(nil),              // 36: glyph.plugins.extension.v1.BranchSummarySource
+	(*CompactionSource)(nil),                 // 36: glyph.plugins.extension.v1.CompactionSource
 	(*ExtensionContextRef)(nil),              // 37: glyph.plugins.extension.v1.ExtensionContextRef
 	(*SessionTreeUserMessage)(nil),           // 38: glyph.plugins.extension.v1.SessionTreeUserMessage
 	(*SessionTreeModelResponse)(nil),         // 39: glyph.plugins.extension.v1.SessionTreeModelResponse
@@ -5106,7 +5106,7 @@ var file_api_plugins_extension_v1_compaction_proto_depIdxs = []int32{
 	6,  // 7: glyph.plugins.extension.v1.CompactionRequest.prefix:type_name -> glyph.plugins.extension.v1.CompactionInputEntry
 	6,  // 8: glyph.plugins.extension.v1.CompactionRequest.suffix:type_name -> glyph.plugins.extension.v1.CompactionInputEntry
 	35, // 9: glyph.plugins.extension.v1.CompactionRequest.previous:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
-	36, // 10: glyph.plugins.extension.v1.CompactionResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	36, // 10: glyph.plugins.extension.v1.CompactionResult.source:type_name -> glyph.plugins.extension.v1.CompactionSource
 	7,  // 11: glyph.plugins.extension.v1.CompactionRequestInvocation.original:type_name -> glyph.plugins.extension.v1.CompactionRequest
 	7,  // 12: glyph.plugins.extension.v1.CompactionRequestInvocation.current:type_name -> glyph.plugins.extension.v1.CompactionRequest
 	8,  // 13: glyph.plugins.extension.v1.CompactionRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.CompactionResult

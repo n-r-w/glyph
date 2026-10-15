@@ -27,7 +27,7 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 	projectionOperation := NewMockHostOperation(controller)
 	replacementOperation := NewMockHostOperation(controller)
 	modelOperation := NewMockHostOperation(controller)
-	source := new(extensionpb.BranchSummarySource)
+	source := new(extensionpb.CompactionSource)
 	source.SetExtensionId("extension")
 	candidate := extensionpb.CompactionResult_builder{
 		Summary: new("generated"), FirstKeptEntryId: new("kept"), Source: source, Details: nil,

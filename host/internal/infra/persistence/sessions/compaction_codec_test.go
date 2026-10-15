@@ -27,19 +27,28 @@ func TestCompactionEntryCodecRoundTripPreservesCompletePayload(t *testing.T) {
 		Compaction: mo.Some(session.CompactionEntry{
 			Summary: "summary", FirstKeptEntryID: "kept",
 			Source: session.CompactionSource{
-				ExtensionID: mo.None[string](), Model: mo.Some(session.BranchSummaryModelSource{
-					Selection: model.Selection{
-						Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh,
+				ExtensionID: mo.None[string](), Requests: []session.CompactionModelRequest{
+					{
+						Selection: model.Selection{
+							Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh,
+						},
+						Usage: mo.Some(session.TokenUsage{
+							InputTokens: 3, OutputTokens: 2, CacheReadTokens: 1,
+							CacheWriteTokens: 1, ReasoningTokens: 1, TotalTokens: 7,
+						}),
+						EstimatedCost: mo.Some(
+							session.EstimatedCost{
+								Input:      0.03,
+								Output:     0.02,
+								CacheRead:  0.01,
+								CacheWrite: 0.01,
+								Total:      0.07,
+							},
+						),
 					},
-					Usage: mo.Some(session.TokenUsage{
-						InputTokens: 3, OutputTokens: 2, CacheReadTokens: 1,
-						CacheWriteTokens: 1, ReasoningTokens: 1, TotalTokens: 7,
-					}),
-				}),
+				},
 			},
-			EstimatedCost: mo.Some(session.EstimatedCost{
-				Input: 0.03, Output: 0.02, CacheRead: 0.01, CacheWrite: 0.01, Total: 0.07,
-			}),
+
 			Details: mo.Some([]byte{1, 2, 3}),
 		}),
 	}
