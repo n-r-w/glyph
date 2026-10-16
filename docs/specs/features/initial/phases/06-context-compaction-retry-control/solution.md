@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06 Context compaction and retry control
 
-Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) is approved and has passed its design dry run; implementation remains pending. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress and remaining phase order.
+Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) describes the implemented standard extension and per-request accounting. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress and remaining phase order.
 
 This document contains the PHS-06 ownership and PHS-06.1 integration design. The [PHS-06.2 solution](phs-06.2_solution.md) owns the standard extension design and its approved per-request accounting extension. The [unaccepted checkpoint design](#unaccepted-checkpoint-design) and [implementation evidence](#implementation-evidence) describe the earlier Host-owned implementation only. The [ticket](ticket.md) contains shared requirements and terminology; the [migration plan](migration-plan.md) describes subphase order and completion status.
 
@@ -130,7 +130,7 @@ Fresh compiling RED/GREEN runs reproduced blocked failure workers, premature pro
 
 `extensioncontext` owns `HandlerSet`, `PolicyState`, and `OutcomeInvocation` alongside its participant, request, result, and action contracts. The runtime manager captures detached registration lists and dispatches those values directly through its existing `ExtensionRuntime` consumer boundary. The transport adapter decodes result dispositions into the integration's action enum. Transport checks and the policy participant's action-shape checks retain their separate boundaries.
 
-Host retains diagnostic-state cloning for each observer, session usage and cost accounting, and completed-conversation observation before logical success. Token estimates and budgets in composition requests are extension-supplied public data. Host configuration contains only the participant lifecycle duration for compaction. The standard bundled policy remains pending in PHS-06.2.
+Host retains diagnostic-state cloning for each observer, session usage and cost accounting, and completed-conversation observation before logical success. Token estimates and budgets in composition requests are extension-supplied public data. Host configuration contains only the participant lifecycle duration for compaction. The [PHS-06.2 extension](phs-06.2_solution.md) supplies the standard bundled policy.
 
 The [system acceptance record](system-integration-evidence.md#cleanup-and-preservation) describes the completed cleanup and retained session, runtime and retry contracts.
 
@@ -563,7 +563,7 @@ The old unit 5 remains unimplemented. The [migration plan](migration-plan.md#pha
 ## Overengineering and Overspecification Considerations
 
 - The target reuses ordered extension composition, the ordinary extension runtime, session replacement entries, and prepared-history projection. It adds no Host compaction-policy owner or Agent Core compaction branch.
-- The pending design shall add no retry daemon, additional transport, persistent retry queue, provider-specific Host policy, general middleware platform, or generic summary framework without a requirement.
+- The design shall add no retry daemon, additional transport, persistent retry queue, provider-specific Host policy, general middleware platform, or generic summary framework without a requirement.
 - Original session storage is retained. Compaction changes the model projection rather than rewriting or copying the complete session history.
 - Configuration uses a count and a delay sequence. HTTP classification remains provider-owned and is not configurable by the user.
 - Budget estimates are not exact tokenizers. Overflow recovery addresses provider disagreement without adding per-model tokenizer dependencies.
@@ -585,10 +585,10 @@ The old unit 5 remains unimplemented. The [migration plan](migration-plan.md#pha
 
 ### QST-01.1: Standard summary input above the model budget
 
-- Status: Resolved for design. PHS-06.2 implementation remains pending.
+- Status: Resolved and implemented in PHS-06.2. The [delivery record](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) describes the implemented scope and verification limits.
 - Purpose: Define standard generation for source that may exceed one configured-model request and define accounting for requests contributing to a persisted result.
 - Approved behavior: The [PHS-06.2 requirements](phs-06.2_prd.md#functional-requirements) own the first-version input limits and per-request accounting. The [generation design](phs-06.2_solution.md#d4-one-standard-generation-request) and [accounting design](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction) replace the deferred decision without adopting the historical checkpoint's packing algorithm.
-- Validation: An independent source-based dry run found no material blocker. The [readiness record](phs-06.2_solution.md#implementation-readiness) states its scope, limits, and implementation prerequisites. PHS-06.1 remains the accepted system foundation.
+- Validation: An independent source-based dry run found no material blocker. The [readiness record](phs-06.2_solution.md#implementation-readiness) describes that design review. The delivery record linked above describes subsequent implementation checks. PHS-06.1 remains the accepted system foundation.
 
 ## References
 

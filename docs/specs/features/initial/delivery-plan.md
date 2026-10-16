@@ -61,7 +61,7 @@
 - Ticket: [Ticket](phases/06-context-compaction-retry-control/ticket.md)
 - Model-execution scope: Follow [APC-11.1](architecture.md#contracts).
 - Compaction ownership: Follow the [target ownership](phases/06-context-compaction-retry-control/solution.md#target-ownership).
-- Completion status: PHS-06.1 implementation has resumed and remains incomplete. The [migration plan](phases/06-context-compaction-retry-control/migration-plan.md#sequential-implementation-units) records accepted units and pending work.
+- Completion status: PHS-06.1 is complete and accepted. PHS-06.2 is implemented. The [migration plan](phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) records the remaining PHS-06.3 and PHS-06.4 work.
 - Phase ordering: Follow the [phased plan](phases/06-context-compaction-retry-control/migration-plan.md#phased-plan).
 
 ### PHS-08. Prompt, context, input, and provider middleware
