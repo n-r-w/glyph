@@ -176,7 +176,9 @@ func TestGenerateRejectsUnusableResponses(t *testing.T) {
 			model := NewMockModel(gomock.NewController(t))
 			model.EXPECT().
 				Request(gomock.Any(), gomock.Any()).
-				Return(Response{Outcome: test.outcome, Blocks: test.blocks, Error: test.cause, Usage: mo.None[compaction.Usage]()}, test.failure)
+				Return(Response{
+					Outcome: test.outcome, Blocks: test.blocks, Error: test.cause, Usage: mo.None[compaction.Usage](),
+				}, test.failure)
 			// Act on one terminal response.
 			result, err := New(model).Generate(t.Context(), newGenerationRequest())
 			// Assert public text is usable only for STOP/LENGTH without calls.

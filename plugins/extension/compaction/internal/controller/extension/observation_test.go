@@ -14,7 +14,8 @@ import (
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
 )
 
-// TestCompletedConversationRecordsBeforeAcknowledgement checks recording and acknowledgement of completed conversations.
+// TestCompletedConversationRecordsBeforeAcknowledgement checks recording and acknowledgement
+// of completed conversations.
 func TestCompletedConversationRecordsBeforeAcknowledgement(t *testing.T) {
 	t.Parallel()
 	for _, failed := range []bool{false, true} {

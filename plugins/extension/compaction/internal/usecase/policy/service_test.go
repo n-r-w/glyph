@@ -40,18 +40,26 @@ func TestCompactComposesOrderedState(t *testing.T) {
 	gomock.InOrder(
 		host.EXPECT().
 			Request(gomock.Any(), first, initial).
-			Return(compaction.RequestAction{Cancel: false, RequestDisposition: compaction.RequestReplace, Request: mo.Some(changed), ResultDisposition: compaction.ResultReplace, Result: mo.Some(supplied)}, nil),
+			Return(compaction.RequestAction{
+				Cancel: false, RequestDisposition: compaction.RequestReplace, Request: mo.Some(changed),
+				ResultDisposition: compaction.ResultReplace, Result: mo.Some(supplied),
+			}, nil),
 		host.EXPECT().Project(gomock.Any(), supplied).Return(input.History[1:], nil),
 		host.EXPECT().
 			Request(gomock.Any(), second, accepted).
-			Return(compaction.RequestAction{Cancel: false, RequestDisposition: compaction.RequestPreserve, Request: mo.None[compaction.Request](), ResultDisposition: compaction.ResultPreserve, Result: mo.None[compaction.Result]()}, nil),
+			Return(compaction.RequestAction{
+				Cancel: false, RequestDisposition: compaction.RequestPreserve, Request: mo.None[compaction.Request](),
+				ResultDisposition: compaction.ResultPreserve, Result: mo.None[compaction.Result](),
+			}, nil),
 		host.EXPECT().
 			InvokeResultHandler(gomock.Any(), first, accepted, supplied).
 			Return(compaction.ResultAction{Cancel: false, Disposition: compaction.ResultReplace, Result: mo.Some(updated)}, nil),
 		host.EXPECT().Project(gomock.Any(), updated).Return(input.History[1:], nil),
 		host.EXPECT().
 			InvokeResultHandler(gomock.Any(), second, final, supplied).
-			Return(compaction.ResultAction{Cancel: false, Disposition: compaction.ResultPreserve, Result: mo.None[compaction.Result]()}, nil),
+			Return(compaction.ResultAction{
+				Cancel: false, Disposition: compaction.ResultPreserve, Result: mo.None[compaction.Result](),
+			}, nil),
 		host.EXPECT().Commit(gomock.Any(), updated).Return(nil),
 	)
 	// Act through the policy boundary.
@@ -81,11 +89,23 @@ func TestCompactClearsResult(t *testing.T) {
 			gomock.InOrder(
 				host.EXPECT().
 					Request(gomock.Any(), participant, gomock.Any()).
-					Return(compaction.RequestAction{Cancel: false, RequestDisposition: compaction.RequestPreserve, Request: mo.None[compaction.Request](), ResultDisposition: compaction.ResultReplace, Result: mo.Some(supplied)}, nil),
+					Return(compaction.RequestAction{
+						Cancel:             false,
+						RequestDisposition: compaction.RequestPreserve,
+						Request:            mo.None[compaction.Request](),
+						ResultDisposition:  compaction.ResultReplace,
+						Result:             mo.Some(supplied),
+					}, nil),
 				host.EXPECT().Project(gomock.Any(), supplied).Return(input.History[1:], nil),
 				host.EXPECT().
 					Request(gomock.Any(), participant, gomock.Any()).
-					Return(compaction.RequestAction{Cancel: false, RequestDisposition: compaction.RequestPreserve, Request: mo.None[compaction.Request](), ResultDisposition: compaction.ResultClear, Result: mo.None[compaction.Result]()}, nil),
+					Return(compaction.RequestAction{
+						Cancel:             false,
+						RequestDisposition: compaction.RequestPreserve,
+						Request:            mo.None[compaction.Request](),
+						ResultDisposition:  compaction.ResultClear,
+						Result:             mo.None[compaction.Result](),
+					}, nil),
 			)
 			if cardinality == 1 {
 				gomock.InOrder(
@@ -214,7 +234,10 @@ func TestCompactUsesCapturedBudget(t *testing.T) {
 	host := NewMockHost(gomock.NewController(t))
 	host.EXPECT().
 		Request(gomock.Any(), participant, gomock.Any()).
-		Return(compaction.RequestAction{Cancel: false, RequestDisposition: compaction.RequestReplace, Request: mo.Some(request), ResultDisposition: compaction.ResultPreserve, Result: mo.None[compaction.Result]()}, nil)
+		Return(compaction.RequestAction{
+			Cancel: false, RequestDisposition: compaction.RequestReplace, Request: mo.Some(request),
+			ResultDisposition: compaction.ResultPreserve, Result: mo.None[compaction.Result](),
+		}, nil)
 	result := newPolicyResult("summary")
 	host.EXPECT().Generate(gomock.Any(), participant, gomock.Any()).Return(result, nil)
 	large := append([]compaction.Entry(nil), input.History...)

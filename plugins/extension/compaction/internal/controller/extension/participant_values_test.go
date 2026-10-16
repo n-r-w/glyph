@@ -59,7 +59,7 @@ func TestParticipantMessagesDetachAcceptedValues(t *testing.T) {
 	// Assert that after transport mutations, captured input and the accepted candidate remain unchanged.
 	require.Equal(t, []string{"off"}, state.Original.Model.Reasoning.MustGet().Choices)
 	require.Equal(t, []compaction.Modality{compaction.ModalityText}, state.Current.Model.Modalities)
-	require.Equal(t, float64(1), state.Original.Model.Pricing.MustGet().Tiers[0].Rates[0])
+	require.InDelta(t, float64(1), state.Original.Model.Pricing.MustGet().Tiers[0].Rates[0], 0)
 	require.Equal(t, []byte{1, 2}, state.Current.Prefix[0].Blocks[0].Data)
 	require.Equal(t, []byte{3, 4}, candidate.Details.MustGet())
 	require.Equal(t, "provider", candidate.Requests[0].Provider)

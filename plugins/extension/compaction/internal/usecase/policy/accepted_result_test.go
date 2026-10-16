@@ -41,7 +41,9 @@ func TestCompactPreservedResultUsesAcceptedProjection(t *testing.T) {
 							cancel()
 						}
 					}).
-					Return(compaction.ResultAction{Cancel: false, Disposition: compaction.ResultPreserve, Result: mo.None[compaction.Result]()}, nil),
+					Return(compaction.ResultAction{
+						Cancel: false, Disposition: compaction.ResultPreserve, Result: mo.None[compaction.Result](),
+					}, nil),
 			)
 			if !canceled {
 				host.EXPECT().Commit(gomock.Any(), candidate).Return(nil)
