@@ -15,5 +15,6 @@
   - [ ] Final public failure-code closure and Programmatic/UI contract tests after PHS-12: `docs/specs/issues/agent-run-failure-semantics/problem.md`
 - [X] Blocking contract operation processing: `docs/specs/issues/blocking-contract-operation-processing`
 - [X] Reliable branch summarization: `docs/specs/issues/reliable-branch-summarization`
+- [ ] Compaction source differs from conversation context: [problem statement](compaction-history-projection/problem.md), [requirements](compaction-history-projection/prd.md), and [technical solution](compaction-history-projection/solution.md) approved. Design dry run complete; ready for implementation. Found during PHS-06.4 acceptance.
 - [ ] Production panic elimination: `docs/specs/issues/production-panic-elimination/ticket.md`
 - [X] Unclear model operation naming: `docs/specs/issues/unclear-model-operation-naming`
