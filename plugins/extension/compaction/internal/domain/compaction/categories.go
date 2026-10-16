@@ -16,6 +16,21 @@ const (
 	PurposeInvalid Purpose = "invalid"
 )
 
+// RequestIntent supplies the compaction trigger and retry intent.
+func (p Purpose) RequestIntent() (Trigger, bool) {
+	switch p {
+	case PurposeManual:
+		return TriggerManual, false
+	case PurposeAutomatic:
+		return TriggerThreshold, false
+	case PurposeOverflow:
+		return TriggerOverflow, true
+	case PurposeUnspecified, PurposeInvalid:
+		return TriggerUnspecified, false
+	}
+	return TriggerInvalid, false
+}
+
 // Trigger identifies the compaction request's intent.
 type Trigger string
 

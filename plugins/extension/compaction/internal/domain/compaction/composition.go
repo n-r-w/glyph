@@ -54,11 +54,11 @@ type Input struct {
 // NeedsCompaction identifies captured input that requires replacement.
 func (i Input) NeedsCompaction(tokens int64) bool {
 	switch i.Purpose {
-	case PurposeManual:
+	case PurposeManual, PurposeOverflow:
 		return true
 	case PurposeAutomatic:
 		return tokens > i.Model.Window-i.Model.Reserve
-	case PurposeOverflow, PurposeUnspecified, PurposeInvalid:
+	case PurposeUnspecified, PurposeInvalid:
 		return false
 	}
 	return false

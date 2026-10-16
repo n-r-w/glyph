@@ -2,7 +2,7 @@
 
 Keep long sessions usable within model context limits.
 
-The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction, and A3 implements automatic compaction with conversation observations. A4 overflow recovery remains pending. PHS-06.2 remains in progress; the [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records the remaining work. This ticket owns the shared composition, session, and retry requirements.
+The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction, and A3 implements automatic compaction with conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through standard composition within Host's attempt allowance. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records A1-A4 behavior and verification limits. PHS-06.3 residue closure and PHS-06.4 independent acceptance remain pending. This ticket owns the shared composition, session, and retry requirements.
 
 ## Key definitions and abbreviations
 

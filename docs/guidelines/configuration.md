@@ -87,7 +87,7 @@ Each logical model execution snapshots these values and the runtime enabled stat
 
 ## Bundled compaction extension
 
-With the default output directory, the standard build produces `bin/plugins/extension/glyph-compaction`. Install this executable in the [extension catalog](#extensions-and-tools) alongside `glyph-tools` to enable automatic compaction and manual compaction through the UI, Programmatic Control, and Extension SDK.
+With the default output directory, the standard build produces `bin/plugins/extension/glyph-compaction`. Install this executable in the [extension catalog](#extensions-and-tools) alongside `glyph-tools` to enable automatic compaction, admitted context-overflow recovery, and manual compaction through the UI, Programmatic Control, and Extension SDK.
 
 Set these environment variables before starting Glyph. The extension reads them once at startup:
 
@@ -102,7 +102,9 @@ When its input estimate exceeds the selected model's `contextWindow - maxTokens`
 
 The bundled compaction extension records successful conversations in memory and keeps observations separate for each session and model. For an exact continuation of the observed input and completed response, with matching reasoning, instructions, and tools, it uses reported input and output usage plus estimates for new input. When usage is missing or the input does not match the recorded continuation, the bundled compaction extension uses content estimation. When the bundled compaction extension starts compaction composition for a history replacement, it discards prior reported-usage baselines. After the extension restarts, it has no reported-usage baselines. Summary-generation calls do not update conversation observations.
 
-After automatic history replacement and completion of the extension handlers notified of successful compaction, the bundled compaction extension checks the actual outgoing input. If one of those handlers appends enough content to exceed the input budget, the bundled compaction extension rejects the request while Host retains the persisted history replacement. Overflow recovery remains pending in delivery step A4. Until then, the extension declines overflow preparation. See [phase progress](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension).
+When a provider rejects conversation input for context overflow and Host admits a retry, the bundled extension compacts through the manual/automatic composition path even when its estimate fits. Participants receive the overflow trigger and retry intent. Host applies the attempt limit from the final retry decision. It repeats only the failed model request and retains completed tool results and original session entries. With one configured retry and no retry-handler changes, Host ends the request after a second provider rejection without another compaction. If Host admits another recovery but retention leaves no older reducible portion, the extension fails explicitly before another generation or replacement.
+
+After automatic or overflow history replacement and completion of the extension handlers notified of successful compaction, the bundled compaction extension checks the actual outgoing input. If one of those handlers appends enough content to exceed the input budget, the bundled compaction extension rejects the request while Host retains the persisted history replacement. When compaction fails before replacement, history remains unchanged by compaction. When compaction fails after replacement, the durable result remains stored. Host reports the complete provider and subsequent error causes. The [phase progress](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) describes public integration evidence and its limits.
 
 ## Compaction participant lifetime
 

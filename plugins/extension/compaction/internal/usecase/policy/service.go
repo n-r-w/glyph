@@ -47,9 +47,6 @@ func (s *Service) Compact(ctx context.Context, input compaction.Input) (controll
 	if err != nil {
 		return outcome, err
 	}
-	if input.Purpose == compaction.PurposeAutomatic {
-		request.Trigger = compaction.TriggerThreshold
-	}
 	s.forgetObservations(input.Binding)
 	state := compaction.State{Original: request, Current: request, Result: mo.None[compaction.Result]()}
 	for _, participant := range input.Requests {

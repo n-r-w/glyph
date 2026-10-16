@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06.2 standard context compaction
 
-Status: Approved. A1 implements D6 accounting, A2 implements bundled manual compaction, and A3 implements D2 automatic compaction and conversation observations. PHS-06.2 remains in progress; the [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records completed behavior and pending A4 overflow recovery.
+Status: Approved; A1-A4 implemented. Implemented scope: A1, D6 accounting; A2, bundled manual compaction; A3, D2 automatic compaction and conversation observations; A4, D7 admitted overflow recovery. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records behavior and verification limits. PHS-06.3 residue closure and PHS-06.4 independent acceptance remain separate pending phases.
 
 ## Problem Statement
 
@@ -84,7 +84,9 @@ Each new compaction records only its contributing requests. The preceding summar
 
 Use the existing asynchronous operation lifetimes and nested-operation cancellation. Handler failure or an invalid action stops composition with complete error text. The policy invokes no fallback implementation and schedules no extension retry.
 
-Host continues to own ordinary configured-model retries. Main-conversation overflow recovery invokes the same standard policy through the existing admitted retry path. The extension introduces no independent attempt allowance and does not replay completed tools.
+Host continues to own ordinary configured-model retries. Only after Host admits a retry for main-conversation overflow recovery does the bundled compaction extension invoke the standard composition, retention, and generation path. When the provider rejects the request, the extension compacts even when its input estimate fits. Participants receive the overflow trigger and retry intent. Host repeats only the failed model request and preserves completed tools.
+
+Host enforces the attempt limit from the final retry decision. With one configured retry and no retry-handler changes, Host admits no further recovery after the provider rejects that retry. When another recovery is admitted but the retained history has no older reducible portion, D3 requires an explicit precommit failure. A preceding committed replacement remains durable; the extension performs no additional generation or commit for that failed recovery.
 
 A precommit failure leaves the original history unchanged. A postcommit failure retains the durable replacement and its receipt with the complete subsequent cause. The policy does not replay an uncertain commit. `capturedConversation.prepare` and `RecoverOverflow` already supply the integration for these distinctions.
 

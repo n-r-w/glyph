@@ -21,7 +21,7 @@ func estimateText(text string) int64 {
 	return (int64(utf8.RuneCountInString(text)) + charactersPerToken - 1) / charactersPerToken
 }
 
-// SelectRequest selects a complete recent suffix for manual compaction.
+// SelectRequest selects a complete recent suffix for compaction.
 func SelectRequest(input Input, retained, contextTokens int64) (Request, error) {
 	entries := make([]Entry, 0, len(input.Entries))
 	previous, repeated := input.Previous.Get()
@@ -50,10 +50,11 @@ func SelectRequest(input Input, retained, contextTokens int64) (Request, error) 
 		boundary = start
 	}
 	if boundary == 0 || boundary == len(entries) {
-		return Request{}, errors.New("manual compaction has no older reducible portion")
+		return Request{}, errors.New("compaction has no older reducible portion")
 	}
+	trigger, retry := input.Purpose.RequestIntent()
 	return Request{
-		Trigger: TriggerManual, Retry: false, Guidance: input.Guidance, Model: input.Model, Reasoning: input.Reasoning,
+		Trigger: trigger, Retry: retry, Guidance: input.Guidance, Model: input.Model, Reasoning: input.Reasoning,
 		Prefix: entries[:boundary], Suffix: entries[boundary:], Previous: input.Previous,
 		ContextTokens: contextTokens, Estimated: true,
 		Window: input.Model.Window, Reserve: input.Model.Reserve, Retained: retained,

@@ -1,4 +1,4 @@
-// Package policy owns manual compaction composition and conversation budgeting.
+// Package policy owns compaction composition and conversation budgeting.
 package policy
 
 import (
