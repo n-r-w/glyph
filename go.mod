@@ -16,6 +16,7 @@ tool (
 require (
 	charm.land/bubbletea/v2 v2.0.8
 	github.com/bmatcuk/doublestar/v4 v4.10.0
+	github.com/caarlos0/env/v11 v11.4.1
 	github.com/camilbenameur/go-llm-stream v1.3.0
 	github.com/cenkalti/backoff/v7 v7.0.0
 	github.com/charmbracelet/x/ansi v0.11.8

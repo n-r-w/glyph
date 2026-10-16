@@ -85,13 +85,28 @@ Model limits and capabilities are configuration data. Check them against the pro
 
 Each logical model execution snapshots these values and the runtime enabled state before its initial request.
 
+## Bundled compaction extension
+
+With the default output directory, the standard build produces `bin/plugins/extension/glyph-compaction`. Install this executable in the [extension catalog](#extensions-and-tools) alongside `glyph-tools` to enable manual compaction through the UI, Programmatic Control, and Extension SDK.
+
+Set these environment variables before starting Glyph. The extension reads them once at startup:
+
+| Variable | Default | Behavior |
+|---|---:|---|
+| `GLYPH_COMPACTION_RETAINED_TOKENS` | `20000` | Positive recent-history target in estimated tokens. The policy retains complete messages and keeps tool calls with their results. An indivisible group may exceed the target. |
+| `GLYPH_COMPACTION_GENERATOR_ENABLED` | `true` | Register the standard summary generator. Set `false` to retain the policy while another extension supplies generation or a complete result. |
+
+For example, `GLYPH_COMPACTION_RETAINED_TOKENS=10000 glyph` sets a 10,000-token recent-history target. Invalid values prevent the extension from starting. When retention leaves no older portion to summarize, manual compaction fails.
+
+The bundled policy currently supports manual compaction. During ordinary conversation preparation, the bundled compaction extension preserves history. During overflow preparation, the extension declines recovery. Automatic thresholds, usage observations, and overflow recovery remain pending in the [phase progress](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension).
+
 ## Compaction participant lifetime
 
 `compaction.participantTimeout` is a positive duration for one participant invocation. When omitted, Host uses `5m`. For example, `participantTimeout: 30s` sets a thirty-second deadline for an invoked request handler and its nested work. Host cancels that work when the deadline expires and waits for child cleanup before the invocation completes. Completion can occur after the deadline. A caller cancellation or earlier deadline takes precedence.
 
 Host reports the timeout and error causes obtained from the participant's nested work through the public operation outcome. Original session entries remain stored. During normal successful teardown, Host preserves the participant result.
 
-Host applies this duration to request handlers, generators, and result handlers invoked by the policy extension during manual, automatic, and overflow compaction. The policy owner's operation has the caller's lifetime. The extension owns token estimates, retained-history budgets, and compaction decisions. The [migration plan](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) describes the pending bundled policy.
+Host applies this duration to request handlers, generators, and result handlers invoked by the policy extension during manual, automatic, and overflow compaction. The policy owner's operation has the caller's lifetime. The extension owns token estimates, retained-history budgets, and compaction decisions. The [phase progress](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records the bundled policy's delivery status.
 
 ## Extensions and tools
 

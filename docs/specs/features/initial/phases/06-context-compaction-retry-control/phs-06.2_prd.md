@@ -1,6 +1,6 @@
 # Requirements: PHS-06.2 standard context compaction
 
-Status: Approved, including the first-version limits below. The [technical solution](phs-06.2_solution.md) has passed its design dry run. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). The bundled policy and generator remain pending; PHS-06.2 is in progress.
+Status: Approved, including the first-version limits below. The [technical solution](phs-06.2_solution.md) has passed its design dry run. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. PHS-06.2 remains in progress; the [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records the remaining work.
 
 ## Definitions
 

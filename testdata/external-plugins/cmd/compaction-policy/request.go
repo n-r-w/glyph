@@ -292,6 +292,15 @@ func (o *referenceRequestOperation) newSecondRequestAction() (*extensionpb.Compa
 		const summaryModelID = "gpt-test"
 		replacement.GetModel().SetModelId(summaryModelID)
 	}
+	const summaryModelEnvironment = "GLYPH_REFERENCE_REQUEST_SUMMARY_MODEL"
+	if summaryModel := os.Getenv(summaryModelEnvironment); summaryModel != "" {
+		const summaryReasoning = "high"
+		replacement.GetModel().SetModelId(summaryModel)
+		replacement.GetModel().SetReasoning(extensionpb.ReasoningCapabilities_builder{
+			Supported: new(true), Choices: []string{summaryReasoning}, DefaultChoice: new(summaryReasoning),
+		}.Build())
+		replacement.SetReasoningChoice(summaryReasoning)
+	}
 	action.SetRequestAction(extensionpb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE)
 	action.SetRequest(replacement)
 	return action, nil

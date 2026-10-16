@@ -117,6 +117,7 @@ tasks:
       - mkdir -p {{default "bin" .BUILD_ROOT}}/plugins/extension {{default "bin" .BUILD_ROOT}}/plugins/ui
       - go build -o {{default "bin" .BUILD_ROOT}}/glyph ./host/cmd/glyph
       - go build -o {{default "bin" .BUILD_ROOT}}/plugins/extension/glyph-tools ./plugins/extension/tools/cmd/glyph-tools
+      - go build -o {{default "bin" .BUILD_ROOT}}/plugins/extension/glyph-compaction ./plugins/extension/compaction/cmd/glyph-compaction
       - go build -o {{default "bin" .BUILD_ROOT}}/plugins/ui/glyph-tui ./plugins/ui/tui/cmd/glyph-tui
 
   test-coverage:

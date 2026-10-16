@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06.2 standard context compaction
 
-Status: Approved. The accounting slice A1 implements D6. The bundled policy and generator remain pending; PHS-06.2 is in progress.
+Status: Approved. A1 implements D6 accounting, and A2 implements bundled manual compaction. PHS-06.2 remains in progress; the [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records the remaining A3/A4 work.
 
 ## Problem Statement
 
@@ -102,11 +102,11 @@ The review reconciled per-result text truncation, image-count estimation, and th
 
 No implementation, software test, build, generation, lint, or coverage result is claimed by this dry run. Live-provider acceptance and estimate accuracy remain untested. Implementation must obtain fresh behavior and project-check evidence, including the existing public extension and application integration paths.
 
-Implementation requires separate authorization. The project-mandated environment loader, `github.com/caarlos0/env/v11`, is absent from the examined `go.mod`; adding a selected version requires dependency-change approval before that change. This prerequisite does not change the approved environment-configuration approach.
+The authorized A2 implementation uses `github.com/caarlos0/env/v11` at `v11.4.1` for the [startup settings](../../../../../guidelines/configuration.md#bundled-compaction-extension). The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records implementation progress and remaining work.
 
 ## Open Questions
 
-None at the requirements or technical-solution level. Implementation authorization and dependency approval remain the prerequisites listed above.
+None at the requirements or technical-solution level.
 
 ## References
 

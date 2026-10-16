@@ -2,7 +2,7 @@
 
 Keep long sessions usable within model context limits.
 
-The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). The bundled policy and generator remain pending. This ticket owns the shared composition, session, and retry requirements.
+The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. PHS-06.2 remains in progress; the [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records the remaining work. This ticket owns the shared composition, session, and retry requirements.
 
 ## Key definitions and abbreviations
 
