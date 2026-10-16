@@ -8,11 +8,11 @@ import "api/plugins/extension/v1/tool.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
 
-// SessionTreeEntry contains one provider-neutral session entry projection.
+// SessionTreeEntry contains a provider-neutral entry projection for branch-summary and compaction operations.
 message SessionTreeEntry {
   // The session entry identifier.
   string id = 1;
-  // The model-visible or opaque entry projection.
+  // The public entry content or metadata for a model-hidden extension entry.
   oneof content {
     SessionTreeUserMessage user = 2;
     SessionTreeModelResponse model = 3;

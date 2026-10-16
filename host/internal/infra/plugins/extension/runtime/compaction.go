@@ -246,7 +246,7 @@ func mapCompactionRequest(request extensioncontext.Request) (*extensionpb.Compac
 		previous = extensioncontroller.MapCompactionMarker(value)
 	}
 	return extensionpb.CompactionRequest_builder{
-		Trigger: new(mapCompactionTrigger(request.Trigger)), RetryIntent: new(request.RetryIntent),
+		Trigger: new(extensionpb.CompactionTrigger(request.Trigger)), RetryIntent: new(request.RetryIntent),
 		Instructions: instructions, Model: mapCompactionModel(request.Model),
 		ReasoningChoice: new(string(request.ReasoningChoice)), Prefix: prefix, Suffix: suffix, Previous: previous,
 		ContextTokens: new(request.ContextTokens), ContextTokensEstimated: new(request.ContextTokensEstimated),
@@ -474,11 +474,6 @@ func mapCompactionTriggerFromProto(value extensionpb.CompactionTrigger) extensio
 	default:
 		return 0
 	}
-}
-
-// mapCompactionTrigger maps the closed internal trigger.
-func mapCompactionTrigger(trigger extensioncontext.Trigger) extensionpb.CompactionTrigger {
-	return extensionpb.CompactionTrigger(trigger)
 }
 
 // optionalString preserves public scalar presence.

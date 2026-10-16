@@ -2,7 +2,7 @@
 
 Keep long sessions usable within model context limits.
 
-The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction, and A3 implements automatic compaction with conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through standard composition within Host's attempt allowance. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records A1-A4 behavior and verification limits. PHS-06.3 residue closure and PHS-06.4 independent acceptance remain pending. This ticket owns the shared composition, session, and retry requirements.
+The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction, and A3 implements automatic compaction with conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through standard composition within Host's attempt allowance. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records A1-A4 behavior and verification limits. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending. This ticket owns the shared composition, session, and retry requirements.
 
 ## Key definitions and abbreviations
 
@@ -17,7 +17,7 @@ The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_p
 - DEF-09: Prepared history. The provider-neutral model history projected from the active session branch before Agent Core consumes it.
 - DEF-10: Compaction entry. The persisted replacement entry that contains the summary and the first preserved active-branch entry identifier.
 - DEF-11: Session validity. Structural checks on the session identity, active branch, replacement entry, accounting, and tool-call/result integrity that do not select compaction policy.
-- DEF-11.1: Compaction operation binding. Host process-local reference for one parent compaction or conversation-preparation operation, its captured input and participating runtime identities, nested work, and actual commit outcome. The [PHS-06.1 design](solution.md#phs-061-integration-proposal) describes this integration concept.
+- DEF-11.1: Compaction operation binding. Host process-local reference for one parent compaction or conversation-preparation operation, its captured input and participating runtime identities, nested work, and actual commit outcome. The [PHS-06.1 design](solution.md#phs-061-integration-contract) describes this integration concept.
 
 ## Problem Statement
 

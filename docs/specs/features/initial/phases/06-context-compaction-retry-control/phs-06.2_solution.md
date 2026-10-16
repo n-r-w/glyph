@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06.2 standard context compaction
 
-Status: Approved; A1-A4 implemented. Implemented scope: A1, D6 accounting; A2, bundled manual compaction; A3, D2 automatic compaction and conversation observations; A4, D7 admitted overflow recovery. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records behavior and verification limits. PHS-06.3 residue closure and PHS-06.4 independent acceptance remain separate pending phases.
+Status: Approved; A1-A4 implemented. Implemented scope: A1, D6 accounting; A2, bundled manual compaction; A3, D2 automatic compaction and conversation observations; A4, D7 admitted overflow recovery. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records behavior and verification limits. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending.
 
 ## Problem Statement
 
@@ -98,13 +98,13 @@ Reuse the executable catalog, Extension SDK, operation lifetimes, configured-mod
 
 The [requirements](phs-06.2_prd.md#scope-and-non-scope) own accepted information-loss and capacity limitations. Pi 1.2.0 was inspected as a behavior comparison. Its code, algorithms, and architecture are not implementation sources for this design.
 
-## Implementation Readiness
+## Design dry-run evidence
 
 The independent dry run and subsequent source review found no material blocker in the approved requirements or design. The analysis used repository baseline `00ba72ba4270c2bf423a8a5f2a203885d43ecef4` and traced public entry points, owner callbacks, composition, persistence, accounting, restoration, and client projections.
 
 The review reconciled per-result text truncation, image-count estimation, and the callbacks required by a registered policy owner. These preserve the approved behavior. The temporary implementation simulation is an internal workflow artifact and is not a permanent delivery plan.
 
-No implementation, software test, build, generation, lint, or coverage result is claimed by this dry run. Live-provider acceptance and estimate accuracy remain untested. Implementation must obtain fresh behavior and project-check evidence, including the existing public extension and application integration paths.
+The dry run established design readiness only. The [implementation progress record](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) contains the later behavior and project-check evidence, including public extension and application integration paths. Live-provider acceptance and estimate accuracy remain untested.
 
 The authorized A2 implementation uses `github.com/caarlos0/env/v11` at `v11.4.1` for the [startup settings](../../../../../guidelines/configuration.md#bundled-compaction-extension). The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records implementation progress and remaining work.
 

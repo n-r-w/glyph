@@ -4,7 +4,7 @@
 
 Main accepted UNT-09 at `e4865d8aa1519557026b39e572a607b00575c1b7` after independent review of the complete change from `5086722d3978cf978e3c8ebf4785327101959ecb`. The accepted source also includes the separate client transport and executable-fixture corrections described below.
 
-The [system integration design](solution.md#phs-061-integration-proposal) defines ownership and contracts. The [migration plan](migration-plan.md#sequential-implementation-units) defines the unit order. This acceptance covers automatic preparation through a reference extension. Overflow migration and legacy cleanup remain pending in UNT-10 and UNT-11. The bundled policy and QST-01.1 belong to PHS-06.2.
+The [system integration design](solution.md#phs-061-integration-contract) defines ownership and contracts. The [migration plan](migration-plan.md#sequential-implementation-units) defines the unit order. This acceptance covers automatic preparation through a reference extension. Overflow migration and legacy cleanup remain pending in UNT-10 and UNT-11. The bundled policy and QST-01.1 belong to PHS-06.2.
 
 ## Implemented request path
 

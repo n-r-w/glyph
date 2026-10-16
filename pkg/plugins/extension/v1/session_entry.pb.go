@@ -76,7 +76,7 @@ func (x SessionTreeModelContentKind) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
-// SessionTreeEntry contains one provider-neutral session entry projection.
+// SessionTreeEntry contains a provider-neutral entry projection for branch-summary and compaction operations.
 type SessionTreeEntry struct {
 	state                  protoimpl.MessageState     `protogen:"opaque.v1"`
 	xxx_hidden_Id          *string                    `protobuf:"bytes,1,opt,name=id"`
@@ -405,7 +405,7 @@ type SessionTreeEntry_builder struct {
 
 	// The session entry identifier.
 	Id *string
-	// The model-visible or opaque entry projection.
+	// The public entry content or metadata for a model-hidden extension entry.
 
 	// Fields of oneof xxx_hidden_Content:
 	User             *SessionTreeUserMessage

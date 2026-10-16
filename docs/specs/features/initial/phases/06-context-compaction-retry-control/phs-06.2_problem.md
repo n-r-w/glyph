@@ -28,7 +28,7 @@ Before PHS-06.2, the developer reached the context limit in one session before t
 
 ## Current State
 
-The standard compaction extension is implemented on the [PHS-06.1 system foundation](system-integration-evidence.md). The [migration plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records delivered behavior, verification limits, and the remaining PHS-06.3 and PHS-06.4 work.
+The standard compaction extension is implemented on the [PHS-06.1 system foundation](system-integration-evidence.md). The [migration plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records delivered behavior, verification limits, completed PHS-06.3 residue closure, and pending PHS-06.4 independent acceptance.
 
 ## Desired State
 

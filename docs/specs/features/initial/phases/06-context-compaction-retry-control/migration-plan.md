@@ -1,6 +1,6 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: PHS-06.1 is complete and accepted. PHS-06.2 has A1 accounting, A2 manual compaction, A3 automatic compaction, and A4 admitted overflow recovery implemented. PHS-06.3 residue closure and PHS-06.4 independent acceptance remain pending. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units), and [PHS-06.2 progress](#phase-phs-062---implement-the-standard-bundled-compaction-extension).
+Status: PHS-06.1 is complete and accepted. PHS-06.2 has A1 accounting, A2 manual compaction, A3 automatic compaction, and A4 admitted overflow recovery implemented. PHS-06.3 residue closure is complete; PHS-06.4 independent acceptance remains pending. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units), [PHS-06.2 progress](#phase-phs-062---implement-the-standard-bundled-compaction-extension), and [PHS-06.3 closure record](residue-closure-evidence.md).
 
 Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation started from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
@@ -17,7 +17,7 @@ The [ticket](ticket.md#key-definitions-and-abbreviations) owns the detailed defi
 
 ### Resume point
 
-- A1-A4 of [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) are implemented against the approved [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md). Continue with PHS-06.3 residue closure, then PHS-06.4 independent acceptance. A4 delivery does not independently close the parent migration.
+- A1-A4 of [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) are implemented against the approved [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md). [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. Continue with PHS-06.4 independent acceptance of the parent migration.
 - The historical starting baseline was `96f061c`, with retained dependency updates and the TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build and diff checks passed at that point; coverage was 82.7%. The [system acceptance record](system-integration-evidence.md) contains the final PHS-06.1 results.
 - Checkpoint units 0 through 3 and the session foundation preceded the migration. The checkpoint's Host-owned unit 4 was unaccepted. After migrating its callers, the UNT-11 implementer removed the remaining Host policy.
 - After each completed migration phase, record its result, evidence, remaining blockers, and commit in this plan. The first phase without completed exit criteria is the resume point.
@@ -103,7 +103,7 @@ Provide the complete system path through which a registered policy extension con
 
 #### Work
 
-Follow the [approved system integration](solution.md#phs-061-integration-proposal) through the sequential units below. Each unit includes its callers and public-entry checks. Use a real reference extension for system acceptance. This phase includes caller migration, Host-policy removal, and public-entry acceptance; PHS-06.2 owns the standard bundled policy and generator.
+Follow the [approved system integration](solution.md#phs-061-integration-contract) through the sequential units below. Each unit includes its callers and public-entry checks. Use a real reference extension for system acceptance. This phase includes caller migration, Host-policy removal, and public-entry acceptance; PHS-06.2 owns the standard bundled policy and generator.
 
 #### Sequential implementation units
 
@@ -169,7 +169,7 @@ Mocked capability fixtures can conceal an unwired real extension. Include produc
 
 ### Phase PHS-06.2 - Implement the standard bundled compaction extension
 
-Status: A1-A4 implemented. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. A3 implements automatic preparation and conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through the standard composition path. PHS-06.3 residue closure and PHS-06.4 independent acceptance remain pending.
+Status: A1-A4 implemented. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. A3 implements automatic preparation and conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through the standard composition path. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending.
 
 Documents:
 - [Problem statement](phs-06.2_problem.md)
@@ -205,6 +205,8 @@ The standard coding-agent assembly enables the bundled extension. The [PHS-06.2 
 The standard algorithm must use the accepted system services. Algorithm decisions must not reintroduce Host policy.
 
 ### Phase PHS-06.3 - Close migration residue and documentation
+
+Status: Complete in the working tree. The [closure record](residue-closure-evidence.md) contains the inspected paths, cleanup, generated-artifact stability, full verification results, and platform skips. No commit was created for this phase.
 
 #### Goal
 
@@ -274,7 +276,7 @@ No additional product behavior or integration API is assumed. Checkpoint `690827
 
 ## Open Questions
 
-The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. PHS-06.3 residue closure is the implementation resume point.
+The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. PHS-06.4 independent acceptance is the resume point.
 
 ## Standards Deviations
 

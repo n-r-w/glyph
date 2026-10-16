@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06 Context compaction and retry control
 
-Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) describes the implemented standard extension and per-request accounting. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress and remaining phase order.
+Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) describes the implemented standard extension and per-request accounting. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress and the pending PHS-06.4 independent acceptance.
 
 This document contains the PHS-06 ownership and PHS-06.1 integration design. The [PHS-06.2 solution](phs-06.2_solution.md) owns the standard extension design and its approved per-request accounting extension. The [unaccepted checkpoint design](#unaccepted-checkpoint-design) and [implementation evidence](#implementation-evidence) describe the earlier Host-owned implementation only. The [ticket](ticket.md) contains shared requirements and terminology; the [migration plan](migration-plan.md) describes subphase order and completion status.
 
@@ -25,9 +25,9 @@ The persisted `CompactionEntry` and model-history projection remain the durable 
 
 Retry behavior remains Host-owned and unchanged by the compaction ownership migration. The retry attempt allowance, provider classification, delay scheduling, response reset, and retry extension handlers continue to follow the [ticket requirements](ticket.md#functional-requirements).
 
-### PHS-06.1 integration proposal
+### PHS-06.1 integration contract
 
-The PHS-06.1 system contracts define the ownership boundaries for extension-owned compaction. Host provides nested asynchronous operations on the existing extension connection. A reference extension exercises the public system paths before the standard bundled extension exists. System acceptance requires runtime evidence beyond the completed design dry run. The [phased plan](migration-plan.md#phased-plan) owns the implementation order. The compaction operation binding is process-local parent-operation state, distinct from an extension's longer-lived session context. See the [ticket definition](ticket.md#key-definitions-and-abbreviations).
+The PHS-06.1 system contracts define the ownership boundaries for extension-owned compaction. Host provides nested asynchronous operations on the existing extension connection. Reference extensions and the standard bundled extension use these public operations. The [system acceptance record](system-integration-evidence.md) contains PHS-06.1 runtime evidence; the [PHS-06.2 progress record](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) contains bundled-extension evidence. The [phased plan](migration-plan.md#phased-plan) owns the remaining closure and acceptance work. The compaction operation binding is process-local parent-operation state, distinct from an extension's longer-lived session context. See the [ticket definition](ticket.md#key-definitions-and-abbreviations).
 
 #### Policy invocation and participating handlers
 
@@ -576,7 +576,7 @@ The old unit 5 remains unimplemented. The [migration plan](migration-plan.md#pha
 - Impact: The Host-owned checkpoint cannot migrate until the policy-owning extension can coordinate participating request, generator, and result capabilities and apply trigger, sizing, retained-boundary, generation, and overflow policy through existing runtime and session owners.
 - Required answer: The minimum contract and call flow through which the policy-owning extension invokes ordered request, generator, and result capabilities and uses session-bound prepared history, usage observation, model access, pre-request compaction, provider-overflow recovery, cancellation, and one durable replacement mutation.
 - Current evidence: The checkpoint proves the persisted entry and projection model. It also shows that moving only the summary generator leaves policy in Host.
-- Proposal: [PHS-06.1 integration proposal](#phs-061-integration-proposal), including scoped nested invocation and session-owned snapshot/projection/commit operations.
+- Implemented contract: [PHS-06.1 integration contract](#phs-061-integration-contract), including scoped nested invocation and session-owned snapshot/projection/commit operations.
 - Resolved decision: O6-1 permits ordinary conversation requests with no registered policy owner, without automatic compaction or overflow recovery. Manual compaction and registered-owner failures remain explicit failures.
 - Design approval: The user approved the integration boundaries and system implementation in PHS-06.1. The [phased plan](migration-plan.md#phased-plan) defines the system and bundled-extension boundaries.
 - Dry-run scope correction: The first review treated a bundled-generator algorithm choice as a system-contract blocker. The user deferred that choice to [QST-01.1](#qst-011-standard-summary-input-above-the-model-budget). Host supports one or multiple nested model requests through the approved contract. The separately approved [PHS-06.2 design](phs-06.2_solution.md) now defines the standard generator.
@@ -588,7 +588,7 @@ The old unit 5 remains unimplemented. The [migration plan](migration-plan.md#pha
 - Status: Resolved and implemented in PHS-06.2. The [delivery record](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) describes the implemented scope and verification limits.
 - Purpose: Define standard generation for source that may exceed one configured-model request and define accounting for requests contributing to a persisted result.
 - Approved behavior: The [PHS-06.2 requirements](phs-06.2_prd.md#functional-requirements) own the first-version input limits and per-request accounting. The [generation design](phs-06.2_solution.md#d4-one-standard-generation-request) and [accounting design](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction) replace the deferred decision without adopting the historical checkpoint's packing algorithm.
-- Validation: An independent source-based dry run found no material blocker. The [readiness record](phs-06.2_solution.md#implementation-readiness) describes that design review. The delivery record linked above describes subsequent implementation checks. PHS-06.1 remains the accepted system foundation.
+- Validation: An independent source-based dry run found no material blocker. The [dry-run record](phs-06.2_solution.md#design-dry-run-evidence) describes that design review. The delivery record linked above describes subsequent implementation checks. PHS-06.1 remains the accepted system foundation.
 
 ## References
 

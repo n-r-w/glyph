@@ -1,6 +1,6 @@
 # Requirements: PHS-06.2 standard context compaction
 
-Status: Approved, including the first-version limits below. The [technical solution](phs-06.2_solution.md) has passed its design dry run. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction, and A3 implements automatic compaction. For requests that continue the observed input and completed response unchanged, with matching reasoning, instructions, and tool definitions, the bundled compaction extension reuses reported conversation usage. In A4, the bundled compaction extension implements admitted overflow recovery through standard composition. When no older history remains reducible, the extension fails explicitly. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records A1-A4 behavior and verification limits. PHS-06.3 residue closure and PHS-06.4 independent acceptance remain pending.
+Status: Approved, including the first-version limits below. The [technical solution](phs-06.2_solution.md) has passed its design dry run. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction, and A3 implements automatic compaction. For requests that continue the observed input and completed response unchanged, with matching reasoning, instructions, and tool definitions, the bundled compaction extension reuses reported conversation usage. In A4, the bundled compaction extension implements admitted overflow recovery through standard composition. When no older history remains reducible, the extension fails explicitly. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records A1-A4 behavior and verification limits. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending.
 
 ## Definitions
 
@@ -95,7 +95,7 @@ The standard generator does not promise arbitrary-size source processing, indivi
 
 ## Open Questions
 
-None at the requirements level. The [technical solution](phs-06.2_solution.md#implementation-readiness) records implementation prerequisites and verification limits.
+None at the requirements level. The [technical solution](phs-06.2_solution.md#design-dry-run-evidence) records design evidence and verification limits.
 
 ## References
 
