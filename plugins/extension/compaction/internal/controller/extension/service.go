@@ -109,6 +109,12 @@ func (h *handler) Run(ctx context.Context) (*pb.HandleResponse, error) {
 	response := new(pb.HandleResponse)
 	switch {
 	case h.request.GetCompletedConversation() != nil:
+		if err := h.service.policy.Observe(
+			ctx,
+			decodeObservation(h.request.GetCompletedConversation(), decodeBinding(h.request.GetContext())),
+		); err != nil {
+			return nil, err
+		}
 		response.SetCompletedConversation(new(pb.CompactionObserverAction))
 	case h.request.GetCompactionOutgoingInput() != nil:
 		if err := h.service.policy.ValidateOutgoing(
@@ -129,7 +135,9 @@ func (h *handler) Run(ctx context.Context) (*pb.HandleResponse, error) {
 		}
 		response.SetCompactionGenerate(EncodeResult(result))
 	case h.request.GetCompactionPolicy() != nil:
-		outcome, err := h.service.policy.Compact(ctx, decodeInput(h.request.GetCompactionPolicy()))
+		input := decodeInput(h.request.GetCompactionPolicy())
+		input.Binding = decodeBinding(h.request.GetContext())
+		outcome, err := h.service.policy.Compact(ctx, input)
 		result := new(pb.CompactionPolicyResult)
 		if state, present := outcome.State.Get(); present {
 			result.SetState(encodeState(state))

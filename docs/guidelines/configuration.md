@@ -87,7 +87,7 @@ Each logical model execution snapshots these values and the runtime enabled stat
 
 ## Bundled compaction extension
 
-With the default output directory, the standard build produces `bin/plugins/extension/glyph-compaction`. Install this executable in the [extension catalog](#extensions-and-tools) alongside `glyph-tools` to enable manual compaction through the UI, Programmatic Control, and Extension SDK.
+With the default output directory, the standard build produces `bin/plugins/extension/glyph-compaction`. Install this executable in the [extension catalog](#extensions-and-tools) alongside `glyph-tools` to enable automatic compaction and manual compaction through the UI, Programmatic Control, and Extension SDK.
 
 Set these environment variables before starting Glyph. The extension reads them once at startup:
 
@@ -98,7 +98,11 @@ Set these environment variables before starting Glyph. The extension reads them 
 
 For example, `GLYPH_COMPACTION_RETAINED_TOKENS=10000 glyph` sets a 10,000-token recent-history target. Invalid values prevent the extension from starting. When retention leaves no older portion to summarize, manual compaction fails.
 
-The bundled policy currently supports manual compaction. During ordinary conversation preparation, the bundled compaction extension preserves history. During overflow preparation, the extension declines recovery. Automatic thresholds, usage observations, and overflow recovery remain pending in the [phase progress](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension).
+When its input estimate exceeds the selected model's `contextWindow - maxTokens`, the bundled compaction extension compacts before ordinary conversation dispatch. Equality fits: a model with `contextWindow: 8000` and `maxTokens: 1000` accepts a 7,000-token input estimate and triggers compaction at 7,001 tokens. The estimate includes history, instructions, tool definitions, image count, and Host-supplied private-payload sizes. Changing image encoding alone leaves the content estimate unchanged.
+
+The bundled compaction extension records successful conversations in memory and keeps observations separate for each session and model. For an exact continuation of the observed input and completed response, with matching reasoning, instructions, and tools, it uses reported input and output usage plus estimates for new input. When usage is missing or the input does not match the recorded continuation, the bundled compaction extension uses content estimation. When the bundled compaction extension starts compaction composition for a history replacement, it discards prior reported-usage baselines. After the extension restarts, it has no reported-usage baselines. Summary-generation calls do not update conversation observations.
+
+After automatic history replacement and completion of the extension handlers notified of successful compaction, the bundled compaction extension checks the actual outgoing input. If one of those handlers appends enough content to exceed the input budget, the bundled compaction extension rejects the request while Host retains the persisted history replacement. Overflow recovery remains pending in delivery step A4. Until then, the extension declines overflow preparation. See [phase progress](../specs/features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension).
 
 ## Compaction participant lifetime
 

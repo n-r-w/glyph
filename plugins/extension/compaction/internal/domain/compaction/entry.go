@@ -1,6 +1,8 @@
 package compaction
 
 import (
+	"bytes"
+
 	"github.com/samber/mo"
 )
 
@@ -106,6 +108,26 @@ func (e Entry) EstimateTokens() int64 {
 		)
 	}
 	return total
+}
+
+// equalContent compares the prepared content and private-payload sizes.
+func (e Entry) equalContent(other Entry) bool {
+	if e.Kind != other.Kind || e.CallID != other.CallID || e.Tool != other.Tool || e.Failed != other.Failed ||
+		e.PrivateBytes != other.PrivateBytes ||
+		len(e.Blocks) != len(other.Blocks) {
+		return false
+	}
+	for index := range e.Blocks {
+		left, right := &e.Blocks[index], &other.Blocks[index]
+		if left.Kind != right.Kind || left.Text != right.Text || left.MediaType != right.MediaType ||
+			left.CallID != right.CallID ||
+			left.Name != right.Name ||
+			!bytes.Equal(left.Data, right.Data) ||
+			!bytes.Equal(left.Arguments, right.Arguments) {
+			return false
+		}
+	}
+	return true
 }
 
 // findGroupStarts identifies complete message-group boundaries.

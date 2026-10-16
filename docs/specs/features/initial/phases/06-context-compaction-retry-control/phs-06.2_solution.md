@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06.2 standard context compaction
 
-Status: Approved. A1 implements D6 accounting, and A2 implements bundled manual compaction. PHS-06.2 remains in progress; the [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records the remaining A3/A4 work.
+Status: Approved. A1 implements D6 accounting, A2 implements bundled manual compaction, and A3 implements D2 automatic compaction and conversation observations. PHS-06.2 remains in progress; the [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records completed behavior and pending A4 overflow recovery.
 
 ## Problem Statement
 

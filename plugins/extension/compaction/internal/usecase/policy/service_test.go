@@ -4,6 +4,7 @@ package policy
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -25,7 +26,9 @@ func TestCompactComposesOrderedState(t *testing.T) {
 	input.Generators = []compaction.Participant{first, second}
 	host := NewMockHost(gomock.NewController(t))
 	service := New(host, 1)
-	original, err := compaction.SelectRequest(input, 1)
+	original, err := compaction.SelectRequest(
+		input, 1, compaction.EstimateInput(input.History, input.Instructions, input.ToolText),
+	)
 	require.NoError(t, err)
 	changed := original
 	changed.Guidance = "composed guidance"
@@ -158,7 +161,9 @@ func TestCompactStopsBeforeInstallingRejectedState(t *testing.T) {
 			host := NewMockHost(gomock.NewController(t))
 			action := test.action
 			if test.project {
-				replacement, requestErr := compaction.SelectRequest(input, 1)
+				replacement, requestErr := compaction.SelectRequest(
+					input, 1, compaction.EstimateInput(input.History, input.Instructions, input.ToolText),
+				)
 				require.NoError(t, requestErr)
 				replacement.Guidance = "rejected request update"
 				action.RequestDisposition = compaction.RequestReplace
@@ -200,7 +205,9 @@ func TestCompactUsesCapturedBudget(t *testing.T) {
 	participant := newPolicyParticipant("handler")
 	input.Requests = []compaction.Participant{participant}
 	input.Generators = []compaction.Participant{participant}
-	request, err := compaction.SelectRequest(input, 1)
+	request, err := compaction.SelectRequest(
+		input, 1, compaction.EstimateInput(input.History, input.Instructions, input.ToolText),
+	)
 	require.NoError(t, err)
 	request.Model.ID = "summary-model"
 	request.Model.Window = 100000
@@ -232,19 +239,38 @@ func TestCompactUsesCapturedBudget(t *testing.T) {
 // TestAutomaticPreparationPreservesHistory checks preservation and independent outgoing-budget rejection.
 func TestAutomaticPreparationPreservesHistory(t *testing.T) {
 	t.Parallel()
-	// Arrange an oversized ordinary input without participant expectations.
-	input := newPolicyInput()
-	input.Purpose = compaction.PurposeAutomatic
-	input.Model.Window = 1
-	host := NewMockHost(gomock.NewController(t))
-	// Act through ordinary preparation and outgoing validation.
-	outcome, err := New(host, 1).Compact(t.Context(), input)
-	validation := New(host, 1).ValidateOutgoing(t.Context(), input)
-	// Assert preservation and an independent final-budget rejection.
-	require.NoError(t, err)
-	require.True(t, outcome.Preserve)
-	require.True(t, outcome.State.IsNone())
-	require.ErrorContains(t, validation, "conversation input budget")
+	for _, above := range []bool{false, true} {
+		t.Run(fmt.Sprint(above), func(t *testing.T) {
+			t.Parallel()
+			// Arrange ordinary input at or just above the captured input budget.
+			input := newPolicyInput()
+			input.Purpose = compaction.PurposeAutomatic
+			input.Model.Window = input.Model.Reserve + compaction.EstimateInput(
+				input.History,
+				input.Instructions,
+				input.ToolText,
+			)
+			if above {
+				input.Model.Window--
+			}
+			host := NewMockHost(gomock.NewController(t))
+			// Act through ordinary preparation and independent outgoing validation.
+			outcome, err := New(host, 1).Compact(t.Context(), input)
+			validation := New(host, 1).ValidateOutgoing(t.Context(), input)
+			// Assert that at the input budget, Compact preserves history. Above that budget, Compact starts composition.
+			if above {
+				require.ErrorContains(t, err, "generator")
+				require.False(t, outcome.Preserve)
+				require.Equal(t, compaction.TriggerThreshold, outcome.State.MustGet().Original.Trigger)
+				require.ErrorContains(t, validation, "conversation input budget")
+			} else {
+				require.NoError(t, err)
+				require.True(t, outcome.Preserve)
+				require.True(t, outcome.State.IsNone())
+				require.NoError(t, validation)
+			}
+		})
+	}
 }
 
 // newPolicyParticipant supplies a capability for policy tests.
@@ -291,6 +317,7 @@ func newPolicyInput() compaction.Input {
 	recent := old
 	recent.ID = "recent"
 	return compaction.Input{
+		Binding:  compaction.Binding{},
 		Entries:  []compaction.Entry{old, recent},
 		History:  []compaction.Entry{old, recent},
 		Previous: mo.None[compaction.Result](),
@@ -307,6 +334,7 @@ func newPolicyInput() compaction.Input {
 		Reasoning:    "off",
 		Instructions: "conversation instructions",
 		ToolText:     "tool schema",
+		ToolShape:    "tool shape",
 		Guidance:     "guidance",
 		Purpose:      compaction.PurposeManual,
 		Requests:     nil,

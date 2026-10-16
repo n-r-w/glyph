@@ -1,6 +1,6 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: PHS-06.1 is complete and accepted. PHS-06.2 is in progress with accounting slice A1 and manual-compaction slice A2 implemented. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units), and [PHS-06.2 progress](#phase-phs-062---implement-the-standard-bundled-compaction-extension).
+Status: PHS-06.1 is complete and accepted. PHS-06.2 is in progress with A1 accounting, A2 manual compaction, and A3 automatic compaction implemented. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units), and [PHS-06.2 progress](#phase-phs-062---implement-the-standard-bundled-compaction-extension).
 
 Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation started from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
@@ -17,7 +17,7 @@ The [ticket](ticket.md#key-definitions-and-abbreviations) owns the detailed defi
 
 ### Resume point
 
-- Continue [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) with A3 automatic thresholds and reuse of reported conversation usage, followed by A4 overflow recovery. Its [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md) remain the approved basis.
+- Continue [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) with A4 overflow recovery. A3 automatic thresholds are implemented. For requests that continue the observed input and completed response unchanged, with matching reasoning, instructions, and tool definitions, the bundled compaction extension reuses reported conversation usage. Its [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md) remain the approved basis.
 - The historical starting baseline was `96f061c`, with retained dependency updates and the TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build and diff checks passed at that point; coverage was 82.7%. The [system acceptance record](system-integration-evidence.md) contains the final PHS-06.1 results.
 - Checkpoint units 0 through 3 and the session foundation preceded the migration. The checkpoint's Host-owned unit 4 was unaccepted. After migrating its callers, the UNT-11 implementer removed the remaining Host policy.
 - After each completed migration phase, record its result, evidence, remaining blockers, and commit in this plan. The first phase without completed exit criteria is the resume point.
@@ -169,7 +169,7 @@ Mocked capability fixtures can conceal an unwired real extension. Include produc
 
 ### Phase PHS-06.2 - Implement the standard bundled compaction extension
 
-Status: In progress. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. A3 automatic preparation and A4 overflow recovery remain pending.
+Status: In progress. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. A3 implements automatic preparation and conversation observations. A4 overflow recovery remains pending.
 
 Documents:
 - [Problem statement](phs-06.2_problem.md)
@@ -185,8 +185,9 @@ Provide the standard coding agent with an enabled bundled policy and generator t
 - A1 implements [per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction), including public reference-extension tests, persistence, restoration, and client projections.
 - A2 implements [D1 startup](phs-06.2_solution.md#d1-standard-extension-and-startup-configuration), [D3 retention](phs-06.2_solution.md#d3-complete-message-retention), [D4 generation](phs-06.2_solution.md#d4-one-standard-generation-request), and [D5 manual composition](phs-06.2_solution.md#d5-composition-projection-and-persistence). The production executable is built from `plugins/extension/compaction/cmd/glyph-compaction`; [startup settings](../../../../../guidelines/configuration.md#bundled-compaction-extension) describe installation and generator control.
 - A2's `TestStandardManualCompaction`, `TestStandardManualComposition`, `TestStandardUIManualCompaction`, `TestStandardExtensionManualCompaction`, `TestStandardComposedModelKeepsConversationBudget`, and `TestStandardGenerationCancellation` in `host/internal/app/standard_compaction*_integration_test.go` exercise real application, SDK, runtime, session, and provider-adapter wiring. External provider HTTP transport is mocked. Unit tests cover content estimates, indivisible tool groups, immutable composition state, structured source limits, and terminal-response validation.
-- In A2, the bundled compaction extension preserves ordinary preparation input and acknowledges completed conversations. The bundled compaction extension's outgoing-input callback validates the captured conversation budget. Reuse of reported conversation usage and automatic threshold behavior remain pending in A3.
-- A3 adds [D2 usage observations and automatic thresholds](phs-06.2_solution.md#d2-full-input-estimates-and-conversation-observations). A4 adds [D7 overflow recovery](phs-06.2_solution.md#d7-cancellation-failures-and-overflow).
+- A3 implements [D2 usage observations and automatic thresholds](phs-06.2_solution.md#d2-full-input-estimates-and-conversation-observations) through the bundled policy's public callbacks. The bundled compaction extension stores independent copies of reported-usage baselines for each issued binding and model, and synchronizes access to those copies. For requests that continue the observed input and completed response unchanged, with matching reasoning, instructions, and tool definitions, the extension uses reported conversation input and output usage plus estimated growth. When usage is missing or the input does not match the recorded continuation, the bundled compaction extension uses content estimation. Before returning the typed acknowledgement, the bundled compaction extension records successfully completed conversations whose input it preserved.
+- `TestStandardAutomaticCompaction`, `TestStandardAutomaticExactThreshold`, and `TestStandardAutomaticFinalHistory` in `host/internal/app/standard_compaction_*_integration_test.go` exercise production application, SDK, runtime, session, and provider-adapter wiring. They check preservation and replacement when the input estimate equals the automatic compaction threshold or exceeds it by one token. They also check decisions based on reported usage, model/reasoning changes, fallback to content estimation after restart, and the actual history after observers run. After a postcommit budget failure, Host retains the durable marker and reports the complete budget cause. The policy runs no further composition. External provider HTTP transport is mocked. Unit tests cover sizes of private provider data, estimates unaffected by image encoding, exact history/tool-definition matching, independent copies of values, and isolation by binding/model during concurrent operations.
+- A4 adds [D7 overflow recovery](phs-06.2_solution.md#d7-cancellation-failures-and-overflow). Until A4, the bundled policy explicitly declines overflow preparation.
 - Verify standard and custom composition through the accepted system path, including preceding summaries, the [standard input limits](phs-06.2_prd.md#functional-requirements), and preservation of custom configured-model image support.
 
 #### Deliverables
@@ -271,7 +272,7 @@ No additional product behavior or integration API is assumed. Checkpoint `690827
 
 ## Open Questions
 
-The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. A3 and A4 remain the implementation resume points.
+The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. A4 overflow recovery is the implementation resume point.
 
 ## Standards Deviations
 

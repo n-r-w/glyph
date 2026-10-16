@@ -8,8 +8,12 @@ import (
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
 )
 
-// Policy coordinates manual compaction and validates outgoing conversation input.
+//go:generate go tool mockgen -destination=interfaces_mock_test.go -package=extension -build_constraint=!integration . Policy
+
+// Policy coordinates compaction and observes conversation input.
 type Policy interface {
+	// Observe records a successful conversation attempt.
+	Observe(context.Context, compaction.Observation) error
 	// Compact coordinates context compaction.
 	Compact(context.Context, compaction.Input) (Outcome, error)
 	// ValidateOutgoing checks the captured conversation budget.

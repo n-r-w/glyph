@@ -3,6 +3,7 @@ package policy
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/samber/mo"
 
@@ -10,30 +11,46 @@ import (
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
 )
 
-// Service coordinates manual compaction.
+// Service coordinates conversation compaction.
 type Service struct {
 	// host supplies operation-scoped system services.
 	host Host
 	// retained is the recent-history target.
 	retained int64
+	// observations contains usage anchors by binding and model.
+	observations map[observationKey]compaction.Anchor
+	// observationsMu guards callback access to observations.
+	observationsMu sync.RWMutex
 }
 
 var _ controller.Policy = (*Service)(nil)
 
-// New assembles the manual policy.
-func New(host Host, retained int64) *Service { return &Service{host: host, retained: retained} }
+// New assembles the conversation policy.
+func New(host Host, retained int64) *Service {
+	return &Service{
+		host:           host,
+		retained:       retained,
+		observations:   make(map[observationKey]compaction.Anchor),
+		observationsMu: sync.RWMutex{},
+	}
+}
 
 // Compact coordinates compaction.
 func (s *Service) Compact(ctx context.Context, input compaction.Input) (controller.Outcome, error) {
 	outcome := controller.Outcome{State: mo.None[compaction.State](), Preserve: false, Canceled: false}
-	if input.Purpose != compaction.PurposeManual {
+	tokens := s.estimateInput(input)
+	if !input.NeedsCompaction(tokens) {
 		outcome.Preserve = true
 		return outcome, nil
 	}
-	request, err := compaction.SelectRequest(input, s.retained)
+	request, err := compaction.SelectRequest(input, s.retained, tokens)
 	if err != nil {
 		return outcome, err
 	}
+	if input.Purpose == compaction.PurposeAutomatic {
+		request.Trigger = compaction.TriggerThreshold
+	}
+	s.forgetObservations(input.Binding)
 	state := compaction.State{Original: request, Current: request, Result: mo.None[compaction.Result]()}
 	for _, participant := range input.Requests {
 		if err = ctx.Err(); err != nil {
@@ -72,7 +89,7 @@ func (s *Service) Compact(ctx context.Context, input compaction.Input) (controll
 	return outcome, err
 }
 
-// complete finalizes the manual replacement.
+// complete finishes replacement composition.
 func (s *Service) complete(
 	ctx context.Context,
 	input compaction.Input,

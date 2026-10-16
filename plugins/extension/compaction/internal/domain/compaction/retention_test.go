@@ -25,8 +25,9 @@ func TestSelectRequest(t *testing.T) {
 	entries[3].CallID = "a"
 	entries[4].CallID = "b"
 	input := newInput(entries)
+	tokens := EstimateInput(input.History, input.Instructions, input.ToolText)
 	// Act with a target smaller than the final tool group.
-	request, err := SelectRequest(input, 1)
+	request, err := SelectRequest(input, 1, tokens)
 	// Assert the producing response stays with both results.
 	require.NoError(t, err)
 	require.Len(t, request.Prefix, 2)
@@ -42,7 +43,7 @@ func TestSelectRequest(t *testing.T) {
 		Details:   mo.None[[]byte](),
 	}
 	input.Previous = mo.Some(previous)
-	request, err = SelectRequest(input, 1)
+	request, err = SelectRequest(input, 1, tokens)
 	require.NoError(t, err)
 	require.Len(t, request.Prefix, 1)
 	require.Equal(t, "recent", request.Prefix[0].ID)
@@ -56,7 +57,7 @@ func TestSelectRequest(t *testing.T) {
 			Details:   mo.None[[]byte](),
 		},
 	)
-	_, err = SelectRequest(input, 1)
+	_, err = SelectRequest(input, 1, tokens)
 	require.ErrorContains(t, err, "no older reducible")
 }
 
@@ -109,6 +110,7 @@ func newCallBlock(id string) Block {
 // newInput supplies a captured conversation for retention tests.
 func newInput(entries []Entry) Input {
 	return Input{
+		Binding:  Binding{},
 		Entries:  entries,
 		History:  entries,
 		Previous: mo.None[Result](),
@@ -125,6 +127,7 @@ func newInput(entries []Entry) Input {
 		Reasoning:    "off",
 		Instructions: "conversation instructions",
 		ToolText:     "tool schema",
+		ToolShape:    "tool shape",
 		Guidance:     "manual guidance",
 		Purpose:      PurposeManual,
 		Requests:     nil,

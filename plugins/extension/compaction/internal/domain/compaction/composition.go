@@ -21,6 +21,8 @@ type Participant struct {
 
 // Input contains immutable conversation data for policy decisions.
 type Input struct {
+	// Binding identifies the issued session access.
+	Binding Binding
 	// Entries contains the original active branch.
 	Entries []Entry
 	// History contains prepared model history.
@@ -35,6 +37,8 @@ type Input struct {
 	Instructions string
 	// ToolText contains the textual and JSON tool-definition contribution.
 	ToolText string
+	// ToolShape identifies the captured tool definitions for continuation matching.
+	ToolShape string
 	// Guidance contains manual caller guidance.
 	Guidance string
 	// Purpose identifies the reason for policy preparation.
@@ -45,6 +49,19 @@ type Input struct {
 	Generators []Participant
 	// Results contains result-handler registrations.
 	Results []Participant
+}
+
+// NeedsCompaction identifies captured input that requires replacement.
+func (i Input) NeedsCompaction(tokens int64) bool {
+	switch i.Purpose {
+	case PurposeManual:
+		return true
+	case PurposeAutomatic:
+		return tokens > i.Model.Window-i.Model.Reserve
+	case PurposeOverflow, PurposeUnspecified, PurposeInvalid:
+		return false
+	}
+	return false
 }
 
 // State contains the original request and last accepted composition values.

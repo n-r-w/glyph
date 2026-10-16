@@ -22,7 +22,7 @@ func estimateText(text string) int64 {
 }
 
 // SelectRequest selects a complete recent suffix for manual compaction.
-func SelectRequest(input Input, retained int64) (Request, error) {
+func SelectRequest(input Input, retained, contextTokens int64) (Request, error) {
 	entries := make([]Entry, 0, len(input.Entries))
 	previous, repeated := input.Previous.Get()
 	started := !repeated
@@ -55,7 +55,7 @@ func SelectRequest(input Input, retained int64) (Request, error) {
 	return Request{
 		Trigger: TriggerManual, Retry: false, Guidance: input.Guidance, Model: input.Model, Reasoning: input.Reasoning,
 		Prefix: entries[:boundary], Suffix: entries[boundary:], Previous: input.Previous,
-		ContextTokens: EstimateInput(input.History, input.Instructions, input.ToolText), Estimated: true,
+		ContextTokens: contextTokens, Estimated: true,
 		Window: input.Model.Window, Reserve: input.Model.Reserve, Retained: retained,
 	}, nil
 }

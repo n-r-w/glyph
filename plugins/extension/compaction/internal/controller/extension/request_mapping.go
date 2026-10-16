@@ -18,6 +18,7 @@ func decodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
 		entries = append(entries, entry)
 	}
 	return compaction.Input{
+		Binding:      compaction.Binding{},
 		Entries:      entries,
 		History:      DecodeHistory(value.GetHistory()),
 		Previous:     decodeMarker(value.GetPrevious()),
@@ -25,6 +26,7 @@ func decodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
 		Reasoning:    value.GetReasoningChoice(),
 		Instructions: value.GetInstructions(),
 		ToolText:     decodeToolText(value.GetTools()),
+		ToolShape:    decodeToolShape(value.GetTools()),
 		Guidance:     value.GetUserInstructions(),
 		Purpose:      decodePurpose(value.GetPurpose()),
 		Requests:     decodeParticipants(value.GetRequestParticipants()),
@@ -36,6 +38,7 @@ func decodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
 // decodeOutgoing maps frozen outgoing conversation input into policy data.
 func decodeOutgoing(value *pb.CompactionOutgoingInput) compaction.Input {
 	return compaction.Input{
+		Binding:      compaction.Binding{},
 		Entries:      nil,
 		History:      DecodeHistory(value.GetHistory()),
 		Previous:     mo.None[compaction.Result](),
@@ -43,6 +46,7 @@ func decodeOutgoing(value *pb.CompactionOutgoingInput) compaction.Input {
 		Reasoning:    value.GetReasoningChoice(),
 		Instructions: value.GetInstructions(),
 		ToolText:     decodeToolText(value.GetTools()),
+		ToolShape:    "",
 		Guidance:     "",
 		Purpose:      compaction.PurposeUnspecified,
 		Requests:     nil,
