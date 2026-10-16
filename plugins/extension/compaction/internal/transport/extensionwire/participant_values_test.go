@@ -1,6 +1,6 @@
 //go:build !integration
 
-package extension
+package extensionwire
 
 import (
 	"testing"
@@ -16,7 +16,7 @@ import (
 func TestParticipantMessagesDetachAcceptedValues(t *testing.T) {
 	t.Parallel()
 	// Arrange captured request and accepted result values with mutable collections.
-	request := decodeRequest(newMappingRequest())
+	request := DecodeRequest(newMappingRequest())
 	request.Model.Modalities = []compaction.Modality{compaction.ModalityText}
 	request.Model.Reasoning = mo.Some(compaction.Reasoning{Supported: true, Choices: []string{"off"}, Default: "off"})
 	request.Model.Pricing = mo.Some(

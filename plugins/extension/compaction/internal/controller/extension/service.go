@@ -6,6 +6,7 @@ import (
 	"errors"
 
 	pb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
+	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/transport/extensionwire"
 	sdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
@@ -111,7 +112,10 @@ func (h *handler) Run(ctx context.Context) (*pb.HandleResponse, error) {
 	case h.request.GetCompletedConversation() != nil:
 		if err := h.service.policy.Observe(
 			ctx,
-			decodeObservation(h.request.GetCompletedConversation(), decodeBinding(h.request.GetContext())),
+			extensionwire.DecodeObservation(
+				h.request.GetCompletedConversation(),
+				extensionwire.DecodeBinding(h.request.GetContext()),
+			),
 		); err != nil {
 			return nil, err
 		}
@@ -119,13 +123,13 @@ func (h *handler) Run(ctx context.Context) (*pb.HandleResponse, error) {
 	case h.request.GetCompactionOutgoingInput() != nil:
 		if err := h.service.policy.ValidateOutgoing(
 			ctx,
-			decodeOutgoing(h.request.GetCompactionOutgoingInput()),
+			extensionwire.DecodeOutgoing(h.request.GetCompactionOutgoingInput()),
 		); err != nil {
 			return nil, err
 		}
 		response.SetCompactionOutgoingInput(new(pb.CompactionObserverAction))
 	case h.request.GetCompactionGenerate() != nil:
-		request := decodeRequest(h.request.GetCompactionGenerate().GetCurrent())
+		request := extensionwire.DecodeRequest(h.request.GetCompactionGenerate().GetCurrent())
 		if err := request.Validate(); err != nil {
 			return nil, err
 		}
@@ -133,14 +137,14 @@ func (h *handler) Run(ctx context.Context) (*pb.HandleResponse, error) {
 		if err != nil {
 			return nil, err
 		}
-		response.SetCompactionGenerate(EncodeResult(result))
+		response.SetCompactionGenerate(extensionwire.EncodeResult(result))
 	case h.request.GetCompactionPolicy() != nil:
-		input := decodeInput(h.request.GetCompactionPolicy())
-		input.Binding = decodeBinding(h.request.GetContext())
+		input := extensionwire.DecodeInput(h.request.GetCompactionPolicy())
+		input.Binding = extensionwire.DecodeBinding(h.request.GetContext())
 		outcome, err := h.service.policy.Compact(ctx, input)
 		result := new(pb.CompactionPolicyResult)
 		if state, present := outcome.State.Get(); present {
-			result.SetState(encodeState(state))
+			result.SetState(extensionwire.EncodeState(state))
 		}
 		switch {
 		case err != nil:

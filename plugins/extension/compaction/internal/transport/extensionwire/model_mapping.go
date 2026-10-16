@@ -1,4 +1,4 @@
-package extension
+package extensionwire
 
 import (
 	"slices"

@@ -14,6 +14,8 @@ The approved [problem statement](phs-06.2_problem.md) describes the long-session
 
 Supply one executable extension under `plugins/extension/`, using the existing catalog and public Extension SDK. Follow the tools extension's separation of executable startup, application assembly, controller, use cases, and external-operation adapters. Keep policy and generation logic independent of wire representations and Host internals.
 
+The `plugins/extension/compaction/internal/transport/extensionwire` package owns conversions between public Extension protobuf messages and compaction domain values. The input controller and outgoing Host adapters use these conversions because both directions carry the same Extension representations. For example, the generator callback and the Host result-handler adapter both encode a `compaction.Result` with `extensionwire.EncodeResult`. The package depends on public protobuf types and the compaction domain; use cases retain their consumer-owned contracts and policy.
+
 The standard build includes the extension alongside the tools extension. Its normal registration exposes the policy and generator. Startup configuration can omit generator registration while retaining the policy, so a custom extension can supply the generator through the same composition path.
 
 Load the retained-history target and generator enablement from extension-prefixed environment variables at startup. The defaults are defined by [FRQ-01, FRQ-05, and FRQ-11](phs-06.2_prd.md#functional-requirements). Invalid configuration produces a startup error. A new Host configuration API, separate generator process, and dedicated summary-model setting are unnecessary for this scope.

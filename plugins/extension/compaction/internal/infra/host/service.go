@@ -6,8 +6,8 @@ import (
 	"errors"
 
 	pb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
-	controller "github.com/n-r-w/glyph/plugins/extension/compaction/internal/controller/extension"
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
+	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/transport/extensionwire"
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/usecase/policy"
 	sdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -29,8 +29,8 @@ func (s *Service) Request(
 	}
 	operation, err := binding.StartRequestHandler(
 		ctx,
-		controller.EncodeParticipant(participant),
-		controller.EncodeInvocation(state),
+		extensionwire.EncodeParticipant(participant),
+		extensionwire.EncodeInvocation(state),
 	)
 	if err != nil {
 		return compaction.RequestAction{}, err
@@ -39,7 +39,7 @@ func (s *Service) Request(
 	if err != nil {
 		return compaction.RequestAction{}, err
 	}
-	return controller.DecodeRequestAction(action), nil
+	return extensionwire.DecodeRequestAction(action), nil
 }
 
 // Generate invokes the generator.
@@ -54,8 +54,8 @@ func (s *Service) Generate(
 	}
 	operation, err := binding.StartGenerator(
 		ctx,
-		controller.EncodeParticipant(participant),
-		controller.EncodeInvocation(state),
+		extensionwire.EncodeParticipant(participant),
+		extensionwire.EncodeInvocation(state),
 	)
 	if err != nil {
 		return compaction.Result{}, err
@@ -67,7 +67,7 @@ func (s *Service) Generate(
 	if result == nil {
 		return compaction.Result{}, errors.New("compaction generator result is required")
 	}
-	return controller.DecodeResult(result), nil
+	return extensionwire.DecodeResult(result), nil
 }
 
 // InvokeResultHandler invokes a result handler.
@@ -82,12 +82,12 @@ func (s *Service) InvokeResultHandler(
 		return compaction.ResultAction{}, errors.New("compaction policy authority is required")
 	}
 	invocation := pb.CompactionResultInvocation_builder{
-		OriginalRequest: controller.EncodeRequest(state.Original),
-		CurrentRequest:  controller.EncodeRequest(state.Current),
-		OriginalResult:  controller.EncodeResult(original),
-		CurrentResult:   controller.EncodeResult(state.Result.OrEmpty()),
+		OriginalRequest: extensionwire.EncodeRequest(state.Original),
+		CurrentRequest:  extensionwire.EncodeRequest(state.Current),
+		OriginalResult:  extensionwire.EncodeResult(original),
+		CurrentResult:   extensionwire.EncodeResult(state.Result.OrEmpty()),
 	}.Build()
-	operation, err := binding.StartResultHandler(ctx, controller.EncodeParticipant(participant), invocation)
+	operation, err := binding.StartResultHandler(ctx, extensionwire.EncodeParticipant(participant), invocation)
 	if err != nil {
 		return compaction.ResultAction{}, err
 	}
@@ -95,7 +95,7 @@ func (s *Service) InvokeResultHandler(
 	if err != nil {
 		return compaction.ResultAction{}, err
 	}
-	return controller.DecodeResultAction(action), nil
+	return extensionwire.DecodeResultAction(action), nil
 }
 
 // Project returns a preview of the replacement history.
@@ -104,7 +104,7 @@ func (s *Service) Project(ctx context.Context, candidate compaction.Result) ([]c
 	if !present {
 		return nil, errors.New("compaction policy authority is required")
 	}
-	operation, err := binding.StartProjectReplacement(ctx, controller.EncodeResult(candidate))
+	operation, err := binding.StartProjectReplacement(ctx, extensionwire.EncodeResult(candidate))
 	if err != nil {
 		return nil, err
 	}
@@ -112,7 +112,7 @@ func (s *Service) Project(ctx context.Context, candidate compaction.Result) ([]c
 	if err != nil {
 		return nil, err
 	}
-	return controller.DecodeHistory(projection.GetHistory()), nil
+	return extensionwire.DecodeHistory(projection.GetHistory()), nil
 }
 
 // Commit persists a compaction replacement.
@@ -121,7 +121,7 @@ func (s *Service) Commit(ctx context.Context, candidate compaction.Result) error
 	if !present {
 		return errors.New("compaction policy authority is required")
 	}
-	operation, err := binding.StartReplaceHistory(ctx, controller.EncodeResult(candidate))
+	operation, err := binding.StartReplaceHistory(ctx, extensionwire.EncodeResult(candidate))
 	if err != nil {
 		return err
 	}

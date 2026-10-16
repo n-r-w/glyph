@@ -1,4 +1,5 @@
-package extension
+// Package extensionwire maps public Extension messages and compaction domain values.
+package extensionwire
 
 import (
 	"strings"
@@ -9,8 +10,8 @@ import (
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
 )
 
-// decodeInput maps captured policy input into policy data.
-func decodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
+// DecodeInput maps captured policy input into policy data.
+func DecodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
 	entries := make([]compaction.Entry, 0, len(value.GetEntries()))
 	for _, snapshot := range value.GetEntries() {
 		entry := decodeEntry(snapshot.GetEntry())
@@ -35,8 +36,8 @@ func decodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
 	}
 }
 
-// decodeOutgoing maps frozen outgoing conversation input into policy data.
-func decodeOutgoing(value *pb.CompactionOutgoingInput) compaction.Input {
+// DecodeOutgoing maps frozen outgoing conversation input into policy data.
+func DecodeOutgoing(value *pb.CompactionOutgoingInput) compaction.Input {
 	return compaction.Input{
 		Binding:      compaction.Binding{},
 		Entries:      nil,
@@ -107,8 +108,8 @@ func EncodeParticipant(value compaction.Participant) *pb.CompactionParticipant {
 	}.Build()
 }
 
-// decodeRequest maps a composed compaction request into policy data.
-func decodeRequest(value *pb.CompactionRequest) compaction.Request {
+// DecodeRequest maps a composed compaction request into policy data.
+func DecodeRequest(value *pb.CompactionRequest) compaction.Request {
 	return compaction.Request{
 		Trigger:       decodeTrigger(value.GetTrigger()),
 		Retry:         value.GetRetryIntent(),
@@ -186,8 +187,8 @@ func EncodeInvocation(value compaction.State) *pb.CompactionRequestInvocation {
 	return invocation
 }
 
-// encodeState maps acquired policy state for terminal reporting.
-func encodeState(value compaction.State) *pb.CompactionPolicyState {
+// EncodeState maps acquired policy state for terminal reporting.
+func EncodeState(value compaction.State) *pb.CompactionPolicyState {
 	state := pb.CompactionPolicyState_builder{
 		OriginalRequest: EncodeRequest(value.Original),
 		CurrentRequest:  EncodeRequest(value.Current),
@@ -209,7 +210,7 @@ func DecodeRequestAction(value *pb.CompactionRequestAction) compaction.RequestAc
 		Result:             mo.None[compaction.Result](),
 	}
 	if request := value.GetRequest(); request != nil {
-		action.Request = mo.Some(decodeRequest(request))
+		action.Request = mo.Some(DecodeRequest(request))
 	}
 	if result := value.GetResult(); result != nil {
 		action.Result = mo.Some(DecodeResult(result))

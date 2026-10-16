@@ -1,6 +1,6 @@
 //go:build !integration
 
-package extension
+package extensionwire
 
 import (
 	"testing"
@@ -30,7 +30,7 @@ func TestPurposeMapping(t *testing.T) {
 		// Act through captured policy input decoding.
 		wire := new(pb.CompactionPolicyInvocation)
 		wire.SetPurpose(test.wire)
-		decoded := decodeInput(wire)
+		decoded := DecodeInput(wire)
 		// Assert the extension receives a semantic category.
 		require.Equal(t, test.want, decoded.Purpose)
 		require.Equal(t, test.want, decodePurpose(test.wire))
@@ -58,7 +58,7 @@ func TestTriggerMapping(t *testing.T) {
 		wire.SetTrigger(test.wire)
 		wire.SetRetryIntent(test.wire == pb.CompactionTrigger_COMPACTION_TRIGGER_OVERFLOW)
 		// Act through request decoding, validation, and encoding.
-		decoded := decodeRequest(wire)
+		decoded := DecodeRequest(wire)
 		// Assert valid categories round trip and invalid intent retains its failure text.
 		require.Equal(t, test.want, decoded.Trigger)
 		require.Equal(t, test.want, decodeTrigger(test.wire))
@@ -71,7 +71,7 @@ func TestTriggerMapping(t *testing.T) {
 			require.Equal(t, pb.CompactionTrigger_COMPACTION_TRIGGER_UNSPECIFIED, encodeTrigger(test.want))
 		}
 	}
-	request := decodeRequest(newMappingRequest())
+	request := DecodeRequest(newMappingRequest())
 	request.Retry = true
 	require.ErrorContains(t, request.Validate(), "invalid compaction trigger or retry intent")
 }

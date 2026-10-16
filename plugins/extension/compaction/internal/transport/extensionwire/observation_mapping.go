@@ -1,4 +1,4 @@
-package extension
+package extensionwire
 
 import (
 	"bytes"
@@ -11,8 +11,8 @@ import (
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
 )
 
-// decodeBinding identifies the extension context for conversation observations.
-func decodeBinding(value *pb.ExtensionContext) compaction.Binding {
+// DecodeBinding identifies the extension context for conversation observations.
+func DecodeBinding(value *pb.ExtensionContext) compaction.Binding {
 	return compaction.Binding{
 		Context: value.GetContextId(),
 		Runtime: value.GetRuntimeInstanceId(),
@@ -20,8 +20,8 @@ func decodeBinding(value *pb.ExtensionContext) compaction.Binding {
 	}
 }
 
-// decodeObservation maps actual conversation input and completed response content.
-func decodeObservation(value *pb.CompletedConversationObservation, binding compaction.Binding) compaction.Observation {
+// DecodeObservation maps actual conversation input and completed response content.
+func DecodeObservation(value *pb.CompletedConversationObservation, binding compaction.Binding) compaction.Observation {
 	input := compaction.Input{
 		Binding:  binding,
 		Entries:  nil,

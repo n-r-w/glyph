@@ -5,8 +5,8 @@ import (
 	"errors"
 
 	pb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
-	controller "github.com/n-r-w/glyph/plugins/extension/compaction/internal/controller/extension"
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
+	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/transport/extensionwire"
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/usecase/generation"
 	sdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -59,7 +59,7 @@ func decodeModelResponse(response *pb.ConfiguredModelResult) generation.Response
 		Outcome: "",
 		Blocks:  make([]compaction.Block, 0, len(response.GetContent())),
 		Error:   response.GetErrorMessage(),
-		Usage:   controller.DecodeUsage(response.GetUsage()),
+		Usage:   extensionwire.DecodeUsage(response.GetUsage()),
 	}
 	switch response.GetOutcome() {
 	case pb.ConfiguredModelOutcome_CONFIGURED_MODEL_OUTCOME_UNSPECIFIED:

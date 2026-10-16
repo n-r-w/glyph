@@ -1,4 +1,4 @@
-package extension
+package extensionwire
 
 import (
 	pb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"

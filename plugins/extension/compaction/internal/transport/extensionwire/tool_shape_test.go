@@ -1,6 +1,6 @@
 //go:build !integration
 
-package extension
+package extensionwire
 
 import (
 	"testing"
@@ -34,10 +34,10 @@ func TestToolShapeDistinguishesDefinitionBoundaries(t *testing.T) {
 	invocation.SetTools([]*pb.CompactionToolDefinition{left})
 	observation := new(pb.CompletedConversationObservation)
 	observation.SetTools([]*pb.CompactionToolDefinition{right})
-	captured := decodeInput(invocation)
-	observed := decodeObservation(observation, decodeBinding(nil))
+	captured := DecodeInput(invocation)
+	observed := DecodeObservation(observation, DecodeBinding(nil))
 	// Assert the observation cannot match a changed definition with the same content estimate.
 	require.NotEqual(t, captured.ToolShape, observed.Input.ToolShape)
 	observation.SetTools([]*pb.CompactionToolDefinition{left})
-	require.Equal(t, captured.ToolShape, decodeObservation(observation, decodeBinding(nil)).Input.ToolShape)
+	require.Equal(t, captured.ToolShape, DecodeObservation(observation, DecodeBinding(nil)).Input.ToolShape)
 }
