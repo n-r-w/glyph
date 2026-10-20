@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06 Context compaction and retry control
 
-Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) describes the implemented standard extension and per-request accounting. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress and the pending PHS-06.4 independent acceptance.
+Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) describes the implemented standard extension and per-request accounting. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [PHS-06.4 completion corrections](#phs-064-completion-corrections), D1 through D4, are approved; their implementation and independent acceptance are pending. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress.
 
 This document contains the PHS-06 ownership and PHS-06.1 integration design. The [PHS-06.2 solution](phs-06.2_solution.md) owns the standard extension design and its approved per-request accounting extension. The [unaccepted checkpoint design](#unaccepted-checkpoint-design) and [implementation evidence](#implementation-evidence) describe the earlier Host-owned implementation only. The [ticket](ticket.md) contains shared requirements and terminology; the [migration plan](migration-plan.md) describes subphase order and completion status.
 
@@ -24,6 +24,34 @@ The target behavior follows the ticket's [composition requirements](ticket.md#fu
 The persisted `CompactionEntry` and model-history projection remain the durable mechanism. A compaction entry identifies the replacement summary and first preserved active-branch entry. Persistence never deletes the replaced original prefix. Restore, navigation, fork, and clone derive prepared history from the selected branch and its latest applicable entry.
 
 Retry behavior remains Host-owned and unchanged by the compaction ownership migration. The retry attempt allowance, provider classification, delay scheduling, response reset, and retry extension handlers continue to follow the [ticket requirements](ticket.md#functional-requirements).
+
+### PHS-06.4 completion corrections
+
+D1 through D4 address the approved [remaining problems](ticket.md#problem-statement) and completion requirements. The history-source correction changes the shared projection and public compaction representation. The terminal-failure correction changes error preservation at the provider boundary. The ownership, asynchronous operation lifetimes, and accepted standard-generator limits remain as defined below.
+
+#### D1 and D2: Prepared history and valid retained boundaries
+
+The [history-source solution](../../../../issues/compaction-history-projection/solution.md) owns D1 shared projection with source correspondence and D2 prepared-history retention. It covers the coordinated public-contract migration, synthetic and reordered messages, repeated summaries, coherent capture, and durable session replacement. All compaction consumers migrate together; the replaced raw-entry source contract is removed.
+
+#### D3: Terminal refusal and subsequent stream failure
+
+The OpenAI-compatible Responses adapter retains the received terminal response and its typed provider refusal when later stream reading fails. Its returned failure includes the terminal refusal together with the subsequent stream error and any acquired delivery cause. The adapter classifies the failure from the received refusal and includes the later transport failure in the diagnostic text. This satisfies ticket FRQ-04.8.1 and ACC-04.5.
+
+The existing retry owner receives the provider-neutral classification and complete acquired causes through its existing provider-execution contract. It applies the configured policy, retry-handler actions, and admitted compaction recovery. The correction introduces no retry policy, public error protocol, fallback, or new retry allowance. The adapter keeps the refusal and stream state local to the request, so it introduces no shared mutable state or operation lifetime.
+
+In `host/internal/infra/providers/openai/compatible/responses.go`, `responsesAccumulator.consume` already retains the refusal and `Driver.streamResponses` has the later stream-error return. In `host/internal/infra/providers/openai/compatible/service.go`, `Driver.completeProviderFailure` and `classifyProviderFailure` own conversion to the provider-neutral failure. Keeping the acquired refusal through those existing boundaries addresses the loss before Host retry coordination receives it.
+
+For example, with no compaction policy owner or retry-handler override, `response.failed` carrying `context_length_exceeded` and a provider explanation, followed by `unexpected EOF`, yields `CONTEXT_LIMIT` with both causes and one provider request. Registered-owner recovery and retry-handler authority retain their existing behavior.
+
+Returning immediately after the terminal refusal would omit a subsequent read error and fail FRQ-04.8.1. A new cross-layer failure protocol could carry the same information but would add a contract migration even though the adapter already retains a typed refusal and Host already preserves joined causes. The selected approach keeps the existing stream processing and repairs preservation in the adapter.
+
+#### D4: Public-boundary acceptance
+
+Public acceptance tests exercise the existing production application assembly, real bundled and reference extension executables, SDK operations, session persistence, and provider-adapter wiring. Controlled external provider HTTP transport supplies reproducible outcomes. Unit tests cover projection and legal boundaries; public integration tests cover application assembly.
+
+The [PHS-06.4 acceptance scope](migration-plan.md#phase-phs-064---independent-acceptance) and ticket NRQ-01 require evidence for every ticket acceptance criterion, including the remaining retry scenarios. The acceptance report identifies executed public paths, unit or mocked-port observations, platform skips, and unobserved behavior. Live-model summary quality and tokenizer accuracy remain unmeasured. Explicit request and result Cancel actions remain exclusive terminal actions.
+
+The existing per-request accounting, original-history journal, restoration and navigation, cancellation ownership, and committed-outcome reporting remain acceptance boundaries. Independent review and the mandatory whole-project checks remain prerequisites for phase closure. No new test framework or production abstraction is needed for this method.
 
 ### PHS-06.1 integration contract
 

@@ -21,9 +21,19 @@ The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_p
 
 ## Problem Statement
 
-- PRB-01: Glyph has no accepted extension-owned context-budget compaction. Long sessions can exceed the selected model context without the required target flow.
-- PRB-02: The Host-owned compaction checkpoint duplicates policy that belongs to the extension and puts compaction-specific orchestration in Host's Agent Core model-execution path.
-- PRB-03: Host model execution performs one provider attempt without retry coordination, so temporary provider failures end the request and extensions cannot change retry decisions.
+- PRB-01: Standard compaction can select summary source and recent-history retention from original records whose content differs from prepared conversation history. Users can receive summaries based on discarded responses and retain less useful recent context. The [history-source problem statement](../../../../issues/compaction-history-projection/problem.md) owns the detailed scope and evidence.
+- PRB-02: Extension-owned compaction and Host-owned retry coordination are implemented, but PHS-06.4 independent acceptance remains incomplete. Some acceptance conditions have source traces without direct executable observations, so the complete phase outcome remains unverified.
+- PRB-03: After a terminal provider refusal followed by HTTP stream truncation, users can lose the refusal's text and receive a transport-based retry outcome. The reproduced request repeated after Glyph had received a context-limit refusal, and the client received only transport causes.
+
+### Current acceptance observations
+
+At revision `7e48788092fec01e255ae7179fdedd10b15755ef`, a public Programmatic Control probe used the OpenAI-compatible Responses API. The provider sent a complete `response.failed` event with code `context_length_exceeded` and message `provider terminal rejection full unique text`. Its declared HTTP body length exceeded the bytes sent by 100 bytes, so a later read produced `unexpected EOF`. No compaction policy or retry handlers were registered; settings allowed one retry with zero delay.
+
+Glyph made two provider requests. The public terminal category was `RETRY_EXHAUSTED`, and its message contained two copies of `OpenAI-compatible request failed: unexpected EOF`. The provider's terminal refusal text was absent. This observation establishes a failure of terminal cause preservation under ACC-04.5; it is separate from the history-source correction.
+
+Explicit request and result Cancel probes terminated composition without persisting a replacement. A participant error containing `context.Canceled` followed the error path. FRQ-01.4 and FRQ-01.7.1 require an exclusive terminal Cancel action; those clauses do not require conversion of a participant error into that action. These observations establish no separate violation of those cancellation requirements.
+
+The desired outcome is continued work with summaries based on conversation context, access to the original journal, and complete failure causes. The phase boundary includes compaction composition, restoration and navigation, cancellation, committed failures, and retry control. PHS-08 and changes to the approved standard-generator limits remain outside this phase.
 
 ## Target Picture
 
@@ -96,6 +106,11 @@ Out of scope:
 - FRQ-04.7.1: Host model execution shall continue to use its smallest provider-execution interface at the consumption site. The interface shall carry provider-neutral requests, streamed semantic output, typed usage, safe diagnostics, retry classification, and opaque provider reasoning context.
 - FRQ-04.7.2: The implemented in-process OpenAI provider adapters shall continue to implement the provider-execution interface until PHS-12 replaces them with extension-runtime adapters. The Host model-execution package, including its retry coordination, shall import no OpenAI Codex, OpenAI-compatible, provider SDK, or provider credential package.
 - FRQ-04.8: After retry coordination ends, Host shall return one provider-neutral logical model-execution result to Agent Core. A failed result shall contain a closed Glyph category and complete error text that preserves the terminal provider, retry-handler, validation, delay, and delivery causes that contributed to that result.
+- FRQ-04.8.1: When a stream fails after Glyph receives a terminal provider refusal, Glyph shall preserve the complete refusal text and the subsequent stream error through every applicable client interface. Glyph shall determine the failure category and retry decision from the received terminal refusal under the existing retry policy and handler actions, retaining the subsequent stream failure as an additional cause.
+  - Origin: source. FRQ-04, FRQ-04.1 through FRQ-04.5, FRQ-04.8, FRQ-04.9, FRQ-07, and ACC-04.5; the approved PRB-03 terminal-failure preservation scope.
+  - Goal: Preserve the meaning and complete causes of a terminal provider refusal during classification, retry coordination, and public reporting.
+  - Goal achievement: Full. Users receive the provider's explanation and the subsequent transport cause, with retry behavior based on the received refusal.
+  - Feasibility: Confirmed. Glyph receives the terminal refusal before stream truncation and already distinguishes provider classification, retry decisions, and public failure categories.
 - FRQ-04.9: Retryability, retry decision, and terminal Glyph category shall remain separate values. A retry decision shall not replace or remove the source error.
 - FRQ-05: General abort shall cancel an in-progress provider request or pending retry delay and transition the agent to idle.
 - FRQ-06: A retry shall repeat only the failed model request and shall not repeat any completed tool execution. Failed intermediate attempts shall produce operation events and shall not create session messages or enter model context. After retry finishes, Glyph shall persist only the terminal model outcome.
@@ -106,6 +121,11 @@ Out of scope:
 
 - NFQ-01: Focused behavioral tests must demonstrate RED and GREEN for this ticket, followed by passing `task lint` and `task test`.
 - NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, concrete provider packages, and TUI packages. Host model execution and retry coordination must remain independent of concrete provider packages.
+- NRQ-01: PHS-06 completion shall have executable evidence for every ACC-01 through ACC-06 condition, including subcriteria, independent acceptance, and passing mandatory project checks. The acceptance report shall identify skipped scenarios and limits of the evidence.
+  - Origin: source. The [PHS-06.4 exit criteria](migration-plan.md#phase-phs-064---independent-acceptance) and the approved PRB-02 phase-completion scope.
+  - Goal: Establish completion of the whole phase against observable behavior.
+  - Goal achievement: Full. Phase status depends on verified acceptance conditions and explicitly bounded evidence.
+  - Feasibility: Confirmed. Public integration checks, project-wide checks, and independent review are available.
 
 ### Deliverables
 
@@ -136,6 +156,7 @@ Out of scope:
 - ACC-04.4: `host/internal/usecase/agent/run` invokes a consumer-owned logical model-execution interface and imports no retry policy, extension handler, plugin transport, or delay scheduler.
 - ACC-04.4.1: Host model execution invokes a consumer-owned provider-execution interface whose in-process implementations have compile-time interface assertions. Host model execution and retry coordination import no concrete OpenAI provider package, and Agent Core and PHS-07 configured-model request callers remain unchanged when the provider implementation is replaced.
 - ACC-04.5: Retry exhaustion, retry cancellation, retry-handler failure, and a non-retryable provider failure each produce their defined terminal category and complete error text through every applicable Glyph client interface.
+  - Terminal-refusal example: with no compaction policy owner or retry-handler override, a `response.failed` event containing `context_length_exceeded` and `provider terminal rejection full unique text`, followed by `unexpected EOF`, produces `CONTEXT_LIMIT` with both causes and one provider request. This example verifies FRQ-04.8.1 without changing registered-owner overflow recovery or retry-handler authority.
 - ACC-04.6: A configured retry count and delay sequence replace the defaults. Disabling retry produces only the initial provider attempt. The configured retry count does not include that initial attempt.
 - ACC-04.7: Under the default policy, a provider-requested delay of 10 seconds is honored. A provider-requested delay of 60 seconds exceeds the default 30-second maximum, ends the logical model execution with complete error text identifying both values, and schedules no further provider attempt. Changing the configured maximum changes the acceptance threshold.
 - ACC-05: Retrying a failed model request repeats no completed tool, adds no intermediate attempt to session messages or model context, and persists only the terminal model outcome.
@@ -167,6 +188,8 @@ None.
 - Resolution point: The [phased plan](migration-plan.md#phased-plan) defines system implementation and acceptance before bundled-extension implementation.
 
 ## Technical Supplement
+
+The approved [PHS-06.4 completion corrections](solution.md#phs-064-completion-corrections), D1 through D4, cover prepared-history selection, terminal-failure preservation, and public-boundary acceptance. Implementation and independent acceptance remain pending.
 
 The [technical solution](solution.md) contains the approved target boundary, the unaccepted Host-owned checkpoint evidence, and the [tool-call argument representation](solution.md#tool-call-argument-representation). The [migration plan](migration-plan.md#sequential-implementation-units) owns implementation progress and links to the phase order and exit criteria. The [PHS-06.2 technical solution](phs-06.2_solution.md) resolves [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) and defines standard generation and per-request accounting.
 

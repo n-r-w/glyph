@@ -1,6 +1,6 @@
 # Problem Statement: Compaction source differs from conversation context
 
-Status: Problem statement, [requirements](prd.md), and [technical solution](solution.md) approved. Design dry run is complete; implementation has not started.
+Status: Problem statement and FRQ-01 through FRQ-03 in the [requirements](prd.md) are approved for PHS-06 completion. The [technical solution](solution.md) remains the approved history-source design. Implementation and independent acceptance are pending.
 
 ## Context
 
@@ -46,7 +46,7 @@ Original session records remain stored. The observed defect concerns summary sou
 
 Original-entry projections retain session-entry identifiers. Prepared history contains the model-facing content but has no original-entry identifiers. The standard extension uses the original-entry projections to select the boundary that Host later applies to the session.
 
-Prepared history also includes existing transformations for tool results and earlier summaries. Those transformations matter to the relation between original records and conversation context. The failed-response probes do not establish a separate defect in every such transformation.
+The shared history projector orders stored tool results by their calls and synthesizes skipped results for calls without a stored result. The session projector renders the latest applicable compaction summary. At revision `7e48788092fec01e255ae7179fdedd10b15755ef`, `ProjectHistory`, `compactedHistoryFromEntries`, and `SelectRequest` still use the separate prepared-history and original-entry paths described above. The historical failed-response probes do not establish a separate defect in every transformation.
 
 ## Desired State
 
@@ -56,8 +56,12 @@ Users receive compaction summaries based on their conversation context and retai
 
 The problem concerns agreement between prepared conversation history and the history used for standard manual, automatic, and overflow compaction, including repeated compaction. The failed partial response is a reproduced example of that disagreement.
 
-The separate participant-cancellation defect found during PHS-06.4 is outside this problem. The approved standard-generator limits in [PHS-06.2 FRQ-08](../../features/initial/phases/06-context-compaction-retry-control/phs-06.2_prd.md#functional-requirements), including image omission and tool-result text truncation, remain unchanged.
+The [parent ticket](../../features/initial/phases/06-context-compaction-retry-control/ticket.md#problem-statement) owns the complete PHS-06 acceptance scope, including the confirmed loss of a terminal provider failure after stream truncation. That failure is separate from this history-source problem.
+
+Participant cancellation remains governed by parent-ticket FRQ-01.4 and FRQ-01.7.1. Explicit request and result Cancel actions terminate composition without a replacement. A participant error containing `context.Canceled` is not an explicit Cancel action; the observed error outcome does not establish a violation of those requirements.
+
+The approved standard-generator limits in [PHS-06.2 FRQ-08](../../features/initial/phases/06-context-compaction-retry-control/phs-06.2_prd.md#functional-requirements), including image omission and tool-result text truncation, remain unchanged.
 
 ## Open Questions
 
-None at the problem-definition level. See the [technical solution](solution.md#design-dry-run-evidence) for design-validation evidence.
+None at the problem-definition level. Public acceptance of the correction remains pending under the [PHS-06.4 exit criteria](../../features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-064---independent-acceptance).

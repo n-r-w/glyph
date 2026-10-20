@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06.2 standard context compaction
 
-Status: Approved; A1-A4 implemented. Implemented scope: A1, D6 accounting; A2, bundled manual compaction; A3, D2 automatic compaction and conversation observations; A4, D7 admitted overflow recovery. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records behavior and verification limits. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending.
+Status: Approved; A1-A4 implemented. Implemented scope: A1, D6 accounting; A2, bundled manual compaction; A3, D2 automatic compaction and conversation observations; A4, D7 admitted overflow recovery. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records behavior and verification limits. The approved [prepared-history correction](../../../../issues/compaction-history-projection/solution.md) below remains unimplemented. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending.
 
 ## Problem Statement
 
@@ -38,9 +38,9 @@ The policy implements all existing owner callbacks: compaction decisions, comple
 
 ### D3: Complete-message retention
 
-Select the retained suffix from the active branch's still-retained original entries, using the configured target and the same content estimator. On repeated compaction, begin at the preceding replacement's kept boundary and supply the preceding summary separately. Compaction markers and superseded original prefixes do not become fresh summary source.
+Select the retained suffix from prepared conversation history using the configured target and the same content estimator. The [history-source correction](../../../../issues/compaction-history-projection/solution.md) owns source correspondence and legal stored-branch boundaries for reordered and synthetic messages. Its coordinated contract migration replaces the implemented raw-entry selection path.
 
-Move a proposed boundary as needed to keep each producing model response with its tool results. Treat the configured target as a recent-context target rather than a hard maximum for an indivisible group. Preserve original entry identities for Host structural validation.
+On repeated compaction, select newly summarized content from the remaining unsummarized prepared history and supply the preceding summary once. The extension excludes superseded original prefixes from fresh summary source. The extension keeps producing responses and their tool results together and treats the target as a recent-context target that an indivisible group may exceed. Host retains structural validation of the selected original-entry boundary.
 
 Manual compaction with no older portion to summarize fails explicitly before persistence. Automatic input below threshold is preserved. Oversized input with no reducible older portion may fail under the accepted first-version limitations. The policy does not invent an alternative boundary that discards required recent context.
 

@@ -1,6 +1,6 @@
 # Technical Solution: Compaction of prepared conversation history
 
-Status: Technical approach and requirements FRQ-01 through FRQ-03 approved. Design dry run is complete; the requirements and technical solution are ready for implementation. Implementation has not started.
+Status: D1 shared projection and D2 prepared-history retention are approved for PHS-06 completion, together with FRQ-01 through FRQ-03. Implementation and independent acceptance are pending. The [parent solution](../../features/initial/phases/06-context-compaction-retry-control/solution.md#phs-064-completion-corrections) owns D3 terminal-failure preservation and D4 phase-wide acceptance.
 
 ## Problem Statement
 
@@ -8,7 +8,7 @@ See the approved [problem statement](problem.md) and [requirements](prd.md). The
 
 ## Proposed Solution
 
-### One shared history projection with source correspondence
+### D1: One shared history projection with source correspondence
 
 Extend the existing shared model-history projection to retain the correspondence between each output message and the caller input that produced it. Ordinary model execution and compaction use the same filtering, ordering, and skipped-result synthesis. The projection expresses correspondence in terms of its input positions, so Agent Core needs no session-entry identifiers or persistence types.
 
@@ -28,7 +28,7 @@ Session-tree and ordinary lifecycle-event contracts retain their purposes. This 
 
 The bundled extension and the public reference extensions migrate together with their compaction contract consumers. The project permits coordinated breaking changes and requires removal of obsolete contract representations. No compatibility adapter is proposed.
 
-### Source correspondence for generated and reordered messages
+### D2: Source correspondence and retained-history boundaries
 
 An ordinary projected message refers to its original stored entry. A synthesized skipped-tool result refers to the model response whose tool call caused it; the synthetic result has no invented stored entry identifier. A rendered previous compaction summary refers to the compaction marker that supplied it. Several prepared messages can therefore share one source reference. The reference identifies their origin, not the identity of each prepared message.
 
@@ -67,7 +67,7 @@ Thus FRQ-03 retains the journal and durable replacement mechanics. The correctio
 
 | Approach | Benefit | Cost or limitation | Assessment |
 | --- | --- | --- | --- |
-| Shared prepared projection with caller-relative source correspondence, then Host binding to original records | Content selection and ordinary model input use one algorithm; synthetic and reordered messages retain their origin | Changes the shared projection result and the public compaction representation; all compaction consumers need coordinated migration | Proposed; addresses the source mismatch and valid boundary selection together |
+| Shared prepared projection with caller-relative source correspondence, then Host binding to original records | Content selection and ordinary model input use one algorithm; synthetic and reordered messages retain their origin | Changes the shared projection result and the public compaction representation; all compaction consumers need coordinated migration | Selected; addresses the source mismatch and valid boundary selection together |
 | Add response outcome or visibility metadata to raw compaction entries | Smaller correction for the reproduced failed-response case | Leaves the extension reconstructing model-visible history; filtering, ordering, and skipped-result handling can continue to differ | Not selected; addresses the observed exclusion case without making prepared history the compaction source |
 | Match prepared messages to original entries by content inside the extension | Avoids changing the public contract | Repeated message text and generated results make correspondence ambiguous | Not selected; source identity cannot be inferred reliably from content |
 
@@ -77,7 +77,7 @@ No separate generic provenance framework, durable metadata store, Host token est
 
 The solution adds only the source information needed to translate prepared-history selection into an existing session boundary. It reuses the current projector and keeps the original storage and commit mechanism. It does not move compaction policy into Host or add storage knowledge to Agent Core.
 
-Exact types, field names, and code organization belong to implementation design. The design validation must examine excluded responses, interleaved tool results, synthesized skipped results, repeated compaction, and restoration because those existing transformations affect source correspondence. The separate participant-cancellation defect remains outside this correction.
+Exact types, field names, and code organization belong to implementation design. Acceptance covers excluded responses, interleaved tool results, synthesized skipped results, repeated compaction, restoration, and navigation because those transformations affect source correspondence. The [parent solution's D4 acceptance method](../../features/initial/phases/06-context-compaction-retry-control/solution.md#d4-public-boundary-acceptance) owns the complete phase verification scope. Explicit Cancel actions retain the approved terminal behavior; the observed participant error containing `context.Canceled` establishes no separate violation of that behavior.
 
 ## Open Questions
 

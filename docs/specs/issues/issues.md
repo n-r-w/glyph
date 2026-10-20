@@ -15,6 +15,7 @@
   - [ ] Final public failure-code closure and Programmatic/UI contract tests after PHS-12: `docs/specs/issues/agent-run-failure-semantics/problem.md`
 - [X] Blocking contract operation processing: `docs/specs/issues/blocking-contract-operation-processing`
 - [X] Reliable branch summarization: `docs/specs/issues/reliable-branch-summarization`
-- [ ] Compaction source differs from conversation context: [problem statement](compaction-history-projection/problem.md), [requirements](compaction-history-projection/prd.md), and [technical solution](compaction-history-projection/solution.md) approved. Design dry run complete; ready for implementation. Found during PHS-06.4 acceptance.
+- [ ] Compaction source differs from conversation context: [problem statement](compaction-history-projection/problem.md) and [requirements](compaction-history-projection/prd.md) approved for PHS-06 completion; the [history-source technical solution](compaction-history-projection/solution.md) remains approved. Implementation and independent acceptance are pending.
+- [ ] Terminal provider refusal lost after stream truncation: reproduced through public Programmatic Control during PHS-06.4. The [PHS-06 ticket](../features/initial/phases/06-context-compaction-retry-control/ticket.md#problem-statement) owns the problem, FRQ-04.8.1, and ACC-04.5 acceptance. Requirements and the [D3 technical solution](../features/initial/phases/06-context-compaction-retry-control/solution.md#d3-terminal-refusal-and-subsequent-stream-failure) are approved; implementation and verification pending.
 - [ ] Production panic elimination: `docs/specs/issues/production-panic-elimination/ticket.md`
 - [X] Unclear model operation naming: `docs/specs/issues/unclear-model-operation-naming`
