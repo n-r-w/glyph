@@ -178,7 +178,7 @@ func main() {
 	extensionsdk.Serve(&service{
 		signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil,
 		savedMessageID: "", savedCheckpointID: "", lifecycleEnabled: os.Getenv(lifecycleEnvironment) == "1",
-		retryHandlerEnabled:     os.Getenv(retryHandlerEnvironment) == "1",
+		retryHandlerEnabled:     os.Getenv(retryHandlerEnvironment) != "",
 		selectionComposition:    os.Getenv(selectionCompositionEnvironment) == "1",
 		selectionNested:         os.Getenv(selectionNestedEnvironment) == "1",
 		selectionObservers:      os.Getenv(selectionObserversEnvironment) == "1",
@@ -315,12 +315,7 @@ func (*registerOperation) Release() {}
 // Run appends and awaits one independent message only for the retained selected message.
 func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleResponse, error) {
 	if operation.request.GetRetry() != nil {
-		signal(operation.signals, "retry-handler-invoked")
-		action := new(extensionv1.RetryHandlerAction)
-		action.SetPreserve(new(extensionv1.PreserveRetry))
-		response := new(extensionv1.HandleResponse)
-		response.SetRetry(action)
-		return response, nil
+		return operation.runRetryHandler()
 	}
 	if operation.lifecycle {
 		if err := observeAgentStart(ctx, operation.context, operation.request.GetLifecycle()); err != nil {

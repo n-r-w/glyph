@@ -103,10 +103,12 @@ func (s *Driver) streamResponses(
 		}
 	}
 	if streamErr := stream.Err(); streamErr != nil {
-		if closeErr := state.finishContent(); closeErr != nil {
-			return model.Response{}, errors.Join(streamErr, closeErr)
+		var response model.Response
+		if state.terminalErr != nil {
+			response = *state.terminal
+			streamErr = errors.Join(state.terminalErr, streamErr)
 		}
-		return model.Response{}, streamErr
+		return response, errors.Join(streamErr, state.finishContent())
 	}
 	if state.terminal == nil {
 		if closeErr := state.finishContent(); closeErr != nil {

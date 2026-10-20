@@ -65,6 +65,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runAuthenticationFixture(ctx, host)
 		case "semantic":
 			return runSemanticFixture(ctx, host)
+		case terminalFailureUIBehavior:
+			return runTerminalFailureUIFixture(ctx, host)
 		case manualUIBehavior:
 			return runManualUIFixture(ctx, host)
 		case persistenceUIBehavior:

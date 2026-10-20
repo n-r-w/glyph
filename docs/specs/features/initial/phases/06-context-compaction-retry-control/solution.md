@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06 Context compaction and retry control
 
-Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) describes the implemented standard extension and per-request accounting. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [PHS-06.4 completion corrections](#phs-064-completion-corrections), D1 through D4, are approved; their implementation and independent acceptance are pending. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress.
+Status: PHS-06.1 system-contract implementation is complete and accepted. The [system acceptance record](system-integration-evidence.md) contains final evidence and limits. The [PHS-06.2 technical solution](phs-06.2_solution.md) describes the implemented standard extension and per-request accounting. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [PHS-06.4 completion corrections](#phs-064-completion-corrections), D1 through D4, are approved. Completion-plan unit A3 is accepted and implements D3 terminal-refusal preservation. The [terminal-failure evidence record](a3-terminal-failure-evidence.md) contains the regression, review, and project-check results. The history-source correction and independent phase acceptance remain pending. The [migration plan](migration-plan.md#sequential-implementation-units) owns unit progress.
 
 This document contains the PHS-06 ownership and PHS-06.1 integration design. The [PHS-06.2 solution](phs-06.2_solution.md) owns the standard extension design and its approved per-request accounting extension. The [unaccepted checkpoint design](#unaccepted-checkpoint-design) and [implementation evidence](#implementation-evidence) describe the earlier Host-owned implementation only. The [ticket](ticket.md) contains shared requirements and terminology; the [migration plan](migration-plan.md) describes subphase order and completion status.
 
@@ -44,6 +44,8 @@ In `host/internal/infra/providers/openai/compatible/responses.go`, `responsesAcc
 For example, with no compaction policy owner or retry-handler override, `response.failed` carrying `context_length_exceeded` and a provider explanation, followed by `unexpected EOF`, yields `CONTEXT_LIMIT` with both causes and one provider request. Registered-owner recovery and retry-handler authority retain their existing behavior.
 
 Returning immediately after the terminal refusal would omit a subsequent read error and fail FRQ-04.8.1. A new cross-layer failure protocol could carry the same information but would add a contract migration even though the adapter already retains a typed refusal and Host already preserves joined causes. The selected approach keeps the existing stream processing and repairs preservation in the adapter.
+
+The [completion-plan unit A3 evidence record](a3-terminal-failure-evidence.md) contains the terminal-failure source scope, compiling RED/GREEN observations, public-client error categories, project-check results, and platform skips.
 
 #### D4: Public-boundary acceptance
 

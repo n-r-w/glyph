@@ -4,6 +4,8 @@ Keep long sessions usable within model context limits.
 
 The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction, and A3 implements automatic compaction with conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through standard composition within Host's attempt allowance. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records A1-A4 behavior and verification limits. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending. This ticket owns the shared composition, session, and retry requirements.
 
+Completion-plan unit A3 resolves terminal provider-refusal loss after stream truncation under FRQ-04.8.1. The [evidence record](a3-terminal-failure-evidence.md) contains passing public-client regressions, mandatory checks, and independent unit review. The history-source correction and independent phase acceptance remain pending.
+
 ## Key definitions and abbreviations
 
 - DEF-01: Context compaction. Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining suffix.

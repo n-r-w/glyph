@@ -248,6 +248,8 @@ Accept PHS-06 against the approved requirements and actual user-facing behavior.
 
 Independent review results, assembled-path evidence, and an accurate phase-completion record.
 
+Completion-plan unit A3 is accepted after code-quality, text-quality, and independent unit review. It implements [D3 terminal-refusal preservation](solution.md#d3-terminal-refusal-and-subsequent-stream-failure). The [terminal-failure evidence record](a3-terminal-failure-evidence.md) contains the implementation scope, check results, and verification limits. PHS-06.2 slice A3 covers [automatic compaction](#phase-phs-062---implement-the-standard-bundled-compaction-extension). The history-source correction and independent phase acceptance remain pending.
+
 #### Exit criteria
 
 All ticket acceptance criteria have executable evidence. No unapproved blocker or major finding remains. The full verification suite passes and the roadmap reflects completed target behavior rather than the checkpoint.

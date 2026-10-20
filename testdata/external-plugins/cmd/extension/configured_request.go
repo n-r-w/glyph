@@ -4,12 +4,16 @@ import (
 	"context"
 	"encoding/json/v2"
 	"errors"
+	"os"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
+
+// configuredProviderEnvironment selects the provider used by configured-model fixture requests.
+const configuredProviderEnvironment = "GLYPH_EXTERNAL_CONFIGURED_PROVIDER"
 
 // configuredInstructions contains explicit instructions for configured-model fixture requests.
 const configuredInstructions = "extension instructions"
@@ -172,11 +176,15 @@ func newConfiguredModelRequest(instructions, reasoningChoice string) *extensionv
 		configuredAssistantContinuationText = "assistant continuation"
 		configuredSecondUserText            = "second user"
 	)
+	providerID := os.Getenv(configuredProviderEnvironment)
+	if providerID == "" {
+		providerID = configuredProviderID
+	}
 	return extensionv1.ConfiguredModelRequest_builder{
 		Context: nil,
 		Selection: extensionv1.ModelSelection_builder{
 			ProviderId: new(
-				configuredProviderID,
+				providerID,
 			),
 			ModelId:         new(configuredModelID),
 			ReasoningChoice: new(reasoningChoice),
