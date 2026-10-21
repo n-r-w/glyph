@@ -73,6 +73,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runPersistenceUIFixture(t, ctx, host)
 		case observerCancellationBehavior:
 			return runObserverCancellationUIFixture(t, ctx, host)
+		case abortUIBehavior:
+			return runAbortRetryUIFixture(ctx, host)
 		case "summary-control", "summary-read", "summary-blocked", "summary-retry", "summary-retry-failure":
 			return runSummaryControlUIFixture(t, ctx, host)
 		case "extension-message-navigation":
