@@ -205,7 +205,7 @@ func (s *service) PrepareHandle(
 ) (extensionsdk.HandleOperation, error) {
 	if request == nil || request.GetHandlerId() != navigationObserverID &&
 		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID &&
-		request.GetHandlerId() != retryHandlerID &&
+		request.GetHandlerId() != retryHandlerID && request.GetHandlerId() != retryComposedHandlerID &&
 		!isSelectionHandlerID(request.GetHandlerId()) && !isSelectionObserverID(request.GetHandlerId()) {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture handler request is invalid"))
 	}
@@ -299,6 +299,11 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 		handlers = append(handlers, extensionv1.HandlerDescriptor_builder{
 			Id: new(retryHandlerID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_RETRY),
 		}.Build())
+		if os.Getenv(retryHandlerEnvironment) == retryComposeMode {
+			handlers = append(handlers, extensionv1.HandlerDescriptor_builder{
+				Id: new(retryComposedHandlerID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_RETRY),
+			}.Build())
+		}
 	}
 	return extensionv1.RegisterResponse_builder{
 		Tools: []*extensionv1.ToolDescriptor{extensionv1.ToolDescriptor_builder{
