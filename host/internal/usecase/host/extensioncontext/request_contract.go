@@ -45,20 +45,22 @@ const (
 	TriggerOverflow
 )
 
-// InputEntry contains one projected branch entry and its extension-supplied estimate.
+// InputEntry contains one prepared record with extension-supplied accounting.
 type InputEntry struct {
-	// Entry is the embedded provider-neutral branch projection.
-	session.Entry
+	// Entry contains prepared model content and its original source.
+	Entry session.PreparedHistoryEntry
+	// PrivateBytes is the retained private replay size.
+	PrivateBytes int64
 	// EstimatedTokens is the extension-supplied token estimate for this entry.
 	EstimatedTokens int64
 }
 
-// newInputEntry supplies one admitted branch value to the policy participant.
+// newInputEntry supplies one admitted prepared record to the policy participant.
 func newInputEntry(value extensioncontroller.CompactionRequestEntry) InputEntry {
-	return InputEntry{Entry: value.Entry, EstimatedTokens: value.EstimatedTokens}
+	return InputEntry{Entry: value.Entry, PrivateBytes: value.PrivateBytes, EstimatedTokens: value.EstimatedTokens}
 }
 
-// newInputEntries preserves the ordered admitted branch entries.
+// newInputEntries preserves the ordered admitted prepared records.
 func newInputEntries(values []extensioncontroller.CompactionRequestEntry) []InputEntry {
 	entries := make([]InputEntry, len(values))
 	for index := range values {
@@ -67,7 +69,7 @@ func newInputEntries(values []extensioncontroller.CompactionRequestEntry) []Inpu
 	return entries
 }
 
-// mapRequestResponseEntries supplies returned branch entries to the policy response.
+// mapRequestResponseEntries supplies returned prepared records to the policy response.
 func mapRequestResponseEntries(values []InputEntry) []extensioncontroller.CompactionRequestEntry {
 	entries := make([]extensioncontroller.CompactionRequestEntry, len(values))
 	for index := range values {
@@ -76,9 +78,13 @@ func mapRequestResponseEntries(values []InputEntry) []extensioncontroller.Compac
 	return entries
 }
 
-// mapToControllerEntry supplies one returned branch value to the policy response.
+// mapToControllerEntry supplies one returned prepared record to the policy response.
 func (value InputEntry) mapToControllerEntry() extensioncontroller.CompactionRequestEntry {
-	return extensioncontroller.CompactionRequestEntry{Entry: value.Entry, EstimatedTokens: value.EstimatedTokens}
+	return extensioncontroller.CompactionRequestEntry{
+		Entry:           value.Entry,
+		PrivateBytes:    value.PrivateBytes,
+		EstimatedTokens: value.EstimatedTokens,
+	}
 }
 
 // Request is the complete extension-visible state for one compaction attempt.
@@ -120,7 +126,7 @@ func (value Request) clone() Request {
 	return value
 }
 
-// cloneInputEntries detaches projected entries and retains supplied estimates.
+// cloneInputEntries detaches prepared records and retains supplied accounting.
 func cloneInputEntries(entries []InputEntry) []InputEntry {
 	if entries == nil {
 		return nil
@@ -128,7 +134,9 @@ func cloneInputEntries(entries []InputEntry) []InputEntry {
 	cloned := make([]InputEntry, len(entries))
 	for index := range entries {
 		cloned[index] = InputEntry{
-			Entry: entries[index].Clone(), EstimatedTokens: entries[index].EstimatedTokens,
+			Entry:           entries[index].Entry.Clone(),
+			PrivateBytes:    entries[index].PrivateBytes,
+			EstimatedTokens: entries[index].EstimatedTokens,
 		}
 	}
 	return cloned

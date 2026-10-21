@@ -258,7 +258,7 @@ func (o *referenceRequestOperation) newFirstRequestAction(
 	replacement.SetInstructions(referenceRequestFirstInstruction)
 	supplied := extensionpb.CompactionResult_builder{
 		Summary:          new(referenceRequestInitialSummary),
-		FirstKeptEntryId: new(original.GetSuffix()[0].GetEntry().GetId()),
+		FirstKeptEntryId: new(original.GetSuffix()[0].GetSourceEntryId()),
 		Source: extensionpb.CompactionSource_builder{
 			ExtensionId:   new(bound.Identity().GetExtensionId()),
 			ModelRequests: nil,
@@ -274,7 +274,7 @@ func (o *referenceRequestOperation) newFirstRequestAction(
 	action.SetResult(supplied)
 	// Mutating this invocation must not change the policy's original or the next invocation.
 	original.SetInstructions(localInstructionMutation)
-	original.GetPrefix()[0].GetEntry().SetId(localEntryMutation)
+	original.GetPrefix()[0].SetSourceEntryId(localEntryMutation)
 	return action, nil
 }
 

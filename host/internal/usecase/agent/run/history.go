@@ -26,13 +26,28 @@ func cloneToolPreviews(previews map[string]model.ToolCallPreview) map[string]mod
 	return cloned
 }
 
-// ProjectHistory excludes failed responses and supplies temporary skipped results.
-func ProjectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
-	projected := make([]agent.HistoryEntry, 0, len(history))
+// HistoryProjection pairs prepared records with their caller input positions.
+type HistoryProjection struct {
+	// History contains ordered prepared model records.
+	History []agent.HistoryEntry
+	// InputPositions contains each prepared record's zero-based caller input position.
+	InputPositions []int
+}
+
+// ProjectHistory returns prepared history with correspondence to caller input positions.
+func ProjectHistory(history []agent.HistoryEntry) HistoryProjection {
+	projected := HistoryProjection{
+		History:        make([]agent.HistoryEntry, 0, len(history)),
+		InputPositions: make([]int, 0, len(history)),
+	}
+	appendEntry := func(entry agent.HistoryEntry, position int) {
+		projected.History = append(projected.History, entry)
+		projected.InputPositions = append(projected.InputPositions, position)
+	}
 	for index := 0; index < len(history); {
 		entry := history[index]
 		if entry.Kind != agent.HistoryEntryModel {
-			projected = append(projected, entry.Clone())
+			appendEntry(entry.Clone(), index)
 			index++
 			continue
 		}
@@ -47,40 +62,42 @@ func ProjectHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
 			continue
 		}
 
-		projected = append(projected, entry.Clone())
+		appendEntry(entry.Clone(), index)
 		calls := modelToolCalls(response)
-		results := make(map[string]agent.HistoryEntry, len(calls))
-		intervening := make([]agent.HistoryEntry, 0)
+		results := make(map[string]int, len(calls))
+		intervening := make([]int, 0)
 		next := index + 1
-		// A later model response, not an intervening message, delimits ownership of persisted tool results.
+		// Each model response owns persisted tool results up to the next model response.
 		for next < len(history) && history[next].Kind != agent.HistoryEntryModel {
 			candidate := history[next]
 			if candidate.Kind != agent.HistoryEntryToolResult {
-				intervening = append(intervening, candidate.Clone())
+				intervening = append(intervening, next)
 				next++
 				continue
 			}
 			result, hasResult := candidate.ToolResult.Get()
 			if hasResult {
-				results[result.CallID] = candidate
+				results[result.CallID] = next
 			}
 			next++
 		}
 		for _, call := range calls {
 			if stored, exists := results[call.ID]; exists {
-				projected = append(projected, stored.Clone())
+				appendEntry(history[stored].Clone(), stored)
 				continue
 			}
-			projected = append(projected, agent.HistoryEntry{
+			appendEntry(agent.HistoryEntry{
 				Kind:  agent.HistoryEntryToolResult,
 				User:  mo.None[model.Message](),
 				Model: mo.None[model.Response](),
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(skippedCallError), IsError: true,
 				}),
-			})
+			}, index)
 		}
-		projected = append(projected, intervening...)
+		for _, position := range intervening {
+			appendEntry(history[position].Clone(), position)
+		}
 		// Results without a finalized call owned by this response do not enter provider history.
 		index = next
 	}

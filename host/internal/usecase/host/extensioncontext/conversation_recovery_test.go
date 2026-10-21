@@ -152,8 +152,13 @@ func TestCapturedOverflowUsesFreshSnapshot(t *testing.T) {
 	}
 	for _, text := range []string{"new snapshot", "later snapshot"} {
 		snapshot := CompactionSnapshot{
-			Identity: identity, ActiveLeafID: mo.Some(text), Entries: nil,
-			History: []agent.HistoryEntry{newAutomaticTestHistory(text)}, Previous: mo.None[session.CompactionEntry](),
+			Identity:     identity,
+			ActiveLeafID: mo.Some(text),
+			Entries:      nil,
+			History: newCapturedTestHistory(
+				[]agent.HistoryEntry{newAutomaticTestHistory(text)},
+			),
+			Previous: mo.None[session.CompactionEntry](),
 		}
 		compactions.EXPECT().CaptureCompaction().Return(snapshot).Times(1)
 		source := errors.New("provider rejected input\nsource α: " + text)
@@ -162,7 +167,7 @@ func TestCapturedOverflowUsesFreshSnapshot(t *testing.T) {
 				require.Equal(t, PolicyPurposeOverflow, invocation.Purpose)
 				require.Equal(t, mo.Some(source.Error()), invocation.OverflowError)
 				require.Equal(t, snapshot, invocation.Snapshot)
-				require.Equal(t, snapshot.History, invocation.Input.History)
+				require.Equal(t, snapshot.History.Content(), invocation.Input.History)
 				require.Equal(t, input.Instructions, invocation.Input.Instructions)
 				require.Equal(t, input.Model, invocation.Input.Model)
 				require.Equal(t, input.ReasoningChoice, invocation.Input.ReasoningChoice)
@@ -175,7 +180,7 @@ func TestCapturedOverflowUsesFreshSnapshot(t *testing.T) {
 		// Assert preserve declines replacement without notification or a leaked lifetime.
 		require.NoError(t, recoveryErr)
 		require.False(t, prepared.Committed)
-		require.Equal(t, snapshot.History, prepared.History)
+		require.Equal(t, snapshot.History.Content(), prepared.History)
 		require.Empty(t, service.compactionOperations)
 	}
 }

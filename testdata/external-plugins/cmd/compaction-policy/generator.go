@@ -169,7 +169,7 @@ func (o *referenceGeneratorOperation) newResult(
 	source *extensionpb.CompactionSource,
 	mode string,
 ) *extensionpb.CompactionResult {
-	boundary := o.invocation.GetCurrent().GetSuffix()[0].GetEntry().GetId()
+	boundary := o.invocation.GetCurrent().GetSuffix()[0].GetSourceEntryId()
 	if mode == referenceGeneratorInvalidBoundary {
 		boundary = referenceGeneratorOutsideBranch
 	}

@@ -41,6 +41,14 @@ func TestStandardManualComposition(t *testing.T) {
 			generator: true, extraGenerator: true, results: false, canceled: false, cause: "found 2",
 		},
 		{
+			name: "custom-generator", guidance: manualRequestClearGuidance,
+			generator: false, extraGenerator: true, results: false, canceled: false, cause: "",
+		},
+		{
+			name: "result-cancel", guidance: manualRequestCompositionGuidance,
+			generator: false, extraGenerator: false, results: true, canceled: true, cause: "",
+		},
+		{
 			name: "request-cancel", guidance: manualRequestCancelGuidance,
 			generator: true, extraGenerator: false, results: false, canceled: true, cause: "",
 		},
@@ -55,22 +63,45 @@ func TestStandardManualComposition(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			const standardGeneratorExecutable = "reference-generator"
-
-			const standardResultExecutable = "reference-results"
+			const (
+				standardGeneratorExecutable  = "reference-generator"
+				standardResultExecutable     = "reference-results"
+				referenceObserverExecutable  = "reference-observer"
+				policyDisabledEnvironment    = "GLYPH_REFERENCE_POLICY_DISABLED"
+				separateObserverEnvironment  = "GLYPH_REFERENCE_SEPARATE_OBSERVER"
+				separateRequestsEnvironment  = "GLYPH_REFERENCE_SEPARATE_REQUESTS"
+				separateGeneratorEnvironment = "GLYPH_REFERENCE_SEPARATE_GENERATOR"
+				separateResultsEnvironment   = "GLYPH_REFERENCE_SEPARATE_RESULTS"
+				resultModeEnvironment        = "GLYPH_REFERENCE_RESULT_MODE"
+				resultCancelMode             = "cancel"
+				generatorDisabled            = "false"
+				observationSuffix            = ".calls"
+				successObservation           = "success\n"
+				failureObservation           = "failure\n"
+			)
 
 			// Arrange the bundled policy and independently registered public participants.
+			t.Setenv(policyDisabledEnvironment, manualFixtureEnabled)
+			t.Setenv(separateObserverEnvironment, manualFixtureEnabled)
+			t.Setenv(separateRequestsEnvironment, manualFixtureEnabled)
+			t.Setenv(separateGeneratorEnvironment, manualFixtureEnabled)
+			t.Setenv(separateResultsEnvironment, manualFixtureEnabled)
+			outcomePath := configureManualOutcomeFixture(t, test.guidance)
+			if test.name == "result-cancel" {
+				t.Setenv(resultModeEnvironment, resultCancelMode)
+			}
 			t.Setenv(standardRetainedEnvironment, "1")
 			if !test.generator {
-				t.Setenv(standardGeneratorEnvironment, "false")
+				t.Setenv(standardGeneratorEnvironment, generatorDisabled)
 			}
 			directory := buildStandardCompaction(t)
 			fixtureDirectory := buildManualPolicyFixture(t)
 			binary, err := os.ReadFile(filepath.Join(fixtureDirectory, manualFixtureReferencePolicy))
 			require.NoError(t, err)
+			require.NoError(t, os.WriteFile(filepath.Join(directory, referenceObserverExecutable), binary, 0o700))
 			require.NoError(t, os.WriteFile(filepath.Join(directory, standardRequestExecutable), binary, 0o700))
 			if test.results {
-				t.Setenv("GLYPH_REFERENCE_RESULTS", "1")
+				t.Setenv(manualResultsEnvironment, manualFixtureEnabled)
 				require.NoError(t, os.WriteFile(filepath.Join(directory, standardResultExecutable), binary, 0o700))
 			}
 			if test.extraGenerator {
@@ -96,7 +127,11 @@ func TestStandardManualComposition(t *testing.T) {
 			} else {
 				require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetMessage())
 				require.Equal(t, test.canceled, terminal.GetCompleted().GetCompaction().GetCanceled())
-				if test.results {
+				if test.name == "custom-generator" {
+					require.Equal(t, manualGeneratorSummary,
+						terminal.GetCompleted().GetCompaction().GetCommitted().GetCompaction().GetSummary())
+				}
+				if test.results && !test.canceled {
 					require.Equal(
 						t,
 						manualResultSummary,
@@ -120,11 +155,18 @@ func TestStandardManualComposition(t *testing.T) {
 			} else {
 				require.Zero(t, markers)
 			}
-			if test.guidance == manualRequestClearGuidance && test.cause == "" {
+			if test.guidance == manualRequestClearGuidance && test.cause == "" && test.generator {
 				require.Len(t, bodies.snapshot(), 3)
 			} else {
 				require.Len(t, bodies.snapshot(), 2)
 			}
+			calls, err := os.ReadFile(outcomePath + observationSuffix)
+			require.NoError(t, err)
+			expected := failureObservation
+			if committed {
+				expected = successObservation
+			}
+			require.Equal(t, expected, string(calls))
 			fixture.closeOwner(t)
 		})
 	}

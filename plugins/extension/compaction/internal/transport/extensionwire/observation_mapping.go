@@ -24,7 +24,6 @@ func DecodeBinding(value *pb.ExtensionContext) compaction.Binding {
 func DecodeObservation(value *pb.CompletedConversationObservation, binding compaction.Binding) compaction.Observation {
 	input := compaction.Input{
 		Binding:  binding,
-		Entries:  nil,
 		History:  DecodeHistory(value.GetHistory()),
 		Previous: mo.None[compaction.Result](),
 		Model: decodeModel(
@@ -43,18 +42,17 @@ func DecodeObservation(value *pb.CompletedConversationObservation, binding compa
 		Results:    nil,
 	}
 	response := compaction.Entry{
-		ID:           "",
-		Kind:         compaction.Assistant,
-		Blocks:       nil,
-		CallID:       "",
-		Tool:         "",
-		Failed:       false,
-		Extension:    "",
-		EntryType:    "",
-		Visibility:   compaction.VisibilityUnspecified,
-		Marker:       mo.None[compaction.Result](),
-		PrivateBytes: value.GetResponsePrivatePayloadBytes(),
-		Tokens:       0,
+		ID:              "",
+		Kind:            compaction.Assistant,
+		Blocks:          nil,
+		CallID:          "",
+		Tool:            "",
+		Failed:          false,
+		SourcePosition:  0,
+		SourceKind:      compaction.SourceUnspecified,
+		PreviousSummary: false,
+		PrivateBytes:    value.GetResponsePrivatePayloadBytes(),
+		Tokens:          0,
 	}
 	for _, content := range value.GetResponse().GetContent() {
 		block := compaction.Block{Kind: "", Text: "", MediaType: "", Data: nil, CallID: "", Name: "", Arguments: nil}

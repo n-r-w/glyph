@@ -14,7 +14,7 @@ func (o *policyOperation) runRequestPolicy(
 	ctx context.Context,
 	input *extensionpb.CompactionPolicyInvocation,
 ) (*extensionpb.HandleResponse, error) {
-	boundary := findPolicyBoundary(input.GetEntries())
+	boundary := findPolicyBoundary(input)
 	if boundary == "" {
 		return o.attachAcquiredState(
 			newPolicyFailure(errors.New("reference policy requires an original user entry")),

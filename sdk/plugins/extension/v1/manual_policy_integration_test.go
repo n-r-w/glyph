@@ -47,18 +47,38 @@ func (s *compactionPolicyReceivesScopedInputSuite) TestScenario() {
 		SessionId:          new("session"),
 		SessionIncarnation: new(int64(1)),
 		ActiveLeafId:       new("leaf"),
-		Entries:            nil,
-		History:            nil,
-		Previous:           nil,
+		History: []*extensionpb.CompactionHistoryRecord{
+			extensionpb.CompactionHistoryRecord_builder{
+				Model: nil, ToolResult: nil,
+				User: extensionpb.SessionTreeUserMessage_builder{
+					Content: []*extensionpb.SessionTreeUserContent{
+						extensionpb.SessionTreeUserContent_builder{
+							Text:  new("prepared SDK source"),
+							Image: nil,
+						}.Build(),
+					},
+				}.Build(),
+				PrivatePayloadBytes: new(int64(0)),
+				SourceEntryId:       new("source"),
+				SourceKind:          extensionpb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_USER.Enum(),
+				SourcePosition:      new(int64(3)),
+				PreviousSummary:     new(false),
+				EstimatedTokens:     new(int64(9)),
+			}.Build(),
+		},
+		Previous: nil,
 		Model: extensionpb.ModelDescriptor_builder{
 			ProviderId: new("provider"), ModelId: new("model"), InputModalities: nil,
 			ContextWindow: new(int64(1000)), MaxTokens: new(int64(100)), Reasoning: nil, Tools: nil, Pricing: nil,
 		}.Build(),
-		ReasoningChoice:     new(manualPolicyReasoningOff),
-		Instructions:        new(""),
-		Tools:               nil,
-		UserInstructions:    new("guidance"),
-		RequestParticipants: nil, GeneratorParticipants: nil, ResultParticipants: nil, PolicyRuntimeId: new("runtime"),
+		ReasoningChoice:       new(manualPolicyReasoningOff),
+		Instructions:          new(""),
+		Tools:                 nil,
+		UserInstructions:      new("guidance"),
+		RequestParticipants:   nil,
+		GeneratorParticipants: nil,
+		ResultParticipants:    nil,
+		PolicyRuntimeId:       new("runtime"),
 	}.Build()
 	service.EXPECT().PrepareHandle(gomock.Any(), gomock.Any()).Return(handler, nil)
 	handler.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) (*extensionpb.HandleResponse, error) {

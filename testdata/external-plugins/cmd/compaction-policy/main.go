@@ -150,10 +150,10 @@ func (s *policyService) PrepareHandle(
 		return &settledOperation{service: s}, nil
 	}
 	if outcome := request.GetCompactionSuccess(); outcome != nil {
-		return &outcomeOperation{outcome: outcome}, nil
+		return &outcomeOperation{outcome: outcome, kind: successObservationKind}, nil
 	}
 	if outcome := request.GetCompactionFailure(); outcome != nil {
-		return &outcomeOperation{outcome: outcome}, nil
+		return &outcomeOperation{outcome: outcome, kind: failureObservationKind}, nil
 	}
 	if request.GetCompactionPolicy() == nil {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("reference policy payload is required"))
@@ -333,12 +333,13 @@ func newPolicyFailure(err error) *extensionpb.HandleResponse {
 }
 
 // findPolicyBoundary selects the most recent original user entry.
-func findPolicyBoundary(entries []*extensionpb.CompactionSnapshotEntry) string {
+func findPolicyBoundary(input *extensionpb.CompactionPolicyInvocation) string {
+	entries := input.GetHistory()
 	boundary := ""
 	for _, snapshotEntry := range slices.Backward(entries) {
-		entry := snapshotEntry.GetEntry()
-		if entry.GetUser() != nil {
-			boundary = entry.GetId()
+		entry := snapshotEntry
+		if entry.GetSourceKind() == extensionpb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_USER {
+			boundary = entry.GetSourceEntryId()
 			break
 		}
 	}

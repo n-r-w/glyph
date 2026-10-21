@@ -12,15 +12,8 @@ import (
 
 // DecodeInput maps captured policy input into policy data.
 func DecodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
-	entries := make([]compaction.Entry, 0, len(value.GetEntries()))
-	for _, snapshot := range value.GetEntries() {
-		entry := decodeEntry(snapshot.GetEntry())
-		entry.PrivateBytes = snapshot.GetPrivatePayloadBytes()
-		entries = append(entries, entry)
-	}
 	return compaction.Input{
 		Binding:      compaction.Binding{},
-		Entries:      entries,
 		History:      DecodeHistory(value.GetHistory()),
 		Previous:     decodeMarker(value.GetPrevious()),
 		Model:        decodeModel(value.GetModel()),
@@ -40,7 +33,6 @@ func DecodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
 func DecodeOutgoing(value *pb.CompactionOutgoingInput) compaction.Input {
 	return compaction.Input{
 		Binding:      compaction.Binding{},
-		Entries:      nil,
 		History:      DecodeHistory(value.GetHistory()),
 		Previous:     mo.None[compaction.Result](),
 		Model:        decodeModel(value.GetModel()),
@@ -116,8 +108,8 @@ func DecodeRequest(value *pb.CompactionRequest) compaction.Request {
 		Guidance:      value.GetInstructions(),
 		Model:         decodeModel(value.GetModel()),
 		Reasoning:     value.GetReasoningChoice(),
-		Prefix:        decodeInputEntries(value.GetPrefix()),
-		Suffix:        decodeInputEntries(value.GetSuffix()),
+		Prefix:        DecodeHistory(value.GetPrefix()),
+		Suffix:        DecodeHistory(value.GetSuffix()),
 		Previous:      decodeMarker(value.GetPrevious()),
 		ContextTokens: value.GetContextTokens(),
 		Estimated:     value.GetContextTokensEstimated(),
@@ -125,17 +117,6 @@ func DecodeRequest(value *pb.CompactionRequest) compaction.Request {
 		Reserve:       value.GetResponseBudget(),
 		Retained:      value.GetRetainedBudget(),
 	}
-}
-
-// decodeInputEntries maps original entries and producer estimates into policy data.
-func decodeInputEntries(values []*pb.CompactionInputEntry) []compaction.Entry {
-	entries := make([]compaction.Entry, 0, len(values))
-	for _, value := range values {
-		entry := decodeEntry(value.GetEntry())
-		entry.Tokens = value.GetEstimatedTokens()
-		entries = append(entries, entry)
-	}
-	return entries
 }
 
 // EncodeRequest maps a request to the public participant contract.
@@ -146,8 +127,8 @@ func EncodeRequest(value compaction.Request) *pb.CompactionRequest {
 		Instructions:           new(value.Guidance),
 		Model:                  encodeModel(value.Model),
 		ReasoningChoice:        new(value.Reasoning),
-		Prefix:                 encodeInputEntries(value.Prefix),
-		Suffix:                 encodeInputEntries(value.Suffix),
+		Prefix:                 encodeHistory(value.Prefix),
+		Suffix:                 encodeHistory(value.Suffix),
 		Previous:               nil,
 		ContextTokens:          new(value.ContextTokens),
 		ContextTokensEstimated: new(value.Estimated),
@@ -159,19 +140,6 @@ func EncodeRequest(value compaction.Request) *pb.CompactionRequest {
 		request.SetPrevious(encodeMarker(previous))
 	}
 	return request
-}
-
-// encodeInputEntries maps original entry identities and producer estimates.
-func encodeInputEntries(values []compaction.Entry) []*pb.CompactionInputEntry {
-	entries := make([]*pb.CompactionInputEntry, 0, len(values))
-	for index := range values {
-		value := values[index]
-		entries = append(
-			entries,
-			pb.CompactionInputEntry_builder{Entry: encodeEntry(value), EstimatedTokens: new(value.Tokens)}.Build(),
-		)
-	}
-	return entries
 }
 
 // EncodeInvocation maps original and current composition state to an invocation.

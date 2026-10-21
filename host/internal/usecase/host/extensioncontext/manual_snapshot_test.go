@@ -39,7 +39,7 @@ func (s *manualPolicyUsesOneCapturedSessionSuite) TestScenario() {
 	}}
 	snapshot := CompactionSnapshot{
 		Identity: identity, ActiveLeafID: mo.Some("leaf"), Entries: nil,
-		History: capturedHistory, Previous: mo.None[session.CompactionEntry](),
+		History: newCapturedTestHistory(capturedHistory), Previous: mo.None[session.CompactionEntry](),
 	}
 	compactionSessions.EXPECT().CaptureCompaction().Return(snapshot)
 	cause := errors.New("captured runtime became unavailable: original transport cause")

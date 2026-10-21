@@ -23,15 +23,10 @@ func estimateText(text string) int64 {
 
 // SelectRequest selects a complete recent suffix for compaction.
 func SelectRequest(input Input, retained, contextTokens int64) (Request, error) {
-	entries := make([]Entry, 0, len(input.Entries))
-	previous, repeated := input.Previous.Get()
-	started := !repeated
-	for index := range input.Entries {
-		entry := input.Entries[index]
-		if !started && entry.ID == previous.FirstKept {
-			started = true
-		}
-		if !started || entry.Kind == Marker || entry.Kind == ExtensionEntry {
+	entries := make([]Entry, 0, len(input.History))
+	for index := range input.History {
+		entry := input.History[index]
+		if entry.PreviousSummary {
 			continue
 		}
 		entry.Tokens = entry.EstimateTokens()

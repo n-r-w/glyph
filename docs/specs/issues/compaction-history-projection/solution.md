@@ -1,6 +1,6 @@
 # Technical Solution: Compaction of prepared conversation history
 
-Status: D1 shared projection and D2 prepared-history retention are approved for PHS-06 completion, together with FRQ-01 through FRQ-03. Implementation and independent acceptance are pending. The [parent solution](../../features/initial/phases/06-context-compaction-retry-control/solution.md#phs-064-completion-corrections) owns D3 terminal-failure preservation and D4 phase-wide acceptance.
+Status: D1 shared projection and D2 prepared-history retention are approved for PHS-06 completion, together with FRQ-01 through FRQ-03. Completion-plan A4 implements the history-source migration with original source-kind metadata. Its [implementation evidence](../../features/initial/phases/06-context-compaction-retry-control/a4-prepared-history-evidence.md) records verification and remaining acceptance conditions. A4 is accepted after code-quality, text-quality, and independent unit review under the recorded exceptions. Full PHS-06 acceptance remains pending. The [parent solution](../../features/initial/phases/06-context-compaction-retry-control/solution.md#phs-064-completion-corrections) owns D3 terminal-failure preservation and D4 phase-wide acceptance.
 
 ## Problem Statement
 
@@ -16,7 +16,7 @@ The session owner retains the association between its projection inputs and orig
 
 This changes the output contract of the shared projection rather than adding a compaction-specific visibility flag. A failed or aborted response produces no prepared message, so the extension has no discarded response content to select or count.
 
-Existing source: `host/internal/usecase/agent/run/history.go`, `ProjectHistory`, already owns response exclusion, result ordering, and skipped-result synthesis. `host/internal/usecase/host/sessions/entry_history.go`, `historyFromEntries`, currently drops entry identity during conversion. Preserving correspondence across those operations addresses FRQ-01 and FRQ-02 without duplicating their behavior.
+In `host/internal/usecase/agent/run/history.go`, `ProjectHistory` owns response exclusion, result ordering, and skipped-result synthesis. In `host/internal/usecase/host/sessions/entry_history.go`, `historyFromEntries` retains original entry identity, position, and kind during conversion. Host binds the shared projection's output positions to those captured sources. Together, these operations address FRQ-01 and FRQ-02.
 
 ### Compaction receives prepared content with original-session references
 
@@ -31,6 +31,8 @@ The bundled extension and the public reference extensions migrate together with 
 ### D2: Source correspondence and retained-history boundaries
 
 An ordinary projected message refers to its original stored entry. A synthesized skipped-tool result refers to the model response whose tool call caused it; the synthetic result has no invented stored entry identifier. A rendered previous compaction summary refers to the compaction marker that supplied it. Several prepared messages can therefore share one source reference. The reference identifies their origin, not the identity of each prepared message.
+
+The correspondence includes the original entry kind. Prepared user-role content can originate from an original user, a model-visible extension message, a branch-summary entry, or a compaction marker. Reference policies use that captured kind to preserve latest-original-user boundary selection.
 
 The standard extension chooses a retained boundary only where the prepared-history split corresponds to a split of the original branch. It keeps response/result groups intact and includes intervening stored entries when necessary to preserve that correspondence. Original order is needed because the shared projector can reorder results ahead of intervening messages.
 
@@ -53,7 +55,7 @@ For generation, the extension supplies the preceding summary once and the newly 
 
 For example, after an earlier compaction, prepared history contains summary S and messages A, B, C. A subsequent compaction that preserves C supplies S together with A and B to generation. The next conversation context contains the new summary and C.
 
-The approved content estimator, generator source limits, usage-observation rules, and pricing remain unchanged. Source references and branch positions are control metadata and do not add model tokens or enter summary prompt text. Usage continuation comparisons remain comparisons of the actual prepared model input.
+The approved content estimator, generator source limits, usage-observation rules, and pricing remain unchanged. Source references, original kinds, and branch positions are control metadata and do not add model tokens or enter summary prompt text. Usage continuation comparisons remain comparisons of the actual prepared model input.
 
 ### Session capture and durable replacement
 
@@ -93,4 +95,4 @@ None at the requirements or technical-solution level.
 - `host/internal/controller/extension/compaction_history.go`, `MapCompactionHistory`: content-only public prepared history.
 - `api/plugins/extension/v1/compaction.proto`: policy invocation and composed-request representations.
 - `plugins/extension/compaction/internal/domain/compaction/retention.go`, `SelectRequest`: standard retention selection.
-- `plugins/extension/compaction/internal/domain/compaction/entry.go`, `findGroupStarts`: existing response/result grouping.
+- `plugins/extension/compaction/internal/domain/compaction/entry.go`, `findGroupStarts`: response/result grouping and legal original-order spans.

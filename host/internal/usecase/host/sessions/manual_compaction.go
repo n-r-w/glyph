@@ -9,7 +9,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 )
 
@@ -28,7 +27,7 @@ func (s *Service) CaptureCompaction() extensioncontext.CompactionSnapshot {
 	identity := s.ContextSession()
 	return extensioncontext.CompactionSnapshot{
 		Identity: identity, ActiveLeafID: s.active.Tree.ActiveLeafID(), Entries: entries,
-		History: agentrun.ProjectHistory(cloneStoredHistory(s.contextHistory, false)), Previous: previous,
+		History: projectSessionHistory(compactedHistoryFromEntries(entries)), Previous: previous,
 	}
 }
 

@@ -4,7 +4,6 @@ package extension
 
 import (
 	"testing"
-	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
@@ -104,25 +103,9 @@ func (s *compactionRequestValuesSuite) TestEntryMarkerMetadata() {
 
 		Details: mo.Some([]byte("opaque preceding data")),
 	}
-	entry := session.Entry{
-		ID:               "marker",
-		ParentID:         mo.None[string](),
-		CreatedAt:        time.Time{},
-		Information:      mo.None[session.Information](),
-		User:             mo.None[session.UserMessage](),
-		Model:            mo.None[session.ModelResponse](),
-		ToolResult:       mo.None[session.ToolResult](),
-		Extension:        mo.None[session.ExtensionEnvelope](),
-		ExtensionMessage: mo.None[session.ExtensionMessage](),
-		BranchSummary:    mo.None[session.BranchSummaryEntry](),
-		Compaction:       mo.Some(previous),
-		EstimatedCost:    mo.None[session.EstimatedCost](),
-	}
-	// Act through the entry's public representation.
-	wire, err := encodePolicyRequestEntry(entry)
-	require.NoError(t, err)
-	decoded, err := DecodeCompactionRequestEntry(wire)
+	// Act through the preceding marker's public representation.
+	wire := MapCompactionMarker(previous)
+	decoded := DecodeCompactionPrevious(wire)
 	// Assert the marker's complete state.
-	require.NoError(t, err)
-	require.Equal(t, previous, decoded.Compaction.MustGet())
+	require.Equal(t, previous, decoded.MustGet())
 }

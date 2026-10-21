@@ -7,6 +7,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -29,6 +30,7 @@ func MapCompactionHistory(history []agent.HistoryEntry) ([]*extensionpb.Compacti
 	for index := range history {
 		entry := &history[index]
 		builder := extensionpb.CompactionHistoryRecord_builder{
+			SourceEntryId: nil, SourcePosition: nil, SourceKind: nil, PreviousSummary: nil, EstimatedTokens: nil,
 			User:                nil,
 			Model:               nil,
 			ToolResult:          nil,
@@ -147,4 +149,23 @@ func mapCompactionToolResult(result agent.ToolResult) (*extensionpb.SessionTreeT
 		CallId: new(result.CallID), ToolName: new(result.ToolName),
 		Contents: contents, IsError: new(result.IsError),
 	}.Build(), nil
+}
+
+// MapPreparedCompactionHistory supplies prepared content with its original branch correspondence.
+func MapPreparedCompactionHistory(history session.PreparedHistory) ([]*extensionpb.CompactionHistoryRecord, error) {
+	wires, err := MapCompactionHistory(history.Content())
+	if err != nil {
+		return nil, err
+	}
+	for index := range history {
+		kind, sourceErr := mapHistorySourceKind(history[index].SourceKind)
+		if sourceErr != nil {
+			return nil, sourceErr
+		}
+		wires[index].SetSourceKind(kind)
+		wires[index].SetSourceEntryId(history[index].SourceID)
+		wires[index].SetSourcePosition(history[index].SourcePosition)
+		wires[index].SetPreviousSummary(history[index].PreviousSummary)
+	}
+	return wires, nil
 }

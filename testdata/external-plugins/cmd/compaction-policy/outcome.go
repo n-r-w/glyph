@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"google.golang.org/protobuf/proto"
@@ -14,10 +15,19 @@ import (
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
+const (
+	// successObservationKind identifies a public success observer invocation.
+	successObservationKind = "success"
+	// failureObservationKind identifies a public failure observer invocation.
+	failureObservationKind = "failure"
+)
+
 // outcomeOperation observes acquired policy state and the independent durable entry.
 type outcomeOperation struct {
 	// outcome contains the complete public terminal notification.
 	outcome *extensionpb.CompactionOutcome
+	// kind identifies the actual public observer invocation.
+	kind string
 }
 
 // The interface assertion checks the fixture capability contract.
@@ -34,6 +44,26 @@ func (o *outcomeOperation) Run(ctx context.Context) (*extensionpb.HandleResponse
 
 	if _, authority := extensionsdk.FindCompactionPolicy(ctx); authority {
 		return newPolicyFailure(errors.New("observer received replacement authority")), nil
+	}
+	if path := os.Getenv(outcomeEnvironment); path != "" {
+		const observationSuffix = ".calls"
+		const observationMode = 0o600
+		root, err := os.OpenRoot(filepath.Dir(path))
+		if err != nil {
+			return newPolicyFailure(err), nil
+		}
+		file, err := root.OpenFile(
+			filepath.Base(path)+observationSuffix,
+			os.O_CREATE|os.O_WRONLY|os.O_APPEND,
+			observationMode,
+		)
+		if err != nil {
+			return newPolicyFailure(errors.Join(err, root.Close())), nil
+		}
+		_, writeErr := file.WriteString(o.kind + "\n")
+		if err = errors.Join(writeErr, file.Close(), root.Close()); err != nil {
+			return newPolicyFailure(err), nil
+		}
 	}
 	if err := writePolicyArtifact(os.Getenv(outcomeEnvironment), o.outcome); err != nil {
 		return newPolicyFailure(err), nil
@@ -97,16 +127,17 @@ func newReferencePolicyState(
 	input *extensionpb.CompactionPolicyInvocation,
 	boundary string,
 ) *extensionpb.CompactionPolicyState {
-	prefix := make([]*extensionpb.CompactionInputEntry, 0)
-	suffix := make([]*extensionpb.CompactionInputEntry, 0)
+	prefix := make([]*extensionpb.CompactionHistoryRecord, 0)
+	suffix := make([]*extensionpb.CompactionHistoryRecord, 0)
 	// retained marks the retained boundary and subsequent entries.
 	retained := false
-	for _, entry := range input.GetEntries() {
-		retained = retained || entry.GetEntry().GetId() == boundary
-		projected := extensionpb.CompactionInputEntry_builder{
-			Entry:           entry.GetEntry(),
-			EstimatedTokens: new(int64(0)),
-		}.Build()
+	for _, entry := range input.GetHistory() {
+		retained = retained || entry.GetSourceEntryId() == boundary
+		if entry.GetPreviousSummary() {
+			continue
+		}
+		projected := proto.CloneOf(entry)
+		projected.SetEstimatedTokens(0)
 		if retained {
 			suffix = append(suffix, projected)
 		} else {

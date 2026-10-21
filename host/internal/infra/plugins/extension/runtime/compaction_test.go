@@ -16,11 +16,15 @@ func TestCompactionRequestReplacementRoundTripPreservesProjectedContent(t *testi
 	// Arrange one replacement with handler-modified provider-neutral content.
 	userContent := new(extensionpb.SessionTreeUserContent)
 	userContent.SetText("changed by handler")
-	entry := new(extensionpb.SessionTreeEntry)
+	entry := new(extensionpb.CompactionHistoryRecord)
 	entry.SetUser(extensionpb.SessionTreeUserMessage_builder{
 		Content: []*extensionpb.SessionTreeUserContent{userContent},
 	}.Build())
-	entry.SetId("entry")
+	entry.SetSourceEntryId("entry")
+	entry.SetSourceKind(extensionpb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_USER)
+	entry.SetSourcePosition(7)
+	entry.SetPrivatePayloadBytes(19)
+	entry.SetEstimatedTokens(11)
 	request := publicCompactionRequest(entry)
 
 	// Act through the public-to-Host and Host-to-public mappings used between handlers.
@@ -32,7 +36,12 @@ func TestCompactionRequestReplacementRoundTripPreservesProjectedContent(t *testi
 	require.NoError(t, err)
 	require.True(t, roundTrip.HasContextTokensEstimated())
 	require.True(t, roundTrip.GetContextTokensEstimated())
-	require.Equal(t, "changed by handler", roundTrip.GetSuffix()[0].GetEntry().GetUser().GetContent()[0].GetText())
+	require.Equal(t, "changed by handler", roundTrip.GetSuffix()[0].GetUser().GetContent()[0].GetText())
+	require.Equal(t, entry.GetSourceKind(), roundTrip.GetSuffix()[0].GetSourceKind())
+	require.Equal(t, entry.GetSourcePosition(), roundTrip.GetSuffix()[0].GetSourcePosition())
+	require.Equal(t, entry.GetSourceEntryId(), roundTrip.GetSuffix()[0].GetSourceEntryId())
+	require.Equal(t, entry.GetPrivatePayloadBytes(), roundTrip.GetSuffix()[0].GetPrivatePayloadBytes())
+	require.Equal(t, entry.GetEstimatedTokens(), roundTrip.GetSuffix()[0].GetEstimatedTokens())
 }
 
 // TestCompactionRequestReplacementRequiresEstimateMarker verifies absent and false markers stop composition.
@@ -65,12 +74,10 @@ func TestCompactionRequestReplacementRequiresEstimateMarker(t *testing.T) {
 }
 
 // publicCompactionRequest creates one complete replacement request fixture.
-func publicCompactionRequest(entry *extensionpb.SessionTreeEntry) *extensionpb.CompactionRequest {
-	var suffix []*extensionpb.CompactionInputEntry
+func publicCompactionRequest(entry *extensionpb.CompactionHistoryRecord) *extensionpb.CompactionRequest {
+	var suffix []*extensionpb.CompactionHistoryRecord
 	if entry != nil {
-		suffix = []*extensionpb.CompactionInputEntry{extensionpb.CompactionInputEntry_builder{
-			Entry: entry, EstimatedTokens: new(int64(1)),
-		}.Build()}
+		suffix = []*extensionpb.CompactionHistoryRecord{entry}
 	}
 	return extensionpb.CompactionRequest_builder{
 		Trigger: new(extensionpb.CompactionTrigger_COMPACTION_TRIGGER_MANUAL), RetryIntent: new(false),
@@ -132,15 +139,16 @@ func TestCompactionRequestReplacementRejectsMissingToolCallPayload(t *testing.T)
 		Kind: new(extensionpb.SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL),
 		Text: nil, ToolCall: nil,
 	}.Build()
-	entry := new(extensionpb.SessionTreeEntry)
+	entry := new(extensionpb.CompactionHistoryRecord)
+	entry.SetSourceKind(extensionpb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_MODEL)
 	entry.SetModel(extensionpb.SessionTreeModelResponse_builder{
 		Content: []*extensionpb.SessionTreeModelContent{content},
 	}.Build())
-	entry.SetId("entry")
+	entry.SetSourceEntryId("entry")
 
 	// Act through replacement entry validation.
-	_, err := mapCompactionEntriesFromProto([]*extensionpb.CompactionInputEntry{
-		extensionpb.CompactionInputEntry_builder{Entry: entry, EstimatedTokens: new(int64(1))}.Build(),
+	_, err := mapCompactionEntriesFromProto([]*extensionpb.CompactionHistoryRecord{
+		entry,
 	})
 
 	// Assert the malformed closed variant is rejected.
@@ -157,15 +165,16 @@ func TestCompactionRequestReplacementRejectsMalformedToolArguments(t *testing.T)
 			Id: new("call"), Name: new("tool"), ArgumentsJson: []byte(`{"broken":`),
 		}.Build(),
 	}.Build()
-	entry := new(extensionpb.SessionTreeEntry)
+	entry := new(extensionpb.CompactionHistoryRecord)
+	entry.SetSourceKind(extensionpb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_MODEL)
 	entry.SetModel(extensionpb.SessionTreeModelResponse_builder{
 		Content: []*extensionpb.SessionTreeModelContent{content},
 	}.Build())
-	entry.SetId("entry")
+	entry.SetSourceEntryId("entry")
 
 	// Act through replacement entry validation.
-	_, err := mapCompactionEntriesFromProto([]*extensionpb.CompactionInputEntry{
-		extensionpb.CompactionInputEntry_builder{Entry: entry, EstimatedTokens: new(int64(1))}.Build(),
+	_, err := mapCompactionEntriesFromProto([]*extensionpb.CompactionHistoryRecord{
+		entry,
 	})
 
 	// Assert the complete argument validation cause is returned.

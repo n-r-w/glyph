@@ -51,14 +51,13 @@ func (r Request) Validate() error {
 	if len(r.Prefix) == 0 || len(r.Suffix) == 0 {
 		return errors.New("compaction request requires a summarized prefix and retained suffix")
 	}
-	seen := make(map[string]bool, len(r.Prefix)+len(r.Suffix))
 	for _, entries := range [][]Entry{r.Prefix, r.Suffix} {
 		for index := range entries {
 			entry := &entries[index]
-			if entry.ID == "" || seen[entry.ID] || entry.Tokens < 0 {
+			if entry.ID == "" || entry.SourcePosition < 0 || !entry.SourceKind.Valid() || entry.PreviousSummary ||
+				entry.Tokens < 0 {
 				return fmt.Errorf("invalid compaction input entry %q", entry.ID)
 			}
-			seen[entry.ID] = true
 		}
 	}
 	return nil

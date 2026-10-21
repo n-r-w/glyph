@@ -125,8 +125,14 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 		Identity:     identity,
 		ActiveLeafID: mo.Some("kept"),
 		Entries:      nil,
-		History: []agent.HistoryEntry{
-			newOverflowExecutionHistory(initial),
+		History: session.PreparedHistory{
+			{
+				History:         newOverflowExecutionHistory(initial),
+				SourceID:        "kept",
+				SourcePosition:  0,
+				SourceKind:      session.HistorySourceUser,
+				PreviousSummary: false,
+			},
 		},
 		Previous: mo.None[session.CompactionEntry](),
 	}
@@ -149,8 +155,19 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 		Compaction: mo.Some(candidate),
 	}
 	after := CompactionSnapshot{
-		Identity: identity, ActiveLeafID: mo.Some("notified"), Entries: nil,
-		History: []agent.HistoryEntry{newOverflowExecutionHistory(rebuilt)}, Previous: mo.Some(candidate),
+		Identity:     identity,
+		ActiveLeafID: mo.Some("notified"),
+		Entries:      nil,
+		History: session.PreparedHistory{
+			{
+				History:         newOverflowExecutionHistory(rebuilt),
+				SourceID:        "notified",
+				SourcePosition:  0,
+				SourceKind:      session.HistorySourceUser,
+				PreviousSummary: false,
+			},
+		},
+		Previous: mo.Some(candidate),
 	}
 	originalCapture := compactions.EXPECT().CaptureCompaction().Return(before).Times(2)
 	compactions.EXPECT().CaptureCompaction().Return(after).After(originalCapture).Times(1)
@@ -197,7 +214,7 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 	policy.EXPECT().ValidateOutgoingInput(gomock.Any(), owner, gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ PolicyOwner, _ extension.Context, outgoing OutgoingInput) error {
 			require.Equal(t, after, outgoing.Snapshot)
-			require.Equal(t, after.History, outgoing.Input.History)
+			require.Equal(t, after.History.Content(), outgoing.Input.History)
 			require.Equal(t, "instructions", outgoing.Input.Instructions)
 			return NewPolicyOperationError(ctx, modelexecution.FailureCompactionFailed, finalCause)
 		})
@@ -240,7 +257,7 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 			Instructions:    "instructions",
 			Model:           descriptor,
 			ReasoningChoice: selection.ReasoningChoice,
-			History:         before.History,
+			History:         before.History.Content(),
 			Tools:           nil,
 		},
 		commits: &commits,

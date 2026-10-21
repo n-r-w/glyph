@@ -124,62 +124,13 @@ func TestModelModalityMapping(t *testing.T) {
 	}
 }
 
-// TestMessageVisibilityMapping checks client visibility mapping at the boundary.
-func TestMessageVisibilityMapping(t *testing.T) {
-	t.Parallel()
-	// Arrange known, absent, and unknown transcript visibility.
-	cases := []struct {
-		wire    pb.ClientVisibility
-		want    compaction.Visibility
-		encoded pb.ClientVisibility
-	}{
-		{
-			wire:    pb.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED,
-			want:    compaction.VisibilityUnspecified,
-			encoded: pb.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED,
-		},
-		{
-			wire:    pb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE,
-			want:    compaction.VisibilityVisible,
-			encoded: pb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE,
-		},
-		{
-			wire:    pb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN,
-			want:    compaction.VisibilityHidden,
-			encoded: pb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN,
-		},
-		{
-			wire:    pb.ClientVisibility(91),
-			want:    compaction.VisibilityInvalid,
-			encoded: pb.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED,
-		},
-		{
-			wire:    pb.ClientVisibility(-1),
-			want:    compaction.VisibilityInvalid,
-			encoded: pb.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED,
-		},
-	}
-	for _, test := range cases {
-		message := new(pb.SessionTreeExtensionMessage)
-		message.SetText("extension content")
-		message.SetVisibility(test.wire)
-		wire := new(pb.SessionTreeEntry)
-		wire.SetExtensionMessage(message)
-		// Act through entry decoding and encoding.
-		entry := decodeEntry(wire)
-		// Assert invalid visibility cannot become visible or hidden.
-		require.Equal(t, test.want, entry.Visibility)
-		require.Equal(t, test.want, decodeVisibility(test.wire))
-		require.Equal(t, test.encoded, encodeEntry(entry).GetExtensionMessage().GetVisibility())
-		require.Equal(t, test.encoded, encodeVisibility(test.want))
-	}
-}
-
 // newMappingRequest supplies a complete request for category validation.
 func newMappingRequest() *pb.CompactionRequest {
-	prefix, suffix := new(pb.SessionTreeEntry), new(pb.SessionTreeEntry)
-	prefix.SetId("prefix")
-	suffix.SetId("suffix")
+	prefix, suffix := new(pb.CompactionHistoryRecord), new(pb.CompactionHistoryRecord)
+	prefix.SetSourceEntryId("prefix")
+	prefix.SetSourceKind(pb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_USER)
+	suffix.SetSourceEntryId("suffix")
+	suffix.SetSourceKind(pb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_USER)
 	content := new(pb.SessionTreeUserContent)
 	content.SetText("source text")
 	prefix.SetUser(pb.SessionTreeUserMessage_builder{Content: []*pb.SessionTreeUserContent{content}}.Build())
@@ -209,12 +160,8 @@ func newMappingRequest() *pb.CompactionRequest {
 		ReasoningChoice: new(
 			"off",
 		),
-		Prefix: []*pb.CompactionInputEntry{
-			pb.CompactionInputEntry_builder{Entry: prefix, EstimatedTokens: new(int64(1))}.Build(),
-		},
-		Suffix: []*pb.CompactionInputEntry{
-			pb.CompactionInputEntry_builder{Entry: suffix, EstimatedTokens: new(int64(1))}.Build(),
-		},
+		Prefix:   []*pb.CompactionHistoryRecord{prefix},
+		Suffix:   []*pb.CompactionHistoryRecord{suffix},
 		Previous: nil,
 		ContextTokens: new(
 			int64(10),

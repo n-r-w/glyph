@@ -95,17 +95,3 @@ const (
 	// ModalityInvalid identifies an unrecognized input kind.
 	ModalityInvalid Modality = "invalid"
 )
-
-// Visibility identifies an extension message's transcript presentation.
-type Visibility string
-
-const (
-	// VisibilityUnspecified identifies absent transcript presentation.
-	VisibilityUnspecified Visibility = ""
-	// VisibilityVisible is the visibility state for a message included in the transcript.
-	VisibilityVisible Visibility = "visible"
-	// VisibilityHidden is the visibility state for a message excluded from the transcript.
-	VisibilityHidden Visibility = "hidden"
-	// VisibilityInvalid identifies unrecognized transcript presentation.
-	VisibilityInvalid Visibility = "invalid"
-)

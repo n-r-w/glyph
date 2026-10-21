@@ -4,7 +4,6 @@ package extension
 
 import (
 	"testing"
-	"time"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
@@ -31,29 +30,24 @@ func TestCompactionRequestEncoding(t *testing.T) {
 	suite.Run(t, &requestEncodingSuite{Suite: suite.Suite{}})
 }
 
-// TestConversationPrecedence checks that overlapping conversation fields
-// take precedence over non-conversation variants.
-func (s *requestEncodingSuite) TestConversationPrecedence() {
+// TestPreparedCorrespondence checks source metadata survives public composition.
+func (s *requestEncodingSuite) TestPreparedCorrespondence() {
 	t := s.T()
-	// Arrange all conversation alternatives alongside a preceding marker.
+	// Arrange prepared user content from an original source.
 	entry := newEncodingTestEntry()
-	entry.User = mo.Some(model.Message{})
-	entry.Model = mo.Some(model.Response{})
-	entry.ToolResult = mo.Some(agent.ToolResult{})
-	entry.Compaction = mo.Some(session.CompactionEntry{})
-	// Act and Assert tool, model, then user precedence as higher alternatives are removed.
-	wire, err := encodePolicyRequestEntry(entry)
+	entry.History.Kind = agent.HistoryEntryUser
+	entry.History.User = mo.Some(model.TextMessage("prepared text"))
+	// Act through source-bearing request mappings.
+	wires, err := MapCompactionRequestEntries(
+		[]CompactionRequestEntry{{Entry: entry, PrivateBytes: 12, EstimatedTokens: 9}},
+	)
 	require.NoError(t, err)
-	require.NotNil(t, wire.GetToolResult())
-	require.Nil(t, wire.GetCompaction())
-	entry.ToolResult = mo.None[session.ToolResult]()
-	wire, err = encodePolicyRequestEntry(entry)
+	decoded, err := decodePolicyRequestEntries(wires)
+	// Assert content, correspondence and extension estimates survive together.
 	require.NoError(t, err)
-	require.NotNil(t, wire.GetModel())
-	entry.Model = mo.None[session.ModelResponse]()
-	wire, err = encodePolicyRequestEntry(entry)
-	require.NoError(t, err)
-	require.NotNil(t, wire.GetUser())
+	require.Equal(t, entry, decoded[0].Entry)
+	require.Equal(t, int64(12), decoded[0].PrivateBytes)
+	require.Equal(t, int64(9), decoded[0].EstimatedTokens)
 }
 
 // TestMalformedConversation checks exact errors from the selected model and tool conversions.
@@ -61,7 +55,8 @@ func (s *requestEncodingSuite) TestMalformedConversation() {
 	t := s.T()
 	// Arrange unsupported content kinds in each conversation alternative.
 	entry := newEncodingTestEntry()
-	entry.Model = mo.Some(model.Response{
+	entry.History.Kind = agent.HistoryEntryModel
+	entry.History.Model = mo.Some(model.Response{
 		Content: []model.Content{
 			{
 				Kind:            0,
@@ -81,9 +76,10 @@ func (s *requestEncodingSuite) TestMalformedConversation() {
 		Diagnostics:   nil,
 	})
 	// Act and Assert the model converter's reachable error.
-	_, err := encodePolicyRequestEntry(entry)
+	_, err := MapPreparedCompactionHistory(session.PreparedHistory{entry})
 	require.EqualError(t, err, "unknown compaction model content kind 0")
-	entry.ToolResult = mo.Some(
+	entry.History.Kind = agent.HistoryEntryToolResult
+	entry.History.ToolResult = mo.Some(
 		agent.ToolResult{
 			CallID:   "",
 			ToolName: "",
@@ -91,7 +87,7 @@ func (s *requestEncodingSuite) TestMalformedConversation() {
 			IsError:  false,
 		},
 	)
-	_, err = encodePolicyRequestEntry(entry)
+	_, err = MapPreparedCompactionHistory(session.PreparedHistory{entry})
 	require.EqualError(t, err, "unknown compaction tool content kind 0")
 }
 
@@ -161,20 +157,18 @@ func (s *requestEncodingSuite) TestModelPayloadBoundaries() {
 	require.ErrorContains(t, err, "validate tool call arguments:")
 }
 
-// newEncodingTestEntry supplies a neutral branch entry for conversion scenarios.
-func newEncodingTestEntry() session.Entry {
-	return session.Entry{
-		ID:               "",
-		ParentID:         mo.None[string](),
-		CreatedAt:        time.Time{},
-		Information:      mo.None[session.Information](),
-		User:             mo.None[session.UserMessage](),
-		Model:            mo.None[session.ModelResponse](),
-		ToolResult:       mo.None[session.ToolResult](),
-		Extension:        mo.None[session.ExtensionEnvelope](),
-		ExtensionMessage: mo.None[session.ExtensionMessage](),
-		BranchSummary:    mo.None[session.BranchSummaryEntry](),
-		Compaction:       mo.None[session.CompactionEntry](),
-		EstimatedCost:    mo.None[session.EstimatedCost](),
+// newEncodingTestEntry supplies a prepared record for conversion scenarios.
+func newEncodingTestEntry() session.PreparedHistoryEntry {
+	return session.PreparedHistoryEntry{
+		History: agent.HistoryEntry{
+			Kind:       0,
+			User:       mo.None[model.Message](),
+			Model:      mo.None[model.Response](),
+			ToolResult: mo.None[agent.ToolResult](),
+		},
+		SourceID:        "source",
+		SourcePosition:  3,
+		SourceKind:      session.HistorySourceUser,
+		PreviousSummary: false,
 	}
 }

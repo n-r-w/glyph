@@ -23,8 +23,6 @@ type Participant struct {
 type Input struct {
 	// Binding identifies the issued session access.
 	Binding Binding
-	// Entries contains the original active branch.
-	Entries []Entry
 	// History contains prepared model history.
 	History []Entry
 	// Previous contains the preceding replacement.

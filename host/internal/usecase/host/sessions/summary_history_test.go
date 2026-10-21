@@ -61,7 +61,7 @@ func TestHistoryFromEntriesProjectsBranchSummaryAsSyntheticUserContext(t *testin
 	}
 
 	// Act by projecting the active entries into provider history.
-	history := historyFromEntries(entries)
+	history := historyFromEntries(entries).Content()
 
 	// Assert the summary is one synthetic user message and hidden extension data is absent.
 	require.Len(t, history, 1)

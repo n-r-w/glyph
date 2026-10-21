@@ -143,7 +143,7 @@ func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.
 			}
 
 			// Act by projecting stored history into provider-visible call order.
-			projected := ProjectHistory(history)
+			projected := ProjectHistory(history).History
 
 			// Assert stored results keep their values, missing results become skipped, and unexpected results are omitted.
 			require.Len(t, projected, len(calls)+1)
@@ -192,8 +192,8 @@ func TestProjectHistoryCollectsResponseResultsAcrossInterveningMessages(t *testi
 	}
 
 	// Act by projecting persisted history twice.
-	projected := ProjectHistory(history)
-	reprojected := ProjectHistory(projected)
+	projected := ProjectHistory(history).History
+	reprojected := ProjectHistory(projected).History
 
 	// Assert actual results follow call order before the intervening messages, with no synthetic duplicate.
 	require.Len(t, projected, 5)
@@ -220,7 +220,7 @@ func TestProjectHistoryScopesRepeatedCallIDsToTheirModelResponse(t *testing.T) {
 	}
 
 	// Act by projecting response-local tool ownership.
-	projected := ProjectHistory(history)
+	projected := ProjectHistory(history).History
 
 	// Assert the first response gets a skipped result and the later response retains its own actual result.
 	require.Len(t, projected, 5)
@@ -245,7 +245,7 @@ func TestProjectHistorySkipsMissingSelectedPayload(t *testing.T) {
 		User:       mo.None[model.Message](),
 		Model:      mo.None[model.Response](),
 		ToolResult: mo.None[agent.ToolResult](),
-	}})
+	}}).History
 
 	assert.Empty(t, projected)
 }
@@ -290,4 +290,29 @@ func testHistoryResultEntry(callID, text string) agent.HistoryEntry {
 			CallID: callID, ToolName: "tool-" + callID, Contents: tool.TextContents(text), IsError: false,
 		}),
 	}
+}
+
+// TestProjectHistorySourceCorrespondence tracks reordered, synthesized and excluded records by caller position.
+func TestProjectHistorySourceCorrespondence(t *testing.T) {
+	t.Parallel()
+	// Arrange duplicate text and a response whose second result was never stored.
+	failed := testHistoryModelEntry()
+	response := failed.Model.MustGet()
+	response.Outcome = mo.Some(model.OutcomeFailed)
+	failed.Model = mo.Some(response)
+	aborted := failed.Clone()
+	response.Outcome = mo.Some(model.OutcomeAborted)
+	aborted.Model = mo.Some(response)
+	history := []agent.HistoryEntry{
+		testHistoryUserEntry("duplicate"), testHistoryModelEntry("a", "b"), testHistoryUserEntry("duplicate"),
+		testHistoryResultEntry("a", "actual"), failed, aborted, testHistoryUserEntry("latest"),
+	}
+	// Act through the ordinary shared projector.
+	projected := ProjectHistory(history)
+	// Assert original input positions survive ordering and synthesis without content matching.
+	require.Equal(t, []int{0, 1, 3, 1, 2, 6}, projected.InputPositions)
+	require.Len(t, projected.History, len(projected.InputPositions))
+	require.Equal(t, "a", projected.History[2].ToolResult.MustGet().CallID)
+	require.Equal(t, "b", projected.History[3].ToolResult.MustGet().CallID)
+	require.True(t, projected.History[3].ToolResult.MustGet().IsError)
 }

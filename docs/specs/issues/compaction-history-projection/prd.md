@@ -1,6 +1,6 @@
 # Requirements: Compaction of prepared conversation history
 
-Status: FRQ-01 through FRQ-03 are approved for PHS-06 completion. The [technical solution](solution.md) remains the approved history-source design. Implementation and independent acceptance are pending.
+Status: FRQ-01 through FRQ-03 are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design, implementation evidence, and remaining acceptance conditions.
 
 ## Definitions
 
@@ -57,7 +57,7 @@ Parent-ticket [NRQ-01](../../features/initial/phases/06-context-compaction-retry
 
 ## Open Questions
 
-None at the requirements level. Implementation and acceptance evidence remain pending.
+None at the requirements level. The [technical solution](solution.md) records implementation and acceptance status.
 
 ## References
 

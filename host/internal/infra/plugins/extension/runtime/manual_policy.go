@@ -12,7 +12,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
-	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -89,26 +88,7 @@ func mapPolicyInvocation(
 	if snapshot.Identity.Incarnation > math.MaxInt64 {
 		return nil, errors.New("session incarnation exceeds the policy input range")
 	}
-	entries := make([]*extensionpb.CompactionSnapshotEntry, 0, len(snapshot.Entries))
-	for index := range snapshot.Entries {
-		entry := &snapshot.Entries[index]
-		projected, projectionErr := mapSessionEntry(extensionmanager.ProjectTreeEntry(*entry))
-		if projectionErr != nil {
-			return nil, projectionErr
-		}
-		var privateBytes int64
-		if response, present := entry.Model.Get(); present {
-			privateBytes = controllerextension.CountCompactionPrivateBytes(response)
-		}
-		entries = append(
-			entries,
-			extensionpb.CompactionSnapshotEntry_builder{
-				Entry:               projected,
-				PrivatePayloadBytes: new(privateBytes),
-			}.Build(),
-		)
-	}
-	history, err := controllerextension.MapCompactionHistory(snapshot.History)
+	history, err := controllerextension.MapPreparedCompactionHistory(snapshot.History)
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +136,6 @@ func mapPolicyInvocation(
 			int64(snapshot.Identity.Incarnation),
 		),
 		ActiveLeafId:    leaf,
-		Entries:         entries,
 		History:         history,
 		Previous:        previous,
 		Model:           mapCompactionModel(invocation.Input.Model),

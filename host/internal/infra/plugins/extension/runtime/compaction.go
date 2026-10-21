@@ -255,19 +255,17 @@ func mapCompactionRequest(request extensioncontext.Request) (*extensionpb.Compac
 	}.Build(), nil
 }
 
-// mapCompactionEntries reuses the public session-entry projection for every source record.
-func mapCompactionEntries(entries []extensioncontext.InputEntry) ([]*extensionpb.CompactionInputEntry, error) {
-	mapped := make([]*extensionpb.CompactionInputEntry, len(entries))
+// mapCompactionEntries supplies prepared composition records with their source correspondence and accounting.
+func mapCompactionEntries(entries []extensioncontext.InputEntry) ([]*extensionpb.CompactionHistoryRecord, error) {
+	values := make([]extensioncontroller.CompactionRequestEntry, len(entries))
 	for index := range entries {
-		value, err := mapSessionEntry(extensionruntime.ProjectTreeEntry(entries[index].Entry))
-		if err != nil {
-			return nil, fmt.Errorf("map compaction entry %d: %w", index, err)
+		values[index] = extensioncontroller.CompactionRequestEntry{
+			Entry:           entries[index].Entry,
+			PrivateBytes:    entries[index].PrivateBytes,
+			EstimatedTokens: entries[index].EstimatedTokens,
 		}
-		mapped[index] = extensionpb.CompactionInputEntry_builder{
-			Entry: value, EstimatedTokens: new(entries[index].EstimatedTokens),
-		}.Build()
 	}
-	return mapped, nil
+	return extensioncontroller.MapCompactionRequestEntries(values)
 }
 
 // mapCompactionResult projects one extension result.
@@ -409,18 +407,22 @@ func mapCompactionRequestFromProto(value *extensionpb.CompactionRequest) (extens
 }
 
 // mapCompactionEntriesFromProto decodes replacement entries and their token estimates.
-func mapCompactionEntriesFromProto(values []*extensionpb.CompactionInputEntry) ([]extensioncontext.InputEntry, error) {
+func mapCompactionEntriesFromProto(
+	values []*extensionpb.CompactionHistoryRecord,
+) ([]extensioncontext.InputEntry, error) {
 	entries := make([]extensioncontext.InputEntry, len(values))
 	for index := range values {
-		if values[index] == nil || values[index].GetEntry() == nil {
+		if values[index] == nil {
 			return nil, fmt.Errorf("map replacement compaction entry %d: payload is missing", index)
 		}
-		entry, err := extensioncontroller.DecodeCompactionRequestEntry(values[index].GetEntry())
+		entry, err := extensioncontroller.DecodeCompactionRequestEntry(values[index])
 		if err != nil {
 			return nil, fmt.Errorf("map replacement compaction entry %d: %w", index, err)
 		}
 		entries[index] = extensioncontext.InputEntry{
-			Entry: entry, EstimatedTokens: values[index].GetEstimatedTokens(),
+			Entry:           entry,
+			PrivateBytes:    values[index].GetPrivatePayloadBytes(),
+			EstimatedTokens: values[index].GetEstimatedTokens(),
 		}
 	}
 	return entries, nil

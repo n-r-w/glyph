@@ -4,9 +4,9 @@ Keep long sessions usable within model context limits.
 
 The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_prd.md), and [technical solution](phs-06.2_solution.md) are approved, and the design dry run is complete. Accounting slice A1 implements [D6](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction, and A3 implements automatic compaction with conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through standard composition within Host's attempt allowance. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records A1-A4 behavior and verification limits. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending. This ticket owns the shared composition, session, and retry requirements.
 
-Completion-plan unit A3 resolves terminal provider-refusal loss after stream truncation under FRQ-04.8.1. The [evidence record](a3-terminal-failure-evidence.md) contains passing public-client regressions, mandatory checks, and independent unit review. The history-source correction and independent phase acceptance remain pending.
+Completion-plan unit A3 resolves terminal provider-refusal loss after stream truncation under FRQ-04.8.1. The [evidence record](a3-terminal-failure-evidence.md) contains passing public-client regressions, mandatory checks, and independent unit review. The history-source unit acceptance is recorded below. Independent phase acceptance remains pending.
 
-For completion-plan unit A4.1, Agent Core accounts for appended history independently of prepared-history length. Its [evidence record](a4.1-run-history-evidence.md) records regression and check results. A4.1 is accepted after code-quality, text-quality, and independent unit review. Completion-plan A4 history-source migration and independent PHS-06 acceptance remain pending. PHS-06.2 slice A4 covers the earlier overflow-recovery implementation.
+For completion-plan unit A4.1, Agent Core accounts for appended history independently of prepared-history length. Its [evidence record](a4.1-run-history-evidence.md) records regression and check results. A4.1 is accepted after code-quality, text-quality, and independent unit review. Completion-plan A4 is accepted after code-quality, text-quality, and independent unit review. Its [evidence record](a4-prepared-history-evidence.md) records verification and the two scoped acceptance exceptions. A5, A6, and independent PHS-06 acceptance remain pending. PHS-06.2 slice A4 covers the earlier overflow-recovery implementation.
 
 ## Key definitions and abbreviations
 
@@ -123,13 +123,19 @@ Out of scope:
 
 ### Non-Functional Requirements
 
-- NFQ-01: Focused behavioral tests must demonstrate RED and GREEN for this ticket, followed by passing `task lint` and `task test`.
+- NFQ-01: Focused behavioral tests must demonstrate RED and GREEN for this ticket, followed by passing `task lint` and `task test`. The [two approved A4 exceptions](a4-prepared-history-evidence.md#review-and-remaining-acceptance) apply only to the named original test-first deviation and the specific development vulnerability finding.
 - NFQ-02: Agent Core must remain independent of protobuf, gRPC, plugin SDKs, persistence adapters, concrete provider packages, and TUI packages. Host model execution and retry coordination must remain independent of concrete provider packages.
 - NRQ-01: PHS-06 completion shall have executable evidence for every ACC-01 through ACC-06 condition, including subcriteria, independent acceptance, and passing mandatory project checks. The acceptance report shall identify skipped scenarios and limits of the evidence.
   - Origin: source. The [PHS-06.4 exit criteria](migration-plan.md#phase-phs-064---independent-acceptance) and the approved PRB-02 phase-completion scope.
   - Goal: Establish completion of the whole phase against observable behavior.
   - Goal achievement: Full. Phase status depends on verified acceptance conditions and explicitly bounded evidence.
   - Feasibility: Confirmed. Public integration checks, project-wide checks, and independent review are available.
+
+- NRQ-01.1: For completion-plan A4 only, reviewers may accept the named original test-first deviation in the [A4 evidence record](a4-prepared-history-evidence.md#fresh-accepted-baseline-repeat). The acceptance report shall distinguish original RED runs from later assertion-sensitivity controls. All other test-first obligations, including A5, A6, and subsequent behavior corrections, shall remain in effect.
+  - Origin: approved A4 acceptance exception O14-1.
+  - Goal: Preserve the recorded test chronology while permitting acceptance of the named deviation.
+  - Goal achievement: Full. Reviewers retain the chronology limitation and evaluate the separately recorded runtime results.
+  - Feasibility: Confirmed. The evidence record separates original RED runs from later controls.
 
 ### Deliverables
 
@@ -193,7 +199,7 @@ None.
 
 ## Technical Supplement
 
-The approved [PHS-06.4 completion corrections](solution.md#phs-064-completion-corrections), D1 through D4, cover prepared-history selection, terminal-failure preservation, and public-boundary acceptance. Implementation and independent acceptance remain pending.
+The approved [PHS-06.4 completion corrections](solution.md#phs-064-completion-corrections), D1 through D4, cover prepared-history selection, terminal-failure preservation, and public-boundary acceptance. The [migration plan](migration-plan.md#phase-phs-064---independent-acceptance) records implementation progress; independent phase acceptance remains pending.
 
 The [technical solution](solution.md) contains the approved target boundary, the unaccepted Host-owned checkpoint evidence, and the [tool-call argument representation](solution.md#tool-call-argument-representation). The [migration plan](migration-plan.md#sequential-implementation-units) owns implementation progress and links to the phase order and exit criteria. The [PHS-06.2 technical solution](phs-06.2_solution.md) resolves [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) and defines standard generation and per-request accounting.
 

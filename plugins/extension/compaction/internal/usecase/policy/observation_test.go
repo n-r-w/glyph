@@ -24,6 +24,12 @@ func TestObservationContinuation(t *testing.T) {
 		reuse  bool
 	}{
 		{"exact", func(*compaction.Input) {}, true},
+		{"source-metadata", func(i *compaction.Input) {
+			i.History[0].ID = "rebound-source"
+			i.History[0].SourcePosition = 99
+			i.History[0].SourceKind = compaction.SourceExtensionMessage
+			i.History[0].PreviousSummary = true
+		}, true},
 		{"history-text", func(i *compaction.Input) { i.History[0].Blocks[0].Text = "changed" }, false},
 		{
 			"image-encoding",
@@ -150,6 +156,7 @@ func newObservedContinuation() (compaction.Observation, compaction.Input) {
 	input.History[0].Blocks = append(slices.Clone(input.History[0].Blocks), image)
 	response := input.History[1]
 	response.Kind = compaction.Assistant
+	response.SourceKind = compaction.SourceModel
 	response.Blocks = append(
 		slices.Clone(response.Blocks),
 		compaction.Block{
@@ -172,6 +179,9 @@ func newObservedContinuation() (compaction.Observation, compaction.Input) {
 		}
 	}
 	next.History = append(next.History, response, input.History[0])
+	for index := range next.History {
+		next.History[index].SourcePosition = int64(index)
+	}
 	next.History[2].Blocks = slices.Clone(response.Blocks)
 	next.History[2].Blocks[1].Arguments = slices.Clone(response.Blocks[1].Arguments)
 	return compaction.Observation{

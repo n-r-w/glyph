@@ -324,24 +324,23 @@ func newPolicyInput() compaction.Input {
 		Arguments: nil,
 	}
 	old := compaction.Entry{
-		ID:           "old",
-		Kind:         compaction.User,
-		Blocks:       []compaction.Block{block},
-		CallID:       "",
-		Tool:         "",
-		Failed:       false,
-		Extension:    "",
-		EntryType:    "",
-		Visibility:   compaction.VisibilityUnspecified,
-		Marker:       mo.None[compaction.Result](),
-		PrivateBytes: 0,
-		Tokens:       0,
+		ID:              "old",
+		Kind:            compaction.User,
+		Blocks:          []compaction.Block{block},
+		CallID:          "",
+		Tool:            "",
+		Failed:          false,
+		SourcePosition:  0,
+		SourceKind:      compaction.SourceUser,
+		PreviousSummary: false,
+		PrivateBytes:    0,
+		Tokens:          0,
 	}
 	recent := old
 	recent.ID = "recent"
+	recent.SourcePosition = 1
 	return compaction.Input{
 		Binding:  compaction.Binding{},
-		Entries:  []compaction.Entry{old, recent},
 		History:  []compaction.Entry{old, recent},
 		Previous: mo.None[compaction.Result](),
 		Model: compaction.Model{

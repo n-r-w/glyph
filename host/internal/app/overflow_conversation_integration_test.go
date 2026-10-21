@@ -141,8 +141,8 @@ func TestRepeatedOverflowPreservesCompletedTool(t *testing.T) {
 	require.True(t, originalFound)
 	priorReceiptCaptured := false
 	privateSizeObserved := false
-	for _, entry := range policy.GetEntries() {
-		priorReceiptCaptured = priorReceiptCaptured || entry.GetEntry().GetId() == firstReceipt
+	for _, entry := range policy.GetHistory() {
+		priorReceiptCaptured = priorReceiptCaptured || entry.GetSourceEntryId() == firstReceipt
 		privateSizeObserved = privateSizeObserved || entry.GetPrivatePayloadBytes() > 0
 	}
 	require.True(t, priorReceiptCaptured)

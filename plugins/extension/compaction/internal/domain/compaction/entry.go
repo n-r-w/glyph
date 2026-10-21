@@ -2,8 +2,6 @@ package compaction
 
 import (
 	"bytes"
-
-	"github.com/samber/mo"
 )
 
 // Block contains one semantic message block.
@@ -24,9 +22,9 @@ type Block struct {
 	Arguments []byte
 }
 
-// Entry contains one original session record or prepared history record.
+// Entry contains one prepared record and its original source correspondence.
 type Entry struct {
-	// ID identifies the original session record.
+	// ID identifies the original source record.
 	ID string
 	// Kind identifies the record's semantic role.
 	Kind string
@@ -38,14 +36,12 @@ type Entry struct {
 	Tool string
 	// Failed indicates tool execution failure.
 	Failed bool
-	// Extension identifies an extension-owned entry.
-	Extension string
-	// EntryType identifies extension-owned content.
-	EntryType string
-	// Visibility is the extension message's client visibility.
-	Visibility Visibility
-	// Marker contains a preceding compaction marker.
-	Marker mo.Option[Result]
+	// SourcePosition identifies the source's original branch position.
+	SourcePosition int64
+	// SourceKind identifies the kind of original entry associated with the prepared content.
+	SourceKind SourceKind
+	// PreviousSummary identifies the rendered preceding summary.
+	PreviousSummary bool
 	// PrivateBytes is the retained private replay size.
 	PrivateBytes int64
 	// Tokens is the producer's content estimate.
@@ -59,14 +55,6 @@ const (
 	Assistant = "assistant"
 	// ToolResult identifies terminal tool content.
 	ToolResult = "tool_result"
-	// BranchSummary identifies a branch summary.
-	BranchSummary = "branch_summary"
-	// ExtensionMessage identifies model-visible extension content.
-	ExtensionMessage = "extension_message"
-	// ExtensionEntry identifies model-hidden extension content.
-	ExtensionEntry = "extension"
-	// Marker identifies a compaction entry.
-	Marker = "compaction"
 	// Text identifies public text.
 	Text = "text"
 	// Image identifies encoded image content.
@@ -86,9 +74,6 @@ func (e Entry) EstimateTokens() int64 {
 		imageTokens          = 1024
 		privateBytesPerToken = 4
 	)
-	if e.Kind == ExtensionEntry || e.Kind == Marker {
-		return 0
-	}
 	total := int64(messageFraming) + (e.PrivateBytes+privateBytesPerToken-1)/privateBytesPerToken
 	total += estimateText(e.CallID) + estimateText(e.Tool)
 	for index := range e.Blocks {
@@ -158,5 +143,25 @@ func findGroupStarts(entries []Entry) []int {
 		}
 		start = end + 1
 	}
-	return groups
+	// Reordering and shared sources can join several content groups into one original-branch span.
+	suffixMinimum := make([]int64, len(entries))
+	for index := len(entries) - 1; index >= 0; index-- {
+		suffixMinimum[index] = entries[index].SourcePosition
+		if index+1 < len(entries) {
+			suffixMinimum[index] = min(suffixMinimum[index], suffixMinimum[index+1])
+		}
+	}
+	legal := make([]int, 0, len(groups))
+	maximum := int64(-1)
+	next := 0
+	for _, start := range groups {
+		for next < start {
+			maximum = max(maximum, entries[next].SourcePosition)
+			next++
+		}
+		if start == 0 || maximum < suffixMinimum[start] {
+			legal = append(legal, start)
+		}
+	}
+	return legal
 }

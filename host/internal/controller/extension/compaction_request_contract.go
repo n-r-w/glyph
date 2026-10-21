@@ -57,43 +57,49 @@ type CompactionParticipant struct {
 	RegistrationOrder int64
 }
 
-// CompactionRequestEntry contains one public branch entry and its supplied estimate.
+// CompactionRequestEntry contains one prepared record with supplied accounting.
 type CompactionRequestEntry struct {
-	// Entry contains the provider-neutral entry.
-	Entry session.Entry
+	// Entry contains prepared model content and its original source.
+	Entry session.PreparedHistoryEntry
+	// PrivateBytes contains the retained private replay size.
+	PrivateBytes int64
 	// EstimatedTokens contains the extension's estimate.
 	EstimatedTokens int64
 }
 
 // decodePolicyRequestEntries supplies detached public entry values.
-func decodePolicyRequestEntries(wires []*extensionpb.CompactionInputEntry) ([]CompactionRequestEntry, error) {
+func decodePolicyRequestEntries(wires []*extensionpb.CompactionHistoryRecord) ([]CompactionRequestEntry, error) {
 	entries := make([]CompactionRequestEntry, len(wires))
 	for index, wire := range wires {
 		if wire == nil {
 			return nil, fmt.Errorf("request entry %d is missing", index)
 		}
-		entry, err := DecodeCompactionRequestEntry(wire.GetEntry())
+		entry, err := DecodeCompactionRequestEntry(wire)
 		if err != nil {
 			return nil, fmt.Errorf("request entry %d: %w", index, err)
 		}
-		entries[index] = CompactionRequestEntry{Entry: entry, EstimatedTokens: wire.GetEstimatedTokens()}
+		entries[index] = CompactionRequestEntry{
+			Entry:           entry,
+			PrivateBytes:    wire.GetPrivatePayloadBytes(),
+			EstimatedTokens: wire.GetEstimatedTokens(),
+		}
 	}
 	return entries, nil
 }
 
-// encodePolicyRequestEntries projects the public content of request entries.
-func encodePolicyRequestEntries(entries []CompactionRequestEntry) ([]*extensionpb.CompactionInputEntry, error) {
-	wires := make([]*extensionpb.CompactionInputEntry, len(entries))
+// MapCompactionRequestEntries returns public prepared records with source correspondence and supplied accounting.
+func MapCompactionRequestEntries(entries []CompactionRequestEntry) ([]*extensionpb.CompactionHistoryRecord, error) {
+	history := make(session.PreparedHistory, len(entries))
 	for index := range entries {
-		value := &entries[index]
-		wire, err := encodePolicyRequestEntry(value.Entry)
-		if err != nil {
-			return nil, err
-		}
-		wires[index] = extensionpb.CompactionInputEntry_builder{
-			Entry:           wire,
-			EstimatedTokens: new(value.EstimatedTokens),
-		}.Build()
+		history[index] = entries[index].Entry
+	}
+	wires, err := MapPreparedCompactionHistory(history)
+	if err != nil {
+		return nil, err
+	}
+	for index := range wires {
+		wires[index].SetPrivatePayloadBytes(entries[index].PrivateBytes)
+		wires[index].SetEstimatedTokens(entries[index].EstimatedTokens)
 	}
 	return wires, nil
 }
@@ -176,11 +182,11 @@ func decodePolicyRequest(wire *extensionpb.CompactionRequest) (CompactionRequest
 
 // encodePolicyRequest projects one extension-owned current request.
 func (value CompactionRequestValue) encodePolicyRequest() (*extensionpb.CompactionRequest, error) {
-	prefix, err := encodePolicyRequestEntries(value.Prefix)
+	prefix, err := MapCompactionRequestEntries(value.Prefix)
 	if err != nil {
 		return nil, err
 	}
-	suffix, err := encodePolicyRequestEntries(value.Suffix)
+	suffix, err := MapCompactionRequestEntries(value.Suffix)
 	if err != nil {
 		return nil, err
 	}

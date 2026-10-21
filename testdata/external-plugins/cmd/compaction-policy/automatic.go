@@ -126,13 +126,13 @@ func findReplacementBoundary(input *extensionpb.CompactionPolicyInvocation) stri
 	const automaticSplitBoundary = "split-boundary"
 	if input.GetPurpose() == extensionpb.CompactionPolicyPurpose_COMPACTION_POLICY_PURPOSE_AUTOMATIC &&
 		os.Getenv(automaticModeEnvironment) == automaticSplitBoundary {
-		for _, entry := range input.GetEntries() {
-			if entry.GetEntry().GetToolResult() != nil {
-				return entry.GetEntry().GetId()
+		for _, entry := range input.GetHistory() {
+			if entry.GetToolResult() != nil {
+				return entry.GetSourceEntryId()
 			}
 		}
 	}
-	return findPolicyBoundary(input.GetEntries())
+	return findPolicyBoundary(input)
 }
 
 // newPolicyDecisionResponse supplies a typed completion without acquired composition state.

@@ -30,8 +30,8 @@ func TestCompactedHistoryUsesLatestSummaryAndExactRetainedSuffix(t *testing.T) {
 	}
 
 	// Act by projecting model context and independent original client history.
-	contextHistory := compactedHistoryFromEntries(entries)
-	clientHistory := historyFromEntries(entries)
+	contextHistory := compactedHistoryFromEntries(entries).Content()
+	clientHistory := historyFromEntries(entries).Content()
 
 	// Assert only the latest summary and its exact suffix enter model context.
 	require.Len(t, contextHistory, 4)
@@ -60,7 +60,7 @@ func TestCompactedHistoryKeepsCompleteToolGroupAtBoundary(t *testing.T) {
 	}
 
 	// Act by projecting compacted model context.
-	history := compactedHistoryFromEntries(entries)
+	history := compactedHistoryFromEntries(entries).Content()
 
 	// Assert the synthetic summary is followed by the whole call/result group.
 	require.Len(t, history, 3)
@@ -98,4 +98,71 @@ func compactionToolEntry(id, parentID, callID string) session.Entry {
 		CallID: callID, ToolName: "tool", Contents: nil, IsError: false,
 	})
 	return entry
+}
+
+// TestCaptureCompactionBindsPreparedSources rebuilds correspondence from one detached original branch.
+func TestCaptureCompactionBindsPreparedSources(t *testing.T) {
+	t.Parallel()
+	// Arrange interleaved results, an interrupted call and a preceding summary marker.
+	response := compactionModelEntry("calls", "old", "a")
+	value := response.Model.MustGet()
+	second := value.Content[0]
+	call := second.ToolCall.MustGet()
+	call.ID = "b"
+	second.ToolCall = mo.Some(call)
+	value.Content = append(value.Content, second)
+	response.Model = mo.Some(value)
+	between := newCompactionBaseEntry("between", mo.Some("calls"))
+	between.ExtensionMessage = mo.Some(session.ExtensionMessage{
+		ExtensionID: "fixture",
+		EntryType:   "during-tool",
+		Text:        "same text",
+		Visibility:  session.ClientVisibilityVisible,
+	})
+	branchSummary := newCompactionBaseEntry("branch-summary", mo.Some("recent"))
+	branchSummary.BranchSummary = mo.Some(session.BranchSummaryEntry{
+		Summary:      "branch summary",
+		FirstEntryID: "old",
+		LastEntryID:  "recent",
+		Source: session.BranchSummarySource{
+			ExtensionID: mo.Some("fixture"),
+			Model:       mo.None[session.BranchSummaryModelSource](),
+		},
+		EstimatedCost: mo.None[session.EstimatedCost](),
+	})
+	entries := []session.Entry{
+		newCompactionUserEntry("old", mo.None[string](), "old"), response, between,
+		compactionToolEntry("actual", "between", "a"),
+		newCompactionUserEntry("recent", mo.Some("actual"), "same text"), branchSummary,
+		newCompactionMarkerEntry("marker", "branch-summary", "preceding summary", "calls"),
+	}
+	service, _ := newCompactionHistoryTestService(t, entries, "marker")
+	// Act through the session-owned capture used by public compaction.
+	captured := service.CaptureCompaction()
+	// Assert all source identities, original positions and the rendered-summary role survive shared projection.
+	require.Equal(t, entries, captured.Entries)
+	ids := make([]string, len(captured.History))
+	positions := make([]int64, len(captured.History))
+	kinds := make([]session.HistorySourceKind, len(captured.History))
+	for index := range captured.History {
+		ids[index] = captured.History[index].SourceID
+		positions[index] = captured.History[index].SourcePosition
+		kinds[index] = captured.History[index].SourceKind
+	}
+	require.Equal(t, []string{"marker", "calls", "actual", "calls", "between", "recent", "branch-summary"}, ids)
+	require.Equal(t, []int64{6, 1, 3, 1, 2, 4, 5}, positions)
+	require.Equal(t, []session.HistorySourceKind{
+		session.HistorySourceCompaction,
+		session.HistorySourceModel,
+		session.HistorySourceToolResult,
+		session.HistorySourceModel,
+		session.HistorySourceExtensionMessage,
+		session.HistorySourceUser,
+		session.HistorySourceBranchSummary,
+	}, kinds)
+	require.True(t, captured.History[0].PreviousSummary)
+	for index := 1; index < len(captured.History); index++ {
+		require.False(t, captured.History[index].PreviousSummary)
+	}
+	require.True(t, captured.History[3].History.ToolResult.MustGet().IsError)
 }

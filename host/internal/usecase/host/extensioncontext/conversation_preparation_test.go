@@ -5,6 +5,7 @@ package extensioncontext
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -47,7 +48,7 @@ func TestAutomaticPreserveUsesCapturedSession(t *testing.T) {
 		Identity:     identity,
 		ActiveLeafID: mo.Some("leaf"),
 		Entries:      nil,
-		History:      history,
+		History:      newCapturedTestHistory(history),
 		Previous:     mo.None[session.CompactionEntry](),
 	}
 	compactions.EXPECT().CaptureCompaction().Return(snapshot).Times(1)
@@ -126,7 +127,7 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 				Identity:     identity,
 				ActiveLeafID: mo.Some("leaf"),
 				Entries:      nil,
-				History:      original,
+				History:      newCapturedTestHistory(original),
 				Previous:     mo.None[session.CompactionEntry](),
 			}
 			candidate := session.CompactionEntry{
@@ -175,11 +176,13 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 				Identity:     identity,
 				ActiveLeafID: mo.Some("observer-leaf"),
 				Entries:      nil,
-				History: []agent.HistoryEntry{
-					newAutomaticTestHistory("summary"),
-					newAutomaticTestHistory("suffix"),
-					newAutomaticTestHistory("observer append"),
-				},
+				History: newCapturedTestHistory(
+					[]agent.HistoryEntry{
+						newAutomaticTestHistory("summary"),
+						newAutomaticTestHistory("suffix"),
+						newAutomaticTestHistory("observer append"),
+					},
+				),
 				Previous: mo.Some(candidate),
 			}
 			capturedAfterNotification := false
@@ -202,7 +205,9 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 						candidate,
 					)
 					// A later append changes the next projection after the outgoing input was captured.
-					outgoing.History = append(outgoing.History, newAutomaticTestHistory("later append"))
+					outgoing.History = append(
+						outgoing.History,
+						newCapturedTestHistory([]agent.HistoryEntry{newAutomaticTestHistory("later append")})...)
 					if scenario == "rejected" {
 						return NewPolicyOperationError(ctx, modelexecution.FailureCompactionFailed, finalCause)
 					}
@@ -281,4 +286,20 @@ func newAutomaticTestHistory(text string) agent.HistoryEntry {
 		Model:      mo.None[model.Response](),
 		ToolResult: mo.None[agent.ToolResult](),
 	}
+}
+
+// newCapturedTestHistory associates captured content with distinct source positions.
+func newCapturedTestHistory(history []agent.HistoryEntry) session.PreparedHistory {
+	const sourceIDFormat = "source-%d"
+	values := make(session.PreparedHistory, len(history))
+	for index := range history {
+		values[index] = session.PreparedHistoryEntry{
+			History:         history[index],
+			SourceID:        fmt.Sprintf(sourceIDFormat, index),
+			SourcePosition:  int64(index),
+			SourceKind:      session.HistorySourceUser,
+			PreviousSummary: false,
+		}
+	}
+	return values
 }

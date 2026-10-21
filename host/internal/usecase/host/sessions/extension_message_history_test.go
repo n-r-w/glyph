@@ -34,7 +34,7 @@ func TestHistoryProjectsBothExtensionMessageVisibilities(t *testing.T) {
 	}
 
 	// Act by projecting active session entries to provider-neutral history.
-	history := historyFromEntries(entries)
+	history := historyFromEntries(entries).Content()
 
 	// Assert only model-visible messages enter history as exact user text in order.
 	require.Len(t, history, 2)

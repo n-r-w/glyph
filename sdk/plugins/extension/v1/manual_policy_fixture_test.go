@@ -167,6 +167,9 @@ func runScopedPolicyHandler(
 	}
 	assert.True(t, proto.Equal(input, captured))
 	captured.SetSessionId("changed by handler")
+	captured.GetHistory()[0].SetSourceKind(extensionpb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_MODEL)
+	assert.Equal(t, extensionpb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_USER,
+		policy.Input().GetHistory()[0].GetSourceKind())
 	assert.Equal(t, "session", policy.Input().GetSessionId())
 	assert.Equal(t, "runtime", policy.Input().GetPolicyRuntimeId())
 	extensionContext, contextErr := ContextFrom(ctx)

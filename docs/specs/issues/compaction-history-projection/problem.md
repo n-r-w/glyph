@@ -1,6 +1,6 @@
 # Problem Statement: Compaction source differs from conversation context
 
-Status: Problem statement and FRQ-01 through FRQ-03 in the [requirements](prd.md) are approved for PHS-06 completion. The [technical solution](solution.md) remains the approved history-source design. Implementation and independent acceptance are pending.
+Status: Problem statement and FRQ-01 through FRQ-03 in the [requirements](prd.md) are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design, implementation evidence, and remaining acceptance conditions.
 
 ## Context
 

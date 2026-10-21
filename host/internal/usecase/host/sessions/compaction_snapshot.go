@@ -8,7 +8,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 )
 
 // ephemeralCompactionID identifies the temporary marker used only while projecting compacted history.
@@ -43,5 +42,5 @@ func projectCompactionHistory(
 		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
 		Compaction: mo.Some(compaction.Clone()),
 	})
-	return agentrun.ProjectHistory(compactedHistoryFromEntries(owned)), nil
+	return projectSessionHistory(compactedHistoryFromEntries(owned)).Content(), nil
 }

@@ -39,14 +39,6 @@ enum CompactionTrigger {
   COMPACTION_TRIGGER_OVERFLOW = 3;
 }
 
-// CompactionInputEntry contains one projected branch entry and its producer estimate.
-message CompactionInputEntry {
-  // The provider-neutral entry projection.
-  SessionTreeEntry entry = 1;
-  // The producer-computed estimate for this entry.
-  int64 estimated_tokens = 2;
-}
-
 // CompactionRequest contains one complete immutable or composed request state.
 message CompactionRequest {
   // The policy's compaction intent.
@@ -59,10 +51,10 @@ message CompactionRequest {
   ModelDescriptor model = 4;
   // The reasoning choice supplied for summary composition.
   string reasoning_choice = 5;
-  // The proposed newly summarized branch prefix with producer estimates.
-  repeated CompactionInputEntry prefix = 6;
-  // The proposed preserved branch suffix with producer estimates.
-  repeated CompactionInputEntry suffix = 7;
+  // The proposed newly summarized prepared prefix with producer estimates.
+  repeated CompactionHistoryRecord prefix = 6;
+  // The proposed preserved prepared suffix with producer estimates.
+  repeated CompactionHistoryRecord suffix = 7;
   // The preceding persisted summary marker, when present.
   SessionTreeCompaction previous = 8;
   // The estimated current request tokens.
@@ -216,7 +208,25 @@ message CompactionProgress {
   string stage = 1;
 }
 
-// CompactionHistoryRecord contains one prepared provider-neutral model-history record.
+// CompactionHistorySourceKind identifies the kind of original entry associated with prepared content.
+enum CompactionHistorySourceKind {
+  // Source correspondence is absent from this content-only observation or projection.
+  COMPACTION_HISTORY_SOURCE_KIND_UNSPECIFIED = 0;
+  // An original user message supplied the content.
+  COMPACTION_HISTORY_SOURCE_KIND_USER = 1;
+  // A model response supplied the content or caused a synthesized skipped result.
+  COMPACTION_HISTORY_SOURCE_KIND_MODEL = 2;
+  // A stored tool result supplied the content.
+  COMPACTION_HISTORY_SOURCE_KIND_TOOL_RESULT = 3;
+  // A model-visible extension message supplied the content.
+  COMPACTION_HISTORY_SOURCE_KIND_EXTENSION_MESSAGE = 4;
+  // A branch-summary entry supplied the rendered content.
+  COMPACTION_HISTORY_SOURCE_KIND_BRANCH_SUMMARY = 5;
+  // A compaction marker supplied the rendered preceding summary.
+  COMPACTION_HISTORY_SOURCE_KIND_COMPACTION = 6;
+}
+
+// CompactionHistoryRecord contains prepared model content with optional original-source correspondence.
 message CompactionHistoryRecord {
   // The prepared model-visible content.
   oneof content {
@@ -229,14 +239,16 @@ message CompactionHistoryRecord {
   }
   // The byte count of private replay payloads retained with this record.
   int64 private_payload_bytes = 4;
-}
-
-// CompactionSnapshotEntry supplies one original entry and its private replay size.
-message CompactionSnapshotEntry {
-  // The provider-neutral original entry.
-  SessionTreeEntry entry = 1;
-  // The byte count of private replay payloads retained with this entry.
-  int64 private_payload_bytes = 2;
+  // The original source entry identifier, required in policy input and composed requests.
+  string source_entry_id = 5;
+  // The source entry's zero-based position on the captured original branch.
+  int64 source_position = 6;
+  // Whether this record renders the preceding compaction summary.
+  bool previous_summary = 7;
+  // The producer-supplied token estimate in composed requests.
+  int64 estimated_tokens = 8;
+  // The original entry kind, required in policy input and composed requests.
+  CompactionHistorySourceKind source_kind = 9;
 }
 
 // CompactionToolDefinition supplies the captured outbound tool definition.
@@ -303,8 +315,6 @@ message CompactionPolicyInvocation {
   int64 session_incarnation = 3;
   // The captured branch position, when present.
   string active_leaf_id = 4;
-  // The original branch entries with private payloads excluded.
-  repeated CompactionSnapshotEntry entries = 5;
   // The prepared history for the captured branch.
   repeated CompactionHistoryRecord history = 6;
   // The preceding applicable replacement, when present.

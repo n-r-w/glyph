@@ -106,29 +106,3 @@ func encodeModality(value compaction.Modality) pb.InputModality {
 	}
 	return pb.InputModality_INPUT_MODALITY_UNSPECIFIED
 }
-
-// decodeVisibility maps client visibility into extension categories.
-func decodeVisibility(value pb.ClientVisibility) compaction.Visibility {
-	switch value {
-	case pb.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED:
-		return compaction.VisibilityUnspecified
-	case pb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE:
-		return compaction.VisibilityVisible
-	case pb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN:
-		return compaction.VisibilityHidden
-	default:
-		return compaction.VisibilityInvalid
-	}
-}
-
-// encodeVisibility maps client visibility to its public variant.
-func encodeVisibility(value compaction.Visibility) pb.ClientVisibility {
-	switch value {
-	case compaction.VisibilityVisible:
-		return pb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE
-	case compaction.VisibilityHidden:
-		return pb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN
-	case compaction.VisibilityUnspecified, compaction.VisibilityInvalid:
-	}
-	return pb.ClientVisibility_CLIENT_VISIBILITY_UNSPECIFIED
-}

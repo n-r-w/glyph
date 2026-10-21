@@ -69,7 +69,7 @@ type CompactionSnapshot struct {
 	// Entries contains detached original branch entries.
 	Entries []session.Entry
 	// History contains the prepared model input.
-	History []agent.HistoryEntry
+	History session.PreparedHistory
 	// Previous contains the preceding applicable replacement.
 	Previous mo.Option[session.CompactionEntry]
 }

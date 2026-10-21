@@ -252,11 +252,11 @@ Completion-plan unit A3 is accepted after code-quality, text-quality, and indepe
 
 For completion-plan unit A4.1, Agent Core uses [generic appended-history accounting](solution.md#a41-run-completion-after-prepared-history-replacement). A4.1 is accepted after code-quality, text-quality, and independent unit review. Its [evidence record](a4.1-run-history-evidence.md) contains the baseline RED results, later assertion controls, review outcomes, and project-check results.
 
-After A4.1 acceptance, the approved continuation is completion-plan A4 prepared-history migration with original source-kind metadata, followed by A5 and A6. PHS-06.2 slice A4 covers the earlier overflow-recovery implementation. The history-source migration and independent phase acceptance remain pending.
+Completion-plan A4 implements the approved prepared-history migration with original source-kind metadata. Its [evidence record](a4-prepared-history-evidence.md) records original RED runs, later assertion controls, public composition, restoration and navigation, project-check results, and the two scoped acceptance exceptions. A4 is accepted after code-quality, text-quality, and independent unit review under the recorded exceptions. A5 and A6 remain the approved continuation. PHS-06.2 slice A4 covers the earlier overflow-recovery implementation. Independent phase acceptance remains pending.
 
 #### Exit criteria
 
-All ticket acceptance criteria have executable evidence. No unapproved blocker or major finding remains. The full verification suite passes and the roadmap reflects completed target behavior rather than the checkpoint.
+All ticket acceptance criteria have executable evidence under the [approved A4 exceptions](a4-prepared-history-evidence.md#review-and-remaining-acceptance). No unapproved blocker or major finding remains. All mandatory checks pass except for the specific vulnerability finding recorded in [A4 project verification](a4-prepared-history-evidence.md#finding-outside-a4). The roadmap reflects completed target behavior.
 
 #### Risks
 
@@ -266,7 +266,7 @@ Earlier green checks did not prove correctness or architectural acceptance. Base
 
 Use compiling uncached RED/GREEN for behavior changes. Behavior-preserving moves and documentation changes do not require artificial RED evidence. Preserve session/projection regression coverage and add boundary tests for coherent snapshots, validated candidate installation, cancellation ownership, and committed outcomes where the target implementation needs them.
 
-Use integration-tagged tests for assembled production components and real filesystem, process, transport, or terminal paths. Do not test logs or prompt wording. Compare generation twice and complete the mandatory project checks before implementation acceptance. The accepted checkpoint TDD exception is historical and does not waive test-first work in this migration.
+Use integration-tagged tests for assembled production components and real filesystem, process, transport, or terminal paths. Do not test logs or prompt wording. Compare generation twice and complete the mandatory project checks before implementation acceptance. The accepted checkpoint test-first exception applies only to the historical checkpoint. The separate [A4 exception](a4-prepared-history-evidence.md#fresh-accepted-baseline-repeat) applies only to the named original A4 cases. All other behavior changes, including A5, A6, and subsequent corrections, require test-first evidence.
 
 ## Dependencies and Resourcing
 
@@ -286,7 +286,7 @@ The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-con
 
 ## Standards Deviations
 
-No new deviation is authorized. The narrowly accepted checkpoint test-first deviation remains documented in [implementation evidence](solution.md#implementation-evidence) and is not migration evidence.
+The two [scoped A4 exceptions](a4-prepared-history-evidence.md#review-and-remaining-acceptance) authorize acceptance of the named original test-first deviation and the specific development vulnerability finding. All other requirements remain in effect. The earlier checkpoint test-first deviation remains documented separately in [implementation evidence](solution.md#implementation-evidence); that historical exception supplies no migration evidence.
 
 ## References
 

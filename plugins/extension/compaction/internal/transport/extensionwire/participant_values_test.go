@@ -48,7 +48,11 @@ func TestParticipantMessagesDetachAcceptedValues(t *testing.T) {
 	invocation.GetOriginal().GetModel().GetReasoning().GetChoices()[0] = "participant mutation"
 	invocation.GetCurrent().GetModel().GetInputModalities()[0] = pb.InputModality_INPUT_MODALITY_IMAGE
 	invocation.GetOriginal().GetModel().GetPricing().GetTiers()[0].SetInput(99)
-	invocation.GetCurrent().GetPrefix()[0].GetEntry().GetUser().GetContent()[0].GetImage().GetData()[0] = 99
+	invocation.GetCurrent().GetPrefix()[0].GetUser().GetContent()[0].GetImage().GetData()[0] = 99
+	invocation.GetCurrent().GetPrefix()[0].SetSourceKind(
+		pb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_MODEL,
+	)
+	invocation.GetOriginal().GetPrefix()[0].SetSourcePosition(99)
 	invocation.GetCurrentResult().GetDetails()[0] = 99
 	invocation.GetCurrentResult().GetSource().GetModelRequests().GetRequests()[0].GetSelection().
 		SetProviderId("participant mutation")
@@ -61,6 +65,11 @@ func TestParticipantMessagesDetachAcceptedValues(t *testing.T) {
 	require.Equal(t, []compaction.Modality{compaction.ModalityText}, state.Current.Model.Modalities)
 	require.InDelta(t, float64(1), state.Original.Model.Pricing.MustGet().Tiers[0].Rates[0], 0)
 	require.Equal(t, []byte{1, 2}, state.Current.Prefix[0].Blocks[0].Data)
+	require.Equal(t, compaction.SourceUser, state.Current.Prefix[0].SourceKind)
+	require.Zero(t, state.Original.Prefix[0].SourcePosition)
+	require.Equal(t, pb.CompactionHistorySourceKind_COMPACTION_HISTORY_SOURCE_KIND_USER,
+		invocation.GetOriginal().GetPrefix()[0].GetSourceKind())
+	require.Zero(t, invocation.GetCurrent().GetPrefix()[0].GetSourcePosition())
 	require.Equal(t, []byte{3, 4}, candidate.Details.MustGet())
 	require.Equal(t, "provider", candidate.Requests[0].Provider)
 	require.Equal(t, []byte{3, 4}, decoded.Details.MustGet())

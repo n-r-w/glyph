@@ -3,7 +3,6 @@ package extension
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/samber/mo"
 
@@ -85,72 +84,68 @@ func decodeRequestContentKind(value extensionpb.SessionTreeModelContentKind) mod
 	}
 }
 
-// DecodeCompactionRequestEntry maps a handler-supplied public branch entry.
-func DecodeCompactionRequestEntry(value *extensionpb.SessionTreeEntry) (session.Entry, error) {
-	// publicProjectionExtensionID identifies the synthetic producer of a public summary projection.
-	const publicProjectionExtensionID = "public-projection"
+// DecodeCompactionRequestEntry maps a handler-supplied prepared record and its original source.
+func DecodeCompactionRequestEntry(value *extensionpb.CompactionHistoryRecord) (session.PreparedHistoryEntry, error) {
 	if value == nil {
-		return session.Entry{}, errors.New("session tree entry is missing")
+		return session.PreparedHistoryEntry{}, errors.New("prepared history record is missing")
 	}
-	entry := session.Entry{
-		ID: value.GetId(), ParentID: mo.None[string](), CreatedAt: time.Time{},
-		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
-		Extension: mo.None[session.ExtensionEnvelope](), ExtensionMessage: mo.None[session.ExtensionMessage](),
-		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
-		Compaction: mo.None[session.CompactionEntry](),
+	if value.GetSourceEntryId() == "" || value.GetSourcePosition() < 0 || value.GetPrivatePayloadBytes() < 0 {
+		return session.PreparedHistoryEntry{}, errors.New("prepared history source or private byte count is invalid")
 	}
-	if user := value.GetUser(); user != nil {
-		message, err := decodeRequestUser(user)
+	sourceKind, sourceErr := decodeHistorySourceKind(value.GetSourceKind())
+	if sourceErr != nil {
+		return session.PreparedHistoryEntry{}, sourceErr
+	}
+	history := agent.HistoryEntry{
+		Kind:       0,
+		User:       mo.None[model.Message](),
+		Model:      mo.None[model.Response](),
+		ToolResult: mo.None[agent.ToolResult](),
+	}
+	switch {
+	case value.GetUser() != nil:
+		message, err := decodeRequestUser(value.GetUser())
 		if err != nil {
-			return session.Entry{}, err
+			return session.PreparedHistoryEntry{}, err
 		}
-		entry.User = mo.Some(message)
-	}
-	if response := value.GetModel(); response != nil {
-		contents, err := decodeRequestModelContents(response.GetContent())
+		history.Kind = agent.HistoryEntryUser
+		history.User = mo.Some(message)
+	case value.GetModel() != nil:
+		contents, err := decodeRequestModelContents(value.GetModel().GetContent())
 		if err != nil {
-			return session.Entry{}, err
+			return session.PreparedHistoryEntry{}, err
 		}
-		entry.Model = mo.Some(model.Response{
-			Content: contents, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
-			Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
-			ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
-		})
-	}
-	if result := value.GetToolResult(); result != nil {
-		mapped, err := decodeRequestToolResult(result)
+		history.Kind = agent.HistoryEntryModel
+		history.Model = mo.Some(
+			model.Response{
+				Content:       contents,
+				Outcome:       mo.Some(model.OutcomeStop),
+				ErrorMessage:  mo.None[string](),
+				Provider:      mo.None[model.ProviderID](),
+				Model:         mo.None[model.ID](),
+				ResponseModel: mo.None[model.ID](),
+				ResponseID:    mo.None[string](),
+				Usage:         mo.None[model.Usage](),
+				Diagnostics:   nil,
+			},
+		)
+	case value.GetToolResult() != nil:
+		result, err := decodeRequestToolResult(value.GetToolResult())
 		if err != nil {
-			return session.Entry{}, err
+			return session.PreparedHistoryEntry{}, err
 		}
-		entry.ToolResult = mo.Some(mapped)
+		history.Kind = agent.HistoryEntryToolResult
+		history.ToolResult = mo.Some(result)
+	default:
+		return session.PreparedHistoryEntry{}, errors.New("prepared history content is missing")
 	}
-	if summary := value.GetBranchSummary(); summary != nil {
-		entry.BranchSummary = mo.Some(session.BranchSummaryEntry{
-			Summary: summary.GetSummary(), FirstEntryID: value.GetId(), LastEntryID: value.GetId(),
-			Source: session.BranchSummarySource{
-				ExtensionID: mo.Some(publicProjectionExtensionID), Model: mo.None[session.BranchSummaryModelSource](),
-			}, EstimatedCost: mo.None[session.EstimatedCost](),
-		})
-	}
-	if compaction := value.GetCompaction(); compaction != nil {
-		entry.Compaction = DecodeCompactionPrevious(compaction)
-	}
-	if extensionEntry := value.GetExtension(); extensionEntry != nil {
-		entry.Extension = mo.Some(session.ExtensionEnvelope{
-			ExtensionID: extensionEntry.GetExtensionId(), EntryType: extensionEntry.GetEntryType(), Data: nil,
-		})
-	}
-	if message := value.GetExtensionMessage(); message != nil {
-		entry.ExtensionMessage = mo.Some(session.ExtensionMessage{
-			ExtensionID: message.GetExtensionId(), EntryType: message.GetEntryType(), Text: message.GetText(),
-			Visibility: session.ClientVisibility(message.GetVisibility()),
-		})
-	}
-	if value.WhichContent() == extensionpb.SessionTreeEntry_Content_not_set_case {
-		return session.Entry{}, errors.New("session tree entry content is missing")
-	}
-	return entry, nil
+	return session.PreparedHistoryEntry{
+		History:         history,
+		SourceID:        value.GetSourceEntryId(),
+		SourcePosition:  value.GetSourcePosition(),
+		SourceKind:      sourceKind,
+		PreviousSummary: value.GetPreviousSummary(),
+	}, nil
 }
 
 // decodeRequestModelContents validates and maps closed public model content variants.

@@ -201,18 +201,17 @@ func TestGenerateRejectsUnusableResponses(t *testing.T) {
 // newGenerationRequest supplies a composed request.
 func newGenerationRequest() compaction.Request {
 	entry := compaction.Entry{
-		ID:           "old",
-		Kind:         compaction.User,
-		Blocks:       []compaction.Block{newGenerationBlock(compaction.Text, "original text")},
-		CallID:       "",
-		Tool:         "",
-		Failed:       false,
-		Extension:    "",
-		EntryType:    "",
-		Visibility:   compaction.VisibilityUnspecified,
-		Marker:       mo.None[compaction.Result](),
-		PrivateBytes: 0,
-		Tokens:       1,
+		ID:              "old",
+		Kind:            compaction.User,
+		Blocks:          []compaction.Block{newGenerationBlock(compaction.Text, "original text")},
+		CallID:          "",
+		Tool:            "",
+		Failed:          false,
+		SourcePosition:  0,
+		SourceKind:      compaction.SourceUser,
+		PreviousSummary: false,
+		PrivateBytes:    0,
+		Tokens:          1,
 	}
 	recent := entry
 	recent.ID = "recent"
