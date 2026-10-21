@@ -33,6 +33,18 @@ D1 through D4 address the approved [remaining problems](ticket.md#problem-statem
 
 The [history-source solution](../../../../issues/compaction-history-projection/solution.md) owns D1 shared projection with source correspondence and D2 prepared-history retention. It covers the coordinated public-contract migration, synthetic and reordered messages, repeated summaries, coherent capture, and durable session replacement. All compaction consumers migrate together; the replaced raw-entry source contract is removed.
 
+#### A4.1: Run completion after prepared-history replacement
+
+Under completion-plan unit A4.1, Agent Core uses generic per-run appended-history accounting before the D1/D2 contract migration. `RunSummary.AddedHistory` in `host/internal/domain/agent/event.go` contains entries appended by the run. A prepared-history snapshot can shorten during that run, so its positions cannot identify those entries.
+
+In `host/internal/usecase/agent/run/service.go`, `Service.appendHistory` clones each entry before passing ownership to `HistoryStore.Append`, whose contract is declared in `host/internal/usecase/agent/run/interfaces.go`. After `Append` succeeds, `Service.appendHistory` records the detached copy in append order. If `Append` fails, the method returns the persistence error and leaves the accumulated entries intact.
+
+After reserving the idle run slot, `Service.begin` starts empty accounting. If admission fails, it preserves the active run's state and entries. At completion, `Service.finish` transfers the accumulated entries to `RunSummary.AddedHistory`, clears Core's accounting reference, and enters awaiting-settlement state. The Host then calls `Service.Settle` to return Core to idle.
+
+`Service.Run`, `Service.appendModel`, and `Service.appendToolResult` use the common append path in `host/internal/usecase/agent/run/service.go`. Agent Core continues to consume provider-neutral prepared history without compaction knowledge. Terminal error composition, cancellation, provider retries, session persistence, and public contracts retain their existing owners and behavior. Detached copies require memory proportional to entries appended during the active run. At completion, the summary consumer receives those copies.
+
+Clamping the old snapshot position would omit entries and violate `AddedHistory` semantics. Identifying appended entries through compaction markers would couple Core to session policy and still miss other snapshot replacements. With the approved generic method, Agent Core records each successful append directly. The [A4.1 evidence record](a4.1-run-history-evidence.md) contains public assembly and focused lifecycle regressions.
+
 #### D3: Terminal refusal and subsequent stream failure
 
 The OpenAI-compatible Responses adapter retains the received terminal response and its typed provider refusal when later stream reading fails. Its returned failure includes the terminal refusal together with the subsequent stream error and any acquired delivery cause. The adapter classifies the failure from the received refusal and includes the later transport failure in the diagnostic text. This satisfies ticket FRQ-04.8.1 and ACC-04.5.

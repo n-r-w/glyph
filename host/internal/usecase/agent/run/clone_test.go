@@ -3,6 +3,7 @@
 package run
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/samber/mo"
@@ -12,6 +13,15 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
+
+// cloneHistory creates detached copies of history entries.
+func cloneHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
+	cloned := slices.Clone(history)
+	for index := range cloned {
+		cloned[index] = cloned[index].Clone()
+	}
+	return cloned
+}
 
 // TestCloneToolResultClonesImageBytesInsideOption verifies history snapshots do not share mutable image data.
 func TestCloneToolResultClonesImageBytesInsideOption(t *testing.T) {

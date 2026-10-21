@@ -89,7 +89,10 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	require.ErrorIs(t, err, persistErr)
 	assert.Equal(t, agent.ErrPersistenceUnavailable.Error()+": "+persistErr.Error(), agentEnd.ErrorMessage.OrEmpty())
 	assert.Equal(t, []agent.EventType{agent.EventAgentStart, agent.EventAgentEnd}, observed)
+	assert.Empty(t, agentEnd.AddedHistory)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
+	require.NoError(t, service.Settle("persist-user"))
+	assert.Equal(t, StatusIdle, service.State().Status)
 }
 
 // TestServiceRunToolFailureAndPersistenceFailurePreservesCauses verifies blocked ToolResults retain prior failures.

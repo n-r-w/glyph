@@ -6,6 +6,8 @@ The [PHS-06.2 problem statement](phs-06.2_problem.md), [requirements](phs-06.2_p
 
 Completion-plan unit A3 resolves terminal provider-refusal loss after stream truncation under FRQ-04.8.1. The [evidence record](a3-terminal-failure-evidence.md) contains passing public-client regressions, mandatory checks, and independent unit review. The history-source correction and independent phase acceptance remain pending.
 
+For completion-plan unit A4.1, Agent Core accounts for appended history independently of prepared-history length. Its [evidence record](a4.1-run-history-evidence.md) records regression and check results. A4.1 is accepted after code-quality, text-quality, and independent unit review. Completion-plan A4 history-source migration and independent PHS-06 acceptance remain pending. PHS-06.2 slice A4 covers the earlier overflow-recovery implementation.
+
 ## Key definitions and abbreviations
 
 - DEF-01: Context compaction. Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining suffix.

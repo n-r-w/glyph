@@ -2,7 +2,6 @@ package run
 
 import (
 	"maps"
-	"slices"
 
 	"github.com/samber/lo"
 	"github.com/samber/mo"
@@ -14,15 +13,6 @@ import (
 
 //nolint:misspell // This exact model-visible error is stored for skipped calls.
 const skippedCallError = "Tool call skipped because the agent run was cancelled."
-
-// cloneHistory isolates mutable provider bytes, argument maps, and slices.
-func cloneHistory(history []agent.HistoryEntry) []agent.HistoryEntry {
-	cloned := slices.Clone(history)
-	for index := range cloned {
-		cloned[index] = cloned[index].Clone()
-	}
-	return cloned
-}
 
 // cloneToolPreviews isolates mutable preview fields.
 func cloneToolPreviews(previews map[string]model.ToolCallPreview) map[string]model.ToolCallPreview {

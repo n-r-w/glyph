@@ -250,6 +250,10 @@ Independent review results, assembled-path evidence, and an accurate phase-compl
 
 Completion-plan unit A3 is accepted after code-quality, text-quality, and independent unit review. It implements [D3 terminal-refusal preservation](solution.md#d3-terminal-refusal-and-subsequent-stream-failure). The [terminal-failure evidence record](a3-terminal-failure-evidence.md) contains the implementation scope, check results, and verification limits. PHS-06.2 slice A3 covers [automatic compaction](#phase-phs-062---implement-the-standard-bundled-compaction-extension). The history-source correction and independent phase acceptance remain pending.
 
+For completion-plan unit A4.1, Agent Core uses [generic appended-history accounting](solution.md#a41-run-completion-after-prepared-history-replacement). A4.1 is accepted after code-quality, text-quality, and independent unit review. Its [evidence record](a4.1-run-history-evidence.md) contains the baseline RED results, later assertion controls, review outcomes, and project-check results.
+
+After A4.1 acceptance, the approved continuation is completion-plan A4 prepared-history migration with original source-kind metadata, followed by A5 and A6. PHS-06.2 slice A4 covers the earlier overflow-recovery implementation. The history-source migration and independent phase acceptance remain pending.
+
 #### Exit criteria
 
 All ticket acceptance criteria have executable evidence. No unapproved blocker or major finding remains. The full verification suite passes and the roadmap reflects completed target behavior rather than the checkpoint.
