@@ -1,6 +1,6 @@
 # Problem Statement: Compaction source differs from conversation context
 
-Status: Problem statement and FRQ-01 through FRQ-03 in the [requirements](prd.md) are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design, implementation evidence, and remaining acceptance conditions.
+Status: Problem statement and FRQ-01 through FRQ-03 in the [requirements](prd.md) are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design and implementation evidence. The [whole-phase review](../../features/initial/phases/06-context-compaction-retry-control/acceptance-report.md) retains restored-suffix evidence finding F20; full phase acceptance remains blocked.
 
 ## Context
 

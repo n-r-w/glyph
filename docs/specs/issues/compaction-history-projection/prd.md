@@ -1,6 +1,6 @@
 # Requirements: Compaction of prepared conversation history
 
-Status: FRQ-01 through FRQ-03 are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design, implementation evidence, and remaining acceptance conditions.
+Status: FRQ-01 through FRQ-03 are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design and implementation evidence. The [whole-phase review](../../features/initial/phases/06-context-compaction-retry-control/acceptance-report.md) retains restored-suffix evidence finding F20; full phase acceptance remains blocked.
 
 ## Definitions
 

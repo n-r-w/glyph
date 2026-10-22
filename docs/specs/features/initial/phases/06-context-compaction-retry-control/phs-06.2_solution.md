@@ -1,6 +1,6 @@
 # Technical Solution: PHS-06.2 standard context compaction
 
-Status: Approved; A1-A4 implemented. Implemented scope: A1, D6 accounting; A2, bundled manual compaction; A3, D2 automatic compaction and conversation observations; A4, D7 admitted overflow recovery. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records behavior and verification limits. The approved [prepared-history correction](../../../../issues/compaction-history-projection/solution.md) below remains unimplemented. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending.
+Status: Approved; A1-A4 implemented. Implemented scope: A1, D6 accounting; A2, bundled manual compaction; A3, D2 automatic compaction and conversation observations; A4, D7 admitted overflow recovery. The [delivery plan](migration-plan.md#phase-phs-062---implement-the-standard-bundled-compaction-extension) records behavior and verification limits. Completion-plan A4 implements the approved [prepared-history correction](../../../../issues/compaction-history-projection/solution.md). The [whole-phase review](acceptance-report.md) records the remaining behavior and evidence findings. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending.
 
 ## Problem Statement
 
@@ -38,7 +38,7 @@ The policy implements all existing owner callbacks: compaction decisions, comple
 
 ### D3: Complete-message retention
 
-Select the retained suffix from prepared conversation history using the configured target and the same content estimator. The [history-source correction](../../../../issues/compaction-history-projection/solution.md) owns source correspondence and legal stored-branch boundaries for reordered and synthetic messages. Its coordinated contract migration replaces the implemented raw-entry selection path.
+Select the retained suffix from prepared conversation history using the configured target and the same content estimator. The implemented [history-source correction](../../../../issues/compaction-history-projection/solution.md) owns source correspondence and legal stored-branch boundaries for reordered and synthetic messages. Its coordinated contract migration supplies prepared history to all compaction consumers.
 
 On repeated compaction, select newly summarized content from the remaining unsummarized prepared history and supply the preceding summary once. The extension excludes superseded original prefixes from fresh summary source. The extension keeps producing responses and their tool results together and treats the target as a recent-context target that an indivisible group may exceed. Host retains structural validation of the selected original-entry boundary.
 
