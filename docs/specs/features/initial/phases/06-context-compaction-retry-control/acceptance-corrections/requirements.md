@@ -22,7 +22,7 @@ Correct F23/F24 and close evidence findings F19/F20/F21. Preserve the confirmed 
 
 ## Requirements
 
-Checkboxes record separate user confirmation of these requirements. They do not record implementation verification. Intermediate stages proceeded autonomously under [final_only](target-picture.md#verification-policy), so these boxes remain unchecked. The [UNT-06 requirement assessment](unt-06-evidence.md#correction-requirement-assessment) records implementation evidence and the approved independent acceptance conclusion. Text re-review, documentation commit and final user acceptance remain separate steps.
+Checkboxes record separate user confirmation of these requirements. They do not record implementation verification. Intermediate stages proceeded autonomously under [final_only](target-picture.md#verification-policy), so these boxes remain unchecked. The [UNT-06 requirement assessment](unt-06-evidence.md#correction-requirement-assessment) records implementation evidence and the approved independent acceptance conclusion. Final text review is approved and the UNT-06 documentation is committed in `e7dd665cfc2dd50ab00182ad5be188dbe5619d27`. Final user acceptance remains separate and pending.
 
 ### Functional Requirements
 
@@ -62,7 +62,7 @@ Checkboxes record separate user confirmation of these requirements. They do not 
 
 ## Open Questions
 
-No unresolved product requirement remains. The original [fact-collection questions](facts.md#open-questions) are resolved by the linked unit observations in the [UNT-06 requirement assessment](unt-06-evidence.md#correction-requirement-assessment). Independent acceptance-conclusion review approves all six correction requirements and all 40 phase clauses within the recorded boundaries. Text re-review, documentation commit and final user acceptance remain pending.
+No unresolved product requirement remains. The original [fact-collection questions](facts.md#open-questions) are resolved by the linked unit observations in the [UNT-06 requirement assessment](unt-06-evidence.md#correction-requirement-assessment). Independent acceptance-conclusion review approves all six correction requirements and all 40 phase clauses within the recorded boundaries. Final text review is approved and the UNT-06 documentation commit exists. Final user acceptance remains pending.
 
 ## Technical Supplement
 

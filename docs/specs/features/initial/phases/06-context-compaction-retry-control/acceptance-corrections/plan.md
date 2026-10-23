@@ -35,7 +35,7 @@ No backward compatibility.
 | UNT-03 | SubAgentCoderRegular | All four applicable repository reviews approved | complete, `e18ee60b5c229ebf24c48834adae010ebfc1b24e` |
 | UNT-04 | SubAgentCoderRegular | All four applicable repository reviews approved | complete, `d769d3004619c7b31d2669d49642ea78d75011eb` |
 | UNT-05 | SubAgentCoderRegular | All four applicable repository reviews approved | complete, `4ac49d0bc9e7f97146eb0061886b7fb3e3a25726` |
-| UNT-06 | Delivery owner | Acceptance-conclusion review approved all 40 clauses and correction FRQ-01 through FRQ-05/NRQ-01; two Minor text findings corrected by author, re-review pending | ready for review/commit; uncommitted |
+| UNT-06 | Delivery owner | Final acceptance-conclusion and text reviews approved; both Minor text findings resolved | complete, `e7dd665cfc2dd50ab00182ad5be188dbe5619d27` |
 
 ### Unit Tree
 

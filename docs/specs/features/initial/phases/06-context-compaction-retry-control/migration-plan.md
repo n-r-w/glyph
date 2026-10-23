@@ -1,6 +1,6 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: PHS-06.1 is complete and accepted. PHS-06.2 has A1 accounting, A2 manual compaction, A3 automatic compaction, and A4 admitted overflow recovery implemented. PHS-06.3 residue closure is complete; PHS-06.4 implementation and independent acceptance-conclusion review are complete within the [recorded boundaries](acceptance-report.md). The phase is delivery-ready on implementation and acceptance evidence. UNT-06 text re-review, documentation commit and final user acceptance remain pending. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units), [PHS-06.2 progress](#phase-phs-062---implement-the-standard-bundled-compaction-extension), and [PHS-06.3 closure record](residue-closure-evidence.md).
+Status: PHS-06.1 is complete and accepted. PHS-06.2 has A1 accounting, A2 manual compaction, A3 automatic compaction, and A4 admitted overflow recovery implemented. PHS-06.3 residue closure is complete; PHS-06.4 implementation and independent acceptance-conclusion review are complete within the [recorded boundaries](acceptance-report.md). The phase is delivery-ready on implementation and acceptance evidence. Final text review is approved and UNT-06 is complete in documentation commit `e7dd665cfc2dd50ab00182ad5be188dbe5619d27`. Final user acceptance remains pending. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units), [PHS-06.2 progress](#phase-phs-062---implement-the-standard-bundled-compaction-extension), and [PHS-06.3 closure record](residue-closure-evidence.md).
 
 Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation started from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
@@ -17,7 +17,7 @@ The [ticket](ticket.md#key-definitions-and-abbreviations) owns the detailed defi
 
 ### Resume point
 
-- A1-A4 of [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) are implemented against the approved [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md). [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [PHS-06.4 record](acceptance-report.md) reassesses all 40 clauses after five independently approved corrective units and the UNT-02 follow-up. Their commits are in the [correction plan](acceptance-corrections/plan.md#plan-units). Independent acceptance-conclusion review approves all 40 clauses and the correction requirements. UNT-06 text corrections are ready for re-review and commit; final user acceptance remains pending.
+- A1-A4 of [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) are implemented against the approved [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md). [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [PHS-06.4 record](acceptance-report.md) reassesses all 40 clauses after five independently approved corrective units and the UNT-02 follow-up. Their commits are in the [correction plan](acceptance-corrections/plan.md#plan-units). Independent acceptance-conclusion review approves all 40 clauses and the correction requirements. Final text review is approved and UNT-06 is complete in documentation commit `e7dd665cfc2dd50ab00182ad5be188dbe5619d27`. Final user acceptance remains pending.
 - The historical starting baseline was `96f061c`, with retained dependency updates and the TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build and diff checks passed at that point; coverage was 82.7%. The [system acceptance record](system-integration-evidence.md) contains the final PHS-06.1 results.
 - Checkpoint units 0 through 3 and the session foundation preceded the migration. The checkpoint's Host-owned unit 4 was unaccepted. After migrating its callers, the UNT-11 implementer removed the remaining Host policy.
 - After each completed migration phase, record its result, evidence, remaining blockers, and commit in this plan. The first phase without completed exit criteria is the resume point.
@@ -169,7 +169,7 @@ Mocked capability fixtures can conceal an unwired real extension. Include produc
 
 ### Phase PHS-06.2 - Implement the standard bundled compaction extension
 
-Status: A1-A4 implemented. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. A3 implements automatic preparation and conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through the standard composition path. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 acceptance-conclusion review is approved; text re-review, documentation commit and final user acceptance remain pending.
+Status: A1-A4 implemented. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. A3 implements automatic preparation and conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through the standard composition path. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 acceptance-conclusion and final text reviews are approved, and the UNT-06 documentation commit exists. Final user acceptance remains pending.
 
 Documents:
 - [Problem statement](phs-06.2_problem.md)
@@ -233,7 +233,7 @@ Cleanup can become unrelated refactoring. Limit it to migration residue; keep th
 
 ### Phase PHS-06.4 - Independent acceptance
 
-Status: Corrective implementation is complete at `5375876f770dc3eb4a7b4010bea472ff55a31539`. The [whole-phase dispositions](acceptance-report.md#findings) assess F23/F24 as corrected and F19/F20/F21 evidence as supplied. Independent acceptance-conclusion review approves all 40 clauses and correction FRQ-01 through FRQ-05/NRQ-01 within their recorded boundaries. UNT-06 text corrections are ready for re-review and commit. Final user acceptance remains pending. Earlier unit records retain their original source and scenario limits.
+Status: Corrective implementation is complete at `5375876f770dc3eb4a7b4010bea472ff55a31539`. The [whole-phase dispositions](acceptance-report.md#findings) assess F23/F24 as corrected and F19/F20/F21 evidence as supplied. Independent acceptance-conclusion review approves all 40 clauses and correction FRQ-01 through FRQ-05/NRQ-01 within their recorded boundaries. Final text review is approved, both Minor findings are resolved and UNT-06 is complete in documentation commit `e7dd665cfc2dd50ab00182ad5be188dbe5619d27`. Final user acceptance remains pending. Earlier unit records retain their original source and scenario limits.
 
 #### Goal
 
@@ -284,7 +284,7 @@ No additional product behavior or integration API is assumed. Checkpoint `690827
 
 ## Open Questions
 
-The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. The [whole-phase record](acceptance-report.md#open-questions) records approved independent acceptance-conclusion review. Text re-review, documentation commit and final user acceptance remain. The authorized [correction plan](acceptance-corrections/plan.md) records implementation and commit status; no new product decision is proposed.
+The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. The [whole-phase record](acceptance-report.md#open-questions) records approved independent acceptance-conclusion review. Final text review is approved and the UNT-06 documentation commit exists. Final user acceptance remains pending. The authorized [correction plan](acceptance-corrections/plan.md) records implementation and commit status; no new product decision is proposed.
 
 ## Standards Deviations
 
