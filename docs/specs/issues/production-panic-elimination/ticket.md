@@ -1,5 +1,7 @@
 # Ticket: Eliminate panic paths from production code
 
+Status: Planned; intentional panic paths remain in the current implementation
+
 Remove intentional and helper-induced panic paths from Glyph production code. Errors must be returned through existing contracts without terminating the host or a plugin.
 
 ## Key definitions and abbreviations
@@ -10,11 +12,7 @@ Remove intentional and helper-induced panic paths from Glyph production code. Er
 
 ## Problem Statement
 
-Glyph production code contains:
-
-- 20 direct `panic` calls in 14 functions.
-- 16 calls to `mo.Option.MustGet()`.
-- 3 calls to `regexp.MustCompile()`.
+Intentional panic paths remain in Glyph production code. Current examples include SDK error constructors that panic on invalid arguments and `session.Tree.Clone`, which panics when tree reconstruction fails. Production calls to `mo.Option.MustGet()` also remain in the files listed under Technical Supplement.
 
 A panic can terminate the Glyph host or a plugin. Operation failures, invalid arguments, missing dependencies, and violated internal invariants must not terminate a process.
 
@@ -71,6 +69,7 @@ Out of scope:
 
 ## Dependencies and Preconditions
 
+- Complete and verify this task before PHS-08 starts, under the [delivery-plan completion gate](../../features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08).
 - Existing callers of affected functions must be updated together with their contracts.
 - No backward compatibility is required.
 - Production code does not need to compile at the start of the work, but all required project checks must pass before completion.

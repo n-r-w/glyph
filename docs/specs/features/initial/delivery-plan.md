@@ -64,8 +64,15 @@
 - Completion status: PHS-06.1 is complete and accepted. PHS-06.2 is implemented. [PHS-06.3 residue closure](phases/06-context-compaction-retry-control/residue-closure-evidence.md) is complete. The [whole-phase record](phases/06-context-compaction-retry-control/acceptance-report.md) assesses all 40 clauses after five independently approved corrective units and the UNT-02 follow-up. Implementation and independent acceptance-conclusion review are complete within the recorded boundaries. PHS-06 is complete and accepted. Final text approval and documentation commit `e7dd665cfc2dd50ab00182ad5be188dbe5619d27` complete UNT-06. The [final user acceptance](phases/06-context-compaction-retry-control/acceptance-report.md#final-user-acceptance) is complete; the [migration plan](phases/06-context-compaction-retry-control/migration-plan.md#phased-plan) retains the phase exit criteria.
 - Phase ordering: Follow the [phased plan](phases/06-context-compaction-retry-control/migration-plan.md#phased-plan).
 
+### Cross-cutting corrections before PHS-08
+- Dependencies: PHS-06
+- Status: Planned; both issues are confirmed in the current implementation.
+- Production panic elimination: [Ticket](../../issues/production-panic-elimination/ticket.md).
+- Extension failure propagation: [Ticket](../../issues/extension-failure-propagation/ticket.md).
+- Completion gate: Complete and verify both corrections before PHS-08 starts. These tasks correct known defects in implemented behavior; they do not reopen unrelated phase acceptance or require a general codebase audit. No relative execution order between the two corrections is imposed.
+
 ### PHS-08. Prompt, context, input, and provider middleware
-- Dependencies: PHS-06, PHS-04.1
+- Dependencies: PHS-06, PHS-04.1, Cross-cutting corrections before PHS-08
 - Ticket: [Ticket](phases/08-prompt-context-input-provider-middleware/ticket.md)
 
 ### PHS-09. Tool middleware and run control

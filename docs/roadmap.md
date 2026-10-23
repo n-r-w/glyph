@@ -4,11 +4,21 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 ## Cross-cutting issues
 
+### Production panic elimination
+
+Status: Planned; current panic paths confirmed in code
+
+Execution position: After PHS-06 and before PHS-08. Both this task and extension failure propagation must be completed and verified before PHS-08 starts. Their scheduling is recorded in the [delivery plan](specs/features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08).
+
+Remove intentional panic paths and propagate operation and validation failures through explicit error contracts. The existing [ticket](specs/issues/production-panic-elimination/ticket.md) defines scope and requirements.
+
 ### Extension failures stop the invoking operation
 
-Status: Requirements updated; implementation pending
+Status: Requirements updated; implementation pending; continuation after failure confirmed in code and tests
 
-The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) requires an extension error to stop the invoking operation, expose complete error text, and cause no retry. The affected phase requirements are aligned. Completed phase statuses below describe their accepted implementation baselines, not verification of this new rule. Existing technical solutions and code have not been changed for this requirement.
+Execution position: After PHS-06 and before PHS-08, together with production panic elimination.
+
+The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) defines the required behavior. The [correction ticket](specs/issues/extension-failure-propagation/ticket.md) records the confirmed implementation gaps, regression evidence, and acceptance criteria. Completed phase statuses below describe their accepted implementation baselines; this cross-cutting correction remains pending.
 
 ### TUI hyperlinks
 

@@ -19,7 +19,7 @@ Allow extensions to change model-facing input through ordered generic extension 
 ### SCN-01: Primary completion scenario
 
 - Actor: extension author.
-- Pre-condition: DEP-01 and DEP-02 are met.
+- Pre-condition: DEP-01, DEP-02, and DEP-03 are met.
 - Trigger: the agent prepares a model request.
 - Required behavior: registered handlers receive the immutable original input and the current value from preceding handlers and transform model-facing input without mutating persisted history.
 - Example input and expected output: Input: let handler A append marker `A` to the current context and handler B replace that context with a value derived from the original context plus marker `B`. Expected output: B sees both context versions, the outbound context contains `B` without `A`, and persisted session entries contain neither marker.
@@ -38,6 +38,7 @@ Out of scope:
 
 - DEP-01: [PHS-06](../06-context-compaction-retry-control/ticket.md) must meet all acceptance criteria.
 - DEP-02: [PHS-04.1](../04.1-model-execution-capabilities/ticket.md) must meet all acceptance criteria.
+- DEP-03: Both [cross-cutting corrections before PHS-08](../../delivery-plan.md#cross-cutting-corrections-before-phs-08) must be completed and verified before this phase starts.
 
 ## Requirements
 
