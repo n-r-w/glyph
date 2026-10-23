@@ -1,6 +1,6 @@
 # Problem Statement: Compaction source differs from conversation context
 
-Status: Problem statement and FRQ-01 through FRQ-03 in the [requirements](prd.md) are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design and implementation evidence. The [whole-phase record](../../features/initial/phases/06-context-compaction-retry-control/acceptance-report.md) records the independently approved UNT-04 restored-suffix evidence addition. Implementation and independent acceptance-conclusion review are complete within the recorded phase boundaries. The issue is resolved for delivery. Final text review is approved and UNT-06 is complete in documentation commit `e7dd665cfc2dd50ab00182ad5be188dbe5619d27`. Final user acceptance remains pending. The observations below describe the historical problem at the named revisions.
+Status: Complete and accepted. Problem statement and FRQ-01 through FRQ-03 in the [requirements](prd.md) are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design and implementation evidence. The [whole-phase record](../../features/initial/phases/06-context-compaction-retry-control/acceptance-report.md) records the independently approved UNT-04 restored-suffix evidence addition. Implementation and independent acceptance-conclusion review are complete within the recorded phase boundaries. The issue is resolved within the accepted phase boundaries. Final text review is approved and UNT-06 is complete in documentation commit `e7dd665cfc2dd50ab00182ad5be188dbe5619d27`. The user completed [final PHS-06 acceptance](../../features/initial/phases/06-context-compaction-retry-control/acceptance-report.md#final-user-acceptance). The observations below describe the historical problem at the named revisions.
 
 ## Context
 
@@ -64,4 +64,4 @@ The approved standard-generator limits in [PHS-06.2 FRQ-08](../../features/initi
 
 ## Open Questions
 
-None at the problem-definition level. Independent acceptance-conclusion review approves the correction within its recorded boundaries. Final user acceptance remains pending under the [PHS-06.4 exit criteria](../../features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-064---independent-acceptance).
+None at the problem-definition level. Independent acceptance-conclusion review approves the correction within its recorded boundaries. The completed [final user acceptance](../../features/initial/phases/06-context-compaction-retry-control/acceptance-report.md#final-user-acceptance) satisfies the acceptance step under the [PHS-06.4 exit criteria](../../features/initial/phases/06-context-compaction-retry-control/migration-plan.md#phase-phs-064---independent-acceptance).

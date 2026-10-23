@@ -229,7 +229,7 @@ Repeat mandatory whole-project checks on the assembled result, build, run genera
 
 #### Exit criteria
 
-All five correction units are complete. Independent acceptance identifies no unresolved required correction. Every phase clause has an evidence result. Existing skips and accepted debt remain explicit. Statuses match actual acceptance, local commits contain only authorized changes, and no push occurred. User review remains the next workflow stage.
+All five correction units are complete. Independent acceptance identifies no unresolved required correction. Every phase clause has an evidence result. Existing skips and accepted debt remain explicit. Statuses match actual acceptance, local commits contain only authorized changes, and no push occurred. The user completed [final phase acceptance](../acceptance-report.md#final-user-acceptance); this same unit's current-status correction requires separate review and commit.
 
 #### Relation
 
@@ -251,7 +251,7 @@ Use declared Go, SDK, backoff, testify, and mockgen dependencies and existing ap
 
 ## Project Definition of Done
 
-All local requirements and confirmed scenarios have evidence; all 40 parent/standard/prepared-history clauses are reassessed; independent reviews are resolved; full checks satisfy the project rules within the existing vulnerability exception; generated files are stable; documentation and status links are consistent; and the result is ready for final user acceptance.
+All local requirements and confirmed scenarios have evidence; all 40 parent/standard/prepared-history clauses are reassessed; independent reviews are resolved; full checks satisfy the project rules within the existing vulnerability exception; generated files are stable; documentation and status links are consistent; and the user completed [final phase acceptance](../acceptance-report.md#final-user-acceptance).
 
 ## Assumptions
 
@@ -263,7 +263,7 @@ No unresolved implementation decision blocks execution. New findings outside the
 
 ## Standards Deviations
 
-No new deviation is accepted. Preserve the existing GO-2026-6809 scanner exception and previously accepted original test-first/evidence boundaries. Intermediate stages passed without user confirmation under final_only; final user acceptance remains required.
+No new deviation is accepted. Preserve the existing GO-2026-6809 scanner exception and previously accepted original test-first/evidence boundaries. Intermediate stages passed without user confirmation under final_only; the user subsequently completed [final phase acceptance](../acceptance-report.md#final-user-acceptance).
 
 ## References
 
