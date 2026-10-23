@@ -102,8 +102,7 @@ func (s *Service) execute(
 		if !errors.As(attemptErr, &providerFailure) {
 			return failedResponse, backoff.Permanent(logicalFailure(FailureInternal, causes))
 		}
-		if providerFailure.Classification == ProviderFailureContextOverflow &&
-			(!policy.Enabled || recoverOverflow == nil) {
+		if providerFailure.Classification == ProviderFailureContextOverflow && !policy.Enabled {
 			return failedResponse, backoff.Permanent(logicalFailure(FailureContextLimit, causes))
 		}
 		if !policy.Enabled {
@@ -156,6 +155,9 @@ func (s *Service) execute(
 		); validationErr != nil {
 			causes = append(causes, validationErr)
 			return failedResponse, backoff.Permanent(logicalFailure(FailureExtensionFailed, causes))
+		}
+		if providerFailure.Classification == ProviderFailureContextOverflow && recoverOverflow == nil {
+			return failedResponse, backoff.Permanent(logicalFailure(FailureContextLimit, causes))
 		}
 		if delayPresent && providerDelay > policy.MaxProviderDelay {
 			causes = append(causes, fmt.Errorf(

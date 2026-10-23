@@ -70,6 +70,9 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 	const codexProvider = "openai-codex"
 	const contextOverflowCode = "context_length_exceeded"
 	const contextLimitCategory = "CONTEXT_LIMIT"
+	const cancelHandler, failureHandler, invalidHandler = "cancel", "fail", "invalid"
+	const preserveHandler = "preserve"
+	const canceledCategory, extensionCategory = "RETRY_CANCELED", "EXTENSION_FAILED"
 	// Arrange the real extension executable and independent terminal scenarios.
 	directory := buildPublicExtensionFixture(t)
 	for _, scenario := range []struct {
@@ -95,6 +98,26 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 			handler: "", category: contextLimitCategory, attempts: 1,
 		},
 		{
+			name: "overflow cancellation", codex: false, providerCode: contextOverflowCode,
+			handler: cancelHandler, category: canceledCategory, attempts: 1,
+		},
+		{
+			name: "overflow handler failure", codex: false, providerCode: contextOverflowCode,
+			handler: failureHandler, category: extensionCategory, attempts: 1,
+		},
+		{
+			name: "overflow invalid decision", codex: false, providerCode: contextOverflowCode,
+			handler: invalidHandler, category: extensionCategory, attempts: 1,
+		},
+		{
+			name: "overflow preserve", codex: false, providerCode: contextOverflowCode,
+			handler: preserveHandler, category: contextLimitCategory, attempts: 1,
+		},
+		{
+			name: "overflow repeat override", codex: false, providerCode: contextOverflowCode,
+			handler: retryComposeMode, category: contextLimitCategory, attempts: 1,
+		},
+		{
 			name: "non retryable", codex: false, providerCode: "invalid_request",
 			handler: "", category: "MODEL_FAILED", attempts: 1,
 		},
@@ -116,7 +139,8 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 		},
 	} {
 		for _, client := range []string{"programmatic", "ui", "configured SDK", "headless"} {
-			if scenario.codex && client != "programmatic" && client != "configured SDK" {
+			ownerlessHandler := scenario.providerCode == contextOverflowCode && scenario.handler != ""
+			if (scenario.codex || ownerlessHandler) && client != "programmatic" && client != "configured SDK" {
 				continue
 			}
 			t.Run(scenario.name+"/"+client, func(t *testing.T) {
@@ -204,10 +228,12 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 				}
 				paths := testPaths(t, settings)
 				writeProgrammaticCredentials(t, paths)
-				t.Setenv("GLYPH_EXTERNAL_SIGNALS", t.TempDir())
+				signals := t.TempDir()
+				t.Setenv("GLYPH_EXTERNAL_SIGNALS", signals)
 				t.Setenv("GLYPH_EXTERNAL_RETRY_HANDLER", scenario.handler)
 				t.Setenv("GLYPH_EXTERNAL_CONFIGURED_PROVIDER", configuredProvider)
 				var observations []terminalFailureObservation
+				retryProgress := 0
 
 				// Act through the production client assembly and terminal-error operation.
 				switch client {
@@ -218,6 +244,9 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 						response, err := fixture.stream.Recv()
 						require.NoError(t, err)
 						event := response.GetEvent()
+						if event.GetProgress().GetAgentEvent().GetRetryProgress() != nil {
+							retryProgress++
+						}
 						if failure := event.GetFailed(); failure != nil {
 							observations = append(
 								observations,
@@ -267,6 +296,7 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 					require.NoError(t, json.Unmarshal([]byte(externalToolOutput(t, <-reports)), &report))
 					observations = append(observations, report.Wait, report.WaitWithProgress)
 					require.Len(t, observations, 2)
+					retryProgress = report.ProgressCount
 				case "headless":
 					err := runWithPaths(t.Context(), paths, cli.Command{
 						Mode:               cli.ModeHeadless,
@@ -294,6 +324,11 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 					expectedAttempts *= 2
 				}
 				assert.Equal(t, expectedAttempts, attempts.Load())
+				if ownerlessHandler {
+					assert.FileExists(t, filepath.Join(signals, retryInvokedSignal))
+					assert.Zero(t, retryProgress)
+				}
+
 				for index, observation := range observations {
 					assert.Equal(t, scenario.category, observation.Code)
 					assert.Contains(t, observation.Message, io.ErrUnexpectedEOF.Error())
@@ -306,6 +341,9 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 								fmt.Sprintf("provider terminal rejection full unique text attempt %d", attempt),
 							)
 						}
+					}
+					if ownerlessHandler && scenario.handler == invalidHandler {
+						assert.Contains(t, observation.Message, "negative delay")
 					}
 					if scenario.handler == "fail" {
 						assert.Contains(t, observation.Message, "retry handler full unique failure text")

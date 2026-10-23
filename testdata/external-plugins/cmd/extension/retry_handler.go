@@ -27,6 +27,8 @@ const (
 	retryCancelMode = "cancel"
 	// retryFailureMode selects a failed retry handler.
 	retryFailureMode = "fail"
+	// retryInvalidMode selects a replacement that fails decision validation.
+	retryInvalidMode = "invalid"
 	// retryInvokedSignal identifies an invoked public retry handler.
 	retryInvokedSignal = "retry-handler-invoked"
 )
@@ -54,6 +56,11 @@ func (operation *handleOperation) runRetryHandler() (*extensionv1.HandleResponse
 		action.SetReplace(extensionv1.RetryDecision_builder{
 			Retryable: new(true), Retry: new(invocation.GetCompletedAttempts() < limit),
 			DelayMilliseconds: new(delay), AttemptLimit: new(limit),
+		}.Build())
+	case retryInvalidMode:
+		action.SetReplace(extensionv1.RetryDecision_builder{
+			Retryable: new(true), Retry: new(true), DelayMilliseconds: new(int64(-1)),
+			AttemptLimit: new(retryCompositionAttemptLimit),
 		}.Build())
 	case retryCancelMode:
 		action.SetCancel(new(extensionv1.CancelRetry))
