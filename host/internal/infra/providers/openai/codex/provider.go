@@ -196,11 +196,24 @@ func (s *Driver) executeRequest(
 			response.Outcome = mo.Some(model.OutcomeAborted)
 		}
 	}()
-	assembler := newSemanticAssembler(handle, grammarInputProperties(request.Tools))
+	deliveryFailed := false
+	assembler := newSemanticAssembler(func(event modelexecution.StreamEvent) error {
+		err := handle(event)
+		if err != nil {
+			deliveryFailed = true
+		}
+		return err
+	}, grammarInputProperties(request.Tools))
 
 	for stream.Next() {
 		assembled, terminal, terminalErr := assembler.consume(stream.Current())
 		if terminal {
+			if _, refused := errors.AsType[*providerResponseError](terminalErr); refused && !deliveryFailed {
+				// Preserve the refusal while context-bound SDK iteration acquires any later stream error.
+				for stream.Next() {
+				}
+				terminalErr = errors.Join(terminalErr, stream.Err())
+			}
 			return assembled, errorTransport.joinError(terminalErr)
 		}
 	}

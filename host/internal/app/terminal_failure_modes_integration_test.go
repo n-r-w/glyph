@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -19,6 +20,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli"
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
@@ -65,11 +67,16 @@ func runTerminalFailureUIFixture(ctx context.Context, host *uisdk.Host) error {
 
 // TestTerminalRefusalAcrossPublicClients checks public error categories and causes after HTTP truncation.
 func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
+	const codexProvider = "openai-codex"
+	const contextOverflowCode = "context_length_exceeded"
+	const contextLimitCategory = "CONTEXT_LIMIT"
 	// Arrange the real extension executable and independent terminal scenarios.
 	directory := buildPublicExtensionFixture(t)
 	for _, scenario := range []struct {
 		// name identifies the terminal source.
 		name string
+		// codex selects the concrete Codex driver for the focused refusal cases.
+		codex bool
 		// providerCode is the received terminal refusal classification.
 		providerCode string
 		// handler selects the public retry-handler action.
@@ -80,19 +87,38 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 		attempts int64
 	}{
 		{
-			name: "context overflow", providerCode: "context_length_exceeded",
+			name: "context overflow", codex: false, providerCode: "context_length_exceeded",
 			handler: "", category: "CONTEXT_LIMIT", attempts: 1,
 		},
-		{name: "non retryable", providerCode: "invalid_request", handler: "", category: "MODEL_FAILED", attempts: 1},
-		{name: "exhaustion", providerCode: "server_error", handler: "", category: "RETRY_EXHAUSTED", attempts: 2},
 		{
-			name: "retry cancellation", providerCode: "server_error",
+			name: "Codex context overflow", codex: true, providerCode: contextOverflowCode,
+			handler: "", category: contextLimitCategory, attempts: 1,
+		},
+		{
+			name: "non retryable", codex: false, providerCode: "invalid_request",
+			handler: "", category: "MODEL_FAILED", attempts: 1,
+		},
+		{
+			name: "exhaustion", codex: false, providerCode: "server_error",
+			handler: "", category: "RETRY_EXHAUSTED", attempts: 2,
+		},
+		{
+			name: "retry cancellation", codex: false, providerCode: "server_error",
 			handler: "cancel", category: "RETRY_CANCELED", attempts: 1,
 		},
-		{name: "handler failure", providerCode: "server_error", handler: "fail", category: "EXTENSION_FAILED", attempts: 1},
-		{name: "transport only", providerCode: "", handler: "", category: "RETRY_EXHAUSTED", attempts: 2},
+		{
+			name: "handler failure", codex: false, providerCode: "server_error",
+			handler: "fail", category: "EXTENSION_FAILED", attempts: 1,
+		},
+		{
+			name: "transport only", codex: false, providerCode: "",
+			handler: "", category: "RETRY_EXHAUSTED", attempts: 2,
+		},
 	} {
 		for _, client := range []string{"programmatic", "ui", "configured SDK", "headless"} {
+			if scenario.codex && client != "programmatic" && client != "configured SDK" {
+				continue
+			}
 			t.Run(scenario.name+"/"+client, func(t *testing.T) {
 				// Arrange a Responses endpoint that truncates the body, optionally after a terminal refusal.
 				var attempts, outerRequests atomic.Int64
@@ -156,11 +182,31 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 					1,
 				)
 				settings = strings.Replace(settings, "providers:\n", "providers:\n"+compatible, 1)
+				configuredProvider := "local"
+				if scenario.codex {
+					settings = retryModeSettings
+					configuredProvider = codexProvider
+					endpoint, err := url.Parse(server.URL)
+					require.NoError(t, err)
+					previous := http.DefaultTransport
+					transport := NewMockHTTPRoundTripper(gomock.NewController(t))
+					transport.EXPECT().
+						RoundTrip(gomock.Any()).
+						DoAndReturn(func(request *http.Request) (*http.Response, error) {
+							forwarded := request.Clone(request.Context())
+							forwarded.URL.Scheme = endpoint.Scheme
+							forwarded.URL.Host = endpoint.Host
+							return previous.RoundTrip(forwarded)
+						}).
+						AnyTimes()
+					http.DefaultTransport = transport
+					t.Cleanup(func() { http.DefaultTransport = previous })
+				}
 				paths := testPaths(t, settings)
 				writeProgrammaticCredentials(t, paths)
 				t.Setenv("GLYPH_EXTERNAL_SIGNALS", t.TempDir())
 				t.Setenv("GLYPH_EXTERNAL_RETRY_HANDLER", scenario.handler)
-				t.Setenv("GLYPH_EXTERNAL_CONFIGURED_PROVIDER", "local")
+				t.Setenv("GLYPH_EXTERNAL_CONFIGURED_PROVIDER", configuredProvider)
 				var observations []terminalFailureObservation
 
 				// Act through the production client assembly and terminal-error operation.
