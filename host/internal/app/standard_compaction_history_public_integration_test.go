@@ -50,9 +50,9 @@ func TestStandardPreparedHistoryPublic(t *testing.T) {
 	for _, scenario := range []string{"summarized-span", "retained-span", "default-installed"} {
 		t.Run(scenario, func(t *testing.T) {
 			// Arrange persisted interleaved results and an interrupted call with the real bundled executable.
-			retained := "1"
+			retained := "20"
 			t.Setenv(standardRetainedEnvironment, "")
-			recent := "recent prepared source"
+			recent := "recent prepared source" + strings.Repeat("r", 100)
 			if scenario == "retained-span" {
 				retained = "100"
 			}
@@ -116,7 +116,7 @@ func TestStandardPreparedHistoryPublic(t *testing.T) {
 				require.Contains(t, source.Messages[4].Blocks[0].Text, "skipped")
 				require.Equal(t, "intervening source", source.Messages[5].Blocks[0].Text)
 			}
-			next := manualNextText
+			next := manualNextText + strings.Repeat("n", 100)
 			if scenario == "default-installed" {
 				next += strings.Repeat("n", 80000)
 			}
@@ -133,6 +133,7 @@ func TestStandardPreparedHistoryPublic(t *testing.T) {
 			second := requestProgrammaticCompaction(t, fixture, "prepared-second", "")
 			require.NotNil(t, second.GetCompleted(), "%v", second)
 			secondReceipt := second.GetCompleted().GetCompaction().GetCommitted()
+			savedBranch := preparedStoredEntries(t, fixture)
 			generated = summaries.snapshot()
 			require.Len(t, generated, 2)
 			repeated := decodePreparedSource(t, generated[1])
@@ -148,12 +149,14 @@ func TestStandardPreparedHistoryPublic(t *testing.T) {
 				programmaticRequest(request).SetGetSessionTree(new(programmaticpb.GetSessionTree))
 			}).GetSessionTree().GetTree()
 			require.Equal(t, secondReceipt.GetId(), tree.GetActiveLeafId())
-			completeProgrammaticRequest(t, fixture, userRequest("prepared-restored-next", "after restoration"))
+			const restoredRequest = "after restoration"
+			completeProgrammaticRequest(t, fixture, userRequest("prepared-restored-next", restoredRequest))
 			outgoing = allBodies.snapshot()
 			restored := string(outgoing[len(outgoing)-1])
 			require.Contains(t, restored, secondReceipt.GetCompaction().GetSummary())
 			require.NotContains(t, restored, firstReceipt.GetCompaction().GetSummary())
 			require.NotContains(t, restored, manualOriginalText)
+			assertPreparedRestoredSuffix(t, outgoing[len(outgoing)-1], savedBranch, secondReceipt, restoredRequest)
 			navigatePreparedSession(t, fixture, "recent-source")
 			completeProgrammaticRequest(t, fixture, userRequest("prepared-before-marker", "before marker"))
 			outgoing = allBodies.snapshot()
