@@ -1,6 +1,6 @@
 # Delivery Plan: PHS-06 extension-owned compaction migration
 
-Status: PHS-06.1 is complete and accepted. PHS-06.2 has A1 accounting, A2 manual compaction, A3 automatic compaction, and A4 admitted overflow recovery implemented. PHS-06.3 residue closure is complete; PHS-06.4 acceptance is blocked by the open findings in the [whole-phase review](acceptance-report.md). See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units), [PHS-06.2 progress](#phase-phs-062---implement-the-standard-bundled-compaction-extension), and [PHS-06.3 closure record](residue-closure-evidence.md).
+Status: PHS-06.1 is complete and accepted. PHS-06.2 has A1 accounting, A2 manual compaction, A3 automatic compaction, and A4 admitted overflow recovery implemented. PHS-06.3 residue closure is complete; PHS-06.4 implementation and independent acceptance-conclusion review are complete within the [recorded boundaries](acceptance-report.md). The phase is delivery-ready on implementation and acceptance evidence. UNT-06 text re-review, documentation commit and final user acceptance remain pending. See the [system acceptance record](system-integration-evidence.md), [unit progress](#sequential-implementation-units), [PHS-06.2 progress](#phase-phs-062---implement-the-standard-bundled-compaction-extension), and [PHS-06.3 closure record](residue-closure-evidence.md).
 
 Move compaction policy and composition from Host into an extension while retaining the durable history-replacement mechanism. Implementation started from the restored `96f061c` baseline; checkpoint `690827f` remains comparison evidence. The old implementation order in the [checkpoint design](solution.md#unaccepted-checkpoint-design) is not the migration plan.
 
@@ -17,7 +17,7 @@ The [ticket](ticket.md#key-definitions-and-abbreviations) owns the detailed defi
 
 ### Resume point
 
-- A1-A4 of [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) are implemented against the approved [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md). [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [PHS-06.4 review](acceptance-report.md) records open behavior and evidence findings. Production and test corrections require separate implementation authorization.
+- A1-A4 of [PHS-06.2](#phase-phs-062---implement-the-standard-bundled-compaction-extension) are implemented against the approved [requirements](phs-06.2_prd.md) and [technical solution](phs-06.2_solution.md). [PHS-06.3 residue closure](residue-closure-evidence.md) is complete. The [PHS-06.4 record](acceptance-report.md) reassesses all 40 clauses after five independently approved corrective units and the UNT-02 follow-up. Their commits are in the [correction plan](acceptance-corrections/plan.md#plan-units). Independent acceptance-conclusion review approves all 40 clauses and the correction requirements. UNT-06 text corrections are ready for re-review and commit; final user acceptance remains pending.
 - The historical starting baseline was `96f061c`, with retained dependency updates and the TUI test correction. Formatting, fix dry-run, lint, unit tests, integration tests, coverage, build and diff checks passed at that point; coverage was 82.7%. The [system acceptance record](system-integration-evidence.md) contains the final PHS-06.1 results.
 - Checkpoint units 0 through 3 and the session foundation preceded the migration. The checkpoint's Host-owned unit 4 was unaccepted. After migrating its callers, the UNT-11 implementer removed the remaining Host policy.
 - After each completed migration phase, record its result, evidence, remaining blockers, and commit in this plan. The first phase without completed exit criteria is the resume point.
@@ -169,7 +169,7 @@ Mocked capability fixtures can conceal an unwired real extension. Include produc
 
 ### Phase PHS-06.2 - Implement the standard bundled compaction extension
 
-Status: A1-A4 implemented. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. A3 implements automatic preparation and conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through the standard composition path. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 independent acceptance remains pending.
+Status: A1-A4 implemented. A1 implements [D6 per-request accounting](phs-06.2_solution.md#d6-per-request-accounting-for-persisted-compaction). A2 implements bundled manual compaction. A3 implements automatic preparation and conversation observations. In A4, the bundled compaction extension implements admitted overflow recovery through the standard composition path. [PHS-06.3 residue closure](residue-closure-evidence.md) is complete; PHS-06.4 acceptance-conclusion review is approved; text re-review, documentation commit and final user acceptance remain pending.
 
 Documents:
 - [Problem statement](phs-06.2_problem.md)
@@ -233,7 +233,7 @@ Cleanup can become unrelated refactoring. Limit it to migration residue; keep th
 
 ### Phase PHS-06.4 - Independent acceptance
 
-Status: Acceptance blocked by the [whole-phase findings](acceptance-report.md#findings). Earlier unit acceptance remains limited to its documented source and scenarios. This analytical review changes documentation only.
+Status: Corrective implementation is complete at `5375876f770dc3eb4a7b4010bea472ff55a31539`. The [whole-phase dispositions](acceptance-report.md#findings) assess F23/F24 as corrected and F19/F20/F21 evidence as supplied. Independent acceptance-conclusion review approves all 40 clauses and correction FRQ-01 through FRQ-05/NRQ-01 within their recorded boundaries. UNT-06 text corrections are ready for re-review and commit. Final user acceptance remains pending. Earlier unit records retain their original source and scenario limits.
 
 #### Goal
 
@@ -250,11 +250,11 @@ Accept PHS-06 against the approved requirements and actual user-facing behavior.
 
 Independent review results, assembled-path evidence, and an accurate phase-completion record.
 
-Completion-plan unit A3 is accepted after code-quality, text-quality, and independent unit review. It implements [D3 terminal-refusal preservation](solution.md#d3-terminal-refusal-and-subsequent-stream-failure). The [terminal-failure evidence record](a3-terminal-failure-evidence.md) contains the implementation scope, check results, and verification limits. PHS-06.2 slice A3 covers [automatic compaction](#phase-phs-062---implement-the-standard-bundled-compaction-extension). Independent phase acceptance remains pending.
+Completion-plan unit A3 is accepted after code-quality, text-quality, and independent unit review. It implements [D3 terminal-refusal preservation](solution.md#d3-terminal-refusal-and-subsequent-stream-failure). The [terminal-failure evidence record](a3-terminal-failure-evidence.md) contains the implementation scope, check results, and verification limits. PHS-06.2 slice A3 covers [automatic compaction](#phase-phs-062---implement-the-standard-bundled-compaction-extension). Independent acceptance-conclusion review is approved; final user acceptance remains pending.
 
 For completion-plan unit A4.1, Agent Core uses [generic appended-history accounting](solution.md#a41-run-completion-after-prepared-history-replacement). A4.1 is accepted after code-quality, text-quality, and independent unit review. Its [evidence record](a4.1-run-history-evidence.md) contains the baseline RED results, later assertion controls, review outcomes, and project-check results.
 
-Completion-plan A4 implements the approved prepared-history migration with original source-kind metadata. Its [evidence record](a4-prepared-history-evidence.md) records original RED runs, later assertion controls, public composition, restoration and navigation, project-check results, and the two scoped acceptance exceptions. A4 is accepted after code-quality, text-quality, and independent unit review under the recorded exceptions. The [A5 evidence record](a5-retry-acceptance-evidence.md) contains public retry observations, check results, and review status. A5 is accepted after code-quality, text-quality, and independent unit review under the specific vulnerability exception and recorded evidence limits. The [A6 evidence record](a6-abort-idle-evidence.md) records ordinary conversation abort, public idle, and same-connection recovery through Programmatic Control and the UI-plugin protocol. A6 is accepted after code-quality, text-quality, and independent unit review under the specific vulnerability exception and recorded evidence limits. PHS-06.2 slice A4 covers the earlier overflow-recovery implementation. Independent phase acceptance remains pending.
+Completion-plan A4 implements the approved prepared-history migration with original source-kind metadata. Its [evidence record](a4-prepared-history-evidence.md) records original RED runs, later assertion controls, public composition, restoration and navigation, project-check results, and the two scoped acceptance exceptions. A4 is accepted after code-quality, text-quality, and independent unit review under the recorded exceptions. The [A5 evidence record](a5-retry-acceptance-evidence.md) contains public retry observations, check results, and review status. A5 is accepted after code-quality, text-quality, and independent unit review under the specific vulnerability exception and recorded evidence limits. The [A6 evidence record](a6-abort-idle-evidence.md) records ordinary conversation abort, public idle, and same-connection recovery through Programmatic Control and the UI-plugin protocol. A6 is accepted after code-quality, text-quality, and independent unit review under the specific vulnerability exception and recorded evidence limits. PHS-06.2 slice A4 covers the earlier overflow-recovery implementation. Independent acceptance-conclusion review is approved; final user acceptance remains pending.
 
 #### Exit criteria
 
@@ -284,7 +284,7 @@ No additional product behavior or integration API is assumed. Checkpoint `690827
 
 ## Open Questions
 
-The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. The [whole-phase review](acceptance-report.md#open-questions) records the outstanding authorization decision for behavior and evidence corrections. PHS-06.4 acceptance remains blocked.
+The system-contract [QST-01](ticket.md#qst-01-minimal-compaction-integration-contract) and bundled-generator [QST-01.1](solution.md#qst-011-standard-summary-input-above-the-model-budget) are resolved. No requirement or technical-solution question remains for PHS-06.2. The [whole-phase record](acceptance-report.md#open-questions) records approved independent acceptance-conclusion review. Text re-review, documentation commit and final user acceptance remain. The authorized [correction plan](acceptance-corrections/plan.md) records implementation and commit status; no new product decision is proposed.
 
 ## Standards Deviations
 

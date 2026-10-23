@@ -1,6 +1,6 @@
 # Requirements: Compaction of prepared conversation history
 
-Status: FRQ-01 through FRQ-03 are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design and implementation evidence. The [whole-phase review](../../features/initial/phases/06-context-compaction-retry-control/acceptance-report.md) retains restored-suffix evidence finding F20; full phase acceptance remains blocked.
+Status: FRQ-01 through FRQ-03 are approved for PHS-06 completion. The [technical solution](solution.md) records the approved design and implementation evidence. The [whole-phase record](../../features/initial/phases/06-context-compaction-retry-control/acceptance-report.md) records independent acceptance-conclusion approval of all three issue clauses after the approved UNT-04 restored-suffix evidence addition. The issue is resolved within the recorded phase boundaries. UNT-06 text re-review, documentation commit and final user acceptance remain pending.
 
 ## Definitions
 
