@@ -13,6 +13,38 @@ import (
 	programmaticpb "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
+// Public composition fixtures register independently named reference participants.
+const (
+	// standardGeneratorExecutable names the independently registered reference generator runtime.
+	standardGeneratorExecutable = "reference-generator"
+	// standardResultExecutable names the independently registered reference result runtime.
+	standardResultExecutable = "reference-results"
+	// referenceObserverExecutable names the runtime that records compaction outcomes.
+	referenceObserverExecutable = "reference-observer"
+	// policyDisabledEnvironment selects reference participants without reference policy ownership.
+	policyDisabledEnvironment = "GLYPH_REFERENCE_POLICY_DISABLED"
+	// separateObserverEnvironment confines outcome observers to their dedicated runtime.
+	separateObserverEnvironment = "GLYPH_REFERENCE_SEPARATE_OBSERVER"
+	// separateRequestsEnvironment confines request handlers to their dedicated runtime.
+	separateRequestsEnvironment = "GLYPH_REFERENCE_SEPARATE_REQUESTS"
+	// separateGeneratorEnvironment confines reference generators to their dedicated runtime.
+	separateGeneratorEnvironment = "GLYPH_REFERENCE_SEPARATE_GENERATOR"
+	// separateResultsEnvironment confines result handlers to their dedicated runtime.
+	separateResultsEnvironment = "GLYPH_REFERENCE_SEPARATE_RESULTS"
+	// resultModeEnvironment selects the reference result participant's behavior.
+	resultModeEnvironment = "GLYPH_REFERENCE_RESULT_MODE"
+	// resultCancelMode selects an explicit result-participant Cancel action.
+	resultCancelMode = "cancel"
+	// generatorDisabled disables the bundled generator for supplied-result and cardinality scenarios.
+	generatorDisabled = "false"
+	// observationSuffix identifies the observer-call artifact beside its outcome artifact.
+	observationSuffix = ".calls"
+	// successObservation records invocation of the compaction success observer.
+	successObservation = "success\n"
+	// failureObservation records invocation of the compaction failure observer.
+	failureObservation = "failure\n"
+)
+
 // TestStandardManualComposition coordinates real independent request and result runtimes.
 func TestStandardManualComposition(t *testing.T) {
 	for _, test := range []struct {
@@ -63,23 +95,6 @@ func TestStandardManualComposition(t *testing.T) {
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
-			const (
-				standardGeneratorExecutable  = "reference-generator"
-				standardResultExecutable     = "reference-results"
-				referenceObserverExecutable  = "reference-observer"
-				policyDisabledEnvironment    = "GLYPH_REFERENCE_POLICY_DISABLED"
-				separateObserverEnvironment  = "GLYPH_REFERENCE_SEPARATE_OBSERVER"
-				separateRequestsEnvironment  = "GLYPH_REFERENCE_SEPARATE_REQUESTS"
-				separateGeneratorEnvironment = "GLYPH_REFERENCE_SEPARATE_GENERATOR"
-				separateResultsEnvironment   = "GLYPH_REFERENCE_SEPARATE_RESULTS"
-				resultModeEnvironment        = "GLYPH_REFERENCE_RESULT_MODE"
-				resultCancelMode             = "cancel"
-				generatorDisabled            = "false"
-				observationSuffix            = ".calls"
-				successObservation           = "success\n"
-				failureObservation           = "failure\n"
-			)
-
 			// Arrange the bundled policy and independently registered public participants.
 			t.Setenv(policyDisabledEnvironment, manualFixtureEnabled)
 			t.Setenv(separateObserverEnvironment, manualFixtureEnabled)

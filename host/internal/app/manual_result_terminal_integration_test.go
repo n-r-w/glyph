@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"testing"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -44,13 +45,17 @@ func (s *manualResultHandlersSuite) TestTerminalActions() {
 
 // runTerminalScenario checks a public participant outcome against unchanged durable entries.
 func (s *manualResultHandlersSuite) runTerminalScenario(mode, cause string, canceled bool) {
-	t := s.T()
+	runManualResultTerminalScenario(s.T(), buildManualPolicyFixture(s.T()), mode, []string{cause}, canceled)
+}
+
+// runManualResultTerminalScenario checks accepted diagnostics and stored entries through a selected policy.
+func runManualResultTerminalScenario(t *testing.T, directory, mode string, causes []string, canceled bool) {
+	t.Helper()
 	// Arrange a later terminal participant after one accepted replacement.
 	inputs := t.TempDir()
 	t.Setenv(manualResultInputsEnvironment, inputs)
-	t.Setenv("GLYPH_REFERENCE_RESULT_MODE", mode)
+	t.Setenv(resultModeEnvironment, mode)
 	outcomePath := configureManualOutcomeFixture(t, "")
-	directory := buildManualPolicyFixture(t)
 	paths := testPaths(t, configuredRequestSettings)
 	writeProgrammaticCredentials(t, paths)
 	transport, _ := newManualCompactionProviderTransport(t)
@@ -74,7 +79,9 @@ func (s *manualResultHandlersSuite) runTerminalScenario(mode, cause string, canc
 		require.True(t, terminal.GetCompleted().GetCompaction().GetCanceled())
 	} else {
 		require.NotNil(t, terminal.GetFailed())
-		require.Contains(t, terminal.GetFailed().GetMessage(), cause)
+		for _, cause := range causes {
+			require.Contains(t, terminal.GetFailed().GetMessage(), cause)
+		}
 	}
 	require.Len(t, after, len(before))
 	for index := range before {
@@ -96,7 +103,9 @@ func (s *manualResultHandlersSuite) runTerminalScenario(mode, cause string, canc
 	require.True(t, proto.Equal(acceptedInput.GetCurrentRequest(), outcome.GetState().GetCurrentRequest()))
 	require.Equal(t, manualResultSummary, outcome.GetState().GetResult().GetSummary())
 	if !canceled {
-		require.Contains(t, outcome.GetError(), cause)
+		for _, cause := range causes {
+			require.Contains(t, outcome.GetError(), cause)
+		}
 	}
 	require.NoFileExists(t, filepath.Join(inputs, "result-m-last.json"))
 	fixture.closeOwner(t)
