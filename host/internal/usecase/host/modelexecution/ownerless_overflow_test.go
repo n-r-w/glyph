@@ -24,7 +24,9 @@ func TestServiceOwnerlessOverflowHandlers(t *testing.T) {
 	const extensionID, runtimeID = "retry-extension", "retry-runtime"
 	const firstID, secondID, laterID = "first", "second", "later"
 	for _, configured := range []bool{false, true} {
-		for _, outcome := range []string{"cancel", "failure", "invalid action", "invalid decision", "preserve", "repeat", "disabled"} {
+		for _, outcome := range []string{
+			"cancel", "failure", "invalid action", "invalid decision", "preserve", "repeat", "disabled",
+		} {
 			t.Run(outcome+map[bool]string{false: "/ordinary", true: "/configured"}[configured], func(t *testing.T) {
 				t.Parallel()
 				// Arrange a single overflow attempt and ordered handlers with an accepted intermediate decision.
@@ -153,9 +155,9 @@ func TestServiceOwnerlessOverflowHandlers(t *testing.T) {
 				assert.Equal(t, category, failure.Category)
 				switch outcome {
 				case "failure":
-					assert.ErrorIs(t, err, handlerCause)
+					require.ErrorIs(t, err, handlerCause)
 				case "invalid action":
-					assert.ErrorContains(t, err, "replace retry action requires a decision")
+					require.ErrorContains(t, err, "replace retry action requires a decision")
 				case "invalid decision":
 					assert.ErrorContains(t, err, "negative delay")
 				}
