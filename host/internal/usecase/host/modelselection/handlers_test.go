@@ -85,8 +85,8 @@ func TestServiceComposesSelectionHandlersInRegistrationOrder(t *testing.T) {
 	assert.Equal(t, replacement, selection)
 }
 
-// TestServiceContinuesAfterOrdinaryAndInvalidHandlerResults verifies nonfatal issue delivery and state preservation.
-func TestServiceContinuesAfterOrdinaryAndInvalidHandlerResults(t *testing.T) {
+// TestServiceStopsAfterOrdinaryHandlerFailure verifies later handlers and commit are not invoked.
+func TestServiceStopsAfterOrdinaryHandlerFailure(t *testing.T) {
 	t.Parallel()
 	// Arrange two faulty handlers followed by one valid replacement.
 	controller := gomock.NewController(t)
@@ -96,7 +96,6 @@ func TestServiceContinuesAfterOrdinaryAndInvalidHandlerResults(t *testing.T) {
 	contexts := NewMockContextIssuer(controller)
 	delivery := NewMockIssueDelivery(controller)
 	original := model.Selection{Provider: "source", Model: "one", ReasoningChoice: model.ReasoningChoiceLow}
-	final := model.Selection{Provider: "target", Model: "two", ReasoningChoice: model.ReasoningChoiceHigh}
 	binding := extension.Context{
 		ID:                "ctx",
 		ExtensionID:       "ext",
@@ -119,27 +118,7 @@ func TestServiceContinuesAfterOrdinaryAndInvalidHandlerResults(t *testing.T) {
 				assert.ErrorIs(t, issue.Err, handlerErr)
 				return nil
 			}),
-		contexts.EXPECT().IssueContext("ext").Return(binding, nil),
-		runtime.EXPECT().HandleSelection(gomock.Any(), "ext", "invalid", gomock.Any()).Return(
-			HandlerAction{Kind: HandlerActionReplace, Replacement: model.Selection{}, Rejection: ""}, false, nil,
-		),
-		delivery.EXPECT().
-			DeliverSelectionIssue(gomock.Any(), gomock.Any()).
-			DoAndReturn(func(_ context.Context, issue Issue) error {
-				assert.Equal(t, IssueCodeInvalidHandlerAction, issue.Code)
-				return nil
-			}),
-		contexts.EXPECT().IssueContext("ext").Return(binding, nil),
-		runtime.EXPECT().HandleSelection(gomock.Any(), "ext", "valid", gomock.Any()).DoAndReturn(
-			func(_ context.Context, _, _ string, invocation HandlerInvocation) (HandlerAction, bool, error) {
-				assert.Equal(t, original, invocation.Current)
-				return HandlerAction{Kind: HandlerActionReplace, Replacement: final, Rejection: ""}, false, nil
-			},
-		),
 	)
-	catalog.EXPECT().ValidateSelection(gomock.Any(), final).Return(nil)
-	catalog.EXPECT().CommitSelection(gomock.Any(), final).Return(original, final, nil)
-	publisher.EXPECT().PublishSelection(final).Return(func(context.Context) error { return nil }, nil)
 	service := New(catalog, publisher)
 	service.BindHandlers(runtime, contexts, delivery)
 	service.CommitSelectionHandlers([]startup.AcceptedRegistration{{
@@ -157,15 +136,13 @@ func TestServiceContinuesAfterOrdinaryAndInvalidHandlerResults(t *testing.T) {
 	// Act by executing the full handler chain.
 	result := prepared.Run(t.Context())
 
-	// Assert commit succeeds and both ordered issues remain explicit and ordered.
-	assert.Equal(t, final, result.selection)
-	assert.True(t, result.committed)
-	require.Len(t, result.issues, 2)
+	// Assert the failure prevents final validation, commit, and later handler invocation.
+	assert.Equal(t, model.Selection{}, result.selection)
+	assert.False(t, result.committed)
+	require.Len(t, result.issues, 1)
 	assert.Equal(t, "ordinary", result.issues[0].HandlerID)
 	assert.Equal(t, IssueCodeHandlerError, result.issues[0].Code)
 	assert.ErrorIs(t, result.issues[0].Err, handlerErr)
-	assert.Equal(t, "invalid", result.issues[1].HandlerID)
-	assert.Equal(t, IssueCodeInvalidHandlerAction, result.issues[1].Code)
 	assert.ErrorIs(t, result.source(), handlerErr)
 }
 
@@ -222,6 +199,11 @@ func TestServiceRejectsExplicitHandlerDecisionBeforeCommit(t *testing.T) {
 	require.ErrorAs(t, err, &selectionErr)
 	assert.Equal(t, ErrorCodeExtensionRejected, selectionErr.Code)
 	assert.ErrorContains(t, err, "policy denied target")
+	_, fatal := errors.AsType[interface {
+		error
+		IsExtensionFailure() bool
+	}](err)
+	assert.False(t, fatal)
 }
 
 // TestServiceFailsInternalWhenHandlerContextCannotBeIssued verifies Host invocation setup is not an ordinary handler error.
@@ -427,5 +409,5 @@ func TestServiceFailsBeforeCommitWhenIssueDeliveryFails(t *testing.T) {
 	assert.ErrorIs(t, err, deliveryErr)
 	var selectionErr *SelectionError
 	require.ErrorAs(t, err, &selectionErr)
-	assert.Equal(t, ErrorCodeInternal, selectionErr.Code)
+	assert.Equal(t, ErrorCodeExtensionFailed, selectionErr.Code)
 }

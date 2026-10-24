@@ -70,16 +70,16 @@ func TestStandardOverflowFailure(t *testing.T) {
 
 			// Assert full terminal causes and no generation, retry, or marker beyond the admitted path.
 			require.NotNil(t, terminal.GetFailed())
-			require.Contains(t, terminal.GetFailed().GetMessage(), "provider context limit source")
-			require.Contains(t, terminal.GetFailed().GetMessage(), scenario.cause)
+			require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "provider context limit source")
+			require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), scenario.cause)
 			repeated := scenario.name == "immediate-repeat" || scenario.name == "allowance"
 			if repeated {
-				require.Contains(t, terminal.GetFailed().GetMessage(), "provider repeated overflow source")
+				require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "provider repeated overflow source")
 			}
 			if scenario.name == "final-rejection" {
 				require.Contains(
 					t,
-					terminal.GetFailed().GetMessage(),
+					terminal.GetFailed().GetFailure().GetMessage(),
 					"budget 7000 (context 8000, response reserve 1000)",
 				)
 			}

@@ -95,10 +95,7 @@ type CompactionReplacementOperation struct {
 // Wait awaits the durable replacement receipt and diagnostics.
 func (o *CompactionReplacementOperation) Wait(ctx context.Context) (*extensionpb.CompactResult, error) {
 	completed, err := o.operation.wait(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return completed.GetReplaceCompaction(), nil
+	return completed.GetReplaceCompaction(), err
 }
 
 // FindCompactionPolicy retrieves authority issued only to the owning policy invocation.

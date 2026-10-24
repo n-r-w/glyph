@@ -198,7 +198,7 @@ func (s *conversationObservationSuite) TestCapturedOwnerDisappears() {
 	}
 	// Assert that the application retains the successful provider response and usage with no replacement call.
 	require.NotNil(t, terminal.GetFailed())
-	require.Equal(t, conversationExtensionFailed, terminal.GetFailed().GetCode())
+	require.Equal(t, conversationExtensionFailed, terminal.GetFailed().GetFailure().GetCode())
 	stored := sendProgrammaticOperation(
 		t,
 		fixture,
@@ -248,7 +248,11 @@ func (s *conversationObservationSuite) TestMultipleOwners() {
 	}
 	// Assert ambiguity remains an explicit failure without dispatching the provider.
 	require.NotNil(t, terminal.GetFailed())
-	require.Contains(t, terminal.GetFailed().GetMessage(), "multiple compaction policy owners are registered")
+	require.Contains(
+		t,
+		terminal.GetFailed().GetFailure().GetMessage(),
+		"multiple compaction policy owners are registered",
+	)
 	require.Empty(t, bodies.snapshot())
 	fixture.closeOwner(t)
 }
@@ -306,8 +310,8 @@ func (s *conversationObservationSuite) TestAcknowledgedNestedFailure() {
 	}
 	// Assert that the application retains the nested cause and original conversation response after logical failure.
 	require.NotNil(t, terminal.GetFailed())
-	require.Equal(t, conversationExtensionFailed, terminal.GetFailed().GetCode())
-	require.Contains(t, terminal.GetFailed().GetMessage(), "acknowledged nested provider cause")
+	require.Equal(t, conversationExtensionFailed, terminal.GetFailed().GetFailure().GetCode())
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "acknowledged nested provider cause")
 	stored := sendProgrammaticOperation(
 		t,
 		fixture,

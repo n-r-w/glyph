@@ -71,7 +71,12 @@ func TestCompactionAccountingPersistsRequestsAcrossClientsAndRestart(t *testing.
 			var committed []*programmaticpb.Compaction
 			for _, operationID := range []string{"accounting-first", "accounting-second"} {
 				terminal := requestProgrammaticCompaction(t, fixture, operationID, accountingGuidance+mode)
-				require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetMessage())
+				require.NotNil(
+					t,
+					terminal.GetCompleted(),
+					"failure: %s",
+					terminal.GetFailed().GetFailure().GetMessage(),
+				)
 				marker := terminal.GetCompleted().GetCompaction().GetCommitted().GetCompaction()
 				require.NotNil(t, marker)
 				committed = append(committed, proto.CloneOf(marker))

@@ -58,7 +58,7 @@ func (s *manualRequestHandlersSuite) TestRejectedGeneratorPreservesComposedState
 
 	// Assert complete rejection text, no commit and unchanged original entry projections.
 	require.NotNil(t, terminal.GetFailed())
-	require.Contains(t, terminal.GetFailed().GetMessage(), boundaryCause)
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), boundaryCause)
 	require.Len(t, after, len(before))
 	for index := range before {
 		require.True(t, proto.Equal(before[index], after[index]))

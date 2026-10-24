@@ -57,6 +57,7 @@ func operationNotification(
 		notification.operationErr = newCanceledError(event.Message)
 	case operation.EventFailed:
 		notification.kind = NotificationFailed
+		notification.completed = event.Result
 		notification.operationErr = newRemoteFailure(event.Code, event.Message)
 	case operation.EventRejected:
 		notification.kind = NotificationFailed
@@ -86,7 +87,7 @@ func (notification *Notification) OperationID() string { return notification.ope
 // Progress returns the progress payload when Kind is NotificationProgress.
 func (notification *Notification) Progress() *uiv1.HostProgress { return notification.progress }
 
-// Completed returns the terminal payload when Kind is NotificationCompleted.
+// Completed returns completed data or the optional result retained on failure.
 func (notification *Notification) Completed() *uiv1.HostCompleted { return notification.completed }
 
 // OperationError returns the terminal error when Kind is NotificationFailed.

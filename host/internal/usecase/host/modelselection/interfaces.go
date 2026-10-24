@@ -78,7 +78,7 @@ type BindingProtection interface {
 	ProtectSelectionCommit(context.Context, Binding, func() error) error
 }
 
-// IssueDelivery publishes nonfatal handler diagnostics before selection can commit.
+// IssueDelivery publishes selection-participant diagnostics to the connected client.
 type IssueDelivery interface {
 	// DeliverExtensionIssue attempts ordered delivery to the connected Glyph client.
 	DeliverSelectionIssue(context.Context, Issue) error
@@ -86,6 +86,6 @@ type IssueDelivery interface {
 
 // Observer delivers committed selection changes to registered extension observers.
 type Observer interface {
-	// ObserveSelection invokes one observer group and returns ordered post-commit diagnostics.
-	ObserveSelection(context.Context, ObservationKind, SelectionChange) []Issue
+	// ObserveSelection invokes the selected observer groups and stops on the first failure.
+	ObserveSelection(context.Context, SelectionChange) ([]Issue, error)
 }

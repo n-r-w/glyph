@@ -68,7 +68,7 @@ func (s *manualRequestHandlersSuite) TestReplacementProducerIdentity() {
 			if source == "other-extension" {
 				require.NotNil(t, terminal.GetFailed())
 				for _, identity := range []string{forgedProducer, owner} {
-					require.Contains(t, terminal.GetFailed().GetMessage(), identity)
+					require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), identity)
 					require.Contains(t, outcome.GetError(), identity)
 				}
 				require.Nil(t, outcome.GetCommitted())
@@ -85,7 +85,12 @@ func (s *manualRequestHandlersSuite) TestReplacementProducerIdentity() {
 				require.True(t, proto.Equal(input.GetCurrentResult(), outcome.GetState().GetResult()))
 			} else {
 				// Assert accepted producer metadata survives the public and stored projections.
-				require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetMessage())
+				require.NotNil(
+					t,
+					terminal.GetCompleted(),
+					"failure: %s",
+					terminal.GetFailed().GetFailure().GetMessage(),
+				)
 				marker := terminal.GetCompleted().GetCompaction().GetCommitted().GetCompaction()
 				require.NotNil(t, marker)
 				require.True(t, marker.HasDetails())

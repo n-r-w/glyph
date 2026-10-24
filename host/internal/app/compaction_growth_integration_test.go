@@ -46,7 +46,7 @@ func TestRecoveryRetainsCommitAndRejectsRealObserverContextGrowth(t *testing.T) 
 	terminal := receiveAutomaticTerminal(t, fixture, "growth-overflow")
 
 	// Assert no replacement attempt follows the failure and both provider and final-input sources survive.
-	failed := terminal.GetEvent().GetFailed()
+	failed := terminal.GetEvent().GetFailed().GetFailure()
 	require.NotNil(t, failed)
 	require.Equal(t, "COMPACTION_FAILED", failed.GetCode())
 	require.Contains(t, failed.GetMessage(), "provider context limit source")

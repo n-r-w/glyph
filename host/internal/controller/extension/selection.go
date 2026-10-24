@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/n-r-w/glyph/internal/errtree"
+
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -26,6 +28,10 @@ const (
 	selectionCodeCredentialUnavailable = "credential_unavailable" //nolint:gosec // This is a public error code.
 	// selectionCodeExtensionRejected identifies explicit handler rejection.
 	selectionCodeExtensionRejected = "extension_rejected"
+	// selectionCodeExtensionFailed identifies a failed selected participant.
+	selectionCodeExtensionFailed = "extension_failed"
+	// publicSelectionCodeExtensionFailed exposes participating selection failures.
+	publicSelectionCodeExtensionFailed = "EXTENSION_FAILED"
 	// selectionCodeExtensionUnavailable identifies selected handler runtime loss.
 	selectionCodeExtensionUnavailable = "extension_unavailable"
 	// selectionCodeInternal identifies an unclassified shared selection failure.
@@ -120,41 +126,28 @@ func mapSelectionResult(result SelectionResult) (*extensionpb.SelectionResult, e
 			Message: new(issue.Message),
 		}.Build())
 	}
+	var failure error
+	if result.Source != nil && !isSelectionCancellationOnly(result.Source) {
+		code := internalFailureCode
+		if classified, present := errors.AsType[SelectionFailure](result.Source); present {
+			code = publicSelectionCode(classified.ModelSelectionCode())
+		}
+		failure = extensionsdk.Fail(code, result.Source)
+	}
 	return extensionpb.SelectionResult_builder{
 		Selection: extensionpb.ModelSelection_builder{
 			ProviderId: new(string(result.Selection.Provider)), ModelId: new(string(result.Selection.Model)),
 			ReasoningChoice: new(string(result.Selection.ReasoningChoice)),
 		}.Build(),
 		Issues: issues,
-	}.Build(), nil
+	}.Build(), failure
 }
 
-// multiCause exposes all leaves of an error joined from independent causes.
-type multiCause interface {
-	// Unwrap returns every independent cause.
-	Unwrap() []error
-}
-
-// singleCause exposes the next error in one wrapped cause chain.
-type singleCause interface {
-	// Unwrap returns the wrapped cause.
-	Unwrap() error
-}
-
-// isSelectionCancellationOnly recognizes pure cancellation without hiding an independent failure leaf.
+// isSelectionCancellationOnly recognizes current owning cancellation without discarding explicit failure meaning.
 func isSelectionCancellationOnly(err error) bool {
-	if causes, ok := err.(multiCause); ok {
-		for _, cause := range causes.Unwrap() {
-			if !isSelectionCancellationOnly(cause) {
-				return false
-			}
-		}
-		return true
-	}
-	if cause, ok := err.(singleCause); ok {
-		return isSelectionCancellationOnly(cause.Unwrap())
-	}
-	return errors.Is(err, context.Canceled)
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled)
+	})
 }
 
 // publicSelectionCode maps shared internal categories to the closed extension contract.
@@ -174,6 +167,8 @@ func publicSelectionCode(code string) string {
 		return publicSelectionCodeCredentialUnavailable
 	case selectionCodeExtensionRejected:
 		return publicSelectionCodeExtensionRejected
+	case selectionCodeExtensionFailed:
+		return publicSelectionCodeExtensionFailed
 	case selectionCodeExtensionUnavailable:
 		return publicSelectionCodeExtensionUnavailable
 	case selectionCodeInternal:

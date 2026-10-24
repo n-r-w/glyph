@@ -146,7 +146,7 @@ func runRetryAcceptance(
 			observation.limits = append(observation.limits, retry.GetAttemptLimit())
 		}
 		if failure := event.GetFailed(); failure != nil {
-			observation.code, observation.message = failure.GetCode(), failure.GetMessage()
+			observation.code, observation.message = failure.GetFailure().GetCode(), failure.GetFailure().GetMessage()
 			break
 		}
 		if event.HasCompleted() {

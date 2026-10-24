@@ -157,7 +157,7 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 	appendFailures := []string{hostFailureCodePersistenceUnavailable, hostFailureCodeSessionUnavailable}
 	selectionFailures := []string{
 		hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable,
-		hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable,
+		hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable, hostFailureCodeExtensionFailed,
 	}
 	compactionFailures := []string{
 		hostFailureCodeCompactionFailed, hostFailureCodeExtensionFailed,
@@ -408,8 +408,8 @@ func hostPeerError(cause error, event *extensionpb.HostEvent) error {
 		return fmt.Errorf(
 			"%w: peer failure category %q: peer failure text: %s",
 			cause,
-			failure.GetCode(),
-			failure.GetMessage(),
+			failure.GetFailure().GetCode(),
+			failure.GetFailure().GetMessage(),
 		)
 	}
 	if rejection := event.GetRejected(); rejection != nil {
@@ -463,13 +463,15 @@ func mapHostEvent(
 		event.Message = payload.GetCanceled().GetMessage()
 		return event, true, nil
 	case extensionpb.HostEvent_Failed_case:
-		event.Kind, event.Code, event.Message = operation.EventFailed, payload.GetFailed().
+		failed := payload.GetFailed()
+		event.Kind, event.Code, event.Message = operation.EventFailed, failed.GetFailure().
 			GetCode(),
-			payload.GetFailed().
+			failed.GetFailure().
 				GetMessage()
-		if err := kind.validateHostFailureCode(event.Code); err != nil {
+		if err := kind.validateHostFailed(failed); err != nil {
 			return event, false, fmt.Errorf("%w: peer failure text: %s", err, event.Message)
 		}
+		event.Result = failed.GetResult()
 		return event, true, nil
 	case extensionpb.HostEvent_Rejected_case:
 		event.Kind, event.Code, event.Message = operation.EventRejected, payload.GetRejected().

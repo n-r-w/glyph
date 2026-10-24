@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"os"
 
 	"google.golang.org/protobuf/encoding/protojson"
 
@@ -11,6 +12,9 @@ import (
 
 // exerciseSelection selects one model and reasoning choice and returns the final typed result as tool text.
 func exerciseSelection(ctx context.Context) (*extensionv1.ToolResult, error) {
+	if os.Getenv(consumedSelectionEnvironment) != "" {
+		return exerciseConsumedSelection(ctx)
+	}
 	binding, err := extensionsdk.ContextFrom(ctx)
 	if err != nil {
 		return nil, err

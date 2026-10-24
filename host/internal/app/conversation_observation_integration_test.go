@@ -149,7 +149,7 @@ func (s *conversationObservationSuite) assertObserverFailure(retry bool) {
 	}
 	// Assert that the application preserves the owner cause and provider result without another attempt.
 	require.NotNil(t, terminal.GetFailed())
-	require.Contains(t, terminal.GetFailed().GetMessage(), "original conversation observer cause")
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "original conversation observer cause")
 	stored := sendProgrammaticOperation(
 		t,
 		fixture,
@@ -180,7 +180,7 @@ func (s *conversationObservationSuite) assertObserverFailure(retry bool) {
 	require.NoError(t, callsErr)
 	require.Len(t, calls, 1)
 	if retry {
-		require.Contains(t, terminal.GetFailed().GetMessage(), "prior conversation provider cause")
+		require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "prior conversation provider cause")
 		require.Contains(t, string(encoded), "prior conversation provider cause")
 		require.Len(t, bodies.snapshot(), 2)
 	} else {
@@ -393,7 +393,7 @@ func (s *conversationObservationSuite) assertHeldObservation(cancel, independent
 			}
 			if completed && cancel && independent {
 				require.NotNil(t, event.GetFailed())
-				require.Contains(t, event.GetFailed().GetMessage(), "independent nested provider cause")
+				require.Contains(t, event.GetFailed().GetFailure().GetMessage(), "independent nested provider cause")
 			}
 			if completed && cancel && !independent {
 				require.NotNil(t, event.GetCanceled())

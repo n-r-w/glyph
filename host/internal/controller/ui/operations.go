@@ -48,6 +48,10 @@ func (prepared *hostPrepared) Run(
 	case operation.TerminalStateCanceled:
 		return operation.CanceledWithSource[OperationResult](outcome.SourceError())
 	case operation.TerminalStateFailed:
+		if frame, present := outcome.Result(); present {
+			return operation.FailedWithResult(outcome.Code(), outcome.Err(),
+				OperationResult{Frame: frame, Cancel: mo.None[operation.TerminalState]()})
+		}
 		return operation.Failed[OperationResult](outcome.Code(), outcome.Err())
 	default:
 		return operation.Failed[OperationResult](

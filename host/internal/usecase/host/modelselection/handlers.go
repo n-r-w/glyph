@@ -9,6 +9,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 const (
@@ -80,7 +81,7 @@ type HandlerAction struct {
 	Rejection string
 }
 
-// Issue is one ordered nonfatal selection handler, observer, or delivery diagnostic.
+// Issue is one ordered selection handler, observer, or delivery diagnostic.
 type Issue struct {
 	// ExtensionID identifies the extension that produced the issue.
 	ExtensionID string
@@ -126,14 +127,23 @@ func (s *Service) compose(
 		if unavailable {
 			return model.Selection{}, issues, unavailableError(handler, errors.Join(handleErr, ctx.Err()))
 		}
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			return model.Selection{}, issues, errors.Join(ctxErr, handleErr)
-		}
 		if handleErr != nil {
-			if err := s.reportIssue(ctx, delivery, &issues, handler, IssueCodeHandlerError, handleErr); err != nil {
-				return model.Selection{}, issues, err
+			if ctx.Err() != nil && errtree.IsCurrentCancellation(handleErr, func(cause error) bool {
+				return errors.Is(cause, ctx.Err()) || errors.Is(cause, context.Cause(ctx))
+			}) {
+				return model.Selection{}, issues, handleErr
 			}
-			continue
+			if reportedErr := s.reportIssue(
+				ctx,
+				delivery,
+				&issues,
+				handler,
+				IssueCodeHandlerError,
+				handleErr,
+			); reportedErr != nil {
+				handleErr = reportedErr
+			}
+			return model.Selection{}, issues, NewExtensionFailure(errors.Join(handleErr, ctx.Err()))
 		}
 		next, rejected, actionErr := applyAction(current, action)
 		if actionErr != nil {
@@ -145,9 +155,12 @@ func (s *Service) compose(
 				IssueCodeInvalidHandlerAction,
 				actionErr,
 			); err != nil {
-				return model.Selection{}, issues, err
+				return model.Selection{}, issues, NewExtensionFailure(errors.Join(err, ctx.Err()))
 			}
-			continue
+			return model.Selection{}, issues, NewExtensionFailure(errors.Join(actionErr, ctx.Err()))
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return model.Selection{}, issues, ctxErr
 		}
 		if rejected {
 			return model.Selection{}, issues, &SelectionError{
@@ -194,7 +207,7 @@ func (s *Service) handlersFor(kind HandlerKind) ([]Handler, Runtime, ContextIssu
 	return result, runtime, contexts, issues
 }
 
-// reportIssue publishes a nonfatal issue before retaining it for completion diagnostics.
+// reportIssue publishes a participant issue and retains it for the selection outcome.
 func (s *Service) reportIssue(
 	ctx context.Context,
 	delivery IssueDelivery,
@@ -249,7 +262,7 @@ func unavailableError(handler Handler, cause error) error {
 	if cause == nil {
 		cause = errors.New("extension runtime became unavailable")
 	}
-	return &SelectionError{Code: ErrorCodeExtensionUnavailable, cause: fmt.Errorf(
+	return &SelectionError{Code: ErrorCodeExtensionUnavailable, cause: &extensionFailureError{cause: fmt.Errorf(
 		"extension %q handler %q is unavailable: %w", handler.ExtensionID, handler.HandlerID, cause,
-	)}
+	)}}
 }

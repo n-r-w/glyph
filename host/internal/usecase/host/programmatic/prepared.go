@@ -18,6 +18,8 @@ import (
 const (
 	// compactionRunningStage identifies active Programmatic compaction work.
 	compactionRunningStage = "running"
+	// selectionExtensionFailedCode identifies failed selection participants.
+	selectionExtensionFailedCode = "extension_failed"
 )
 
 // Prepare validates and admits one Programmatic operation without domain work.
@@ -150,6 +152,9 @@ func (p *commandPrepared) runSelection(ctx context.Context) operation.Outcome[co
 		response := emptyResponse(p.command.OperationID, controller.ResponseModelSelection)
 		response.Selection = mo.Some(result.Selection)
 		response.SelectionIssues = projectModelSelectionIssues(result.Issues)
+		if result.Source != nil && !isPureCancellation(result.Source) {
+			return operation.FailedWithResult(selectionOperationFailureCode(result.Source), result.Source, response)
+		}
 		return operation.CompletedWithSource(response, result.Source)
 	}
 	if result.Source == nil {
@@ -160,6 +165,9 @@ func (p *commandPrepared) runSelection(ctx context.Context) operation.Outcome[co
 	if isOperationCancellation(ctx, result.Source) {
 		return newCanceledCommandOutcome(result.Source)
 	}
+	if selectionOperationFailureCode(result.Source) == controller.FailureCodeExtensionFailed {
+		return operation.Failed[controller.Response](controller.FailureCodeExtensionFailed, result.Source)
+	}
 	rejected := p.service.selectionRejected(p.command, result.Source)
 	rejection, present := rejected.Rejection.Get()
 	if !present {
@@ -168,6 +176,15 @@ func (p *commandPrepared) runSelection(ctx context.Context) operation.Outcome[co
 		)
 	}
 	return operation.Failed[controller.Response](failureCodeForRejection(rejection.Code), rejection.Cause)
+}
+
+// selectionOperationFailureCode classifies failures after a selection result becomes available.
+func selectionOperationFailureCode(cause error) string {
+	failure, present := errors.AsType[SelectionFailure](cause)
+	if present && failure.ModelSelectionCode() == selectionExtensionFailedCode {
+		return controller.FailureCodeExtensionFailed
+	}
+	return controller.FailureCodeInternal
 }
 
 // newCanceledCommandOutcome preserves acquired diagnostics for canceled commands.
@@ -357,6 +374,13 @@ func failureCode(err error) string {
 	}
 	if code, found := modelExecutionFailureCode(err); found {
 		return code
+	}
+	for current := range errtree.IterateCurrentErrors(err) {
+		//nolint:errorlint // Current-node inspection excludes categories retained only as diagnostic history.
+		if classified, present := current.(errtree.CodedError); present &&
+			classified.Code() == controller.FailureCodeExtensionFailed {
+			return controller.FailureCodeExtensionFailed
+		}
 	}
 	return controller.FailureCodeInternal
 }

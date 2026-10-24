@@ -200,9 +200,9 @@ func TestAutomaticPreparationLifetime(t *testing.T) {
 			require.Len(t, bodies.snapshot(), 2)
 			if scenario.committed || scenario.independent || scenario.killOwner {
 				require.NotNil(t, terminal.GetFailed(), automaticUnexpectedTerminalFormat, terminal)
-				require.Contains(t, terminal.GetFailed().GetMessage(), context.Canceled.Error())
+				require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), context.Canceled.Error())
 				if scenario.independent {
-					require.Contains(t, terminal.GetFailed().GetMessage(), independentText)
+					require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), independentText)
 				}
 			} else {
 				require.NotNil(t, terminal.GetCanceled(), automaticUnexpectedTerminalFormat, terminal)
@@ -312,8 +312,8 @@ func TestAutomaticLostCompletionRetainsReceipt(t *testing.T) {
 	terminal := receiveAutomaticTerminal(t, fixture, "automatic-lost-next").GetEvent()
 	// Assert the real receipt survives and no ordinary provider request follows the uncertain completion.
 	require.NotNil(t, terminal.GetFailed(), automaticUnexpectedTerminalFormat, terminal)
-	require.Contains(t, terminal.GetFailed().GetMessage(), "reference-policy")
-	require.Contains(t, terminal.GetFailed().GetMessage(), "generation")
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "reference-policy")
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "generation")
 	require.Len(t, bodies.snapshot(), 1)
 	stored := sendProgrammaticOperation(
 		t,

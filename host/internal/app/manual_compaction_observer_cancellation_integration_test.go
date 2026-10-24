@@ -71,7 +71,7 @@ func (s *programmaticManualCancellationStopsObserverModelSuite) TestScenario() {
 
 	// Assert that cancellation retains the durable result and joins provider work.
 	result := event.GetCompleted().GetCompaction()
-	require.NotNil(t, result, event.GetFailed().GetMessage())
+	require.NotNil(t, result, event.GetFailed().GetFailure().GetMessage())
 	require.NotNil(t, result.GetCommitted())
 	require.Contains(t, result.GetError(), "context canceled")
 	stored := sendProgrammaticOperation(

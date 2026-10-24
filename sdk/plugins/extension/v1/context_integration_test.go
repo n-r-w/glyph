@@ -140,7 +140,9 @@ func TestHostPeerProtocolErrorsRetainCompleteCause(t *testing.T) {
 			}
 			text := strings.Repeat("Ω", 40000) + " complete Host cause"
 			payload := new(extensionpb.HostEvent)
-			payload.SetFailed(operationpb.Failed_builder{Code: new("INTERNAL"), Message: new(text)}.Build())
+			payload.SetFailed(extensionpb.HostFailed_builder{
+				Failure: operationpb.Failed_builder{Code: new("INTERNAL"), Message: new(text)}.Build(), Result: nil,
+			}.Build())
 
 			// Act: reject the illegal lifecycle at the initiating peer.
 			err := initiator.handle("operation", payload)
@@ -184,7 +186,13 @@ func TestInvalidHostLifecycleKeepsProtocolStatus(t *testing.T) {
 	connection, err := client.Open(t.Context())
 	require.NoError(t, err)
 	payload := new(extensionpb.HostEvent)
-	payload.SetFailed(operationpb.Failed_builder{Code: new("INTERNAL"), Message: new("complete peer cause")}.Build())
+	payload.SetFailed(extensionpb.HostFailed_builder{
+		Failure: operationpb.Failed_builder{
+			Code:    new("INTERNAL"),
+			Message: new("complete peer cause"),
+		}.Build(),
+		Result: nil,
+	}.Build())
 	require.NoError(t, connection.writer.Enqueue(hostEventEnvelope("unknown", payload), nil))
 
 	// Act: join the stream after its server detects the invalid lifecycle.

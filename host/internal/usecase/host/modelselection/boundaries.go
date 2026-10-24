@@ -98,6 +98,9 @@ func (r selectionResult) source() error {
 	if !r.committed {
 		return r.err
 	}
+	if r.err != nil {
+		return errors.Join(r.deliveryErr, r.err)
+	}
 	causes := make([]error, 0, len(r.issues)+1)
 	deliveryAdded := false
 	for _, issue := range r.issues {

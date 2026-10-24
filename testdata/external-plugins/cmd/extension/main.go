@@ -183,7 +183,7 @@ func main() {
 		selectionNested:         os.Getenv(selectionNestedEnvironment) == "1",
 		selectionObservers:      os.Getenv(selectionObserversEnvironment) == "1",
 		selectionObserverNested: os.Getenv(selectionObserverNestedEnvironment) == "1",
-		selectionObserverError:  os.Getenv(selectionObserverErrorEnvironment) == "1",
+		selectionObserverError:  os.Getenv(selectionObserverErrorEnvironment) != "",
 	})
 }
 

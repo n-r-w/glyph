@@ -310,7 +310,8 @@ func (h *Host) closeEvents() {
 	})
 }
 
-// Wait returns one retained terminal result without consuming progress notifications.
+// Wait returns terminal data and any failure without consuming progress notifications.
+// A failure may accompany an optional operation result.
 func (o *Operation) Wait(ctx context.Context) (*uiv1.HostCompleted, error) {
 	if cause := context.Cause(ctx); cause != nil {
 		return nil, cause
@@ -347,7 +348,7 @@ func (o *Operation) waitResult(
 	case operation.EventCanceled:
 		return nil, newCanceledError(event.Message)
 	case operation.EventFailed:
-		return nil, newRemoteFailure(event.Code, event.Message)
+		return event.Result, newRemoteFailure(event.Code, event.Message)
 	case operation.EventRejected:
 		return nil, newRemoteRejection(event.Code, event.Message)
 	case operation.EventAccepted, operation.EventRunning, operation.EventProgress:

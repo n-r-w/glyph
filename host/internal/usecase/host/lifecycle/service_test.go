@@ -296,20 +296,14 @@ func TestServiceSelectionObserversReturnOrderedIssues(t *testing.T) {
 		},
 	)
 	runtime.EXPECT().HandlerRuntimeAvailable("second").Return(true)
-	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil)
-	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "second", "later", secondBinding, gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ string, _ string, _ extension.Context, event Event) (bool, error) {
-			order = append(order, "second")
-			assert.Equal(t, change, event.Selection)
-			return false, nil
-		},
-	)
+	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil).Times(0)
 
 	// Act through the selection-specific lifecycle boundary.
-	result := service.ObserveSelection(t.Context(), modelselection.ObservationKindModel, change)
+	result, failure := service.ObserveSelection(t.Context(), change)
+	require.ErrorIs(t, failure, observerErr)
 
-	// Assert the ordinary failure is returned in order and does not stop the later observer.
-	assert.Equal(t, []string{"first", "issue", "second"}, order)
+	// Assert the ordinary failure is returned in order and stops the later observer.
+	assert.Equal(t, []string{"first", "issue"}, order)
 	require.Len(t, result, 1)
 	assert.Equal(t, "first", result[0].ExtensionID)
 	assert.Equal(t, "broken", result[0].HandlerID)
@@ -317,8 +311,8 @@ func TestServiceSelectionObserversReturnOrderedIssues(t *testing.T) {
 	assert.ErrorIs(t, result[0].Err, observerErr)
 }
 
-// TestSelectionObserverContextRaceRetainsCauseAndContinues verifies binding races stay diagnostic.
-func TestSelectionObserverContextRaceRetainsCauseAndContinues(t *testing.T) {
+// TestSelectionObserverContextRaceStopsChain verifies a selected observer binding failure stops later observers.
+func TestSelectionObserverContextRaceStopsChain(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one context issuance failure concurrent with runtime loss, followed by one available observer.
@@ -341,25 +335,24 @@ func TestSelectionObserverContextRaceRetainsCauseAndContinues(t *testing.T) {
 	}
 	runtime.EXPECT().HandlerRuntimeAvailable("first").Return(true)
 	contexts.EXPECT().IssueContext("first").Return(extension.Context{}, contextErr)
-	runtime.EXPECT().HandlerRuntimeAvailable("first").Return(false)
 	runtime.EXPECT().HandlerRuntimeAvailable("second").Return(true)
-	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil)
-	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "second", "later", secondBinding, gomock.Any()).Return(false, nil)
+	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil).Times(0)
 
 	// Act through committed model-selection observation.
-	result := service.ObserveSelection(t.Context(), modelselection.ObservationKindModel, modelselection.SelectionChange{
+	result, failure := service.ObserveSelection(t.Context(), modelselection.SelectionChange{
 		Preceding: model.Selection{Provider: "old", Model: "old", ReasoningChoice: model.ReasoningChoiceLow},
 		Committed: model.Selection{Provider: "new", Model: "new", ReasoningChoice: model.ReasoningChoiceLow},
 	})
 
-	// Assert the acquired context cause remains reachable while the later observer still runs.
-	require.Len(t, result, 1)
+	// Assert the acquired context cause remains reachable and the later observer does not run.
+	require.ErrorIs(t, failure, contextErr)
+	require.Len(t, result, 2)
 	assert.Equal(t, modelselection.IssueCodeObserverError, result[0].Code)
 	assert.ErrorIs(t, result[0].Err, contextErr)
 }
 
-// TestSelectionObserverRuntimeFailureRetainsCauseAndContinues verifies post-commit runtime loss stays diagnostic.
-func TestSelectionObserverRuntimeFailureRetainsCauseAndContinues(t *testing.T) {
+// TestSelectionObserverRuntimeFailureStopsChain verifies post-commit runtime loss stops later observers.
+func TestSelectionObserverRuntimeFailureStopsChain(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one observer runtime failure followed by one available observer.
@@ -394,23 +387,18 @@ func TestSelectionObserverRuntimeFailureRetainsCauseAndContinues(t *testing.T) {
 		},
 	)
 	runtime.EXPECT().HandlerRuntimeAvailable("second").Return(true)
-	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil)
-	runtime.EXPECT().ObserveLifecycle(gomock.Any(), "second", "later", secondBinding, gomock.Any()).DoAndReturn(
-		func(context.Context, string, string, extension.Context, Event) (bool, error) {
-			order = append(order, "second")
-			return false, nil
-		},
-	)
+	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil).Times(0)
 
 	// Act through committed model-selection observation.
-	result := service.ObserveSelection(t.Context(), modelselection.ObservationKindModel, modelselection.SelectionChange{
+	result, failure := service.ObserveSelection(t.Context(), modelselection.SelectionChange{
 		Preceding: model.Selection{Provider: "old", Model: "old", ReasoningChoice: model.ReasoningChoiceLow},
 		Committed: model.Selection{Provider: "new", Model: "new", ReasoningChoice: model.ReasoningChoiceLow},
 	})
 
-	// Assert runtime failure remains reachable while the later observer still runs.
-	assert.Equal(t, []string{"first", "second"}, order)
-	require.Len(t, result, 1)
+	// Assert runtime failure remains reachable and the later observer does not run.
+	require.ErrorIs(t, failure, runtimeErr)
+	assert.Equal(t, []string{"first"}, order)
+	require.Len(t, result, 2)
 	assert.Equal(t, modelselection.IssueCodeObserverError, result[0].Code)
 	assert.ErrorIs(t, result[0].Err, runtimeErr)
 }
@@ -446,9 +434,8 @@ func TestSelectionObserverIssueDeliveryFailureRetainsBothCauses(t *testing.T) {
 	delivery.EXPECT().DeliverExtensionIssue(gomock.Any(), gomock.Any()).Return(deliveryErr)
 
 	// Act through detached post-commit observation.
-	result := service.ObserveSelection(
+	result, failure := service.ObserveSelection(
 		t.Context(),
-		modelselection.ObservationKindReasoning,
 		modelselection.SelectionChange{
 			Preceding: model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow},
 			Committed: model.Selection{
@@ -463,7 +450,8 @@ func TestSelectionObserverIssueDeliveryFailureRetainsBothCauses(t *testing.T) {
 	require.Len(t, result, 2)
 	assert.Equal(t, modelselection.IssueCodeObserverError, result[0].Code)
 	assert.Equal(t, modelselection.IssueCodeDeliveryFailed, result[1].Code)
-	assert.ErrorIs(t, result[1].Err, observerErr)
+	assert.ErrorIs(t, failure, observerErr)
+	assert.ErrorIs(t, failure, deliveryErr)
 	assert.ErrorIs(t, result[1].Err, deliveryErr)
 }
 

@@ -374,7 +374,10 @@ func TestMalformedDuplicateAndFailedOperationsKeepStreamOpen(t *testing.T) {
 			}
 			if response.GetOperationId() == "failed" && response.GetEvent().HasFailed() {
 				failed := response.GetEvent().GetFailed()
-				failedError = publicError{code: failed.GetCode(), message: failed.GetMessage()}
+				failedError = publicError{
+					code:    failed.GetFailure().GetCode(),
+					message: failed.GetFailure().GetMessage(),
+				}
 			}
 		case <-time.After(time.Second):
 			require.FailNow(t, "per-request lifecycle evidence was not delivered")

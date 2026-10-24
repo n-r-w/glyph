@@ -65,6 +65,12 @@ func (controller *Controller) Notify(notification *uisdk.Notification) error {
 		input.Kind = NotificationFailed
 		input.Failure = notification.OperationError()
 		input.FailureCode = operationFailureCode(input.Failure)
+		if retained := notification.Completed(); retained != nil {
+			var payload Payload
+			var present bool
+			payload, present, err = DecodeCompleted(retained)
+			input.Payload = mo.TupleToOption(payload, present)
+		}
 	case uisdk.NotificationConnectionEvent:
 		var payload Payload
 		payload, err = DecodeConnectionEvent(notification.ConnectionEvent())

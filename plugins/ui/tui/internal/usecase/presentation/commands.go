@@ -166,12 +166,12 @@ func (service *Service) Notify(input plugininput.Notification) error {
 			service.foreground = ""
 		}
 	}
+	if err := service.applyInput(input.Payload); err != nil {
+		return err
+	}
 	match := func(leaf error) bool { return errors.Is(leaf, context.Canceled) }
 	switch {
 	case input.Kind != plugininput.NotificationFailed:
-		if err := service.applyInput(input.Payload); err != nil {
-			return err
-		}
 	case !errtree.IsCurrentCancellation(input.Failure, match):
 		service.model = service.model.applyEvent(operationErrorEvent(pending.command, input.FailureCode, input.Failure))
 	case !errtree.IsPlainCancellation(input.Failure, match):

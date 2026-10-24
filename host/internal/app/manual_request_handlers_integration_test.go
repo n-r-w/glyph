@@ -165,12 +165,12 @@ func (s *manualRequestHandlersSuite) runScenario(guidance, summary, failure stri
 	terminal := requestProgrammaticCompaction(t, fixture, manualRequestCompactionOperation, guidance)
 	if failure != "" {
 		require.NotNil(t, terminal.GetFailed())
-		require.Contains(t, terminal.GetFailed().GetMessage(), failure)
+		require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), failure)
 		if guidance == manualRequestFailAfterChildGuidance {
-			require.Contains(t, terminal.GetFailed().GetMessage(), manualSelectionPreparationCause)
+			require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), manualSelectionPreparationCause)
 		}
 	} else {
-		require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetMessage())
+		require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetFailure().GetMessage())
 		require.Equal(t, canceled, terminal.GetCompleted().GetCompaction().GetCanceled())
 		if !canceled {
 			require.Equal(

@@ -53,8 +53,8 @@ func TestSelectionOperationCommitsAndReturnsSelection(t *testing.T) {
 	assert.Equal(t, model.ProviderID("provider"), frame.ModelSelection.MustGet().Provider)
 }
 
-// TestSelectionPublicationFailureCompletesWithCommittedState verifies post-commit diagnostics do not report failure.
-func TestSelectionPublicationFailureCompletesWithCommittedState(t *testing.T) {
+// TestSelectionPublicationFailureRetainsCommittedState verifies failure preserves the actual committed selection.
+func TestSelectionPublicationFailureRetainsCommittedState(t *testing.T) {
 	t.Parallel()
 	// Arrange a shared operation that committed before full delivery failed.
 	controller := gomock.NewController(t)
@@ -85,8 +85,8 @@ func TestSelectionPublicationFailureCompletesWithCommittedState(t *testing.T) {
 	// Act by executing the admitted selection.
 	outcome := prepared.Run(t.Context(), operation.Reporter[controllerui.Frame]{})
 
-	// Assert terminal completion retains both committed state and complete diagnostics.
-	assert.Equal(t, operation.TerminalStateCompleted, outcome.State())
+	// Assert terminal failure retains both committed state and complete diagnostics.
+	assert.Equal(t, operation.TerminalStateFailed, outcome.State())
 	frame, present := outcome.Result()
 	require.True(t, present)
 	assert.Equal(t, selection, frame.ModelSelection.MustGet())

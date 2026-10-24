@@ -14,7 +14,7 @@ Remove intentional panic paths and propagate operation and validation failures t
 
 ### Extension failures stop the invoking operation
 
-Status: In progress. UNT07 ordinary invocation ownership and consumed-failure propagation are implemented and verified. See the [technical solution, check results, and remaining scope](specs/issues/extension-failure-propagation/solution.md).
+Status: In progress. UNT07 ownership is verified. UNT08 selection and typed Failed transport are implemented and verified in the [selection evidence](specs/issues/extension-failure-propagation/selection-evidence.md). For remaining issue scope, see [the technical solution](specs/issues/extension-failure-propagation/solution.md#limits-and-remaining-scope).
 
 Execution position: After PHS-06 and before PHS-08, together with production panic elimination.
 

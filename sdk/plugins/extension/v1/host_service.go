@@ -19,7 +19,8 @@ type HostService interface {
 
 // HostOperation owns one admitted catalog operation.
 type HostOperation interface {
-	// Run performs work outside stream receipt and reports typed progress.
+	// Run performs admitted work and reports typed progress.
+	// When an error maps to Failed, the owner retains a nonnil result that is valid for the admitted request.
 	Run(context.Context, *HostProgressReporter) (*extensionpb.HostCompleted, error)
 	// Release releases the runtime's active-operation reservation.
 	Release()

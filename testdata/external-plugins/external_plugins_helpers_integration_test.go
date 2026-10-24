@@ -471,8 +471,10 @@ func rejectedHostEvent() *uiv1.HostEvent {
 // failedHostEvent creates the complete public Failed lifecycle event.
 func failedHostEvent() *uiv1.HostEvent {
 	event := new(uiv1.HostEvent)
-	event.SetFailed(operationv1.Failed_builder{
-		Code: new(internalFailureCode), Message: new("complete external UI failure"),
+	event.SetFailed(uiv1.HostFailed_builder{
+		Failure: operationv1.Failed_builder{
+			Code: new(internalFailureCode), Message: new("complete external UI failure"),
+		}.Build(), Result: nil,
 	}.Build())
 	return event
 }

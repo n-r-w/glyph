@@ -34,9 +34,9 @@ func assertManualUnavailableOwnerFollowup(t *testing.T, fixture *programmaticFix
 		}
 	}
 	require.NotNil(t, terminal.GetFailed())
-	require.Equal(t, conversationExtensionFailed, terminal.GetFailed().GetCode())
-	require.Contains(t, terminal.GetFailed().GetMessage(), "issue captured conversation policy context")
-	require.Contains(t, terminal.GetFailed().GetMessage(), "unavailable")
+	require.Equal(t, conversationExtensionFailed, terminal.GetFailed().GetFailure().GetCode())
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "issue captured conversation policy context")
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "unavailable")
 	require.Len(t, bodies.snapshot(), before)
 	state := sendProgrammaticOperation(
 		t,

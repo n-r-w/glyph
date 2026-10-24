@@ -103,8 +103,20 @@ func (delivery *operationDelivery) Terminal(
 			slog.Any("error", outcome.Err()),
 		)
 		event := new(uiv1.HostEvent)
-		event.SetFailed(operationv1.Failed_builder{
-			Code: new(outcome.Code()), Message: new(outcome.Err().Error()),
+		var retained *uiv1.HostCompleted
+		if result, present := outcome.Result(); present {
+			mapped, err := mapFrame(result.Frame)
+			if err != nil {
+				return nil, errors.Join(err, outcome.Err())
+			}
+			retained = mapped.GetEvent().GetCompleted()
+			if retained == nil {
+				return nil, errors.Join(errors.New("map UI retained result: typed result is required"), outcome.Err())
+			}
+		}
+		event.SetFailed(uiv1.HostFailed_builder{
+			Failure: operationv1.Failed_builder{Code: new(outcome.Code()), Message: new(outcome.Err().Error())}.Build(),
+			Result:  retained,
 		}.Build())
 		request = hostEventRequest(id, event)
 	default:

@@ -507,7 +507,9 @@ func completeHostOperation(
 func failHostOperation(t *testing.T, stream uiv1.UIService_OpenClient, operationID, code, message string) {
 	t.Helper()
 	event := new(uiv1.HostEvent)
-	event.SetFailed(operationv1.Failed_builder{Code: new(code), Message: new(message)}.Build())
+	event.SetFailed(uiv1.HostFailed_builder{
+		Failure: operationv1.Failed_builder{Code: new(code), Message: new(message)}.Build(), Result: nil,
+	}.Build())
 	sendHostEvent(t, stream, operationID, event)
 }
 

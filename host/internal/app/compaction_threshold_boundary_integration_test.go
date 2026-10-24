@@ -89,8 +89,8 @@ func (s *thresholdBoundarySuite) TestScenario() {
 	require.NoError(t, fixture.stream.Send(userRequest(nextOperation, "next request")))
 	terminal := receiveAutomaticTerminal(t, fixture, nextOperation).GetEvent()
 	require.NotNil(t, terminal.GetFailed(), automaticUnexpectedTerminalFormat, terminal)
-	require.Equal(t, failureCode, terminal.GetFailed().GetCode())
-	message := terminal.GetFailed().GetMessage()
+	require.Equal(t, failureCode, terminal.GetFailed().GetFailure().GetCode())
+	message := terminal.GetFailed().GetFailure().GetMessage()
 
 	// Assert that Host retains the specific split boundary cause and adds no replacement.
 	require.Contains(t, message, "compaction boundary cannot separate a tool call from its result")

@@ -54,7 +54,7 @@ func (testSuite *ProgrammaticAppSuite) TestProgrammaticJoinedPersistenceFailure(
 			if !event.HasFailed() {
 				continue
 			}
-			failure := event.GetFailed()
+			failure := event.GetFailed().GetFailure()
 
 			// Assert the terminal model category is retained unless persistence contributes independently.
 			expectedCode := "MODEL_FAILED"

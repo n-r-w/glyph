@@ -104,10 +104,18 @@ message HostEvent {
     HostProgress progress = 3;
     HostCompleted completed = 4;
     glyph.operation.v1.Canceled canceled = 5;
-    glyph.operation.v1.Failed failed = 6;
+    HostFailed failed = 6;
     glyph.operation.v1.Rejected rejected = 7;
   }
 }
+// HostFailed reports failure and any retained operation result.
+message HostFailed {
+  // The failure category and complete error text.
+  glyph.operation.v1.Failed failure = 1;
+  // The optional typed result retained despite failure.
+  HostCompleted result = 2;
+}
+
 // HostProgress carries one operation-specific progress payload.
 message HostProgress {
   // The progress payload.

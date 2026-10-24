@@ -210,16 +210,16 @@ func runProgrammaticManualNestedCancellation(t *testing.T, guidance, participant
 	require.True(t, event.HasCanceled() || event.HasFailed(), "parent must not complete a replacement")
 	if event.HasFailed() {
 		if participantTimeout == "" {
-			require.Contains(t, event.GetFailed().GetMessage(), "context canceled")
+			require.Contains(t, event.GetFailed().GetFailure().GetMessage(), "context canceled")
 		}
-		require.Contains(t, event.GetFailed().GetMessage(), "request configured model")
+		require.Contains(t, event.GetFailed().GetFailure().GetMessage(), "request configured model")
 	}
 	if participantTimeout != "" {
 		require.True(t, event.HasFailed(), "participant timeout must expose its failure")
 		if !receivedBeforeCancellation {
-			require.Contains(t, event.GetFailed().GetMessage(), "context deadline exceeded")
+			require.Contains(t, event.GetFailed().GetFailure().GetMessage(), "context deadline exceeded")
 		}
-		require.Contains(t, event.GetFailed().GetMessage(), "provider catalog selection failed: not_found")
+		require.Contains(t, event.GetFailed().GetFailure().GetMessage(), "provider catalog selection failed: not_found")
 		assertManualNestedProviderFailure(t, event, providerFailure)
 	}
 	select {
@@ -300,30 +300,31 @@ func newManualNestedCancellationTransport(
 func assertManualNestedProviderFailure(t *testing.T, event *programmaticpb.HostEvent, providerFailure string) {
 	t.Helper()
 	const manualProviderContextLimitCategory = "category CONTEXT_LIMIT:"
+	message := event.GetFailed().GetFailure().GetMessage()
 	switch providerFailure {
 	case manualProviderSDKEnvelope:
-		require.Contains(t, event.GetFailed().GetMessage(), manualProviderEnvelopeBody)
+		require.Contains(t, message, manualProviderEnvelopeBody)
 	case manualProviderCodedRejection:
-		require.Contains(t, event.GetFailed().GetMessage(), manualProviderOverflowBody)
-		require.Contains(t, event.GetFailed().GetMessage(), manualProviderContextLimitCategory)
-		require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
+		require.Contains(t, message, manualProviderOverflowBody)
+		require.Contains(t, message, manualProviderContextLimitCategory)
+		require.Contains(t, message, "provider body cleanup source")
 	case manualProviderStreamCleanup:
-		require.Contains(t, event.GetFailed().GetMessage(), "provider body read source")
-		require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
+		require.Contains(t, message, "provider body read source")
+		require.Contains(t, message, "provider body cleanup source")
 	case manualProviderHTTPRejection:
-		require.Contains(t, event.GetFailed().GetMessage(), manualProviderRejectionBody)
-		require.Contains(t, event.GetFailed().GetMessage(), "429")
+		require.Contains(t, message, manualProviderRejectionBody)
+		require.Contains(t, message, "429")
 	case manualProviderBodyCleanup:
-		require.Contains(t, event.GetFailed().GetMessage(), manualProviderRejectionBody)
-		require.Contains(t, event.GetFailed().GetMessage(), "429")
-		require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
+		require.Contains(t, message, manualProviderRejectionBody)
+		require.Contains(t, message, "429")
+		require.Contains(t, message, "provider body cleanup source")
 	case manualProviderBodyFailure:
-		require.Contains(t, event.GetFailed().GetMessage(), manualProviderRejectionBody)
-		require.Contains(t, event.GetFailed().GetMessage(), "429")
-		require.Contains(t, event.GetFailed().GetMessage(), "provider body read source")
-		require.Contains(t, event.GetFailed().GetMessage(), "provider body cleanup source")
+		require.Contains(t, message, manualProviderRejectionBody)
+		require.Contains(t, message, "429")
+		require.Contains(t, message, "provider body read source")
+		require.Contains(t, message, "provider body cleanup source")
 	default:
-		require.Contains(t, event.GetFailed().GetMessage(), "nested provider cleanup source")
+		require.Contains(t, message, "nested provider cleanup source")
 	}
 }
 

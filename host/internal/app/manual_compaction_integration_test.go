@@ -62,7 +62,7 @@ func (s *programmaticManualCompactionUsesRegisteredPolicySuite) TestScenario() {
 		manualFixtureManualReplacement,
 		manualFixturePreserveTheRecentUserTurn,
 	)
-	require.NotNil(t, terminal.GetCompleted(), "terminal failure: %s", terminal.GetFailed().GetMessage())
+	require.NotNil(t, terminal.GetCompleted(), "terminal failure: %s", terminal.GetFailed().GetFailure().GetMessage())
 	compacted := terminal.GetCompleted().GetCompaction()
 	require.NotNil(t, compacted.GetCommitted())
 	require.Equal(t, manualReferenceSummary, compacted.GetCommitted().GetCompaction().GetSummary())
@@ -112,7 +112,7 @@ func (s *programmaticManualCompactionRejectsAbsentPolicySuite) TestScenario() {
 
 	// Assert that owner absence is distinct from history or generator errors.
 	require.NotNil(t, terminal.GetFailed())
-	require.Contains(t, terminal.GetFailed().GetMessage(), "no compaction policy owner is registered")
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "no compaction policy owner is registered")
 	fixture.closeOwner(t)
 }
 
@@ -305,7 +305,7 @@ func (s *programmaticManualCompactionTerminalStatesSuite) TestScenario() {
 			terminal := requestProgrammaticCompaction(t, fixture, manualFixtureTerminalState, scenario.guidance)
 			result := terminal.GetCompleted().GetCompaction()
 			if scenario.committed || scenario.canceled {
-				require.NotNil(t, result, terminal.GetFailed().GetMessage())
+				require.NotNil(t, result, terminal.GetFailed().GetFailure().GetMessage())
 				require.Equal(t, scenario.committed, result.GetCommitted() != nil)
 				require.Equal(t, scenario.canceled, result.GetCanceled())
 				if scenario.cause != "" {
@@ -313,7 +313,7 @@ func (s *programmaticManualCompactionTerminalStatesSuite) TestScenario() {
 				}
 			} else {
 				require.NotNil(t, terminal.GetFailed())
-				require.Contains(t, terminal.GetFailed().GetMessage(), scenario.cause)
+				require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), scenario.cause)
 			}
 			assertManualOutcome(t, outcomePath, scenario.guidance, scenario.committed, result.GetError())
 			stored := sendProgrammaticOperation(
@@ -433,6 +433,10 @@ func (s *programmaticManualCompactionRejectsAmbiguousOwnersSuite) TestScenario()
 
 	// Assert that Host does not choose an owner by registration order.
 	require.NotNil(t, terminal.GetFailed())
-	require.Contains(t, terminal.GetFailed().GetMessage(), "multiple compaction policy owners are registered")
+	require.Contains(
+		t,
+		terminal.GetFailed().GetFailure().GetMessage(),
+		"multiple compaction policy owners are registered",
+	)
 	fixture.closeOwner(t)
 }

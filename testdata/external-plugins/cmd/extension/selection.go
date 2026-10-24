@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 
@@ -11,6 +12,22 @@ import (
 )
 
 const (
+	// selectionFailureEnvironment selects a real selection participant failure.
+	selectionFailureEnvironment = "GLYPH_EXTERNAL_SELECTION_FAILURE"
+	// selectionFailureModeError selects an ordinary handler error.
+	selectionFailureModeError = "error"
+	// selectionFailureModeInvalid selects invalid participant output.
+	selectionFailureModeInvalid = "invalid"
+	// selectionFailureModeCanceled selects independent participant cancellation.
+	selectionFailureModeCanceled = "independent-cancel"
+	// selectionFailureModeUnavailable selects termination of the selected participant process.
+	selectionFailureModeUnavailable = "unavailable"
+	// selectionFailureExitCode identifies the deliberate participant process exit.
+	selectionFailureExitCode = 24
+	// selectionFailureText is the complete fixture handler cause.
+	selectionFailureText = "public selection handler full unique failure text"
+	// selectionLaterHandlerSignal marks invocation of a later selection handler.
+	selectionLaterHandlerSignal = "selection-later-handler"
 	// selectionCompositionEnvironment enables ordered selection transformations in the external fixture.
 	selectionCompositionEnvironment = "GLYPH_EXTERNAL_SELECTION_COMPOSITION"
 	// selectionNestedEnvironment enables nested public operations from a selection handler.
@@ -127,6 +144,23 @@ func isSelectionHandlerID(handlerID string) bool {
 	}
 }
 
+// selectionFailureResponse produces the configured failure from one selected participant.
+func selectionFailureResponse(modelHandler bool, mode string) (*extensionv1.HandleResponse, error) {
+	switch mode {
+	case selectionFailureModeError:
+		response := new(extensionv1.HandleResponse)
+		response.SetError(extensionv1.HandlerError_builder{Message: new(selectionFailureText)}.Build())
+		return response, nil
+	case selectionFailureModeInvalid:
+		return selectionActionResponse(modelHandler, new(extensionv1.SelectionHandlerAction)), nil
+	case selectionFailureModeCanceled:
+		return nil, context.Canceled
+	case selectionFailureModeUnavailable:
+		os.Exit(selectionFailureExitCode)
+	}
+	return nil, fmt.Errorf("unsupported selection failure mode %q", mode)
+}
+
 // runSelectionHandler validates original/current composition and returns the next complete target.
 func (operation *handleOperation) runSelectionHandler(ctx context.Context) (*extensionv1.HandleResponse, error) {
 	invocation := operation.request.GetModelSelection()
@@ -135,6 +169,14 @@ func (operation *handleOperation) runSelectionHandler(ctx context.Context) (*ext
 		invocation = operation.request.GetReasoningSelection()
 	}
 	handlerID := operation.request.GetHandlerId()
+	if mode := os.Getenv(selectionFailureEnvironment); mode != "" {
+		switch handlerID {
+		case modelSelectionFirstHandlerID, reasoningSelectionFirstHandlerID:
+			return selectionFailureResponse(modelHandler, mode)
+		case modelSelectionSecondHandlerID, reasoningSelectionSecondHandlerID:
+			signal(operation.signals, selectionLaterHandlerSignal)
+		}
+	}
 	if handlerID == modelSelectionHandlerID || handlerID == reasoningSelectionHandlerID {
 		if operation.selectionNested && handlerID == modelSelectionHandlerID {
 			if err := operation.runNestedSelectionOperations(ctx); err != nil {
@@ -173,6 +215,14 @@ func (operation *handleOperation) runSelectionObserver(ctx context.Context) (*ex
 		return nil, err
 	}
 	if operation.selectionObserverError && operation.request.GetHandlerId() == reasoningSelectionObserverID {
+		switch os.Getenv(selectionObserverErrorEnvironment) {
+		case selectionFailureModeUnavailable:
+			os.Exit(selectionFailureExitCode)
+		case selectionFailureModeInvalid:
+			return new(extensionv1.HandleResponse), nil
+		case selectionFailureModeCanceled:
+			return nil, context.Canceled
+		}
 		response := new(extensionv1.HandleResponse)
 		response.SetError(extensionv1.HandlerError_builder{Message: new("public reasoning observer failed")}.Build())
 		return response, nil

@@ -108,7 +108,20 @@ func (d *streamDelivery) Terminal(id string, outcome operation.Outcome[Response]
 		failed := new(operationv1.Failed)
 		failed.SetCode(code)
 		failed.SetMessage(failureErr.Error())
-		event.SetFailed(failed)
+		var retained *programmaticv1.HostCompleted
+		if result, present := outcome.Result(); present {
+			if !completionMatches(d.registry.kind(id), result.Kind) {
+				return nil, d.failed(
+					errors.Join(errors.New("programmatic retained result does not match request kind"), failureErr),
+				)
+			}
+			var err error
+			retained, err = mapResponse(result)
+			if err != nil {
+				return nil, d.failed(errors.Join(fmt.Errorf("map Programmatic retained result: %w", err), failureErr))
+			}
+		}
+		event.SetFailed(programmaticv1.HostFailed_builder{Failure: failed, Result: retained}.Build())
 		slog.Error("Programmatic operation failed",
 			"operation_id", id,
 			"operation_kind", d.registry.kind(id),
@@ -143,7 +156,7 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 	case CommandSelectModel, CommandSelectReasoningChoice:
 		switch proposed {
 		case FailureCodeModelUnavailable, FailureCodeCredentialUnavailable,
-			FailureCodeExtensionRejected, FailureCodeExtensionUnavailable, FailureCodeInternal:
+			FailureCodeExtensionRejected, FailureCodeExtensionUnavailable, FailureCodeExtensionFailed, FailureCodeInternal:
 			return proposed
 		default:
 			return FailureCodeInternal

@@ -125,7 +125,7 @@ message HostEvent {
     glyph.operation.v1.Running running = 2;
     HostCompleted completed = 3;
     glyph.operation.v1.Canceled canceled = 4;
-    glyph.operation.v1.Failed failed = 5;
+    HostFailed failed = 5;
     glyph.operation.v1.Rejected rejected = 6;
     HostProgress progress = 7;
   }
@@ -139,6 +139,14 @@ message HostProgress {
     // Progress for one extension-initiated manual compaction.
     CompactionProgress compaction = 2;
   }
+}
+
+// HostFailed reports failure and any retained operation result.
+message HostFailed {
+  // The failure category and complete error text.
+  glyph.operation.v1.Failed failure = 1;
+  // The optional typed result retained despite failure.
+  HostCompleted result = 2;
 }
 
 // HostCompleted carries one extension-initiated Host result.

@@ -191,7 +191,7 @@ func (o *contextOperation) wait(
 			case operation.EventCanceled:
 				return nil, newCanceledError(event.Message)
 			case operation.EventFailed:
-				return nil, &contextOperationError{
+				return event.Result, &contextOperationError{
 					id:    o.id,
 					code:  event.Code,
 					cause: newRemoteFailure(event.Code, event.Message),

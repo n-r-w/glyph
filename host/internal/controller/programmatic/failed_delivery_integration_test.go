@@ -55,7 +55,7 @@ func TestUserRequestCompactionFailureReachesProgrammaticWire(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, acknowledgement)
 	response := <-captured
-	failed := response.GetEvent().GetFailed()
+	failed := response.GetEvent().GetFailed().GetFailure()
 	require.Equal(t, FailureCodeCompactionFailed, failed.GetCode())
 	require.Equal(t, cause.Error(), failed.GetMessage())
 }
@@ -105,8 +105,8 @@ func TestFailedTerminalSendPreservesCompletionCauses(t *testing.T) {
 				events = append(events, "running")
 			case event.HasFailed():
 				events = append(events, "failed")
-				assert.Equal(t, FailureCodeInternal, event.GetFailed().GetCode())
-				assert.Equal(t, source.Error(), event.GetFailed().GetMessage())
+				assert.Equal(t, FailureCodeInternal, event.GetFailed().GetFailure().GetCode())
+				assert.Equal(t, source.Error(), event.GetFailed().GetFailure().GetMessage())
 				return deliveryErr
 			default:
 				t.Error("unexpected operation event")
@@ -197,7 +197,7 @@ func TestCanceledTerminalSendUsesActualConfirmationAtCollection(t *testing.T) {
 				sendReturned := make(chan struct{})
 				stream.EXPECT().Send(gomock.Any()).DoAndReturn(func(response *programmaticv1.OpenResponse) error {
 					if response.GetEvent().HasFailed() {
-						assert.Equal(t, source.Error(), response.GetEvent().GetFailed().GetMessage())
+						assert.Equal(t, source.Error(), response.GetEvent().GetFailed().GetFailure().GetMessage())
 						close(sendStarted)
 						<-sendRelease
 						close(sendReturned)

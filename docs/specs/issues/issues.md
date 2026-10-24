@@ -1,6 +1,6 @@
 # Issues
 
-- [ ] [Extension failure propagation](extension-failure-propagation/ticket.md): In progress. UNT07 ownership and consumed-failure propagation have focused regression evidence; see the [technical solution and verification record](extension-failure-propagation/solution.md). Complete the remaining scope and verification before PHS-08 under the [delivery-plan completion gate](../features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08).
+- [ ] [Extension failure propagation](extension-failure-propagation/ticket.md): In progress. UNT07 ownership is verified. UNT08 selection and typed Failed transport are implemented and verified; see the [selection evidence](extension-failure-propagation/selection-evidence.md). Complete the remaining scope and verification before PHS-08 under the [delivery-plan completion gate](../features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08).
 
 - [ ] PHS-07 standard TUI PTY verification: [Accepted technical debt](../features/initial/phases/07-extension-context-lifecycle/technical-debt.md)
 

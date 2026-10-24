@@ -145,7 +145,7 @@ func TestNavigationSummaryTerminalFailureAcrossClients(t *testing.T) {
 						continue
 					}
 					if failed := response.GetEvent().GetFailed(); failed != nil {
-						code, message = failed.GetCode(), failed.GetMessage()
+						code, message = failed.GetFailure().GetCode(), failed.GetFailure().GetMessage()
 					}
 				}
 				fixture.closeOwner(t)

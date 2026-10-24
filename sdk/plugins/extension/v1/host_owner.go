@@ -73,9 +73,11 @@ func (d *hostDelivery) Terminal(
 		if err := validateHostOutputFailureCode(outcome.Code()); err != nil {
 			return d.terminalFailure(errors.Join(err, outcome.Err()))
 		}
-		event.SetFailed(
-			operationpb.Failed_builder{Code: new(outcome.Code()), Message: new(outcome.Err().Error())}.Build(),
-		)
+		result, _ := outcome.Result()
+		event.SetFailed(extensionpb.HostFailed_builder{
+			Failure: operationpb.Failed_builder{Code: new(outcome.Code()), Message: new(outcome.Err().Error())}.Build(),
+			Result:  result,
+		}.Build())
 	default:
 		return d.terminalFailure(errors.New("complete Host operation: terminal state is required"))
 	}
@@ -182,7 +184,14 @@ func (p *hostPrepared) Run(
 ) operation.Outcome[*extensionpb.HostCompleted] {
 	result, err := p.operation.Run(ctx, &HostProgressReporter{reporter: reporter})
 	if err != nil {
-		return operationOutcome[*extensionpb.HostCompleted](err)
+		outcome := operationOutcome[*extensionpb.HostCompleted](err)
+		if result == nil || outcome.State() != operation.TerminalStateFailed {
+			return outcome
+		}
+		if validationErr := p.kind.validateHostCompleted(result); validationErr != nil {
+			return operation.Failed[*extensionpb.HostCompleted](failureCodeInternal, errors.Join(err, validationErr))
+		}
+		return operation.FailedWithResult(outcome.Code(), outcome.Err(), result)
 	}
 	if !p.kind.matchesHostCompleted(result) {
 		return operation.Failed[*extensionpb.HostCompleted](

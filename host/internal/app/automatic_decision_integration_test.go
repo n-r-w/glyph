@@ -71,7 +71,7 @@ func TestAutomaticDecisionRetainsDurableOutcome(t *testing.T) {
 			terminal := receiveAutomaticTerminal(t, fixture, "decision-next").GetEvent()
 			// Assert preparation fails before provider dispatch and retains only the actual durable outcome.
 			require.NotNil(t, terminal.GetFailed(), automaticUnexpectedTerminalFormat, terminal)
-			require.Contains(t, terminal.GetFailed().GetMessage(), scenario.cause)
+			require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), scenario.cause)
 			if scenario.mode == canceledDiagnosticMode {
 				encoded, readErr := os.ReadFile(outcomePath)
 				require.NoError(t, readErr)

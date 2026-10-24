@@ -439,15 +439,16 @@ func (m *MockObserver) EXPECT() *MockObserverMockRecorder {
 }
 
 // ObserveSelection mocks base method.
-func (m *MockObserver) ObserveSelection(arg0 context.Context, arg1 ObservationKind, arg2 SelectionChange) []Issue {
+func (m *MockObserver) ObserveSelection(arg0 context.Context, arg1 SelectionChange) ([]Issue, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ObserveSelection", arg0, arg1, arg2)
+	ret := m.ctrl.Call(m, "ObserveSelection", arg0, arg1)
 	ret0, _ := ret[0].([]Issue)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // ObserveSelection indicates an expected call of ObserveSelection.
-func (mr *MockObserverMockRecorder) ObserveSelection(arg0, arg1, arg2 any) *gomock.Call {
+func (mr *MockObserverMockRecorder) ObserveSelection(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveSelection", reflect.TypeOf((*MockObserver)(nil).ObserveSelection), arg0, arg1, arg2)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ObserveSelection", reflect.TypeOf((*MockObserver)(nil).ObserveSelection), arg0, arg1)
 }

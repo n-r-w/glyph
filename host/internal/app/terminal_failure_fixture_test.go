@@ -30,7 +30,10 @@ func requestProgrammaticFailure(
 			retryProgress++
 		}
 		if failure := event.GetFailed(); failure != nil {
-			return terminalFailureObservation{Code: failure.GetCode(), Message: failure.GetMessage()}, retryProgress
+			return terminalFailureObservation{
+				Code:    failure.GetFailure().GetCode(),
+				Message: failure.GetFailure().GetMessage(),
+			}, retryProgress
 		}
 		require.False(t, event.HasCompleted() || event.HasCanceled(), "unexpected successful or canceled terminal")
 	}

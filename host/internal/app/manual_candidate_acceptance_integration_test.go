@@ -61,7 +61,11 @@ func (s *manualResultHandlersSuite) TestRejectedCandidatesRemainUninstalled() {
 				GetEntries()
 			// Assert atomic rejection of policy state and durable state.
 			require.NotNil(t, terminal.GetFailed())
-			require.Contains(t, terminal.GetFailed().GetMessage(), "compaction boundary is outside its branch")
+			require.Contains(
+				t,
+				terminal.GetFailed().GetFailure().GetMessage(),
+				"compaction boundary is outside its branch",
+			)
 			require.Len(t, after, len(before))
 			for index := range before {
 				require.True(t, proto.Equal(before[index], after[index]))

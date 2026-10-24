@@ -169,8 +169,12 @@ func TestAutomaticConversationPreparation(t *testing.T) {
 			actualBodies := bodies.snapshot()
 			if mode == automaticFixtureRejectFinalMode {
 				require.NotNil(t, terminal.GetEvent().GetFailed())
-				require.Contains(t, terminal.GetEvent().GetFailed().GetMessage(), automaticFixtureFinalCause)
-				require.Contains(t, terminal.GetEvent().GetFailed().GetMessage(), "budget=3500")
+				require.Contains(
+					t,
+					terminal.GetEvent().GetFailed().GetFailure().GetMessage(),
+					automaticFixtureFinalCause,
+				)
+				require.Contains(t, terminal.GetEvent().GetFailed().GetFailure().GetMessage(), "budget=3500")
 				require.Len(t, actualBodies, 1)
 			} else {
 				require.NotNil(t, terminal.GetEvent().GetCompleted())

@@ -187,7 +187,7 @@ func (s *hostContractMatrixSuite) TestFailureFamilies() {
 			kinds: []hostRequestKind{hostRequestModelSelection, hostRequestReasoningSelection},
 			allowed: []string{
 				hostFailureCodeModelUnavailable, hostFailureCodeCredentialUnavailable,
-				hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable,
+				hostFailureCodeExtensionRejected, hostFailureCodeExtensionUnavailable, hostFailureCodeExtensionFailed,
 			},
 		},
 		{

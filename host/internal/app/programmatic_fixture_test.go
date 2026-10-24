@@ -400,7 +400,7 @@ func sendProgrammaticFailed(
 		}
 		if response.GetEvent().HasFailed() {
 			require.True(t, accepted)
-			return response.GetEvent().GetFailed()
+			return response.GetEvent().GetFailed().GetFailure()
 		}
 	}
 }
@@ -428,7 +428,7 @@ func completeProgrammaticRequest(
 			require.FailNow(t, "Programmatic operation was rejected", "code: %s", event.GetRejected().GetCode())
 		}
 		if event.HasFailed() {
-			require.FailNow(t, "Programmatic operation failed", "code: %s", event.GetFailed().GetCode())
+			require.FailNow(t, "Programmatic operation failed", "code: %s", event.GetFailed().GetFailure().GetCode())
 		}
 		if event.HasCanceled() {
 			require.FailNow(t, "Programmatic operation was canceled")

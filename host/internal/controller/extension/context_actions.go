@@ -105,12 +105,11 @@ func (o *contextOperation) runSelection(
 	result := new(extensionpb.HostCompleted)
 	selectionResult := selection.Run(ctx)
 	mapped, err := mapSelectionResult(selectionResult)
-	if err != nil {
+	if mapped == nil {
 		return nil, err
 	}
 	result.SetSelection(mapped)
-
-	return result, nil
+	return result, err
 }
 
 // runAppendMessage returns the visible message receipt and delivery issues.

@@ -191,10 +191,14 @@ func TestStandardAutomaticFinalHistory(t *testing.T) {
 			actual := bodies.snapshot()
 			if oversized {
 				require.NotNil(t, terminal.GetEvent().GetFailed())
-				require.Contains(t, terminal.GetEvent().GetFailed().GetMessage(), "conversation input budget exceeded")
 				require.Contains(
 					t,
-					terminal.GetEvent().GetFailed().GetMessage(),
+					terminal.GetEvent().GetFailed().GetFailure().GetMessage(),
+					"conversation input budget exceeded",
+				)
+				require.Contains(
+					t,
+					terminal.GetEvent().GetFailed().GetFailure().GetMessage(),
 					"budget 7000 (context 8000, response reserve 1000)",
 				)
 				require.Len(t, actual, 2)

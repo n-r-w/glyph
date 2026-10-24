@@ -81,7 +81,7 @@ func TestConsumedInvalidProducerFailsPublic(t *testing.T) {
 
 			// Assert failure retains the entire producer rejection and prevents replacement.
 			require.NotNil(t, terminal.GetFailed(), "terminal: %s", terminal)
-			require.Contains(t, terminal.GetFailed().GetMessage(), completeCause)
+			require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), completeCause)
 			stored := sendProgrammaticOperation(
 				t,
 				fixture,

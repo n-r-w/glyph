@@ -138,9 +138,14 @@ func TestStandardManualComposition(t *testing.T) {
 			committed := test.cause == "" && !test.canceled
 			if test.cause != "" {
 				require.NotNil(t, terminal.GetFailed())
-				require.Contains(t, terminal.GetFailed().GetMessage(), test.cause)
+				require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), test.cause)
 			} else {
-				require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetMessage())
+				require.NotNil(
+					t,
+					terminal.GetCompleted(),
+					"failure: %s",
+					terminal.GetFailed().GetFailure().GetMessage(),
+				)
 				require.Equal(t, test.canceled, terminal.GetCompleted().GetCompaction().GetCanceled())
 				if test.name == "custom-generator" {
 					require.Equal(t, manualGeneratorSummary,

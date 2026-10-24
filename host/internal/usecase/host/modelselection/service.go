@@ -63,11 +63,11 @@ type selectionResult struct {
 	selection model.Selection
 	// committed reports whether catalog state changed or confirmed a no-op.
 	committed bool
-	// issues contains ordered nonfatal handler diagnostics.
+	// issues contains ordered selection-participant diagnostics.
 	issues []Issue
 	// deliveryErr contains a post-commit client publication failure.
 	deliveryErr error
-	// err contains a pre-commit terminal failure.
+	// err contains a terminal selection failure before or after commit.
 	err error
 }
 
@@ -222,7 +222,7 @@ func (s *Service) commitSelection(
 		result.deliveryErr = wait(ctx)
 	}
 	if committedChange, changed := change.Get(); changed {
-		result.issues = s.observeSelection(ctx, committedChange, result.issues)
+		result.issues, result.err = s.observeSelection(ctx, committedChange, result.issues)
 	}
 	return result
 }

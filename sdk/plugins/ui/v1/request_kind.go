@@ -114,9 +114,7 @@ func classifySessionUIRequest(request *uiv1.UIRequest) (requestKind, error) {
 	}
 }
 
-// validateHostPayload checks progress and completion against the initiating request kind.
-//
-//nolint:gocyclo // The request and lifecycle payload product is validated explicitly.
+// validateHostPayload checks progress, completion, and retained failure data against the initiating request kind.
 func validateHostPayload(kind requestKind, event *uiv1.HostEvent) error {
 	if event == nil {
 		return errors.New("Host operation event is required")
@@ -134,12 +132,34 @@ func validateHostPayload(kind requestKind, event *uiv1.HostEvent) error {
 			return err
 		}
 	}
+	if failed := event.GetFailed(); failed != nil {
+		return kind.validateFailed(failed)
+	}
 	if completed := event.GetCompleted(); completed != nil {
-		if !completedMatches(kind, completed) {
-			return fmt.Errorf("Host completed payload does not match UI request kind %d", kind)
-		}
-		if err := validateHostCompletedFields(completed); err != nil {
-			return err
+		return kind.validateCompleted(completed)
+	}
+	return nil
+}
+
+// validateCompleted checks typed result attribution and required payload fields.
+func (kind requestKind) validateCompleted(completed *uiv1.HostCompleted) error {
+	if !completedMatches(kind, completed) {
+		return fmt.Errorf("Host completed payload does not match UI request kind %d", kind)
+	}
+	return validateHostCompletedFields(completed)
+}
+
+// validateFailed checks complete failure data and preserves peer text when retained data is invalid.
+func (kind requestKind) validateFailed(failed *uiv1.HostFailed) error {
+	failure := failed.GetFailure()
+	if failure == nil || failure.GetCode() == "" || failure.GetMessage() == "" {
+		return fmt.Errorf("host failure requires a category and complete error text: category %q: %s",
+			failure.GetCode(), failure.GetMessage())
+	}
+	if result := failed.GetResult(); result != nil {
+		if err := kind.validateCompleted(result); err != nil {
+			return fmt.Errorf("invalid retained Host result: %w: peer failure category %q: %s",
+				err, failure.GetCode(), failure.GetMessage())
 		}
 	}
 	return nil

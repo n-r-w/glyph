@@ -80,7 +80,7 @@ func runManualResultTerminalScenario(t *testing.T, directory, mode string, cause
 	} else {
 		require.NotNil(t, terminal.GetFailed())
 		for _, cause := range causes {
-			require.Contains(t, terminal.GetFailed().GetMessage(), cause)
+			require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), cause)
 		}
 	}
 	require.Len(t, after, len(before))

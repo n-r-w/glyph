@@ -134,7 +134,7 @@ func (s *manualResultHandlersSuite) runOrderedComposition(mode string, separate 
 	// Act through manual compaction and the next conversation request.
 	terminal := requestProgrammaticCompaction(t, fixture, "result-compaction", guidance)
 	// Assert the public result before inspecting participant inputs.
-	require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetMessage())
+	require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetFailure().GetMessage())
 	marker := terminal.GetCompleted().GetCompaction().GetCommitted().GetCompaction()
 	require.Equal(t, summary, marker.GetSummary())
 	first := readManualResultInput(t, inputs, "result-z-first")

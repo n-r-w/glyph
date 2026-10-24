@@ -1,6 +1,6 @@
 # Ticket: Stop operations on extension failure
 
-Status: In progress. The [technical solution and verification record](solution.md) tracks UNT07 ownership and consumed-failure propagation; the remaining issue scope is pending.
+Status: In progress. UNT07 ownership is verified. UNT08 selection failure propagation and typed Failed transport are implemented and verified in the [selection evidence](selection-evidence.md). For remaining issue scope, see [the technical solution](solution.md#limits-and-remaining-scope).
 
 Align implemented extension invocation paths with the existing [extension failure rule](../../features/initial/prd.md#extension-failure-rule) before PHS-08 starts.
 
@@ -10,9 +10,9 @@ Use the [domain glossary](../../../terms.md) for extension, parent operation, co
 
 ## Problem Statement
 
-Host currently continues some implemented extension chains after a handler error or invalid action. During model selection and session-tree navigation, Host can invoke later handlers and commit a change after an earlier handler fails. Lifecycle observer failures can remain diagnostic issues while Host continues the chain and the invoking operation.
+At the recorded baseline, Host continued some implemented extension chains after a handler error or invalid action. Model selection and session-tree navigation could invoke later handlers and commit a change after an earlier handler failed. Lifecycle observer failures could remain diagnostic issues while Host continued the chain and the invoking operation.
 
-The existing tests include expectations for this continuation. Passing those tests therefore does not establish compliance with the extension failure rule.
+The baseline tests included expectations for this continuation. Passing those tests did not establish compliance with the extension failure rule.
 
 ## Target Picture
 
@@ -110,7 +110,7 @@ None for the task scope and required behavior. Package-level changes remain impl
 
 ## Technical Supplement
 
-### Confirmed source locations
+### Confirmed baseline source locations
 
 - `host/internal/usecase/host/modelselection/handlers.go`, `Service.compose`: handler errors and invalid actions can be reported before composition continues.
 - `host/internal/usecase/host/modelselection/service.go`, `Service.run` and `Service.commitSelection`: a composed selection can subsequently be committed.

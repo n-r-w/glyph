@@ -623,7 +623,7 @@ func (x *HostEvent) GetCanceled() *v1.Canceled {
 	return nil
 }
 
-func (x *HostEvent) GetFailed() *v1.Failed {
+func (x *HostEvent) GetFailed() *HostFailed {
 	if x != nil {
 		if x, ok := x.xxx_hidden_Event.(*hostEvent_Failed); ok {
 			return x.Failed
@@ -681,7 +681,7 @@ func (x *HostEvent) SetCanceled(v *v1.Canceled) {
 	x.xxx_hidden_Event = &hostEvent_Canceled{v}
 }
 
-func (x *HostEvent) SetFailed(v *v1.Failed) {
+func (x *HostEvent) SetFailed(v *HostFailed) {
 	if v == nil {
 		x.xxx_hidden_Event = nil
 		return
@@ -850,7 +850,7 @@ type HostEvent_builder struct {
 	Progress  *HostProgress
 	Completed *HostCompleted
 	Canceled  *v1.Canceled
-	Failed    *v1.Failed
+	Failed    *HostFailed
 	Rejected  *v1.Rejected
 	// -- end of xxx_hidden_Event
 }
@@ -918,7 +918,7 @@ type hostEvent_Canceled struct {
 }
 
 type hostEvent_Failed struct {
-	Failed *v1.Failed `protobuf:"bytes,6,opt,name=failed,oneof"`
+	Failed *HostFailed `protobuf:"bytes,6,opt,name=failed,oneof"`
 }
 
 type hostEvent_Rejected struct {
@@ -939,6 +939,102 @@ func (*hostEvent_Failed) isHostEvent_Event() {}
 
 func (*hostEvent_Rejected) isHostEvent_Event() {}
 
+// HostFailed reports failure and any retained operation result.
+type HostFailed struct {
+	state              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Failure *v1.Failed             `protobuf:"bytes,1,opt,name=failure"`
+	xxx_hidden_Result  *HostCompleted         `protobuf:"bytes,2,opt,name=result"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *HostFailed) Reset() {
+	*x = HostFailed{}
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HostFailed) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HostFailed) ProtoMessage() {}
+
+func (x *HostFailed) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *HostFailed) GetFailure() *v1.Failed {
+	if x != nil {
+		return x.xxx_hidden_Failure
+	}
+	return nil
+}
+
+func (x *HostFailed) GetResult() *HostCompleted {
+	if x != nil {
+		return x.xxx_hidden_Result
+	}
+	return nil
+}
+
+func (x *HostFailed) SetFailure(v *v1.Failed) {
+	x.xxx_hidden_Failure = v
+}
+
+func (x *HostFailed) SetResult(v *HostCompleted) {
+	x.xxx_hidden_Result = v
+}
+
+func (x *HostFailed) HasFailure() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Failure != nil
+}
+
+func (x *HostFailed) HasResult() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Result != nil
+}
+
+func (x *HostFailed) ClearFailure() {
+	x.xxx_hidden_Failure = nil
+}
+
+func (x *HostFailed) ClearResult() {
+	x.xxx_hidden_Result = nil
+}
+
+type HostFailed_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The failure category and complete error text.
+	Failure *v1.Failed
+	// The optional typed result retained despite failure.
+	Result *HostCompleted
+}
+
+func (b0 HostFailed_builder) Build() *HostFailed {
+	m0 := &HostFailed{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Failure = b.Failure
+	x.xxx_hidden_Result = b.Result
+	return m0
+}
+
 // HostProgress carries one operation-specific progress payload.
 type HostProgress struct {
 	state               protoimpl.MessageState  `protogen:"opaque.v1"`
@@ -949,7 +1045,7 @@ type HostProgress struct {
 
 func (x *HostProgress) Reset() {
 	*x = HostProgress{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[3]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -961,7 +1057,7 @@ func (x *HostProgress) String() string {
 func (*HostProgress) ProtoMessage() {}
 
 func (x *HostProgress) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[3]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1206,7 +1302,7 @@ func (b0 HostProgress_builder) Build() *HostProgress {
 type case_HostProgress_Progress protoreflect.FieldNumber
 
 func (x case_HostProgress_Progress) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[3].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[4].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1259,7 +1355,7 @@ type HostCompleted struct {
 
 func (x *HostCompleted) Reset() {
 	*x = HostCompleted{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[4]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1271,7 +1367,7 @@ func (x *HostCompleted) String() string {
 func (*HostCompleted) ProtoMessage() {}
 
 func (x *HostCompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[4]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1857,7 +1953,7 @@ func (b0 HostCompleted_builder) Build() *HostCompleted {
 type case_HostCompleted_Completed protoreflect.FieldNumber
 
 func (x case_HostCompleted_Completed) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[4].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[5].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -1962,7 +2058,7 @@ type SubmitCompleted struct {
 
 func (x *SubmitCompleted) Reset() {
 	*x = SubmitCompleted{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[5]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1974,7 +2070,7 @@ func (x *SubmitCompleted) String() string {
 func (*SubmitCompleted) ProtoMessage() {}
 
 func (x *SubmitCompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[5]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2016,7 +2112,7 @@ type Initialization struct {
 
 func (x *Initialization) Reset() {
 	*x = Initialization{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[6]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2028,7 +2124,7 @@ func (x *Initialization) String() string {
 func (*Initialization) ProtoMessage() {}
 
 func (x *Initialization) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[6]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2252,7 +2348,7 @@ type StartupContent struct {
 
 func (x *StartupContent) Reset() {
 	*x = StartupContent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2264,7 +2360,7 @@ func (x *StartupContent) String() string {
 func (*StartupContent) ProtoMessage() {}
 
 func (x *StartupContent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[7]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2364,7 +2460,7 @@ type Information struct {
 
 func (x *Information) Reset() {
 	*x = Information{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2376,7 +2472,7 @@ func (x *Information) String() string {
 func (*Information) ProtoMessage() {}
 
 func (x *Information) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[8]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2442,7 +2538,7 @@ type HostConnectionEvent struct {
 
 func (x *HostConnectionEvent) Reset() {
 	*x = HostConnectionEvent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2454,7 +2550,7 @@ func (x *HostConnectionEvent) String() string {
 func (*HostConnectionEvent) ProtoMessage() {}
 
 func (x *HostConnectionEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[9]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2735,7 +2831,7 @@ func (b0 HostConnectionEvent_builder) Build() *HostConnectionEvent {
 type case_HostConnectionEvent_Event protoreflect.FieldNumber
 
 func (x case_HostConnectionEvent_Event) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[9].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[10].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -2797,7 +2893,7 @@ type ExtensionIssue struct {
 
 func (x *ExtensionIssue) Reset() {
 	*x = ExtensionIssue{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2809,7 +2905,7 @@ func (x *ExtensionIssue) String() string {
 func (*ExtensionIssue) ProtoMessage() {}
 
 func (x *ExtensionIssue) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[10]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -2977,7 +3073,7 @@ type Error struct {
 
 func (x *Error) Reset() {
 	*x = Error{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -2989,7 +3085,7 @@ func (x *Error) String() string {
 func (*Error) ProtoMessage() {}
 
 func (x *Error) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[11]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3090,7 +3186,7 @@ type AvailabilityChanged struct {
 
 func (x *AvailabilityChanged) Reset() {
 	*x = AvailabilityChanged{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3102,7 +3198,7 @@ func (x *AvailabilityChanged) String() string {
 func (*AvailabilityChanged) ProtoMessage() {}
 
 func (x *AvailabilityChanged) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[12]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3170,7 +3266,7 @@ type OpenResponse struct {
 
 func (x *OpenResponse) Reset() {
 	*x = OpenResponse{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3182,7 +3278,7 @@ func (x *OpenResponse) String() string {
 func (*OpenResponse) ProtoMessage() {}
 
 func (x *OpenResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[13]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -3382,7 +3478,7 @@ func (b0 OpenResponse_builder) Build() *OpenResponse {
 type case_OpenResponse_Content protoreflect.FieldNumber
 
 func (x case_OpenResponse_Content) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[13].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[14].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -3421,7 +3517,7 @@ type UIRequest struct {
 
 func (x *UIRequest) Reset() {
 	*x = UIRequest{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -3433,7 +3529,7 @@ func (x *UIRequest) String() string {
 func (*UIRequest) ProtoMessage() {}
 
 func (x *UIRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[14]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4133,7 +4229,7 @@ func (b0 UIRequest_builder) Build() *UIRequest {
 type case_UIRequest_Request protoreflect.FieldNumber
 
 func (x case_UIRequest_Request) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[14].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[15].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -4257,7 +4353,7 @@ type UIEvent struct {
 
 func (x *UIEvent) Reset() {
 	*x = UIEvent{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4269,7 +4365,7 @@ func (x *UIEvent) String() string {
 func (*UIEvent) ProtoMessage() {}
 
 func (x *UIEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[15]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4550,7 +4646,7 @@ func (b0 UIEvent_builder) Build() *UIEvent {
 type case_UIEvent_Event protoreflect.FieldNumber
 
 func (x case_UIEvent_Event) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[15].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[16].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -4607,7 +4703,7 @@ type UICompleted struct {
 
 func (x *UICompleted) Reset() {
 	*x = UICompleted{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4619,7 +4715,7 @@ func (x *UICompleted) String() string {
 func (*UICompleted) ProtoMessage() {}
 
 func (x *UICompleted) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[16]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4748,7 +4844,7 @@ func (b0 UICompleted_builder) Build() *UICompleted {
 type case_UICompleted_Completed protoreflect.FieldNumber
 
 func (x case_UICompleted_Completed) String() string {
-	md := file_api_plugins_ui_v1_ui_proto_msgTypes[16].Descriptor()
+	md := file_api_plugins_ui_v1_ui_proto_msgTypes[17].Descriptor()
 	if x == 0 {
 		return "not set"
 	}
@@ -4780,7 +4876,7 @@ type Initialized struct {
 
 func (x *Initialized) Reset() {
 	*x = Initialized{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4792,7 +4888,7 @@ func (x *Initialized) String() string {
 func (*Initialized) ProtoMessage() {}
 
 func (x *Initialized) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[17]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4827,7 +4923,7 @@ type SubmitCommand struct {
 
 func (x *SubmitCommand) Reset() {
 	*x = SubmitCommand{}
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -4839,7 +4935,7 @@ func (x *SubmitCommand) String() string {
 func (*SubmitCommand) ProtoMessage() {}
 
 func (x *SubmitCommand) ProtoReflect() protoreflect.Message {
-	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[18]
+	mi := &file_api_plugins_ui_v1_ui_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -4912,16 +5008,20 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"initialize\x18\x01 \x01(\v2#.glyph.plugins.ui.v1.InitializationH\x00R\n" +
 	"initialize\x12=\n" +
 	"\x06cancel\x18\x02 \x01(\v2#.glyph.operation.v1.CancelOperationH\x00R\x06cancelB\t\n" +
-	"\arequest\"\xbc\x03\n" +
+	"\arequest\"\xc1\x03\n" +
 	"\tHostEvent\x12:\n" +
 	"\baccepted\x18\x01 \x01(\v2\x1c.glyph.operation.v1.AcceptedH\x00R\baccepted\x127\n" +
 	"\arunning\x18\x02 \x01(\v2\x1b.glyph.operation.v1.RunningH\x00R\arunning\x12?\n" +
 	"\bprogress\x18\x03 \x01(\v2!.glyph.plugins.ui.v1.HostProgressH\x00R\bprogress\x12B\n" +
 	"\tcompleted\x18\x04 \x01(\v2\".glyph.plugins.ui.v1.HostCompletedH\x00R\tcompleted\x12:\n" +
-	"\bcanceled\x18\x05 \x01(\v2\x1c.glyph.operation.v1.CanceledH\x00R\bcanceled\x124\n" +
-	"\x06failed\x18\x06 \x01(\v2\x1a.glyph.operation.v1.FailedH\x00R\x06failed\x12:\n" +
+	"\bcanceled\x18\x05 \x01(\v2\x1c.glyph.operation.v1.CanceledH\x00R\bcanceled\x129\n" +
+	"\x06failed\x18\x06 \x01(\v2\x1f.glyph.plugins.ui.v1.HostFailedH\x00R\x06failed\x12:\n" +
 	"\brejected\x18\a \x01(\v2\x1c.glyph.operation.v1.RejectedH\x00R\brejectedB\a\n" +
-	"\x05event\"\xbe\x03\n" +
+	"\x05event\"~\n" +
+	"\n" +
+	"HostFailed\x124\n" +
+	"\afailure\x18\x01 \x01(\v2\x1a.glyph.operation.v1.FailedR\afailure\x12:\n" +
+	"\x06result\x18\x02 \x01(\v2\".glyph.plugins.ui.v1.HostCompletedR\x06result\"\xbe\x03\n" +
 	"\fHostProgress\x12B\n" +
 	"\vagent_event\x18\x01 \x01(\v2\x1f.glyph.plugins.ui.v1.AgentEventH\x00R\n" +
 	"agentEvent\x12Q\n" +
@@ -5038,159 +5138,162 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\x04Open\x12 .glyph.plugins.ui.v1.OpenRequest\x1a!.glyph.plugins.ui.v1.OpenResponse(\x010\x01B/Z-github.com/n-r-w/glyph/pkg/plugins/ui/v1;uiv1b\beditionsp\xe8\a"
 
 var file_api_plugins_ui_v1_ui_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_plugins_ui_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_api_plugins_ui_v1_ui_proto_msgTypes = make([]protoimpl.MessageInfo, 20)
 var file_api_plugins_ui_v1_ui_proto_goTypes = []any{
 	(ContentSeverity)(0),                  // 0: glyph.plugins.ui.v1.ContentSeverity
 	(*OpenRequest)(nil),                   // 1: glyph.plugins.ui.v1.OpenRequest
 	(*HostRequest)(nil),                   // 2: glyph.plugins.ui.v1.HostRequest
 	(*HostEvent)(nil),                     // 3: glyph.plugins.ui.v1.HostEvent
-	(*HostProgress)(nil),                  // 4: glyph.plugins.ui.v1.HostProgress
-	(*HostCompleted)(nil),                 // 5: glyph.plugins.ui.v1.HostCompleted
-	(*SubmitCompleted)(nil),               // 6: glyph.plugins.ui.v1.SubmitCompleted
-	(*Initialization)(nil),                // 7: glyph.plugins.ui.v1.Initialization
-	(*StartupContent)(nil),                // 8: glyph.plugins.ui.v1.StartupContent
-	(*Information)(nil),                   // 9: glyph.plugins.ui.v1.Information
-	(*HostConnectionEvent)(nil),           // 10: glyph.plugins.ui.v1.HostConnectionEvent
-	(*ExtensionIssue)(nil),                // 11: glyph.plugins.ui.v1.ExtensionIssue
-	(*Error)(nil),                         // 12: glyph.plugins.ui.v1.Error
-	(*AvailabilityChanged)(nil),           // 13: glyph.plugins.ui.v1.AvailabilityChanged
-	(*OpenResponse)(nil),                  // 14: glyph.plugins.ui.v1.OpenResponse
-	(*UIRequest)(nil),                     // 15: glyph.plugins.ui.v1.UIRequest
-	(*UIEvent)(nil),                       // 16: glyph.plugins.ui.v1.UIEvent
-	(*UICompleted)(nil),                   // 17: glyph.plugins.ui.v1.UICompleted
-	(*Initialized)(nil),                   // 18: glyph.plugins.ui.v1.Initialized
-	(*SubmitCommand)(nil),                 // 19: glyph.plugins.ui.v1.SubmitCommand
-	(*v1.CloseConnection)(nil),            // 20: glyph.operation.v1.CloseConnection
-	(*v1.CancelOperation)(nil),            // 21: glyph.operation.v1.CancelOperation
-	(*v1.Accepted)(nil),                   // 22: glyph.operation.v1.Accepted
-	(*v1.Running)(nil),                    // 23: glyph.operation.v1.Running
-	(*v1.Canceled)(nil),                   // 24: glyph.operation.v1.Canceled
-	(*v1.Failed)(nil),                     // 25: glyph.operation.v1.Failed
+	(*HostFailed)(nil),                    // 4: glyph.plugins.ui.v1.HostFailed
+	(*HostProgress)(nil),                  // 5: glyph.plugins.ui.v1.HostProgress
+	(*HostCompleted)(nil),                 // 6: glyph.plugins.ui.v1.HostCompleted
+	(*SubmitCompleted)(nil),               // 7: glyph.plugins.ui.v1.SubmitCompleted
+	(*Initialization)(nil),                // 8: glyph.plugins.ui.v1.Initialization
+	(*StartupContent)(nil),                // 9: glyph.plugins.ui.v1.StartupContent
+	(*Information)(nil),                   // 10: glyph.plugins.ui.v1.Information
+	(*HostConnectionEvent)(nil),           // 11: glyph.plugins.ui.v1.HostConnectionEvent
+	(*ExtensionIssue)(nil),                // 12: glyph.plugins.ui.v1.ExtensionIssue
+	(*Error)(nil),                         // 13: glyph.plugins.ui.v1.Error
+	(*AvailabilityChanged)(nil),           // 14: glyph.plugins.ui.v1.AvailabilityChanged
+	(*OpenResponse)(nil),                  // 15: glyph.plugins.ui.v1.OpenResponse
+	(*UIRequest)(nil),                     // 16: glyph.plugins.ui.v1.UIRequest
+	(*UIEvent)(nil),                       // 17: glyph.plugins.ui.v1.UIEvent
+	(*UICompleted)(nil),                   // 18: glyph.plugins.ui.v1.UICompleted
+	(*Initialized)(nil),                   // 19: glyph.plugins.ui.v1.Initialized
+	(*SubmitCommand)(nil),                 // 20: glyph.plugins.ui.v1.SubmitCommand
+	(*v1.CloseConnection)(nil),            // 21: glyph.operation.v1.CloseConnection
+	(*v1.CancelOperation)(nil),            // 22: glyph.operation.v1.CancelOperation
+	(*v1.Accepted)(nil),                   // 23: glyph.operation.v1.Accepted
+	(*v1.Running)(nil),                    // 24: glyph.operation.v1.Running
+	(*v1.Canceled)(nil),                   // 25: glyph.operation.v1.Canceled
 	(*v1.Rejected)(nil),                   // 26: glyph.operation.v1.Rejected
-	(*AgentEvent)(nil),                    // 27: glyph.plugins.ui.v1.AgentEvent
-	(*AuthorizationRequest)(nil),          // 28: glyph.plugins.ui.v1.AuthorizationRequest
-	(*SessionTreeNavigationProgress)(nil), // 29: glyph.plugins.ui.v1.SessionTreeNavigationProgress
-	(*RetryProgress)(nil),                 // 30: glyph.plugins.ui.v1.RetryProgress
-	(*CompactionProgress)(nil),            // 31: glyph.plugins.ui.v1.CompactionProgress
-	(*v1.CancelCompleted)(nil),            // 32: glyph.operation.v1.CancelCompleted
-	(*AuthenticationCompleted)(nil),       // 33: glyph.plugins.ui.v1.AuthenticationCompleted
-	(*ModelSelectionChanged)(nil),         // 34: glyph.plugins.ui.v1.ModelSelectionChanged
-	(*SessionChanged)(nil),                // 35: glyph.plugins.ui.v1.SessionChanged
-	(*SessionList)(nil),                   // 36: glyph.plugins.ui.v1.SessionList
-	(*SessionInformation)(nil),            // 37: glyph.plugins.ui.v1.SessionInformation
-	(*SessionTreeResult)(nil),             // 38: glyph.plugins.ui.v1.SessionTreeResult
-	(*SessionTreeNavigationResult)(nil),   // 39: glyph.plugins.ui.v1.SessionTreeNavigationResult
-	(*SessionForked)(nil),                 // 40: glyph.plugins.ui.v1.SessionForked
-	(*SessionCloned)(nil),                 // 41: glyph.plugins.ui.v1.SessionCloned
-	(*EntryLabelSet)(nil),                 // 42: glyph.plugins.ui.v1.EntryLabelSet
-	(*RetryEnabledResult)(nil),            // 43: glyph.plugins.ui.v1.RetryEnabledResult
-	(*CompactionResult)(nil),              // 44: glyph.plugins.ui.v1.CompactionResult
-	(*ExtensionAvailability)(nil),         // 45: glyph.plugins.ui.v1.ExtensionAvailability
-	(Availability)(0),                     // 46: glyph.plugins.ui.v1.Availability
-	(*ConfiguredModel)(nil),               // 47: glyph.plugins.ui.v1.ConfiguredModel
-	(*ModelSelection)(nil),                // 48: glyph.plugins.ui.v1.ModelSelection
-	(*SessionInfo)(nil),                   // 49: glyph.plugins.ui.v1.SessionInfo
-	(*RetryPolicy)(nil),                   // 50: glyph.plugins.ui.v1.RetryPolicy
-	(*SessionEntryAdded)(nil),             // 51: glyph.plugins.ui.v1.SessionEntryAdded
-	(*RetryAuthenticationCommand)(nil),    // 52: glyph.plugins.ui.v1.RetryAuthenticationCommand
-	(*SelectModelCommand)(nil),            // 53: glyph.plugins.ui.v1.SelectModelCommand
-	(*SelectReasoningChoiceCommand)(nil),  // 54: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
-	(*CreateSessionCommand)(nil),          // 55: glyph.plugins.ui.v1.CreateSessionCommand
-	(*ListSessionsCommand)(nil),           // 56: glyph.plugins.ui.v1.ListSessionsCommand
-	(*ResumeSessionCommand)(nil),          // 57: glyph.plugins.ui.v1.ResumeSessionCommand
-	(*SetSessionNameCommand)(nil),         // 58: glyph.plugins.ui.v1.SetSessionNameCommand
-	(*GetSessionInfoCommand)(nil),         // 59: glyph.plugins.ui.v1.GetSessionInfoCommand
-	(*GetSessionTreeCommand)(nil),         // 60: glyph.plugins.ui.v1.GetSessionTreeCommand
-	(*NavigateSessionTreeCommand)(nil),    // 61: glyph.plugins.ui.v1.NavigateSessionTreeCommand
-	(*ForkSessionCommand)(nil),            // 62: glyph.plugins.ui.v1.ForkSessionCommand
-	(*CloneSessionCommand)(nil),           // 63: glyph.plugins.ui.v1.CloneSessionCommand
-	(*SetEntryLabelCommand)(nil),          // 64: glyph.plugins.ui.v1.SetEntryLabelCommand
-	(*SetRetryEnabledCommand)(nil),        // 65: glyph.plugins.ui.v1.SetRetryEnabledCommand
-	(*CompactCommand)(nil),                // 66: glyph.plugins.ui.v1.CompactCommand
+	(*v1.Failed)(nil),                     // 27: glyph.operation.v1.Failed
+	(*AgentEvent)(nil),                    // 28: glyph.plugins.ui.v1.AgentEvent
+	(*AuthorizationRequest)(nil),          // 29: glyph.plugins.ui.v1.AuthorizationRequest
+	(*SessionTreeNavigationProgress)(nil), // 30: glyph.plugins.ui.v1.SessionTreeNavigationProgress
+	(*RetryProgress)(nil),                 // 31: glyph.plugins.ui.v1.RetryProgress
+	(*CompactionProgress)(nil),            // 32: glyph.plugins.ui.v1.CompactionProgress
+	(*v1.CancelCompleted)(nil),            // 33: glyph.operation.v1.CancelCompleted
+	(*AuthenticationCompleted)(nil),       // 34: glyph.plugins.ui.v1.AuthenticationCompleted
+	(*ModelSelectionChanged)(nil),         // 35: glyph.plugins.ui.v1.ModelSelectionChanged
+	(*SessionChanged)(nil),                // 36: glyph.plugins.ui.v1.SessionChanged
+	(*SessionList)(nil),                   // 37: glyph.plugins.ui.v1.SessionList
+	(*SessionInformation)(nil),            // 38: glyph.plugins.ui.v1.SessionInformation
+	(*SessionTreeResult)(nil),             // 39: glyph.plugins.ui.v1.SessionTreeResult
+	(*SessionTreeNavigationResult)(nil),   // 40: glyph.plugins.ui.v1.SessionTreeNavigationResult
+	(*SessionForked)(nil),                 // 41: glyph.plugins.ui.v1.SessionForked
+	(*SessionCloned)(nil),                 // 42: glyph.plugins.ui.v1.SessionCloned
+	(*EntryLabelSet)(nil),                 // 43: glyph.plugins.ui.v1.EntryLabelSet
+	(*RetryEnabledResult)(nil),            // 44: glyph.plugins.ui.v1.RetryEnabledResult
+	(*CompactionResult)(nil),              // 45: glyph.plugins.ui.v1.CompactionResult
+	(*ExtensionAvailability)(nil),         // 46: glyph.plugins.ui.v1.ExtensionAvailability
+	(Availability)(0),                     // 47: glyph.plugins.ui.v1.Availability
+	(*ConfiguredModel)(nil),               // 48: glyph.plugins.ui.v1.ConfiguredModel
+	(*ModelSelection)(nil),                // 49: glyph.plugins.ui.v1.ModelSelection
+	(*SessionInfo)(nil),                   // 50: glyph.plugins.ui.v1.SessionInfo
+	(*RetryPolicy)(nil),                   // 51: glyph.plugins.ui.v1.RetryPolicy
+	(*SessionEntryAdded)(nil),             // 52: glyph.plugins.ui.v1.SessionEntryAdded
+	(*RetryAuthenticationCommand)(nil),    // 53: glyph.plugins.ui.v1.RetryAuthenticationCommand
+	(*SelectModelCommand)(nil),            // 54: glyph.plugins.ui.v1.SelectModelCommand
+	(*SelectReasoningChoiceCommand)(nil),  // 55: glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	(*CreateSessionCommand)(nil),          // 56: glyph.plugins.ui.v1.CreateSessionCommand
+	(*ListSessionsCommand)(nil),           // 57: glyph.plugins.ui.v1.ListSessionsCommand
+	(*ResumeSessionCommand)(nil),          // 58: glyph.plugins.ui.v1.ResumeSessionCommand
+	(*SetSessionNameCommand)(nil),         // 59: glyph.plugins.ui.v1.SetSessionNameCommand
+	(*GetSessionInfoCommand)(nil),         // 60: glyph.plugins.ui.v1.GetSessionInfoCommand
+	(*GetSessionTreeCommand)(nil),         // 61: glyph.plugins.ui.v1.GetSessionTreeCommand
+	(*NavigateSessionTreeCommand)(nil),    // 62: glyph.plugins.ui.v1.NavigateSessionTreeCommand
+	(*ForkSessionCommand)(nil),            // 63: glyph.plugins.ui.v1.ForkSessionCommand
+	(*CloneSessionCommand)(nil),           // 64: glyph.plugins.ui.v1.CloneSessionCommand
+	(*SetEntryLabelCommand)(nil),          // 65: glyph.plugins.ui.v1.SetEntryLabelCommand
+	(*SetRetryEnabledCommand)(nil),        // 66: glyph.plugins.ui.v1.SetRetryEnabledCommand
+	(*CompactCommand)(nil),                // 67: glyph.plugins.ui.v1.CompactCommand
 }
 var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	2,  // 0: glyph.plugins.ui.v1.OpenRequest.request:type_name -> glyph.plugins.ui.v1.HostRequest
 	3,  // 1: glyph.plugins.ui.v1.OpenRequest.event:type_name -> glyph.plugins.ui.v1.HostEvent
-	10, // 2: glyph.plugins.ui.v1.OpenRequest.connection_event:type_name -> glyph.plugins.ui.v1.HostConnectionEvent
-	20, // 3: glyph.plugins.ui.v1.OpenRequest.close:type_name -> glyph.operation.v1.CloseConnection
-	7,  // 4: glyph.plugins.ui.v1.HostRequest.initialize:type_name -> glyph.plugins.ui.v1.Initialization
-	21, // 5: glyph.plugins.ui.v1.HostRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
-	22, // 6: glyph.plugins.ui.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
-	23, // 7: glyph.plugins.ui.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
-	4,  // 8: glyph.plugins.ui.v1.HostEvent.progress:type_name -> glyph.plugins.ui.v1.HostProgress
-	5,  // 9: glyph.plugins.ui.v1.HostEvent.completed:type_name -> glyph.plugins.ui.v1.HostCompleted
-	24, // 10: glyph.plugins.ui.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
-	25, // 11: glyph.plugins.ui.v1.HostEvent.failed:type_name -> glyph.operation.v1.Failed
+	11, // 2: glyph.plugins.ui.v1.OpenRequest.connection_event:type_name -> glyph.plugins.ui.v1.HostConnectionEvent
+	21, // 3: glyph.plugins.ui.v1.OpenRequest.close:type_name -> glyph.operation.v1.CloseConnection
+	8,  // 4: glyph.plugins.ui.v1.HostRequest.initialize:type_name -> glyph.plugins.ui.v1.Initialization
+	22, // 5: glyph.plugins.ui.v1.HostRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
+	23, // 6: glyph.plugins.ui.v1.HostEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	24, // 7: glyph.plugins.ui.v1.HostEvent.running:type_name -> glyph.operation.v1.Running
+	5,  // 8: glyph.plugins.ui.v1.HostEvent.progress:type_name -> glyph.plugins.ui.v1.HostProgress
+	6,  // 9: glyph.plugins.ui.v1.HostEvent.completed:type_name -> glyph.plugins.ui.v1.HostCompleted
+	25, // 10: glyph.plugins.ui.v1.HostEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	4,  // 11: glyph.plugins.ui.v1.HostEvent.failed:type_name -> glyph.plugins.ui.v1.HostFailed
 	26, // 12: glyph.plugins.ui.v1.HostEvent.rejected:type_name -> glyph.operation.v1.Rejected
-	27, // 13: glyph.plugins.ui.v1.HostProgress.agent_event:type_name -> glyph.plugins.ui.v1.AgentEvent
-	28, // 14: glyph.plugins.ui.v1.HostProgress.authorization:type_name -> glyph.plugins.ui.v1.AuthorizationRequest
-	29, // 15: glyph.plugins.ui.v1.HostProgress.session_tree_navigation:type_name -> glyph.plugins.ui.v1.SessionTreeNavigationProgress
-	30, // 16: glyph.plugins.ui.v1.HostProgress.session_tree_retry:type_name -> glyph.plugins.ui.v1.RetryProgress
-	31, // 17: glyph.plugins.ui.v1.HostProgress.compaction:type_name -> glyph.plugins.ui.v1.CompactionProgress
-	32, // 18: glyph.plugins.ui.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	6,  // 19: glyph.plugins.ui.v1.HostCompleted.submit:type_name -> glyph.plugins.ui.v1.SubmitCompleted
-	33, // 20: glyph.plugins.ui.v1.HostCompleted.authentication:type_name -> glyph.plugins.ui.v1.AuthenticationCompleted
-	34, // 21: glyph.plugins.ui.v1.HostCompleted.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
-	35, // 22: glyph.plugins.ui.v1.HostCompleted.session_changed:type_name -> glyph.plugins.ui.v1.SessionChanged
-	36, // 23: glyph.plugins.ui.v1.HostCompleted.session_list:type_name -> glyph.plugins.ui.v1.SessionList
-	37, // 24: glyph.plugins.ui.v1.HostCompleted.session_information:type_name -> glyph.plugins.ui.v1.SessionInformation
-	38, // 25: glyph.plugins.ui.v1.HostCompleted.session_tree:type_name -> glyph.plugins.ui.v1.SessionTreeResult
-	39, // 26: glyph.plugins.ui.v1.HostCompleted.session_tree_navigation:type_name -> glyph.plugins.ui.v1.SessionTreeNavigationResult
-	40, // 27: glyph.plugins.ui.v1.HostCompleted.session_forked:type_name -> glyph.plugins.ui.v1.SessionForked
-	41, // 28: glyph.plugins.ui.v1.HostCompleted.session_cloned:type_name -> glyph.plugins.ui.v1.SessionCloned
-	42, // 29: glyph.plugins.ui.v1.HostCompleted.entry_label_set:type_name -> glyph.plugins.ui.v1.EntryLabelSet
-	43, // 30: glyph.plugins.ui.v1.HostCompleted.retry_enabled:type_name -> glyph.plugins.ui.v1.RetryEnabledResult
-	44, // 31: glyph.plugins.ui.v1.HostCompleted.compaction:type_name -> glyph.plugins.ui.v1.CompactionResult
-	8,  // 32: glyph.plugins.ui.v1.Initialization.startup_content:type_name -> glyph.plugins.ui.v1.StartupContent
-	45, // 33: glyph.plugins.ui.v1.Initialization.extensions:type_name -> glyph.plugins.ui.v1.ExtensionAvailability
-	46, // 34: glyph.plugins.ui.v1.Initialization.availability:type_name -> glyph.plugins.ui.v1.Availability
-	47, // 35: glyph.plugins.ui.v1.Initialization.models:type_name -> glyph.plugins.ui.v1.ConfiguredModel
-	48, // 36: glyph.plugins.ui.v1.Initialization.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelection
-	49, // 37: glyph.plugins.ui.v1.Initialization.session_info:type_name -> glyph.plugins.ui.v1.SessionInfo
-	50, // 38: glyph.plugins.ui.v1.Initialization.retry_policy:type_name -> glyph.plugins.ui.v1.RetryPolicy
-	0,  // 39: glyph.plugins.ui.v1.StartupContent.severity:type_name -> glyph.plugins.ui.v1.ContentSeverity
-	9,  // 40: glyph.plugins.ui.v1.HostConnectionEvent.information:type_name -> glyph.plugins.ui.v1.Information
-	12, // 41: glyph.plugins.ui.v1.HostConnectionEvent.error:type_name -> glyph.plugins.ui.v1.Error
-	13, // 42: glyph.plugins.ui.v1.HostConnectionEvent.availability_changed:type_name -> glyph.plugins.ui.v1.AvailabilityChanged
-	51, // 43: glyph.plugins.ui.v1.HostConnectionEvent.session_entry_added:type_name -> glyph.plugins.ui.v1.SessionEntryAdded
-	11, // 44: glyph.plugins.ui.v1.HostConnectionEvent.extension_issue:type_name -> glyph.plugins.ui.v1.ExtensionIssue
-	34, // 45: glyph.plugins.ui.v1.HostConnectionEvent.model_selection_changed:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
-	46, // 46: glyph.plugins.ui.v1.AvailabilityChanged.availability:type_name -> glyph.plugins.ui.v1.Availability
-	15, // 47: glyph.plugins.ui.v1.OpenResponse.request:type_name -> glyph.plugins.ui.v1.UIRequest
-	16, // 48: glyph.plugins.ui.v1.OpenResponse.event:type_name -> glyph.plugins.ui.v1.UIEvent
-	20, // 49: glyph.plugins.ui.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
-	19, // 50: glyph.plugins.ui.v1.UIRequest.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
-	21, // 51: glyph.plugins.ui.v1.UIRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
-	52, // 52: glyph.plugins.ui.v1.UIRequest.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
-	53, // 53: glyph.plugins.ui.v1.UIRequest.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
-	54, // 54: glyph.plugins.ui.v1.UIRequest.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
-	55, // 55: glyph.plugins.ui.v1.UIRequest.create_session:type_name -> glyph.plugins.ui.v1.CreateSessionCommand
-	56, // 56: glyph.plugins.ui.v1.UIRequest.list_sessions:type_name -> glyph.plugins.ui.v1.ListSessionsCommand
-	57, // 57: glyph.plugins.ui.v1.UIRequest.resume_session:type_name -> glyph.plugins.ui.v1.ResumeSessionCommand
-	58, // 58: glyph.plugins.ui.v1.UIRequest.set_session_name:type_name -> glyph.plugins.ui.v1.SetSessionNameCommand
-	59, // 59: glyph.plugins.ui.v1.UIRequest.get_session_info:type_name -> glyph.plugins.ui.v1.GetSessionInfoCommand
-	60, // 60: glyph.plugins.ui.v1.UIRequest.get_session_tree:type_name -> glyph.plugins.ui.v1.GetSessionTreeCommand
-	61, // 61: glyph.plugins.ui.v1.UIRequest.navigate_session_tree:type_name -> glyph.plugins.ui.v1.NavigateSessionTreeCommand
-	62, // 62: glyph.plugins.ui.v1.UIRequest.fork_session:type_name -> glyph.plugins.ui.v1.ForkSessionCommand
-	63, // 63: glyph.plugins.ui.v1.UIRequest.clone_session:type_name -> glyph.plugins.ui.v1.CloneSessionCommand
-	64, // 64: glyph.plugins.ui.v1.UIRequest.set_entry_label:type_name -> glyph.plugins.ui.v1.SetEntryLabelCommand
-	65, // 65: glyph.plugins.ui.v1.UIRequest.set_retry_enabled:type_name -> glyph.plugins.ui.v1.SetRetryEnabledCommand
-	66, // 66: glyph.plugins.ui.v1.UIRequest.compact:type_name -> glyph.plugins.ui.v1.CompactCommand
-	22, // 67: glyph.plugins.ui.v1.UIEvent.accepted:type_name -> glyph.operation.v1.Accepted
-	23, // 68: glyph.plugins.ui.v1.UIEvent.running:type_name -> glyph.operation.v1.Running
-	17, // 69: glyph.plugins.ui.v1.UIEvent.completed:type_name -> glyph.plugins.ui.v1.UICompleted
-	24, // 70: glyph.plugins.ui.v1.UIEvent.canceled:type_name -> glyph.operation.v1.Canceled
-	25, // 71: glyph.plugins.ui.v1.UIEvent.failed:type_name -> glyph.operation.v1.Failed
-	26, // 72: glyph.plugins.ui.v1.UIEvent.rejected:type_name -> glyph.operation.v1.Rejected
-	18, // 73: glyph.plugins.ui.v1.UICompleted.initialized:type_name -> glyph.plugins.ui.v1.Initialized
-	32, // 74: glyph.plugins.ui.v1.UICompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	1,  // 75: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
-	14, // 76: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
-	76, // [76:77] is the sub-list for method output_type
-	75, // [75:76] is the sub-list for method input_type
-	75, // [75:75] is the sub-list for extension type_name
-	75, // [75:75] is the sub-list for extension extendee
-	0,  // [0:75] is the sub-list for field type_name
+	27, // 13: glyph.plugins.ui.v1.HostFailed.failure:type_name -> glyph.operation.v1.Failed
+	6,  // 14: glyph.plugins.ui.v1.HostFailed.result:type_name -> glyph.plugins.ui.v1.HostCompleted
+	28, // 15: glyph.plugins.ui.v1.HostProgress.agent_event:type_name -> glyph.plugins.ui.v1.AgentEvent
+	29, // 16: glyph.plugins.ui.v1.HostProgress.authorization:type_name -> glyph.plugins.ui.v1.AuthorizationRequest
+	30, // 17: glyph.plugins.ui.v1.HostProgress.session_tree_navigation:type_name -> glyph.plugins.ui.v1.SessionTreeNavigationProgress
+	31, // 18: glyph.plugins.ui.v1.HostProgress.session_tree_retry:type_name -> glyph.plugins.ui.v1.RetryProgress
+	32, // 19: glyph.plugins.ui.v1.HostProgress.compaction:type_name -> glyph.plugins.ui.v1.CompactionProgress
+	33, // 20: glyph.plugins.ui.v1.HostCompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	7,  // 21: glyph.plugins.ui.v1.HostCompleted.submit:type_name -> glyph.plugins.ui.v1.SubmitCompleted
+	34, // 22: glyph.plugins.ui.v1.HostCompleted.authentication:type_name -> glyph.plugins.ui.v1.AuthenticationCompleted
+	35, // 23: glyph.plugins.ui.v1.HostCompleted.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
+	36, // 24: glyph.plugins.ui.v1.HostCompleted.session_changed:type_name -> glyph.plugins.ui.v1.SessionChanged
+	37, // 25: glyph.plugins.ui.v1.HostCompleted.session_list:type_name -> glyph.plugins.ui.v1.SessionList
+	38, // 26: glyph.plugins.ui.v1.HostCompleted.session_information:type_name -> glyph.plugins.ui.v1.SessionInformation
+	39, // 27: glyph.plugins.ui.v1.HostCompleted.session_tree:type_name -> glyph.plugins.ui.v1.SessionTreeResult
+	40, // 28: glyph.plugins.ui.v1.HostCompleted.session_tree_navigation:type_name -> glyph.plugins.ui.v1.SessionTreeNavigationResult
+	41, // 29: glyph.plugins.ui.v1.HostCompleted.session_forked:type_name -> glyph.plugins.ui.v1.SessionForked
+	42, // 30: glyph.plugins.ui.v1.HostCompleted.session_cloned:type_name -> glyph.plugins.ui.v1.SessionCloned
+	43, // 31: glyph.plugins.ui.v1.HostCompleted.entry_label_set:type_name -> glyph.plugins.ui.v1.EntryLabelSet
+	44, // 32: glyph.plugins.ui.v1.HostCompleted.retry_enabled:type_name -> glyph.plugins.ui.v1.RetryEnabledResult
+	45, // 33: glyph.plugins.ui.v1.HostCompleted.compaction:type_name -> glyph.plugins.ui.v1.CompactionResult
+	9,  // 34: glyph.plugins.ui.v1.Initialization.startup_content:type_name -> glyph.plugins.ui.v1.StartupContent
+	46, // 35: glyph.plugins.ui.v1.Initialization.extensions:type_name -> glyph.plugins.ui.v1.ExtensionAvailability
+	47, // 36: glyph.plugins.ui.v1.Initialization.availability:type_name -> glyph.plugins.ui.v1.Availability
+	48, // 37: glyph.plugins.ui.v1.Initialization.models:type_name -> glyph.plugins.ui.v1.ConfiguredModel
+	49, // 38: glyph.plugins.ui.v1.Initialization.model_selection:type_name -> glyph.plugins.ui.v1.ModelSelection
+	50, // 39: glyph.plugins.ui.v1.Initialization.session_info:type_name -> glyph.plugins.ui.v1.SessionInfo
+	51, // 40: glyph.plugins.ui.v1.Initialization.retry_policy:type_name -> glyph.plugins.ui.v1.RetryPolicy
+	0,  // 41: glyph.plugins.ui.v1.StartupContent.severity:type_name -> glyph.plugins.ui.v1.ContentSeverity
+	10, // 42: glyph.plugins.ui.v1.HostConnectionEvent.information:type_name -> glyph.plugins.ui.v1.Information
+	13, // 43: glyph.plugins.ui.v1.HostConnectionEvent.error:type_name -> glyph.plugins.ui.v1.Error
+	14, // 44: glyph.plugins.ui.v1.HostConnectionEvent.availability_changed:type_name -> glyph.plugins.ui.v1.AvailabilityChanged
+	52, // 45: glyph.plugins.ui.v1.HostConnectionEvent.session_entry_added:type_name -> glyph.plugins.ui.v1.SessionEntryAdded
+	12, // 46: glyph.plugins.ui.v1.HostConnectionEvent.extension_issue:type_name -> glyph.plugins.ui.v1.ExtensionIssue
+	35, // 47: glyph.plugins.ui.v1.HostConnectionEvent.model_selection_changed:type_name -> glyph.plugins.ui.v1.ModelSelectionChanged
+	47, // 48: glyph.plugins.ui.v1.AvailabilityChanged.availability:type_name -> glyph.plugins.ui.v1.Availability
+	16, // 49: glyph.plugins.ui.v1.OpenResponse.request:type_name -> glyph.plugins.ui.v1.UIRequest
+	17, // 50: glyph.plugins.ui.v1.OpenResponse.event:type_name -> glyph.plugins.ui.v1.UIEvent
+	21, // 51: glyph.plugins.ui.v1.OpenResponse.close:type_name -> glyph.operation.v1.CloseConnection
+	20, // 52: glyph.plugins.ui.v1.UIRequest.submit:type_name -> glyph.plugins.ui.v1.SubmitCommand
+	22, // 53: glyph.plugins.ui.v1.UIRequest.cancel:type_name -> glyph.operation.v1.CancelOperation
+	53, // 54: glyph.plugins.ui.v1.UIRequest.retry_authentication:type_name -> glyph.plugins.ui.v1.RetryAuthenticationCommand
+	54, // 55: glyph.plugins.ui.v1.UIRequest.select_model:type_name -> glyph.plugins.ui.v1.SelectModelCommand
+	55, // 56: glyph.plugins.ui.v1.UIRequest.select_reasoning_choice:type_name -> glyph.plugins.ui.v1.SelectReasoningChoiceCommand
+	56, // 57: glyph.plugins.ui.v1.UIRequest.create_session:type_name -> glyph.plugins.ui.v1.CreateSessionCommand
+	57, // 58: glyph.plugins.ui.v1.UIRequest.list_sessions:type_name -> glyph.plugins.ui.v1.ListSessionsCommand
+	58, // 59: glyph.plugins.ui.v1.UIRequest.resume_session:type_name -> glyph.plugins.ui.v1.ResumeSessionCommand
+	59, // 60: glyph.plugins.ui.v1.UIRequest.set_session_name:type_name -> glyph.plugins.ui.v1.SetSessionNameCommand
+	60, // 61: glyph.plugins.ui.v1.UIRequest.get_session_info:type_name -> glyph.plugins.ui.v1.GetSessionInfoCommand
+	61, // 62: glyph.plugins.ui.v1.UIRequest.get_session_tree:type_name -> glyph.plugins.ui.v1.GetSessionTreeCommand
+	62, // 63: glyph.plugins.ui.v1.UIRequest.navigate_session_tree:type_name -> glyph.plugins.ui.v1.NavigateSessionTreeCommand
+	63, // 64: glyph.plugins.ui.v1.UIRequest.fork_session:type_name -> glyph.plugins.ui.v1.ForkSessionCommand
+	64, // 65: glyph.plugins.ui.v1.UIRequest.clone_session:type_name -> glyph.plugins.ui.v1.CloneSessionCommand
+	65, // 66: glyph.plugins.ui.v1.UIRequest.set_entry_label:type_name -> glyph.plugins.ui.v1.SetEntryLabelCommand
+	66, // 67: glyph.plugins.ui.v1.UIRequest.set_retry_enabled:type_name -> glyph.plugins.ui.v1.SetRetryEnabledCommand
+	67, // 68: glyph.plugins.ui.v1.UIRequest.compact:type_name -> glyph.plugins.ui.v1.CompactCommand
+	23, // 69: glyph.plugins.ui.v1.UIEvent.accepted:type_name -> glyph.operation.v1.Accepted
+	24, // 70: glyph.plugins.ui.v1.UIEvent.running:type_name -> glyph.operation.v1.Running
+	18, // 71: glyph.plugins.ui.v1.UIEvent.completed:type_name -> glyph.plugins.ui.v1.UICompleted
+	25, // 72: glyph.plugins.ui.v1.UIEvent.canceled:type_name -> glyph.operation.v1.Canceled
+	27, // 73: glyph.plugins.ui.v1.UIEvent.failed:type_name -> glyph.operation.v1.Failed
+	26, // 74: glyph.plugins.ui.v1.UIEvent.rejected:type_name -> glyph.operation.v1.Rejected
+	19, // 75: glyph.plugins.ui.v1.UICompleted.initialized:type_name -> glyph.plugins.ui.v1.Initialized
+	33, // 76: glyph.plugins.ui.v1.UICompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
+	1,  // 77: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
+	15, // 78: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
+	78, // [78:79] is the sub-list for method output_type
+	77, // [77:78] is the sub-list for method input_type
+	77, // [77:77] is the sub-list for extension type_name
+	77, // [77:77] is the sub-list for extension extendee
+	0,  // [0:77] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_ui_proto_init() }
@@ -5222,14 +5325,14 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*hostEvent_Failed)(nil),
 		(*hostEvent_Rejected)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[3].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[4].OneofWrappers = []any{
 		(*hostProgress_AgentEvent)(nil),
 		(*hostProgress_Authorization)(nil),
 		(*hostProgress_SessionTreeNavigation)(nil),
 		(*hostProgress_SessionTreeRetry)(nil),
 		(*hostProgress_Compaction)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[4].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[5].OneofWrappers = []any{
 		(*hostCompleted_Cancel)(nil),
 		(*hostCompleted_Submit)(nil),
 		(*hostCompleted_Authentication)(nil),
@@ -5245,7 +5348,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*hostCompleted_RetryEnabled)(nil),
 		(*hostCompleted_Compaction)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[9].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[10].OneofWrappers = []any{
 		(*hostConnectionEvent_Information)(nil),
 		(*hostConnectionEvent_Error)(nil),
 		(*hostConnectionEvent_AvailabilityChanged)(nil),
@@ -5253,12 +5356,12 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*hostConnectionEvent_ExtensionIssue)(nil),
 		(*hostConnectionEvent_ModelSelectionChanged)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[13].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[14].OneofWrappers = []any{
 		(*openResponse_Request)(nil),
 		(*openResponse_Event)(nil),
 		(*openResponse_Close)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[14].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[15].OneofWrappers = []any{
 		(*uIRequest_Submit)(nil),
 		(*uIRequest_Cancel)(nil),
 		(*uIRequest_RetryAuthentication)(nil),
@@ -5277,7 +5380,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*uIRequest_SetRetryEnabled)(nil),
 		(*uIRequest_Compact)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[15].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[16].OneofWrappers = []any{
 		(*uIEvent_Accepted)(nil),
 		(*uIEvent_Running)(nil),
 		(*uIEvent_Completed)(nil),
@@ -5285,7 +5388,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 		(*uIEvent_Failed)(nil),
 		(*uIEvent_Rejected)(nil),
 	}
-	file_api_plugins_ui_v1_ui_proto_msgTypes[16].OneofWrappers = []any{
+	file_api_plugins_ui_v1_ui_proto_msgTypes[17].OneofWrappers = []any{
 		(*uICompleted_Initialized)(nil),
 		(*uICompleted_Cancel)(nil),
 	}
@@ -5295,7 +5398,7 @@ func file_api_plugins_ui_v1_ui_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_ui_v1_ui_proto_rawDesc), len(file_api_plugins_ui_v1_ui_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   19,
+			NumMessages:   20,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

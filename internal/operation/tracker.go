@@ -34,7 +34,7 @@ type Event[P, R any] struct {
 	Kind EventKind
 	// Progress contains progress for EventProgress.
 	Progress P
-	// Result contains a result for EventCompleted.
+	// Result contains completed data or optional operation data included with EventFailed.
 	Result R
 	// Code contains a machine code for EventFailed or EventRejected.
 	Code string

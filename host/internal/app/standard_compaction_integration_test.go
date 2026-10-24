@@ -36,14 +36,14 @@ func TestStandardManualCompaction(t *testing.T) {
 	completeProgrammaticRequest(t, fixture, userRequest("standard-recent", manualRetainedText))
 	// Act through public Programmatic Control, then repeat after a new conversation turn.
 	terminal := requestProgrammaticCompaction(t, fixture, "standard-first", "keep architectural decisions")
-	require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetMessage())
+	require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetFailure().GetMessage())
 	marker := terminal.GetCompleted().GetCompaction().GetCommitted().GetCompaction()
 	require.NotEmpty(t, marker.GetSummary())
 	require.Len(t, marker.GetSource().GetModelRequests().GetRequests(), 1)
 	require.Equal(t, standardConversationModelID, marker.GetSource().GetModelRequests().GetRequests()[0].GetModelId())
 	completeProgrammaticRequest(t, fixture, userRequest("standard-next", manualNextText))
 	second := requestProgrammaticCompaction(t, fixture, "standard-second", "keep pending work")
-	require.NotNil(t, second.GetCompleted(), "failure: %s", second.GetFailed().GetMessage())
+	require.NotNil(t, second.GetCompleted(), "failure: %s", second.GetFailed().GetFailure().GetMessage())
 	stored := sendProgrammaticOperation(t, fixture, "standard-stored", func(request *programmaticpb.OpenRequest) {
 		programmaticRequest(request).SetGetSessionEntries(new(programmaticpb.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
@@ -88,7 +88,7 @@ func TestStandardManualCompactionRejectsUnavailableWork(t *testing.T) {
 			terminal := requestProgrammaticCompaction(t, fixture, "standard-rejected", "guidance")
 			// Assert the complete cause, no provider generation, and no stored marker.
 			require.NotNil(t, terminal.GetFailed())
-			require.Contains(t, terminal.GetFailed().GetMessage(), test.cause)
+			require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), test.cause)
 			require.Len(t, bodies.snapshot(), 1)
 			stored := sendProgrammaticOperation(
 				t,

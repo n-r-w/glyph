@@ -6,6 +6,8 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+
+	"github.com/samber/mo"
 )
 
 // ErrIdentifierInUse reports an identifier reserved by an active operation.
@@ -61,8 +63,8 @@ type Delivery[P, R any] interface {
 type Outcome[R any] struct {
 	// state identifies the selected terminal state.
 	state TerminalState
-	// result contains completed operation data.
-	result R
+	// result retains available operation data independently of terminal state.
+	result mo.Option[R]
 	// code contains a machine-readable failure code.
 	code string
 	// err contains the internal failed-work cause.
@@ -73,24 +75,22 @@ type Outcome[R any] struct {
 
 // Completed constructs a successful outcome.
 func Completed[R any](result R) Outcome[R] {
-	return Outcome[R]{state: TerminalStateCompleted, result: result, code: "", err: nil, source: nil}
+	return Outcome[R]{state: TerminalStateCompleted, result: mo.Some(result), code: "", err: nil, source: nil}
 }
 
 // CompletedWithSource constructs completed data that explicitly reports a nonfatal error.
 func CompletedWithSource[R any](result R, source error) Outcome[R] {
-	return Outcome[R]{state: TerminalStateCompleted, result: result, code: "", err: nil, source: source}
+	return Outcome[R]{state: TerminalStateCompleted, result: mo.Some(result), code: "", err: nil, source: source}
 }
 
 // Canceled constructs a canceled outcome.
 func Canceled[R any]() Outcome[R] {
-	var zero R
-	return Outcome[R]{state: TerminalStateCanceled, result: zero, code: "", err: nil, source: nil}
+	return Outcome[R]{state: TerminalStateCanceled, result: mo.None[R](), code: "", err: nil, source: nil}
 }
 
 // CanceledWithSource constructs cancellation with retained diagnostics.
 func CanceledWithSource[R any](source error) Outcome[R] {
-	var zero R
-	return Outcome[R]{state: TerminalStateCanceled, result: zero, code: "", err: nil, source: source}
+	return Outcome[R]{state: TerminalStateCanceled, result: mo.None[R](), code: "", err: nil, source: source}
 }
 
 // Failed constructs a failed outcome with the supplied code and error.
@@ -108,15 +108,21 @@ func Failed[R any](code string, err error) Outcome[R] {
 		code = failureCodeInternal
 		err = errors.Join(validation, err)
 	}
-	var zero R
-	return Outcome[R]{state: TerminalStateFailed, result: zero, code: code, err: err, source: err}
+	return Outcome[R]{state: TerminalStateFailed, result: mo.None[R](), code: code, err: err, source: err}
+}
+
+// FailedWithResult constructs a failed outcome retaining available operation data.
+func FailedWithResult[R any](code string, err error, result R) Outcome[R] {
+	outcome := Failed[R](code, err)
+	outcome.result = mo.Some(result)
+	return outcome
 }
 
 // State returns the terminal state.
 func (o Outcome[R]) State() TerminalState { return o.state }
 
-// Result returns the completed result and whether it is present.
-func (o Outcome[R]) Result() (R, bool) { return o.result, o.state == TerminalStateCompleted }
+// Result returns available operation data and whether it is present, including on failure.
+func (o Outcome[R]) Result() (R, bool) { return o.result.Get() }
 
 // Code returns the failure machine code.
 func (o Outcome[R]) Code() string { return o.code }

@@ -90,9 +90,14 @@ func TestStandardComposedModelKeepsConversationBudget(t *testing.T) {
 			require.Contains(t, string(actual[2]), `"effort":"high"`)
 			if oversized {
 				require.NotNil(t, terminal.GetFailed())
-				require.Contains(t, terminal.GetFailed().GetMessage(), "conversation input budget")
+				require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), "conversation input budget")
 			} else {
-				require.NotNil(t, terminal.GetCompleted(), "failure: %s", terminal.GetFailed().GetMessage())
+				require.NotNil(
+					t,
+					terminal.GetCompleted(),
+					"failure: %s",
+					terminal.GetFailed().GetFailure().GetMessage(),
+				)
 				marker := terminal.GetCompleted().GetCompaction().GetCommitted().GetCompaction()
 				require.Equal(t, configuredResponseText, marker.GetSummary())
 				require.Len(t, marker.GetSource().GetModelRequests().GetRequests(), 1)

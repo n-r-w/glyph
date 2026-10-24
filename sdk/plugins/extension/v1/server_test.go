@@ -35,8 +35,12 @@ func TestConfiguredModelFailureCategoriesRemainClosed(t *testing.T) {
 	} {
 		// Arrange one terminal configured-model failure with complete Host text.
 		event := new(extensionpb.HostEvent)
-		event.SetFailed(operationpb.Failed_builder{
-			Code: new(code), Message: new("complete configured request failure"),
+		event.SetFailed(extensionpb.HostFailed_builder{
+			Failure: operationpb.Failed_builder{
+				Code:    new(code),
+				Message: new("complete configured request failure"),
+			}.Build(),
+			Result: nil,
 		}.Build())
 
 		// Act through request-specific lifecycle validation.
@@ -51,8 +55,12 @@ func TestConfiguredModelFailureCategoriesRemainClosed(t *testing.T) {
 
 	// Arrange a configured-only category on a catalogue operation.
 	invalid := new(extensionpb.HostEvent)
-	invalid.SetFailed(operationpb.Failed_builder{
-		Code: new(hostFailureCodeModelFailed), Message: new("complete configured request failure"),
+	invalid.SetFailed(extensionpb.HostFailed_builder{
+		Failure: operationpb.Failed_builder{
+			Code:    new(hostFailureCodeModelFailed),
+			Message: new("complete configured request failure"),
+		}.Build(),
+		Result: nil,
 	}.Build())
 
 	// Act through catalogue lifecycle validation.

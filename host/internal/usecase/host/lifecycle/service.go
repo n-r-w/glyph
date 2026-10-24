@@ -13,6 +13,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 const (
@@ -158,92 +159,97 @@ func (s *Service) ObserveSettled(ctx context.Context, runID string) error {
 	})
 }
 
-// ObserveSelection delivers one committed selection change to matching observers.
-func (s *Service) ObserveSelection(
-	ctx context.Context,
-	observationKind modelselection.ObservationKind,
-	change modelselection.SelectionChange,
-) []modelselection.Issue {
-	kind := KindModelSelection
-	if observationKind == modelselection.ObservationKindReasoning {
-		kind = KindReasoningSelection
-	}
-	event := Event{
-		Agent: agent.Event{}, Settled: false, Selection: change, SelectionEvent: true,
-		ReasoningSelection: observationKind == modelselection.ObservationKindReasoning,
-	}
+// selectionObservers captures eligible observers in reasoning-then-model order before any invocation.
+func (s *Service) selectionObservers(change modelselection.SelectionChange) ([]Handler, IssueDelivery) {
 	s.mutex.RLock()
-	handlers := slices.Clone(s.handlers)
+	registered := slices.Clone(s.handlers)
 	delivery := s.issues
 	s.mutex.RUnlock()
 	availability := make(map[string]bool)
-	result := make([]modelselection.Issue, 0)
-	for _, handler := range handlers {
-		if handler.Kind != kind {
+	handlers := make([]Handler, 0, len(registered))
+	for _, kind := range []Kind{KindReasoningSelection, KindModelSelection} {
+		changed := change.Preceding.ReasoningChoice != change.Committed.ReasoningChoice
+		if kind == KindModelSelection {
+			changed = change.Preceding.Provider != change.Committed.Provider ||
+				change.Preceding.Model != change.Committed.Model
+		}
+		if !changed {
 			continue
 		}
-		available, checked := availability[handler.ExtensionID]
-		if !checked {
-			available = s.runtime.HandlerRuntimeAvailable(handler.ExtensionID)
-			availability[handler.ExtensionID] = available
-		}
-		if !available {
-			continue
-		}
-		binding, err := s.contexts.IssueContext(handler.ExtensionID)
-		switch {
-		case err == nil:
-			var unavailable bool
-			unavailable, err = s.runtime.ObserveLifecycle(
-				ctx, handler.ExtensionID, handler.HandlerID, binding, event,
-			)
-			if unavailable {
-				if err != nil {
-					result = append(result, modelselection.Issue{
-						ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
-						Code: modelselection.IssueCodeObserverError, Err: err,
-					})
-				}
+		for _, handler := range registered {
+			if handler.Kind != kind {
 				continue
 			}
-		case !s.runtime.HandlerRuntimeAvailable(handler.ExtensionID):
-			result = append(result, modelselection.Issue{
-				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
-				Code: modelselection.IssueCodeObserverError, Err: err,
+			available, checked := availability[handler.ExtensionID]
+			if !checked {
+				available = s.runtime.HandlerRuntimeAvailable(handler.ExtensionID)
+				availability[handler.ExtensionID] = available
+			}
+			if available {
+				handlers = append(handlers, handler)
+			}
+		}
+	}
+	return handlers, delivery
+}
+
+// ObserveSelection delivers a committed selection change and stops after the first selected observer failure.
+func (s *Service) ObserveSelection(
+	ctx context.Context,
+	change modelselection.SelectionChange,
+) ([]modelselection.Issue, error) {
+	handlers, delivery := s.selectionObservers(change)
+	result := make([]modelselection.Issue, 0)
+	for _, handler := range handlers {
+		if err := ctx.Err(); err != nil {
+			return result, err
+		}
+		binding, err := s.contexts.IssueContext(handler.ExtensionID)
+		unavailable := false
+		if err == nil {
+			unavailable, err = s.runtime.ObserveLifecycle(ctx, handler.ExtensionID, handler.HandlerID, binding, Event{
+				Agent: agent.Event{}, Settled: false, Selection: change, SelectionEvent: true,
+				ReasoningSelection: handler.Kind == KindReasoningSelection,
 			})
-			continue
-		default:
+		} else {
 			err = fmt.Errorf("issue selection lifecycle context for extension %q: %w", handler.ExtensionID, err)
+		}
+		if unavailable && err == nil {
+			err = fmt.Errorf(
+				"selection observer %q in extension %q became unavailable",
+				handler.HandlerID,
+				handler.ExtensionID,
+			)
 		}
 		if err == nil {
 			continue
 		}
-		observerIssue := modelselection.Issue{
+		if !unavailable && ctx.Err() != nil && errtree.IsCurrentCancellation(err, func(cause error) bool {
+			return errors.Is(cause, ctx.Err()) || errors.Is(cause, context.Cause(ctx))
+		}) {
+			return result, err
+		}
+		result = append(result, modelselection.Issue{
 			ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
 			Code: modelselection.IssueCodeObserverError, Err: err,
-		}
-		result = append(result, observerIssue)
+		})
+		var deliveryErr error
 		if delivery == nil {
-			result = append(result, modelselection.Issue{
-				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
-				Code: modelselection.IssueCodeDeliveryFailed,
-				Err:  errors.Join(err, errors.New("lifecycle issue delivery is not bound")),
-			})
-			continue
-		}
-		publicIssue := Issue{
-			ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
-			Code: IssueCodeObserverError, Err: err,
-		}
-		if deliveryErr := delivery.DeliverExtensionIssue(ctx, publicIssue); deliveryErr != nil {
-			result = append(result, modelselection.Issue{
-				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
-				Code: modelselection.IssueCodeDeliveryFailed,
-				Err:  errors.Join(err, fmt.Errorf("deliver selection observer issue: %w", deliveryErr)),
+			deliveryErr = errors.New("lifecycle issue delivery is not bound")
+		} else {
+			deliveryErr = delivery.DeliverExtensionIssue(ctx, Issue{
+				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID, Code: IssueCodeObserverError, Err: err,
 			})
 		}
+		if deliveryErr != nil {
+			result = append(result, modelselection.Issue{
+				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
+				Code: modelselection.IssueCodeDeliveryFailed, Err: deliveryErr,
+			})
+		}
+		return result, modelselection.NewExtensionFailure(errors.Join(err, deliveryErr, ctx.Err()))
 	}
-	return result
+	return result, nil
 }
 
 // observe invokes one matching observer chain outside service state locks.

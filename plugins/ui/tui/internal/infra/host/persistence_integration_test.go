@@ -113,7 +113,13 @@ func TestSDKPersistenceCleanupUsesCause(t *testing.T) {
 					}.Build()))
 				} else {
 					failed := new(uiv1.HostEvent)
-					failed.SetFailed(operationv1.Failed_builder{Code: new(test.code), Message: new(test.text)}.Build())
+					failed.SetFailed(uiv1.HostFailed_builder{
+						Failure: operationv1.Failed_builder{
+							Code:    new(test.code),
+							Message: new(test.text),
+						}.Build(),
+						Result: nil,
+					}.Build())
 					sendHostEvent(t, stream, id, failed)
 				}
 

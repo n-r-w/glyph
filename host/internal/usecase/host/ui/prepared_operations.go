@@ -32,6 +32,8 @@ const (
 	selectionCodeModelUnavailable = "model_unavailable"
 	// selectionCodeExtensionRejected identifies an explicit handler rejection.
 	selectionCodeExtensionRejected = "extension_rejected"
+	// selectionCodeExtensionFailed identifies a failed selected participant.
+	selectionCodeExtensionFailed = "extension_failed"
 	// selectionCodeExtensionUnavailable identifies selected runtime loss.
 	selectionCodeExtensionUnavailable = "extension_unavailable"
 	// compactionRunningStage identifies active manual compaction work.
@@ -93,7 +95,10 @@ func (prepared *preparedUIOperation) Run(
 		return operation.CompletedWithSource(result, errors.Join(sources...))
 	}
 	if committed, ok := errors.AsType[*committedSelectionError](err); ok {
-		return operation.CompletedWithSource(result, committed.Unwrap())
+		if isPureCancellation(committed.Unwrap()) {
+			return operation.CompletedWithSource(result, committed.Unwrap())
+		}
+		return operation.FailedWithResult(prepared.failureCode(committed.Unwrap()), committed.Unwrap(), result)
 	}
 	if committed, ok := errors.AsType[*committedCompactionError](err); ok {
 		return operation.CompletedWithSource(result, committed.Unwrap())
@@ -335,6 +340,13 @@ func runFailureCode(err error) string {
 	if code, found := modelExecutionFailureCode(err); found {
 		return code
 	}
+	for current := range errtree.IterateCurrentErrors(err) {
+		//nolint:errorlint // Current-node inspection excludes categories retained only as diagnostic history.
+		if classified, present := current.(errtree.CodedError); present &&
+			classified.Code() == controllerui.FailureCodeExtensionFailed {
+			return controllerui.FailureCodeExtensionFailed
+		}
+	}
 	return controllerui.FailureCodeInternal
 }
 
@@ -520,6 +532,8 @@ func selectionFailureCode(err error) string {
 		return controllerui.FailureCodeProviderAuth
 	case selectionCodeExtensionRejected:
 		return controllerui.FailureCodeExtensionRejected
+	case selectionCodeExtensionFailed:
+		return controllerui.FailureCodeExtensionFailed
 	case selectionCodeExtensionUnavailable:
 		return controllerui.FailureCodeExtension
 	default:

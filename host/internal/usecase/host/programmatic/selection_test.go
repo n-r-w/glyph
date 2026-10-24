@@ -416,8 +416,8 @@ func (s *ServiceSuite) TestInvalidModelCommandsDoNotCallCatalog() {
 	}
 }
 
-// TestSelectionPublicationFailureCompletesWithCommittedState verifies post-commit diagnostics do not report failure.
-func (s *ServiceSuite) TestSelectionPublicationFailureCompletesWithCommittedState() {
+// TestSelectionPublicationFailureRetainsCommittedState verifies failure preserves the actual committed selection.
+func (s *ServiceSuite) TestSelectionPublicationFailureRetainsCommittedState() {
 	// Arrange a shared operation that committed before full delivery failed.
 	ctrl := gomock.NewController(s.T())
 	selectionOwner := NewMockModelSelection(ctrl)
@@ -446,8 +446,8 @@ func (s *ServiceSuite) TestSelectionPublicationFailureCompletesWithCommittedStat
 	// Act by executing the admitted selection.
 	outcome := prepared.Run(s.T().Context(), operation.Reporter[controller.OperationProgress]{})
 
-	// Assert terminal completion retains both committed state and complete diagnostics.
-	s.Equal(operation.TerminalStateCompleted, outcome.State())
+	// Assert terminal failure retains both committed state and complete diagnostics.
+	s.Equal(operation.TerminalStateFailed, outcome.State())
 	response, present := outcome.Result()
 	s.True(present)
 	s.Equal(selection, response.Selection.MustGet())

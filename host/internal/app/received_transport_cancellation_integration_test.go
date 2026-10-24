@@ -89,7 +89,7 @@ func TestReceivedTransportCancellationStopsCore(t *testing.T) {
 	require.NotNil(t, response)
 	require.Equal(t, programmaticpb.ModelOutcome_MODEL_OUTCOME_TOOL_USE, response.GetOutcome())
 	require.NotNil(t, terminal.GetFailed())
-	require.Contains(t, terminal.GetFailed().GetMessage(), sourceText)
+	require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), sourceText)
 	require.Equal(t, map[string]struct{}{"call-1": {}, "call-2": {}}, requested)
 	require.Equal(t, map[string]struct{}{"call-1": {}}, executed)
 	require.Equal(t, int64(1), requests.Load())

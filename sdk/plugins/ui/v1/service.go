@@ -711,7 +711,11 @@ func mapHostEvent(id string, event *uiv1.HostEvent) operation.Event[*uiv1.HostPr
 		mapped.Message = event.GetCanceled().GetMessage()
 	case uiv1.HostEvent_Failed_case:
 		failure := event.GetFailed()
-		mapped.Kind, mapped.Code, mapped.Message = operation.EventFailed, failure.GetCode(), failure.GetMessage()
+		mapped.Kind, mapped.Code, mapped.Message = operation.EventFailed, failure.GetFailure().
+			GetCode(),
+			failure.GetFailure().
+				GetMessage()
+		mapped.Result = failure.GetResult()
 	case uiv1.HostEvent_Rejected_case:
 		rejection := event.GetRejected()
 		mapped.Kind, mapped.Code, mapped.Message = operation.EventRejected, rejection.GetCode(), rejection.GetMessage()

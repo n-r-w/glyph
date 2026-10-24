@@ -16,6 +16,10 @@ const (
 	ErrorCodeModelUnavailable = "model_unavailable"
 	// ErrorCodeCredentialUnavailable identifies unavailable final-target credentials.
 	ErrorCodeCredentialUnavailable = "credential_unavailable" //nolint:gosec // This is a public error code.
+	// ErrorCodeExtensionFailed identifies a participating selection extension failure.
+	ErrorCodeExtensionFailed = "extension_failed"
+	// selectionExtensionFailureCode preserves failure meaning during cancellation classification.
+	selectionExtensionFailureCode = "EXTENSION_FAILED"
 	// ErrorCodeExtensionRejected identifies an explicit selection-handler rejection.
 	ErrorCodeExtensionRejected = "extension_rejected"
 	// ErrorCodeExtensionUnavailable identifies a selected handler runtime lost before commit.

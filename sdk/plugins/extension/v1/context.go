@@ -250,22 +250,16 @@ func (c *ExtensionContext) StartReasoningSelection(
 	return &ReasoningSelectionOperation{operation: started}, nil
 }
 
-// Wait waits for a model selection terminal result without changing remote cancellation ownership.
+// Wait returns the model selection result, including any committed result alongside a nonnil failure.
 func (o *ModelSelectionOperation) Wait(ctx context.Context) (*extensionpb.SelectionResult, error) {
 	result, err := o.operation.wait(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return result.GetSelection(), nil
+	return result.GetSelection(), err
 }
 
-// Wait waits for a reasoning selection terminal result without changing remote cancellation ownership.
+// Wait returns the reasoning selection result, including any committed result alongside a nonnil failure.
 func (o *ReasoningSelectionOperation) Wait(ctx context.Context) (*extensionpb.SelectionResult, error) {
 	result, err := o.operation.wait(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return result.GetSelection(), nil
+	return result.GetSelection(), err
 }
 
 // Wait waits locally for the committed hidden entry without canceling remote work.
@@ -311,10 +305,7 @@ func (o *CompactionOperation) WaitWithProgress(
 		}
 		return handle(progress.GetCompaction())
 	})
-	if err != nil {
-		return nil, err
-	}
-	return result.GetCompact(), nil
+	return result.GetCompact(), err
 }
 
 // Wait waits locally for the typed configured-model result without canceling remote work.

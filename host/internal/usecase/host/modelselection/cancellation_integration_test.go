@@ -38,8 +38,8 @@ func TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission(t *tes
 		publisher.EXPECT().PublishSelection(committed).Return(nil, nil)
 		observerStarted := make(chan struct{})
 		cleanupObserver := make(chan struct{})
-		observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindReasoning, gomock.Any()).DoAndReturn(
-			func(ctx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
+		observer.EXPECT().ObserveSelection(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(ctx context.Context, _ SelectionChange) ([]Issue, error) {
 				close(observerStarted)
 				var observerErr error
 				select {
@@ -51,7 +51,7 @@ func TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission(t *tes
 				return []Issue{{
 					ExtensionID: "extension", HandlerID: "observer",
 					Code: IssueCodeObserverError, Err: observerErr,
-				}}
+				}}, observerErr
 			},
 		)
 		service := New(catalog, publisher)

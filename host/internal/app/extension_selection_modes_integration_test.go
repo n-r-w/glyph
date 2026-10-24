@@ -73,39 +73,6 @@ func TestPublicExtensionSelectionAcrossApplicationModes(t *testing.T) {
 	}
 }
 
-// TestPublicSelectionObserverErrorCompletesWithDiagnostics verifies ordinary failures and continuation publicly.
-func TestPublicSelectionObserverErrorCompletesWithDiagnostics(t *testing.T) {
-	// Arrange two real reasoning observers where the first fails ordinarily.
-	t.Setenv(externalSelectionObserversEnvironment, "1")
-	t.Setenv(externalSelectionObserverErrorEnvironment, "1")
-	signals := t.TempDir()
-	t.Setenv(externalSignalsEnvironment, signals)
-	paths := testPaths(t, selectionCompositionSettings())
-	writeProgrammaticCredentials(t, paths)
-	transport, bodies := extensionSelectionProviderTransport(t)
-	previous := http.DefaultTransport
-	http.DefaultTransport = transport
-	t.Cleanup(func() { http.DefaultTransport = previous })
-
-	// Act through the public extension tool and real process observer dispatch.
-	runPublicExtensionMode(
-		t, cli.ModeRPC, paths, buildPublicExtensionFixture(t), "selection", "select active model",
-	)
-
-	// Assert committed state, typed observer diagnostics, later observation, and continued extension execution.
-	actualBodies := bodies.snapshot()
-	require.Len(t, actualBodies, 2)
-	result := new(extensionpb.SelectionResult)
-	require.NoError(t, protojson.Unmarshal([]byte(externalToolOutput(t, actualBodies[1])), result))
-	require.Len(t, result.GetIssues(), 1)
-	assert.Equal(
-		t, extensionpb.SelectionIssueCode_SELECTION_ISSUE_CODE_OBSERVER_ERROR, result.GetIssues()[0].GetCode(),
-	)
-	assert.Contains(t, result.GetIssues()[0].GetMessage(), "public reasoning observer failed")
-	_, err := os.Stat(signals + "/" + laterReasoningSelectionObservedSignal)
-	require.NoError(t, err)
-}
-
 // extensionSelectionProviderTransport returns one tool call followed by one outer completion.
 func extensionSelectionProviderTransport(t *testing.T) (*MockHTTPRoundTripper, *requestBodies) {
 	t.Helper()

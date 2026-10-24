@@ -57,6 +57,24 @@ The old external manual-compaction caller retained an `agent_settled` invocation
 
 `startLiveCallerFixture` in `host/internal/app/live_caller_fixture_test.go` uses production components and the existing Host tool entry point while the operation gate is idle. Programmatic Control still creates conversation history and reads the resulting session state. This fixture changes test ownership, not the application's operation gate: `Coordinator.RunPrepared` in `host/internal/usecase/host/runcontrol/coordinator.go` continues to retain that gate through settled delivery.
 
+### Model and reasoning selection
+
+UNT08 adds selection failure propagation and typed results included with Failed under the [extension failure rule](../../features/initial/prd.md#extension-failure-rule). `Service.compose` in `host/internal/usecase/host/modelselection/handlers.go` captures eligible handlers before dispatch, stops on the first handler error, invalid action, or selected runtime loss, and reaches neither final validation nor commit after that failure. Initially unavailable registrations are excluded. A valid explicit Reject keeps its rejection category and does not acquire extension-failure meaning.
+
+`Service.selectionObservers` and `Service.ObserveSelection` in `host/internal/usecase/host/lifecycle/service.go` capture eligible selection observers before invoking either observation group. Reasoning observation precedes model observation. A failure stops later observers and the transition to the remaining group. `Service.commitSelection` in `host/internal/usecase/host/modelselection/service.go` retains the actual committed selection and the observer error. An unchanged selection emits no selection observations. Ordinary agent lifecycle observation remains outside UNT08.
+
+`NewExtensionFailure` and `extensionFailureError` in `host/internal/usecase/host/modelselection/extension_failure.go` preserve explicit current extension-failure meaning for UNT07 retention. `qualifyingExtensionFailure` in `host/internal/controller/extension/invocation_failure.go` remains the admission to that retention policy. Parent-run public mapping uses current `errtree.CodedError` categories in `failureCode` in `host/internal/usecase/host/programmatic/prepared.go` and `runFailureCode` in `host/internal/usecase/host/ui/prepared_operations.go`. These categories supplement existing typed compaction and logical-model classifications. Historical diagnostic categories cannot establish this new mapping. Host retains authoritative child settlement; the SDK adds no second settlement layer.
+
+`Outcome.Result` and `FailedWithResult` in `internal/operation/operation.go` separate typed result availability from terminal state. Each Host-event protocol owns `HostFailed`, containing the required shared `operation.Failed` and optional existing `HostCompleted` representation: `api/programmatic/v1/programmatic.proto`, `api/plugins/ui/v1/ui.proto`, and `api/plugins/extension/v1/extension.proto`. No opaque payload, compatibility envelope, or second terminal is introduced.
+
+`commandPrepared.runSelection` in `host/internal/usecase/host/programmatic/prepared.go`, `preparedUIOperation.Run` in `host/internal/usecase/host/ui/prepared_operations.go`, and `contextOperation.runSelection` in `host/internal/controller/extension/context_actions.go` retain committed selection data with failure. `hostPrepared.Run` in `host/internal/controller/ui/operations.go` and `hostPrepared.Run` in `sdk/plugins/extension/v1/host_owner.go` preserve that outcome through the respective owners. `streamDelivery.Terminal` in `host/internal/controller/programmatic/delivery.go`, `operationDelivery.Terminal` in `host/internal/infra/plugins/ui/runtime/operations.go`, and `hostDelivery.Terminal` in `sdk/plugins/extension/v1/host_owner.go` send protocol-owned Failed envelopes.
+
+The incoming SDK boundaries validate failure data and whether `HostFailed.result` matches the initiating request. UI uses `validateHostPayload` in `sdk/plugins/ui/v1/request_kind.go`; Extension uses `mapHostEvent` in `sdk/plugins/extension/v1/host_events.go` and `hostRequestKind.validateHostFailed` in `sdk/plugins/extension/v1/host_failed.go`. `Operation.waitResult` in `sdk/plugins/ui/v1/host.go` and `contextOperation.wait` in `sdk/plugins/extension/v1/context_initiator.go` return the result alongside the complete remote failure. `ModelSelectionOperation.Wait` and `ReasoningSelectionOperation.Wait` in `sdk/plugins/extension/v1/context.go` preserve both values. `isSelectionCancellationOnly` in `host/internal/controller/extension/selection.go` uses the shared current-cause classifier, so an independently canceled participant with explicit failure meaning is not treated as owning cancellation. UI `operationNotification` in `sdk/plugins/ui/v1/notification.go` retains the same data for event-driven consumers.
+
+`Controller.Notify` in `plugins/ui/tui/internal/controller/plugin/controller.go` decodes the result included with a failed notification. `Service.Notify` in `plugins/ui/tui/internal/usecase/presentation/commands.go` applies Host-confirmed selection, reports the complete error, and settles pending work in either acknowledgement order. The TUI does not present a success or roll back committed state. Post-commit pure owning cancellation retains the prior committed-completion behavior; an independent extension failure remains Failed when cancellation is also present.
+
+The [selection verification record](selection-evidence.md) owns UNT08 baseline, RED/GREEN evidence, check results, and evidence limits. The verification below remains the original UNT07 record.
+
 ## Verification
 
 ### Baseline
@@ -165,7 +183,9 @@ The mechanism uses the existing invocation identifiers, runtime generation check
 
 ## Limits and Remaining Scope
 
-UNT07 covers ordinary invocation ownership and consumed failures that existing child APIs return as errors. It does not complete the whole issue. Selection, lifecycle, and navigation chain-policy corrections remain for later slices. True failed terminals carrying typed committed outcomes remain outside this slice; completion mappings that still expose post-commit diagnostics as result data retain their current behavior.
+UNT07 covers ordinary invocation ownership and consumed failures that existing child APIs return as errors. Its verification above remains scoped to that unit. UNT08 adds the selection correction and shared typed Failed transport described above; the [selection verification record](selection-evidence.md) records its evidence separately.
+
+Ordinary agent lifecycle chain policy remains UNT09. Session-tree chain semantics remain UNT10. Compaction post-commit Failed producers remain UNT11. Navigation and compaction producers retain their completed-payload behavior until their respective units, while shared transport and SDK support can preserve optional typed results included with Failed. Final issue verification and production panic closure remain UNT12. This work does not reopen the accepted earlier phase baselines.
 
 The manual-compaction regression invokes an ordinary Host tool directly while the application operation gate is idle. The assembled Programmatic regression uses a configured-model child and an existing retry-handler failure, so it verifies the public failed terminal without changing run-gate behavior.
 
@@ -173,7 +193,7 @@ Integration checks use short command-local temporary paths for Unix sockets. The
 
 ## Open Questions
 
-None for the implemented ownership and failure semantics. The remaining issue scope is identified above.
+None for the implemented ownership and selection semantics. The remaining issue scope is identified above.
 
 ## References
 

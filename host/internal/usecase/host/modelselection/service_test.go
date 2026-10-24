@@ -161,7 +161,6 @@ func TestServiceObservesChangedSelectionAfterDelivery(t *testing.T) {
 	committed := model.Selection{Provider: "new", Model: "new-model", ReasoningChoice: model.ReasoningChoiceHigh}
 	deliveryErr := errors.New("selection delivery failed after commit")
 	reasoningErr := errors.New("reasoning observer failed")
-	modelErr := errors.New("model observer failed")
 	ctx, cancel := context.WithCancel(t.Context())
 	order := make([]string, 0, 4)
 	catalog.EXPECT().ResolveModel(committed.Provider, committed.Model).Return(committed, nil)
@@ -178,8 +177,8 @@ func TestServiceObservesChangedSelectionAfterDelivery(t *testing.T) {
 			}, nil
 		})
 	change := SelectionChange{Preceding: preceding, Committed: committed}
-	observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindReasoning, change).DoAndReturn(
-		func(observerCtx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
+	observer.EXPECT().ObserveSelection(gomock.Any(), change).DoAndReturn(
+		func(observerCtx context.Context, _ SelectionChange) ([]Issue, error) {
 			assert.ErrorIs(t, observerCtx.Err(), context.Canceled)
 			order = append(order, "reasoning")
 			return []Issue{
@@ -189,21 +188,7 @@ func TestServiceObservesChangedSelectionAfterDelivery(t *testing.T) {
 					Code:        IssueCodeObserverError,
 					Err:         reasoningErr,
 				},
-			}
-		},
-	)
-	observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindModel, change).DoAndReturn(
-		func(observerCtx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
-			assert.ErrorIs(t, observerCtx.Err(), context.Canceled)
-			order = append(order, "model")
-			return []Issue{
-				{
-					ExtensionID: "model-extension",
-					HandlerID:   "model-observer",
-					Code:        IssueCodeObserverError,
-					Err:         modelErr,
-				},
-			}
+			}, NewExtensionFailure(reasoningErr)
 		},
 	)
 	service := New(catalog, publisher)
@@ -215,13 +200,13 @@ func TestServiceObservesChangedSelectionAfterDelivery(t *testing.T) {
 	// Act after all pre-commit work succeeds.
 	result := prepared.Run(ctx)
 
-	// Assert client publication precedes reasoning and model observation, and all diagnostics remain ordered.
+	// Assert publication and acknowledgement precede observation, and the committed result retains the observer and delivery failures.
 	assert.True(t, result.committed)
 	assert.Equal(t, committed, result.selection)
-	assert.Equal(t, []string{"published", "acknowledgement", "reasoning", "model"}, order)
-	require.Len(t, result.issues, 2)
+	assert.Equal(t, []string{"published", "acknowledgement", "reasoning"}, order)
+	require.Len(t, result.issues, 1)
 	assert.ErrorIs(t, result.issues[0].Err, reasoningErr)
-	assert.ErrorIs(t, result.issues[1].Err, modelErr)
+	assert.ErrorIs(t, result.err, reasoningErr)
 	assert.ErrorIs(t, result.deliveryErr, deliveryErr)
 }
 
@@ -243,11 +228,11 @@ func TestServiceObservesAfterNonCancellationDeliveryFailure(t *testing.T) {
 	publisher.EXPECT().PublishSelection(committed).Return(
 		func(context.Context) error { return deliveryErr }, nil,
 	)
-	observer.EXPECT().ObserveSelection(gomock.Any(), ObservationKindReasoning, SelectionChange{
+	observer.EXPECT().ObserveSelection(gomock.Any(), SelectionChange{
 		Preceding: preceding, Committed: committed,
-	}).DoAndReturn(func(ctx context.Context, _ ObservationKind, _ SelectionChange) []Issue {
+	}).DoAndReturn(func(ctx context.Context, _ SelectionChange) ([]Issue, error) {
 		assert.NoError(t, ctx.Err())
-		return nil
+		return nil, nil
 	})
 	service := New(catalog, publisher)
 	service.BindObserver(observer)
