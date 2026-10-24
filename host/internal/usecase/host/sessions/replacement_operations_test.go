@@ -33,7 +33,8 @@ func TestForkActivePersistsOnlyTheSelectedUserParentPath(t *testing.T) {
 	tree := replacementTree(t, entries, "target", map[string]string{"summary": "kept", "target": "dropped"})
 	service := New(repository, ids, clock, pricing, "/project")
 	service.active = replacementLoadedSession(tree)
-	source := service.active.Clone()
+	source, cloneErr := service.active.Clone()
+	require.NoError(t, cloneErr)
 	repository.EXPECT().CreateSnapshot(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ any, command CreateSnapshotCommand) (CreateSnapshotResult, error) {
 			require.Equal(t, session.ID("forked"), command.Header.ID)
@@ -140,7 +141,8 @@ func TestForkActiveRejectsInvalidTargetsWithoutReplacement(t *testing.T) {
 				"/project",
 			)
 			service.active = replacementLoadedSession(replacementTree(t, replacementEntries(), "target", nil))
-			before := service.active.Clone()
+			before, cloneErr := service.active.Clone()
+			require.NoError(t, cloneErr)
 
 			// Act by selecting an invalid fork target.
 			_, _, _, err := service.ForkActive(t.Context(), test.target)
@@ -239,7 +241,8 @@ func TestReplacementCreationFailurePreservesSource(t *testing.T) {
 	service := New(repository, ids, clock, NewMockPricingCatalog(controller), "/project")
 	service.active = replacementLoadedSession(replacementTree(t, replacementEntries(), "target", nil))
 	service.history = storedHistoryFromEntries(service.active.Tree.ActiveBranch())
-	before := service.active.Clone()
+	before, cloneErr := service.active.Clone()
+	require.NoError(t, cloneErr)
 	beforeHistory := append([]storedHistoryEntry(nil), service.history...)
 
 	// Act by cloning when persistence fails.

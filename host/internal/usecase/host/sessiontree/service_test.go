@@ -28,6 +28,32 @@ func navigateTreeForTest(
 	return service.navigate(ctx, request, func(session.Tree) error { return nil }, nil)
 }
 
+// TestNavigatePropagatesSnapshotFailure verifies unavailable snapshots stop navigation before handlers or commit.
+func TestNavigatePropagatesSnapshotFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange a snapshot error and strict dependencies that must remain unused.
+	controller := gomock.NewController(t)
+	active := NewMockActiveSession(controller)
+	cause := errors.New("reconstruct tree: active leaf does not exist")
+	active.EXPECT().Tree().Return(session.Tree{}, cause)
+	service := New(
+		active,
+		NewMockModelSelection(controller),
+		NewMockModelRequester(controller),
+		NewMockRuntime(controller),
+	)
+
+	// Act through the navigation entry point.
+	result, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{
+		TargetEntryID: "x", SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
+	})
+
+	// Assert cause identity and complete text survive without a committed result.
+	require.ErrorIs(t, err, cause)
+	require.ErrorContains(t, err, cause.Error())
+	require.Equal(t, navigationResult{}, result)
+}
+
 // TestNavigateCommitsPreparedDestination verifies user and non-user targets select their defined destinations.
 func TestNavigateCommitsPreparedDestination(t *testing.T) {
 	t.Parallel()
@@ -78,7 +104,7 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			handlers := NewMockRuntime(controller)
 			service := New(active, modelSelection, models, handlers)
 			tree := navigationTree(t, createdAt)
-			active.EXPECT().Tree().Return(tree)
+			active.EXPECT().Tree().Return(tree, nil)
 			active.EXPECT().SessionID().Return("session")
 			modelSelection.EXPECT().ActiveSelection().Return(model.Selection{})
 			committed := tree
@@ -116,9 +142,10 @@ func TestNavigateReturnsCommittedMetadataAfterPublicationFailure(t *testing.T) {
 	runtime := NewMockRuntime(controller)
 	service := New(active, modelSelection, models, runtime)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
-	committed := tree.Clone()
+	committed, cloneErr := tree.Clone()
+	require.NoError(t, cloneErr)
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(model.Selection{})
 	deliveryErr := errors.New("enqueue navigation progress: queue closed")
@@ -155,7 +182,7 @@ func TestNavigateRejectsUnknownTargetWithoutCommit(t *testing.T) {
 	modelSelection := NewMockModelSelection(controller)
 	handlers := NewMockRuntime(controller)
 	service := New(active, modelSelection, models, handlers)
-	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
+	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()), nil)
 
 	// Act by selecting an unknown entry.
 	_, err := navigateTreeForTest(t, service, t.Context(), NavigationRequest{

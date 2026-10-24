@@ -4,6 +4,7 @@ package programmatic
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -34,6 +35,33 @@ func handleTreeCommandForTest(
 	return response, nil, err
 }
 
+// TestSessionTreeQueryReportsSnapshotFailure verifies a snapshot cause reaches the public rejection.
+func TestSessionTreeQueryReportsSnapshotFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange a snapshot failure with strict generated dependencies.
+	mockController := gomock.NewController(t)
+	control := NewMockActiveSessions(mockController)
+	cause := errors.New("reconstruct tree: label target x does not exist")
+	control.EXPECT().Tree().Return(session.Tree{}, cause)
+	service := New(NewMockCoordinator(mockController), NewMockModelCatalog(mockController), testStateQuery(t, false),
+		control, nil, NewMockGate(mockController), testRunOutput(t), nil, nil)
+
+	// Act through the public tree query command.
+	response, prepared, err := handleTreeCommandForTest(
+		t,
+		service,
+		t.Context(),
+		treeCommand("tree", controller.CommandGetSessionTree),
+	)
+
+	// Assert the rejection preserves complete source text and supplies no successful snapshot.
+	require.NoError(t, err)
+	require.Nil(t, prepared)
+	require.True(t, response.SessionTree.IsNone())
+	require.ErrorIs(t, response.Rejection.MustGet().Cause, cause)
+	require.ErrorContains(t, response.Rejection.MustGet().Cause, cause.Error())
+}
+
 // TestSessionTreeQueryReturnsCompleteSnapshot verifies public projection of the active-session tree.
 func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	t.Parallel()
@@ -45,7 +73,7 @@ func TestSessionTreeQueryReturnsCompleteSnapshot(t *testing.T) {
 	control := NewMockActiveSessions(mockController)
 	gate := NewMockGate(mockController)
 	tree := programmaticTree(t)
-	control.EXPECT().Tree().Return(tree)
+	control.EXPECT().Tree().Return(tree, nil)
 	service := New(
 		coordinator,
 		catalog,

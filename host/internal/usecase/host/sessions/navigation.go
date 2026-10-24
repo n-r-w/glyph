@@ -34,7 +34,10 @@ func (s *Service) CommitNavigation(
 		return sessiontree.NavigationCommit{}, errors.New("commit session navigation: active leaf changed")
 	}
 
-	candidateTree := s.active.Tree.Clone()
+	candidateTree, snapshotErr := s.active.Tree.Clone()
+	if snapshotErr != nil {
+		return sessiontree.NavigationCommit{}, fmt.Errorf("snapshot session before navigation: %w", snapshotErr)
+	}
 	if err := candidateTree.SetActiveLeaf(command.DestinationID); err != nil {
 		return sessiontree.NavigationCommit{}, fmt.Errorf("validate session navigation destination: %w", err)
 	}
@@ -54,6 +57,11 @@ func (s *Service) CommitNavigation(
 	}
 	if err := ctx.Err(); err != nil {
 		return sessiontree.NavigationCommit{}, err
+	}
+	// Validate the caller-owned snapshot before any durable mutation.
+	snapshot, err := candidateTree.Clone()
+	if err != nil {
+		return sessiontree.NavigationCommit{}, fmt.Errorf("snapshot navigation candidate: %w", err)
 	}
 	result, err := s.repository.Apply(ctx, ApplyCommand{
 		Header:      s.active.Header,
@@ -87,7 +95,7 @@ func (s *Service) CommitNavigation(
 	s.contextHistory = storedCompactedHistoryFromEntries(branch)
 	commit := sessiontree.NavigationCommit{
 		Committed:      true,
-		Tree:           candidateTree.Clone(),
+		Tree:           snapshot,
 		CreatedSummary: summaryEntry,
 	}
 	if publishErr := publisher(commit.Tree); publishErr != nil {

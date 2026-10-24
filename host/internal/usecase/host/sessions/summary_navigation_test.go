@@ -89,7 +89,9 @@ func TestCommitNavigationBuildsAndPersistsOneValidatedSummaryMutation(t *testing
 	// Assert the summary becomes the published active leaf only after persistence succeeds.
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some("summary-entry"), committed.Tree.ActiveLeafID())
-	assert.Equal(t, mo.Some("summary-entry"), service.Tree().ActiveLeafID())
+	snapshotTree1, snapshotErr1 := service.Tree()
+	require.NoError(t, snapshotErr1)
+	assert.Equal(t, mo.Some("summary-entry"), snapshotTree1.ActiveLeafID())
 	require.Len(t, committed.Tree.ActiveBranch(), 3)
 	assert.Equal(t, "summary-entry", committed.Tree.ActiveBranch()[2].ID)
 }

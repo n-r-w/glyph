@@ -4,6 +4,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"testing"
 	"time"
@@ -47,6 +48,25 @@ func TestSessionTreeMapsExtensionMessageContentAndVisibility(t *testing.T) {
 	require.Equal(t, session.ClientVisibilityHidden, mapped.Entries[0].ExtensionMessage.MustGet().Visibility)
 }
 
+// TestGetSessionTreeOperationReportsSnapshotFailure verifies retained operations preserve snapshot causes.
+func TestGetSessionTreeOperationReportsSnapshotFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange an unavailable snapshot behind the consumer-owned interface.
+	controller := gomock.NewController(t)
+	control := NewMockActiveSessions(controller)
+	cause := errors.New("reconstruct tree: active leaf does not exist")
+	control.EXPECT().Tree().Return(session.Tree{}, cause)
+	service := treeOperationService(controller, control, NewMockGate(controller), nil)
+
+	// Act by executing the admitted tree query.
+	frame, err := runPreparedCommand(t, service, newCommandForPreparedTest(controllerui.CommandGetSessionTree))
+
+	// Assert complete cause identity survives and no successful snapshot is returned.
+	require.ErrorIs(t, err, cause)
+	require.ErrorContains(t, err, cause.Error())
+	require.Equal(t, controllerui.Frame{}, frame)
+}
+
 // TestGetSessionTreeOperationReturnsCurrentTree verifies retained tree retrieval.
 func TestGetSessionTreeOperationReturnsCurrentTree(t *testing.T) {
 	t.Parallel()
@@ -57,7 +77,7 @@ func TestGetSessionTreeOperationReturnsCurrentTree(t *testing.T) {
 	gate := NewMockGate(controller)
 	tree, err := session.NewTree(nil, mo.None[string](), nil)
 	require.NoError(t, err)
-	control.EXPECT().Tree().Return(tree)
+	control.EXPECT().Tree().Return(tree, nil)
 	service := treeOperationService(controller, control, gate, nil)
 
 	// Act by running the prepared GetSessionTree command.

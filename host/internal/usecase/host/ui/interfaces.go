@@ -138,8 +138,8 @@ type ActiveSessions interface {
 	ListUISessions(context.Context) ([]StoredSession, error)
 	// ActiveInformation returns metadata and statistics from one coherent active-session snapshot.
 	ActiveInformation() (session.Info, session.Statistics)
-	// Tree returns the complete active-session tree snapshot.
-	Tree() session.Tree
+	// Tree returns the complete active-session tree snapshot or a validation error with no usable snapshot.
+	Tree() (session.Tree, error)
 	// ForkActive creates and activates a replacement before one user message.
 	ForkActive(context.Context, string) (session.Info, []session.Entry, string, error)
 	// CloneActive creates and activates a copy of the complete active branch.

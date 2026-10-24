@@ -40,7 +40,7 @@ func TestReadySummaryUsesActualSource(t *testing.T) {
 				Model:       mo.None[session.BranchSummaryModelSource](),
 			}
 			handler := Handler{ExtensionID: "forwarder", HandlerID: "supply"}
-			active.EXPECT().Tree().Return(tree)
+			active.EXPECT().Tree().Return(tree, nil)
 			active.EXPECT().SessionID().Return("session")
 			modelSelection.EXPECT().ActiveSelection().Return(selection)
 			registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{handler})

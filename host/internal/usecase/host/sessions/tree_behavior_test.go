@@ -99,8 +99,12 @@ func TestAppendUsesCurrentActiveLeafForEverySupportedEntry(t *testing.T) {
 	assert.Equal(t, []mo.Option[string]{
 		mo.Some("active"), mo.Some("user"), mo.Some("model"), mo.Some("tool"),
 	}, parents)
-	assert.Equal(t, mo.Some("extension"), service.Tree().ActiveLeafID())
-	assert.Len(t, service.Tree().Entries(), 7)
+	snapshotTree1, snapshotErr1 := service.Tree()
+	require.NoError(t, snapshotErr1)
+	assert.Equal(t, mo.Some("extension"), snapshotTree1.ActiveLeafID())
+	snapshotTree2, snapshotErr2 := service.Tree()
+	require.NoError(t, snapshotErr2)
+	assert.Len(t, snapshotTree2.Entries(), 7)
 }
 
 // TestAppendFailureKeepsCurrentActiveLeaf verifies failed persistence does not publish candidate tree state.
@@ -141,8 +145,12 @@ func TestAppendFailureKeepsCurrentActiveLeaf(t *testing.T) {
 
 	// Assert the published tree retains only the previously committed active leaf.
 	require.Error(t, err)
-	assert.Equal(t, mo.Some("root"), service.Tree().ActiveLeafID())
-	assert.Equal(t, []string{"root"}, treeBehaviorEntryIDs(service.Tree().Entries()))
+	snapshotTree3, snapshotErr3 := service.Tree()
+	require.NoError(t, snapshotErr3)
+	assert.Equal(t, mo.Some("root"), snapshotTree3.ActiveLeafID())
+	snapshotTree4, snapshotErr4 := service.Tree()
+	require.NoError(t, snapshotErr4)
+	assert.Equal(t, []string{"root"}, treeBehaviorEntryIDs(snapshotTree4.Entries()))
 }
 
 // TestExtensionMessageAppendCommitsBeforePublication verifies exact message persistence and post-commit delivery failure.
@@ -215,7 +223,9 @@ func TestExtensionMessageAppendCommitsBeforePublication(t *testing.T) {
 	assert.Equal(t, "message", committed.ID)
 	assert.Equal(t, mo.Some("root"), committed.ParentID)
 	assert.Equal(t, createdAt.Add(time.Second), committed.CreatedAt)
-	assert.Equal(t, mo.Some("message"), service.Tree().ActiveLeafID())
+	snapshotTree5, snapshotErr5 := service.Tree()
+	require.NoError(t, snapshotErr5)
+	assert.Equal(t, mo.Some("message"), snapshotTree5.ActiveLeafID())
 	require.Len(t, service.Snapshot(), 3)
 	assert.Equal(t, "partial", service.Snapshot()[1].Model.MustGet().Content[0].Text.OrEmpty())
 	require.Len(t, service.ClientSnapshot(), 2)
@@ -261,8 +271,12 @@ func TestExtensionMessageWithoutPublisherCommitsBeforeDeliveryFailure(t *testing
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "publisher is not bound")
 	assert.Equal(t, "message", committed.ID)
-	assert.Equal(t, mo.Some("message"), service.Tree().ActiveLeafID())
-	assert.Len(t, service.Tree().Entries(), 2)
+	snapshotTree6, snapshotErr6 := service.Tree()
+	require.NoError(t, snapshotErr6)
+	assert.Equal(t, mo.Some("message"), snapshotTree6.ActiveLeafID())
+	snapshotTree7, snapshotErr7 := service.Tree()
+	require.NoError(t, snapshotErr7)
+	assert.Len(t, snapshotTree7.Entries(), 2)
 }
 
 // TestExtensionAppendFailurePreservesPublishedState verifies hidden append is atomic with persistence.
@@ -305,8 +319,12 @@ func TestExtensionAppendFailurePreservesPublishedState(t *testing.T) {
 	// Assert failure classification retains the durable cause and publishes no candidate.
 	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
 	assert.Contains(t, err.Error(), "sync failed")
-	assert.Equal(t, mo.Some("root"), service.Tree().ActiveLeafID())
-	assert.Len(t, service.Tree().Entries(), 1)
+	snapshotTree8, snapshotErr8 := service.Tree()
+	require.NoError(t, snapshotErr8)
+	assert.Equal(t, mo.Some("root"), snapshotTree8.ActiveLeafID())
+	snapshotTree9, snapshotErr9 := service.Tree()
+	require.NoError(t, snapshotErr9)
+	assert.Len(t, snapshotTree9.Entries(), 1)
 }
 
 // TestExtensionAppendRejectsStaleOrCanceledWork verifies pre-commit validation performs no mutation.
@@ -352,8 +370,12 @@ func TestExtensionAppendRejectsStaleOrCanceledWork(t *testing.T) {
 
 			// Assert no session entry is published for stale or canceled work.
 			require.Error(t, err)
-			assert.Empty(t, service.Tree().Entries())
-			assert.Equal(t, mo.None[string](), service.Tree().ActiveLeafID())
+			snapshotTree10, snapshotErr10 := service.Tree()
+			require.NoError(t, snapshotErr10)
+			assert.Empty(t, snapshotTree10.Entries())
+			snapshotTree11, snapshotErr11 := service.Tree()
+			require.NoError(t, snapshotErr11)
+			assert.Equal(t, mo.None[string](), snapshotTree11.ActiveLeafID())
 		})
 	}
 }
@@ -398,7 +420,8 @@ func TestTreeReturnsDefensiveSnapshot(t *testing.T) {
 	}
 
 	// Act by changing every mutable value reachable from one returned snapshot.
-	snapshot := service.Tree()
+	snapshot, snapshotErr := service.Tree()
+	require.NoError(t, snapshotErr)
 	entries := snapshot.Entries()
 	entries[0].User.MustGet().Content[0].Data.MustGet()[0] = 9
 	entries[1].Extension.MustGet().Data[0] = 9
@@ -406,7 +429,8 @@ func TestTreeReturnsDefensiveSnapshot(t *testing.T) {
 	require.NoError(t, snapshot.Add(treeBehaviorUserEntry("child", mo.Some("extension"), createdAt.Add(2*time.Second))))
 
 	// Assert a later snapshot retains the committed values and structure.
-	later := service.Tree()
+	later, snapshotErr := service.Tree()
+	require.NoError(t, snapshotErr)
 	assert.Equal(t, []byte{1, 2, 3}, later.Entries()[0].User.MustGet().Content[0].Data.MustGet())
 	assert.Equal(t, []byte{4, 5, 6}, later.Entries()[1].Extension.MustGet().Data)
 	assert.Equal(t, map[string]string{"user": "checkpoint"}, later.Labels())

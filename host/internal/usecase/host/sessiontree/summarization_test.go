@@ -56,7 +56,7 @@ func TestNavigateSummarizesOnlyAbandonedPath(t *testing.T) {
 				Model:           "summary-model",
 				ReasoningChoice: model.ReasoningChoiceHigh,
 			}
-			active.EXPECT().Tree().Return(tree)
+			active.EXPECT().Tree().Return(tree, nil)
 			active.EXPECT().SessionID().Return("session")
 			modelSelection.EXPECT().ActiveSelection().Return(selection)
 			models.EXPECT().RequestConfigured(
@@ -135,7 +135,7 @@ func TestNavigateExtensionMessageCreatesSummaryAtParent(t *testing.T) {
 	service := New(active, modelSelection, models, handlers)
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	models.EXPECT().RequestConfigured(
@@ -155,7 +155,8 @@ func TestNavigateExtensionMessageCreatesSummaryAtParent(t *testing.T) {
 			}, EstimatedCost: mo.None[session.EstimatedCost](),
 		}),
 	}
-	committed := tree.Clone()
+	committed, cloneErr := tree.Clone()
+	require.NoError(t, cloneErr)
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("extension")))
 	require.NoError(t, committed.Add(summary))
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
@@ -196,7 +197,7 @@ func TestNavigateRejectsInvalidSummaryResponseWithoutCommit(t *testing.T) {
 	handlers := NewMockRuntime(controller)
 	service := New(active, modelSelection, models, handlers)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
+	active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()), nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	models.EXPECT().RequestConfigured(

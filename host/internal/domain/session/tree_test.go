@@ -28,7 +28,8 @@ func TestTreeImplicitRootConstructionAndClonePreserveStoredState(t *testing.T) {
 	// Act by constructing and cloning the complete stored tree.
 	tree, err := NewTree(entries, mo.None[string](), labels)
 	require.NoError(t, err)
-	clone := tree.Clone()
+	clone, cloneErr := tree.Clone()
+	require.NoError(t, cloneErr)
 
 	// Assert both trees retain stored state while exposing an empty active branch.
 	for _, candidate := range []Tree{tree, clone} {

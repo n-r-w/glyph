@@ -160,7 +160,10 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Info
 	if loaded.Header.WorkingDirectory != s.workingDirectory {
 		return session.Info{}, nil, errors.New("session working directory does not match")
 	}
-	loaded = loaded.Clone()
+	loaded, err = loaded.Clone()
+	if err != nil {
+		return session.Info{}, nil, fmt.Errorf("snapshot resumed session: %w", err)
+	}
 	branch := loaded.Tree.ActiveBranch()
 	history := storedHistoryFromEntries(branch)
 	contextHistory := storedCompactedHistoryFromEntries(branch)
@@ -228,8 +231,8 @@ func (s *Service) ActiveEntries() []session.Entry {
 	return cloneEntries(s.active.Tree.ActiveBranch())
 }
 
-// Tree returns a defensive snapshot of the complete active session tree.
-func (s *Service) Tree() session.Tree {
+// Tree returns an independent, complete active-session tree snapshot or a validation error with no usable snapshot.
+func (s *Service) Tree() (session.Tree, error) {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return s.active.Tree.Clone()
@@ -459,7 +462,10 @@ func (s *Service) appendEntryLocked(ctx context.Context, entry session.Entry) (s
 	entry.ID = entryID
 	entry.ParentID = s.active.Tree.ActiveLeafID()
 	entry.CreatedAt = s.clock.Now()
-	candidateTree := s.active.Tree.Clone()
+	candidateTree, err := s.active.Tree.Clone()
+	if err != nil {
+		return session.Entry{}, fmt.Errorf("snapshot session before append: %w", err)
+	}
 	if err = candidateTree.Add(entry); err != nil {
 		return session.Entry{}, fmt.Errorf("validate session tree entry: %w", err)
 	}

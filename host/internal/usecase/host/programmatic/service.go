@@ -553,7 +553,11 @@ func (s *Service) sessionRejection(command controller.Command, err error) contro
 
 // sessionTree returns the complete active-session tree without private extension payload bytes.
 func (s *Service) sessionTree(command controller.Command) controller.Response {
-	tree, err := mapSessionTree(s.activeSessions.Tree())
+	snapshot, err := s.activeSessions.Tree()
+	if err != nil {
+		return s.rejection(command, controller.RejectionInternal, fmt.Errorf("session tree is unavailable: %w", err))
+	}
+	tree, err := mapSessionTree(snapshot)
 	if err != nil {
 		return s.rejection(command, controller.RejectionInternal, fmt.Errorf("session tree is unavailable: %w", err))
 	}

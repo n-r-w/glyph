@@ -6,7 +6,7 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 ### Production panic elimination
 
-Status: In progress; construction and error-contract changes implemented. Remaining scope is recorded in the [ticket](specs/issues/production-panic-elimination/ticket.md).
+Status: In progress. Completed changes and remaining scope are recorded in the [ticket](specs/issues/production-panic-elimination/ticket.md).
 
 Execution position: After PHS-06 and before PHS-08. Both this task and extension failure propagation must be completed and verified before PHS-08 starts. Their scheduling is recorded in the [delivery plan](specs/features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08).
 

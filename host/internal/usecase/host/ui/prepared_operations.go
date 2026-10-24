@@ -611,7 +611,11 @@ func (s *Session) runSessionOperation(
 		info, statistics := s.activeSessions.ActiveInformation()
 		return sessionInformationFrame(info, statistics), nil
 	case controllerui.CommandGetSessionTree:
-		return sessionTreeFrame(s.activeSessions.Tree())
+		tree, err := s.activeSessions.Tree()
+		if err != nil {
+			return controllerui.Frame{}, fmt.Errorf("session tree is unavailable: %w", err)
+		}
+		return sessionTreeFrame(tree)
 	case controllerui.CommandNavigateSessionTree:
 		result, err := s.navigator.NavigateUI(ctx, NavigationIntent{
 			TargetEntryID: command.TargetEntryID.MustGet(),

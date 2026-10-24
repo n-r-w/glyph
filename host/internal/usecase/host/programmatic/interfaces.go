@@ -81,8 +81,8 @@ type ActiveSessions interface {
 	ActiveEntries() []session.Entry
 	// ActiveStatistics returns active-session counts and complete token totals.
 	ActiveStatistics() session.Statistics
-	// Tree returns the complete active-session tree snapshot.
-	Tree() session.Tree
+	// Tree returns the complete active-session tree snapshot or a validation error with no usable snapshot.
+	Tree() (session.Tree, error)
 	// ForkActive creates a replacement while the caller owns the mutation gate.
 	ForkActive(context.Context, string) (session.Info, []session.Entry, string, error)
 	// CloneActive creates a copy while the caller owns the mutation gate.

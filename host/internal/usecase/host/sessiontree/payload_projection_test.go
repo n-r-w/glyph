@@ -30,7 +30,7 @@ func TestNavigateProjectsExtensionEntriesWithoutPayload(t *testing.T) {
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	handler := Handler{ExtensionID: "extension", HandlerID: "inspect"}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{handler})
@@ -58,7 +58,8 @@ func TestNavigateProjectsExtensionEntriesWithoutPayload(t *testing.T) {
 			Result: mo.None[ResultHandlerAction](), Observer: mo.None[ObserverAction](),
 		}, nil
 	})
-	committed := tree.Clone()
+	committed, cloneErr := tree.Clone()
+	require.NoError(t, cloneErr)
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("root"),

@@ -1,6 +1,8 @@
 package sessions
 
 import (
+	"fmt"
+
 	"github.com/samber/lo"
 	"github.com/samber/mo"
 
@@ -34,12 +36,16 @@ func (loaded LoadedSession) Info() session.Info {
 	}
 }
 
-// Clone prevents repository-owned aggregate state from becoming mutable active state.
-func (loaded LoadedSession) Clone() LoadedSession {
-	return LoadedSession{
-		Header: loaded.Header, StoragePath: loaded.StoragePath, Tree: loaded.Tree.Clone(),
-		Information: loaded.Information, InformationUpdatedAt: loaded.InformationUpdatedAt,
+// Clone returns an independently owned session snapshot or a tree validation error with no usable snapshot.
+func (loaded LoadedSession) Clone() (LoadedSession, error) {
+	tree, err := loaded.Tree.Clone()
+	if err != nil {
+		return LoadedSession{}, fmt.Errorf("clone loaded session: %w", err)
 	}
+	return LoadedSession{
+		Header: loaded.Header, StoragePath: loaded.StoragePath, Tree: tree,
+		Information: loaded.Information, InformationUpdatedAt: loaded.InformationUpdatedAt,
+	}, nil
 }
 
 // cloneEntries returns independent mutable payload ownership for every entry.

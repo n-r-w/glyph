@@ -3,6 +3,7 @@ package sessiontree
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
@@ -88,7 +89,10 @@ func (s *Service) navigate(
 		return navigationResult{}, err
 	}
 
-	tree := s.active.Tree()
+	tree, err := s.active.Tree()
+	if err != nil {
+		return navigationResult{}, fmt.Errorf("snapshot session before navigation: %w", err)
+	}
 	expectedActiveLeafID := tree.ActiveLeafID()
 	preparation, err := tree.NavigationPreparation(request.TargetEntryID)
 	if err != nil {

@@ -133,10 +133,11 @@ func TestSessionTreeComposesRealGRPCHandlers(t *testing.T) {
 
 	tree := grpcNavigationTree(t)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
-	committed := tree.Clone()
+	committed, cloneErr := tree.Clone()
+	require.NoError(t, cloneErr)
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	require.NoError(t, committed.Add(grpcSummaryEntry()))
 	active.EXPECT().CommitNavigation(gomock.Any(), sessiontree.CommitCommand{

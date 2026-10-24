@@ -25,12 +25,8 @@ type replayState struct {
 
 // newReplayState creates an empty valid aggregate.
 func newReplayState() replayState {
-	tree, err := session.NewTree(nil, mo.None[string](), nil)
-	if err != nil {
-		panic(err)
-	}
 	return replayState{
-		tree: tree, information: mo.None[session.Information](), informationUpdatedAt: mo.None[time.Time](),
+		tree: session.Tree{}, information: mo.None[session.Information](), informationUpdatedAt: mo.None[time.Time](),
 	}
 }
 

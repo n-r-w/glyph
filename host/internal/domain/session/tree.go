@@ -215,13 +215,13 @@ func validateTreeEntryPayload(entry Entry) error {
 	return nil
 }
 
-// Clone returns an independently owned valid tree snapshot.
-func (tree Tree) Clone() Tree {
+// Clone returns an independently owned valid tree snapshot or a validation error with no usable snapshot.
+func (tree Tree) Clone() (Tree, error) {
 	cloned, err := NewTree(tree.Entries(), tree.ActiveLeafID(), tree.Labels())
 	if err != nil {
-		panic(err)
+		return Tree{}, fmt.Errorf("clone session tree: %w", err)
 	}
-	return cloned
+	return cloned, nil
 }
 
 // ActiveBranch returns the active path in root-first order.

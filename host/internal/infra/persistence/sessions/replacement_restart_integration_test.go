@@ -52,7 +52,9 @@ func TestImplicitRootNavigationSurvivesRestartAndStartsANewRoot(t *testing.T) {
 	)
 	_, _, err = service.ResumeActive(t.Context(), "source")
 	require.NoError(t, err)
-	preparation, err := service.Tree().NavigationPreparation("root")
+	snapshotTree1, snapshotErr1 := service.Tree()
+	require.NoError(t, snapshotErr1)
+	preparation, err := snapshotTree1.NavigationPreparation("root")
 	require.NoError(t, err)
 	require.True(t, preparation.DestinationID.IsNone())
 	require.Equal(t, mo.Some("root"), preparation.NextInput)
@@ -72,8 +74,12 @@ func TestImplicitRootNavigationSurvivesRestartAndStartsANewRoot(t *testing.T) {
 	require.True(t, commit.Tree.ActiveLeafID().IsNone())
 	require.Empty(t, service.ActiveEntries())
 	require.Empty(t, service.Snapshot())
-	require.Equal(t, sourceTree.Entries(), service.Tree().Entries())
-	require.Equal(t, sourceTree.Labels(), service.Tree().Labels())
+	snapshotTree2, snapshotErr2 := service.Tree()
+	require.NoError(t, snapshotErr2)
+	require.Equal(t, sourceTree.Entries(), snapshotTree2.Entries())
+	snapshotTree3, snapshotErr3 := service.Tree()
+	require.NoError(t, snapshotErr3)
+	require.Equal(t, sourceTree.Labels(), snapshotTree3.Labels())
 
 	// Act by restarting the repository and resuming the persisted implicit-root session.
 	restartedRepository := sessionstore.New(root, project, sessionfilesystem.New())
@@ -95,9 +101,15 @@ func TestImplicitRootNavigationSurvivesRestartAndStartsANewRoot(t *testing.T) {
 	require.Empty(t, activeEntries)
 	require.Empty(t, restarted.ActiveEntries())
 	require.Empty(t, restarted.Snapshot())
-	require.True(t, restarted.Tree().ActiveLeafID().IsNone())
-	require.Equal(t, sourceTree.Entries(), restarted.Tree().Entries())
-	require.Equal(t, sourceTree.Labels(), restarted.Tree().Labels())
+	snapshotTree4, snapshotErr4 := restarted.Tree()
+	require.NoError(t, snapshotErr4)
+	require.True(t, snapshotTree4.ActiveLeafID().IsNone())
+	snapshotTree5, snapshotErr5 := restarted.Tree()
+	require.NoError(t, snapshotErr5)
+	require.Equal(t, sourceTree.Entries(), snapshotTree5.Entries())
+	snapshotTree6, snapshotErr6 := restarted.Tree()
+	require.NoError(t, snapshotErr6)
+	require.Equal(t, sourceTree.Labels(), snapshotTree6.Labels())
 
 	// Act by appending the next user input from the implicit root.
 	restartedIDs.EXPECT().NewID().Return("later-root", nil)
@@ -109,7 +121,8 @@ func TestImplicitRootNavigationSurvivesRestartAndStartsANewRoot(t *testing.T) {
 
 	// Assert the new root becomes active while every prior branch and label remains stored.
 	require.NoError(t, err)
-	persisted := restarted.Tree()
+	persisted, snapshotErr := restarted.Tree()
+	require.NoError(t, snapshotErr)
 	require.Equal(t, mo.Some("later-root"), persisted.ActiveLeafID())
 	require.Len(t, persisted.Entries(), len(sourceTree.Entries())+1)
 	laterRoot := persisted.Entries()[len(persisted.Entries())-1]

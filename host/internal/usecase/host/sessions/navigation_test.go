@@ -78,11 +78,15 @@ func TestCommitNavigationPersistsBeforePublishingAndContinuationUsesDestination(
 	// Assert navigation commits first, continuation advances from it, and the abandoned branch remains stored.
 	require.NoError(t, err)
 	assert.Equal(t, mo.Some("destination"), committed.Tree.ActiveLeafID())
-	assert.Equal(t, mo.Some("continuation"), service.Tree().ActiveLeafID())
+	snapshotTree1, snapshotErr1 := service.Tree()
+	require.NoError(t, snapshotErr1)
+	assert.Equal(t, mo.Some("continuation"), snapshotTree1.ActiveLeafID())
+	snapshotTree2, snapshotErr2 := service.Tree()
+	require.NoError(t, snapshotErr2)
 	assert.Equal(
 		t,
 		[]string{"root", "destination", "abandoned", "continuation"},
-		treeBehaviorEntryIDs(service.Tree().Entries()),
+		treeBehaviorEntryIDs(snapshotTree2.Entries()),
 	)
 }
 
@@ -181,7 +185,8 @@ func TestOverlappingMessageAppendContinuesFromNavigationCommit(t *testing.T) {
 	require.NoError(t, <-appendResult)
 
 	// Assert the later append remains active and attaches to the committed navigation destination.
-	tree := service.Tree()
+	tree, snapshotErr := service.Tree()
+	require.NoError(t, snapshotErr)
 	require.Equal(t, mo.Some("overlap"), tree.ActiveLeafID())
 	entries := tree.Entries()
 	require.Equal(t, mo.Some("destination"), entries[len(entries)-1].ParentID)
@@ -250,7 +255,9 @@ func TestCommitNavigationPublicationFailureRetainsCommittedState(t *testing.T) {
 	require.ErrorIs(t, err, deliveryErr)
 	assert.True(t, commit.Committed)
 	assert.Equal(t, mo.Some("destination"), commit.Tree.ActiveLeafID())
-	assert.Equal(t, mo.Some("destination"), service.Tree().ActiveLeafID())
+	snapshotTree3, snapshotErr3 := service.Tree()
+	require.NoError(t, snapshotErr3)
+	assert.Equal(t, mo.Some("destination"), snapshotTree3.ActiveLeafID())
 }
 
 // TestCommitNavigationRejectsChangedActiveLeafWithoutPersistence verifies optimistic leaf comparison precedes storage.
@@ -271,7 +278,9 @@ func TestCommitNavigationRejectsChangedActiveLeafWithoutPersistence(t *testing.T
 
 	// Assert no repository call occurs and the preceding active leaf remains published.
 	require.Error(t, err)
-	assert.Equal(t, mo.Some("abandoned"), service.Tree().ActiveLeafID())
+	snapshotTree4, snapshotErr4 := service.Tree()
+	require.NoError(t, snapshotErr4)
+	assert.Equal(t, mo.Some("abandoned"), snapshotTree4.ActiveLeafID())
 }
 
 // TestCommitNavigationCancellationWritesNothing verifies canceled navigation stops before storage.
@@ -294,7 +303,9 @@ func TestCommitNavigationCancellationWritesNothing(t *testing.T) {
 
 	// Assert cancellation is returned and the active leaf is unchanged.
 	require.ErrorIs(t, err, context.Canceled)
-	assert.Equal(t, mo.Some("abandoned"), service.Tree().ActiveLeafID())
+	snapshotTree5, snapshotErr5 := service.Tree()
+	require.NoError(t, snapshotErr5)
+	assert.Equal(t, mo.Some("abandoned"), snapshotTree5.ActiveLeafID())
 }
 
 // TestExtensionStateIsCoherentDuringNavigation verifies the leaf and filtered entries share one read lock.
@@ -380,8 +391,12 @@ func TestCommitNavigationPersistenceFailurePreservesPublishedTree(t *testing.T) 
 
 	// Assert persistence failure preserves the preceding active leaf and all entries.
 	require.ErrorIs(t, err, session.ErrPersistenceUnavailable)
-	assert.Equal(t, mo.Some("abandoned"), service.Tree().ActiveLeafID())
-	assert.Equal(t, []string{"root", "destination", "abandoned"}, treeBehaviorEntryIDs(service.Tree().Entries()))
+	snapshotTree6, snapshotErr6 := service.Tree()
+	require.NoError(t, snapshotErr6)
+	assert.Equal(t, mo.Some("abandoned"), snapshotTree6.ActiveLeafID())
+	snapshotTree7, snapshotErr7 := service.Tree()
+	require.NoError(t, snapshotErr7)
+	assert.Equal(t, []string{"root", "destination", "abandoned"}, treeBehaviorEntryIDs(snapshotTree7.Entries()))
 }
 
 // navigationRecoveryResult contains one asynchronous snapshot read outcome.

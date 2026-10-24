@@ -75,11 +75,12 @@ func (mr *MockActiveSessionMockRecorder) SessionID() *gomock.Call {
 }
 
 // Tree mocks base method.
-func (m *MockActiveSession) Tree() session.Tree {
+func (m *MockActiveSession) Tree() (session.Tree, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Tree")
 	ret0, _ := ret[0].(session.Tree)
-	return ret0
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // Tree indicates an expected call of Tree.

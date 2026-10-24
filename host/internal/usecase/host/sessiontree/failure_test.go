@@ -109,7 +109,7 @@ func TestNavigateSummaryFailuresNeverCommit(t *testing.T) {
 				Model:           "model",
 				ReasoningChoice: model.ReasoningChoiceOff,
 			}
-			active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()))
+			active.EXPECT().Tree().Return(navigationTree(t, time.Unix(1, 0).UTC()), nil)
 			active.EXPECT().SessionID().Return("session")
 			modelSelection.EXPECT().ActiveSelection().Return(selection)
 			ctx, cancel := context.WithCancel(t.Context())

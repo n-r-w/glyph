@@ -119,7 +119,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 			require.Empty(t, report.Issues)
 			extensions.Activate(t.Context())
 			tree := grpcNavigationTree(t)
-			active.EXPECT().Tree().Return(tree)
+			active.EXPECT().Tree().Return(tree, nil)
 			active.EXPECT().SessionID().Return("session")
 			publisher := func(session.Tree) error { return nil }
 			if mode != summaryControlClearMode {
@@ -135,7 +135,8 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 							mo.Some(summaryControlProducer),
 							command.BranchSummary.OrEmpty().Source.ExtensionID,
 						)
-						committed := tree.Clone()
+						committed, cloneErr := tree.Clone()
+						require.NoError(t, cloneErr)
 						require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 						require.NoError(t, committed.Add(grpcSummaryEntry()))
 						return sessiontree.NavigationCommit{

@@ -60,7 +60,7 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	first := Handler{ExtensionID: "first-extension", HandlerID: "replace-target"}
 	second := Handler{ExtensionID: "second-extension", HandlerID: "ordinary-error"}
 	observer := Handler{ExtensionID: "observer-extension", HandlerID: "after-commit"}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{first, second})
@@ -77,7 +77,8 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	expectRequestHandler(handlers, second, RequestHandlerInvocation{
 		Original: original, Current: current, CurrentResult: mo.None[HandlerBranchSummaryResult](),
 	}, RequestHandlerAction{}, errors.New("load summary rules: open rules.json: permission denied"))
-	committed := tree.Clone()
+	committed, cloneErr := tree.Clone()
+	require.NoError(t, cloneErr)
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("extension")))
 	registerTestHandlers(service, handlers, HandlerKindObserver, []Handler{observer})
 	gomock.InOrder(
@@ -131,7 +132,7 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	}, preparation)
 	invalid := Handler{ExtensionID: "extension", HandlerID: "invalid"}
 	valid := Handler{ExtensionID: "extension", HandlerID: "valid"}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{invalid, valid})
@@ -160,7 +161,8 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 		Cancel: false, RequestAction: RequestActionReplace, Request: mo.Some(validRequest),
 		ResultAction: ResultActionPreserve, Result: mo.None[HandlerBranchSummaryResult](),
 	}, nil)
-	committed := tree.Clone()
+	committed, cloneErr := tree.Clone()
+	require.NoError(t, cloneErr)
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("extension")))
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
 		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("extension"),
@@ -199,7 +201,7 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	}, preparation)
 	failed := Handler{ExtensionID: "extension", HandlerID: "failed"}
 	canceling := Handler{ExtensionID: "extension", HandlerID: "cancel"}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{failed, canceling})
@@ -255,7 +257,7 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	ready := HandlerBranchSummaryResult{Summary: "ready", Source: source}
 	generated := HandlerBranchSummaryResult{Summary: "generated", Source: source}
 	final := HandlerBranchSummaryResult{Summary: "refined", Source: source}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{setHandler, clearHandler})
@@ -324,7 +326,7 @@ func TestNavigateResultHandlerCancellationStopsBeforeValidation(t *testing.T) {
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	requestHandler := Handler{ExtensionID: "first", HandlerID: "supply"}
 	resultHandler := Handler{ExtensionID: "second", HandlerID: "cancel"}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{requestHandler})
@@ -367,10 +369,11 @@ func TestNavigateObserversIgnorePostCommitCancellation(t *testing.T) {
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	observer := Handler{ExtensionID: "extension", HandlerID: "observer"}
 	ctx, cancel := context.WithCancel(t.Context())
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
-	committed := tree.Clone()
+	committed, cloneErr := tree.Clone()
+	require.NoError(t, cloneErr)
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("root")))
 	active.EXPECT().CommitNavigation(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(context.Context, CommitCommand, func(session.Tree) error) (NavigationCommit, error) {
@@ -419,7 +422,7 @@ func TestNavigateRejectsInconsistentHandlerResultWithoutCommit(t *testing.T) {
 	tree := navigationTree(t, time.Unix(1, 0).UTC())
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	handler := Handler{ExtensionID: "extension", HandlerID: "inconsistent"}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{handler})
@@ -469,7 +472,7 @@ func TestNavigateEmptyAbandonedPathSkipsModelExecution(t *testing.T) {
 	tree, err := session.NewTree([]session.Entry{entry}, mo.Some("extension"), nil)
 	require.NoError(t, err)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{

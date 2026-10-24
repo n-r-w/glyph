@@ -53,8 +53,8 @@ type NavigationCommit struct {
 type ActiveSession interface {
 	// SessionID returns the active session identifier.
 	SessionID() string
-	// Tree returns an independent active-session tree snapshot.
-	Tree() session.Tree
+	// Tree returns an independent active-session tree snapshot or a validation error with no usable snapshot.
+	Tree() (session.Tree, error)
 	// CommitNavigation persists state and enqueues its client snapshot before releasing the commit boundary.
 	CommitNavigation(context.Context, CommitCommand, func(session.Tree) error) (NavigationCommit, error)
 }

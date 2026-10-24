@@ -56,12 +56,20 @@ func (s *Service) SetLabel(ctx context.Context, targetID, label string) (session
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	candidate := s.active.Tree.Clone()
+	candidate, snapshotErr := s.active.Tree.Clone()
+	if snapshotErr != nil {
+		return session.Tree{}, fmt.Errorf("snapshot session before label change: %w", snapshotErr)
+	}
 	if err := candidate.SetLabel(targetID, label); err != nil {
 		return session.Tree{}, fmt.Errorf("%w: set session entry label: %w", session.ErrEntryNotFound, err)
 	}
 	if s.writeUnavailable {
 		return session.Tree{}, session.ErrPersistenceUnavailable
+	}
+	// Validate the caller-owned snapshot before any durable mutation.
+	snapshot, err := candidate.Clone()
+	if err != nil {
+		return session.Tree{}, fmt.Errorf("snapshot label candidate: %w", err)
 	}
 	result, err := s.repository.Apply(ctx, ApplyCommand{
 		Header: s.active.Header, StoragePath: s.active.StoragePath,
@@ -78,7 +86,7 @@ func (s *Service) SetLabel(ctx context.Context, targetID, label string) (session
 	}
 	s.active.StoragePath = result.StoragePath
 	s.active.Tree = candidate
-	return candidate.Clone(), nil
+	return snapshot, nil
 }
 
 // createReplacement persists and publishes one prepared replacement while the caller holds the service mutex.

@@ -45,7 +45,7 @@ func TestNavigateRetainsModelsAfterRejectedBinding(t *testing.T) {
 	}
 	tree, err := session.NewTree(entries, mo.Some("active"), nil)
 	require.NoError(t, err)
-	active.EXPECT().Tree().Return(tree)
+	active.EXPECT().Tree().Return(tree, nil)
 	active.EXPECT().SessionID().Return("session")
 	selectionOwner.EXPECT().ActiveSelection().Return(selection)
 	requester.EXPECT().RequestConfigured(gomock.Any(), selection, gomock.Any(), gomock.Any(), gomock.Any()).Return(
