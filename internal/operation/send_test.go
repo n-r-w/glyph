@@ -22,13 +22,14 @@ func TestLateConfirmationAppliesOnlyToSentItem(t *testing.T) {
 		queuedSource := errors.New("unsent queued report source")
 		cause := errors.New("delivery wait canceled")
 		started, release := make(chan struct{}), make(chan struct{})
-		writer := newWriter(2, func(string) error {
+		writer, constructionErr := NewWriter(func(string) error {
 			return SendWithContext(ctx, func() error {
 				close(started)
 				<-release
 				return nil
 			})
 		})
+		require.NoError(t, constructionErr)
 		first, err := writer.EnqueueAcknowledged("first", source)
 		require.NoError(t, err)
 		queued, err := writer.EnqueueAcknowledged("queued", queuedSource)

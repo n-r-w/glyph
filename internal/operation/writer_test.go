@@ -16,10 +16,11 @@ func TestWriterDeliversAcknowledgementAfterSend(t *testing.T) {
 
 	// Arrange a writer whose transport records delivered messages.
 	delivered := make(chan string, 1)
-	writer := newWriter(1, func(message string) error {
+	writer, constructionErr := NewWriter(func(message string) error {
 		delivered <- message
 		return nil
 	})
+	require.NoError(t, constructionErr)
 	runDone := make(chan error, 1)
 	go func() { runDone <- writer.Run(t.Context()) }()
 
@@ -39,9 +40,12 @@ func TestWriterDeliversAcknowledgementAfterSend(t *testing.T) {
 func TestWriterReturnsQueueFullWithoutBlocking(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a writer that has not started consuming its single queue slot.
-	writer := newWriter(1, func(string) error { return nil })
-	require.NoError(t, writer.Enqueue("first", nil))
+	// Arrange a writer that has not started consuming its bounded queue.
+	writer, constructionErr := NewWriter(func(string) error { return nil })
+	require.NoError(t, constructionErr)
+	for range 64 {
+		require.NoError(t, writer.Enqueue("first", nil))
+	}
 
 	// Act by enqueueing another message into the full queue.
 	source := errors.New("source rejected by full queue")
@@ -64,10 +68,11 @@ func TestWriterPreCanceledContextSkipsSend(t *testing.T) {
 
 	// Arrange a queued acknowledged message and an already canceled writer context.
 	var sends int
-	writer := newWriter(1, func(string) error {
+	writer, constructionErr := NewWriter(func(string) error {
 		sends++
 		return nil
 	})
+	require.NoError(t, constructionErr)
 	source := errors.New("queued source disposed before Send")
 	ack, err := writer.EnqueueAcknowledged("queued", source)
 	require.NoError(t, err)
@@ -91,7 +96,8 @@ func TestWriterResolvesPendingAcknowledgementsOnDeliveryFailure(t *testing.T) {
 
 	// Arrange a writer whose transport fails its first delivery.
 	deliveryErr := errors.New("delivery failed")
-	writer := newWriter(2, func(string) error { return deliveryErr })
+	writer, constructionErr := NewWriter(func(string) error { return deliveryErr })
+	require.NoError(t, constructionErr)
 	firstSource := errors.New("failed Send source")
 	queuedSource := errors.New("disposed queued source")
 	first, err := writer.EnqueueAcknowledged("first", firstSource)

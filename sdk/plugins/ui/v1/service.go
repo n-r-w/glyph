@@ -57,11 +57,11 @@ type server struct {
 var _ uiv1.UIServiceServer = (*server)(nil)
 
 // newServer constructs the SDK-owned generated service.
-func newServer(service Service) *server {
+func newServer(service Service) (*server, error) {
 	if service == nil {
-		panic("UI service is required")
+		return nil, errors.New("UI service is required")
 	}
-	return &server{UnimplementedUIServiceServer: uiv1.UnimplementedUIServiceServer{}, service: service}
+	return &server{UnimplementedUIServiceServer: uiv1.UnimplementedUIServiceServer{}, service: service}, nil
 }
 
 // initializePrepared adapts public initialization work to the private operation owner.
@@ -261,7 +261,7 @@ func (s *server) Open(stream grpc.BidiStreamingServer[uiv1.OpenRequest, uiv1.Ope
 	defer cancelService(context.Canceled)
 	initialized := make(chan struct{})
 	var initializedOnce sync.Once
-	writer := operation.NewWriter(func(response *uiv1.OpenResponse) error {
+	writer, err := operation.NewWriter(func(response *uiv1.OpenResponse) error {
 		if err := sendUIResponse(ctx, response, stream.Send); err != nil {
 			return err
 		}
@@ -270,6 +270,9 @@ func (s *server) Open(stream grpc.BidiStreamingServer[uiv1.OpenRequest, uiv1.Ope
 		}
 		return nil
 	})
+	if err != nil {
+		return errors.Join(fmt.Errorf("initialize UI response writer: %w", err), s.service.Close())
+	}
 	delivery := &uiDelivery{
 		ctx: ctx, writer: writer,
 		fail: func(err error) {
@@ -277,7 +280,11 @@ func (s *server) Open(stream grpc.BidiStreamingServer[uiv1.OpenRequest, uiv1.Ope
 		},
 		mutex: sync.Mutex{}, kinds: make(map[string]string),
 	}
-	owner := operation.NewOwner[struct{}, *uiv1.UICompleted](ctx, delivery)
+	owner, err := operation.NewOwner[struct{}, *uiv1.UICompleted](ctx, delivery)
+	if err != nil {
+		writer.Close()
+		return errors.Join(fmt.Errorf("initialize UI operation owner: %w", err), s.service.Close())
+	}
 	tracker := operation.NewTracker[*uiv1.HostProgress, *uiv1.HostCompleted]()
 	localClose := make(chan struct{}, 1)
 	host := newHost(ctx, writer, tracker, func(err error) {
@@ -296,8 +303,8 @@ func (s *server) Open(stream grpc.BidiStreamingServer[uiv1.OpenRequest, uiv1.Ope
 	receiveJoined := make(chan struct{})
 	go func() {
 		defer close(receiveJoined)
-		if err := s.receive(ctx, stream, owner, delivery, host, closing, peerClose); err != nil {
-			receiveDone <- err
+		if receiveErr := s.receive(ctx, stream, owner, delivery, host, closing, peerClose); receiveErr != nil {
+			receiveDone <- receiveErr
 		}
 	}()
 	runDone := make(chan error, 1)

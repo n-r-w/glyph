@@ -22,7 +22,7 @@ func TestProgrammaticCanceledTransport(t *testing.T) {
 	// Arrange a diagnosed controller operation and the production ordered writer.
 	ctx, cancel := context.WithCancel(t.Context())
 	messages := make(chan *programmaticpb.OpenResponse, 1)
-	writer := operation.NewWriter(func(message *programmaticpb.OpenResponse) error {
+	writer, constructionErr := operation.NewWriter(func(message *programmaticpb.OpenResponse) error {
 		encoded, err := proto.Marshal(message)
 		if err != nil {
 			return err
@@ -34,6 +34,7 @@ func TestProgrammaticCanceledTransport(t *testing.T) {
 		messages <- received
 		return nil
 	})
+	require.NoError(t, constructionErr)
 	stopped := make(chan struct{})
 	go func() { defer close(stopped); _ = writer.Run(ctx) }()
 	defer func() { writer.Close(); cancel(); <-stopped }()

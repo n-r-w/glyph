@@ -176,13 +176,13 @@ func (c *Service) AttachOutput(
 	receiveResolved <-chan struct{},
 	closeSend func() error,
 	fail func(error),
-) (*operation.Writer[*uiv1.OpenRequest], controllerui.OperationOutput) {
+) (*operation.Writer[*uiv1.OpenRequest], controllerui.OperationOutput, error) {
 	delivery := &operationDelivery{
 		ctx: ctx, writer: nil,
 		fail:  func(err error) { fail(fmt.Errorf("deliver UI operation event: %w", err)) },
 		mutex: sync.Mutex{}, kinds: make(map[string]string),
 	}
-	writer := operation.NewWriter(func(request *uiv1.OpenRequest) error {
+	writer, err := operation.NewWriter(func(request *uiv1.OpenRequest) error {
 		err := c.stream.Send(request)
 		if errors.Is(err, io.EOF) && controllerui.WithoutTransportClosureLeaves(err) == nil {
 			// After the sole Send call returns, the writer can half-close requests
@@ -197,12 +197,15 @@ func (c *Service) AttachOutput(
 		}
 		return err
 	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("initialize UI output writer: %w", err)
+	}
 	delivery.writer = writer
 	c.mutex.Lock()
 	c.writer = writer
 	c.failConnection = func(err error) { fail(fmt.Errorf("deliver UI connection event: %w", err)) }
 	c.mutex.Unlock()
-	return writer, delivery
+	return writer, delivery, nil
 }
 
 // Recv receives the next UI input for controller processing.

@@ -32,12 +32,12 @@ func TestSDKHelperProcess(t *testing.T) {
 	controller := gomock.NewController(t)
 	switch os.Getenv(uiSDKHelperEnvironment) {
 	case "serve":
-		Serve(newProcessMockService(controller))
+		require.NoError(t, Serve(newProcessMockService(controller)))
 	case "version-mismatch":
 		service := NewMockService(controller)
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: handshakeConfig(), TLSProvider: nil, Plugins: nil,
-			VersionedPlugins: map[int]plugin.PluginSet{99: pluginSets(newServer(service))[ProtocolVersion]},
+			VersionedPlugins: map[int]plugin.PluginSet{99: pluginSets(newTestServer(t, service))[ProtocolVersion]},
 			GRPCServer:       plugin.DefaultGRPCServer, Logger: nil, Test: nil,
 		})
 	}

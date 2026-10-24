@@ -25,10 +25,11 @@ func TestUserRequestCompactionFailureReachesProgrammaticWire(t *testing.T) {
 	t.Parallel()
 	// Arrange one accepted user request and a real acknowledged output writer.
 	captured := make(chan *programmaticv1.OpenResponse, 1)
-	writer := operation.NewWriter(func(response *programmaticv1.OpenResponse) error {
+	writer, constructionErr := operation.NewWriter(func(response *programmaticv1.OpenResponse) error {
 		captured <- response
 		return nil
 	})
+	require.NoError(t, constructionErr)
 	writerResult := make(chan error, 1)
 	go func() { writerResult <- writer.Run(t.Context()) }()
 	t.Cleanup(func() {
@@ -382,7 +383,8 @@ func TestFailedTerminalQueueAndAcknowledgementPreserveCauses(t *testing.T) {
 			source := errors.Join(operation.ErrQueueFull, errors.New("failed outcome source suffix"))
 			ctx, cancel := context.WithCancelCause(t.Context())
 			defer cancel(context.Canceled)
-			writer := operation.NewWriter(func(*programmaticv1.OpenResponse) error { return nil })
+			writer, constructionErr := operation.NewWriter(func(*programmaticv1.OpenResponse) error { return nil })
+			require.NoError(t, constructionErr)
 			var deliveryErr error
 			switch name {
 			case "queue full":

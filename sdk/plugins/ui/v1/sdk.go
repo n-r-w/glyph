@@ -124,21 +124,30 @@ func (c *Client) Done() <-chan struct{} { return c.done }
 // Close stops the UI plugin process once.
 func (c *Client) Close() { c.closeOnce.Do(c.process.Kill) }
 
-// Serve starts the plugin-side SDK-owned gRPC server.
-func Serve(service Service) {
+// Serve starts the plugin-side SDK-owned gRPC server or returns a service validation error before startup.
+func Serve(service Service) error {
+	server, err := newServer(service)
+	if err != nil {
+		return fmt.Errorf("initialize UI server: %w", err)
+	}
 	plugin.Serve(&plugin.ServeConfig{
 		HandshakeConfig: handshakeConfig(), TLSProvider: nil, Plugins: nil,
-		VersionedPlugins: pluginSets(newServer(service)), GRPCServer: plugin.DefaultGRPCServer, Logger: nil, Test: nil,
+		VersionedPlugins: pluginSets(server), GRPCServer: plugin.DefaultGRPCServer, Logger: nil, Test: nil,
 	})
+	return nil
 }
 
 // TestClient connects a generated client to one SDK-owned service for contract tests.
 func TestClient(t testing.TB, service Service) uiv1.UIServiceClient {
 	t.Helper()
-	client, _ := plugin.TestPluginGRPCConn(t, false, pluginSets(newServer(service))[ProtocolVersion])
+	server, err := newServer(service)
+	if err != nil {
+		t.Fatalf("initialize UI contract test server: %v", err)
+	}
+	client, _ := plugin.TestPluginGRPCConn(t, false, pluginSets(server)[ProtocolVersion])
 	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Errorf("close UI contract test client: %v", err)
+		if closeErr := client.Close(); closeErr != nil {
+			t.Errorf("close UI contract test client: %v", closeErr)
 		}
 	})
 	dispensed, err := client.Dispense(pluginName)

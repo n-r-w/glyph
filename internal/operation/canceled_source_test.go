@@ -20,7 +20,8 @@ func TestOwnerRetainsCanceledSourceBeforeReleaseAndTerminal(t *testing.T) {
 	prepared := NewMockPrepared[string, string](mocks)
 	source := errors.Join(context.Canceled, errors.New("recovered operation diagnostic"))
 	ack := newAcknowledgement()
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	defer func() {
 		ack.resolve(nil)
 		owner.Close()

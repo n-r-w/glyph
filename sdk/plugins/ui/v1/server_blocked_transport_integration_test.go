@@ -271,7 +271,7 @@ func TestBlockedTransportFailureReturnsUIServerHandler(t *testing.T) {
 			return handlerErr
 		}),
 	)
-	uipb.RegisterUIServiceServer(grpcServer, newServer(service))
+	uipb.RegisterUIServiceServer(grpcServer, newTestServer(t, service))
 	serveResult := make(chan error, 1)
 	go func() { serveResult <- grpcServer.Serve(grpcListener) }()
 	t.Cleanup(func() {

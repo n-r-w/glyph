@@ -51,7 +51,8 @@ func testProgressOutput(
 	mockController := gomock.NewController(t)
 	service := New()
 	fixtureContext, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
-	writer := operation.NewWriter(func(string) error { return nil })
+	writer, constructionErr := operation.NewWriter(func(string) error { return nil })
+	require.NoError(t, constructionErr)
 	writerDone := make(chan error, 1)
 	go func() { writerDone <- writer.Run(fixtureContext) }()
 	delivery := operationmock.NewMockOperationDelivery[controllerui.Frame, controllerui.Frame](mockController)
@@ -80,7 +81,8 @@ func testProgressOutput(
 			return operation.Completed(controllerui.NewFrame(controllerui.FrameSubmitCompleted))
 		})
 	prepared.EXPECT().Release()
-	owner := operation.NewOwner(fixtureContext, delivery)
+	owner, constructionErr := operation.NewOwner(fixtureContext, delivery)
+	require.NoError(t, constructionErr)
 	require.NoError(
 		t,
 		owner.Start(

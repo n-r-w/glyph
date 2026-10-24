@@ -104,29 +104,21 @@ type Writer[M any] struct {
 	pendingSend *Acknowledgement
 }
 
-// NewWriter constructs a bounded writer.
-func NewWriter[M any](send func(M) error) *Writer[M] {
-	return newWriter(outboundQueueCapacity, send)
-}
-
-// newWriter constructs a writer with a testable internal capacity.
-func newWriter[M any](capacity int, send func(M) error) *Writer[M] {
-	if capacity <= 0 {
-		panic("writer capacity must be positive")
-	}
+// NewWriter constructs a bounded writer or returns an error when send is absent.
+func NewWriter[M any](send func(M) error) (*Writer[M], error) {
 	if send == nil {
-		panic("writer send function is required")
+		return nil, errors.New("writer send function is required")
 	}
 
 	return &Writer[M]{
 		send:        send,
-		queue:       make(chan writerItem[M], capacity),
+		queue:       make(chan writerItem[M], outboundQueueCapacity),
 		mutex:       sync.Mutex{},
 		closed:      false,
 		cause:       nil,
 		sources:     nil,
 		pendingSend: nil,
-	}
+	}, nil
 }
 
 // Enqueue queues one message without a delivery acknowledgement.

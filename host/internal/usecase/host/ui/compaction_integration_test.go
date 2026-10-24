@@ -49,7 +49,8 @@ func TestManualCompactionRunsThroughUIOperationOwner(t *testing.T) {
 		CompactionInstructions: mo.Some("preserve decisions"),
 	}
 
-	acknowledgements := operation.NewWriter(func(struct{}) error { return nil })
+	acknowledgements, err := operation.NewWriter(func(struct{}) error { return nil })
+	require.NoError(t, err)
 	writerResult := make(chan error, 1)
 	go func() { writerResult <- acknowledgements.Run(t.Context()) }()
 	newAcknowledgement := func() *operation.Acknowledgement {
@@ -75,7 +76,8 @@ func TestManualCompactionRunsThroughUIOperationOwner(t *testing.T) {
 			return newAcknowledgement(), nil
 		},
 	)
-	owner := operation.NewOwner[controllerui.Frame, controllerui.Frame](t.Context(), delivery)
+	owner, constructionErr := operation.NewOwner[controllerui.Frame, controllerui.Frame](t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	t.Cleanup(func() {
 		owner.Close()
 		acknowledgements.Close()
@@ -83,7 +85,7 @@ func TestManualCompactionRunsThroughUIOperationOwner(t *testing.T) {
 	})
 
 	// Act through accepted preparation and operation-owned progress delivery.
-	err := owner.Start("compact", func() (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
+	err = owner.Start("compact", func() (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
 		return service.Prepare(t.Context(), command)
 	})
 	require.NoError(t, err)

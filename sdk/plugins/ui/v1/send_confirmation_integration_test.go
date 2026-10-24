@@ -77,7 +77,8 @@ func TestCanceledSendUsesActualConfirmationAtCollection(t *testing.T) {
 					result := make(chan error, 1)
 
 					// Act after cancellation has returned from the send wrapper and joined writer cleanup.
-					go func() { result <- newServer(service).Open(stream) }()
+					server := newTestServer(t, service)
+					go func() { result <- server.Open(stream) }()
 					<-sendStarted
 					cancel(transportErr)
 					<-cleanupStarted

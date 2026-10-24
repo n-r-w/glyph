@@ -88,12 +88,16 @@ func New(
 	}
 }
 
-// BindPricingCatalog connects the actual provider catalog after storage initialization and before activation.
-func (s *Service) BindPricingCatalog(pricing PricingCatalog) {
-	if s.pricing != nil || pricing == nil {
-		panic("pricing catalog binding must be completed exactly once")
+// BindPricingCatalog connects pricing once before activation and preserves the prior binding on failure.
+func (s *Service) BindPricingCatalog(pricing PricingCatalog) error {
+	if s.pricing != nil {
+		return errors.New("pricing catalog binding is already completed")
+	}
+	if pricing == nil {
+		return errors.New("pricing catalog is required")
 	}
 	s.pricing = pricing
+	return nil
 }
 
 // Initialize prepares storage and creates one empty process-active session.

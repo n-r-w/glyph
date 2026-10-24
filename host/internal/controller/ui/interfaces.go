@@ -49,7 +49,7 @@ type Connection interface {
 		<-chan struct{},
 		func() error,
 		func(error),
-	) (*operation.Writer[*uiv1.OpenRequest], OperationOutput)
+	) (*operation.Writer[*uiv1.OpenRequest], OperationOutput, error)
 	ClearOutput()
 }
 

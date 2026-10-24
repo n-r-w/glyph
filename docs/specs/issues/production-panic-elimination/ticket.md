@@ -1,8 +1,10 @@
 # Ticket: Eliminate panic paths from production code
 
-Status: Planned; intentional panic paths remain in the current implementation
+Status: In progress; intentional panic paths remain outside the completed construction and error-contract changes
 
 Remove intentional and helper-induced panic paths from Glyph production code. Errors must be returned through existing contracts without terminating the host or a plugin.
+
+SDK error constructors, connection failure reporting, and failed operation outcomes now diagnose invalid arguments without panic. Operation owner and writer constructors, one-time model/pricing bindings, and UI startup now return initialization errors. Tracker and writer queues retain fixed capacity 64. Tree reconstruction, replay, option extraction, and regular-expression initialization remain pending.
 
 ## Key definitions and abbreviations
 

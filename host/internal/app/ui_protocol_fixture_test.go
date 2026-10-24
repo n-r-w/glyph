@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/samber/lo"
+	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/internal/testsupport/pluginmock"
@@ -26,7 +27,7 @@ func TestUIPluginHelperProcess(t *testing.T) {
 	// Act by calling uisdk.Serve when the child-process mode is active.
 	// Assert the child process exposes the configured UI fixture behavior.
 	if os.Getenv(appUIHelperEnvironment) == "serve" {
-		uisdk.Serve(newAppUIService(t))
+		require.NoError(t, uisdk.Serve(newAppUIService(t)))
 	}
 }
 

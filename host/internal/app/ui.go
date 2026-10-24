@@ -114,8 +114,12 @@ func runUIWithPaths(
 	)
 	modelExecution.BindManualCompaction(contexts, tools, codingagent.Instructions())
 	extensionModels := extensionmodels.New(providerCatalog, modelExecution, contexts)
-	sessionServices.active.BindPricingCatalog(providerCatalog)
-	sessionServices.tree.BindModels(providerCatalog, modelExecution)
+	if err = sessionServices.active.BindPricingCatalog(providerCatalog); err != nil {
+		return fmt.Errorf("bind session pricing catalog: %w", err)
+	}
+	if err = sessionServices.tree.BindModels(providerCatalog, modelExecution); err != nil {
+		return fmt.Errorf("bind session tree models: %w", err)
+	}
 	selectionOwner := modelselection.New(providerCatalog, transport)
 	selectionOwner.BindHandlers(extensions, contexts, transport)
 	selectionOwner.BindProtection(contexts)

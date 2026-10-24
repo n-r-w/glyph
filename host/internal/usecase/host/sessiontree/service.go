@@ -55,13 +55,17 @@ func New(active ActiveSession, modelSelection ModelSelection, modelRequester Mod
 	}
 }
 
-// BindModels connects configured model selection and request owners before navigation can start.
-func (s *Service) BindModels(selection ModelSelection, requester ModelRequester) {
-	if s.modelSelection != nil || s.modelRequester != nil || selection == nil || requester == nil {
-		panic("model bindings must be completed exactly once")
+// BindModels connects model owners once, preserving the prior bindings when validation fails.
+func (s *Service) BindModels(selection ModelSelection, requester ModelRequester) error {
+	if s.modelSelection != nil || s.modelRequester != nil {
+		return errors.New("model bindings are already completed")
+	}
+	if selection == nil || requester == nil {
+		return errors.New("model selection and requester are required")
 	}
 	s.modelSelection = selection
 	s.modelRequester = requester
+	return nil
 }
 
 // BindContextIssuer completes invocation composition before handler registration.

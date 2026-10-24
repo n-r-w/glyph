@@ -213,10 +213,10 @@ type Owner[P, R any] struct {
 	workers sync.WaitGroup
 }
 
-// NewOwner constructs an operation owner bound to a connection context.
-func NewOwner[P, R any](ctx context.Context, delivery Delivery[P, R]) *Owner[P, R] {
+// NewOwner constructs an operation owner bound to a connection context or rejects absent delivery.
+func NewOwner[P, R any](ctx context.Context, delivery Delivery[P, R]) (*Owner[P, R], error) {
 	if delivery == nil {
-		panic("operation delivery is required")
+		return nil, errors.New("operation delivery is required")
 	}
 	workContext, cancelWork := context.WithCancelCause(ctx)
 	deliveryContext, cancelDelivery := context.WithCancelCause(ctx)
@@ -233,7 +233,7 @@ func NewOwner[P, R any](ctx context.Context, delivery Delivery[P, R]) *Owner[P, 
 		cause:           nil,
 		preparations:    sync.WaitGroup{},
 		workers:         sync.WaitGroup{},
-	}
+	}, nil
 }
 
 // Start claims an identifier, performs bounded admission, and starts accepted-delivery coordination.

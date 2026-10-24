@@ -67,8 +67,6 @@ const inboundQueueCapacity = 64
 
 // Tracker validates events for operations initiated on a connection.
 type Tracker[P, R any] struct {
-	// capacity bounds each initiated operation's inbound queue.
-	capacity int
 	// mutex protects operation ownership and lifecycle state.
 	mutex sync.Mutex
 	// operations contains identifiers awaiting a terminal event or rejection.
@@ -79,16 +77,7 @@ type Tracker[P, R any] struct {
 
 // NewTracker constructs a tracker with bounded per-operation queues.
 func NewTracker[P, R any]() *Tracker[P, R] {
-	return newTracker[P, R](inboundQueueCapacity)
-}
-
-// newTracker constructs a tracker with a testable internal queue capacity.
-func newTracker[P, R any](capacity int) *Tracker[P, R] {
-	if capacity <= 0 {
-		panic("tracker capacity must be positive")
-	}
 	return &Tracker[P, R]{
-		capacity:   capacity,
 		mutex:      sync.Mutex{},
 		operations: make(map[string]*trackedOperation[P, R]),
 		closed:     false,
@@ -110,7 +99,7 @@ func (t *Tracker[P, R]) Track(id string) (<-chan Event[P, R], error) {
 		return nil, ErrIdentifierInUse
 	}
 
-	events := make(chan Event[P, R], t.capacity)
+	events := make(chan Event[P, R], inboundQueueCapacity)
 	t.operations[id] = &trackedOperation[P, R]{state: trackedPending, events: events}
 	return events, nil
 }

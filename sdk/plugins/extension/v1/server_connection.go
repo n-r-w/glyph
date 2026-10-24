@@ -3,6 +3,7 @@ package extensionv1
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"sync"
@@ -27,7 +28,7 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 	ctx, cancel := context.WithCancelCause(stream.Context())
 	defer cancel(context.Canceled)
 	var failConnection func(error)
-	writer := operation.NewWriter(func(response *extensionpb.OpenResponse) error {
+	writer, err := operation.NewWriter(func(response *extensionpb.OpenResponse) error {
 		// Publish registration before its success can become visible through the transport.
 		if registration := response.GetEvent().GetCompleted().GetRegister(); registration != nil {
 			s.completeRegistration(registration)
@@ -47,6 +48,9 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 		}
 		return mapped
 	})
+	if err != nil {
+		return fmt.Errorf("initialize extension response writer: %w", err)
+	}
 	var owner *operation.Owner[*extensionpb.ToolProgress, extensionResult]
 	fail := func(err error) {
 		owner.Fail(err)
@@ -58,7 +62,12 @@ func (s *server) Open(stream extensionpb.ExtensionService_OpenServer) error {
 		mutex: sync.Mutex{}, invocations: make(map[string]invocationLog),
 		initiator: newContextInitiator(ctx, writer, fail),
 	}
-	owner = operation.NewOwner[*extensionpb.ToolProgress, extensionResult](ctx, delivery)
+	owner, err = operation.NewOwner[*extensionpb.ToolProgress, extensionResult](ctx, delivery)
+	if err != nil {
+		delivery.initiator.close(err)
+		writer.Close()
+		return fmt.Errorf("initialize extension operation owner: %w", err)
+	}
 
 	writerResult := make(chan error, 1)
 	go func() { writerResult <- writer.Run(ctx) }()

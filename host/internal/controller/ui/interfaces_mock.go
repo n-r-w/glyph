@@ -253,12 +253,13 @@ func (m *MockConnection) EXPECT() *MockConnectionMockRecorder {
 }
 
 // AttachOutput mocks base method.
-func (m *MockConnection) AttachOutput(arg0 context.Context, arg1 <-chan struct{}, arg2 func() error, arg3 func(error)) (*operation.Writer[*uiv1.OpenRequest], OperationOutput) {
+func (m *MockConnection) AttachOutput(arg0 context.Context, arg1 <-chan struct{}, arg2 func() error, arg3 func(error)) (*operation.Writer[*uiv1.OpenRequest], OperationOutput, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "AttachOutput", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(*operation.Writer[*uiv1.OpenRequest])
 	ret1, _ := ret[1].(OperationOutput)
-	return ret0, ret1
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
 }
 
 // AttachOutput indicates an expected call of AttachOutput.

@@ -70,7 +70,10 @@ var (
 
 // main serves the external UI fixture through the public SDK.
 func main() {
-	uisdk.Serve(&service{signals: os.Getenv(signalsEnvironment)})
+	if err := uisdk.Serve(&service{signals: os.Getenv(signalsEnvironment)}); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 
 // PrepareInitialize admits one initialization operation.

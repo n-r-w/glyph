@@ -63,12 +63,13 @@ func TestAcceptedOperationStartsExplicitlyAndBackpressures(t *testing.T) {
 		delivered := make(chan struct{})
 		accept := make(chan struct{})
 		consume := make(chan struct{})
-		writer := operation.NewWriter(func(value string) error {
+		writer, constructionErr := operation.NewWriter(func(value string) error {
 			if value == "accepted" {
 				<-accept
 			}
 			return nil
 		})
+		require.NoError(t, constructionErr)
 		writerDone := make(chan error, 1)
 		go func() { writerDone <- writer.Run(t.Context()) }()
 		coordinator.EXPECT().PrepareRun().Return("run-1", nil)
@@ -104,7 +105,8 @@ func TestAcceptedOperationStartsExplicitlyAndBackpressures(t *testing.T) {
 				require.Empty(t, output.ActiveOperation())
 				return writer.EnqueueAcknowledged("terminal", nil)
 			})
-		owner := operation.NewOwner(t.Context(), delivery)
+		owner, constructionErr := operation.NewOwner(t.Context(), delivery)
+		require.NoError(t, constructionErr)
 		require.NoError(
 			t,
 			owner.Start("c1", func() (operation.Prepared[controller.OperationProgress, controller.Response], error) {

@@ -99,7 +99,8 @@ func TestChannelSendAfterWriterCloseDoesNotFailConnection(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a channel whose operation writer completed normal shutdown.
-	writer := operation.NewWriter(func(*uiv1.OpenRequest) error { return nil })
+	writer, constructionErr := operation.NewWriter(func(*uiv1.OpenRequest) error { return nil })
+	require.NoError(t, constructionErr)
 	writer.Close()
 	deliveryFailures := make(chan error, 1)
 	_, cancel := context.WithCancel(t.Context())

@@ -259,7 +259,8 @@ func orderedHostOperation(t *testing.T) (*Host, *Operation) {
 func orderedHostOperationWithContext(t *testing.T, hostContext context.Context) (*Host, *Operation) {
 	t.Helper()
 	tracker := operation.NewTracker[*uiv1.HostProgress, *uiv1.HostCompleted]()
-	writer := operation.NewWriter(func(*uiv1.OpenResponse) error { return nil })
+	writer, constructionErr := operation.NewWriter(func(*uiv1.OpenResponse) error { return nil })
+	require.NoError(t, constructionErr)
 	host := newHost(hostContext, writer, tracker, func(error) {}, func() {})
 	started, err := host.Start(t.Context(), "navigate", orderedNavigationRequest())
 	require.NoError(t, err)

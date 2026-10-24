@@ -23,7 +23,7 @@ func TestUICanceledTransport(t *testing.T) {
 	// Arrange a UI operation with cancellation diagnostics and the production ordered writer.
 	ctx, cancel := context.WithCancel(t.Context())
 	messages := make(chan *uipb.OpenResponse, 1)
-	writer := operation.NewWriter(func(message *uipb.OpenResponse) error {
+	writer, constructionErr := operation.NewWriter(func(message *uipb.OpenResponse) error {
 		encoded, err := proto.Marshal(message)
 		if err != nil {
 			return err
@@ -35,6 +35,7 @@ func TestUICanceledTransport(t *testing.T) {
 		messages <- received
 		return nil
 	})
+	require.NoError(t, constructionErr)
 	stopped := make(chan struct{})
 	go func() { defer close(stopped); _ = writer.Run(ctx) }()
 	defer func() { writer.Close(); cancel(); <-stopped }()

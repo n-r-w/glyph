@@ -24,9 +24,10 @@ func TestPublishSelectionUsesOrderedWriter(t *testing.T) {
 	t.Parallel()
 	// Arrange one active ordered writer.
 	delivered := make(chan *programmaticv1.OpenResponse, 1)
-	writer := operation.NewWriter(
+	writer, constructionErr := operation.NewWriter(
 		func(response *programmaticv1.OpenResponse) error { delivered <- response; return nil },
 	)
+	require.NoError(t, constructionErr)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	done := make(chan error, 1)
@@ -58,10 +59,11 @@ func TestPublishConnectionEventsUsesOrderedWriter(t *testing.T) {
 
 	// Arrange one active writer and exact hidden-client extension message.
 	delivered := make(chan *programmaticv1.OpenResponse, 1)
-	writer := operation.NewWriter(func(response *programmaticv1.OpenResponse) error {
+	writer, constructionErr := operation.NewWriter(func(response *programmaticv1.OpenResponse) error {
 		delivered <- response
 		return nil
 	})
+	require.NoError(t, constructionErr)
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	done := make(chan error, 1)

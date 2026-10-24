@@ -38,42 +38,6 @@ func TestSendUIResponseSkipsTransportAfterCancellation(t *testing.T) {
 	assert.Zero(t, sendCalls)
 }
 
-// TestHostOutboundQueueOverflowReportsConnectionFailure verifies SDK producer backpressure ownership.
-func TestHostOutboundQueueOverflowReportsConnectionFailure(t *testing.T) {
-	t.Parallel()
-
-	// Arrange one SDK Host with a production writer whose transport loop is blocked.
-	writer := operation.NewWriter(func(*uiv1.OpenResponse) error { return nil })
-	tracker := operation.NewTracker[*uiv1.HostProgress, *uiv1.HostCompleted]()
-	failure := make(chan error, 1)
-	host := newHost(t.Context(), writer, tracker, func(err error) { failure <- err }, func() {})
-	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("work")}.Build())
-	var overflowErr error
-
-	// Act by filling the exact production queue without starting its transport loop.
-	for index := range 100 {
-		_, overflowErr = host.Start(t.Context(), fmt.Sprintf("operation-%d", index), request)
-		if overflowErr != nil {
-			break
-		}
-	}
-
-	// Assert queue overflow reaches the connection failure callback with its source cause.
-	require.Error(t, overflowErr)
-	assert.ErrorIs(t, overflowErr, operation.ErrQueueFull)
-	select {
-	case reported := <-failure:
-		assert.ErrorIs(t, reported, operation.ErrQueueFull)
-		assert.ErrorContains(t, reported, operation.ErrQueueFull.Error())
-	default:
-		t.Fatal("SDK queue overflow did not report connection failure")
-	}
-	tracker.Close()
-	writer.Close()
-	host.closeEvents()
-}
-
 // TestNestedPayloadValidationRejectsMissingRequiredFields verifies tracker input guards.
 func TestNestedPayloadValidationRejectsMissingRequiredFields(t *testing.T) {
 	t.Parallel()

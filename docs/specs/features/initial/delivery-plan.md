@@ -66,7 +66,7 @@
 
 ### Cross-cutting corrections before PHS-08
 - Dependencies: PHS-06
-- Status: Planned; both issues are confirmed in the current implementation.
+- Status: In progress; see the [cross-cutting roadmap](../../../roadmap.md#cross-cutting-issues) for current progress.
 - Production panic elimination: [Ticket](../../issues/production-panic-elimination/ticket.md).
 - Extension failure propagation: [Ticket](../../issues/extension-failure-propagation/ticket.md).
 - Completion gate: Complete and verify both corrections before PHS-08 starts. These tasks correct known defects in implemented behavior; they do not reopen unrelated phase acceptance or require a general codebase audit. No relative execution order between the two corrections is imposed.

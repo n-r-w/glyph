@@ -99,7 +99,8 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		prepared, err := service.Prepare(t.Context(), command)
 		require.NoError(t, err)
 
-		writer := operation.NewWriter(func(string) error { return nil })
+		writer, constructionErr := operation.NewWriter(func(string) error { return nil })
+		require.NoError(t, constructionErr)
 		writerResult := make(chan error, 1)
 		go func() { writerResult <- writer.Run(t.Context()) }()
 		connectionErr := status.Error(codes.Unavailable, "send failed")
@@ -113,7 +114,8 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		)
 		ownerDelivery.EXPECT().Running("progress-failure").Return(nil)
 		ownerDelivery.EXPECT().Progress("progress-failure", gomock.Any()).Return(connectionErr)
-		owner := operation.NewOwner(t.Context(), ownerDelivery)
+		owner, constructionErr := operation.NewOwner(t.Context(), ownerDelivery)
+		require.NoError(t, constructionErr)
 		require.NoError(t, owner.Start("progress-failure", func() (
 			operation.Prepared[controller.OperationProgress, controller.Response], error,
 		) {

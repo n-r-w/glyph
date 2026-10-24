@@ -74,7 +74,8 @@ func newClosingMockService(t *testing.T) *MockService {
 func TestCloseDrainsValidEventsToEOF(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one initialized service that starts work before close.
+	// Arrange successful startup in the same process after rejected service validation.
+	require.ErrorContains(t, Serve(nil), "UI service is required")
 	client := TestClient(t, newClosingMockService(t))
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
@@ -720,13 +721,13 @@ func TestSDKIntegrationHelperProcess(t *testing.T) {
 	service := NewMockService(controller)
 	switch os.Getenv(uiSDKIntegrationMode) {
 	case "current":
-		Serve(service)
+		require.NoError(t, Serve(service))
 	case "unsupported":
 		plugin.Serve(&plugin.ServeConfig{
 			HandshakeConfig: unsupportedHandshakeConfig(),
 			TLSProvider:     nil, Plugins: nil,
 			VersionedPlugins: map[int]plugin.PluginSet{
-				2: pluginSets(newServer(service))[ProtocolVersion],
+				2: pluginSets(newTestServer(t, service))[ProtocolVersion],
 			},
 			GRPCServer: plugin.DefaultGRPCServer, Logger: nil, Test: nil,
 		})

@@ -98,7 +98,10 @@ func (c *Service) Initialize(ctx context.Context, initialization hostui.Initiali
 
 // closeUnsuccessfulInitialization reuses the remaining initialization grace for the close handshake.
 func (c *Service) closeUnsuccessfulInitialization(graceContext context.Context) error {
-	writer := operation.NewWriter(c.stream.Send)
+	writer, err := operation.NewWriter(c.stream.Send)
+	if err != nil {
+		return errors.Join(fmt.Errorf("initialize UI cleanup writer: %w", err), c.stream.CloseSend())
+	}
 	writerDone := make(chan error, 1)
 	go func() { writerDone <- writer.Run(c.stream.Context()) }()
 	closeRequest := new(uiv1.OpenRequest)
@@ -146,7 +149,23 @@ func (c *Service) initialize(
 ) (returnErr error) {
 	writerContext, cancelWriter := context.WithCancelCause(c.stream.Context())
 	defer cancelWriter(context.Canceled)
-	writer := operation.NewWriter(c.stream.Send)
+	writer, err := operation.NewWriter(c.stream.Send)
+	if err != nil {
+		return fmt.Errorf("initialize UI startup writer: %w", err)
+	}
+	defer writer.Close()
+	return c.runInitialization(ctx, writerContext, request, startGrace, writer)
+}
+
+// runInitialization coordinates initialization and optional cancellation,
+// returning lifecycle, delivery, and cleanup errors.
+func (c *Service) runInitialization(
+	ctx context.Context,
+	writerContext context.Context,
+	request *uiv1.OpenRequest,
+	startGrace func(),
+	writer *operation.Writer[*uiv1.OpenRequest],
+) (returnErr error) {
 	tracker := operation.NewTracker[struct{}, *uiv1.UICompleted]()
 	initializeEvents, err := tracker.Track(initializationOperationID)
 	if err != nil {

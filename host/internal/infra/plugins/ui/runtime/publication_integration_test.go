@@ -24,7 +24,10 @@ func captureConnection(t *testing.T, publish func(*Service) error) *uiv1.OpenReq
 	t.Helper()
 	ctx, cancel := context.WithCancel(context.WithoutCancel(t.Context()))
 	messages := make(chan *uiv1.OpenRequest, 1)
-	writer := operation.NewWriter(func(request *uiv1.OpenRequest) error { messages <- request; return nil })
+	writer, constructionErr := operation.NewWriter(
+		func(request *uiv1.OpenRequest) error { messages <- request; return nil },
+	)
+	require.NoError(t, constructionErr)
 	service := New()
 	service.writer = writer
 	done := make(chan error, 1)

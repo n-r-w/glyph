@@ -64,7 +64,8 @@ func TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission(t *tes
 		)
 		require.NoError(t, err)
 		terminal := make(chan operation.Outcome[controller.Response], 1)
-		acknowledgements := operation.NewWriter(func(struct{}) error { return nil })
+		acknowledgements, err := operation.NewWriter(func(struct{}) error { return nil })
+		require.NoError(t, err)
 		writerResult := make(chan error, 1)
 		go func() { writerResult <- acknowledgements.Run(t.Context()) }()
 		acceptedAck, err := acknowledgements.EnqueueAcknowledged(struct{}{}, nil)
@@ -79,7 +80,8 @@ func TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission(t *tes
 				return terminalAck, nil
 			},
 		)
-		owner := operation.NewOwner(t.Context(), delivery)
+		owner, constructionErr := operation.NewOwner(t.Context(), delivery)
+		require.NoError(t, constructionErr)
 		require.NoError(t, owner.Start("selection", func() (
 			operation.Prepared[controller.OperationProgress, controller.Response], error,
 		) {

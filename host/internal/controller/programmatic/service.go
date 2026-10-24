@@ -89,9 +89,12 @@ func (s *Service) open(stream OpenStream) error {
 	connectionContext, cancelConnection := context.WithCancelCause(stream.Context())
 	defer cancelConnection(context.Canceled)
 	registry := newTargetRegistry()
-	writer := operation.NewWriter(func(response *programmaticv1.OpenResponse) error {
+	writer, err := operation.NewWriter(func(response *programmaticv1.OpenResponse) error {
 		return operation.SendWithContext(connectionContext, func() error { return stream.Send(response) })
 	})
+	if err != nil {
+		return fmt.Errorf("initialize programmatic writer: %w", err)
+	}
 	unbind := s.output.BindWriter(writer)
 	defer unbind()
 	var owner *operation.Owner[OperationProgress, Response]
@@ -106,8 +109,25 @@ func (s *Service) open(stream OpenStream) error {
 			}
 		},
 	}
-	owner = operation.NewOwner(connectionContext, delivery)
+	owner, err = operation.NewOwner(connectionContext, delivery)
+	if err != nil {
+		writer.Close()
+		return fmt.Errorf("initialize programmatic operation owner: %w", err)
+	}
 
+	return s.runOpen(connectionContext, cancelConnection, stream, writer, owner, delivery, registry)
+}
+
+// runOpen joins the request and delivery loops and publishes their complete result.
+func (s *Service) runOpen(
+	connectionContext context.Context,
+	cancelConnection context.CancelCauseFunc,
+	stream OpenStream,
+	writer *operation.Writer[*programmaticv1.OpenResponse],
+	owner *operation.Owner[OperationProgress, Response],
+	delivery *streamDelivery,
+	registry *targetRegistry,
+) error {
 	writerResult := make(chan error, 1)
 	// Every completion branch joins writerResult before reading the retained writer completion.
 	var writerCompletion error

@@ -20,6 +20,5 @@ func Serve() error {
 	input := tuiinput.New(application)
 	host.BindInput(plugin)
 	terminal.BindInput(input, plugin, host)
-	uisdk.Serve(host)
-	return nil
+	return uisdk.Serve(host)
 }

@@ -146,16 +146,27 @@ func (c *Client) Open(ctx context.Context) (*Connection, error) {
 		receiveDone:        make(chan error, 1),
 		closeOnce:          sync.Once{},
 	}
-	connection.writer = operation.NewWriter(func(request *extensionpb.OpenRequest) error {
+	connection.writer, err = operation.NewWriter(func(request *extensionpb.OpenRequest) error {
 		if sendErr := stream.Send(request); sendErr != nil {
 			return connection.sendError(sendErr)
 		}
 		return nil
 	})
-	connection.hostOwner = operation.NewOwner[*extensionpb.HostProgress, *extensionpb.HostCompleted](
+	if err != nil {
+		cancel(err)
+		connection.tracker.Close()
+		return nil, errors.Join(fmt.Errorf("initialize extension writer: %w", err), stream.CloseSend())
+	}
+	connection.hostOwner, err = operation.NewOwner[*extensionpb.HostProgress, *extensionpb.HostCompleted](
 		streamContext,
 		&hostDelivery{connection: connection},
 	)
+	if err != nil {
+		cancel(err)
+		connection.writer.Close()
+		connection.tracker.Close()
+		return nil, errors.Join(fmt.Errorf("initialize extension host owner: %w", err), stream.CloseSend())
+	}
 	writerResult := make(chan error, 1)
 	go func() { writerResult <- connection.writer.Run(streamContext) }()
 	go func() {

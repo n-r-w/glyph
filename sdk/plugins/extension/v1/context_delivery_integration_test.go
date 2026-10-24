@@ -121,11 +121,13 @@ func isolatedHostDelivery(t *testing.T) (*Connection, *hostDelivery, <-chan *ext
 	t.Helper()
 	ctx, cancel := context.WithCancelCause(t.Context())
 	frames := make(chan *extensionpb.OpenRequest, 256)
+	writer, err := operation.NewWriter(func(frame *extensionpb.OpenRequest) error { frames <- frame; return nil })
+	require.NoError(t, err)
 	connection := &Connection{
 		ctx:           ctx,
 		cancel:        cancel,
 		stream:        nil,
-		writer:        operation.NewWriter(func(frame *extensionpb.OpenRequest) error { frames <- frame; return nil }),
+		writer:        writer,
 		tracker:       operation.NewTracker[*extensionpb.ToolProgress, *extensionpb.ExtensionCompleted](),
 		hostOwner:     nil,
 		hostService:   nil,
@@ -139,7 +141,8 @@ func isolatedHostDelivery(t *testing.T) (*Connection, *hostDelivery, <-chan *ext
 		closeOnce:       sync.Once{},
 	}
 	delivery := &hostDelivery{connection: connection}
-	connection.hostOwner = operation.NewOwner[*extensionpb.HostProgress, *extensionpb.HostCompleted](ctx, delivery)
+	connection.hostOwner, err = operation.NewOwner[*extensionpb.HostProgress, *extensionpb.HostCompleted](ctx, delivery)
+	require.NoError(t, err)
 	t.Cleanup(func() { cancel(context.Canceled); connection.hostOwner.Close(); connection.writer.Close() })
 	return connection, delivery, frames
 }

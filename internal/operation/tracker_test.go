@@ -13,7 +13,7 @@ func TestTrackerDeliversValidLifecycleInOrder(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one tracked operation with room for its complete lifecycle.
-	tracker := newTracker[string, string](4)
+	tracker := NewTracker[string, string]()
 	events, err := tracker.Track("operation-1")
 	require.NoError(t, err)
 	lifecycle := []Event[string, string]{
@@ -41,7 +41,7 @@ func TestTrackerRejectsInvalidLifecycle(t *testing.T) {
 	t.Parallel()
 
 	// Arrange a newly tracked operation.
-	tracker := newTracker[string, string](3)
+	tracker := NewTracker[string, string]()
 	_, err := tracker.Track("operation-1")
 	require.NoError(t, err)
 
@@ -64,7 +64,7 @@ func TestTrackerRejectsUnknownIdentifier(t *testing.T) {
 	t.Parallel()
 
 	// Arrange an empty tracker.
-	tracker := newTracker[string, string](1)
+	tracker := NewTracker[string, string]()
 
 	// Act by handling an event for an unknown operation.
 	err := tracker.Handle(Event[string, string]{
@@ -84,8 +84,8 @@ func TestTrackerRejectsUnknownIdentifier(t *testing.T) {
 func TestTrackerReturnsQueueFullWithoutBlocking(t *testing.T) {
 	t.Parallel()
 
-	// Arrange a tracked operation with one inbound queue slot.
-	tracker := newTracker[string, string](1)
+	// Arrange a tracked operation whose consumer does not drain events.
+	tracker := NewTracker[string, string]()
 	_, err := tracker.Track("operation-1")
 	require.NoError(t, err)
 	require.NoError(t, tracker.Handle(Event[string, string]{
@@ -97,11 +97,20 @@ func TestTrackerReturnsQueueFullWithoutBlocking(t *testing.T) {
 		Message:  "",
 	}))
 
-	// Act by delivering another event without consuming the first.
+	require.NoError(t, tracker.Handle(Event[string, string]{
+		ID: "operation-1", Kind: EventRunning, Progress: "", Result: "", Code: "", Message: "",
+	}))
+	for range 62 {
+		require.NoError(t, tracker.Handle(Event[string, string]{
+			ID: "operation-1", Kind: EventProgress, Progress: "queued", Result: "", Code: "", Message: "",
+		}))
+	}
+
+	// Act by delivering another event without consuming the full queue.
 	err = tracker.Handle(Event[string, string]{
 		ID:       "operation-1",
-		Kind:     EventRunning,
-		Progress: "",
+		Kind:     EventProgress,
+		Progress: "overflow",
 		Result:   "",
 		Code:     "",
 		Message:  "",
@@ -116,7 +125,7 @@ func TestTrackerAcceptsRejectedOnlyBeforeAcceptance(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one tracked request.
-	tracker := newTracker[string, string](1)
+	tracker := NewTracker[string, string]()
 	events, err := tracker.Track("operation-1")
 	require.NoError(t, err)
 	rejected := Event[string, string]{

@@ -74,7 +74,7 @@ func TestHostUICanceledTransport(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	messages := make(chan *uipb.OpenRequest, 1)
-	writer := operation.NewWriter(func(message *uipb.OpenRequest) error {
+	writer, constructionErr := operation.NewWriter(func(message *uipb.OpenRequest) error {
 		encoded, err := proto.Marshal(message)
 		if err != nil {
 			return err
@@ -86,6 +86,7 @@ func TestHostUICanceledTransport(t *testing.T) {
 		messages <- received
 		return stream.Send(message)
 	})
+	require.NoError(t, constructionErr)
 	stopped := make(chan struct{})
 	go func() { defer close(stopped); _ = writer.Run(ctx) }()
 	defer func() { writer.Close(); cancel(); <-stopped }()

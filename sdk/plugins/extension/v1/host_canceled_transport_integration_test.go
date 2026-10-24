@@ -23,7 +23,7 @@ func TestHostCanceledTransport(t *testing.T) {
 	// Arrange a Host operation with cancellation diagnostics and the production ordered writer.
 	ctx, cancel := context.WithCancelCause(t.Context())
 	messages := make(chan *extensionpb.OpenRequest, 1)
-	writer := operation.NewWriter(func(message *extensionpb.OpenRequest) error {
+	writer, constructionErr := operation.NewWriter(func(message *extensionpb.OpenRequest) error {
 		encoded, err := proto.Marshal(message)
 		if err != nil {
 			return err
@@ -35,6 +35,7 @@ func TestHostCanceledTransport(t *testing.T) {
 		messages <- received
 		return nil
 	})
+	require.NoError(t, constructionErr)
 	stopped := make(chan struct{})
 	go func() { defer close(stopped); _ = writer.Run(ctx) }()
 	defer func() { writer.Close(); cancel(nil); <-stopped }()

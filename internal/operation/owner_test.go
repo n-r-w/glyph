@@ -40,7 +40,8 @@ func TestOwnerWaitsForAcceptedDeliveryBeforeRun(t *testing.T) {
 	)
 	releaseCall := prepared.EXPECT().Release()
 	gomock.InOrder(acceptedCall, runningCall, runCall, releaseCall, terminalCall)
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 
 	// Act by starting work while Accepted remains unacknowledged.
 	require.NoError(t, owner.Start("operation-1", preparedBy(prepared)))
@@ -78,7 +79,8 @@ func TestOwnerReportsProgressBeforeTerminal(t *testing.T) {
 	)
 	releaseCall := prepared.EXPECT().Release()
 	gomock.InOrder(acceptedCall, runningCall, runCall, progressCall, releaseCall, terminalCall)
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 
 	// Act by running one operation that reports progress.
 	require.NoError(t, owner.Start("operation-1", preparedBy(prepared)))
@@ -107,7 +109,8 @@ func TestOwnerProgressQueueOverflowStopsWork(t *testing.T) {
 		},
 	)
 	prepared.EXPECT().Release().Do(func() { releaseCalls.Add(1) })
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 
 	// Act by starting and joining the worker after progress delivery fails.
 	require.NoError(t, owner.Start("operation-1", preparedBy(prepared)))
@@ -146,7 +149,8 @@ func TestOwnerCancelAndWaitJoinsTerminalDelivery(t *testing.T) {
 		},
 	)
 	prepared.EXPECT().Release()
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	require.NoError(t, owner.Start("target", preparedBy(prepared)))
 	<-runStarted
 	result := make(chan TerminalState, 1)
@@ -184,7 +188,8 @@ func TestOwnerReleasesWhenAcceptedDeliveryFails(t *testing.T) {
 	accepted := newAcknowledgement()
 	delivery.EXPECT().Accepted("operation-1").Return(accepted, nil)
 	prepared.EXPECT().Release()
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	require.NoError(t, owner.Start("operation-1", preparedBy(prepared)))
 
 	// Act by failing delivery before work starts.
@@ -219,7 +224,8 @@ func TestOwnerCloseCancelsAndJoinsWork(t *testing.T) {
 		},
 	)
 	prepared.EXPECT().Release()
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	require.NoError(t, owner.Start("operation-1", preparedBy(prepared)))
 	<-runStarted
 	closed := make(chan struct{})
@@ -253,7 +259,8 @@ func TestOwnerRejectsDuplicateActiveIdentifier(t *testing.T) {
 	var duplicatePrepared atomic.Bool
 	delivery.EXPECT().Accepted("operation-1").Return(accepted, nil)
 	first.EXPECT().Release()
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	require.NoError(t, owner.Start("operation-1", preparedBy(first)))
 
 	// Act by trying to reserve the same identifier again.
@@ -283,7 +290,8 @@ func TestOwnerCallsReleaseExactlyOnce(t *testing.T) {
 	delivery.EXPECT().Terminal("operation-1", gomock.Any()).Return(resolvedAcknowledgement(nil), nil)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).Return(Completed("done"))
 	prepared.EXPECT().Release().Do(func() { releases.Add(1) })
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 
 	// Act by completing and joining the operation.
 	require.NoError(t, owner.Start("operation-1", preparedBy(prepared)))
@@ -306,7 +314,8 @@ func TestOwnerReleasesClaimAfterPreparationRejection(t *testing.T) {
 	accepted := newAcknowledgement()
 	delivery.EXPECT().Accepted("operation-1").Return(accepted, nil)
 	prepared.EXPECT().Release()
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 
 	// Act by rejecting preparation, then reusing the identifier successfully.
 	err := owner.Start("operation-1", func() (Prepared[string, string], error) {
@@ -333,7 +342,8 @@ func TestOwnerReleasesPreparedWorkWhenContextClosesBeforeStart(t *testing.T) {
 	preparing := make(chan struct{})
 	allowPreparation := make(chan struct{})
 	prepared.EXPECT().Release()
-	owner := NewOwner(connectionContext, delivery)
+	owner, constructionErr := NewOwner(connectionContext, delivery)
+	require.NoError(t, constructionErr)
 	startResult := make(chan error, 1)
 	go func() {
 		startResult <- owner.Start("operation-1", func() (Prepared[string, string], error) {
@@ -371,7 +381,8 @@ func TestOwnerCancellationBeforeRunSkipsPreparedWork(t *testing.T) {
 		},
 	)
 	prepared.EXPECT().Release()
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	require.NoError(t, owner.Start("target", preparedBy(prepared)))
 	canceled := observeCancellation(owner, "target")
 	result := make(chan TerminalState, 1)
@@ -404,7 +415,8 @@ func TestOwnerCompletedOutcomeWinsCancellation(t *testing.T) {
 	allowCompletion := make(chan struct{})
 	source := errors.Join(ErrQueueFull, context.Canceled)
 	releasedSource := make(chan error, 1)
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	delivery.EXPECT().Accepted("target").Return(resolvedAcknowledgement(nil), nil)
 	delivery.EXPECT().Running("target").Return(nil)
 	delivery.EXPECT().Terminal("target", gomock.Any()).DoAndReturn(
@@ -478,7 +490,8 @@ func TestOwnerFailedOutcomeWinsCancellation(t *testing.T) {
 		},
 	)
 	prepared.EXPECT().Release()
-	owner := NewOwner(t.Context(), delivery)
+	owner, constructionErr := NewOwner(t.Context(), delivery)
+	require.NoError(t, constructionErr)
 	require.NoError(t, owner.Start("target", preparedBy(prepared)))
 	<-runStarted
 	canceled := observeCancellation(owner, "target")

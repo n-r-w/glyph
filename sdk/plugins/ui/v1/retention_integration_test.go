@@ -67,7 +67,8 @@ func TestSDKRetainsRejectedInitializationSource(t *testing.T) {
 				result := make(chan error, 1)
 
 				// Act without releasing raw Recv until the SDK handler has returned.
-				go func() { result <- newServer(service).Open(stream) }()
+				server := newTestServer(t, service)
+				go func() { result <- server.Open(stream) }()
 				<-started
 				if late {
 					cancel(deliveryErr)
@@ -140,7 +141,8 @@ func TestSDKRetainsInitializationFailureAtCompletion(t *testing.T) {
 				result := make(chan error, 1)
 
 				// Act through the actual SDK server while raw Recv remains blocked until after handler return.
-				go func() { result <- newServer(service).Open(stream) }()
+				server := newTestServer(t, service)
+				go func() { result <- server.Open(stream) }()
 				synctest.Wait()
 				close(releaseSend)
 				err := <-result

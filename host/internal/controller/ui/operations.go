@@ -93,8 +93,18 @@ func (c *Service) runOperations(ctx context.Context, session Session) error {
 	defer cancelConnection(context.Canceled)
 	receiveResolved := make(chan struct{})
 	closeSend := sync.OnceValue(c.connection.CloseSend)
-	writer, delivery := c.connection.AttachOutput(connectionContext, receiveResolved, closeSend, cancelConnection)
-	owner := operation.NewOwner[Frame, OperationResult](connectionContext, delivery)
+	writer, delivery, err := c.connection.AttachOutput(connectionContext, receiveResolved, closeSend, cancelConnection)
+	if err != nil {
+		c.connection.Cancel()
+		return errors.Join(fmt.Errorf("attach UI output: %w", err), closeSend())
+	}
+	owner, err := operation.NewOwner[Frame, OperationResult](connectionContext, delivery)
+	if err != nil {
+		writer.Close()
+		c.connection.ClearOutput()
+		c.connection.Cancel()
+		return errors.Join(fmt.Errorf("initialize UI operation owner: %w", err), closeSend())
+	}
 	stopActivation := session.Activate(ctx)
 	writerDone := make(chan error, 1)
 	go func() { writerDone <- writer.Run(connectionContext) }()
