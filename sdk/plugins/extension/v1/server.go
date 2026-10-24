@@ -265,7 +265,11 @@ func (s *server) handleRequest(
 			}
 			prepared = &cancellationPrepared{cancel: cancelTarget}
 		} else {
-			prepared, err = s.prepare(ctx, request, delivery.initiator)
+			invocation := context.WithValue(ctx, parentInvocationContextKey{}, id)
+			if parentID := request.GetHandle().GetParentCompactionId(); parentID != "" {
+				invocation = context.WithValue(invocation, parentCompactionContextKey{}, parentID)
+			}
+			prepared, err = s.prepare(invocation, request, delivery.initiator)
 		}
 		if err == nil {
 			delivery.recordInvocation(id, kind, request)
@@ -344,7 +348,7 @@ func (s *server) prepareInvocation(
 		}
 		identity = request.GetExecute().GetContext()
 	}
-	binding, err := invocationContext(identity, initiator)
+	binding, err := invocationContext(ctx, identity, initiator)
 	if err != nil {
 		return nil, err
 	}

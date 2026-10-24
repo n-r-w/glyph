@@ -28,7 +28,7 @@ func (p *CompactionPolicyContext) StartResultHandler(
 			Invocation:  proto.CloneOf(invocation),
 		}.Build(),
 	)
-	operation, err := p.extension.initiator.start(ctx, request)
+	operation, err := p.extension.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}

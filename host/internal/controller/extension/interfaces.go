@@ -241,8 +241,27 @@ type ContextFailure interface {
 	ContextCode() string
 }
 
+// InvocationChild owns one admitted child until release.
+type InvocationChild interface {
+	// Fail retains a qualifying independent cause and stops the owning invocation before cleanup.
+	Fail(error)
+	// Link applies owning invocation cancellation to the child's execution.
+	Link(context.Context) (context.Context, func())
+	// Release settles the child after its accepted resources have been released.
+	Release()
+}
+
+// NestedExtensionFailure identifies a qualifying extension failure independently of public result mapping.
+type NestedExtensionFailure interface {
+	error
+	// IsExtensionFailure distinguishes extension failure from provider and validation results.
+	IsExtensionFailure() bool
+}
+
 // RuntimeOperations accounts for extension-initiated work against the connected process instance.
 type RuntimeOperations interface {
+	// BeginInvocationChild validates runtime and parent identity before admitting nested work.
+	BeginInvocationChild(extensionID, runtimeID, parentID string) (InvocationChild, error)
 	// BeginContextOperation reserves one active operation and returns its release function.
 	BeginContextOperation(ctx context.Context, extensionID, runtimeID string) (func(), error)
 }

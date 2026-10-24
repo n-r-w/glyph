@@ -158,6 +158,7 @@ func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {
 	contexts := NewMockContextOperations(controller)
 	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
+	expectInvocationChild(t, runtime, controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
 	history := []agent.HistoryEntry{
@@ -295,6 +296,7 @@ func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
 	contexts := NewMockContextOperations(controller)
 	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
+	expectInvocationChild(t, runtime, controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil).Times(2)
 	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil).Times(2)
@@ -364,6 +366,7 @@ func TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue(t *testing.
 	contexts := NewMockContextOperations(controller)
 	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
+	expectInvocationChild(t, runtime, controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
 	runtime.EXPECT().BeginContextOperation(gomock.Any(), "extension", "runtime").Return(func() {}, nil)
@@ -399,6 +402,7 @@ func TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue(t *testing.
 	// Act through the production extension request controller.
 	prepared, err := service.Prepare(t.Context(), "append-message", request)
 	require.NoError(t, err)
+	t.Cleanup(prepared.Release)
 	completed, err := prepared.Run(t.Context(), nil)
 
 	// Assert exact committed metadata, message content, visibility, and complete delivery cause.
@@ -439,6 +443,7 @@ func TestConfiguredModelRequestPreservesClosedFailures(t *testing.T) {
 			contexts := NewMockContextOperations(controller)
 			models := NewMockModelOperations(controller)
 			runtime := NewMockRuntimeOperations(controller)
+			expectInvocationChild(t, runtime, controller)
 			failure := NewMockModelFailure(controller)
 			failure.EXPECT().ModelCode().Return(code)
 			failure.EXPECT().Error().Return("complete configured request cause").AnyTimes()
@@ -481,6 +486,7 @@ func TestConfiguredModelRequestPreservesStaleContext(t *testing.T) {
 	contexts := NewMockContextOperations(controller)
 	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
+	expectInvocationChild(t, runtime, controller)
 	failure := NewMockContextFailure(controller)
 	failure.EXPECT().ContextCode().Return("STALE_CONTEXT")
 	failure.EXPECT().Error().Return("complete stale context cause").AnyTimes()
@@ -622,6 +628,7 @@ func TestModelCatalogueMapsCompleteDescriptor(t *testing.T) {
 	contexts := NewMockContextOperations(controller)
 	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
+	expectInvocationChild(t, runtime, controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
 	contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
 	released := false

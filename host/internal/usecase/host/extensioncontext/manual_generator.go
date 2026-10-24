@@ -8,6 +8,7 @@ import (
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // InvokePolicyGenerator invokes the policy-selected captured generator under a non-authorizing lifetime.
@@ -40,8 +41,12 @@ func (s *Service) InvokePolicyGenerator(
 		)
 	}
 	if producer, present := result.Source.ExtensionID.Get(); present && producer != participant.ExtensionID {
-		return session.CompactionEntry{}, fmt.Errorf(
-			"generator producer %q does not match the selected extension %q", producer, participant.ExtensionID,
+		return session.CompactionEntry{}, NewPolicyOperationError(
+			ctx,
+			modelexecution.FailureExtensionFailed,
+			fmt.Errorf(
+				"generator producer %q does not match the selected extension %q", producer, participant.ExtensionID,
+			),
 		)
 	}
 	return session.CompactionEntry{

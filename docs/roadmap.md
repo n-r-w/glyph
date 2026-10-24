@@ -14,11 +14,11 @@ Remove intentional panic paths and propagate operation and validation failures t
 
 ### Extension failures stop the invoking operation
 
-Status: Requirements updated; implementation pending; continuation after failure confirmed in code and tests
+Status: In progress. UNT07 ordinary invocation ownership and consumed-failure propagation are implemented and verified. See the [technical solution, check results, and remaining scope](specs/issues/extension-failure-propagation/solution.md).
 
 Execution position: After PHS-06 and before PHS-08, together with production panic elimination.
 
-The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) defines the required behavior. The [correction ticket](specs/issues/extension-failure-propagation/ticket.md) records the confirmed implementation gaps, regression evidence, and acceptance criteria. Completed phase statuses below describe their accepted implementation baselines; this cross-cutting correction remains pending.
+The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) defines the required behavior. The [correction ticket](specs/issues/extension-failure-propagation/ticket.md) records the confirmed implementation gaps, regression evidence, and acceptance criteria. Completed phase statuses below describe their accepted implementation baselines; this cross-cutting correction remains in progress.
 
 ### TUI hyperlinks
 

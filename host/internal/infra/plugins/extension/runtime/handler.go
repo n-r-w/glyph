@@ -42,7 +42,7 @@ func (r *Runtime) Handle(
 	ctx context.Context,
 	handlerID string,
 	request extensionruntime.HandlerInvocation,
-) (extensionruntime.HandlerAction, error) {
+) (action extensionruntime.HandlerAction, returnErr error) {
 	mapped, err := mapHandleRequest(handlerID, request)
 	if err != nil {
 		return extensionruntime.HandlerAction{}, err
@@ -50,6 +50,8 @@ func (r *Runtime) Handle(
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(mapped)
 	operationID := r.operationID()
+	ctx, finish := r.beginInvocation(ctx, operationID)
+	defer func() { returnErr = finish(classifyHandlerFailure(ctx, returnErr)) }()
 	slog.DebugContext(
 		ctx,
 		"invoke extension handler",

@@ -1,0 +1,182 @@
+# Technical Solution: Extension Failure Propagation
+
+## Problem Statement
+
+The [ticket](ticket.md) and [extension failure rule](../../features/initial/prd.md#extension-failure-rule) define the problem and required behavior.
+
+## Proposed Solution
+
+### Ordinary invocation ownership
+
+UNT07 extends child-lifetime ownership to ordinary Host extension invocations. Host uses the operation identifier it already allocates for each invocation, scoped to that runtime connection. Session authorization remains a separate check.
+
+`Runtime.beginInvocation` in `host/internal/infra/plugins/extension/runtime/invocation.go` registers the parent before sending the request and returns its settlement callback. The entry points use that owner:
+
+- `Runtime.Execute` in `host/internal/infra/plugins/extension/runtime/runtime.go`.
+- `Runtime.Handle` in `host/internal/infra/plugins/extension/runtime/handler.go`.
+- `Runtime.ObserveLifecycle` in `host/internal/infra/plugins/extension/runtime/lifecycle.go`.
+- `Runtime.runCompactionHandler` in `host/internal/infra/plugins/extension/runtime/compaction.go`.
+
+At settlement, the callback closes admission, cancels remaining accepted work, waits for child resource release, and removes the parent record. Host owns this authoritative join; the SDK does not duplicate settlement accounting.
+
+The Extension Contract carries `ExtensionRequest.parent_invocation_id` in `api/plugins/extension/v1/extension.proto`. In `sdk/plugins/extension/v1/server.go`, `server.handleRequest` preserves the envelope identifier during preparation. In `sdk/plugins/extension/v1/context.go`, `invocationContext` creates a separate SDK `ExtensionContext` for that invocation while retaining the session identity. `ExtensionContext.start` in `sdk/plugins/extension/v1/invocation.go` puts the captured parent identifier on every ordinary child request. The supplied context controls caller cancellation; Host retains invocation ownership and parent cancellation independently of that context.
+
+### Admission and resource release
+
+`Service.BeginInvocationChild` in `host/internal/usecase/host/extensionruntime/context.go` validates the connected runtime generation before addressing its connection-local parent. `Runtime.BeginInvocationChild` in `host/internal/infra/plugins/extension/runtime/invocation.go` admits work only while that parent remains live and open. A completed invocation cannot use its old SDK context to start more Host work, even when its session binding remains current. Host returns `STALE_CONTEXT` and preserves the admission cause.
+
+`Service.Prepare` in `host/internal/controller/extension/context_admission.go` validates session access, reserves runtime work, and acquires parent ownership before preparing the action. Rejected admission releases the runtime reservation. Preparation failure records the qualifying source before cleanup. `contextOperation.Run` in `host/internal/controller/extension/service.go` links accepted execution cancellation to the parent and retains execution failure independently of the plugin's subsequent result.
+
+`contextOperation.Release` in `host/internal/controller/extension/service.go` releases selection ownership, compaction admission, and runtime accounting before settling its invocation child. A once-only release guard also covers an accepted action whose `Run` is skipped. The `InvocationChild.Fail` and `InvocationChild.Release` contract in `host/internal/controller/extension/interfaces.go` separates immediate failure retention from ownership release. `Fail` closes admission and cancels affected work before cleanup finishes; `Release` ends accepted ownership after caller cleanup. Runtime `invocationChild.Release` in `host/internal/infra/plugins/extension/runtime/invocation.go` performs the once-only ownership decrement; it does not perform resource cleanup itself. Parent success therefore cannot race a still-owned child reservation.
+
+### Failure propagation
+
+`qualifyingExtensionFailure` in `host/internal/controller/extension/invocation_failure.go` inspects current error causes for explicit extension failure meaning. When a current error qualifies, the helper returns the original complete cause unchanged, including diagnostic history; otherwise it returns nil. A failure retained only as diagnostic history does not establish eligibility. Ordinary validation rejection, provider failure categories, and tool-returned execution-error results do not acquire fatal meaning merely because they contain error text.
+
+`handlerFailureError` in `host/internal/infra/plugins/extension/runtime/handler_failure.go` identifies independent participating-handler failures. `PolicyOperationError` in `host/internal/usecase/host/extensioncontext/policy_operation_error.go` and `LogicalFailureError` in `host/internal/usecase/host/modelexecution/contracts.go` expose extension-failure meaning for their existing categories. Original causes remain wrapped throughout these mappings.
+
+When Host settles the parent, the callback returned by `Runtime.beginInvocation` in `host/internal/infra/plugins/extension/runtime/invocation.go` returns `fatalInvocationError` for a retained qualifying child failure, even if the plugin consumed the child error and returned success. This error implements the provider-neutral `run.FatalOperationFailure` contract in `host/internal/usecase/agent/run/interfaces.go`. Host tools preserve the error across `tools.Service.Execute` in `host/internal/usecase/host/tools/service.go`; Core does not infer fatal meaning from error text or `ToolResult.IsError`.
+
+`Service.executeCalls` in `host/internal/usecase/agent/run/service.go` persists the necessary tool result and delivers the tool terminal history before applying `classifyToolFailure` from `host/internal/usecase/agent/run/tool_failure.go`. Explicit fatal failure stops the run before another tool or provider request. It takes precedence over cleanup cancellation. `lifecycle.Service.observe` in `host/internal/usecase/host/lifecycle/service.go` immediately returns an already-retained fatal nested failure rather than downgrading it to an ordinary observer issue. Ordinary handler errors retain extension availability and the healthy connection.
+
+### Invalid participant output
+
+`Service.InvokePolicyGenerator` in `host/internal/usecase/host/extensioncontext/manual_generator.go`, `Service.InvokePolicyRequest` in `host/internal/usecase/host/extensioncontext/manual_request.go`, and `Service.InvokePolicyResult` in `host/internal/usecase/host/extensioncontext/manual_result.go` validate returned producer attribution against the selected extension. Each producer mismatch now returns the original cause through `NewPolicyOperationError` in `host/internal/usecase/host/extensioncontext/policy_operation_error.go` with `FailureExtensionFailed` from `host/internal/usecase/host/modelexecution/contracts.go`.
+
+Before this correction, these checks returned plain errors after participant invocation had finished. A policy could consume the rejection and return CANCELED, leaving Host without the explicit failure meaning needed for parent retention. Source classification makes that invalid extension output authoritative without promoting ordinary client validation, provider errors, or all `COMPACTION_FAILED` results. The producer comparison and existing compaction authority checks are unchanged.
+
+### Cancellation and compaction authority
+
+`classifyCompactionFailure` in `host/internal/infra/plugins/extension/runtime/compaction_failure.go` distinguishes a received SDK `Canceled` terminal from an independently classified failure. `PolicyCancellationError` in `host/internal/usecase/host/extensioncontext/policy_cancellation.go` preserves that explicit cancellation through policy adapters. A mixed current failure remains a failure. Explicit policy and fatal failures also expose their stable category through `errtree.CodedError` in `internal/errtree/current_errors.go`, so a cancellation-only underlying sentinel cannot erase the failure's meaning. `mapCompactionParticipantFailure` in `host/internal/controller/extension/compaction_participant_failure.go` preserves every distinct current source category beside the complete text before public mapping; an enclosing category does not hide the received SDK failure category.
+
+Ordinary invocation ownership grants no compaction mutation authority. `parent_compaction_id`, policy authority, and captured participant validation remain separate. `Service.prepareCompactionAdmission` in `host/internal/controller/extension/context_admission.go` still requires compaction lifetime admission for candidate operations. The existing compaction operations retain their captured runtime, session, participant, and mutation checks.
+
+### Public fixture lifetime
+
+The old external manual-compaction caller retained an `agent_settled` invocation context after returning from that observer. The delayed socket request consequently depended on detached work. The fixture now exposes an ordinary live tool in `testdata/external-plugins/cmd/compaction-policy/caller_tool.go`, whose invocation remains active through the socket exchange and child settlement.
+
+`startLiveCallerFixture` in `host/internal/app/live_caller_fixture_test.go` uses production components and the existing Host tool entry point while the operation gate is idle. Programmatic Control still creates conversation history and reads the resulting session state. This fixture changes test ownership, not the application's operation gate: `Coordinator.RunPrepared` in `host/internal/usecase/host/runcontrol/coordinator.go` continues to retain that gate through settled delivery.
+
+## Verification
+
+### Baseline
+
+The pre-UNT07 baseline is repository revision `ca3215a6e036dcdcf4714c43c4f50b9fcdd4a74e`, using Go 1.27.3. `task fix_dry_run`, `task lint`, `task test`, and `task build` passed. `task itest` and `task test-coverage` passed with a short command-local temporary directory; combined coverage was 84.3%, above the 80.0% threshold. The initial longer temporary path timed out in `TestUIManualCancellationStopsObserverModel` in `host/internal/app/manual_compaction_integration_suites_test.go`; the short-path rerun changed neither source nor dependency versions.
+
+At that baseline, SDK `server.prepareInvocation` in `sdk/plugins/extension/v1/server.go` omitted ordinary envelope ownership, controller `Service.Prepare` in `host/internal/controller/extension/context_admission.go` admitted only runtime and optional compaction lifetimes, and Core `Service.executeCalls` in `host/internal/usecase/agent/run/service.go` converted an execution error to tool history before continuing. These baseline source locations remain the comparison points for the regressions below.
+
+### RED and GREEN evidence
+
+The public regressions were run against the baseline Host/Core source with their test and external fixture additions. The Core fatal-error test also used generated mock support. Their RED results below were observed executions, not inferred outcomes.
+
+These historical named runs used captured fixture variants. They are not source-identical baseline replays of every final fixture. In `testdata/external-plugins/cmd/compaction-policy/policy_run.go`, `policyOperation.runReplacement`, the wait-before-commit model-error branch now returns `nil, modelErr` directly. The earlier fixture returned `o.attachAcquiredState(newPolicyFailure(modelErr)), nil`. Those branches differ in cancellation/error propagation. Earlier named RED/GREEN observations apply to their captured sources; they do not prove a baseline runtime RED for every final fixture variant.
+
+| Regression and repository symbol | RED result | Corrected result |
+| --- | --- | --- |
+| `host/internal/app/consumed_configured_public_integration_test.go`, `TestPublicConsumedExtensionFailureFailsParent` | Parent terminal was not `Failed` after a real tool consumed its configured child's retry-handler failure. | Parent emits `Failed` with both `retry handler full unique failure text` and the original provider failure. The plugin's later Host request is rejected; an independent run and ordinary tool succeed on the same extension connection. |
+| `host/internal/app/consumed_child_integration_test.go`, `TestConsumedNestedCompactionFailureStopsCore` | Core attempted another provider snapshot after the real tool consumed a manual-compaction handler failure. | Core fails with the handler cause, retains tool-result history, starts neither the next tool nor another provider request, releases admission, and accepts an independent invocation. |
+| `host/internal/app/stale_invocation_public_integration_test.go`, `TestPublicStaleInvocationCannotReuseLiveSession` | Reusing the completed invocation's context succeeded with an empty rejection category. | The same session binding remains valid, but the old parent is rejected with `STALE_CONTEXT`. The current ordinary tool and run still complete. |
+| `host/internal/usecase/agent/run/fatal_tool_test.go`, `TestConsumedChildFailureStopsLaterTools` | Core invoked the second tool; concurrent cancellation changed the outcome to aborted. | Explicit fatal meaning stops later calls and remains failed under cleanup cancellation. |
+| `host/internal/infra/plugins/extension/runtime/invocation_test.go`, `TestInvocationLinkObservesCancellationBeforeRun` | Linking an already-canceled parent initially returned a live child context. | Linking observes parent cancellation before child execution. |
+| `host/internal/controller/extension/invocation_test.go`, `TestInvocationRunAndSkippedRelease` | Parent ownership was released before runtime resource release. | Runtime cleanup precedes once-only parent child settlement, including skipped execution. |
+| `host/internal/usecase/host/extensioncontext/policy_failure_classification_test.go`, `TestExplicitPolicyFailureWinsCancellation`, and `host/internal/infra/plugins/extension/runtime/fatal_failure_classification_test.go`, `TestExplicitFatalFailureWinsCancellation` | Explicit classified failures were treated as cancellation when their only underlying cause was a cancellation sentinel. | Explicit failure meaning survives; separately received canceled participant terminals retain cancellation semantics. |
+
+`TestConsumedChildFailureStopsLaterTools` in `host/internal/usecase/agent/run/fatal_tool_test.go` asserts source identity with `ErrorIs`, failed run outcome, and mock expectations that prevent later tool/provider calls. It does not inspect history. History retention is asserted by `TestConsumedNestedCompactionFailureStopsCore` through `assertConsumedCompactionStopsCore` in `host/internal/app/consumed_child_integration_test.go`.
+
+Focused commands:
+
+```sh
+go test -count=1 ./host/internal/usecase/agent/run -run '^TestConsumedChildFailureStopsLaterTools$'
+go test -race -count=1 ./host/internal/infra/plugins/extension/runtime -run 'TestInvocation|TestParentSuccess|TestChildCaller'
+go test -race -count=1 ./host/internal/controller/extension -run '^TestInvocation'
+go test -race -count=1 -tags=integration ./sdk/plugins/extension/v1 -run '^TestInvocationContextOwnsDifferentCallerContext$'
+go test -count=1 ./host/internal/usecase/host/extensioncontext ./host/internal/infra/plugins/extension/runtime -run '^TestExplicit.*FailureWinsCancellation$'
+go test -race -count=1 -tags=integration -p 1 -parallel 1 ./host/internal/app -run '^(TestConsumedNestedCompactionFailureStopsCore|TestPublicConsumedExtensionFailureFailsParent|TestPublicStaleInvocationCannotReuseLiveSession)$' -v
+```
+
+The ownership tests in `host/internal/infra/plugins/extension/runtime/invocation_test.go` and `host/internal/infra/plugins/extension/runtime/invocation_cleanup_test.go` cover concurrent invocation isolation, connection-local identifier reuse, asynchronous child joins, cancellation before resource release, caller cancellation, and once-only release. `TestInvocationAdmissionChecksExactRuntimeGeneration` in `host/internal/usecase/host/extensionruntime/invocation_test.go` checks runtime generation validation. `TestInvocationAdmissionRejectionReleasesRuntime` in `host/internal/controller/extension/invocation_admission_test.go` and `TestInvocationPreparationFailureReleasesAdmission` and `TestInvocationRunAndSkippedRelease` in `host/internal/controller/extension/invocation_test.go` cover rejected admission, preparation failure, skipped execution, ordinary errors, cancellation, and accepted cleanup. `TestInvocationContextOwnsDifferentCallerContext` in `sdk/plugins/extension/v1/invocation_integration_test.go` checks concurrent parent association with an unrelated caller context.
+
+Additional helper probes against the baseline failed compilation because the ordinary invocation API, protocol parent accessors, generated mocks, or explicit policy cancellation type did not exist. The five packages were runtime ownership, controller admission, runtime-generation admission, policy cancellation, and SDK invocation context. These API-absence compilation RED results do not establish a separate executed baseline behavioral RED for every helper test. The recorded command forms, run after copying the helper tests into the baseline, were:
+
+```sh
+for package in \
+  host/internal/infra/plugins/extension/runtime \
+  host/internal/controller/extension \
+  host/internal/usecase/host/extensionruntime \
+  host/internal/usecase/host/extensioncontext
+do
+  go test -count=1 "./$package" -run 'TestInvocation|TestParentSuccess|TestChildCaller|TestPolicy'
+done
+go test -count=1 -tags=integration ./sdk/plugins/extension/v1 -run '^TestInvocationContextOwnsDifferentCallerContext$'
+```
+
+Each package returned exit 1 with build failure, including missing `beginInvocation`, `BeginInvocationChild`, `InvocationChild`, `PolicyCancellationError`, and `GetParentInvocationId`. The named cancellation-link, release-order, and explicit-failure development regressions in the table are observed behavioral failures during implementation, separate from these helper compilation probes.
+
+`TestTerminalRefusalAcrossPublicClients` in `host/internal/app/terminal_failure_modes_integration_test.go` now expects a failed parent after a configured child extension failure, with no second configured request or later provider report. Its provider-error and retry-cancellation cases retain their prior behavior. Existing generator and result-participant cancellation, mixed-failure, and classified-failure scenarios remain part of the focused integration checks. `TestGeneratorClassifiedCancellation` in `host/internal/app/manual_generator_integration_test.go` exposed loss of the original `INTERNAL` source category after the enclosing error gained a category. The corrected participant mapping retains both categories, and that scenario passed with pure and mixed cancellation cases.
+
+### Consumed invalid-producer correction
+
+`TestConsumedInvalidProducerFailsPublic` and `TestConsumedInvalidProducerStopsCore` in `host/internal/app/consumed_invalid_output_integration_test.go` cover generator, request, and result producers through real plugin processes. The policy fixture consumes participant rejection and returns CANCELED without an error. These six cases were executed against the current UNT07 implementation before the three producer-source corrections, rather than against an inferred baseline outcome.
+
+All three public RED cases received `completed:{compaction:{canceled:true}}` instead of Failed. All three Core RED cases attempted another `MockModelRuntime.Snapshot` from `host/internal/usecase/agent/run/interfaces_mock.go` after the ordinary tool consumed the successful canceled child. After source classification, all six cases passed. Each public case checks the complete producer mismatch, preserved original history, no persisted replacement, and a healthy independent request on the same connection. Each Core case uses `assertConsumedCompactionStopsCore` in `host/internal/app/consumed_child_integration_test.go` to check failed outcome, full cause, rejected later owned Host work, retained first tool-result history, no second tool/provider turn, released gate admission, and an independent successful tool on the same runtime.
+
+The focused command was identical before and after the source correction, with a short command-local `TMPDIR`:
+
+```sh
+go test -race -count=1 -tags=integration -p 1 -parallel 1 ./host/internal/app -run '^TestConsumedInvalidProducer(FailsPublic|StopsCore)$' -v
+```
+
+This RED/GREEN comparison preserves its exact pre-correction test/fixture source and corrected source outside tracked documentation. No diagnostic-only overlay or source probe is required by the regression tests.
+
+### Project checks
+
+The final whole-project checks passed on the implemented source:
+
+| Check | Result |
+| --- | --- |
+| `task generate` | Passed; protobuf and mock generation used the repository tools. |
+| `task fmt` | Passed. |
+| `task fix_dry_run` | Passed with no proposed changes; no `task fix` was needed. |
+| `task lint` | Passed with zero root and external-plugin lint issues, no ifaceguard errors, and no reported vulnerabilities. |
+| `task test` | Passed, including the external-plugin module. |
+| `task itest` with short command-local `TMPDIR` | Passed, including the external-plugin module. |
+| `task test-coverage` with short command-local `TMPDIR` | Passed: combined coverage 84.4%, required 80.0%. |
+| `task build` | Passed for Host and standard extension and UI plugins. |
+
+The executed command set is:
+
+```sh
+task generate
+task fmt
+task fix_dry_run
+task lint
+task test
+short_tmp="$(mktemp -d /tmp/g7XXXX)"
+TMPDIR="$short_tmp" task itest
+TMPDIR="$short_tmp" task test-coverage
+task build
+```
+
+The first whole-project integration run exposed two cancellation classification mismatches and three configured-SDK expectations for continuation after extension failure. Those paths and expectations were corrected. A subsequent integration run exposed loss of the original generator failure category; the source-category preservation correction is recorded above. The final whole-project integration run passed. Library versions remain unchanged.
+
+## Overengineering and Overspecification Considerations
+
+The mechanism uses the existing invocation identifiers, runtime generation checks, operation lifecycle, and compaction authorization paths. The connection-local owner is shared by the implemented ordinary invocation entry points. The separate failure-retention and release operations are necessary to cancel affected work immediately while still joining accepted cleanup. No session-binding redesign, global workflow engine, invocation serialization, generic payload framework, or new provider feature is introduced.
+
+## Limits and Remaining Scope
+
+UNT07 covers ordinary invocation ownership and consumed failures that existing child APIs return as errors. It does not complete the whole issue. Selection, lifecycle, and navigation chain-policy corrections remain for later slices. True failed terminals carrying typed committed outcomes remain outside this slice; completion mappings that still expose post-commit diagnostics as result data retain their current behavior.
+
+The manual-compaction regression invokes an ordinary Host tool directly while the application operation gate is idle. The assembled Programmatic regression uses a configured-model child and an existing retry-handler failure, so it verifies the public failed terminal without changing run-gate behavior.
+
+Integration checks use short command-local temporary paths for Unix sockets. The baseline timeout and its passing short-path rerun are identified in Verification above; this correction makes no broader claim about unrelated cancellation or provider behavior. The active LSP index excluded integration-tagged files from reference queries; those queries were attempted, and primary source inspection plus compiled integration tests checked the affected callers without changing session-wide build flags.
+
+## Open Questions
+
+None for the implemented ownership and failure semantics. The remaining issue scope is identified above.
+
+## References
+
+- [Ticket](ticket.md): full issue scope and acceptance criteria.
+- [Extension failure rule](../../features/initial/prd.md#extension-failure-rule): normative failure and cancellation exceptions.
+- [Roadmap](../../../roadmap.md#extension-failures-stop-the-invoking-operation): delivery status before PHS-08.

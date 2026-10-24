@@ -6,6 +6,7 @@ import (
 
 	"github.com/samber/mo"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
@@ -20,6 +21,19 @@ type PolicyOperationError struct {
 	Cause error
 }
 
+var (
+	_ extensioncontroller.NestedExtensionFailure = (*PolicyOperationError)(nil)
+	_ errtree.CodedError                         = (*PolicyOperationError)(nil)
+)
+
+// Code preserves explicit failure meaning independently of an underlying cancellation sentinel.
+func (e *PolicyOperationError) Code() string { return string(e.Category) }
+
+// IsExtensionFailure identifies an independent participating extension failure.
+func (e *PolicyOperationError) IsExtensionFailure() bool {
+	return e.Category == modelexecution.FailureExtensionFailed
+}
+
 // Error exposes the complete source text.
 func (e *PolicyOperationError) Error() string { return e.Cause.Error() }
 
@@ -28,7 +42,7 @@ func (e *PolicyOperationError) Unwrap() error { return e.Cause }
 
 // NewPolicyOperationError annotates an independent source at its integration boundary.
 func NewPolicyOperationError(ctx context.Context, category modelexecution.FailureCategory, cause error) error {
-	if cause == nil || isPolicyOwningCancellation(ctx, cause) {
+	if cause == nil || isPolicyOwningCancellation(ctx, cause) || isExplicitPolicyCancellation(cause) {
 		return cause
 	}
 	if existing, present := selectPolicyOperationCategory(cause).Get(); present {

@@ -1,6 +1,6 @@
 # Ticket: Stop operations on extension failure
 
-Status: Planned
+Status: In progress. The [technical solution and verification record](solution.md) tracks UNT07 ownership and consumed-failure propagation; the remaining issue scope is pending.
 
 Align implemented extension invocation paths with the existing [extension failure rule](../../features/initial/prd.md#extension-failure-rule) before PHS-08 starts.
 

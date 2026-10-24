@@ -9,7 +9,6 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
-	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
 // newPolicyResultContextRequest binds one selected result call to policy authority.
@@ -62,16 +61,7 @@ func newPolicyResultContextRequest(
 				command,
 			)
 			if invokeErr != nil {
-				if isParticipantCancellation(invokeErr) {
-					return nil, invokeErr
-				}
-				if failure, classified := errors.AsType[interface {
-					error
-					Code() string
-				}](invokeErr); classified {
-					invokeErr = fmt.Errorf("result category %s: %w", failure.Code(), invokeErr)
-				}
-				return nil, extensionsdk.Fail(compactionFailureCode(invokeErr), invokeErr)
+				return nil, mapCompactionParticipantFailure(resultFailureSource, invokeErr)
 			}
 			completed := new(extensionpb.HostCompleted)
 			completed.SetInvokeCompactionResult(action.encodePolicyResultAction())

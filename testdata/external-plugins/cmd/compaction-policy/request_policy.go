@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -22,6 +23,11 @@ func (o *policyOperation) runRequestPolicy(
 	}
 	canceled, err := o.composeRequests(ctx, input, boundary)
 	if err != nil {
+		if os.Getenv(consumedInvalidOutputEnvironment) != "" {
+			return newPolicyDecisionResponse(
+				extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED,
+			), nil
+		}
 		return o.attachAcquiredState(newPolicyFailure(err)), nil
 	}
 	if canceled {
@@ -40,6 +46,11 @@ func (o *policyOperation) replaceHistory(
 ) (*extensionpb.HandleResponse, error) {
 	canceled, composeErr := o.composeResults(ctx)
 	if composeErr != nil {
+		if os.Getenv(consumedInvalidOutputEnvironment) != "" {
+			return newPolicyDecisionResponse(
+				extensionpb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED,
+			), nil
+		}
 		return o.attachAcquiredState(newPolicyFailure(composeErr)), nil
 	}
 	if canceled {

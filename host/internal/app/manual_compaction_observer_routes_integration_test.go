@@ -113,9 +113,11 @@ func (s *extensionManualCancellationStopsObserverModelSuite) TestScenario() {
 			previous := http.DefaultTransport
 			http.DefaultTransport = newObserverCancellationTransport(t, started, stopped, release)
 			t.Cleanup(func() { http.DefaultTransport = previous })
-			fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
+			live := startLiveCallerFixture(t, paths, directory)
+			fixture := live.programmaticFixture
 			completeProgrammaticRequest(t, fixture, userRequest(manualFixtureOriginal, manualOriginalText))
 			completeProgrammaticRequest(t, fixture, userRequest(manualFixtureRetained, manualRetainedText))
+			callerDone := live.startCaller(t)
 			connection, err := net.DialUnix(
 				manualFixtureUnix,
 				nil,
@@ -135,6 +137,7 @@ func (s *extensionManualCancellationStopsObserverModelSuite) TestScenario() {
 			require.NoError(t, connection.Close())
 
 			// Assert joined termination and independent receipt delivery to the Extension caller.
+			require.NoError(t, <-callerDone)
 			var report manualPublicReport
 			require.NoError(t, json.Unmarshal(encoded, &report))
 			if phase.committed {

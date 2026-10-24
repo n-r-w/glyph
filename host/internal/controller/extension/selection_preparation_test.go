@@ -48,6 +48,7 @@ func (s *selectionPreparationSuite) TestScenario() {
 			contexts := NewMockContextOperations(mocks)
 			models := NewMockModelOperations(mocks)
 			runtime := NewMockRuntimeOperations(mocks)
+			expectInvocationChild(t, runtime, mocks)
 			selection := NewMockModelSelection(mocks)
 			policy := NewMockCompactionPolicyOperations(mocks)
 			reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}

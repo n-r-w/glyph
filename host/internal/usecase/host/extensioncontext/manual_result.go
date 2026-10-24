@@ -8,6 +8,7 @@ import (
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // InvokePolicyResult routes one captured participant under its bounded lifetime.
@@ -54,10 +55,12 @@ func (s *Service) InvokePolicyResult(
 		if action.ResultAction == ResultActionReplace {
 			if producer, attributed := result.Source.ExtensionID.Get(); attributed &&
 				producer != participant.ExtensionID {
-				return extensioncontroller.CompactionResultResponse{}, fmt.Errorf(
-					"result producer %q does not match the selected extension %q",
-					producer,
-					participant.ExtensionID,
+				return extensioncontroller.CompactionResultResponse{}, NewPolicyOperationError(
+					ctx, modelexecution.FailureExtensionFailed, fmt.Errorf(
+						"result producer %q does not match the selected extension %q",
+						producer,
+						participant.ExtensionID,
+					),
 				)
 			}
 		}

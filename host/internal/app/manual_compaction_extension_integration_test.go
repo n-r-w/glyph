@@ -48,9 +48,11 @@ func (s *extensionManualCompactionTerminalStatesSuite) TestScenario() {
 			previous := http.DefaultTransport
 			http.DefaultTransport = transport
 			t.Cleanup(func() { http.DefaultTransport = previous })
-			fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
+			live := startLiveCallerFixture(t, paths, directory)
+			fixture := live.programmaticFixture
 			completeProgrammaticRequest(t, fixture, userRequest(manualFixtureOriginal, manualOriginalText))
 			completeProgrammaticRequest(t, fixture, userRequest(manualFixtureRetained, manualRetainedText))
+			callerDone := live.startCaller(t)
 
 			// Act by signaling the actual extension process after the public conversation terminal.
 			connection, err := net.DialUnix(manualFixtureUnix, nil, &net.UnixAddr{Name: socket, Net: manualFixtureUnix})
@@ -64,6 +66,10 @@ func (s *extensionManualCompactionTerminalStatesSuite) TestScenario() {
 			require.NoError(t, connection.Close())
 			var report manualPublicReport
 			require.NoError(t, json.Unmarshal(encoded, &report))
+			callerErr := <-callerDone
+			if callerErr != nil {
+				require.NotEmpty(t, report.Error)
+			}
 
 			// Assert complete public outcomes, original storage, and next-request projection.
 			require.Equal(t, scenario.committed, report.Committed, report.Error)

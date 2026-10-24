@@ -1676,6 +1676,7 @@ func (*extensionCompleted_Cancel) isExtensionCompleted_Completed() {}
 // ExtensionRequest carries one extension-initiated operation owned by Host.
 type ExtensionRequest struct {
 	state                         protoimpl.MessageState     `protogen:"opaque.v1"`
+	xxx_hidden_ParentInvocationId *string                    `protobuf:"bytes,17,opt,name=parent_invocation_id,json=parentInvocationId"`
 	xxx_hidden_ParentCompactionId *string                    `protobuf:"bytes,11,opt,name=parent_compaction_id,json=parentCompactionId"`
 	xxx_hidden_Request            isExtensionRequest_Request `protobuf_oneof:"request"`
 	XXX_raceDetectHookData        protoimpl.RaceDetectHookData
@@ -1707,6 +1708,16 @@ func (x *ExtensionRequest) ProtoReflect() protoreflect.Message {
 		return ms
 	}
 	return mi.MessageOf(x)
+}
+
+func (x *ExtensionRequest) GetParentInvocationId() string {
+	if x != nil {
+		if x.xxx_hidden_ParentInvocationId != nil {
+			return *x.xxx_hidden_ParentInvocationId
+		}
+		return ""
+	}
+	return ""
 }
 
 func (x *ExtensionRequest) GetParentCompactionId() string {
@@ -1854,9 +1865,14 @@ func (x *ExtensionRequest) GetInvokeCompactionResult() *InvokeCompactionResultRe
 	return nil
 }
 
+func (x *ExtensionRequest) SetParentInvocationId(v string) {
+	x.xxx_hidden_ParentInvocationId = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
+}
+
 func (x *ExtensionRequest) SetParentCompactionId(v string) {
 	x.xxx_hidden_ParentCompactionId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
 }
 
 func (x *ExtensionRequest) SetGetModels(v *GetModelsRequest) {
@@ -1979,11 +1995,18 @@ func (x *ExtensionRequest) SetInvokeCompactionResult(v *InvokeCompactionResultRe
 	x.xxx_hidden_Request = &extensionRequest_InvokeCompactionResult{v}
 }
 
-func (x *ExtensionRequest) HasParentCompactionId() bool {
+func (x *ExtensionRequest) HasParentInvocationId() bool {
 	if x == nil {
 		return false
 	}
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ExtensionRequest) HasParentCompactionId() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
 }
 
 func (x *ExtensionRequest) HasRequest() bool {
@@ -2113,8 +2136,13 @@ func (x *ExtensionRequest) HasInvokeCompactionResult() bool {
 	return ok
 }
 
-func (x *ExtensionRequest) ClearParentCompactionId() {
+func (x *ExtensionRequest) ClearParentInvocationId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_ParentInvocationId = nil
+}
+
+func (x *ExtensionRequest) ClearParentCompactionId() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
 	x.xxx_hidden_ParentCompactionId = nil
 }
 
@@ -2272,6 +2300,8 @@ func (x *ExtensionRequest) WhichRequest() case_ExtensionRequest_Request {
 type ExtensionRequest_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
+	// The enclosing Host invocation identifier, scoped to this runtime connection.
+	ParentInvocationId *string
 	// The non-authorizing parent lifetime for nested policy work.
 	ParentCompactionId *string
 	// The request payload.
@@ -2305,8 +2335,12 @@ func (b0 ExtensionRequest_builder) Build() *ExtensionRequest {
 	m0 := &ExtensionRequest{}
 	b, x := &b0, m0
 	_, _ = b, x
+	if b.ParentInvocationId != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
+		x.xxx_hidden_ParentInvocationId = b.ParentInvocationId
+	}
 	if b.ParentCompactionId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_ParentCompactionId = b.ParentCompactionId
 	}
 	if b.GetModels != nil {
@@ -4026,8 +4060,9 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x06handle\x18\x02 \x01(\v2*.glyph.plugins.extension.v1.HandleResponseH\x00R\x06handle\x12<\n" +
 	"\x04tool\x18\x03 \x01(\v2&.glyph.plugins.extension.v1.ToolResultH\x00R\x04tool\x12=\n" +
 	"\x06cancel\x18\x04 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancelB\v\n" +
-	"\tcompleted\"\x91\f\n" +
+	"\tcompleted\"\xc3\f\n" +
 	"\x10ExtensionRequest\x120\n" +
+	"\x14parent_invocation_id\x18\x11 \x01(\tR\x12parentInvocationId\x120\n" +
 	"\x14parent_compaction_id\x18\v \x01(\tR\x12parentCompactionId\x12M\n" +
 	"\n" +
 	"get_models\x18\x01 \x01(\v2,.glyph.plugins.extension.v1.GetModelsRequestH\x00R\tgetModels\x12V\n" +

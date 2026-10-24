@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
-	"sync"
 	"sync/atomic"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
@@ -30,8 +29,6 @@ const (
 type policyService struct {
 	// observations is the number of completed-conversation invocations.
 	observations atomic.Int64
-	// workerStart owns the one caller worker launch.
-	workerStart sync.Once
 	// listener owns ordinary caller coordination.
 	listener net.Listener
 	// disabled removes only the policy owner capability.
@@ -74,7 +71,7 @@ func main() {
 	)
 
 	service := &policyService{
-		observations: atomic.Int64{}, workerStart: sync.Once{}, listener: nil,
+		observations: atomic.Int64{}, listener: nil,
 		disabled: os.Getenv(disabledPolicyEnvironment) == fixtureEnabledValue ||
 			(os.Getenv(separateObserverEnvironment) == fixtureEnabledValue && filepath.Base(os.Args[0]) != policyHandlerID),
 		observe: os.Getenv(callerSocketEnvironment) != "" &&
@@ -146,9 +143,6 @@ func (s *policyService) PrepareHandle(
 			invocation: request.GetCompactionRequest(),
 		}, nil
 	}
-	if request.GetLifecycle().GetAgentSettled() != nil {
-		return &settledOperation{service: s}, nil
-	}
 	if outcome := request.GetCompactionSuccess(); outcome != nil {
 		return &outcomeOperation{outcome: outcome, kind: successObservationKind}, nil
 	}
@@ -170,6 +164,12 @@ func (s *policyService) PrepareExecute(
 	_ context.Context,
 	request *extensionpb.ExecuteRequest,
 ) (extensionsdk.ExecuteOperation, error) {
+	if request.GetToolName() == callerToolName && s.listener != nil {
+		return &callerToolOperation{listener: s.listener}, nil
+	}
+	if request.GetToolName() == consumedChildToolName && os.Getenv(consumedChildEnvironment) != "" {
+		return prepareConsumedChild(request)
+	}
 	if request.GetToolName() == conversationToolName && os.Getenv(conversationToolEnvironment) != "" {
 		return &conversationToolOperation{}, nil
 	}
@@ -183,7 +183,6 @@ func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterRespon
 		referenceRequestsExecutable = "reference-requests"
 		// referenceSeparateRequestsEnvironment selects request handlers in a separate runtime.
 		referenceSeparateRequestsEnvironment = "GLYPH_REFERENCE_SEPARATE_REQUESTS"
-		settledHandlerID                     = "reference-settled"
 		successHandlerID                     = "reference-compaction-success"
 		failureHandlerID                     = "reference-compaction-failure"
 		observerExecutable                   = "reference-observer"
@@ -224,15 +223,6 @@ func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterRespon
 			}.Build(),
 		)
 	}
-	if r.observe {
-		handlers = append(
-			handlers,
-			extensionpb.HandlerDescriptor_builder{
-				Id:   new(settledHandlerID),
-				Kind: new(extensionpb.HandlerKind_HANDLER_KIND_AGENT_SETTLED),
-			}.Build(),
-		)
-	}
 	if os.Getenv(referenceSeparateRequestsEnvironment) != fixtureEnabledValue {
 		requests := newReferenceRequestDescriptors()
 		if os.Getenv(conversationOverflowEnvironment) == fixtureEnabledValue {
@@ -249,7 +239,9 @@ func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterRespon
 		handlers = append(handlers, newReferenceResultDescriptors()...)
 	}
 	return extensionpb.RegisterResponse_builder{
-		Tools:    newConversationObservationTools(),
+		Tools: append(
+			append(newConversationObservationTools(), newConsumedChildTools()...),
+			newCallerTools(r.observe)...),
 		Handlers: handlers,
 	}.Build(), nil
 }
@@ -345,38 +337,6 @@ func findPolicyBoundary(input *extensionpb.CompactionPolicyInvocation) string {
 	}
 	return boundary
 }
-
-// settledOperation completes the session-context observation.
-type settledOperation struct {
-	// service supplies caller coordination.
-	service *policyService
-}
-
-// The interface assertion checks the fixture capability contract.
-var _ extensionsdk.HandleOperation = (*settledOperation)(nil)
-
-// Run completes the observer without keeping the conversation gate active.
-func (o *settledOperation) Run(ctx context.Context) (*extensionpb.HandleResponse, error) {
-	if o.service.listener != nil {
-		binding, err := extensionsdk.ContextFrom(ctx)
-		if err != nil {
-			return nil, err
-		}
-		o.service.workerStart.Do(func() {
-			go func(callerContext context.Context, caller *extensionsdk.ExtensionContext, listener net.Listener) {
-				if callerErr := runCaller(callerContext, caller, listener); callerErr != nil {
-					fmt.Fprintln(os.Stderr, callerErr)
-				}
-			}(context.WithoutCancel(ctx), binding, o.service.listener)
-		})
-	}
-	response := new(extensionpb.HandleResponse)
-	response.SetLifecycle(new(extensionpb.LifecycleAction))
-	return response, nil
-}
-
-// Release completes observer admission.
-func (o *settledOperation) Release() {}
 
 // waitPolicyConfiguredModel keeps actual nested work owned by its policy invocation.
 func waitPolicyConfiguredModel(

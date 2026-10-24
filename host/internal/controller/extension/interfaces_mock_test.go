@@ -498,6 +498,121 @@ func (mr *MockContextFailureMockRecorder) Error() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockContextFailure)(nil).Error))
 }
 
+// MockInvocationChild is a mock of InvocationChild interface.
+type MockInvocationChild struct {
+	ctrl     *gomock.Controller
+	recorder *MockInvocationChildMockRecorder
+	isgomock struct{}
+}
+
+// MockInvocationChildMockRecorder is the mock recorder for MockInvocationChild.
+type MockInvocationChildMockRecorder struct {
+	mock *MockInvocationChild
+}
+
+// NewMockInvocationChild creates a new mock instance.
+func NewMockInvocationChild(ctrl *gomock.Controller) *MockInvocationChild {
+	mock := &MockInvocationChild{ctrl: ctrl}
+	mock.recorder = &MockInvocationChildMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockInvocationChild) EXPECT() *MockInvocationChildMockRecorder {
+	return m.recorder
+}
+
+// Fail mocks base method.
+func (m *MockInvocationChild) Fail(arg0 error) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Fail", arg0)
+}
+
+// Fail indicates an expected call of Fail.
+func (mr *MockInvocationChildMockRecorder) Fail(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Fail", reflect.TypeOf((*MockInvocationChild)(nil).Fail), arg0)
+}
+
+// Link mocks base method.
+func (m *MockInvocationChild) Link(arg0 context.Context) (context.Context, func()) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Link", arg0)
+	ret0, _ := ret[0].(context.Context)
+	ret1, _ := ret[1].(func())
+	return ret0, ret1
+}
+
+// Link indicates an expected call of Link.
+func (mr *MockInvocationChildMockRecorder) Link(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Link", reflect.TypeOf((*MockInvocationChild)(nil).Link), arg0)
+}
+
+// Release mocks base method.
+func (m *MockInvocationChild) Release() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Release")
+}
+
+// Release indicates an expected call of Release.
+func (mr *MockInvocationChildMockRecorder) Release() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockInvocationChild)(nil).Release))
+}
+
+// MockNestedExtensionFailure is a mock of NestedExtensionFailure interface.
+type MockNestedExtensionFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockNestedExtensionFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockNestedExtensionFailureMockRecorder is the mock recorder for MockNestedExtensionFailure.
+type MockNestedExtensionFailureMockRecorder struct {
+	mock *MockNestedExtensionFailure
+}
+
+// NewMockNestedExtensionFailure creates a new mock instance.
+func NewMockNestedExtensionFailure(ctrl *gomock.Controller) *MockNestedExtensionFailure {
+	mock := &MockNestedExtensionFailure{ctrl: ctrl}
+	mock.recorder = &MockNestedExtensionFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockNestedExtensionFailure) EXPECT() *MockNestedExtensionFailureMockRecorder {
+	return m.recorder
+}
+
+// Error mocks base method.
+func (m *MockNestedExtensionFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockNestedExtensionFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockNestedExtensionFailure)(nil).Error))
+}
+
+// IsExtensionFailure mocks base method.
+func (m *MockNestedExtensionFailure) IsExtensionFailure() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsExtensionFailure")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsExtensionFailure indicates an expected call of IsExtensionFailure.
+func (mr *MockNestedExtensionFailureMockRecorder) IsExtensionFailure() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsExtensionFailure", reflect.TypeOf((*MockNestedExtensionFailure)(nil).IsExtensionFailure))
+}
+
 // MockRuntimeOperations is a mock of RuntimeOperations interface.
 type MockRuntimeOperations struct {
 	ctrl     *gomock.Controller
@@ -535,6 +650,21 @@ func (m *MockRuntimeOperations) BeginContextOperation(ctx context.Context, exten
 func (mr *MockRuntimeOperationsMockRecorder) BeginContextOperation(ctx, extensionID, runtimeID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginContextOperation", reflect.TypeOf((*MockRuntimeOperations)(nil).BeginContextOperation), ctx, extensionID, runtimeID)
+}
+
+// BeginInvocationChild mocks base method.
+func (m *MockRuntimeOperations) BeginInvocationChild(extensionID, runtimeID, parentID string) (InvocationChild, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BeginInvocationChild", extensionID, runtimeID, parentID)
+	ret0, _ := ret[0].(InvocationChild)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BeginInvocationChild indicates an expected call of BeginInvocationChild.
+func (mr *MockRuntimeOperationsMockRecorder) BeginInvocationChild(extensionID, runtimeID, parentID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginInvocationChild", reflect.TypeOf((*MockRuntimeOperations)(nil).BeginInvocationChild), extensionID, runtimeID, parentID)
 }
 
 // MockCompactionPolicyOperations is a mock of CompactionPolicyOperations interface.

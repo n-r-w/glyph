@@ -13,7 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
-	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
+	extension "github.com/n-r-w/glyph/host/internal/controller/extension"
+	extension0 "github.com/n-r-w/glyph/host/internal/domain/extension"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensioncontext "github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	gomock "go.uber.org/mock/gomock"
@@ -82,6 +83,21 @@ func (m *MockExtensionRuntime) EXPECT() *MockExtensionRuntimeMockRecorder {
 	return m.recorder
 }
 
+// BeginInvocationChild mocks base method.
+func (m *MockExtensionRuntime) BeginInvocationChild(parentID string) (extension.InvocationChild, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "BeginInvocationChild", parentID)
+	ret0, _ := ret[0].(extension.InvocationChild)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// BeginInvocationChild indicates an expected call of BeginInvocationChild.
+func (mr *MockExtensionRuntimeMockRecorder) BeginInvocationChild(parentID any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BeginInvocationChild", reflect.TypeOf((*MockExtensionRuntime)(nil).BeginInvocationChild), parentID)
+}
+
 // Close mocks base method.
 func (m *MockExtensionRuntime) Close() error {
 	m.ctrl.T.Helper()
@@ -111,7 +127,7 @@ func (mr *MockExtensionRuntimeMockRecorder) Done() *gomock.Call {
 }
 
 // Execute mocks base method.
-func (m *MockExtensionRuntime) Execute(ctx context.Context, name string, argumentsJSON []byte, handleProgress tool.ProgressHandler, binding extension.Context) (tool.Result, error) {
+func (m *MockExtensionRuntime) Execute(ctx context.Context, name string, argumentsJSON []byte, handleProgress tool.ProgressHandler, binding extension0.Context) (tool.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Execute", ctx, name, argumentsJSON, handleProgress, binding)
 	ret0, _ := ret[0].(tool.Result)
@@ -126,7 +142,7 @@ func (mr *MockExtensionRuntimeMockRecorder) Execute(ctx, name, argumentsJSON, ha
 }
 
 // GenerateCompaction mocks base method.
-func (m *MockExtensionRuntime) GenerateCompaction(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.RequestInvocation) (extensioncontext.Result, error) {
+func (m *MockExtensionRuntime) GenerateCompaction(arg0 context.Context, arg1 string, arg2 extension0.Context, arg3 extensioncontext.RequestInvocation) (extensioncontext.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "GenerateCompaction", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(extensioncontext.Result)
@@ -156,7 +172,7 @@ func (mr *MockExtensionRuntimeMockRecorder) Handle(ctx, handlerID, request any) 
 }
 
 // HandleCompactionRequest mocks base method.
-func (m *MockExtensionRuntime) HandleCompactionRequest(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.RequestInvocation) (extensioncontext.RequestAction, error) {
+func (m *MockExtensionRuntime) HandleCompactionRequest(arg0 context.Context, arg1 string, arg2 extension0.Context, arg3 extensioncontext.RequestInvocation) (extensioncontext.RequestAction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleCompactionRequest", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(extensioncontext.RequestAction)
@@ -171,7 +187,7 @@ func (mr *MockExtensionRuntimeMockRecorder) HandleCompactionRequest(arg0, arg1, 
 }
 
 // HandleCompactionResult mocks base method.
-func (m *MockExtensionRuntime) HandleCompactionResult(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.ResultInvocation) (extensioncontext.ResultAction, error) {
+func (m *MockExtensionRuntime) HandleCompactionResult(arg0 context.Context, arg1 string, arg2 extension0.Context, arg3 extensioncontext.ResultInvocation) (extensioncontext.ResultAction, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "HandleCompactionResult", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(extensioncontext.ResultAction)
@@ -186,7 +202,7 @@ func (mr *MockExtensionRuntimeMockRecorder) HandleCompactionResult(arg0, arg1, a
 }
 
 // InvokeCompactionPolicy mocks base method.
-func (m *MockExtensionRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.PolicyInvocation) (extensioncontext.PolicyDisposition, error) {
+func (m *MockExtensionRuntime) InvokeCompactionPolicy(arg0 context.Context, arg1 string, arg2 extension0.Context, arg3 extensioncontext.PolicyInvocation) (extensioncontext.PolicyDisposition, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "InvokeCompactionPolicy", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(extensioncontext.PolicyDisposition)
@@ -201,7 +217,7 @@ func (mr *MockExtensionRuntimeMockRecorder) InvokeCompactionPolicy(arg0, arg1, a
 }
 
 // ObserveCompactionFailure mocks base method.
-func (m *MockExtensionRuntime) ObserveCompactionFailure(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.OutcomeInvocation) error {
+func (m *MockExtensionRuntime) ObserveCompactionFailure(arg0 context.Context, arg1 string, arg2 extension0.Context, arg3 extensioncontext.OutcomeInvocation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObserveCompactionFailure", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -215,7 +231,7 @@ func (mr *MockExtensionRuntimeMockRecorder) ObserveCompactionFailure(arg0, arg1,
 }
 
 // ObserveCompactionSuccess mocks base method.
-func (m *MockExtensionRuntime) ObserveCompactionSuccess(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.OutcomeInvocation) error {
+func (m *MockExtensionRuntime) ObserveCompactionSuccess(arg0 context.Context, arg1 string, arg2 extension0.Context, arg3 extensioncontext.OutcomeInvocation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObserveCompactionSuccess", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -229,7 +245,7 @@ func (mr *MockExtensionRuntimeMockRecorder) ObserveCompactionSuccess(arg0, arg1,
 }
 
 // ObserveConversation mocks base method.
-func (m *MockExtensionRuntime) ObserveConversation(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.ConversationObservation) error {
+func (m *MockExtensionRuntime) ObserveConversation(arg0 context.Context, arg1 string, arg2 extension0.Context, arg3 extensioncontext.ConversationObservation) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ObserveConversation", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -272,7 +288,7 @@ func (mr *MockExtensionRuntimeMockRecorder) Register(ctx any) *gomock.Call {
 }
 
 // ValidateOutgoingInput mocks base method.
-func (m *MockExtensionRuntime) ValidateOutgoingInput(arg0 context.Context, arg1 string, arg2 extension.Context, arg3 extensioncontext.OutgoingInput) error {
+func (m *MockExtensionRuntime) ValidateOutgoingInput(arg0 context.Context, arg1 string, arg2 extension0.Context, arg3 extensioncontext.OutgoingInput) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ValidateOutgoingInput", arg0, arg1, arg2, arg3)
 	ret0, _ := ret[0].(error)
@@ -349,7 +365,7 @@ func (m *MockFailureReporter) EXPECT() *MockFailureReporterMockRecorder {
 }
 
 // ReportRuntimeFailure mocks base method.
-func (m *MockFailureReporter) ReportRuntimeFailure(arg0 context.Context, arg1 extension.RuntimeFailure) error {
+func (m *MockFailureReporter) ReportRuntimeFailure(arg0 context.Context, arg1 extension0.RuntimeFailure) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReportRuntimeFailure", arg0, arg1)
 	ret0, _ := ret[0].(error)

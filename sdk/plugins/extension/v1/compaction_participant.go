@@ -60,7 +60,7 @@ func (p *CompactionPolicyContext) startCompactionParticipant(
 			Participant: target, Invocation: input,
 		}.Build())
 	}
-	return p.extension.initiator.start(ctx, request)
+	return p.extension.start(ctx, request)
 }
 
 // CompactionRequestOperation owns the asynchronous result of one participant call.

@@ -87,6 +87,8 @@ message ExtensionCompleted {
 
 // ExtensionRequest carries one extension-initiated operation owned by Host.
 message ExtensionRequest {
+  // The enclosing Host invocation identifier, scoped to this runtime connection.
+  string parent_invocation_id = 17;
   // The non-authorizing parent lifetime for nested policy work.
   string parent_compaction_id = 11;
   // The request payload.

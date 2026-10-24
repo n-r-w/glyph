@@ -570,28 +570,9 @@ func (s *Service) executeCalls(
 				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
 			}, false, combinedErr
 		}
-		if progressDeliveryErr != nil {
+		if outcome, terminal := classifyToolFailure(ctx, executeErr, progressDeliveryErr).Get(); terminal {
 			return s.endTurn(
-				ctx,
-				runID,
-				response,
-				results,
-				agent.RunOutcomeFailed,
-				progressDeliveryErr.Error(),
-				priorErr,
-			)
-		}
-		if executeErr != nil && (errors.Is(executeErr, context.Canceled) ||
-			errors.Is(executeErr, context.DeadlineExceeded) ||
-			ctx.Err() != nil) {
-			return s.endTurn(
-				ctx,
-				runID,
-				response,
-				results,
-				agent.RunOutcomeAborted,
-				visibleErrorMessage(executeErr),
-				executeErr,
+				ctx, runID, response, results, outcome, visibleErrorMessage(priorErr), priorErr,
 			)
 		}
 	}

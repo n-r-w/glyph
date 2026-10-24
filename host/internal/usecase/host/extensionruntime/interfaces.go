@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
@@ -66,6 +67,8 @@ type Catalog interface {
 
 // ExtensionRuntime is one independently managed extension process.
 type ExtensionRuntime interface {
+	// BeginInvocationChild admits work owned by one live connection-local Host invocation.
+	BeginInvocationChild(parentID string) (extensioncontroller.InvocationChild, error)
 	// Register invokes extension registration and returns its raw result.
 	Register(ctx context.Context) (Registration, error)
 	// Handle invokes one session-tree handler operation.

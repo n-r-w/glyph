@@ -14,7 +14,7 @@ func (r *Runtime) ObserveLifecycle(
 	ctx context.Context,
 	handlerID string,
 	event extensionruntime.LifecycleInvocation,
-) error {
+) (returnErr error) {
 	invocation, err := mapLifecycleEvent(event)
 	if err != nil {
 		return fmt.Errorf("map lifecycle observer %q: %w", handlerID, err)
@@ -35,6 +35,8 @@ func (r *Runtime) ObserveLifecycle(
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)
 	operationID := r.operationID()
+	ctx, finish := r.beginInvocation(ctx, operationID)
+	defer func() { returnErr = finish(classifyHandlerFailure(ctx, returnErr)) }()
 	started, err := r.connection.Start(ctx, operationID, hostRequest)
 	if err != nil {
 		return r.handlerOperationError(ctx, handlerID, err)

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"sync"
 
 	"github.com/samber/mo"
 
@@ -99,6 +100,10 @@ type contextOperation struct {
 	action contextAction
 	// selectionRelease owns selection-specific admission when present.
 	selectionRelease mo.Option[func()]
+	// invocation owns the accepted child independently of compaction mutation authority.
+	invocation InvocationChild
+	// releaseOnce protects every accepted-operation cleanup path.
+	releaseOnce sync.Once
 	// parentID identifies the admitted parent lifetime.
 	parentID mo.Option[string]
 	// childRelease reports nested completion to the parent.
@@ -114,6 +119,9 @@ func (o *contextOperation) Run(
 	ctx context.Context,
 	reporter *extensionsdk.HostProgressReporter,
 ) (completed *extensionpb.HostCompleted, returnErr error) {
+	linked, unlinkInvocation := o.invocation.Link(ctx)
+	defer unlinkInvocation()
+	ctx = linked
 	if childRelease, present := o.childRelease.Get(); present {
 		defer func() { childRelease(returnErr) }()
 	}
@@ -123,6 +131,10 @@ func (o *contextOperation) Run(
 		ctx = childContext
 	}
 
+	defer func() { o.invocation.Fail(qualifyingExtensionFailure(returnErr)) }()
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	slog.DebugContext(
 		ctx,
 		"execute extension context operation",
@@ -140,10 +152,13 @@ func (o *contextOperation) Run(
 
 // Release returns the reservation to the runtime accounting owner.
 func (o *contextOperation) Release() {
-	if releaseSelection, present := o.selectionRelease.Get(); present {
-		releaseSelection()
-	}
-	o.release()
+	o.releaseOnce.Do(func() {
+		if releaseSelection, present := o.selectionRelease.Get(); present {
+			releaseSelection()
+		}
+		o.release()
+		o.invocation.Release()
+	})
 }
 
 // mapCompactionCompletion maps one committed Host result into the Extension Contract.

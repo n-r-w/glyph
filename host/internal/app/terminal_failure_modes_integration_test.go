@@ -239,26 +239,13 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 				switch client {
 				case "programmatic":
 					fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
-					require.NoError(t, fixture.stream.Send(userRequest("terminal-refusal", "hello")))
-					for len(observations) == 0 {
-						response, err := fixture.stream.Recv()
-						require.NoError(t, err)
-						event := response.GetEvent()
-						if event.GetProgress().GetAgentEvent().GetRetryProgress() != nil {
-							retryProgress++
-						}
-						if failure := event.GetFailed(); failure != nil {
-							observations = append(
-								observations,
-								terminalFailureObservation{Code: failure.GetCode(), Message: failure.GetMessage()},
-							)
-						}
-						require.False(
-							t,
-							event.HasCompleted() || event.HasCanceled(),
-							"unexpected successful or canceled terminal",
-						)
-					}
+					observation, progress := requestProgrammaticFailure(
+						t,
+						fixture,
+						userRequest("terminal-refusal", "hello"),
+					)
+					observations = append(observations, observation)
+					retryProgress = progress
 					fixture.closeOwner(t)
 				case "ui":
 					trace := filepath.Join(t.TempDir(), "terminal.json")
@@ -277,6 +264,16 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 					observations = append(observations, observation)
 				case "configured SDK":
 					fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
+					if scenario.category == extensionCategory {
+						observation, progress := requestProgrammaticFailure(
+							t, fixture, userRequest("configured-terminal", "hello"),
+						)
+						observations = append(observations, observation)
+						retryProgress = progress
+						require.EqualValues(t, 1, outerRequests.Load())
+						fixture.closeOwner(t)
+						break
+					}
 					completeProgrammaticRequest(t, fixture, userRequest("configured-terminal", "hello"))
 					fixture.closeOwner(t)
 					var report struct {
@@ -320,7 +317,7 @@ func TestTerminalRefusalAcrossPublicClients(t *testing.T) {
 
 				// Assert the public error category, acquired causes, and provider request count.
 				expectedAttempts := scenario.attempts
-				if client == "configured SDK" {
+				if client == "configured SDK" && scenario.category != extensionCategory {
 					expectedAttempts *= 2
 				}
 				assert.Equal(t, expectedAttempts, attempts.Load())

@@ -9,6 +9,7 @@ import (
 	"log/slog"
 	"os/exec"
 	"strconv"
+	"sync"
 	"sync/atomic"
 
 	"github.com/samber/lo"
@@ -35,6 +36,10 @@ type Runtime struct {
 	connection *extensionsdk.Connection
 	// nextOperationID allocates extension-local Host operation identifiers.
 	nextOperationID atomic.Uint64
+	// invocationsMutex protects connection-local parent ownership.
+	invocationsMutex sync.Mutex
+	// invocations contains live Host invocation lifetimes.
+	invocations map[string]*invocationLifetime
 }
 
 var _ extensionruntime.ExtensionRuntime = (*Runtime)(nil)
@@ -51,10 +56,12 @@ func Start(ctx context.Context, command *exec.Cmd) (*Runtime, error) {
 		return nil, fmt.Errorf("start extension operation stream: %w", err)
 	}
 	return &Runtime{
-		context:         context.WithoutCancel(ctx),
-		client:          client,
-		connection:      connection,
-		nextOperationID: atomic.Uint64{},
+		context:          context.WithoutCancel(ctx),
+		client:           client,
+		connection:       connection,
+		nextOperationID:  atomic.Uint64{},
+		invocationsMutex: sync.Mutex{},
+		invocations:      make(map[string]*invocationLifetime),
 	}, nil
 }
 
@@ -84,7 +91,7 @@ func (r *Runtime) Execute(
 	argumentsJSON []byte,
 	handleProgress tool.ProgressHandler,
 	binding extension.Context,
-) (tool.Result, error) {
+) (resultValue tool.Result, returnErr error) {
 	if err := ctx.Err(); err != nil {
 		return tool.Result{}, fmt.Errorf(executionFailureFormat, toolName, err)
 	}
@@ -94,6 +101,8 @@ func (r *Runtime) Execute(
 		ToolName: new(toolName), ArgumentsJson: argumentsJSON, Context: mapContext(binding),
 	}.Build())
 	operationID := r.operationID()
+	ctx, finish := r.beginInvocation(ctx, operationID)
+	defer func() { returnErr = finish(returnErr) }()
 	slog.DebugContext(ctx, "invoke extension tool", "operation_id", operationID, "extension_id", binding.ExtensionID,
 		"runtime_instance_id", binding.RuntimeInstanceID, "session_id", binding.SessionID)
 	started, err := r.connection.Start(ctx, operationID, request)

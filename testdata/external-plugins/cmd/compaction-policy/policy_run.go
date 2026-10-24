@@ -77,7 +77,7 @@ func (o *policyOperation) runReplacement(
 			input.GetModel(),
 			input.GetReasoningChoice(),
 		); modelErr != nil {
-			return o.attachAcquiredState(newPolicyFailure(modelErr)), nil
+			return nil, modelErr
 		}
 	}
 	source, err := requestReplacementSource(ctx, contextBinding, input.GetUserInstructions())

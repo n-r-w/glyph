@@ -14,6 +14,13 @@ import (
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=run
 
+// FatalOperationFailure identifies a tool operation failure that must stop the run.
+type FatalOperationFailure interface {
+	error
+	// FatalOperation distinguishes operation failure from an ordinary tool-error result.
+	FatalOperation()
+}
+
 // ModelRequest contains projected history and the available tool catalog.
 type ModelRequest struct {
 	// Instructions contains the system prompt.

@@ -39,10 +39,12 @@ func TestStandardExtensionManualCompaction(t *testing.T) {
 	previous := http.DefaultTransport
 	http.DefaultTransport = transport
 	t.Cleanup(func() { http.DefaultTransport = previous })
-	fixture := startProgrammaticFixtureWithExtension(t, paths, directory)
+	live := startLiveCallerFixture(t, paths, directory)
+	fixture := live.programmaticFixture
 	completeProgrammaticRequest(t, fixture, userRequest("standard-extension-original", manualOriginalText))
 	completeProgrammaticRequest(t, fixture, userRequest("standard-extension-recent", manualRetainedText))
-	// Act by signaling the caller after conversation settlement.
+	callerDone := live.startCaller(t)
+	// Act by signaling the live caller after conversation settlement.
 	connection, err := net.DialUnix("unix", nil, &net.UnixAddr{Name: socket, Net: "unix"})
 	require.NoError(t, err)
 	require.NoError(t, connection.SetDeadline(time.Now().Add(15*time.Second)))
@@ -52,6 +54,7 @@ func TestStandardExtensionManualCompaction(t *testing.T) {
 	encoded, err := io.ReadAll(connection)
 	require.NoError(t, err)
 	require.NoError(t, connection.Close())
+	require.NoError(t, <-callerDone)
 	// Assert the caller receives a durable receipt and the next provider request contains the committed summary.
 	var report manualPublicReport
 	require.NoError(t, json.Unmarshal(encoded, &report))

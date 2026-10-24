@@ -159,7 +159,7 @@ func TestClosedInvocationContextRejectsNewOperations(t *testing.T) {
 
 	// Arrange: retain an invocation context after its owning stream is closed.
 	initiator := newContextInitiator(t.Context(), nil, func(error) {})
-	binding, err := invocationContext(testInvocationIdentity(), initiator)
+	binding, err := invocationContext(t.Context(), testInvocationIdentity(), initiator)
 	require.NoError(t, err)
 	cause := errors.New("runtime instance was replaced")
 	initiator.close(cause)

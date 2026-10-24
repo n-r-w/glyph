@@ -73,6 +73,23 @@ func staleRuntimeCommit(extensionID, runtimeID string) error {
 	}
 }
 
+// BeginInvocationChild admits work against the exact live runtime generation and parent invocation.
+func (s *Service) BeginInvocationChild(
+	extensionID, runtimeID, parentID string,
+) (extensioncontroller.InvocationChild, error) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	state, found := s.runtimes[extensionID]
+	if !found || !state.available || state.isInvalidated() || s.closing || state.instanceID != runtimeID {
+		return nil, staleRuntimeCommit(extensionID, runtimeID)
+	}
+	child, err := state.runtime.BeginInvocationChild(parentID)
+	if err != nil {
+		return nil, &runtimeContextError{cause: fmt.Errorf("admit child of invocation %q: %w", parentID, err)}
+	}
+	return child, nil
+}
+
 // BeginContextOperation accounts for one extension-initiated operation on the exact process instance.
 func (s *Service) BeginContextOperation(ctx context.Context, extensionID, runtimeID string) (func(), error) {
 	s.mutex.Lock()

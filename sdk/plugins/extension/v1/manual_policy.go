@@ -16,6 +16,7 @@ type compactionPolicyContextKey struct{}
 type parentCompactionContextKey struct{}
 
 // CompactionPolicyContext supplies captured input and operation-scoped policy services.
+// Its asynchronous operations follow the shared ownership and cancellation contract on ExtensionContext.
 type CompactionPolicyContext struct {
 	// invocation retains the immutable policy input.
 	invocation *extensionpb.CompactionPolicyInvocation
@@ -33,7 +34,7 @@ func (p *CompactionPolicyContext) StartProjectReplacement(
 	request := new(extensionpb.ExtensionRequest)
 	request.SetParentCompactionId(p.parentCompactionID)
 	request.SetProjectCompaction(p.newCandidateRequest(candidate))
-	started, err := p.extension.initiator.start(ctx, request)
+	started, err := p.extension.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +49,7 @@ func (p *CompactionPolicyContext) StartReplaceHistory(
 	request := new(extensionpb.ExtensionRequest)
 	request.SetParentCompactionId(p.parentCompactionID)
 	request.SetReplaceCompaction(p.newCandidateRequest(candidate))
-	started, err := p.extension.initiator.start(ctx, request)
+	started, err := p.extension.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}

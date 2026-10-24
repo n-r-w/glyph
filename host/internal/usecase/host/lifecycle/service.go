@@ -9,6 +9,7 @@ import (
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -279,6 +280,9 @@ func (s *Service) observe(ctx context.Context, kind Kind, event Event) error {
 			continue
 		}
 		unavailable, err := s.runtime.ObserveLifecycle(ctx, handler.ExtensionID, handler.HandlerID, binding, event)
+		if _, fatal := errors.AsType[run.FatalOperationFailure](err); fatal {
+			return errors.Join(result, err)
+		}
 		if callerErr := ctx.Err(); callerErr != nil {
 			return errors.Join(result, callerErr, err)
 		}

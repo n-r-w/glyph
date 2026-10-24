@@ -7,6 +7,7 @@ import (
 
 	"github.com/samber/mo"
 
+	controllerextension "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -203,7 +204,15 @@ type LogicalFailureError struct {
 	Cause error
 }
 
-var _ sessiontree.ModelRequestFailure = (*LogicalFailureError)(nil)
+var (
+	_ sessiontree.ModelRequestFailure            = (*LogicalFailureError)(nil)
+	_ controllerextension.NestedExtensionFailure = (*LogicalFailureError)(nil)
+)
+
+// IsExtensionFailure identifies extension failure independently of provider retry classification.
+func (failure *LogicalFailureError) IsExtensionFailure() bool {
+	return failure.Category == FailureExtensionFailed
+}
 
 // Error returns the complete contributing cause text.
 func (failure *LogicalFailureError) Error() string { return failure.Cause.Error() }

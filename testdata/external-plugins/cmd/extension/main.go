@@ -254,6 +254,7 @@ func (s *service) PrepareExecute(
 		configuredRequestProgressMode,
 		configuredRequestCancellationMode,
 		configuredRequestFailuresMode,
+		consumedConfiguredMode,
 		sessionStateMode,
 		selectionMode,
 		failureMode,
@@ -411,20 +412,10 @@ func (operation *executeOperation) Run(
 		return operation.readRetainedCatalogues(ctx)
 	case staleSelectionMode:
 		return operation.selectWithRetainedContext(ctx)
-	case configuredRequestMode:
-		return requestConfiguredModel(ctx, configuredInstructions, configuredNestedReasoningChoice)
-	case configuredInputMode:
-		return requestConfiguredInput(ctx, configuredInstructions)
-	case configuredEmptyRequestMode:
-		return requestConfiguredModel(ctx, "", configuredNestedReasoningChoice)
-	case configuredEmptyInputMode:
-		return requestConfiguredInput(ctx, "")
-	case configuredRequestProgressMode:
-		return requestConfiguredModelWithProgress(ctx)
-	case configuredRequestCancellationMode:
-		return requestConfiguredModelCancellation(ctx)
-	case configuredRequestFailuresMode:
-		return requestConfiguredModelFailures(ctx)
+	case configuredRequestMode, configuredInputMode, configuredEmptyRequestMode, configuredEmptyInputMode,
+		configuredRequestProgressMode, configuredRequestCancellationMode, configuredRequestFailuresMode,
+		consumedConfiguredMode:
+		return operation.runConfiguredRequest(ctx)
 	case sessionStateMode:
 		return exerciseSessionState(ctx, operation.service)
 	case selectionMode:

@@ -7,7 +7,6 @@ import (
 
 	"github.com/n-r-w/glyph/internal/errtree"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
-	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
 
 // newPolicyGeneratorContextRequest decodes one selected generator's public Host operation.
@@ -46,16 +45,7 @@ func newPolicyGeneratorContextRequest(
 				ctx, o.service.extensionID, o.service.runtimeID, command,
 			)
 			if invokeErr != nil {
-				if isParticipantCancellation(invokeErr) {
-					return nil, invokeErr
-				}
-				if failure, classified := errors.AsType[interface {
-					error
-					Code() string
-				}](invokeErr); classified {
-					invokeErr = fmt.Errorf("generator category %s: %w", failure.Code(), invokeErr)
-				}
-				return nil, extensionsdk.Fail(compactionFailureCode(invokeErr), invokeErr)
+				return nil, mapCompactionParticipantFailure(generatorFailureSource, invokeErr)
 			}
 			response := extensionpb.CompactionResult_builder{
 				Summary: new(result.Summary), FirstKeptEntryId: new(result.FirstKeptEntryID),

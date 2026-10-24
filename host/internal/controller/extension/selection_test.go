@@ -26,6 +26,7 @@ func TestSelectionRequestUsesDirectSelectionPort(t *testing.T) {
 	contexts := NewMockContextOperations(controller)
 	models := NewMockModelOperations(controller)
 	runtime := NewMockRuntimeOperations(controller)
+	expectInvocationChild(t, runtime, controller)
 	selection := NewMockModelSelection(controller)
 	preparedSelection := NewMockPreparedSelection(controller)
 	reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}

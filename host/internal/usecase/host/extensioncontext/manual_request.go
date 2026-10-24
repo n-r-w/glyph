@@ -9,6 +9,7 @@ import (
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
 // InvokePolicyRequest invokes one captured participant under a separate non-authorizing lifetime.
@@ -58,8 +59,10 @@ func (s *Service) InvokePolicyRequest(
 	}
 	if result, present := action.Result.Get(); present {
 		if producer, attributed := result.Source.ExtensionID.Get(); attributed && producer != participant.ExtensionID {
-			return extensioncontroller.CompactionRequestResponse{}, fmt.Errorf(
-				"result producer %q does not match the selected extension %q", producer, participant.ExtensionID,
+			return extensioncontroller.CompactionRequestResponse{}, NewPolicyOperationError(
+				ctx, modelexecution.FailureExtensionFailed, fmt.Errorf(
+					"result producer %q does not match the selected extension %q", producer, participant.ExtensionID,
+				),
 			)
 		}
 		response.Result = mo.Some(

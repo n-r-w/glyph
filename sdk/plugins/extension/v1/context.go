@@ -12,12 +12,26 @@ import (
 // invocationContextKey keeps SDK invocation state separate from caller values.
 type invocationContextKey struct{}
 
-// ExtensionContext provides asynchronous Host operations for one issued session binding.
+// ExtensionContext starts asynchronous Host work owned by one tool or handler invocation.
+// Its session identity authorizes session access separately from that invocation lifetime.
+// A Start method's context controls caller cancellation; it does not replace captured ownership
+// or Host parent cancellation. Host closes admission at parent settlement, cancels unfinished
+// accepted work, and waits for accepted children to release their resources.
+// A retained qualifying extension-operation failure fails the parent even when plugin code
+// consumes the child error and returns success. Starts after admission closes can be rejected
+// with STALE_CONTEXT while the session identity remains valid.
+// A Start method can return a handle before Host accepts or rejects the request. The handle's
+// Wait method reports remote rejection, cancellation, or failure. Canceling a Wait context alone
+// stops that local wait; it does not cancel remote work.
 type ExtensionContext struct {
 	// identity contains the immutable identity received from Host.
 	identity *extensionpb.ExtensionContext
 	// initiator owns outbound requests on the invoking stream.
 	initiator *contextInitiator
+	// parentID identifies the enclosing Host invocation on this stream.
+	parentID string
+	// compactionID preserves the separate non-authorizing compaction lifetime.
+	compactionID string
 }
 
 // ModelsOperation owns one asynchronous model-catalog read.
@@ -74,7 +88,8 @@ type ReasoningSelectionOperation struct {
 	operation *contextOperation
 }
 
-// ContextFrom returns the session-bound context supplied to a tool or handler invocation.
+// ContextFrom returns the ExtensionContext supplied to a tool or handler invocation.
+// Its asynchronous operations follow the shared ownership and cancellation contract on ExtensionContext.
 func ContextFrom(ctx context.Context) (*ExtensionContext, error) {
 	binding, present := ctx.Value(invocationContextKey{}).(*ExtensionContext)
 	if !present || binding == nil {
@@ -92,7 +107,7 @@ func (c *ExtensionContext) Identity() *extensionpb.ExtensionContext {
 func (c *ExtensionContext) StartGetModels(ctx context.Context) (*ModelsOperation, error) {
 	request := new(extensionpb.ExtensionRequest)
 	request.SetGetModels(extensionpb.GetModelsRequest_builder{Context: c.reference()}.Build())
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -103,7 +118,7 @@ func (c *ExtensionContext) StartGetModels(ctx context.Context) (*ModelsOperation
 func (c *ExtensionContext) StartGetProviders(ctx context.Context) (*ProvidersOperation, error) {
 	request := new(extensionpb.ExtensionRequest)
 	request.SetGetProviders(extensionpb.GetProvidersRequest_builder{Context: c.reference()}.Build())
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -122,7 +137,7 @@ func (c *ExtensionContext) StartConfiguredModel(
 	requestValue.SetContext(c.reference())
 	request := new(extensionpb.ExtensionRequest)
 	request.SetConfiguredModel(requestValue)
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -141,7 +156,7 @@ func (c *ExtensionContext) StartAppendExtension(
 	requestValue.SetContext(c.reference())
 	request := new(extensionpb.ExtensionRequest)
 	request.SetAppendExtension(requestValue)
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -160,7 +175,7 @@ func (c *ExtensionContext) StartAppendExtensionMessage(
 	requestValue.SetContext(c.reference())
 	request := new(extensionpb.ExtensionRequest)
 	request.SetAppendExtensionMessage(requestValue)
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -171,7 +186,7 @@ func (c *ExtensionContext) StartAppendExtensionMessage(
 func (c *ExtensionContext) StartGetSessionState(ctx context.Context) (*SessionStateOperation, error) {
 	request := new(extensionpb.ExtensionRequest)
 	request.SetGetSessionState(extensionpb.GetSessionStateRequest_builder{Context: c.reference()}.Build())
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -190,7 +205,7 @@ func (c *ExtensionContext) StartCompaction(
 	requestValue.SetContext(c.reference())
 	request := new(extensionpb.ExtensionRequest)
 	request.SetCompact(requestValue)
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +224,7 @@ func (c *ExtensionContext) StartModelSelection(
 	requestValue.SetContext(c.reference())
 	request := new(extensionpb.ExtensionRequest)
 	request.SetSelectModel(requestValue)
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +243,7 @@ func (c *ExtensionContext) StartReasoningSelection(
 	requestValue.SetContext(c.reference())
 	request := new(extensionpb.ExtensionRequest)
 	request.SetSelectReasoning(requestValue)
-	started, err := c.initiator.start(ctx, request)
+	started, err := c.start(ctx, request)
 	if err != nil {
 		return nil, err
 	}
@@ -355,7 +370,11 @@ func (c *ExtensionContext) reference() *extensionpb.ExtensionContextRef {
 }
 
 // invocationContext validates Host identity before exposing context operations to plugin code.
-func invocationContext(identity *extensionpb.ExtensionContext, initiator *contextInitiator) (*ExtensionContext, error) {
+func invocationContext(
+	ctx context.Context,
+	identity *extensionpb.ExtensionContext,
+	initiator *contextInitiator,
+) (*ExtensionContext, error) {
 	if identity == nil || identity.GetContextId() == "" || identity.GetExtensionId() == "" ||
 		identity.GetRuntimeInstanceId() == "" ||
 		identity.GetSessionId() == "" ||
@@ -365,5 +384,9 @@ func invocationContext(identity *extensionpb.ExtensionContext, initiator *contex
 			errors.New("tool or handler invocation requires complete extension context identity"),
 		)
 	}
-	return &ExtensionContext{identity: proto.CloneOf(identity), initiator: initiator}, nil
+	parentID, _ := ctx.Value(parentInvocationContextKey{}).(string)
+	compactionID, _ := ctx.Value(parentCompactionContextKey{}).(string)
+	return &ExtensionContext{
+		identity: proto.CloneOf(identity), initiator: initiator, parentID: parentID, compactionID: compactionID,
+	}, nil
 }

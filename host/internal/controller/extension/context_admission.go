@@ -43,16 +43,24 @@ func (s *Service) Prepare(
 	if err != nil {
 		return nil, extensionsdk.Reject(contextFailureCode(err), err)
 	}
+	invocation, err := s.runtime.BeginInvocationChild(s.extensionID, s.runtimeID, request.GetParentInvocationId())
+	if err != nil {
+		release()
+		return nil, extensionsdk.Reject(contextFailureCode(err), err)
+	}
 	childRelease, release, err := s.prepareCompactionAdmission(
 		request.GetParentCompactionId(),
 		mappedRequest,
 		release,
 	)
 	if err != nil {
+		invocation.Fail(qualifyingExtensionFailure(err))
+		invocation.Release()
 		return nil, err
 	}
 	prepared := &contextOperation{
 		service: s, reference: bound, action: nil, selectionRelease: mo.None[func()](),
+		invocation: invocation, releaseOnce: sync.Once{},
 		parentID:     mo.EmptyableToOption(request.GetParentCompactionId()),
 		childRelease: mo.TupleToOption(childRelease, childRelease != nil), release: release, id: operationID,
 	}
@@ -62,7 +70,9 @@ func (s *Service) Prepare(
 		if childRelease != nil {
 			childRelease(prepareErr)
 		}
+		invocation.Fail(qualifyingExtensionFailure(prepareErr))
 		release()
+		invocation.Release()
 		return nil, prepareErr
 	}
 	prepared.action = action

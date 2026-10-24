@@ -144,27 +144,27 @@ func (r *Runtime) runCompactionHandler(
 	ctx context.Context,
 	handlerID string,
 	request *extensionpb.HandleRequest,
-) (compactionHandlerCompletion, error) {
+) (completionValue compactionHandlerCompletion, returnErr error) {
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)
 	operationID := r.operationID()
+	ctx, finish := r.beginInvocation(ctx, operationID)
+	defer func() { returnErr = finish(returnErr) }()
 	started, err := r.connection.Start(ctx, operationID, hostRequest)
 	if err != nil {
-		err = extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed,
-			r.handlerOperationError(ctx, handlerID, err))
+		err = classifyCompactionFailure(ctx, r.handlerOperationError(ctx, handlerID, err))
 		return compactionHandlerCompletion{Response: nil, InvocationCause: err}, err
 	}
 	completed, waitErr := r.waitForOperation(ctx, operationID, started, nil)
 	if waitErr != nil {
-		waitErr = extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed,
-			r.handlerOperationError(ctx, handlerID, waitErr))
+		waitErr = classifyCompactionFailure(ctx, r.handlerOperationError(ctx, handlerID, waitErr))
 	}
 	if completed == nil {
 		return compactionHandlerCompletion{Response: nil, InvocationCause: waitErr}, waitErr
 	}
 	response := completed.GetHandle()
 	if response == nil {
-		cause := extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed,
+		cause := classifyCompactionFailure(ctx,
 			errors.Join(waitErr, r.protocolViolation(errors.New("compaction handler response is missing"))))
 		return compactionHandlerCompletion{Response: nil, InvocationCause: cause}, cause
 	}
@@ -172,7 +172,7 @@ func (r *Runtime) runCompactionHandler(
 	if handlerErr := response.GetError(); handlerErr != nil {
 		cause := error(newOrdinaryHandlerError(handlerErr.GetMessage()))
 		if request.GetCompactionOutgoingInput() == nil {
-			cause = extensioncontext.NewPolicyOperationError(ctx, modelexecution.FailureExtensionFailed, cause)
+			cause = classifyCompactionFailure(ctx, cause)
 		}
 		return completion, errors.Join(waitErr, cause)
 	}
