@@ -1,6 +1,6 @@
 module example.com/glyph-external-plugins
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/n-r-w/glyph v0.0.0
