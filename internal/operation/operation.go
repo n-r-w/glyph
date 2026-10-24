@@ -20,6 +20,9 @@ var ErrQueueFull = errors.New("operation queue is full")
 // ErrClosed reports a runtime component that no longer accepts work.
 var ErrClosed = errors.New("operation runtime is closed")
 
+// failureCodeInternal identifies invalid failed-outcome construction.
+const failureCodeInternal = "INTERNAL"
+
 // TerminalState identifies an operation terminal state.
 type TerminalState uint8
 
@@ -90,13 +93,20 @@ func CanceledWithSource[R any](source error) Outcome[R] {
 	return Outcome[R]{state: TerminalStateCanceled, result: zero, code: "", err: nil, source: source}
 }
 
-// Failed constructs a failed outcome with a machine code and internal error.
+// Failed constructs a failed outcome with the supplied code and error.
+// If code is empty or err is nil, Failed uses INTERNAL and exposes the validation diagnoses
+// and any supplied error through both Err and SourceError.
 func Failed[R any](code string, err error) Outcome[R] {
+	var validation error
 	if code == "" {
-		panic("failed outcome code is required")
+		validation = errors.New("failed outcome code is required")
 	}
 	if err == nil {
-		panic("failed outcome error is required")
+		validation = errors.Join(validation, errors.New("failed outcome error is required"))
+	}
+	if validation != nil {
+		code = failureCodeInternal
+		err = errors.Join(validation, err)
 	}
 	var zero R
 	return Outcome[R]{state: TerminalStateFailed, result: zero, code: code, err: err, source: err}

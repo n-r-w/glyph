@@ -248,9 +248,10 @@ func (c *Connection) Close() error {
 }
 
 // Fail reports a Host-detected peer protocol violation; the owner must call Close to join cleanup.
+// A nil cause returns a validation error and leaves the connection unchanged.
 func (c *Connection) Fail(cause error) error {
 	if cause == nil {
-		panic("extension connection failure cause is required")
+		return errors.New("extension connection failure cause is required")
 	}
 	mapped := newProtocolStatusError(codes.FailedPrecondition, cause.Error(), cause)
 	c.fail(mapped)

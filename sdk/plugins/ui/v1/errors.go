@@ -31,12 +31,14 @@ func (e *RejectionError) Code() string { return e.code }
 func (e *RejectionError) Unwrap() error { return e.cause }
 
 // Reject constructs a classified preparation rejection.
+// If code is empty or cause is nil, Reject returns a validation error with the invalid-argument diagnosis
+// and any supplied cause.
 func Reject(code string, cause error) error {
 	if code == "" {
-		panic("UI rejection code is required")
+		return errors.Join(errors.New("UI rejection code is required"), cause)
 	}
 	if cause == nil {
-		panic("UI rejection cause is required")
+		return errors.New("UI rejection cause is required")
 	}
 	return &RejectionError{code: code, cause: cause}
 }
@@ -62,12 +64,14 @@ func (e *FailureError) Code() string { return e.code }
 func (e *FailureError) Unwrap() error { return e.cause }
 
 // Fail constructs a classified accepted-operation failure.
+// If code is empty or cause is nil, Fail returns a validation error with the invalid-argument diagnosis
+// and any supplied cause.
 func Fail(code string, cause error) error {
 	if code == "" {
-		panic("UI failure code is required")
+		return errors.Join(errors.New("UI failure code is required"), cause)
 	}
 	if cause == nil {
-		panic("UI failure cause is required")
+		return errors.New("UI failure cause is required")
 	}
 	return &FailureError{code: code, cause: cause}
 }
