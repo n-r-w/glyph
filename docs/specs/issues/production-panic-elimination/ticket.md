@@ -1,10 +1,10 @@
 # Ticket: Eliminate panic paths from production code
 
-Status: In progress; intentional panic paths remain outside the completed construction and error-contract changes
+Status: Implementation complete through UNT06; final verification and production issue closure pending under UNT12
 
 Remove intentional and helper-induced panic paths from Glyph production code. Errors must be returned through existing contracts without terminating the host or a plugin.
 
-SDK error constructors, connection failure reporting, and failed operation outcomes now diagnose invalid arguments without panic. Operation owner and writer constructors, one-time model/pricing bindings, and UI startup now return initialization errors. Tracker and writer queues retain fixed capacity 64. Tree snapshot changes are implemented; see the snapshot evidence for propagation and commit-ordering checks. Empty replay initialization constructs valid empty state directly and retains mutation validation. See the [snapshot evidence](snapshot-evidence.md). UNT05 replaces all 15 production `Option.MustGet` calls with presence-aware extraction; see the [option extraction evidence](option-extraction-evidence.md) for behavioral checks and limits. Regular-expression initialization remains pending under UNT06.
+SDK error constructors, connection failure reporting, and failed operation outcomes now diagnose invalid arguments without panic. Operation owner and writer constructors, one-time model/pricing bindings, and UI startup now return initialization errors. Tracker and writer queues retain fixed capacity 64. Tree snapshot changes are implemented; see the snapshot evidence for propagation and commit-ordering checks. Empty replay initialization constructs valid empty state directly and retains mutation validation. See the [snapshot evidence](snapshot-evidence.md). UNT05 replaces all 15 production `Option.MustGet` calls with presence-aware extraction; see the [option extraction evidence](option-extraction-evidence.md) for behavioral checks and limits. UNT06 removes the three constant regular-expression initializers with equivalent CR/LF-only normalization; see the [normalization evidence](regexp-normalization-evidence.md). Implementation is complete through UNT06; final verification and production issue closure remain pending under UNT12.
 
 ## Key definitions and abbreviations
 
@@ -14,7 +14,7 @@ SDK error constructors, connection failure reporting, and failed operation outco
 
 ## Problem Statement
 
-Intentional panic paths remain in Glyph production code. Original-baseline examples included SDK error constructors that panicked on invalid arguments and `Tree.Clone` in `host/internal/domain/session/tree.go`, which panicked when tree reconstruction failed. These examples have been corrected; the [snapshot evidence](snapshot-evidence.md) records the Tree changes. UNT05 removes the production calls to `mo.Option.MustGet()` inventoried under Technical Supplement. Regular-expression initialization remains pending.
+At the original baseline, Glyph production code contained intentional panic paths. Examples included SDK error constructors that panicked on invalid arguments and `Tree.Clone` in `host/internal/domain/session/tree.go`, which panicked when tree reconstruction failed. These examples have been corrected; the [snapshot evidence](snapshot-evidence.md) records the Tree changes. UNT05 removed the production calls to `mo.Option.MustGet()` inventoried under Technical Supplement, and UNT06 removed the three constant regular-expression initializers. The implementation summary above links the verification evidence; final verification and production issue closure remain pending under UNT12.
 
 A panic can terminate the Glyph host or a plugin. Operation failures, invalid arguments, missing dependencies, and violated internal invariants must not terminate a process.
 

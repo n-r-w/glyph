@@ -1,7 +1,6 @@
 package programmatic
 
 import (
-	"regexp"
 	"strings"
 
 	"github.com/samber/mo"
@@ -20,15 +19,17 @@ type StoredSession struct {
 	TotalMessages int
 }
 
-// listLineBreaks normalizes contiguous stored line breaks for a one-line public preview.
-var listLineBreaks = regexp.MustCompile(`[\r\n]+`)
+// isListLineBreak identifies the delimiters used in public session previews.
+func isListLineBreak(value rune) bool {
+	return value == '\r' || value == '\n'
+}
 
 // publicItem normalizes stored text while preserving metadata, count, and optional presence.
 func (stored StoredSession) publicItem() controller.SessionListItem {
 	return controller.SessionListItem{
 		Info: stored.Info,
 		FirstUserText: stored.FirstUserText.Map(func(text string) (string, bool) {
-			return strings.TrimSpace(listLineBreaks.ReplaceAllString(text, " ")), true
+			return strings.TrimSpace(strings.Join(strings.FieldsFunc(text, isListLineBreak), " ")), true
 		}),
 		TotalMessages: stored.TotalMessages,
 	}

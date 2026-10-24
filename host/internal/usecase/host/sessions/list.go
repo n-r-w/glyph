@@ -70,7 +70,7 @@ func (loaded LoadedSession) firstUserText() mo.Option[string] {
 	for index := range branch {
 		if user, present := branch[index].User.Get(); present {
 			// Normalize only to skip empty previews. The client receives exact stored text.
-			text := strings.TrimSpace(lineBreaks.ReplaceAllString(user.Text(""), " "))
+			text := strings.TrimSpace(strings.Join(strings.FieldsFunc(user.Text(""), isLineBreak), " "))
 			if text != "" {
 				return mo.Some(user.Text(""))
 			}

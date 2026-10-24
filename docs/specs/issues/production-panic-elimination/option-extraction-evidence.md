@@ -2,7 +2,7 @@
 
 ## Scope and status
 
-UNT05 removes all 15 production `Option.MustGet` calls at starting revision `ee9774ef838d8995ae4d994db5b6b6412096bd30`. The production scan covers non-test Go files under `host`, `internal`, `plugins`, and `sdk`. No panic extractor or recovery wrapper replaces them. The issue remains in progress while UNT06 replacement of panic-based regular-expression initialization is pending. Extension failure semantics and transport changes remain outside this unit.
+This record describes the historical UNT05 implementation and verification scope, starting at revision `ee9774ef838d8995ae4d994db5b6b6412096bd30`. UNT05 removed all 15 production `Option.MustGet` calls. Its production scan covered non-test Go files under `host`, `internal`, `plugins`, and `sdk`. No panic extractor or recovery wrapper replaced them. At the end of UNT05, UNT06 replacement of panic-based regular-expression initialization was pending. See the [ticket](ticket.md) for the current whole-issue status. Extension failure semantics and transport changes were outside UNT05.
 
 ## Implementation and source evidence
 

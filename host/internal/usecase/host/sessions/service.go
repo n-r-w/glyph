@@ -6,7 +6,6 @@ import (
 	"encoding/json/jsontext"
 	"errors"
 	"fmt"
-	"regexp"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -23,8 +22,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
-
-var lineBreaks = regexp.MustCompile(`[\r\n]+`)
 
 // Service owns the process-active session.
 type Service struct {
@@ -178,7 +175,7 @@ func (s *Service) ResumeActive(ctx context.Context, id session.ID) (session.Info
 
 // SetActiveName persists a normalized session name.
 func (s *Service) SetActiveName(ctx context.Context, value string) (session.Info, error) {
-	name := strings.TrimSpace(lineBreaks.ReplaceAllString(value, " "))
+	name := strings.TrimSpace(strings.Join(strings.FieldsFunc(value, isLineBreak), " "))
 	if name == "" {
 		return session.Info{}, session.ErrInvalidName
 	}

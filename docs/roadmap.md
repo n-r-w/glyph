@@ -6,7 +6,7 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 ### Production panic elimination
 
-Status: In progress. UNT05 option extraction is implemented with [verification evidence](specs/issues/production-panic-elimination/option-extraction-evidence.md). The [ticket](specs/issues/production-panic-elimination/ticket.md) records the remaining scope, including UNT06 regular-expression initialization.
+Status: Implementation complete through UNT06, with [normalization evidence](specs/issues/production-panic-elimination/regexp-normalization-evidence.md). Final verification and production issue closure remain pending under UNT12; see the [ticket](specs/issues/production-panic-elimination/ticket.md).
 
 Execution position: After PHS-06 and before PHS-08. Both this task and extension failure propagation must be completed and verified before PHS-08 starts. Their scheduling is recorded in the [delivery plan](specs/features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08).
 
