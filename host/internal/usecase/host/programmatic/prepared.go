@@ -3,6 +3,7 @@ package programmatic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"sync"
 
 	"github.com/samber/mo"
@@ -160,7 +161,12 @@ func (p *commandPrepared) runSelection(ctx context.Context) operation.Outcome[co
 		return newCanceledCommandOutcome(result.Source)
 	}
 	rejected := p.service.selectionRejected(p.command, result.Source)
-	rejection := rejected.Rejection.MustGet()
+	rejection, present := rejected.Rejection.Get()
+	if !present {
+		return operation.Failed[controller.Response](
+			controller.FailureCodeInternal, fmt.Errorf("model selection rejection is missing: %w", result.Source),
+		)
+	}
 	return operation.Failed[controller.Response](failureCodeForRejection(rejection.Code), rejection.Cause)
 }
 

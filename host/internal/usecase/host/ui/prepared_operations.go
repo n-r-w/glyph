@@ -596,13 +596,21 @@ func (s *Session) runSessionOperation(
 		listed, err := s.activeSessions.ListUISessions(ctx)
 		return sessionListFrame(listed), err
 	case controllerui.CommandResumeSession:
-		info, entries, err := s.activeSessions.ResumeActive(ctx, session.ID(command.SessionID.MustGet()))
+		id, present := command.SessionID.Get()
+		if !present {
+			return controllerui.Frame{}, errors.New("session identifier is required")
+		}
+		info, entries, err := s.activeSessions.ResumeActive(ctx, session.ID(id))
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
 		return sessionChangedFrame(info, entries)
 	case controllerui.CommandSetSessionName:
-		if _, err := s.activeSessions.SetActiveName(ctx, command.SessionName.MustGet()); err != nil {
+		name, present := command.SessionName.Get()
+		if !present {
+			return controllerui.Frame{}, errors.New("session name is required")
+		}
+		if _, err := s.activeSessions.SetActiveName(ctx, name); err != nil {
 			return controllerui.Frame{}, err
 		}
 		info, statistics := s.activeSessions.ActiveInformation()
@@ -617,8 +625,12 @@ func (s *Session) runSessionOperation(
 		}
 		return sessionTreeFrame(tree)
 	case controllerui.CommandNavigateSessionTree:
+		target, present := command.TargetEntryID.Get()
+		if !present {
+			return controllerui.Frame{}, errors.New("tree navigation request is invalid")
+		}
 		result, err := s.navigator.NavigateUI(ctx, NavigationIntent{
-			TargetEntryID: command.TargetEntryID.MustGet(),
+			TargetEntryID: target,
 			SummaryMode:   command.SummaryMode,
 			CustomFocus:   command.CustomFocus,
 		}, navigationProgressCallback(reporter), navigationRetryProgressCallback(reporter))
@@ -627,7 +639,11 @@ func (s *Session) runSessionOperation(
 		}
 		return result.frame()
 	case controllerui.CommandForkSession:
-		info, entries, nextInput, err := s.activeSessions.ForkActive(ctx, command.TargetEntryID.MustGet())
+		target, present := command.TargetEntryID.Get()
+		if !present {
+			return controllerui.Frame{}, errors.New("fork target is required")
+		}
+		info, entries, nextInput, err := s.activeSessions.ForkActive(ctx, target)
 		if err != nil {
 			return controllerui.Frame{}, err
 		}
@@ -643,7 +659,12 @@ func (s *Session) runSessionOperation(
 		frame.Kind = controllerui.FrameSessionCloned
 		return frame, err
 	case controllerui.CommandSetEntryLabel:
-		tree, err := s.activeSessions.SetLabel(ctx, command.TargetEntryID.MustGet(), command.EntryLabel.MustGet())
+		target, targetPresent := command.TargetEntryID.Get()
+		label, labelPresent := command.EntryLabel.Get()
+		if !targetPresent || !labelPresent {
+			return controllerui.Frame{}, errors.New("entry label request is incomplete")
+		}
+		tree, err := s.activeSessions.SetLabel(ctx, target, label)
 		if err != nil {
 			return controllerui.Frame{}, err
 		}

@@ -1,6 +1,7 @@
 package sessions
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
@@ -27,16 +28,27 @@ func terminalContinuationEntry(history agent.HistoryEntry) (session.Entry, bool,
 	}
 	switch history.Kind {
 	case agent.HistoryEntryUser:
-		entry.User = mo.Some(history.User.MustGet().Clone())
+		message, present := history.User.Get()
+		if !present {
+			return session.Entry{}, false, errors.New("user history payload is missing")
+		}
+		entry.User = mo.Some(message.Clone())
 	case agent.HistoryEntryModel:
-		response := history.Model.MustGet()
+		response, present := history.Model.Get()
+		if !present {
+			return session.Entry{}, false, errors.New("model history payload is missing")
+		}
 		outcome, terminal := response.Outcome.Get()
 		if !terminal || !outcome.Valid() {
 			return session.Entry{}, false, nil
 		}
 		entry.Model = mo.Some(response.Clone())
 	case agent.HistoryEntryToolResult:
-		entry.ToolResult = mo.Some(history.ToolResult.MustGet().Clone())
+		result, present := history.ToolResult.Get()
+		if !present {
+			return session.Entry{}, false, errors.New("tool-result history payload is missing")
+		}
+		entry.ToolResult = mo.Some(result.Clone())
 	default:
 		return session.Entry{}, false, fmt.Errorf("unsupported history entry kind %d", history.Kind)
 	}

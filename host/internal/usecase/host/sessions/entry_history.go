@@ -74,16 +74,17 @@ func historyFromEntries(entries []session.Entry) session.PreparedHistory {
 // compactedHistoryFromEntries projects the active branch after applying its latest compaction marker.
 func compactedHistoryFromEntries(entries []session.Entry) session.PreparedHistory {
 	latestIndex := -1
+	var compaction session.CompactionEntry
 	for index := range slices.Backward(entries) {
-		if entries[index].Compaction.IsSome() {
+		if marker, present := entries[index].Compaction.Get(); present {
 			latestIndex = index
+			compaction = marker
 			break
 		}
 	}
 	if latestIndex < 0 {
 		return historyFromEntries(entries)
 	}
-	compaction := entries[latestIndex].Compaction.MustGet()
 	boundaryIndex := -1
 	for index := range entries {
 		if entries[index].ID == compaction.FirstKeptEntryID {

@@ -45,23 +45,26 @@ func (d *streamDelivery) Running(id string) error {
 // Progress maps and queues one agent-run progress event.
 func (d *streamDelivery) Progress(id string, progress OperationProgress) error {
 	payload := new(programmaticv1.HostProgress)
+	agentEvent, agentPresent := progress.AgentEvent.Get()
+	navigation, navigationPresent := progress.TreeNavigation.Get()
+	retry, retryPresent := progress.TreeNavigationRetry.Get()
+	stage, stagePresent := progress.CompactionStage.Get()
 	switch {
-	case progress.AgentEvent.IsSome():
-		mapped, err := mapEvent(progress.AgentEvent.MustGet())
+	case agentPresent:
+		mapped, err := mapEvent(agentEvent)
 		if err != nil {
 			return d.failed(fmt.Errorf("map Programmatic progress: %w", err))
 		}
 		payload.SetAgentEvent(mapped)
-	case progress.TreeNavigation.IsSome():
-		mapped, err := mapTreeNavigationProgress(progress.TreeNavigation.MustGet())
+	case navigationPresent:
+		mapped, err := mapTreeNavigationProgress(navigation)
 		if err != nil {
 			return d.failed(fmt.Errorf("map Programmatic navigation progress: %w", err))
 		}
 		payload.SetSessionTreeNavigation(mapped)
-	case progress.TreeNavigationRetry.IsSome():
-		payload.SetSessionTreeRetry(mapRetryProgress(progress.TreeNavigationRetry.MustGet()))
-	case progress.CompactionStage.IsSome():
-		stage, _ := progress.CompactionStage.Get()
+	case retryPresent:
+		payload.SetSessionTreeRetry(mapRetryProgress(retry))
+	case stagePresent:
 		payload.SetCompaction(programmaticv1.CompactionProgress_builder{Stage: new(stage)}.Build())
 	default:
 		return d.failed(errors.New("map Programmatic progress: payload is required"))

@@ -69,7 +69,10 @@ func encodeEntry(entry session.Entry) ([]byte, error) {
 	if message, present := entry.ExtensionMessage.Get(); present {
 		return encodeExtensionMessage(entry, message)
 	}
-	return encodeExtensionEntry(entry, entry.Extension.MustGet())
+	if extension, present := entry.Extension.Get(); present {
+		return encodeExtensionEntry(entry, extension)
+	}
+	return nil, errors.New("invalid session entry")
 }
 
 // encodeExtensionEntry validates opaque JSON and frames its exact bytes.
