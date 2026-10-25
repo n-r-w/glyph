@@ -6,7 +6,7 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 ### Production panic elimination
 
-Status: Verified and complete within the [ticket scope](specs/issues/production-panic-elimination/ticket.md). Final verification is recorded in [the cross-cutting report](artefacts/pre-phs08-corrections-verification.md).
+Status: Accepted, verified and complete within the [ticket scope](specs/issues/production-panic-elimination/ticket.md). Final verification is recorded in [the cross-cutting report](artefacts/pre-phs08-corrections-verification.md).
 
 Execution position: After PHS-06 and before PHS-08. Both this task and extension failure propagation must be completed and verified before PHS-08 starts. Their scheduling is recorded in the [delivery plan](specs/features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08).
 
@@ -14,7 +14,7 @@ Remove intentional panic paths and propagate operation and validation failures t
 
 ### Extension failures stop the invoking operation
 
-Status: Verified and complete within the [ticket scope](specs/issues/extension-failure-propagation/ticket.md). Final verification is recorded in [the cross-cutting report](artefacts/pre-phs08-corrections-verification.md).
+Status: Accepted, verified and complete within the [ticket scope](specs/issues/extension-failure-propagation/ticket.md). Final verification is recorded in [the cross-cutting report](artefacts/pre-phs08-corrections-verification.md).
 
 Execution position: After PHS-06 and before PHS-08, together with production panic elimination.
 
