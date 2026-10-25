@@ -156,8 +156,8 @@ func TestServiceObservesAgentSettlement(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestServiceContinuesAfterOrdinaryObserverError verifies ordered issue delivery and continuation.
-func TestServiceContinuesAfterOrdinaryObserverError(t *testing.T) {
+// TestServiceStopsAfterOrdinaryObserverError verifies ordered diagnostics precede terminal failure.
+func TestServiceStopsAfterOrdinaryObserverError(t *testing.T) {
 	t.Parallel()
 
 	// Arrange three observers where the first returns an ordinary error.
@@ -189,13 +189,6 @@ func TestServiceContinuesAfterOrdinaryObserverError(t *testing.T) {
 		SessionID:         "session",
 		WorkingDirectory:  "/cwd",
 	}
-	secondBinding := extension.Context{
-		ID:                "two",
-		ExtensionID:       "second",
-		RuntimeInstanceID: "runtime-two",
-		SessionID:         "session",
-		WorkingDirectory:  "/cwd",
-	}
 	order := make([]string, 0, 3)
 	runtime.EXPECT().HandlerRuntimeAvailable("first").Return(true)
 	runtime.EXPECT().HandlerRuntimeAvailable("second").Return(true)
@@ -216,20 +209,13 @@ func TestServiceContinuesAfterOrdinaryObserverError(t *testing.T) {
 			assert.EqualError(t, issue.Err, "observer failed: exact cause")
 			return nil
 		})
-	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil)
-	runtime.EXPECT().ObserveLifecycle(t.Context(), "second", "later", secondBinding, gomock.Any()).DoAndReturn(
-		func(context.Context, string, string, extension.Context, Event) (bool, error) {
-			order = append(order, "second")
-			return false, nil
-		},
-	)
 
 	// Act by observing one event.
 	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
-	// Assert the issue is nonterminal and later observers still run in order.
-	require.NoError(t, err)
-	assert.Equal(t, []string{"first", "issue", "second"}, order)
+	// Assert the issue supplements the terminal failure and later observers never run.
+	require.ErrorContains(t, err, "observer failed: exact cause")
+	assert.Equal(t, []string{"first", "issue"}, order)
 }
 
 // TestServiceSelectionObserversReturnOrderedIssues verifies ordinary failures remain nonterminal diagnostics.
@@ -455,8 +441,8 @@ func TestSelectionObserverIssueDeliveryFailureRetainsBothCauses(t *testing.T) {
 	assert.ErrorIs(t, result[1].Err, deliveryErr)
 }
 
-// TestServiceTreatsIndependentObserverCancellationAsIssue verifies remote cancellation does not cancel Agent Core.
-func TestServiceTreatsIndependentObserverCancellationAsIssue(t *testing.T) {
+// TestServiceFailsIndependentObserverCancellation verifies remote cancellation fails the invoking run.
+func TestServiceFailsIndependentObserverCancellation(t *testing.T) {
 	t.Parallel()
 
 	// Arrange an active caller, one independently canceled observer, and one later observer.
@@ -487,13 +473,6 @@ func TestServiceTreatsIndependentObserverCancellationAsIssue(t *testing.T) {
 		SessionID:         "session",
 		WorkingDirectory:  "/cwd",
 	}
-	secondBinding := extension.Context{
-		ID:                "two",
-		ExtensionID:       "second",
-		RuntimeInstanceID: "runtime-two",
-		SessionID:         "session",
-		WorkingDirectory:  "/cwd",
-	}
 	observerErr := fmt.Errorf("observer stopped its own work: %w", context.Canceled)
 	order := make([]string, 0, 3)
 	runtime.EXPECT().HandlerRuntimeAvailable("first").Return(true)
@@ -516,20 +495,13 @@ func TestServiceTreatsIndependentObserverCancellationAsIssue(t *testing.T) {
 			return nil
 		})
 	runtime.EXPECT().HandlerRuntimeAvailable("second").Return(true)
-	contexts.EXPECT().IssueContext("second").Return(secondBinding, nil)
-	runtime.EXPECT().ObserveLifecycle(t.Context(), "second", "later", secondBinding, gomock.Any()).DoAndReturn(
-		func(context.Context, string, string, extension.Context, Event) (bool, error) {
-			order = append(order, "second")
-			return false, nil
-		},
-	)
 
 	// Act through one synchronous observer chain.
 	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
-	// Assert successful issue delivery makes independent cancellation nonterminal.
-	require.NoError(t, err)
-	assert.Equal(t, []string{"first", "issue", "second"}, order)
+	// Assert successful issue delivery preserves independent cancellation as failure.
+	require.ErrorIs(t, err, observerErr)
+	assert.Equal(t, []string{"first", "issue"}, order)
 }
 
 // TestServicePreservesCallerCancellationDuringInvocation verifies the owning context stops observation.
@@ -571,8 +543,8 @@ func TestServicePreservesCallerCancellationDuringInvocation(t *testing.T) {
 	require.ErrorIs(t, err, context.Canceled)
 }
 
-// TestServiceSkipsContextRaceAfterRuntimeExit verifies availability ownership covers delivery-time binding races.
-func TestServiceSkipsContextRaceAfterRuntimeExit(t *testing.T) {
+// TestServiceFailsContextRaceAfterRuntimeExit verifies selected participants cannot silently disappear.
+func TestServiceFailsContextRaceAfterRuntimeExit(t *testing.T) {
 	t.Parallel()
 
 	// Arrange one runtime that exits between availability selection and context issuance.
@@ -588,17 +560,16 @@ func TestServiceSkipsContextRaceAfterRuntimeExit(t *testing.T) {
 	contexts.EXPECT().
 		IssueContext("extension").
 		Return(extension.Context{}, errors.New("runtime or active session is unavailable"))
-	runtime.EXPECT().HandlerRuntimeAvailable("extension").Return(false)
 
 	// Act by delivering one event across the runtime-exit race.
 	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
-	// Assert extension runtime ownership absorbs the unavailable observer without failing Agent Core.
-	require.NoError(t, err)
+	// Assert context issuance failure remains terminal after participant selection.
+	require.ErrorContains(t, err, "runtime or active session is unavailable")
 }
 
-// TestServiceContinuesAfterRuntimeUnavailability verifies runtime ownership disables only one observer source.
-func TestServiceContinuesAfterRuntimeUnavailability(t *testing.T) {
+// TestServiceStopsAfterRuntimeUnavailability verifies selected runtime loss stops later observers.
+func TestServiceStopsAfterRuntimeUnavailability(t *testing.T) {
 	t.Parallel()
 
 	// Arrange two available observer registrations where the first runtime fails during invocation.
@@ -627,13 +598,6 @@ func TestServiceContinuesAfterRuntimeUnavailability(t *testing.T) {
 		SessionID:         "session",
 		WorkingDirectory:  "/cwd",
 	}
-	healthyBinding := extension.Context{
-		ID:                "two",
-		ExtensionID:       "healthy",
-		RuntimeInstanceID: "runtime-two",
-		SessionID:         "session",
-		WorkingDirectory:  "/cwd",
-	}
 	order := make([]string, 0, 2)
 	runtime.EXPECT().HandlerRuntimeAvailable("failed").Return(true)
 	contexts.EXPECT().IssueContext("failed").Return(failedBinding, nil)
@@ -644,20 +608,13 @@ func TestServiceContinuesAfterRuntimeUnavailability(t *testing.T) {
 		},
 	)
 	runtime.EXPECT().HandlerRuntimeAvailable("healthy").Return(true)
-	contexts.EXPECT().IssueContext("healthy").Return(healthyBinding, nil)
-	runtime.EXPECT().ObserveLifecycle(t.Context(), "healthy", "second", healthyBinding, gomock.Any()).DoAndReturn(
-		func(context.Context, string, string, extension.Context, Event) (bool, error) {
-			order = append(order, "healthy")
-			return false, nil
-		},
-	)
 
 	// Act by delivering one event through the observer chain.
 	err := service.Observe(t.Context(), lifecycleEvent(agent.EventAgentStart))
 
-	// Assert runtime reporting owns the failure and the later observer still completes.
-	require.NoError(t, err)
-	assert.Equal(t, []string{"failed", "healthy"}, order)
+	// Assert selected runtime loss fails the chain without invoking the later observer.
+	require.ErrorContains(t, err, "runtime process exited: complete cause")
+	assert.Equal(t, []string{"failed"}, order)
 }
 
 // TestServiceCancellationStopsObserverAdmission verifies caller cancellation settles the synchronous chain.

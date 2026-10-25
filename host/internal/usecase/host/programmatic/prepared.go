@@ -372,7 +372,7 @@ func failureCode(err error) string {
 	if code, found := directCompactionFailureCode(err); found {
 		return code
 	}
-	if code, found := modelExecutionFailureCode(err); found {
+	if code, found := modelExecutionFailureCode(err); found && code != controller.FailureCodeInternal {
 		return code
 	}
 	for current := range errtree.IterateCurrentErrors(err) {

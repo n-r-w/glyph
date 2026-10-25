@@ -37,7 +37,7 @@ The Extension Contract carries `ExtensionRequest.parent_invocation_id` in `api/p
 
 When Host settles the parent, the callback returned by `Runtime.beginInvocation` in `host/internal/infra/plugins/extension/runtime/invocation.go` returns `fatalInvocationError` for a retained qualifying child failure, even if the plugin consumed the child error and returned success. This error implements the provider-neutral `run.FatalOperationFailure` contract in `host/internal/usecase/agent/run/interfaces.go`. Host tools preserve the error across `tools.Service.Execute` in `host/internal/usecase/host/tools/service.go`; Core does not infer fatal meaning from error text or `ToolResult.IsError`.
 
-`Service.executeCalls` in `host/internal/usecase/agent/run/service.go` persists the necessary tool result and delivers the tool terminal history before applying `classifyToolFailure` from `host/internal/usecase/agent/run/tool_failure.go`. Explicit fatal failure stops the run before another tool or provider request. It takes precedence over cleanup cancellation. `lifecycle.Service.observe` in `host/internal/usecase/host/lifecycle/service.go` immediately returns an already-retained fatal nested failure rather than downgrading it to an ordinary observer issue. Ordinary handler errors retain extension availability and the healthy connection.
+`Service.executeCalls` in `host/internal/usecase/agent/run/service.go` persists the necessary tool result and delivers the tool terminal history before applying `classifyToolFailure` from `host/internal/usecase/agent/run/tool_failure.go`. Explicit fatal failure stops the run before another tool or provider request. It takes precedence over cleanup cancellation. `Service.observe` in `host/internal/usecase/host/lifecycle/service.go` preserves already-retained fatal nested failure meaning through ordinary lifecycle failure classification. Ordinary handler errors retain extension availability and the healthy connection.
 
 ### Invalid participant output
 
@@ -74,6 +74,26 @@ The incoming SDK boundaries validate failure data and whether `HostFailed.result
 `Controller.Notify` in `plugins/ui/tui/internal/controller/plugin/controller.go` decodes the result included with a failed notification. `Service.Notify` in `plugins/ui/tui/internal/usecase/presentation/commands.go` applies Host-confirmed selection, reports the complete error, and settles pending work in either acknowledgement order. The TUI does not present a success or roll back committed state. Post-commit pure owning cancellation retains the prior committed-completion behavior; an independent extension failure remains Failed when cancellation is also present.
 
 The [selection verification record](selection-evidence.md) owns UNT08 baseline, RED/GREEN evidence, check results, and evidence limits. The verification below remains the original UNT07 record.
+
+### Ordinary agent lifecycle
+
+UNT09 applies the failure rule to `Service.Observe`, `Service.observe`, and `Service.ObserveSettled` in `host/internal/usecase/host/lifecycle/service.go`. `Service.captureObservers` shares the selection observer eligibility mechanism: Host snapshots registrations and availability before any dispatch. Initially unavailable registrations stay excluded. Context issuance failure, selected runtime loss, and observer invocation failure stop the chain. `Service.invokeObserver` applies context issuance, invocation, selected-unavailability, cancellation, and issue-delivery policy for both ordinary and selection observation. The ordinary entry points and `Service.ObserveSelection` construct their respective events. `Service.ObserveSelection` projects ordered observer and delivery issues. The service returns `modelselection.NewExtensionFailure` with the complete original cause and any issue-delivery error. Issue diagnostics supplement that failure. Current-cause cancellation classification preserves pure owning cancellation while independent and mixed failures retain their meaning.
+
+`Dispatcher.Deliver` and `Dispatcher.DeliverSettled` in `host/internal/usecase/host/events/service.go` retain client-first delivery and join client and observer errors. Each event has its own observer chain. A failed chain does not suppress required client terminal/history delivery or Host settlement. No global lifecycle failure state is introduced.
+
+`Service.execute` in `host/internal/usecase/host/modelexecution/retry.go` retains nonterminal callback failure at the callback boundary. It stops before nested provider-cause extraction, retry handlers, overflow recovery, response reset, retry progress, or another provider attempt. It preserves callback and adapter causes, terminal response data, and pure owning cancellation. Provider failures without callback failure retain their retry policy.
+
+In `host/internal/usecase/agent/run/service.go`, `Service.runTurn` returns the streaming delivery failure to Core's caller. `Service.executeCalls` retains completed tool-result history and attempts the mandatory client tool-result event even when tool-end observation fails; it joins both delivery causes before stopping later tool/model work. `Service.applyOutcome` and `Service.executeCalls` retain the failed result returned by `Service.endTurn` instead of discarding it at a continuation boundary.
+
+After provider cancellation, `Service.finalizeProviderError` keeps the persisted model response Aborted. If MessageEnd or TurnEnd observation returns a current classified delivery failure, it selects Failed for the logical run before `Service.finish` constructs the Core result and AgentEnd summary. `RunOutcomeFailed` in `host/internal/domain/agent/model.go` includes delivery failure; `Response.Outcome` in `host/internal/domain/model/model.go` describes the earlier provider response. Earlier untyped late client-delivery behavior remains unchanged. If AgentEnd's own observer fails, `Service.finish` returns Failed after the client has already received the summary with its earlier outcome. If AgentSettled later fails, Host likewise returns a Failed final operation terminal without changing the already-sent summary. For pure owning cancellation, `Service.finish` sets the outcome to Aborted and preserves the complete existing error message.
+
+`StreamEvent.lifecycleContent` in `host/internal/usecase/agent/run/stream_lifecycle.go` gives text content boundaries explicit empty text so valid streaming events reach observers.
+
+`Coordinator.RunPrepared` in `host/internal/usecase/host/runcontrol/coordinator.go` retains Core settlement, settled delivery, and deferred gate release. A settlement or settled-delivery failure changes the returned outcome to Failed and joins the complete causes. Core becomes idle through its existing settlement handoff; public owners release their existing session and operation reservations.
+
+`runPrepared.Run` and `failureCode` in `host/internal/usecase/host/programmatic/prepared.go` expose the returned failure through the existing Failed envelope. `Session.prepareSubmit`, `preparedUIOperation.Run`, and `runFailureCode` in `host/internal/usecase/host/ui/prepared_operations.go` do the same for UI. A generic model-execution `INTERNAL` wrapper yields to explicit current extension failure meaning. Established persistence, compaction, and other model categories retain their precedence. Extension runtime `Runtime.ObserveLifecycle` in `host/internal/infra/plugins/extension/runtime/lifecycle.go` continues to use Host-owned invocation settlement and its existing SDK failed handler completion; no duplicate SDK child settlement or transport is added. Already published history and completed effects remain available through existing client events and session queries.
+
+For baseline, RED/GREEN results, public-contract evidence, check results, and limits, see the [ordinary lifecycle verification record](lifecycle-evidence.md).
 
 ## Verification
 
@@ -185,7 +205,7 @@ The mechanism uses the existing invocation identifiers, runtime generation check
 
 UNT07 covers ordinary invocation ownership and consumed failures that existing child APIs return as errors. Its verification above remains scoped to that unit. UNT08 adds the selection correction and shared typed Failed transport described above; the [selection verification record](selection-evidence.md) records its evidence separately.
 
-Ordinary agent lifecycle chain policy remains UNT09. Session-tree chain semantics remain UNT10. Compaction post-commit Failed producers remain UNT11. Navigation and compaction producers retain their completed-payload behavior until their respective units, while shared transport and SDK support can preserve optional typed results included with Failed. Final issue verification and production panic closure remain UNT12. This work does not reopen the accepted earlier phase baselines.
+UNT09 implements ordinary agent lifecycle chain failure propagation and terminal settlement, with scoped evidence in the [ordinary lifecycle verification record](lifecycle-evidence.md). Session-tree chain semantics remain UNT10. Compaction post-commit Failed producers remain UNT11. Navigation and compaction producers retain their completed-payload behavior until their respective units, while shared transport and SDK support can preserve optional typed results included with Failed. Final issue verification and production panic closure remain UNT12. This work does not reopen the accepted earlier phase baselines.
 
 The manual-compaction regression invokes an ordinary Host tool directly while the application operation gate is idle. The assembled Programmatic regression uses a configured-model child and an existing retry-handler failure, so it verifies the public failed terminal without changing run-gate behavior.
 
@@ -193,7 +213,7 @@ Integration checks use short command-local temporary paths for Unix sockets. The
 
 ## Open Questions
 
-None for the implemented ownership and selection semantics. The remaining issue scope is identified above.
+None for the implemented ownership, selection, and ordinary lifecycle semantics. The remaining issue scope is identified above.
 
 ## References
 

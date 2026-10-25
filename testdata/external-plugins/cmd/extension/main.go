@@ -206,7 +206,8 @@ func (s *service) PrepareHandle(
 	if request == nil || request.GetHandlerId() != navigationObserverID &&
 		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID &&
 		request.GetHandlerId() != retryHandlerID && request.GetHandlerId() != retryComposedHandlerID &&
-		!isSelectionHandlerID(request.GetHandlerId()) && !isSelectionObserverID(request.GetHandlerId()) {
+		!isSelectionHandlerID(request.GetHandlerId()) && !isSelectionObserverID(request.GetHandlerId()) &&
+		!isOrdinaryFailureObserver(request.GetHandlerId()) {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture handler request is invalid"))
 	}
 	var binding *extensionsdk.ExtensionContext
@@ -287,6 +288,7 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 			Id: new(navigationObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_TREE),
 		}.Build(),
 	}
+	handlers = append(handlers, ordinaryFailureObservers()...)
 	handlers = append(handlers, selectionHandlerDescriptors(operation.selectionComposition)...)
 	if operation.selectionObservers {
 		handlers = append(handlers, selectionObserverDescriptors()...)
@@ -320,6 +322,9 @@ func (*registerOperation) Release() {}
 
 // Run appends and awaits one independent message only for the retained selected message.
 func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleResponse, error) {
+	if isOrdinaryFailureObserver(operation.request.GetHandlerId()) {
+		return operation.runOrdinaryFailureObserver(ctx)
+	}
 	if operation.request.GetRetry() != nil {
 		return operation.runRetryHandler()
 	}
@@ -395,10 +400,23 @@ func (*handleOperation) Release() {}
 // Run completes, fails, or blocks according to the requested fixture mode.
 func (operation *executeOperation) Run(
 	ctx context.Context,
-	_ *extensionsdk.ProgressReporter,
+	reporter *extensionsdk.ProgressReporter,
 ) (*extensionv1.ToolResult, error) {
 	switch operation.mode {
 	case ordinaryMode:
+		if os.Getenv(
+			ordinaryFailureEnvironment,
+		) == extensionv1.HandlerKind_HANDLER_KIND_TOOL_EXECUTION_UPDATE.String() {
+			if err := reporter.Report(
+				ctx,
+				extensionv1.ToolProgress_builder{
+					Channel: new(extensionv1.ProgressChannel_PROGRESS_CHANNEL_STATUS),
+					Content: new(ordinaryProgressText),
+				}.Build(),
+			); err != nil {
+				return nil, err
+			}
+		}
 		return extensionv1.ToolResult_builder{
 			Contents: []*extensionv1.ToolResultContent{
 				//nolint:exhaustruct_v5 // The public builder sets only the active text field.

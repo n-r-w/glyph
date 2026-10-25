@@ -107,6 +107,9 @@ func (c *Coordinator) RunPrepared(ctx context.Context, runID, userText string) (
 	terminalContext := context.WithoutCancel(ctx)
 	settleErr := c.executor.Settle(runID)
 	settledErr := c.events.DeliverSettled(terminalContext, runID)
+	if settleErr != nil || settledErr != nil {
+		result.Outcome = agent.RunOutcomeFailed
+	}
 	return result.Outcome, errors.Join(runErr, settleErr, settledErr)
 }
 

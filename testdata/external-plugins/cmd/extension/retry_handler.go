@@ -27,6 +27,10 @@ const (
 	retryCancelMode = "cancel"
 	// retryFailureMode selects a failed retry handler.
 	retryFailureMode = "fail"
+	// retryFailureOnceMode fails the child retry handler and permits later outer recovery.
+	retryFailureOnceMode = "fail-once"
+	// retryFailureOnceSignal records the first retry-handler failure.
+	retryFailureOnceSignal = "retry-failed-once"
 	// retryInvalidMode selects a replacement that fails decision validation.
 	retryInvalidMode = "invalid"
 	// retryInvokedSignal identifies an invoked public retry handler.
@@ -64,6 +68,17 @@ func (operation *handleOperation) runRetryHandler() (*extensionv1.HandleResponse
 		}.Build())
 	case retryCancelMode:
 		action.SetCancel(new(extensionv1.CancelRetry))
+	case retryFailureOnceMode:
+		path := filepath.Join(operation.signals, retryFailureOnceSignal)
+		if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+			if writeErr := os.WriteFile(path, nil, signalFileMode); writeErr != nil {
+				return nil, writeErr
+			}
+			return nil, extensionsdk.Fail(internalFailureCode, errors.New("retry handler full unique failure text"))
+		} else if err != nil {
+			return nil, err
+		}
+		action.SetPreserve(new(extensionv1.PreserveRetry))
 	case retryFailureMode:
 		return nil, extensionsdk.Fail(internalFailureCode, errors.New("retry handler full unique failure text"))
 	default:

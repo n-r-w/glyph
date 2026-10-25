@@ -245,15 +245,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (turnResult, bool, 
 		event.Position = streamEvent.Position
 		if streamEvent.Kind == StreamEventContentStart || streamEvent.Kind == StreamEventTextDelta ||
 			streamEvent.Kind == StreamEventContentEnd {
-			event.Content = streamEvent.Content.MapValue(func(content model.Content) model.Content {
-				return model.Content{
-					Kind:            content.Kind,
-					Text:            streamEvent.Delta,
-					Final:           false,
-					ProviderContext: mo.None[model.ProviderContext](),
-					ToolCall:        mo.None[model.ToolCall](),
-				}
-			})
+			event.Content = streamEvent.lifecycleContent()
 		}
 		eventErr := s.deliver(ctx, event)
 		if eventErr != nil {
@@ -393,8 +385,17 @@ func (s *Service) finalizeProviderError(
 	if deliveryErr != nil {
 		resultMessage = visibleErrorMessage(combinedErr)
 	}
+	runOutcome := outcomeToRunOutcome(outcome)
+	for cause := range errtree.IterateCurrentErrors(deliveryErr) {
+		// A classified delivery failure changes the run, while the persisted response keeps its provider outcome.
+		//nolint:errorlint // Inspect only current nodes, excluding historical diagnostic descendants.
+		if _, classified := cause.(errtree.CodedError); classified {
+			runOutcome = agent.RunOutcomeFailed
+			break
+		}
+	}
 	return turnResult{
-		Outcome:      outcomeToRunOutcome(outcome),
+		Outcome:      runOutcome,
 		ErrorMessage: mo.EmptyableToOption(resultMessage),
 	}, false, combinedErr
 }
@@ -479,8 +480,7 @@ func (s *Service) applyOutcome(
 				}, false, err
 			}
 		}
-		_, _, err := s.endTurn(ctx, runID, response, results, 0, "", nil)
-		return turnResult{}, err == nil, err
+		return s.endTurn(ctx, runID, response, results, 0, "", nil)
 	case model.OutcomeAborted:
 		errorMessage, hasErrorMessage := response.ErrorMessage.Get()
 		if !hasErrorMessage || errorMessage == "" {
@@ -554,17 +554,12 @@ func (s *Service) executeCalls(
 		toolEnd := newEvent(agent.EventToolExecutionEnd, runID)
 		toolEnd.ToolCall = mo.Some(call)
 		toolEnd.ToolResult = mo.Some(result)
-		if err := s.deliver(context.WithoutCancel(ctx), toolEnd); err != nil {
-			combinedErr := errors.Join(priorErr, err)
-			return turnResult{
-				Outcome:      agent.RunOutcomeFailed,
-				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
-			}, false, combinedErr
-		}
+		endErr := s.deliver(context.WithoutCancel(ctx), toolEnd)
 		toolResult := newEvent(agent.EventToolResult, runID)
 		toolResult.ToolResult = mo.Some(result)
-		if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
-			combinedErr := errors.Join(priorErr, err)
+		resultErr := s.deliver(context.WithoutCancel(ctx), toolResult)
+		if endErr != nil || resultErr != nil {
+			combinedErr := errors.Join(priorErr, endErr, resultErr)
 			return turnResult{
 				Outcome:      agent.RunOutcomeFailed,
 				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
@@ -576,8 +571,7 @@ func (s *Service) executeCalls(
 			)
 		}
 	}
-	_, _, err := s.endTurn(ctx, runID, response, results, 0, "", nil)
-	return turnResult{}, err == nil, err
+	return s.endTurn(ctx, runID, response, results, 0, "", nil)
 }
 
 // composeErrorWithCause adds a cause only when the primary error does not already contain it.
@@ -624,6 +618,9 @@ func (s *Service) finish(
 	errorMessage mo.Option[string],
 	runErr error,
 ) (runcontrol.Result, error) {
+	if ctx.Err() != nil && isPureCancellation(runErr) {
+		outcome = agent.RunOutcomeAborted
+	}
 	s.mutex.Lock()
 	added := s.addedHistory
 	s.addedHistory = nil
@@ -640,6 +637,9 @@ func (s *Service) finish(
 		Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage,
 	})
 	eventErr := s.deliver(context.WithoutCancel(ctx), agentEnd)
+	if eventErr != nil {
+		result.Outcome = agent.RunOutcomeFailed
+	}
 	return result, errors.Join(runErr, eventErr)
 }
 

@@ -337,7 +337,7 @@ func runFailureCode(err error) string {
 	if errors.Is(err, agent.ErrPersistenceUnavailable) {
 		return controllerui.FailureCodePersistence
 	}
-	if code, found := modelExecutionFailureCode(err); found {
+	if code, found := modelExecutionFailureCode(err); found && code != controllerui.FailureCodeInternal {
 		return code
 	}
 	for current := range errtree.IterateCurrentErrors(err) {

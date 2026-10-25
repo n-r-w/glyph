@@ -117,7 +117,7 @@ func TestRunSummaryAfterHistoryReplacement(t *testing.T) {
 			case "terminal-delivery":
 				require.ErrorIs(t, err, cause)
 				require.True(t, summary.ErrorMessage.IsNone())
-				require.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
+				require.Equal(t, agent.RunOutcomeFailed, result.Outcome)
 			case "completed", "tool-failure":
 				require.NoError(t, err)
 				require.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
@@ -135,7 +135,11 @@ func TestRunSummaryAfterHistoryReplacement(t *testing.T) {
 			} else {
 				require.Len(t, summary.AddedHistory, 2)
 			}
-			require.Equal(t, result.Outcome, summary.Outcome)
+			if scenario == "terminal-delivery" {
+				require.Equal(t, agent.RunOutcomeCompleted, summary.Outcome)
+			} else {
+				require.Equal(t, result.Outcome, summary.Outcome)
+			}
 			require.NoError(t, service.Settle("replaced"))
 			require.Equal(t, StatusIdle, service.State().Status)
 		})

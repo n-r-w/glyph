@@ -9,7 +9,6 @@ import (
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/events"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -161,21 +160,25 @@ func (s *Service) ObserveSettled(ctx context.Context, runID string) error {
 
 // selectionObservers captures eligible observers in reasoning-then-model order before any invocation.
 func (s *Service) selectionObservers(change modelselection.SelectionChange) ([]Handler, IssueDelivery) {
+	var kinds []Kind
+	if change.Preceding.ReasoningChoice != change.Committed.ReasoningChoice {
+		kinds = append(kinds, KindReasoningSelection)
+	}
+	if change.Preceding.Provider != change.Committed.Provider || change.Preceding.Model != change.Committed.Model {
+		kinds = append(kinds, KindModelSelection)
+	}
+	return s.captureObservers(kinds)
+}
+
+// captureObservers fixes eligible participants before dispatching any observer in the chain.
+func (s *Service) captureObservers(kinds []Kind) ([]Handler, IssueDelivery) {
 	s.mutex.RLock()
 	registered := slices.Clone(s.handlers)
 	delivery := s.issues
 	s.mutex.RUnlock()
 	availability := make(map[string]bool)
 	handlers := make([]Handler, 0, len(registered))
-	for _, kind := range []Kind{KindReasoningSelection, KindModelSelection} {
-		changed := change.Preceding.ReasoningChoice != change.Committed.ReasoningChoice
-		if kind == KindModelSelection {
-			changed = change.Preceding.Provider != change.Committed.Provider ||
-				change.Preceding.Model != change.Committed.Model
-		}
-		if !changed {
-			continue
-		}
+	for _, kind := range kinds {
 		for _, handler := range registered {
 			if handler.Kind != kind {
 				continue
@@ -201,116 +204,100 @@ func (s *Service) ObserveSelection(
 	handlers, delivery := s.selectionObservers(change)
 	result := make([]modelselection.Issue, 0)
 	for _, handler := range handlers {
-		if err := ctx.Err(); err != nil {
-			return result, err
-		}
-		binding, err := s.contexts.IssueContext(handler.ExtensionID)
-		unavailable := false
-		if err == nil {
-			unavailable, err = s.runtime.ObserveLifecycle(ctx, handler.ExtensionID, handler.HandlerID, binding, Event{
-				Agent: agent.Event{}, Settled: false, Selection: change, SelectionEvent: true,
-				ReasoningSelection: handler.Kind == KindReasoningSelection,
-			})
-		} else {
-			err = fmt.Errorf("issue selection lifecycle context for extension %q: %w", handler.ExtensionID, err)
-		}
-		if unavailable && err == nil {
-			err = fmt.Errorf(
-				"selection observer %q in extension %q became unavailable",
-				handler.HandlerID,
-				handler.ExtensionID,
-			)
-		}
-		if err == nil {
+		issue, deliveryErr, failure := s.invokeObserver(ctx, handler, delivery, Event{
+			Agent: agent.Event{}, Settled: false, Selection: change, SelectionEvent: true,
+			ReasoningSelection: handler.Kind == KindReasoningSelection,
+		})
+		if failure == nil {
 			continue
 		}
-		if !unavailable && ctx.Err() != nil && errtree.IsCurrentCancellation(err, func(cause error) bool {
-			return errors.Is(cause, ctx.Err()) || errors.Is(cause, context.Cause(ctx))
-		}) {
-			return result, err
+		if issue.Err == nil {
+			return result, failure
 		}
 		result = append(result, modelselection.Issue{
 			ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
-			Code: modelselection.IssueCodeObserverError, Err: err,
+			Code: modelselection.IssueCodeObserverError, Err: issue.Err,
 		})
-		var deliveryErr error
-		if delivery == nil {
-			deliveryErr = errors.New("lifecycle issue delivery is not bound")
-		} else {
-			deliveryErr = delivery.DeliverExtensionIssue(ctx, Issue{
-				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID, Code: IssueCodeObserverError, Err: err,
-			})
-		}
 		if deliveryErr != nil {
 			result = append(result, modelselection.Issue{
 				ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
 				Code: modelselection.IssueCodeDeliveryFailed, Err: deliveryErr,
 			})
 		}
-		return result, modelselection.NewExtensionFailure(errors.Join(err, deliveryErr, ctx.Err()))
+		return result, failure
 	}
 	return result, nil
 }
 
 // observe invokes one matching observer chain outside service state locks.
 func (s *Service) observe(ctx context.Context, kind Kind, event Event) error {
-	s.mutex.RLock()
-	handlers := slices.Clone(s.handlers)
-	s.mutex.RUnlock()
-	availability := make(map[string]bool)
-	var result error
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	handlers, delivery := s.captureObservers([]Kind{kind})
 	for _, handler := range handlers {
-		if handler.Kind != kind {
-			continue
-		}
-		if err := ctx.Err(); err != nil {
-			return errors.Join(result, err)
-		}
-		available, checked := availability[handler.ExtensionID]
-		if !checked {
-			available = s.runtime.HandlerRuntimeAvailable(handler.ExtensionID)
-			availability[handler.ExtensionID] = available
-		}
-		if !available {
-			continue
-		}
-		binding, err := s.contexts.IssueContext(handler.ExtensionID)
-		if err != nil {
-			if !s.runtime.HandlerRuntimeAvailable(handler.ExtensionID) {
-				continue
-			}
-			result = errors.Join(
-				result,
-				fmt.Errorf("issue lifecycle context for extension %q: %w", handler.ExtensionID, err),
-			)
-			continue
-		}
-		unavailable, err := s.runtime.ObserveLifecycle(ctx, handler.ExtensionID, handler.HandlerID, binding, event)
-		if _, fatal := errors.AsType[run.FatalOperationFailure](err); fatal {
-			return errors.Join(result, err)
-		}
-		if callerErr := ctx.Err(); callerErr != nil {
-			return errors.Join(result, callerErr, err)
-		}
-		if err == nil || unavailable {
-			continue
-		}
-		issue := Issue{
-			ExtensionID: handler.ExtensionID, HandlerID: handler.HandlerID,
-			Code: IssueCodeObserverError, Err: err,
-		}
-		s.mutex.RLock()
-		delivery := s.issues
-		s.mutex.RUnlock()
-		if delivery == nil {
-			result = errors.Join(result, err, errors.New("lifecycle issue delivery is not bound"))
-			continue
-		}
-		if deliveryErr := delivery.DeliverExtensionIssue(ctx, issue); deliveryErr != nil {
-			result = errors.Join(result, err, fmt.Errorf("deliver lifecycle observer issue: %w", deliveryErr))
+		if _, _, failure := s.invokeObserver(ctx, handler, delivery, event); failure != nil {
+			return failure
 		}
 	}
-	return result
+	return nil
+}
+
+// invokeObserver applies selected-participant failure policy and returns causes for caller-specific issue projection.
+func (s *Service) invokeObserver(
+	ctx context.Context,
+	handler Handler,
+	delivery IssueDelivery,
+	event Event,
+) (issue Issue, deliveryErr, failure error) {
+	if err := ctx.Err(); err != nil {
+		return Issue{}, nil, err
+	}
+	binding, err := s.contexts.IssueContext(handler.ExtensionID)
+	unavailable := false
+	switch {
+	case err == nil:
+		unavailable, err = s.runtime.ObserveLifecycle(ctx, handler.ExtensionID, handler.HandlerID, binding, event)
+	case event.SelectionEvent:
+		err = fmt.Errorf("issue selection lifecycle context for extension %q: %w", handler.ExtensionID, err)
+	default:
+		err = fmt.Errorf("issue lifecycle context for extension %q: %w", handler.ExtensionID, err)
+	}
+	if unavailable && err == nil {
+		if event.SelectionEvent {
+			err = fmt.Errorf(
+				"selection observer %q in extension %q became unavailable",
+				handler.HandlerID,
+				handler.ExtensionID,
+			)
+		} else {
+			err = fmt.Errorf(
+				"lifecycle observer %q in extension %q became unavailable",
+				handler.HandlerID,
+				handler.ExtensionID,
+			)
+		}
+	}
+	if err == nil {
+		return Issue{}, nil, nil
+	}
+	if !unavailable && ctx.Err() != nil && errtree.IsCurrentCancellation(err, func(cause error) bool {
+		return errors.Is(cause, ctx.Err()) || errors.Is(cause, context.Cause(ctx))
+	}) {
+		return Issue{}, nil, err
+	}
+	issue = Issue{
+		ExtensionID: handler.ExtensionID,
+		HandlerID:   handler.HandlerID,
+		Code:        IssueCodeObserverError,
+		Err:         err,
+	}
+	if delivery == nil {
+		deliveryErr = errors.New("lifecycle issue delivery is not bound")
+	} else {
+		deliveryErr = delivery.DeliverExtensionIssue(ctx, issue)
+	}
+	return issue, deliveryErr, modelselection.NewExtensionFailure(errors.Join(err, deliveryErr, ctx.Err()))
 }
 
 // lifecycleKind maps one accepted startup kind to lifecycle policy.

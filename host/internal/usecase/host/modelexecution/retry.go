@@ -56,6 +56,7 @@ func (s *Service) execute(
 		if cloneErr != nil {
 			return model.Response{}, backoff.Permanent(errors.Join(append(causes, cloneErr)...))
 		}
+		var callbackErr error
 		attemptErr := provider.Stream(ctx, attemptRequest, func(event StreamEvent) error {
 			if event.Kind == StreamEventDone || event.Kind == StreamEventError {
 				response, present := event.Response.Get()
@@ -65,11 +66,30 @@ func (s *Service) execute(
 				terminal = mo.Some(response.Clone())
 				return nil
 			}
+			if callbackErr != nil {
+				return callbackErr
+			}
 			if handle != nil {
-				return handle(event)
+				callbackErr = handle(event)
+				return callbackErr
 			}
 			return nil
 		})
+		failedResponse = model.Response{}
+		if terminalResponse, present := terminal.Get(); present {
+			failedResponse = terminalResponse
+		}
+		if callbackErr != nil {
+			// The callback's caller has failed; provider descendants remain causes, not recovery permission.
+			retained := errors.Join(callbackErr, attemptErr)
+			if isPureOwningCancellation(ctx, retained) {
+				return failedResponse, backoff.Permanent(diagnostic.NewCurrentCause(
+					joinOwningContextCause(ctx, retained), errors.Join(causes...),
+				))
+			}
+			causes = append(causes, joinOwningContextCause(ctx, retained))
+			return failedResponse, backoff.Permanent(logicalFailure(FailureInternal, causes))
+		}
 		if attemptErr == nil {
 			response, present := terminal.Get()
 			if present {
@@ -78,10 +98,6 @@ func (s *Service) execute(
 			attemptErr = missingTerminalFailure(missingTerminalMessage)
 		} else if errors.Is(attemptErr, terminalMissingError) {
 			attemptErr = missingTerminalFailure(attemptErr.Error())
-		}
-		failedResponse = model.Response{}
-		if terminalResponse, present := terminal.Get(); present {
-			failedResponse = terminalResponse
 		}
 		if ctx.Err() != nil {
 			if acquiredFailure, ok := errors.AsType[*ProviderFailureError](attemptErr); ok {
