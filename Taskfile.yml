@@ -111,6 +111,16 @@ tasks:
       - go tool easyp generate
       - go generate ./...
 
+  run:
+    desc: "Run Glyph with the standard TUI and extensions"
+    interactive: true
+    cmds:
+      - >-
+        '{{default "./bin" .BUILD_ROOT}}/glyph'
+        --ui-dir '{{default "./bin" .BUILD_ROOT}}/plugins/ui'
+        --ui glyph-tui
+        --extension-dir '{{default "./bin" .BUILD_ROOT}}/plugins/extension'
+
   build:
     desc: "Build the Host and standard plugins"
     cmds:
