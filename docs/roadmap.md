@@ -6,7 +6,7 @@ Glyph is a local, extensible coding agent with a thin provider-neutral Agent Cor
 
 ### Production panic elimination
 
-Status: Implementation complete through UNT06, with [normalization evidence](specs/issues/production-panic-elimination/regexp-normalization-evidence.md). Final verification and production issue closure remain pending under UNT12; see the [ticket](specs/issues/production-panic-elimination/ticket.md).
+Status: Verified and complete within the [ticket scope](specs/issues/production-panic-elimination/ticket.md). Final verification is recorded in [the cross-cutting report](artefacts/pre-phs08-corrections-verification.md).
 
 Execution position: After PHS-06 and before PHS-08. Both this task and extension failure propagation must be completed and verified before PHS-08 starts. Their scheduling is recorded in the [delivery plan](specs/features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08).
 
@@ -14,11 +14,11 @@ Remove intentional panic paths and propagate operation and validation failures t
 
 ### Extension failures stop the invoking operation
 
-Status: In progress. UNT07 ownership is verified. UNT08 selection and typed Failed transport are implemented and verified in the [selection evidence](specs/issues/extension-failure-propagation/selection-evidence.md). UNT09 ordinary lifecycle failure propagation is implemented and verified in the [lifecycle evidence](specs/issues/extension-failure-propagation/lifecycle-evidence.md). UNT10 navigation failure propagation is implemented and verified in the [navigation evidence](specs/issues/extension-failure-propagation/navigation-evidence.md). UNT11 postcommit compaction failure propagation is implemented and verified in the [compaction evidence](specs/issues/extension-failure-propagation/compaction-evidence.md). UNT12 final verification and both issue closures remain pending. For remaining issue scope, see [the technical solution](specs/issues/extension-failure-propagation/solution.md#limits-and-remaining-scope).
+Status: Verified and complete within the [ticket scope](specs/issues/extension-failure-propagation/ticket.md). Final verification is recorded in [the cross-cutting report](artefacts/pre-phs08-corrections-verification.md).
 
 Execution position: After PHS-06 and before PHS-08, together with production panic elimination.
 
-The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) defines the required behavior. The [correction ticket](specs/issues/extension-failure-propagation/ticket.md) records the confirmed implementation gaps, regression evidence, and acceptance criteria. Completed phase statuses below describe their accepted implementation baselines; this cross-cutting correction remains in progress.
+The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) defines the required behavior. The [correction ticket](specs/issues/extension-failure-propagation/ticket.md) records the confirmed implementation gaps, regression evidence, and acceptance criteria. Completed phase statuses below retain their accepted implementation baselines. The cross-cutting completion gate is satisfied; PHS-08 remains unstarted.
 
 ### TUI hyperlinks
 
@@ -136,7 +136,7 @@ Documents:
 
 Status: Completed
 
-Extension-produced branch summaries no longer depend on an unused model. Persisted sources own model usage, cost uses the actual model, and both client contracts retain complete handler error causes. The accepted baseline passed its acceptance criteria; the revised [extension failure rule](#extension-failures-stop-the-invoking-operation) remains unimplemented.
+Extension-produced branch summaries no longer depend on an unused model. Persisted sources own model usage, cost uses the actual model, and both client contracts retain complete handler error causes. The accepted baseline passed its acceptance criteria; the cross-cutting correction is now [verified within its ticket scope](#extension-failures-stop-the-invoking-operation).
 
 Documents:
 - [Ticket](specs/features/initial/phases/05.2-branch-summary-extension-control/ticket.md)

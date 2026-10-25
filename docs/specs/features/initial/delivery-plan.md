@@ -66,10 +66,10 @@
 
 ### Cross-cutting corrections before PHS-08
 - Dependencies: PHS-06
-- Status: In progress; see the [cross-cutting roadmap](../../../roadmap.md#cross-cutting-issues) for current progress.
+- Status: Both scoped corrections are verified and complete; see the [final verification record](../../../artefacts/pre-phs08-corrections-verification.md).
 - Production panic elimination: [Ticket](../../issues/production-panic-elimination/ticket.md).
 - Extension failure propagation: [Ticket](../../issues/extension-failure-propagation/ticket.md).
-- Completion gate: Complete and verify both corrections before PHS-08 starts. These tasks correct known defects in implemented behavior; they do not reopen unrelated phase acceptance or require a general codebase audit. No relative execution order between the two corrections is imposed.
+- Completion gate: Satisfied by the verifier's final checks of both scoped corrections in UNT12. PHS-08 remains unstarted. These tasks correct known defects in implemented behavior; they do not reopen unrelated phase acceptance or require a general codebase audit. No relative execution order between the two corrections is imposed.
 
 ### PHS-08. Prompt, context, input, and provider middleware
 - Dependencies: PHS-06, PHS-04.1, Cross-cutting corrections before PHS-08
