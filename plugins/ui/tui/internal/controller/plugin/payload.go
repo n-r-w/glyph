@@ -1,5 +1,7 @@
 package plugin
 
+import "github.com/samber/mo"
+
 // PayloadKind selects one validated input group without introducing a service interface for data.
 type PayloadKind uint8
 
@@ -22,7 +24,7 @@ const (
 	PayloadTree
 )
 
-// Payload contains one typed input group selected by Kind, not a display-state aggregate.
+// Payload contains one typed input group and an optional committed compaction entry.
 type Payload struct {
 	// Kind identifies the only active input group.
 	Kind PayloadKind
@@ -38,6 +40,8 @@ type Payload struct {
 	Session SessionUpdate
 	// Tree contains tree-operation facts for PayloadTree.
 	Tree TreeUpdate
+	// CommittedCompaction contains the saved entry to apply before the active input group.
+	CommittedCompaction mo.Option[TreeEntry]
 }
 
 // NewPayload initializes a tagged value with no unrelated input data.
@@ -45,6 +49,7 @@ func NewPayload(kind PayloadKind) Payload {
 	return Payload{
 		Kind: kind, Agent: AgentUpdate{}, Text: TextUpdate{}, Availability: AvailabilityUnspecified,
 		Selection: ModelSelection{}, Session: SessionUpdate{}, Tree: TreeUpdate{},
+		CommittedCompaction: mo.None[TreeEntry](),
 	}
 }
 

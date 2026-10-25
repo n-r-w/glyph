@@ -304,6 +304,11 @@ func (s *programmaticManualCompactionTerminalStatesSuite) TestScenario() {
 			// Act through the public manual operation and read the stored originals.
 			terminal := requestProgrammaticCompaction(t, fixture, manualFixtureTerminalState, scenario.guidance)
 			result := terminal.GetCompleted().GetCompaction()
+			if scenario.cause != "" {
+				require.NotNil(t, terminal.GetFailed(), "independent compaction failure must be Failed")
+				require.Contains(t, terminal.GetFailed().GetFailure().GetMessage(), scenario.cause)
+				result = terminal.GetFailed().GetResult().GetCompaction()
+			}
 			if scenario.committed || scenario.canceled {
 				require.NotNil(t, result, terminal.GetFailed().GetFailure().GetMessage())
 				require.Equal(t, scenario.committed, result.GetCommitted() != nil)
@@ -386,6 +391,7 @@ func (s *uIManualCompactionTerminalStatesSuite) TestScenario() {
 			require.NoError(t, err)
 			var report manualPublicReport
 			require.NoError(t, json.Unmarshal(encoded, &report))
+			require.Equal(t, scenario.cause != "", report.Failed, report.Error)
 			require.Equal(t, scenario.committed, report.Committed, report.Error)
 			require.Equal(t, scenario.canceled, report.Canceled, report.Error)
 			if scenario.cause != "" {

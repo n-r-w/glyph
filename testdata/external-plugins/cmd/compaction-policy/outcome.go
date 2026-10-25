@@ -74,8 +74,13 @@ func (o *outcomeOperation) Run(ctx context.Context) (*extensionpb.HandleResponse
 			return newPolicyFailure(err), nil
 		}
 		request := o.outcome.GetState().GetCurrentRequest()
-		if err = waitPolicyConfiguredModel(ctx, binding, request.GetModel(), request.GetReasoningChoice()); err != nil {
-			return newPolicyFailure(err), nil
+		if modelErr := waitPolicyConfiguredModel(
+			ctx,
+			binding,
+			request.GetModel(),
+			request.GetReasoningChoice(),
+		); modelErr != nil {
+			return nil, modelErr
 		}
 	}
 	if os.Getenv(observerFailureEnvironment) == fixtureEnabledValue {

@@ -27,6 +27,8 @@ const (
 type interaction struct {
 	// state contains the current TUI presentation projection.
 	state projection
+	// compactionEntries retains applied receipt identities for the displayed session.
+	compactionEntries map[string]struct{}
 	// projectionChanged invalidates detached display data when a projection mutation occurs.
 	projectionChanged bool
 	// input contains editable user request runes.
@@ -81,6 +83,7 @@ type emissionResultMsg struct {
 func newInteraction(initial event) interaction {
 	return interaction{
 		state:                   (projection{}).Apply(initial),
+		compactionEntries:       nil,
 		projectionChanged:       true,
 		input:                   nil,
 		cursor:                  0,

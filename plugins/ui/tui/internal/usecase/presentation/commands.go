@@ -26,6 +26,8 @@ type commandIntent struct {
 type pendingCommand struct {
 	// command identifies the initiating interaction.
 	command Command
+	// session binds compaction or replacement to its position in local replacement order.
+	session *compactionSession
 	// dispatchPending retains correlation until command I/O returns to the event loop.
 	dispatchPending bool
 	// terminal records that the Host terminal notification was already consumed.
@@ -82,8 +84,18 @@ func (service *Service) prepareCommand(command Command) tuiinput.Work {
 			failure = errors.New("cancel TUI foreground operation: no operation is active")
 		}
 	}
+	if owner := service.compactionSession.owner(); owner != nil {
+		service.compactionSession = owner
+	}
+	// SDK enqueue order and synchronous Host gate admission bind work to preceding replacement requests.
+	if command.replacesSession() {
+		service.compactionSession = &compactionSession{
+			previous: service.compactionSession, status: compactionSessionPending,
+		}
+	}
 	service.pending[identifier] = pendingCommand{
-		command: command, dispatchPending: true, terminal: false, acknowledgementApplied: false,
+		command: command, session: service.compactionSession,
+		dispatchPending: true, terminal: false, acknowledgementApplied: false,
 	}
 	if service.foreground == "" && (command.Kind == CommandSubmit || command.Kind == CommandNavigateSessionTree ||
 		command.Kind == CommandRetryAuthentication) {
@@ -128,6 +140,9 @@ func (service *Service) Complete(result tuiinput.Result) bool {
 	if undelivered && service.foreground == result.ID {
 		service.foreground = ""
 	}
+	if undelivered && pending.command.replacesSession() {
+		pending.session.status = compactionSessionRejected
+	}
 	service.publish()
 	return quit
 }
@@ -155,6 +170,10 @@ func (service *Service) Notify(input plugininput.Notification) error {
 	}
 	service.applyAcknowledgement(&pending)
 	service.pending[input.OperationID] = pending
+	service.resolveCompactionSession(&pending, input)
+	if err := service.applyCompactionInput(input, pending.session); err != nil {
+		return err
+	}
 	if input.Kind != plugininput.NotificationProgress {
 		pending.terminal = true
 		if pending.dispatchPending {
@@ -166,19 +185,24 @@ func (service *Service) Notify(input plugininput.Notification) error {
 			service.foreground = ""
 		}
 	}
-	if err := service.applyInput(input.Payload); err != nil {
+	service.applyOperationFailure(pending.command, input)
+	if err := service.applyDeferredCompactions(); err != nil {
 		return err
 	}
+	service.publish()
+	return nil
+}
+
+// applyOperationFailure preserves the complete diagnostic independently from receipt application.
+func (service *Service) applyOperationFailure(command Command, input plugininput.Notification) {
 	match := func(leaf error) bool { return errors.Is(leaf, context.Canceled) }
 	switch {
 	case input.Kind != plugininput.NotificationFailed:
 	case !errtree.IsCurrentCancellation(input.Failure, match):
-		service.model = service.model.applyEvent(operationErrorEvent(pending.command, input.FailureCode, input.Failure))
+		service.model = service.model.applyEvent(operationErrorEvent(command, input.FailureCode, input.Failure))
 	case !errtree.IsPlainCancellation(input.Failure, match):
 		service.model = service.model.applyEvent(textEvent(eventInformation, input.Failure.Error()))
 	}
-	service.publish()
-	return nil
 }
 
 // applyAcknowledgement applies delivery effects once before dependent Host output, but never decides local Quit.

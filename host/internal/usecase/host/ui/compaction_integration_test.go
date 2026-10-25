@@ -93,7 +93,10 @@ func TestManualCompactionRunsThroughUIOperationOwner(t *testing.T) {
 
 	// Assert the settled committed result keeps complete categorized error text and releases the gate.
 	outcome := <-terminal
-	require.Equal(t, operation.TerminalStateCompleted, outcome.State())
+	require.Equal(t, operation.TerminalStateFailed, outcome.State())
+	require.ErrorIs(t, outcome.Err(), observerCause)
+	require.Equal(t, observerCause.Error(), outcome.Err().Error())
+	require.Equal(t, controllerui.FailureCodeExtensionFailed, outcome.Code())
 	frame, present := outcome.Result()
 	require.True(t, present)
 	require.Len(t, frame.SessionEntries, 1)

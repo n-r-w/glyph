@@ -186,6 +186,9 @@ func mapCompactionCompletion(
 	if compactionErr != nil {
 		builder.Error = new(compactionErr.Error())
 		builder.FailureCode = new(compactionFailureCode(compactionErr))
+		if !isPureOwningCancellation(ctx, compactionErr) {
+			return builder.Build(), extensionsdk.Fail(compactionFailureCode(compactionErr), compactionErr)
+		}
 	}
 	return builder.Build(), nil
 }
@@ -237,7 +240,7 @@ func mapContextFailure(action string, err error) error {
 	return extensionsdk.Fail(internalFailureCode, cause)
 }
 
-// isPureOwningCancellation reports a no-commit failure caused only by the canceled operation owner.
+// isPureOwningCancellation reports an error caused only by cancellation of the operation owner.
 func isPureOwningCancellation(ctx context.Context, err error) bool {
 	if ctx.Err() == nil {
 		return false

@@ -29,6 +29,8 @@ const (
 
 // manualPublicReport contains the terminal outcome observed by a public client.
 type manualPublicReport struct {
+	// Failed reports an SDK failure alongside any retained result.
+	Failed bool `json:"failed"`
 	// Committed reports a durable replacement receipt.
 	Committed bool `json:"committed"`
 	// Summary contains the replacement content.
@@ -92,15 +94,23 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 		return err
 	}
 	completed, terminalErr := waitUIOperation(ctx, host, manualFixtureManualUiCompact, started, nil)
-	report := manualPublicReport{Committed: false, Summary: "", Error: "", Canceled: false, Originals: 0, Markers: 0}
+	report := manualPublicReport{
+		Failed:    terminalErr != nil,
+		Committed: false,
+		Summary:   "",
+		Error:     "",
+		Canceled:  false,
+		Originals: 0,
+		Markers:   0,
+	}
+	outcome := completed.GetCompaction()
+	report.Committed = outcome.GetCommitted() != nil
+	report.Summary = outcome.GetCommitted().GetCompaction().GetSummary()
+	report.Canceled = outcome.GetCanceled()
 	if terminalErr != nil {
 		report.Error = terminalErr.Error()
 	} else {
-		outcome := completed.GetCompaction()
-		report.Committed = outcome.GetCommitted() != nil
-		report.Summary = outcome.GetCommitted().GetCompaction().GetSummary()
 		report.Error = outcome.GetError()
-		report.Canceled = outcome.GetCanceled()
 	}
 	if report.Committed {
 		if followupErr := runManualUIFollowup(ctx, host, guidance); followupErr != nil {

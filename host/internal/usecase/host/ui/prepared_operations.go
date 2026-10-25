@@ -100,7 +100,12 @@ func (prepared *preparedUIOperation) Run(
 		return operation.FailedWithResult(prepared.failureCode(committed.Unwrap()), committed.Unwrap(), result)
 	}
 	if committed, ok := errors.AsType[*committedCompactionError](err); ok {
-		return operation.CompletedWithSource(result, committed.Unwrap())
+		if ctx.Err() != nil && errtree.IsCurrentCancellation(committed.Unwrap(), func(cause error) bool {
+			return errors.Is(cause, ctx.Err()) || errors.Is(cause, context.Cause(ctx))
+		}) {
+			return operation.CompletedWithSource(result, committed.Unwrap())
+		}
+		return operation.FailedWithResult(prepared.failureCode(committed.Unwrap()), committed.Unwrap(), result)
 	}
 	if isPureCancellation(err) {
 		if !errtree.IsPlainCancellation(err, func(cause error) bool {

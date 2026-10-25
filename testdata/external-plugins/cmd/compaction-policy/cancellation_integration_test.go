@@ -42,7 +42,13 @@ func (s *callerCancellationSuite) TestScenario() {
 	_, acceptCause := listener.Accept()
 	require.ErrorIs(t, acceptCause, net.ErrClosed)
 	_, finish := startCallerCancellation(t.Context(), listener)
-	report := callerReport{Committed: true, Summary: committedSummary, Error: originalCause, Canceled: true}
+	report := callerReport{
+		Failed:    false,
+		Committed: true,
+		Summary:   committedSummary,
+		Error:     originalCause,
+		Canceled:  true,
+	}
 	// Act by joining worker teardown before the report is final.
 	report.finishCancellation(finish)
 	// Assert retained acquired failure and durable outcome without a timing wait.

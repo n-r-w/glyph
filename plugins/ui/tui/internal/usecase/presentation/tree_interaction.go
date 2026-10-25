@@ -164,6 +164,9 @@ func (model interaction) applyTreeEvent(kind eventKind, event treeEvent) interac
 		model = model.applyTreeNavigationResult(event)
 	case eventSessionEntryAdded:
 		if entry, present := event.AddedEntry.Get(); present {
+			if entry.Kind == TreeEntryCompaction {
+				model.applyCompactionEntry(entry)
+			}
 			if panel, panelPresent := model.treePanel.Get(); panelPresent {
 				tree := panel.Tree
 				tree.Entries = append(tree.Entries, entry)
@@ -209,6 +212,7 @@ func (model interaction) applyTreeNavigationResult(event treeEvent) interaction 
 
 // applyTreeReplacement applies one durable fork or clone result.
 func (model interaction) applyTreeReplacement(event treeEvent) interaction {
+	model.compactionEntries = nil
 	model.treeAwaiting = CommandUnspecified
 	model.replaceTranscript(event.RestoredTranscript)
 	if info, present := event.SessionInfo.Get(); present {
@@ -234,7 +238,7 @@ func (model *interaction) setExactNextInput(nextInput mo.Option[string]) {
 	model.cursor = len(model.input)
 }
 
-// closeTree removes all entry references from local interaction state.
+// closeTree clears the tree panel and its interaction state.
 func (model interaction) closeTree() interaction {
 	model.treePanel = mo.None[treePanel]()
 	model.treeRequest = mo.None[TreePurpose]()

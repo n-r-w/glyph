@@ -105,6 +105,14 @@ UNT10 changes `Service.runRequestHandlers`, `Service.runResultHandlers`, and `Se
 
 For UNT10 baseline, behavioral RED/GREEN, public-process acceptance, check results, and limits, see the [navigation verification record](navigation-evidence.md).
 
+### Postcommit compaction
+
+UNT11 changes the committed compaction producers in Programmatic Control, UI, and Extension to emit Failed with the existing typed result after independent failure. The producers preserve committed completion for pure owning cancellation and retain independent failure priority when cancellation is also present. Both manual Extension compaction and policy replacement callers retain mapped results alongside errors. The existing typed compaction SDK waits and D3 transport already preserve those values.
+
+The TUI applies the saved entry to its confirmed displayed session and shows the complete failure. While session ownership is unresolved, the TUI shows diagnostics and settles correlation immediately, then applies the retained entry when ownership resolves. After confirmed session replacement, the TUI omits an older session's receipt while preserving its failure and settlement. For local association, receipt application, topology limits, and verification, see the [consumer correction evidence](compaction-consumer-evidence.md).
+
+Host retains compaction receipt, diagnostic state, observer stopping, child admission, cancellation, and joining through its existing owners. The legal consumed-child regression enters through a live reasoning-selection observer while the operation gate is idle and adds no session mutation authority. Source paths, exact-input baseline RED/GREEN results, fixture corrections, reused coverage, project checks, and limits are recorded once in the [compaction verification record](compaction-evidence.md).
+
 ## Verification
 
 ### Baseline
@@ -215,7 +223,7 @@ The mechanism uses the existing invocation identifiers, runtime generation check
 
 UNT07 covers ordinary invocation ownership and consumed failures that existing child APIs return as errors. Its verification above remains scoped to that unit. UNT08 adds the selection correction and shared typed Failed transport described above; the [selection verification record](selection-evidence.md) records its evidence separately.
 
-UNT09 implements ordinary agent lifecycle chain failure propagation and terminal settlement, with scoped evidence in the [ordinary lifecycle verification record](lifecycle-evidence.md). UNT10 implements session-tree chain failure propagation and committed Failed producers, with scoped evidence in the [navigation verification record](navigation-evidence.md). Compaction post-commit Failed producers remain UNT11; their completed-payload behavior remains unchanged by UNT10. Final issue verification and production panic closure remain UNT12. This work does not reopen the accepted earlier phase baselines.
+UNT09 implements ordinary agent lifecycle chain failure propagation and terminal settlement, with scoped evidence in the [ordinary lifecycle verification record](lifecycle-evidence.md). UNT10 implements session-tree chain failure propagation and committed Failed producers, with scoped evidence in the [navigation verification record](navigation-evidence.md). UNT11 implements postcommit compaction Failed producers with retained typed results; see the [compaction verification record](compaction-evidence.md). Final issue verification and both issue closures remain UNT12. This work does not reopen the accepted earlier phase baselines.
 
 The manual-compaction regression invokes an ordinary Host tool directly while the application operation gate is idle. The assembled Programmatic regression uses a configured-model child and an existing retry-handler failure, so it verifies the public failed terminal without changing run-gate behavior.
 
@@ -223,7 +231,7 @@ Integration checks use short command-local temporary paths for Unix sockets. The
 
 ## Open Questions
 
-None for the implemented ownership, selection, ordinary lifecycle, and navigation semantics. The remaining issue scope is identified above.
+None for the implemented ownership, selection, ordinary lifecycle, navigation, and compaction semantics. The remaining issue scope is identified above.
 
 ## References
 

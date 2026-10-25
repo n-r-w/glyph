@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json/v2"
 	"errors"
+	"sync"
 	"testing"
 	"time"
 
@@ -70,7 +71,8 @@ func TestMapCompactionCompletionPreservesCommittedFailure(t *testing.T) {
 			)
 
 			// Assert committed state, complete text, and stable category survive together.
-			require.NoError(t, err)
+			require.ErrorIs(t, err, testCase.failure)
+			require.Equal(t, testCase.failure.Error(), err.Error())
 			require.Equal(t, "compaction", result.GetCommitted().GetEntryId())
 			require.Equal(t, testCase.failure.Error(), result.GetError())
 			require.Equal(t, testCase.expectedCode, result.GetFailureCode())
@@ -148,6 +150,56 @@ func (e extensionPostCommitFailure) Unwrap() error { return e.cause }
 
 // CompactionFailureCode returns the stable category.
 func (e extensionPostCommitFailure) CompactionFailureCode() string { return e.code }
+
+// TestPolicyReplacementRetainsCommittedFailure verifies the replacement caller preserves the receipt and publication cause.
+func TestPolicyReplacementRetainsCommittedFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange an actual committed marker returned with a postcommit publication error.
+	const (
+		replacementExtensionID = "replacement-extension"
+		replacementRuntimeID   = "replacement-runtime"
+		replacementAuthorityID = "replacement-authority"
+		replacementReceiptID   = "replacement-receipt"
+		replacementKeptID      = "replacement-kept"
+	)
+	policy := NewMockCompactionPolicyOperations(gomock.NewController(t))
+	service := New(nil, nil, nil, replacementExtensionID, replacementRuntimeID)
+	service.BindPolicyOperations(policy)
+	candidate := session.CompactionEntry{
+		Summary: "retained replacement summary", FirstKeptEntryID: replacementKeptID,
+		Source:  session.CompactionSource{ExtensionID: mo.Some(replacementExtensionID), Requests: nil},
+		Details: mo.None[[]byte](),
+	}
+	receipt := session.Entry{
+		ID: replacementReceiptID, ParentID: mo.None[string](), CreatedAt: time.Unix(1, 0),
+		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
+		Model: mo.None[session.ModelResponse](), ToolResult: mo.None[session.ToolResult](),
+		Extension: mo.None[session.ExtensionEnvelope](), ExtensionMessage: mo.None[session.ExtensionMessage](),
+		EstimatedCost: mo.None[session.EstimatedCost](), BranchSummary: mo.None[session.BranchSummaryEntry](),
+		Compaction: mo.Some(candidate),
+	}
+	publication := errors.New("replacement publication failed: complete original cause")
+	policy.EXPECT().CommitPolicyReplacement(t.Context(), replacementExtensionID, replacementRuntimeID,
+		replacementAuthorityID, candidate).Return(receipt, publication)
+	operation := &contextOperation{
+		id: replacementAuthorityID, service: service, reference: extensiondomain.ContextRef{}, action: nil,
+		selectionRelease: mo.None[func()](), invocation: nil, releaseOnce: sync.Once{},
+		parentID: mo.None[string](), childRelease: mo.None[func(error)](), release: func() {},
+	}
+
+	// Act at the replacement producer boundary rather than calling its mapper directly.
+	completed, err := operation.runPolicyCandidate(t.Context(), policyCandidate{
+		kind: policyCandidateReplacement, operationID: replacementAuthorityID, value: candidate,
+	})
+
+	// Assert both returned values independently retain the actual receipt and complete original cause.
+	require.NotNil(t, completed)
+	require.Equal(t, replacementReceiptID, completed.GetReplaceCompaction().GetCommitted().GetEntryId())
+	require.Equal(t, candidate.Summary, completed.GetReplaceCompaction().GetCommitted().GetCompaction().GetSummary())
+	require.Equal(t, publication.Error(), completed.GetReplaceCompaction().GetError())
+	require.ErrorIs(t, err, publication)
+	require.Equal(t, publication.Error(), err.Error())
+}
 
 // TestConfiguredModelRequestMapsPublicTerminalResponse verifies request validation and provider-private omission.
 func TestConfiguredModelRequestMapsPublicTerminalResponse(t *testing.T) {

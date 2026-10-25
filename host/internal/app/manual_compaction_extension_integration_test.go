@@ -72,6 +72,7 @@ func (s *extensionManualCompactionTerminalStatesSuite) TestScenario() {
 			}
 
 			// Assert complete public outcomes, original storage, and next-request projection.
+			require.Equal(t, scenario.cause != "", report.Failed, report.Error)
 			require.Equal(t, scenario.committed, report.Committed, report.Error)
 			require.Equal(t, scenario.canceled, report.Canceled, report.Error)
 			if scenario.cause != "" {

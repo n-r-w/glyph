@@ -107,7 +107,12 @@ func (p *commandPrepared) Run(
 	response, active, err = p.service.handle(ctx, p.command)
 	if err != nil {
 		if response.Kind == controller.ResponseCompaction && len(response.SessionEntries) > 0 {
-			return operation.CompletedWithSource(response, err)
+			if ctx.Err() != nil && errtree.IsCurrentCancellation(err, func(cause error) bool {
+				return errors.Is(cause, ctx.Err()) || errors.Is(cause, context.Cause(ctx))
+			}) {
+				return operation.CompletedWithSource(response, err)
+			}
+			return operation.FailedWithResult(failureCode(err), err, response)
 		}
 		if isOperationCancellation(ctx, err) {
 			return newCanceledCommandOutcome(err)

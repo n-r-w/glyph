@@ -32,6 +32,9 @@ func (service *Service) applyInput(input mo.Option[plugininput.Payload]) error {
 	if !present {
 		return nil
 	}
+	if entry, committed := payload.CommittedCompaction.Get(); committed {
+		service.model.applyCompactionEntry(decodeTreeEntry(entry))
+	}
 	switch payload.Kind {
 	case plugininput.PayloadAgent:
 		service.model = service.model.applyEvent(agentEvent(payload.Agent))

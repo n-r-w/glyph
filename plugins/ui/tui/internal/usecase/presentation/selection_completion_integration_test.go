@@ -27,7 +27,7 @@ func TestSelectionCompletionDoesNotSettleActiveAgent(t *testing.T) {
 		Kind: mo.Some(ModelContentText), Text: mo.Some("streaming"),
 	}}
 	service.pending["selection"] = pendingCommand{
-		command: emptyCommand(CommandSelectModel), dispatchPending: false,
+		command: emptyCommand(CommandSelectModel), session: service.compactionSession, dispatchPending: false,
 		terminal: false, acknowledgementApplied: true,
 	}
 	newer := new(uiv1.HostConnectionEvent)

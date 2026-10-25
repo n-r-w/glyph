@@ -15,6 +15,8 @@ import (
 
 // callerReport contains the public Extension manual-operation outcome.
 type callerReport struct {
+	// Failed reports an SDK failure alongside any retained receipt.
+	Failed bool `json:"failed"`
 	// Committed reports a durable replacement.
 	Committed bool `json:"committed"`
 	// Summary contains the supplied replacement.
@@ -34,7 +36,7 @@ func runCaller(ctx context.Context, binding *extensionsdk.ExtensionContext, list
 	}
 	defer func() { returnErr = errors.Join(returnErr, connection.Close()) }()
 	guidance, err := io.ReadAll(connection)
-	report := callerReport{Committed: false, Summary: "", Error: "", Canceled: false}
+	report := callerReport{Failed: false, Committed: false, Summary: "", Error: "", Canceled: false}
 	if err != nil {
 		report.Error = err.Error()
 	} else {
@@ -49,7 +51,7 @@ func compactFromCaller(
 	binding *extensionsdk.ExtensionContext,
 	guidance string,
 ) (report callerReport) {
-	report = callerReport{Committed: false, Summary: "", Error: "", Canceled: false}
+	report = callerReport{Failed: false, Committed: false, Summary: "", Error: "", Canceled: false}
 	owner := ctx
 	finish := func() error { return nil }
 	const callerCancellationEnvironment = "GLYPH_MANUAL_CANCEL_SOCKET"
@@ -72,13 +74,13 @@ func compactFromCaller(
 		return report
 	}
 	outcome, err := operation.Wait(ctx)
-	if err != nil {
-		report.Error = err.Error()
-		return report
-	}
 	report.Committed = outcome.GetCommitted() != nil
 	report.Summary = outcome.GetCommitted().GetCompaction().GetSummary()
 	report.Error, report.Canceled = outcome.GetError(), outcome.GetCanceled()
+	if err != nil {
+		report.Failed = true
+		report.Error = err.Error()
+	}
 	return report
 }
 

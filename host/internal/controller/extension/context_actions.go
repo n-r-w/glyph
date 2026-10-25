@@ -89,12 +89,12 @@ func (o *contextOperation) runManualCompaction(
 		ctx, o.service.extensionID, o.service.runtimeID, o.reference, instructions,
 	)
 	mapped, err := mapCompactionCompletion(ctx, compacted, compactionErr)
-	if err != nil {
+	if mapped == nil {
 		return nil, err
 	}
 	result.SetCompact(mapped)
 
-	return result, nil
+	return result, err
 }
 
 // runSelection returns the public selection completion.

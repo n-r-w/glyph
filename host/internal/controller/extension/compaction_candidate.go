@@ -80,10 +80,11 @@ func (o *contextOperation) runPolicyCandidate(
 			receipt = mo.Some(entry)
 		}
 		mapped, err := mapCompactionCompletion(ctx, CompactionResult{Committed: receipt, Canceled: false}, commitErr)
-		if err != nil {
+		if mapped == nil {
 			return nil, err
 		}
 		completed.SetReplaceCompaction(mapped)
+		return completed, err
 	default:
 		return nil, extensionsdk.Fail(internalFailureCode, errors.New("unknown compaction candidate operation"))
 	}

@@ -143,6 +143,22 @@ func TestCompactionCompletionMapsExplicitCancellation(t *testing.T) {
 	require.Equal(t, "Compaction canceled.", payload.Text.Text)
 }
 
+// TestCompactionCompletionRejectsInvalidReceipt verifies the decoder rejects an incomplete saved entry.
+func TestCompactionCompletionRejectsInvalidReceipt(t *testing.T) {
+	t.Parallel()
+	// Arrange a completion with a receipt that has no persisted identity or payload.
+	completed := new(uiv1.HostCompleted)
+	completed.SetCompaction(uiv1.CompactionResult_builder{
+		Committed: new(uiv1.SessionEntry), Canceled: new(false), Error: nil, FailureCode: nil,
+	}.Build())
+
+	// Act through the completion decoder used by both Completed and Failed notifications.
+	_, _, err := DecodeCompleted(completed)
+
+	// Assert the decoder does not silently discard an invalid retained entry.
+	require.Error(t, err)
+}
+
 // TestMapConnectionEventRetainsAddedMessageState verifies hidden messages reach tree state without transcript lines.
 func TestMapConnectionEventRetainsAddedMessageState(t *testing.T) {
 	t.Parallel()

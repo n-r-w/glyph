@@ -69,6 +69,7 @@ func (model interaction) applyEvent(event event) interaction {
 		model.sessionSelector = model.selectorOpen
 		model.selectorRow = 0
 	case eventSessionChanged:
+		model.compactionEntries = nil
 		// Replacement confirmation owns the point where the editor and selector can discard old-session input.
 		model.resumePending = false
 		model.resumeStatus = ""

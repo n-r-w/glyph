@@ -110,6 +110,13 @@ func (s *policyService) PrepareHandle(
 	ctx context.Context,
 	request *extensionpb.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
+	if request.GetLifecycle() != nil && os.Getenv(nestedCompactionReportEnvironment) != "" {
+		binding, err := extensionsdk.ContextFrom(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return &nestedCompactionObserver{binding: binding, handlerID: request.GetHandlerId()}, nil
+	}
 	if outgoing := request.GetCompactionOutgoingInput(); outgoing != nil {
 		if _, present := extensionsdk.FindCompactionPolicy(ctx); present {
 			return nil, extensionsdk.Reject(
@@ -189,6 +196,13 @@ func (r *policyRegistration) Run(_ context.Context) (*extensionpb.RegisterRespon
 	)
 
 	handlers := make([]*extensionpb.HandlerDescriptor, 0)
+	if os.Getenv(nestedCompactionReportEnvironment) != "" {
+		for _, id := range []string{nestedCompactionObserverID, nestedCompactionLaterObserverID} {
+			handlers = append(handlers, extensionpb.HandlerDescriptor_builder{
+				Id: new(id), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION_OBSERVER),
+			}.Build())
+		}
+	}
 	if filepath.Base(os.Args[0]) == referenceResultsExecutable {
 		return extensionpb.RegisterResponse_builder{Tools: nil, Handlers: newReferenceResultDescriptors()}.Build(), nil
 	}

@@ -23,6 +23,12 @@ type Service struct {
 	runtime Runtime
 	// pending retains command policy until acknowledgement and terminal data are consumed.
 	pending map[string]pendingCommand
+	// compactionSession follows replacement requests in dispatch order.
+	compactionSession *compactionSession
+	// displayedSession identifies the confirmed replacement whose transcript is displayed.
+	displayedSession *compactionSession
+	// deferredCompactions await replacement outcomes without retaining operation correlation.
+	deferredCompactions []deferredCompaction
 	// foreground identifies the first active cancelable command.
 	foreground string
 	// sequence assigns process-local command identifiers on the event loop.
@@ -46,9 +52,11 @@ var (
 
 // New constructs one TUI application before SDK activation.
 func New(host Host, display Display, runtime Runtime) *Service {
+	session := &compactionSession{previous: nil, status: compactionSessionConfirmed}
 	return &Service{
 		model: interaction{}, host: host, display: display, runtime: runtime,
 		pending: make(map[string]pendingCommand), foreground: "", sequence: 0, body: DisplayBody{},
+		compactionSession: session, displayedSession: session, deferredCompactions: nil,
 		lifecycle: sync.Mutex{}, preparing: false, initialized: false, running: false,
 	}
 }

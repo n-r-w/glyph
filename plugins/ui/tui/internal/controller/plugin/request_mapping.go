@@ -90,20 +90,8 @@ func DecodeCompleted(completed *uiv1.HostCompleted) (Payload, bool, error) {
 	case uiv1.HostCompleted_Submit_case:
 		return NewPayload(PayloadSettled), true, nil
 	case uiv1.HostCompleted_Compaction_case:
-		result := completed.GetCompaction()
-		if result.HasError() {
-			return TextPayload(TextUpdate{
-				Kind: TextError, Text: result.GetError(), FailureCode: result.GetFailureCode(),
-				AuthorizationCode: mo.None[string](),
-			}), true, nil
-		}
-		if result.GetCanceled() {
-			return TextPayload(TextUpdate{
-				Kind: TextInformation, Text: compactionCanceledMessage, FailureCode: "",
-				AuthorizationCode: mo.None[string](),
-			}), true, nil
-		}
-		return NewPayload(PayloadSettled), true, nil
+		payload, err := mapCompactionCompletion(completed.GetCompaction())
+		return payload, true, err
 	case uiv1.HostCompleted_Authentication_case, uiv1.HostCompleted_Cancel_case,
 		uiv1.HostCompleted_RetryEnabled_case:
 		return Payload{}, false, nil
@@ -118,6 +106,38 @@ func DecodeCompleted(completed *uiv1.HostCompleted) (Payload, bool, error) {
 	default:
 		return Payload{}, false, errors.New("host completion payload is unknown")
 	}
+}
+
+// mapCompactionCompletion retains the saved entry alongside the operation's diagnostic or settlement input.
+func mapCompactionCompletion(result *uiv1.CompactionResult) (Payload, error) {
+	payload := NewPayload(PayloadSettled)
+	if result.HasError() {
+		payload = TextPayload(TextUpdate{
+			Kind: TextError, Text: result.GetError(), FailureCode: result.GetFailureCode(),
+			AuthorizationCode: mo.None[string](),
+		})
+	} else if result.GetCanceled() {
+		payload = TextPayload(TextUpdate{
+			Kind: TextInformation, Text: compactionCanceledMessage, FailureCode: "",
+			AuthorizationCode: mo.None[string](),
+		})
+	}
+	if entry := result.GetCommitted(); entry != nil {
+		if !entry.HasId() || !entry.HasCreatedTime() || entry.GetCompaction() == nil {
+			return Payload{}, errors.New("committed compaction entry is incomplete")
+		}
+		// Terminal receipts omit parent and label metadata; entry publication supplies tree topology.
+		mapped, err := mapSessionTreeEntry(uiv1.SessionTreeEntry_builder{
+			Id: new(entry.GetId()), ParentId: nil, CreatedTime: entry.GetCreatedTime(), Label: nil,
+			User: nil, Model: nil, ToolResult: nil, Extension: nil, BranchSummary: nil, ExtensionMessage: nil,
+			Compaction: entry.GetCompaction(),
+		}.Build())
+		if err != nil {
+			return Payload{}, err
+		}
+		payload.CommittedCompaction = mo.Some(mapped)
+	}
+	return payload, nil
 }
 
 // mapModelSelectionCompletion validates terminal state and returns only undelivered diagnostics.
