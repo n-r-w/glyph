@@ -4,7 +4,6 @@ package sessiontree
 
 import (
 	"context"
-	"errors"
 	"testing"
 	"time"
 
@@ -16,15 +15,13 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
-	"github.com/n-r-w/glyph/host/internal/usecase/host/ui"
 )
 
-// TestNavigateComposesRequestHandlersAndPostCommitObservers verifies target preparation, issue order,
-// and observer timing.
+// TestNavigateComposesRequestHandlersAndPostCommitObservers verifies target preparation and postcommit observer timing.
 func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	t.Parallel()
 
-	// Arrange two request handlers that replace the target and then fail, plus one failing observer.
+	// Arrange two request handlers that replace and preserve the target, plus one observer.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
@@ -76,7 +73,7 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 	}
 	expectRequestHandler(handlers, second, RequestHandlerInvocation{
 		Original: original, Current: current, CurrentResult: mo.None[HandlerBranchSummaryResult](),
-	}, RequestHandlerAction{}, errors.New("load summary rules: open rules.json: permission denied"))
+	}, RequestHandlerAction{Cancel: false, RequestAction: RequestActionPreserve, Request: mo.None[HandlerNavigationRequest](), ResultAction: ResultActionPreserve, Result: mo.None[HandlerBranchSummaryResult]()}, nil)
 	committed, cloneErr := tree.Clone()
 	require.NoError(t, cloneErr)
 	require.NoError(t, committed.SetActiveLeaf(mo.Some("extension")))
@@ -90,29 +87,20 @@ func TestNavigateComposesRequestHandlersAndPostCommitObservers(t *testing.T) {
 			SessionID: "session", TargetEntryID: "extension", PrecedingActiveLeafID: mo.Some("active"),
 			NavigationDestinationID: mo.Some("extension"), CommittedActiveLeafID: mo.Some("extension"),
 			CreatedSummary: mo.None[session.Entry](),
-		}, errors.New("save navigation receipt: write receipt.json: disk full")),
+		}, nil),
 	)
 
 	// Act by navigating through the complete request and observer chain.
 	result, err := navigateTreeForTest(t, service, t.Context(), original.Request.Navigation)
 
-	// Assert the replacement target commits and complete causes preserve occurrence order.
+	// Assert the replacement target commits without errors or issues.
 	require.NoError(t, err)
-	assert.False(t, result.Canceled)
+	assert.True(t, result.Committed)
 	assert.Equal(t, mo.Some("extension"), result.ActiveLeafID)
-	assert.Equal(t, []ui.NavigationIssue{
-		{
-			Kind: ui.NavigationHandlerError, ExtensionID: "second-extension",
-			HandlerID: "ordinary-error", Text: "load summary rules: open rules.json: permission denied",
-		},
-		{
-			Kind: ui.NavigationObserverError, ExtensionID: "observer-extension",
-			HandlerID: "after-commit", Text: "save navigation receipt: write receipt.json: disk full",
-		},
-	}, result.uiCompletion().Issues)
+	assert.Empty(t, result.uiCompletion().Issues)
 }
 
-// TestNavigatePreservesStateForInvalidHandlerAction verifies an exact validation cause and later-handler continuation.
+// TestNavigatePreservesStateForInvalidHandlerAction verifies invalid output stops later handlers and persistence.
 func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 	t.Parallel()
 
@@ -149,43 +137,20 @@ func TestNavigatePreservesStateForInvalidHandlerAction(t *testing.T) {
 		}),
 		ResultAction: ResultActionPreserve, Result: mo.None[HandlerBranchSummaryResult](),
 	}, nil)
-	validRequest := HandlerNavigationRequest{
-		Navigation: NavigationRequest{
-			TargetEntryID: "extension", SummaryMode: SummaryModeNoSummary, CustomFocus: mo.None[string](),
-		},
-		SummaryModel: selection,
-	}
-	expectRequestHandler(handlers, valid, RequestHandlerInvocation{
-		Original: state, Current: state, CurrentResult: mo.None[HandlerBranchSummaryResult](),
-	}, RequestHandlerAction{
-		Cancel: false, RequestAction: RequestActionReplace, Request: mo.Some(validRequest),
-		ResultAction: ResultActionPreserve, Result: mo.None[HandlerBranchSummaryResult](),
-	}, nil)
-	committed, cloneErr := tree.Clone()
-	require.NoError(t, cloneErr)
-	require.NoError(t, committed.SetActiveLeaf(mo.Some("extension")))
-	active.EXPECT().CommitNavigation(gomock.Any(), CommitCommand{
-		ExpectedActiveLeafID: mo.Some("active"), DestinationID: mo.Some("extension"),
-		BranchSummary: mo.None[BranchSummaryDraft](),
-	}, gomock.Any()).Return(NavigationCommit{Committed: true, Tree: committed, CreatedSummary: mo.None[session.Entry]()}, nil)
 
 	// Act with the invalid action and its later valid handler.
 	result, err := navigateTreeForTest(t, service, t.Context(), state.Request.Navigation)
 
-	// Assert the invalid action keeps preceding state, reports its exact cause, and does not stop the later handler.
-	require.NoError(t, err)
-	assert.Equal(t, mo.Some("extension"), result.ActiveLeafID)
-	assert.Equal(t, []ui.NavigationIssue{{
-		Kind: ui.NavigationInvalidHandlerAction, ExtensionID: "extension",
-		HandlerID: "invalid", Text: "custom focus is not allowed for this summary mode",
-	}}, result.uiCompletion().Issues)
+	// Assert the invalid action stops the chain before any navigation persistence.
+	require.ErrorContains(t, err, "custom focus is not allowed for this summary mode")
+	require.False(t, result.Committed)
 }
 
 // TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit verifies cancellation stops all later work.
 func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T) {
 	t.Parallel()
 
-	// Arrange one ordinary failure followed by one cancel action.
+	// Arrange one preserving handler followed by one cancel action.
 	controller := gomock.NewController(t)
 	active := NewMockActiveSession(controller)
 	models := NewMockModelRequester(controller)
@@ -205,7 +170,19 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	active.EXPECT().SessionID().Return("session")
 	modelSelection.EXPECT().ActiveSelection().Return(selection)
 	registerTestHandlers(service, handlers, HandlerKindRequest, []Handler{failed, canceling})
-	expectRequestHandler(handlers, failed, gomock.Any(), RequestHandlerAction{}, errors.New("ordinary failure"))
+	expectRequestHandler(
+		handlers,
+		failed,
+		gomock.Any(),
+		RequestHandlerAction{
+			Cancel:        false,
+			RequestAction: RequestActionPreserve,
+			Request:       mo.None[HandlerNavigationRequest](),
+			ResultAction:  ResultActionPreserve,
+			Result:        mo.None[HandlerBranchSummaryResult](),
+		},
+		nil,
+	)
 	expectRequestHandler(handlers, canceling, RequestHandlerInvocation{
 		Original: state, Current: state, CurrentResult: mo.None[HandlerBranchSummaryResult](),
 	}, RequestHandlerAction{
@@ -216,13 +193,10 @@ func TestNavigateCancellationReturnsAccumulatedIssuesWithoutCommit(t *testing.T)
 	// Act through the canceling request chain.
 	result, err := navigateTreeForTest(t, service, t.Context(), state.Request.Navigation)
 
-	// Assert cancellation is a state-free result with only preceding issues.
+	// Assert cancellation is a state-free result without issues.
 	require.NoError(t, err)
-	assert.True(t, result.Canceled)
-	assert.Equal(t, []ui.NavigationIssue{{
-		Kind: ui.NavigationHandlerError, ExtensionID: "extension",
-		HandlerID: "failed", Text: "ordinary failure",
-	}}, result.uiCompletion().Issues)
+	assert.False(t, result.Committed)
+	assert.Empty(t, result.uiCompletion().Issues)
 }
 
 // TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers verifies fallback and result replacement happen once.
@@ -246,7 +220,6 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	state := handlerState("session", selection, request, preparation)
 	setHandler := Handler{ExtensionID: "first", HandlerID: "set"}
 	clearHandler := Handler{ExtensionID: "second", HandlerID: "clear"}
-	failedResultHandler := Handler{ExtensionID: "third", HandlerID: "failed-result"}
 	resultHandler := Handler{ExtensionID: "fourth", HandlerID: "replace"}
 	source := session.BranchSummarySource{
 		ExtensionID: mo.None[string](),
@@ -282,10 +255,7 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 			return summaryResponse(generated.Summary, mo.None[model.Usage]()), nil
 		},
 	)
-	registerTestHandlers(service, handlers, HandlerKindResult, []Handler{failedResultHandler, resultHandler})
-	expectResultHandler(handlers, failedResultHandler, ResultHandlerInvocation{
-		Original: state, Current: state, OriginalResult: generated, CurrentResult: generated,
-	}, ResultHandlerAction{}, errors.New("refine summary: load glossary: invalid JSON"))
+	registerTestHandlers(service, handlers, HandlerKindResult, []Handler{resultHandler})
 	expectResultHandler(handlers, resultHandler, ResultHandlerInvocation{
 		Original: state, Current: state, OriginalResult: generated, CurrentResult: generated,
 	}, ResultHandlerAction{
@@ -302,13 +272,10 @@ func TestNavigateClearedReadyResultRunsBuiltInAndResultHandlers(t *testing.T) {
 	// Act after the ready result is cleared.
 	result, err := navigateTreeForTest(t, service, t.Context(), request)
 
-	// Assert failure preserves the generated result for the later handler and reports its complete cause.
+	// Assert the generated result is refined and committed without issues.
 	require.NoError(t, err)
-	assert.False(t, result.Canceled)
-	assert.Equal(t, []ui.NavigationIssue{{
-		Kind: ui.NavigationHandlerError, ExtensionID: "third", HandlerID: "failed-result",
-		Text: "refine summary: load glossary: invalid JSON",
-	}}, result.uiCompletion().Issues)
+	assert.True(t, result.Committed)
+	assert.Empty(t, result.uiCompletion().Issues)
 }
 
 // TestNavigateResultHandlerCancellationStopsBeforeValidation verifies result-chain cancellation writes nothing.
@@ -350,7 +317,7 @@ func TestNavigateResultHandlerCancellationStopsBeforeValidation(t *testing.T) {
 
 	// Assert cancellation returns no committed state and performs no final validation or observer work.
 	require.NoError(t, err)
-	assert.True(t, result.Canceled)
+	assert.False(t, result.Committed)
 	assert.Empty(t, result.Issues)
 }
 

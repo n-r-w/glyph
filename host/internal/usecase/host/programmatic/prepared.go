@@ -89,6 +89,9 @@ func (p *commandPrepared) Run(
 	if p.selection != nil {
 		return p.runSelection(ctx)
 	}
+	if p.command.Kind == controller.CommandNavigateSessionTree {
+		return p.runNavigation(ctx, reporter)
+	}
 	var response controller.Response
 	var active *runPrepared
 	var err error
@@ -101,16 +104,7 @@ func (p *commandPrepared) Run(
 			return operation.Failed[controller.Response](controller.FailureCodeInternal, reportErr)
 		}
 	}
-	if p.command.Kind == controller.CommandNavigateSessionTree {
-		response, err = p.service.navigateSessionTree(
-			ctx,
-			p.command,
-			programmaticNavigationCallback(reporter),
-			programmaticNavigationRetryCallback(reporter),
-		)
-	} else {
-		response, active, err = p.service.handle(ctx, p.command)
-	}
+	response, active, err = p.service.handle(ctx, p.command)
 	if err != nil {
 		if response.Kind == controller.ResponseCompaction && len(response.SessionEntries) > 0 {
 			return operation.CompletedWithSource(response, err)
@@ -132,17 +126,39 @@ func (p *commandPrepared) Run(
 			rejection.Cause,
 		)
 	}
+	return operation.Completed(response)
+}
+
+// runNavigation preserves actual navigation commits independently of the terminal failure state.
+func (p *commandPrepared) runNavigation(
+	ctx context.Context,
+	reporter operation.Reporter[controller.OperationProgress],
+) operation.Outcome[controller.Response] {
+	response, err := p.service.navigateSessionTree(
+		ctx,
+		p.command,
+		programmaticNavigationCallback(reporter),
+		programmaticNavigationRetryCallback(reporter),
+	)
+	if err != nil {
+		if navigation, present := response.TreeNavigation.Get(); present && navigation.Committed.IsSome() {
+			if isOperationCancellation(ctx, err) {
+				return operation.CompletedWithSource(response, err)
+			}
+			return operation.FailedWithResult(failureCode(err), err, response)
+		}
+		if isOperationCancellation(ctx, err) {
+			return newCanceledCommandOutcome(err)
+		}
+		return operation.Failed[controller.Response](failureCode(err), err)
+	}
+	if rejection, present := response.Rejection.Get(); present {
+		return operation.Failed[controller.Response](failureCodeForRejection(rejection.Code), rejection.Cause)
+	}
 	if isCanceledNavigation(response) && errors.Is(ctx.Err(), context.Canceled) {
 		return operation.Canceled[controller.Response]()
 	}
-	// Navigation issues are declared diagnostics even when navigation itself completed.
-	var sources []error
-	if navigation, present := response.TreeNavigation.Get(); present {
-		for _, issue := range navigation.Issues {
-			sources = append(sources, errors.New(issue.Message))
-		}
-	}
-	return operation.CompletedWithSource(response, errors.Join(sources...))
+	return operation.Completed(response)
 }
 
 // runSelection executes one admitted selection and preserves the commit boundary in its terminal outcome.

@@ -21,10 +21,7 @@ func (s *Service) NavigateUI(
 		SummaryMode:   SummaryMode(intent.SummaryMode),
 		CustomFocus:   intent.CustomFocus,
 	}, publish, retryProgress)
-	if err != nil {
-		return ui.NavigationCompletion{}, err
-	}
-	return result.uiCompletion(), nil
+	return result.uiCompletion(), err
 }
 
 // NavigateProgrammatic composes handlers and projects Programmatic completion from the committed result.
@@ -39,8 +36,5 @@ func (s *Service) NavigateProgrammatic(
 		SummaryMode:   SummaryMode(intent.SummaryMode),
 		CustomFocus:   intent.CustomFocus,
 	}, publish, retryProgress)
-	if err != nil {
-		return programmatic.NavigationCompletion{}, err
-	}
-	return result.programmaticCompletion(), nil
+	return result.programmaticCompletion(), err
 }

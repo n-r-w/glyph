@@ -85,14 +85,13 @@ func (prepared *preparedUIOperation) Run(
 ) operation.Outcome[controllerui.Frame] {
 	result, err := prepared.run(ctx, reporter)
 	if err == nil {
-		// Completed navigation can still carry declared handler and observer diagnostics.
-		var sources []error
-		if navigation, present := result.TreeNavigation.Get(); present {
-			for _, issue := range navigation.Issues {
-				sources = append(sources, errors.New(issue.Message))
-			}
+		return operation.Completed(result)
+	}
+	if navigation, present := result.TreeNavigation.Get(); present && navigation.Committed.IsSome() {
+		if ctx.Err() != nil && isPureCancellation(err) {
+			return operation.CompletedWithSource(result, err)
 		}
-		return operation.CompletedWithSource(result, errors.Join(sources...))
+		return operation.FailedWithResult(prepared.failureCode(err), err, result)
 	}
 	if committed, ok := errors.AsType[*committedSelectionError](err); ok {
 		if isPureCancellation(committed.Unwrap()) {
@@ -648,10 +647,11 @@ func (s *Session) runSessionOperation(
 			SummaryMode:   command.SummaryMode,
 			CustomFocus:   command.CustomFocus,
 		}, navigationProgressCallback(reporter), navigationRetryProgressCallback(reporter))
-		if err != nil {
+		if err != nil && result.Committed.IsNone() {
 			return controllerui.Frame{}, err
 		}
-		return result.frame()
+		frame, mapErr := result.frame()
+		return frame, errors.Join(err, mapErr)
 	case controllerui.CommandForkSession:
 		target, present := command.TargetEntryID.Get()
 		if !present {
@@ -701,6 +701,9 @@ func sessionOperationFailureCode(err error) string {
 		return controllerui.FailureCodePersistence
 	}
 	if code, found := directCompactionFailureCode(err); found {
+		return code
+	}
+	if code := runFailureCode(err); code == controllerui.FailureCodeExtensionFailed {
 		return code
 	}
 	if code, found := modelExecutionFailureCode(err); found {

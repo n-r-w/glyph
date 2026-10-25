@@ -78,10 +78,7 @@ func (s *Service) navigate(
 	request NavigationRequest,
 	publisher func(session.Tree) error,
 	retryProgress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
-) (result navigationResult, failure error) {
-	// Keep handler sources until the navigation result or a later failure reaches its client.
-	var issues []navigationIssue
-	defer func() { failure = joinNavigationIssues(failure, issues) }()
+) (navigationResult, error) {
 	if err := ctx.Err(); err != nil {
 		return navigationResult{}, err
 	}
@@ -159,15 +156,16 @@ func (s *Service) navigate(
 		})
 	}
 
-	issues = s.runObservers(ctx, current, commit.Tree, commit.CreatedSummary.IsSome(), issues)
+	var observerErr error
+	issues, observerErr = s.runObservers(ctx, current, commit.Tree, commit.CreatedSummary.IsSome(), issues)
 	return navigationResult{
-		Canceled:       false,
+		Committed:      true,
 		DestinationID:  preparation.DestinationID,
 		ActiveLeafID:   commit.Tree.ActiveLeafID(),
 		CreatedSummary: commit.CreatedSummary,
 		NextInput:      preparation.NextInput,
 		Issues:         issues,
-	}, nil
+	}, errors.Join(err, observerErr)
 }
 
 // generateMissingSummary runs built-in behavior only when handlers left no result.
@@ -211,7 +209,7 @@ func (s *Service) runAvailableResultHandlers(
 // canceledResult creates a state-free cancellation outcome with preceding issues.
 func canceledResult(issues []navigationIssue) navigationResult {
 	return navigationResult{
-		Canceled:       true,
+		Committed:      false,
 		DestinationID:  mo.None[string](),
 		ActiveLeafID:   mo.None[string](),
 		CreatedSummary: mo.None[session.Entry](),

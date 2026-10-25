@@ -74,14 +74,14 @@ func seedSummaryControlSession(t *testing.T, paths persistence.Paths) {
 	require.NoError(t, err)
 }
 
-// TestProgrammaticBranchSummaryControl verifies real extension errors, actual-source cost, and restart projection.
+// TestProgrammaticBranchSummaryControl verifies real extension composition, actual-source cost, and restart projection.
 func TestProgrammaticBranchSummaryControl(t *testing.T) {
 	t.Parallel()
 	for _, mode := range []string{summaryControlExtensionMode, summaryControlMissingMode, summaryControlModelMode} {
 		t.Run(mode, func(t *testing.T) {
 			t.Parallel()
 
-			// Arrange stored branches and a real extension process with all three failure paths.
+			// Arrange stored branches and a real extension process with summary transformations.
 			paths := testPaths(t, summaryControlSettings)
 			seedSummaryControlSession(t, paths)
 			directory := t.TempDir()
@@ -95,7 +95,7 @@ func TestProgrammaticBranchSummaryControl(t *testing.T) {
 			})
 			var committed *programmaticv1.SessionTree
 			for _, operationID := range []string{"navigate-first", "navigate-again"} {
-				// Act twice to prove ordinary failures leave the real extension active.
+				// Act twice through the same extension connection.
 				completed, progressEvents := sendProgrammaticOperationWithProgress(
 					t, fixture, operationID, func(request *programmaticv1.OpenRequest) {
 						programmaticRequest(request).SetNavigateSessionTree(programmaticv1.NavigateSessionTree_builder{
@@ -108,29 +108,14 @@ func TestProgrammaticBranchSummaryControl(t *testing.T) {
 					}, nil)
 				result := completed.GetSessionTreeNavigation()
 
-				// Assert progress precedes completion and post-error state still commits.
+				// Assert progress precedes completion and composed summary state commits.
 				require.NotNil(t, result)
 				require.Equal(
 					t,
 					programmaticv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED,
 					result.GetStatus(),
 				)
-				require.Len(t, result.GetIssues(), 3)
-				for index, cause := range []string{summaryRequestCause, summaryResultCause, summaryObserverCause} {
-					issue := result.GetIssues()[index]
-					assert.Equal(t, cause, issue.GetMessage())
-					assert.Equal(t, "control", issue.GetExtensionId())
-					assert.Equal(
-						t,
-						[]string{"request-failure", "result-failure", "observer-failure"}[index],
-						issue.GetHandlerId(),
-					)
-					code := programmaticv1.OperationIssueCode_OPERATION_ISSUE_CODE_HANDLER_ERROR
-					if index == 2 {
-						code = programmaticv1.OperationIssueCode_OPERATION_ISSUE_CODE_OBSERVER_ERROR
-					}
-					assert.Equal(t, code, issue.GetCode())
-				}
+				require.Empty(t, result.GetIssues())
 				require.Len(t, progressEvents, 1)
 				committed = progressEvents[0].GetSessionTreeNavigation().GetTree()
 				entries := committed.GetEntries()

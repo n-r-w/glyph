@@ -23,7 +23,7 @@ import (
 	uisdk "github.com/n-r-w/glyph/sdk/plugins/ui/v1"
 )
 
-// TestUIBranchSummaryControl verifies real UI and extension processes expose sources and errors across restart.
+// TestUIBranchSummaryControl verifies real UI and extension processes expose composed sources across restart.
 func TestUIBranchSummaryControl(t *testing.T) {
 	t.Parallel()
 	for _, mode := range []string{summaryControlExtensionMode, summaryControlMissingMode, summaryControlModelMode} {
@@ -49,28 +49,13 @@ func TestUIBranchSummaryControl(t *testing.T) {
 			progress := new(uiv1.SessionTreeNavigationProgress)
 			require.NoError(t, protojson.Unmarshal(progressData, progress))
 
-			// Assert all three complete causes and actual-source accounting reached the UI process.
+			// Assert actual-source accounting and successful composition reach the UI process.
 			require.Equal(
 				t,
 				uiv1.SessionTreeNavigationStatus_SESSION_TREE_NAVIGATION_STATUS_COMMITTED,
 				result.GetStatus(),
 			)
-			require.Len(t, result.GetIssues(), 3)
-			for index, cause := range []string{summaryRequestCause, summaryResultCause, summaryObserverCause} {
-				issue := result.GetIssues()[index]
-				assert.Equal(t, cause, issue.GetMessage())
-				assert.Equal(t, "control", issue.GetExtensionId())
-				assert.Equal(
-					t,
-					[]string{"request-failure", "result-failure", "observer-failure"}[index],
-					issue.GetHandlerId(),
-				)
-				code := uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_HANDLER_ERROR
-				if index == 2 {
-					code = uiv1.OperationIssueCode_OPERATION_ISSUE_CODE_OBSERVER_ERROR
-				}
-				assert.Equal(t, code, issue.GetCode())
-			}
+			require.Empty(t, result.GetIssues())
 			entries := progress.GetTree().GetEntries()
 			require.Len(t, entries, 5)
 			last := entries[len(entries)-1]

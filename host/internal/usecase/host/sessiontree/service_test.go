@@ -123,14 +123,14 @@ func TestNavigateCommitsPreparedDestination(t *testing.T) {
 			// Assert the committed leaf and editable user text match the prepared target semantics.
 			require.NoError(t, err)
 			assert.Equal(t, navigationResult{
-				Canceled: false, DestinationID: test.expectedLeaf, ActiveLeafID: test.expectedLeaf,
+				Committed: true, DestinationID: test.expectedLeaf, ActiveLeafID: test.expectedLeaf,
 				CreatedSummary: mo.None[session.Entry](), NextInput: test.expectedNextInput, Issues: nil,
 			}, result)
 		})
 	}
 }
 
-// TestNavigateReturnsCommittedMetadataAfterPublicationFailure verifies post-commit errors remain nonterminal issues.
+// TestNavigateReturnsCommittedMetadataAfterPublicationFailure verifies postcommit failure retains committed metadata and its original cause.
 func TestNavigateReturnsCommittedMetadataAfterPublicationFailure(t *testing.T) {
 	t.Parallel()
 
@@ -163,7 +163,7 @@ func TestNavigateReturnsCommittedMetadataAfterPublicationFailure(t *testing.T) {
 	})
 
 	// Assert terminal metadata and the delivery cause remain reachable without rollback.
-	require.NoError(t, err)
+	require.ErrorIs(t, err, deliveryErr)
 	assert.Equal(t, mo.Some("root"), result.DestinationID)
 	assert.Equal(t, mo.Some("root"), result.ActiveLeafID)
 	require.Len(t, result.Issues, 1)

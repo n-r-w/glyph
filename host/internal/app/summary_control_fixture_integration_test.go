@@ -26,36 +26,18 @@ const (
 	summaryControlBlockedMode = "control-blocked"
 	// summaryControlProducer identifies the explicit source, not the forwarding handler.
 	summaryControlProducer = "cooperating-producer"
-	// summaryRequestCause is the nested ordinary request-handler failure.
-	summaryRequestCause = "load summary rules: open rules.json: permission denied"
-	// summaryResultCause is the nested ordinary result-handler failure.
-	summaryResultCause = "refine summary: read glossary.json: invalid JSON"
-	// summaryObserverCause is the nested post-commit observer failure.
-	summaryObserverCause = "save navigation receipt: write receipt.json: disk full"
 )
 
-// summaryControlRegistration registers failing handlers followed by state-sensitive continuations.
+// summaryControlRegistration registers state-sensitive summary composition and observation.
 func summaryControlRegistration(mode string) *extensionpb.RegisterResponse {
 	handlers := []*extensionpb.HandlerDescriptor{
-		extensionpb.HandlerDescriptor_builder{
-			Id:   new("request-failure"),
-			Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST),
-		}.Build(),
 		extensionpb.HandlerDescriptor_builder{
 			Id:   new("supply"),
 			Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST),
 		}.Build(),
 		extensionpb.HandlerDescriptor_builder{
-			Id:   new("result-failure"),
-			Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT),
-		}.Build(),
-		extensionpb.HandlerDescriptor_builder{
 			Id:   new("refine"),
 			Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_BEFORE_TREE_RESULT),
-		}.Build(),
-		extensionpb.HandlerDescriptor_builder{
-			Id:   new("observer-failure"),
-			Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),
 		}.Build(),
 		extensionpb.HandlerDescriptor_builder{
 			Id:   new("observer-after"),
@@ -70,23 +52,10 @@ func summaryControlRegistration(mode string) *extensionpb.RegisterResponse {
 	return extensionpb.RegisterResponse_builder{Tools: nil, Handlers: handlers}.Build()
 }
 
-// summaryControlFailure returns an ordinary handler failure through the public error alternative.
-func summaryControlFailure(message string) *extensionpb.HandleResponse {
-	wire := new(extensionpb.HandleResponse)
-	wire.SetError(extensionpb.HandlerError_builder{Message: new(message)}.Build())
-	return wire
-}
-
-// runSummaryControlHandler exercises errors, state preservation, explicit source, and model replacement.
+// runSummaryControlHandler exercises state preservation, explicit source, and model replacement.
 func (operation *handlerFixtureHandleOperation) runSummaryControlHandler() (*extensionpb.HandleResponse, error) {
 	request := operation.request
 	switch request.GetHandlerId() {
-	case "request-failure":
-		return summaryControlFailure(summaryRequestCause), nil
-	case "result-failure":
-		return summaryControlFailure(summaryResultCause), nil
-	case "observer-failure":
-		return summaryControlFailure(summaryObserverCause), nil
 	case "clear":
 		wire := new(extensionpb.HandleResponse)
 		wire.SetSessionBeforeTreeRequest(extensionpb.SessionBeforeTreeRequestAction_builder{
@@ -97,7 +66,7 @@ func (operation *handlerFixtureHandleOperation) runSummaryControlHandler() (*ext
 	case "supply":
 		invocation := request.GetSessionBeforeTreeRequest()
 		if invocation.GetCurrentResult() != nil || invocation.GetCurrentRequest().GetTargetEntryId() != "user" {
-			return nil, fmt.Errorf("request error changed incoming state")
+			return nil, fmt.Errorf("request composition changed incoming state")
 		}
 		replacement := invocation.GetCurrentRequest()
 		if operation.fixture.mode == summaryControlMissingMode {
@@ -130,7 +99,7 @@ func (operation *handlerFixtureHandleOperation) runSummaryControlHandler() (*ext
 		invocation := request.GetSessionBeforeTreeResult()
 		if invocation.GetCurrentResult().GetSummary() != "supplied" ||
 			invocation.GetCurrentResult().GetSource().GetExtensionId() != summaryControlProducer {
-			return nil, fmt.Errorf("result error changed incoming state")
+			return nil, fmt.Errorf("result composition changed incoming state")
 		}
 		if operation.fixture.mode == summaryControlCancelMode {
 			wire := new(extensionpb.HandleResponse)

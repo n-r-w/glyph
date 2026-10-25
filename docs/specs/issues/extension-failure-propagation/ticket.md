@@ -1,6 +1,6 @@
 # Ticket: Stop operations on extension failure
 
-Status: In progress. UNT07 ownership is verified. UNT08 selection failure propagation and typed Failed transport are implemented and verified in the [selection evidence](selection-evidence.md). UNT09 ordinary lifecycle failure propagation is implemented and verified in the [lifecycle evidence](lifecycle-evidence.md). For remaining issue scope, see [the technical solution](solution.md#limits-and-remaining-scope).
+Status: In progress. UNT07 ownership is verified. UNT08 selection failure propagation and typed Failed transport are implemented and verified in the [selection evidence](selection-evidence.md). UNT09 ordinary lifecycle failure propagation is implemented and verified in the [lifecycle evidence](lifecycle-evidence.md). UNT10 navigation failure propagation is implemented and verified in the [navigation evidence](navigation-evidence.md). For remaining issue scope, see [the technical solution](solution.md#limits-and-remaining-scope).
 
 Align implemented extension invocation paths with the existing [extension failure rule](../../features/initial/prd.md#extension-failure-rule) before PHS-08 starts.
 

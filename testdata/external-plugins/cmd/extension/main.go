@@ -207,7 +207,9 @@ func (s *service) PrepareHandle(
 		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID &&
 		request.GetHandlerId() != retryHandlerID && request.GetHandlerId() != retryComposedHandlerID &&
 		!isSelectionHandlerID(request.GetHandlerId()) && !isSelectionObserverID(request.GetHandlerId()) &&
-		!isOrdinaryFailureObserver(request.GetHandlerId()) {
+		!isOrdinaryFailureObserver(
+			request.GetHandlerId(),
+		) && request.GetHandlerId() != navigationLaterID && request.GetHandlerId() != navigationResultID {
 		return nil, extensionsdk.Reject(invalidArgumentCode, errors.New("external fixture handler request is invalid"))
 	}
 	var binding *extensionsdk.ExtensionContext
@@ -288,6 +290,7 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 			Id: new(navigationObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_TREE),
 		}.Build(),
 	}
+	handlers = append(handlers, navigationFailureDescriptors()...)
 	handlers = append(handlers, ordinaryFailureObservers()...)
 	handlers = append(handlers, selectionHandlerDescriptors(operation.selectionComposition)...)
 	if operation.selectionObservers {
@@ -322,6 +325,14 @@ func (*registerOperation) Release() {}
 
 // Run appends and awaits one independent message only for the retained selected message.
 func (operation *handleOperation) Run(ctx context.Context) (*extensionv1.HandleResponse, error) {
+	if os.Getenv(navigationFailureEnvironment) != "" {
+		return operation.runNavigationFailure(ctx)
+	}
+	return operation.runHandler(ctx)
+}
+
+// runHandler executes the fixture's ordinary handler behavior.
+func (operation *handleOperation) runHandler(ctx context.Context) (*extensionv1.HandleResponse, error) {
 	if isOrdinaryFailureObserver(operation.request.GetHandlerId()) {
 		return operation.runOrdinaryFailureObserver(ctx)
 	}

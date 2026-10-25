@@ -462,26 +462,15 @@ func (s *Service) navigateSessionTree(
 	result, err := s.navigator.NavigateProgrammatic(ctx, NavigationIntent{
 		TargetEntryID: targetID, SummaryMode: mode, CustomFocus: command.CustomFocus,
 	}, publisher, retryProgress)
-	if err != nil {
-		if isOperationCancellation(ctx, err) {
-			return controller.Response{}, err
-		}
-		if _, classified := modelExecutionFailureCode(err); classified {
-			return controller.Response{}, err
-		}
-		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
-			response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
-			response.TreeNavigation = mo.Some(controller.TreeNavigationResult{
-				Status:    controller.TreeNavigationStatusCanceled,
-				Committed: mo.None[controller.TreeNavigationCommitted](), Issues: nil,
-			})
-			return response, nil
-		}
-		return s.sessionRejection(command, err), nil
+	if err != nil && result.Committed.IsNone() {
+		return s.navigationFailure(ctx, command, err)
 	}
 	response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
 	mapped, mapErr := result.publicResult()
 	if mapErr != nil {
+		if err != nil {
+			return controller.Response{}, errors.Join(err, mapErr)
+		}
 		return s.rejection(
 			command,
 			controller.RejectionInternal,
@@ -489,7 +478,36 @@ func (s *Service) navigateSessionTree(
 		), nil
 	}
 	response.TreeNavigation = mo.Some(mapped)
-	return response, nil
+	return response, err
+}
+
+// navigationFailure projects a precommit failure without inventing committed navigation state.
+func (s *Service) navigationFailure(
+	ctx context.Context,
+	command controller.Command,
+	cause error,
+) (controller.Response, error) {
+	if isOperationCancellation(ctx, cause) {
+		return controller.Response{}, cause
+	}
+	if _, classified := modelExecutionFailureCode(cause); classified {
+		return controller.Response{}, cause
+	}
+	if failureCode(cause) == controller.FailureCodeExtensionFailed {
+		return controller.Response{}, cause
+	}
+	if isPureCancellation(cause) {
+		response := emptyResponse(command.OperationID, controller.ResponseSessionTreeNavigation)
+		response.TreeNavigation = mo.Some(
+			controller.TreeNavigationResult{
+				Status:    controller.TreeNavigationStatusCanceled,
+				Committed: mo.None[controller.TreeNavigationCommitted](),
+				Issues:    nil,
+			},
+		)
+		return response, nil
+	}
+	return s.sessionRejection(command, cause), nil
 }
 
 // sessionEntries returns the current active-session entries without taking the replacement gate.

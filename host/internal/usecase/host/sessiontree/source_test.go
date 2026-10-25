@@ -72,7 +72,7 @@ func TestReadySummaryUsesActualSource(t *testing.T) {
 
 			// Assert the supplied result reaches commit without consulting the unused model.
 			require.NoError(t, err)
-			assert.False(t, result.Canceled)
+			assert.True(t, result.Committed)
 		})
 	}
 }

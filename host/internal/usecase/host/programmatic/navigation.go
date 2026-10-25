@@ -53,11 +53,11 @@ const (
 	navigationExtensionUnavailable = "EXTENSION_UNAVAILABLE"
 )
 
-// NavigationCompletion contains committed domain facts or a state-free cancellation.
+// NavigationCompletion preserves actual committed facts independently of navigation failure.
 type NavigationCompletion struct {
-	// Committed is absent when handlers canceled navigation before commit.
+	// Committed is present after an actual commit, even when Host returns an error.
 	Committed mo.Option[NavigationCommit]
-	// Issues contains nonterminal navigation failures in occurrence order.
+	// Issues contains navigation failures in occurrence order.
 	Issues []NavigationIssue
 }
 
@@ -73,7 +73,7 @@ type NavigationCommit struct {
 	NextInput mo.Option[string]
 }
 
-// NavigationIssueKind identifies a nonterminal navigation failure.
+// NavigationIssueKind identifies a navigation failure.
 type NavigationIssueKind uint8
 
 const (

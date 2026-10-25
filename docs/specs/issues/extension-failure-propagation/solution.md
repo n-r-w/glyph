@@ -95,6 +95,16 @@ After provider cancellation, `Service.finalizeProviderError` keeps the persisted
 
 For baseline, RED/GREEN results, public-contract evidence, check results, and limits, see the [ordinary lifecycle verification record](lifecycle-evidence.md).
 
+### Session-tree navigation
+
+UNT10 changes `Service.runRequestHandlers`, `Service.runResultHandlers`, and `Service.runObservers` in `host/internal/usecase/host/sessiontree/handlers.go` to return the first participant failure. The registration snapshot in `Service.handlersFor` in `host/internal/usecase/host/sessiontree/registration.go` remains unchanged. Context issuance and response validation in `host/internal/usecase/host/sessiontree/runtime.go` feed the same failure path. `participantError` and `classifyParticipantFailure` in `host/internal/usecase/host/sessiontree/participant_failure.go` preserve original causes, current extension-failure meaning, and pure owning cancellation. Host retains consumed child failures through its existing invocation ownership.
+
+`Service.navigate` in `host/internal/usecase/host/sessiontree/service.go` records the actual commit independently of optional destination and leaf identifiers. After a committed publication failure, it still attempts mandatory postcommit observation and joins publication and observer causes. `navigationResult.uiCompletion` and `navigationResult.programmaticCompletion` in `host/internal/usecase/host/sessiontree/client_completion.go` project only actual commits. `Service.NavigateUI` and `Service.NavigateProgrammatic` in `host/internal/usecase/host/sessiontree/client_navigation.go` return that projection alongside the error.
+
+`Service.navigateSessionTree` and `Service.navigationFailure` in `host/internal/usecase/host/programmatic/service.go` retain precommit validation categories and committed navigation data. `commandPrepared.runNavigation` in `host/internal/usecase/host/programmatic/prepared.go` emits Failed with the typed result after independent postcommit failure. `Session.runSessionOperation`, `preparedUIOperation.Run`, and `sessionOperationFailureCode` in `host/internal/usecase/host/ui/prepared_operations.go` provide the corresponding UI projection. Both terminal producers preserve the committed-completion exception only for pure owning cancellation. The shared Failed transport, UI SDK result-plus-error, and TUI apply-and-display paths described under model and reasoning selection require no navigation-specific transport change.
+
+For UNT10 baseline, behavioral RED/GREEN, public-process acceptance, check results, and limits, see the [navigation verification record](navigation-evidence.md).
+
 ## Verification
 
 ### Baseline
@@ -205,7 +215,7 @@ The mechanism uses the existing invocation identifiers, runtime generation check
 
 UNT07 covers ordinary invocation ownership and consumed failures that existing child APIs return as errors. Its verification above remains scoped to that unit. UNT08 adds the selection correction and shared typed Failed transport described above; the [selection verification record](selection-evidence.md) records its evidence separately.
 
-UNT09 implements ordinary agent lifecycle chain failure propagation and terminal settlement, with scoped evidence in the [ordinary lifecycle verification record](lifecycle-evidence.md). Session-tree chain semantics remain UNT10. Compaction post-commit Failed producers remain UNT11. Navigation and compaction producers retain their completed-payload behavior until their respective units, while shared transport and SDK support can preserve optional typed results included with Failed. Final issue verification and production panic closure remain UNT12. This work does not reopen the accepted earlier phase baselines.
+UNT09 implements ordinary agent lifecycle chain failure propagation and terminal settlement, with scoped evidence in the [ordinary lifecycle verification record](lifecycle-evidence.md). UNT10 implements session-tree chain failure propagation and committed Failed producers, with scoped evidence in the [navigation verification record](navigation-evidence.md). Compaction post-commit Failed producers remain UNT11; their completed-payload behavior remains unchanged by UNT10. Final issue verification and production panic closure remain UNT12. This work does not reopen the accepted earlier phase baselines.
 
 The manual-compaction regression invokes an ordinary Host tool directly while the application operation gate is idle. The assembled Programmatic regression uses a configured-model child and an existing retry-handler failure, so it verifies the public failed terminal without changing run-gate behavior.
 
@@ -213,7 +223,7 @@ Integration checks use short command-local temporary paths for Unix sockets. The
 
 ## Open Questions
 
-None for the implemented ownership, selection, and ordinary lifecycle semantics. The remaining issue scope is identified above.
+None for the implemented ownership, selection, ordinary lifecycle, and navigation semantics. The remaining issue scope is identified above.
 
 ## References
 

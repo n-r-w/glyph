@@ -161,7 +161,7 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				require.NoError(t, err)
 				assert.True(t, result.Committed.IsSome())
 				assert.Equal(t, int64(0), checks.Load())
-				require.Len(t, result.Issues, 3)
+				require.Empty(t, result.Issues)
 			}
 		})
 	}

@@ -33,17 +33,11 @@ func (s *Service) runRequestHandlers(
 			Original: cloneHandlerState(original), Current: cloneHandlerState(current), CurrentResult: currentResult,
 		})
 		if err != nil {
-			if contextErr := ctx.Err(); contextErr != nil {
-				return HandlerNavigationState{}, mo.None[HandlerBranchSummaryResult](), issues, false, errors.Join(
-					contextErr,
-					err,
-				)
-			}
 			issues = append(
 				issues,
 				operationIssue(navigationIssueHandlerError, handler, err),
 			)
-			continue
+			return current, currentResult, issues, false, classifyParticipantFailure(ctx, issues[len(issues)-1].source)
 		}
 		candidate, result, canceled, validationErr := applyRequestHandlerAction(tree, current, currentResult, action)
 		if validationErr != nil {
@@ -52,7 +46,7 @@ func (s *Service) runRequestHandlers(
 				handler,
 				validationErr,
 			))
-			continue
+			return current, currentResult, issues, false, classifyParticipantFailure(ctx, issues[len(issues)-1].source)
 		}
 		if canceled {
 			return current, currentResult, issues, true, nil
@@ -161,14 +155,11 @@ func (s *Service) runResultHandlers(
 			OriginalResult: originalResult, CurrentResult: currentResult,
 		})
 		if err != nil {
-			if contextErr := ctx.Err(); contextErr != nil {
-				return mo.None[HandlerBranchSummaryResult](), issues, false, errors.Join(contextErr, err)
-			}
 			issues = append(
 				issues,
 				operationIssue(navigationIssueHandlerError, handler, err),
 			)
-			continue
+			return result, issues, false, classifyParticipantFailure(ctx, issues[len(issues)-1].source)
 		}
 		candidate, canceled, valid := applyResultHandlerAction(currentResult, action)
 		if !valid {
@@ -177,7 +168,7 @@ func (s *Service) runResultHandlers(
 				handler,
 				errors.New(invalidHandlerActionMessage),
 			))
-			continue
+			return result, issues, false, classifyParticipantFailure(ctx, issues[len(issues)-1].source)
 		}
 		if canceled {
 			return mo.Some(currentResult), issues, true, nil
@@ -209,14 +200,14 @@ func applyResultHandlerAction(
 	}
 }
 
-// runObservers invokes every snapshotted observer after commit and preserves received failures.
+// runObservers stops postcommit observation at the first selected participant failure.
 func (s *Service) runObservers(
 	ctx context.Context,
 	current HandlerNavigationState,
 	committed session.Tree,
 	summaryCreated bool,
 	issues []navigationIssue,
-) []navigationIssue {
+) ([]navigationIssue, error) {
 	// A committed navigation must reach observers even when the caller cancels after persistence.
 	observerContext := context.WithoutCancel(ctx)
 	invocation := TreeObserverInvocation{
@@ -232,9 +223,10 @@ func (s *Service) runObservers(
 				issues,
 				operationIssue(navigationIssueObserverError, handler, err),
 			)
+			return issues, classifyParticipantFailure(observerContext, issues[len(issues)-1].source)
 		}
 	}
-	return issues
+	return issues, nil
 }
 
 // committedSummary returns the summary entry created by a successful navigation commit.

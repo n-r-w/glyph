@@ -145,10 +145,10 @@ func TestNoSummaryNavigationReturnsCommittedState(t *testing.T) {
 	prepared.Release()
 	response, completed := outcome.Result()
 
-	// Assert the nonfatal source accompanies Completed without becoming failed work.
+	// Assert successful navigation projects supplied issue metadata without inventing an error source.
 	require.True(t, completed)
 	require.NoError(t, outcome.Err())
-	require.ErrorContains(t, outcome.SourceError(), "safe message")
+	require.NoError(t, outcome.SourceError())
 	require.Equal(t, controller.ResponseSessionTreeNavigation, response.Kind)
 	result := response.TreeNavigation.MustGet()
 	require.Equal(t, controller.TreeNavigationStatusCommitted, result.Status)

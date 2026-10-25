@@ -82,6 +82,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runOrdinaryFailureUIFixture(ctx, host)
 		case selectionFailureUIBehavior:
 			return runSelectionFailureUIFixture(ctx, host)
+		case navigationFailureUIBehavior:
+			return runNavigationFailureUIFixture(ctx, host)
 		case "extension-message-navigation":
 			return runExtensionMessageNavigationUIFixture(ctx, host)
 		default:

@@ -11,7 +11,7 @@ import (
 // uiCompletion selects committed facts for the UI consumer before public projection.
 func (result navigationResult) uiCompletion() ui.NavigationCompletion {
 	committed := mo.None[ui.NavigationCommit]()
-	if !result.Canceled {
+	if result.Committed {
 		committed = mo.Some(ui.NavigationCommit{
 			DestinationID: result.DestinationID, ActiveLeafID: result.ActiveLeafID,
 			CreatedSummary: result.CreatedSummary, NextInput: result.NextInput,
@@ -28,7 +28,7 @@ func (result navigationResult) uiCompletion() ui.NavigationCompletion {
 // programmaticCompletion selects committed facts for the Programmatic consumer before public projection.
 func (result navigationResult) programmaticCompletion() programmatic.NavigationCompletion {
 	committed := mo.None[programmatic.NavigationCommit]()
-	if !result.Canceled {
+	if result.Committed {
 		committed = mo.Some(programmatic.NavigationCommit{
 			DestinationID: result.DestinationID, ActiveLeafID: result.ActiveLeafID,
 			CreatedSummary: result.CreatedSummary, NextInput: result.NextInput,

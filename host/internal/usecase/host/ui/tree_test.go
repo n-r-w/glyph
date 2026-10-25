@@ -181,10 +181,10 @@ func TestCanceledTreeNavigationReturnsStateFreeData(t *testing.T) {
 	prepared.Release()
 	frame, completed := outcome.Result()
 
-	// Assert canceled navigation data remains Completed and declares its nonfatal issue before delivery.
+	// Assert canceled navigation data remains Completed and projects supplied issue metadata.
 	require.True(t, completed)
 	require.NoError(t, outcome.Err())
-	require.ErrorContains(t, outcome.SourceError(), "observer failed")
+	require.NoError(t, outcome.SourceError())
 	result := frame.TreeNavigation.MustGet()
 	assert.Equal(t, controllerui.TreeNavigationStatusCanceled, result.Status)
 	assert.True(t, result.Committed.IsNone())
