@@ -238,6 +238,12 @@ enum HandlerKind {
   HANDLER_KIND_COMPACTION_FAILURE = 24;
   // The handler owns one complete compaction policy operation.
   HANDLER_KIND_COMPACTION_POLICY = 25;
+  // The handler transforms public provider request headers.
+  HANDLER_KIND_PROVIDER_HEADERS = 26;
+  // The handler replaces safe serialized provider request JSON.
+  HANDLER_KIND_PROVIDER_BODY = 27;
+  // The handler observes provider response status and public headers.
+  HANDLER_KIND_PROVIDER_RESPONSE = 28;
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.

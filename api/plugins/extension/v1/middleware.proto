@@ -1,0 +1,71 @@
+edition = "2023";
+
+package glyph.plugins.extension.v1;
+
+option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
+
+// WireHeaders contains public headers with ordered values per name.
+message WireHeaders {
+  // Header names are case-insensitive; authentication and account headers are private.
+  map<string, WireHeaderValues> entries = 1;
+}
+
+// WireHeaderValues contains all values of one header.
+message WireHeaderValues {
+  // Values retain the order for this header name.
+  repeated string values = 1;
+}
+
+// ProviderHeadersInvocation supplies detached immutable original and composed current headers.
+message ProviderHeadersInvocation {
+  // The immutable original public headers.
+  WireHeaders original = 1;
+  // The public headers produced by preceding handlers.
+  WireHeaders current = 2;
+}
+
+// ProviderHeadersAction preserves the current headers or replaces all public headers.
+message ProviderHeadersAction {
+  // The handler must select one valid action.
+  oneof action {
+    // True preserves current headers; false is invalid.
+    bool preserve = 1;
+    // The complete replacement public headers.
+    WireHeaders replace = 2;
+  }
+}
+
+// ProviderBodyInvocation supplies safe JSON with invocation-local private replay references.
+// A retained reference restores its private fragment; removing it discards that fragment.
+// Unknown, altered, duplicated, or misplaced references fail before provider dispatch.
+message ProviderBodyInvocation {
+  // The immutable original safe JSON.
+  bytes original = 1;
+  // The safe JSON produced by preceding handlers.
+  bytes current = 2;
+}
+
+// ProviderBodyAction preserves the current safe JSON or replaces it.
+message ProviderBodyAction {
+  // The handler must select one valid action.
+  oneof action {
+    // True preserves current JSON; false is invalid.
+    bool preserve = 1;
+    // The complete replacement safe JSON object.
+    bytes replace = 2;
+  }
+}
+
+// ProviderResponseInvocation exposes response status and public headers before stream consumption.
+message ProviderResponseInvocation {
+  // The provider response status before decoding or stream consumption.
+  int64 status = 1;
+  // Public response headers with private values excluded or redacted.
+  WireHeaders headers = 2;
+}
+
+// ProviderResponseAction acknowledges observation without changing the response.
+message ProviderResponseAction {
+  // True acknowledges observation; false is invalid.
+  bool acknowledge = 1;
+}

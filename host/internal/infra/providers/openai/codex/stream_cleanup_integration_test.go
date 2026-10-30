@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -90,7 +91,8 @@ func (s *streamCleanupSuite) TestTerminalExits() {
 				Instructions:    "instructions",
 				Model:           testModelDescriptor("gpt-test"),
 				History:         nil,
-				Tools:           nil,
+				Tools:           nil, Wire: mo.None[modelexecution.
+							WireCallbacks](),
 			}, func(event modelexecution.StreamEvent) error {
 				if event.Kind == modelexecution.StreamEventDone || event.Kind == modelexecution.StreamEventError {
 					terminalCount++
@@ -157,7 +159,8 @@ func (s *streamCleanupSuite) TestFinalizationDeliveryFailure() {
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		if event.Kind == modelexecution.StreamEventDone || event.Kind == modelexecution.StreamEventError {
 			terminalCount++

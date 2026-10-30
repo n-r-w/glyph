@@ -102,6 +102,9 @@ func runProgrammaticWithPaths(
 		sessionServices.gate,
 	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
+	if bindErr := bindWireMiddleware(startupService, modelExecution, extensions, contexts); bindErr != nil {
+		return bindErr
+	}
 	if err = startupService.BindCompaction(contexts); err != nil {
 		return fmt.Errorf("bind Programmatic compaction registration: %w", err)
 	}

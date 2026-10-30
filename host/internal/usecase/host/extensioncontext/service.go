@@ -13,6 +13,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -84,6 +85,8 @@ type Service struct {
 }
 
 var (
+	// Service issues trusted contexts for ordinary wire invocations.
+	_ middleware.ContextIssuer = (*Service)(nil)
 	// Service implements the model execution manual preparation contract.
 	_ modelexecution.ManualCompactionPreparation = (*Service)(nil)
 	// Service captures the policy owner for conversation preparation and observation.

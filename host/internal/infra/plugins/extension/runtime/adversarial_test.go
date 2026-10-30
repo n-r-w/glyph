@@ -305,7 +305,7 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 			SessionBeforeTreeRequest: extensionpb.SessionBeforeTreeRequestAction_builder{}.Build(),
 			SessionBeforeTreeResult:  nil, SessionTree: nil, Error: nil,
 
-			CompactionPolicy: nil,
+			CompactionPolicy: nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 		}.Build())
 		event := new(extensionpb.ExtensionEvent)
 		event.SetCompleted(completedEvent)

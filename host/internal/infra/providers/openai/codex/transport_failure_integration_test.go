@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -75,7 +76,8 @@ func (s *canceledTransportFailureSuite) TestScenario() {
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, nil)
 	response := terminalResponse(events)
 
@@ -136,7 +138,8 @@ func (s *canceledHTTPRejectionSuite) TestScenario() {
 			// Act through the production provider and SDK.
 			events, err := collectStreamEvents(service, ctx, modelexecution.ProviderRequest{
 				ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions",
-				Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil,
+				Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 			}, nil)
 			response := terminalResponse(events)
 
@@ -194,7 +197,8 @@ func (s *bodyFailureStreamSuite) TestScenario() {
 	// Act through the provider and SDK.
 	events, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions",
-		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil,
+		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}, nil)
 
 	// Assert both acquired identities and their text survive model execution.
@@ -253,7 +257,8 @@ func (s *bodyFailureStreamSuite) TestCompleteRejectionAndCloseFailure() {
 	// Act through the provider and SDK after receipt of the rejected response.
 	events, err := collectStreamEvents(service, ctx, modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions",
-		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil,
+		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}, nil)
 	response := terminalResponse(events)
 

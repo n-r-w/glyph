@@ -1288,7 +1288,7 @@ func (operation *protocolHandleOperation) Run(
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil,
 			Error: extensionpb.HandlerError_builder{Message: new(message)}.Build(),
 
-			CompactionPolicy: nil,
+			CompactionPolicy: nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 		}.Build(), nil
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.
@@ -1301,7 +1301,7 @@ func (operation *protocolHandleOperation) Run(
 		Lifecycle:   nil,
 		SessionTree: extensionpb.SessionTreeAction_builder{}.Build(),
 
-		CompactionPolicy: nil,
+		CompactionPolicy: nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 	}.Build(), nil
 }
 

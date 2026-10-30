@@ -41,6 +41,8 @@ var (
 
 // Service owns retry-coordinated logical model execution for Host consumers.
 type Service struct {
+	// wire supplies Host-owned per-attempt middleware without provider dependencies.
+	wire WireMiddleware
 	// catalog resolves logical model selections to raw provider bindings.
 	catalog CatalogResolver
 	// policies captures preparation and observation for the admitted owner.
@@ -86,7 +88,7 @@ func New(
 	service := &Service{
 		catalog: catalog, policies: policies,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
-		manualPreparation: nil, manualTools: nil, manualInstructions: "",
+		manualPreparation: nil, manualTools: nil, manualInstructions: "", wire: nil,
 	}
 	service.retryEnabled.Store(policy.Enabled)
 	return service
@@ -153,7 +155,7 @@ func (s *Service) Stream(
 	}
 	providerRequest := ProviderRequest{
 		Instructions: request.Instructions, Model: binding.Model, ReasoningChoice: binding.ReasoningChoice,
-		History: ownedHistory, Tools: request.Tools,
+		History: ownedHistory, Tools: request.Tools, Wire: mo.None[WireCallbacks](),
 	}
 	providerRequest, err = s.prepareProviderContext(ctx, providerRequest, captured)
 	if err != nil {
@@ -275,7 +277,7 @@ func (s *Service) RequestConfigured(
 	}
 	request := ProviderRequest{
 		Instructions: instructions, Model: binding.Model, ReasoningChoice: binding.ReasoningChoice,
-		History: ownedHistory, Tools: nil,
+		History: ownedHistory, Tools: nil, Wire: mo.None[WireCallbacks](),
 	}
 	completion, err := s.execute(
 		ctx, binding.Provider, request, nil, func(value RetryProgress) error {
@@ -313,7 +315,7 @@ func (request ProviderRequest) cloneBinding() ProviderRequest {
 	}
 	return ProviderRequest{
 		Instructions: request.Instructions, Model: request.Model.Clone(), ReasoningChoice: request.ReasoningChoice,
-		History: request.History, Tools: tools,
+		History: request.History, Tools: tools, Wire: request.Wire,
 	}
 }
 

@@ -78,7 +78,8 @@ func TestDriverStreamStreamsReasoningInOutputOrder(t *testing.T) {
 				User:       mo.Some(model.TextMessage("request")),
 			},
 		},
-		Tools: nil,
+		Tools: nil, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -159,7 +160,8 @@ func TestDriverStreamKeepsVisibleReasoningWithoutReplayContext(t *testing.T) {
 				Kind:       agent.HistoryEntryUser,
 				User:       mo.Some(model.TextMessage("request")),
 			},
-		},
+		}, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}
 
 	firstEvents, err := collectStreamEvents(
@@ -252,7 +254,8 @@ func TestDriverStreamStreamsRefusalDeltas(t *testing.T) {
 				User:       mo.Some(model.TextMessage("request")),
 			},
 		},
-		Tools: nil,
+		Tools: nil, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -352,7 +355,8 @@ func TestDriverStreamRejectsMissingEncryptedReasoning(t *testing.T) {
 			Instructions:    "instructions",
 			History:         history,
 			Tools:           nil,
-			Model:           testModelDescriptor("gpt-test"),
+			Model:           testModelDescriptor("gpt-test"), Wire: mo.None[modelexecution.
+						WireCallbacks](),
 		},
 		func(modelexecution.StreamEvent) error { return nil },
 	)
@@ -414,7 +418,8 @@ func TestDriverStreamMapsOffReasoning(t *testing.T) {
 				User:       mo.Some(model.TextMessage("hello")),
 			},
 		},
-		Tools: nil,
+		Tools: nil, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}, func(modelexecution.StreamEvent) error { return nil })
 	response := terminalResponse(events)
 

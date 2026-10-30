@@ -1205,7 +1205,7 @@ func openHandleRequest(id string, handlerID string) *extensionpb.OpenRequest {
 		}.Build(),
 
 		ParentCompactionId: nil,
-		CompactionPolicy:   nil,
+		CompactionPolicy:   nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 	}.Build())
 	return extensionpb.OpenRequest_builder{
 		Event:       nil,

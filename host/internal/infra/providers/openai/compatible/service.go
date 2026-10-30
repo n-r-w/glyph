@@ -195,7 +195,7 @@ func (s *Driver) Stream(
 	ctx context.Context,
 	request modelexecution.ProviderRequest,
 	handle modelexecution.StreamHandler,
-) error {
+) (returnErr error) {
 	configuredModel, err := s.modelConfigForRequest(request)
 	if err != nil {
 		return s.emitFailure(handle, request, err.Error(), err)
@@ -205,6 +205,8 @@ func (s *Driver) Stream(
 		credentialErr := fmt.Errorf("resolve OpenAI-compatible API key: %w", err)
 		return s.emitFailure(handle, request, credentialErr.Error(), credentialErr)
 	}
+	diagnostics := &openaifailure.WireDiagnostics{}
+	defer func() { returnErr = diagnostics.RedactError(returnErr) }()
 	target := s.providerContextTarget(request, configuredModel)
 	var response model.Response
 	switch configuredModel.api {
@@ -213,19 +215,38 @@ func (s *Driver) Stream(
 		if prepareErr != nil {
 			return s.emitFailure(handle, request, prepareErr.Error(), prepareErr)
 		}
-		response, err = s.streamChatCompletions(ctx, configuredModel, key, params, target, handle)
+		response, err = s.streamChatCompletions(
+			ctx,
+			configuredModel,
+			key,
+			request.Wire,
+			params,
+			target,
+			handle,
+			diagnostics,
+		)
 	case APIResponses:
 		params, prepareErr := responsesParams(request, target)
 		if prepareErr != nil {
 			return s.emitFailure(handle, request, prepareErr.Error(), prepareErr)
 		}
-		response, err = s.streamResponses(ctx, key, params, target, handle)
+		response, err = s.streamResponses(ctx, key, request.Wire, params, target, handle, diagnostics)
 	}
 	if err != nil {
-		return s.completeProviderFailure(ctx, request, response, err, handle)
+		return s.completeProviderFailure(
+			ctx,
+			request,
+			response,
+			err,
+			handle,
+			diagnostics,
+		)
 	}
 	response.Provider = mo.Some(s.providerID)
 	response.Model = mo.Some(request.Model.Model)
+	if message, present := response.ErrorMessage.Get(); present {
+		response.ErrorMessage = mo.Some(diagnostics.RedactText(message))
+	}
 	if handleErr := handle(terminalStreamEvent(modelexecution.StreamEventDone, response)); handleErr != nil {
 		return handleErr
 	}
@@ -239,7 +260,9 @@ func (s *Driver) completeProviderFailure(
 	response model.Response,
 	sourceErr error,
 	handle modelexecution.StreamHandler,
+	diagnostics *openaifailure.WireDiagnostics,
 ) error {
+	sourceErr = diagnostics.RedactError(sourceErr)
 	if _, deliveryFailure := errors.AsType[streamHandlerError](sourceErr); deliveryFailure {
 		return sourceErr
 	}
@@ -254,6 +277,7 @@ func (s *Driver) completeProviderFailure(
 			resultErr = ctx.Err()
 		} else {
 			resultErr = errors.Join(ctx.Err(), providerErr)
+			message = resultErr.Error()
 		}
 	} else {
 		resultErr = providerErr

@@ -17,6 +17,57 @@ import (
 	gomock "go.uber.org/mock/gomock"
 )
 
+// MockMiddlewareRegistrar is a mock of MiddlewareRegistrar interface.
+type MockMiddlewareRegistrar struct {
+	ctrl     *gomock.Controller
+	recorder *MockMiddlewareRegistrarMockRecorder
+	isgomock struct{}
+}
+
+// MockMiddlewareRegistrarMockRecorder is the mock recorder for MockMiddlewareRegistrar.
+type MockMiddlewareRegistrarMockRecorder struct {
+	mock *MockMiddlewareRegistrar
+}
+
+// NewMockMiddlewareRegistrar creates a new mock instance.
+func NewMockMiddlewareRegistrar(ctrl *gomock.Controller) *MockMiddlewareRegistrar {
+	mock := &MockMiddlewareRegistrar{ctrl: ctrl}
+	mock.recorder = &MockMiddlewareRegistrarMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMiddlewareRegistrar) EXPECT() *MockMiddlewareRegistrarMockRecorder {
+	return m.recorder
+}
+
+// CommitMiddlewareHandlers mocks base method.
+func (m *MockMiddlewareRegistrar) CommitMiddlewareHandlers(arg0 []AcceptedRegistration) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "CommitMiddlewareHandlers", arg0)
+}
+
+// CommitMiddlewareHandlers indicates an expected call of CommitMiddlewareHandlers.
+func (mr *MockMiddlewareRegistrarMockRecorder) CommitMiddlewareHandlers(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CommitMiddlewareHandlers", reflect.TypeOf((*MockMiddlewareRegistrar)(nil).CommitMiddlewareHandlers), arg0)
+}
+
+// ValidateMiddlewareHandlers mocks base method.
+func (m *MockMiddlewareRegistrar) ValidateMiddlewareHandlers(arg0 PendingRegistration) ([]AcceptedHandler, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ValidateMiddlewareHandlers", arg0)
+	ret0, _ := ret[0].([]AcceptedHandler)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ValidateMiddlewareHandlers indicates an expected call of ValidateMiddlewareHandlers.
+func (mr *MockMiddlewareRegistrarMockRecorder) ValidateMiddlewareHandlers(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ValidateMiddlewareHandlers", reflect.TypeOf((*MockMiddlewareRegistrar)(nil).ValidateMiddlewareHandlers), arg0)
+}
+
 // MockRuntimeLoader is a mock of RuntimeLoader interface.
 type MockRuntimeLoader struct {
 	ctrl     *gomock.Controller

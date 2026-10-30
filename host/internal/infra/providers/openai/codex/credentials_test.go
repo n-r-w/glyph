@@ -44,7 +44,8 @@ func TestDriverStreamCredentialFailuresRemainPredispatch(t *testing.T) {
 			Instructions:    "instructions",
 			Model:           testModelDescriptor("gpt-test"),
 			History:         nil,
-			Tools:           nil,
+			Tools:           nil, Wire: mo.None[modelexecution.
+						WireCallbacks](),
 		}, nil)
 
 		// Assert the original pre-dispatch cause remains outside provider classification.
@@ -91,7 +92,8 @@ func TestDriverStreamCredentialFailuresRemainPredispatch(t *testing.T) {
 			Instructions:    "instructions",
 			Model:           testModelDescriptor("gpt-test"),
 			History:         nil,
-			Tools:           nil,
+			Tools:           nil, Wire: mo.None[modelexecution.
+						WireCallbacks](),
 		}, nil)
 
 		// Assert refresh transport failure remains outside provider classification.
@@ -186,7 +188,8 @@ func TestDriverStreamRefreshesAtThresholdAndPersistsRotation(t *testing.T) {
 					User:       mo.Some(model.TextMessage("hello")),
 				},
 			},
-			Tools: nil,
+			Tools: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 		},
 		func(modelexecution.StreamEvent) error { return nil },
 	)
@@ -247,7 +250,8 @@ func TestDriverStreamSkipsRefreshOutsideThreshold(t *testing.T) {
 					User:       mo.Some(model.TextMessage("hello")),
 				},
 			},
-			Tools: nil,
+			Tools: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 		},
 		func(modelexecution.StreamEvent) error { return nil },
 	)
@@ -276,7 +280,8 @@ func TestDriverStreamMissingCredentialsDoesNotStartOAuth(t *testing.T) {
 				Kind:       agent.HistoryEntryUser,
 				User:       mo.Some(model.TextMessage("hello")),
 			}},
-			Tools: nil,
+			Tools: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 		},
 		func(modelexecution.StreamEvent) error { return nil },
 	)
@@ -347,7 +352,8 @@ func TestDriverStreamLoadsCredentialsForEveryRequest(t *testing.T) {
 				User:       mo.Some(model.TextMessage("hello")),
 			},
 		},
-		Tools: nil,
+		Tools: nil, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}
 
 	_, firstErr := collectStreamEvents(

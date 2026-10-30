@@ -283,7 +283,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			}.Build(),
 			SessionBeforeTreeResult: nil, SessionTree: nil, Error: nil,
 
-			CompactionPolicy: nil,
+			CompactionPolicy: nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 		}.Build(), nil
 	case "refine":
 		return extensionpb.HandleResponse_builder{
@@ -305,7 +305,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			}.Build(),
 			SessionTree: nil, Error: nil,
 
-			CompactionPolicy: nil,
+			CompactionPolicy: nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 		}.Build(), nil
 	case "observe":
 		invocation := request.GetSessionTree()
@@ -331,7 +331,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil,
 			SessionTree: extensionpb.SessionTreeAction_builder{}.Build(), Error: nil,
 
-			CompactionPolicy: nil,
+			CompactionPolicy: nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 		}.Build(), nil
 	default:
 		return nil, fmt.Errorf("unknown handler %q", request.GetHandlerId())

@@ -8,6 +8,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock.go -package=extensionruntime
@@ -67,6 +68,8 @@ type Catalog interface {
 
 // ExtensionRuntime is one independently managed extension process.
 type ExtensionRuntime interface {
+	// HandleWire invokes one ordinary provider-wire operation.
+	HandleWire(context.Context, string, middleware.Invocation) (middleware.Action, error)
 	// BeginInvocationChild admits work owned by one live connection-local Host invocation.
 	BeginInvocationChild(parentID string) (extensioncontroller.InvocationChild, error)
 	// Register invokes extension registration and returns its raw result.

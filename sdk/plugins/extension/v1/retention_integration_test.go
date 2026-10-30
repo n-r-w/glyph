@@ -74,7 +74,7 @@ func TestServerRetainsWorkSourceBeforeTerminal(t *testing.T) {
 					}.Build(),
 
 					ParentCompactionId: nil,
-					CompactionPolicy:   nil,
+					CompactionPolicy:   nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 				}.Build())
 				request.SetRequest(payload)
 				stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](

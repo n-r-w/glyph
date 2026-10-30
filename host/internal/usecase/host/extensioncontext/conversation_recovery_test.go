@@ -147,8 +147,14 @@ func TestCapturedOverflowUsesFreshSnapshot(t *testing.T) {
 	capture, err := service.CaptureConversation()
 	require.NoError(t, err)
 	input := modelexecution.ProviderRequest{
-		Instructions: "frozen instructions", Model: model.Descriptor{}, ReasoningChoice: model.ReasoningChoiceOff,
-		History: []agent.HistoryEntry{newAutomaticTestHistory("rejected earlier history")}, Tools: nil,
+		Instructions:    "frozen instructions",
+		Model:           model.Descriptor{},
+		ReasoningChoice: model.ReasoningChoiceOff,
+		History: []agent.HistoryEntry{
+			newAutomaticTestHistory("rejected earlier history"),
+		},
+		Tools: nil,
+		Wire:  mo.None[modelexecution.WireCallbacks](),
 	}
 	for _, text := range []string{"new snapshot", "later snapshot"} {
 		snapshot := CompactionSnapshot{

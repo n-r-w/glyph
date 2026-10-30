@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/openai/openai-go/v3"
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
@@ -55,7 +56,8 @@ func collectReceivedDiagnostics(t *testing.T, transport http.RoundTripper) (mode
 		t.Context(),
 		modelexecution.ProviderRequest{
 			ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions",
-			Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil,
+			Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 		},
 		nil,
 	)

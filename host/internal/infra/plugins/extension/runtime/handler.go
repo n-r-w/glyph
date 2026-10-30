@@ -116,7 +116,7 @@ func mapHandleRequest(
 		Retry:                 nil, HandlerId: new(handlerID), Context: mapContext(request.Context),
 
 		ParentCompactionId: nil,
-		CompactionPolicy:   nil,
+		CompactionPolicy:   nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 	}
 	switch request.Kind {
 	case extensionruntime.InvocationRequest, extensionruntime.InvocationResult:

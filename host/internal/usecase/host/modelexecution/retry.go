@@ -56,6 +56,10 @@ func (s *Service) execute(
 		if cloneErr != nil {
 			return model.Response{}, backoff.Permanent(errors.Join(append(causes, cloneErr)...))
 		}
+		wireFailure := &wireFailure{}
+		if s.wire != nil {
+			attemptRequest.Wire = mo.Some(s.wire.NewWireCallbacks().captureFailures(wireFailure))
+		}
 		var callbackErr error
 		attemptErr := provider.Stream(ctx, attemptRequest, func(event StreamEvent) error {
 			if event.Kind == StreamEventDone || event.Kind == StreamEventError {
@@ -78,6 +82,13 @@ func (s *Service) execute(
 		failedResponse = model.Response{}
 		if terminalResponse, present := terminal.Get(); present {
 			failedResponse = terminalResponse
+		}
+		if acquired := wireFailure.acquired(); acquired != nil {
+			if !isPureOwningCancellation(ctx, acquired) {
+				causes = append(causes, joinOwningContextCause(ctx, errors.Join(acquired, attemptErr, callbackErr)))
+				return failedResponse, backoff.Permanent(logicalFailure(FailureExtensionFailed, causes))
+			}
+			attemptErr = errors.Join(attemptErr, acquired)
 		}
 		if callbackErr != nil {
 			// The callback's caller has failed; provider descendants remain causes, not recovery permission.

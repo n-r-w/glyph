@@ -76,7 +76,7 @@ func TestAutomaticPreserveUsesCapturedSession(t *testing.T) {
 				ToolResult: mo.None[agent.ToolResult](),
 			},
 		},
-		Tools: nil,
+		Tools: nil, Wire: mo.None[modelexecution.WireCallbacks](),
 	}
 	// Act through preparation and observation on the same captured owner.
 	prepared, err := capture.MustGet().Prepare(t.Context(), input)
@@ -228,7 +228,7 @@ func TestAutomaticReplacementChecksNotifiedHistory(t *testing.T) {
 				Model:           model.Descriptor{},
 				ReasoningChoice: model.ReasoningChoiceOff,
 				History:         nil,
-				Tools:           nil,
+				Tools:           nil, Wire: mo.None[modelexecution.WireCallbacks](),
 			}
 			// Act through conversation preparation and its captured final input check.
 			var prepared modelexecution.ConversationPreparation

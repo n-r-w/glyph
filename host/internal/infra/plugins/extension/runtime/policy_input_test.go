@@ -54,7 +54,7 @@ func TestPolicyInputPurposeRejectsUnknownIntent(t *testing.T) {
 					Model:           model.Descriptor{},
 					ReasoningChoice: model.ReasoningChoiceOff,
 					History:         nil,
-					Tools:           nil,
+					Tools:           nil, Wire: mo.None[modelexecution.WireCallbacks](),
 				},
 				Requests:     nil,
 				Generators:   nil,

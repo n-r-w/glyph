@@ -144,6 +144,12 @@ const (
 	RawHandlerKindCompactionFailure RawHandlerKind = 24
 	// RawHandlerKindCompactionPolicy identifies the registered compaction policy owner.
 	RawHandlerKindCompactionPolicy RawHandlerKind = 25
+	// RawHandlerKindProviderHeaders transforms public request headers.
+	RawHandlerKindProviderHeaders RawHandlerKind = 26
+	// RawHandlerKindProviderBody transforms safe serialized request JSON.
+	RawHandlerKindProviderBody RawHandlerKind = 27
+	// RawHandlerKindProviderResponse observes public response metadata.
+	RawHandlerKindProviderResponse RawHandlerKind = 28
 )
 
 // isCompaction reports whether kind identifies a compaction capability.
@@ -210,6 +216,12 @@ type LoadReport struct {
 }
 
 //go:generate go tool mockgen -source=contracts.go -destination=contracts_mock.go -package=startup
+
+// MiddlewareRegistrar validates and publishes ordinary wire declarations.
+type MiddlewareRegistrar interface {
+	ValidateMiddlewareHandlers(PendingRegistration) ([]AcceptedHandler, error)
+	CommitMiddlewareHandlers([]AcceptedRegistration)
+}
 
 // RuntimeLoader owns pending runtime creation, rejection, and activation.
 type RuntimeLoader interface {

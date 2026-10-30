@@ -14,6 +14,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	openaiwire "github.com/n-r-w/glyph/host/internal/infra/providers/openai"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
@@ -83,14 +84,16 @@ func newResponsesAccumulator(handle modelexecution.StreamHandler) *responsesAccu
 func (s *Driver) streamResponses(
 	ctx context.Context,
 	key string,
+	wire mo.Option[modelexecution.WireCallbacks],
 	params responses.ResponseNewParams,
 	target model.ProviderContextSource,
 	handle modelexecution.StreamHandler,
-) (model.Response, error) {
-	opts := s.requestOptions(key)
+	diagnostics *openaiwire.WireDiagnostics,
+) (result model.Response, returnErr error) {
+	opts := append(s.requestOptions(key), diagnostics.NewWireOption(wire))
 	service := responses.NewResponseService(opts...)
 	stream := service.NewStreaming(ctx, params)
-	defer func() { _ = stream.Close() }()
+	defer func() { returnErr = errors.Join(returnErr, stream.Close()) }()
 	state := newResponsesAccumulator(tagHandlerErrors(handle))
 	for stream.Next() {
 		event := stream.Current()

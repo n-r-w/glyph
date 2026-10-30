@@ -160,7 +160,8 @@ func richRequest(provider model.ProviderID, modelID model.ID) modelexecution.Pro
 				),
 				ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
 			},
-		},
+		}, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}
 }
 

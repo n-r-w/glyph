@@ -30,7 +30,7 @@ func (r *Runtime) ObserveLifecycle(
 		CompactionSuccess: nil, CompactionFailure: nil,
 
 		ParentCompactionId: nil,
-		CompactionPolicy:   nil,
+		CompactionPolicy:   nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 	}.Build()
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)

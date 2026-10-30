@@ -77,6 +77,12 @@ const (
 	HandlerKind_HANDLER_KIND_COMPACTION_FAILURE HandlerKind = 24
 	// The handler owns one complete compaction policy operation.
 	HandlerKind_HANDLER_KIND_COMPACTION_POLICY HandlerKind = 25
+	// The handler transforms public provider request headers.
+	HandlerKind_HANDLER_KIND_PROVIDER_HEADERS HandlerKind = 26
+	// The handler replaces safe serialized provider request JSON.
+	HandlerKind_HANDLER_KIND_PROVIDER_BODY HandlerKind = 27
+	// The handler observes provider response status and public headers.
+	HandlerKind_HANDLER_KIND_PROVIDER_RESPONSE HandlerKind = 28
 )
 
 // Enum value maps for HandlerKind.
@@ -108,6 +114,9 @@ var (
 		23: "HANDLER_KIND_COMPACTION_SUCCESS",
 		24: "HANDLER_KIND_COMPACTION_FAILURE",
 		25: "HANDLER_KIND_COMPACTION_POLICY",
+		26: "HANDLER_KIND_PROVIDER_HEADERS",
+		27: "HANDLER_KIND_PROVIDER_BODY",
+		28: "HANDLER_KIND_PROVIDER_RESPONSE",
 	}
 	HandlerKind_value = map[string]int32{
 		"HANDLER_KIND_UNSPECIFIED":                  0,
@@ -136,6 +145,9 @@ var (
 		"HANDLER_KIND_COMPACTION_SUCCESS":           23,
 		"HANDLER_KIND_COMPACTION_FAILURE":           24,
 		"HANDLER_KIND_COMPACTION_POLICY":            25,
+		"HANDLER_KIND_PROVIDER_HEADERS":             26,
+		"HANDLER_KIND_PROVIDER_BODY":                27,
+		"HANDLER_KIND_PROVIDER_RESPONSE":            28,
 	}
 )
 
@@ -4223,7 +4235,7 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x0fRegisterRequest\"\x9f\x01\n" +
 	"\x10RegisterResponse\x12@\n" +
 	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\x12I\n" +
-	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xa1\a\n" +
+	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\x88\b\n" +
 	"\vHandlerKind\x12\x1c\n" +
 	"\x18HANDLER_KIND_UNSPECIFIED\x10\x00\x12,\n" +
 	"(HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST\x10\x01\x12+\n" +
@@ -4251,7 +4263,10 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x1eHANDLER_KIND_COMPACTION_RESULT\x10\x16\x12#\n" +
 	"\x1fHANDLER_KIND_COMPACTION_SUCCESS\x10\x17\x12#\n" +
 	"\x1fHANDLER_KIND_COMPACTION_FAILURE\x10\x18\x12\"\n" +
-	"\x1eHANDLER_KIND_COMPACTION_POLICY\x10\x192q\n" +
+	"\x1eHANDLER_KIND_COMPACTION_POLICY\x10\x19\x12!\n" +
+	"\x1dHANDLER_KIND_PROVIDER_HEADERS\x10\x1a\x12\x1e\n" +
+	"\x1aHANDLER_KIND_PROVIDER_BODY\x10\x1b\x12\"\n" +
+	"\x1eHANDLER_KIND_PROVIDER_RESPONSE\x10\x1c2q\n" +
 	"\x10ExtensionService\x12]\n" +
 	"\x04Open\x12'.glyph.plugins.extension.v1.OpenRequest\x1a(.glyph.plugins.extension.v1.OpenResponse(\x010\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 

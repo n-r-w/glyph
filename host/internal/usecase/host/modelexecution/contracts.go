@@ -18,6 +18,8 @@ import (
 
 // ProviderRequest contains one immutable raw provider-attempt request.
 type ProviderRequest struct {
+	// Wire supplies invocation-local callbacks for the serialized provider attempt.
+	Wire mo.Option[WireCallbacks]
 	// Instructions contains the system prompt.
 	Instructions string
 	// Model contains the immutable configured model snapshot.

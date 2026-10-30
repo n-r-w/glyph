@@ -433,7 +433,8 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 			ReasoningCapabilities: model.ReasoningCapabilities{},
 			Pricing:               mo.None[model.Pricing](),
 		},
-		History: history, Tools: []tool.Descriptor{descriptor},
+		History: history, Tools: []tool.Descriptor{descriptor}, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -498,7 +499,8 @@ func TestDriverStreamDoesNotInferMissingCapabilities(t *testing.T) {
 		Tools: []tool.Descriptor{
 			constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{}),
 		},
-		History: nil,
+		History: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -561,7 +563,8 @@ func TestDriverStreamSendsNonStrictPreferredTool(t *testing.T) {
 		Tools: []tool.Descriptor{
 			constrainedDescriptor(tool.JSONSchemaStrictPrefer, tool.GrammarVariants{}),
 		},
-		History: nil,
+		History: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 	}, func(modelexecution.StreamEvent) error { return nil })
 
 	// Assert the request is sent once with non-strict schema handling.
@@ -683,7 +686,8 @@ func TestDriverStreamRejectsMalformedConstraintsBeforeDispatch(t *testing.T) {
 				},
 				ReasoningChoice: model.ReasoningChoiceOn,
 				History:         nil,
-				Tools:           []tool.Descriptor{descriptor},
+				Tools:           []tool.Descriptor{descriptor}, Wire: mo.None[modelexecution.
+							WireCallbacks](),
 			}, func(modelexecution.StreamEvent) error { return nil })
 
 			// Assert validation fails before any provider request.
@@ -734,7 +738,8 @@ func TestDriverStreamRejectsUnsupportedGrammarBeforeDispatch(t *testing.T) {
 		Tools: []tool.Descriptor{
 			constrainedDescriptor(0, tool.GrammarVariants{Lark: mo.Some("start: /[a-z]+/"), Regex: mo.None[string]()}),
 		},
-		History: nil,
+		History: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -784,7 +789,8 @@ func TestDriverStreamRejectsRequiredConstraintBeforeDispatch(t *testing.T) {
 		Tools: []tool.Descriptor{
 			constrainedDescriptor(tool.JSONSchemaStrictRequire, tool.GrammarVariants{}),
 		},
-		History: nil,
+		History: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil

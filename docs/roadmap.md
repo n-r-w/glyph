@@ -196,12 +196,13 @@ Documents:
 
 ## PHS-08: Prompt, context, input, and provider middleware
 
-Status: Planned
+Status: In progress. UNT-01 implements provider-wire operations; independent review and full-project verification remain separate. UNT-02 through UNT-05 remain pending.
 
 Add ordered model-facing middleware through provider-neutral Host boundaries and final input validation against model modalities.
 
 Documents:
 - [Ticket](specs/features/initial/phases/08-prompt-context-input-provider-middleware/ticket.md)
+- [UNT-01 evidence](specs/features/initial/phases/08-prompt-context-input-provider-middleware/unt-01-evidence.md)
 
 ## PHS-09: Tool middleware and run control
 

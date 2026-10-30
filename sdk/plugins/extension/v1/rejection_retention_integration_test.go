@@ -136,7 +136,7 @@ func TestCanceledServerSendUsesActualConfirmationAtCollection(t *testing.T) {
 						}.Build(),
 
 						ParentCompactionId: nil,
-						CompactionPolicy:   nil,
+						CompactionPolicy:   nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
 					}.Build())
 					request := new(extensionpb.OpenRequest)
 					request.SetOperationId(id)

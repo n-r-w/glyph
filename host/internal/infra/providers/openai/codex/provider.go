@@ -49,11 +49,13 @@ func (s *Driver) Stream(
 	ctx context.Context,
 	request modelexecution.ProviderRequest,
 	handle modelexecution.StreamHandler,
-) error {
+) (returnErr error) {
 	credentials, params, err := s.prepareRequest(ctx, request)
 	if err != nil {
 		return s.deliverPreDispatchFailure(request, handle, requestErrorMessage(err), err)
 	}
+	diagnostics := &openaifailure.WireDiagnostics{}
+	defer func() { returnErr = diagnostics.RedactError(returnErr) }()
 	var handlerErr error
 	response, streamErr := s.executeRequest(
 		ctx,
@@ -67,6 +69,7 @@ func (s *Driver) Stream(
 			}
 			return nil
 		},
+		diagnostics,
 	)
 	if handlerErr != nil {
 		return combineHandlerError(streamErr, handlerErr)
@@ -158,6 +161,7 @@ func (s *Driver) executeRequest(
 	credentials oauthCredentials,
 	params responses.ResponseNewParams,
 	handle modelexecution.StreamHandler,
+	diagnostics *openaifailure.WireDiagnostics,
 ) (response model.Response, returnErr error) {
 	baseTransport := s.options.httpClient.Transport
 	if baseTransport == nil {
@@ -175,9 +179,22 @@ func (s *Driver) executeRequest(
 		option.WithHTTPClient(httpClient),
 		option.WithMaxRetries(0),
 	)
+	var acquiredWireErr error
+	wire := request.Wire
+	if callbacks, present := wire.Get(); present {
+		report := callbacks.Failed
+		callbacks.Failed = func(err error) {
+			acquiredWireErr = err
+			if report != nil {
+				report(err)
+			}
+		}
+		wire = mo.Some(callbacks)
+	}
 	stream := service.NewStreaming(
 		ctx,
 		params,
+		diagnostics.NewWireOption(wire),
 		option.WithAPIKey(credentials.AccessToken),
 		option.WithHeader("chatgpt-account-id", credentials.AccountID),
 		option.WithHeader("OpenAI-Beta", "responses=experimental"),
@@ -185,16 +202,15 @@ func (s *Driver) executeRequest(
 		option.WithHeader("User-Agent", providerconsts.AgentID),
 	)
 	defer func() {
-		if closeErr := stream.Close(); closeErr != nil {
-			returnErr = errors.Join(returnErr, closeErr)
-			response.Outcome = mo.Some(model.OutcomeFailed)
+		if acquiredWireErr != nil && !errors.Is(returnErr, acquiredWireErr) {
+			returnErr = errors.Join(returnErr, acquiredWireErr)
 		}
-		if returnErr != nil && ctx.Err() != nil {
-			if !errors.Is(returnErr, ctx.Err()) {
-				returnErr = errors.Join(ctx.Err(), returnErr)
-			}
-			response.Outcome = mo.Some(model.OutcomeAborted)
+		closeErr := stream.Close()
+		//nolint:bodyclose // The diagnostic transport owns any response hidden by rejection capture failure.
+		if rejection := errorTransport.errorResponse(); rejection != nil {
+			diagnostics.CaptureHeaders(rejection.Header)
 		}
+		response, returnErr = completeWireDiagnostics(ctx, response, returnErr, closeErr, diagnostics)
 	}()
 	deliveryFailed := false
 	assembler := newSemanticAssembler(func(event modelexecution.StreamEvent) error {

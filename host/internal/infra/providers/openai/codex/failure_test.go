@@ -66,7 +66,8 @@ func TestDriverStreamJoinsProviderAndFinalErrorHandlerFailures(t *testing.T) {
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		callbacks++
 		assert.Equal(t, modelexecution.StreamEventError, event.Kind)
@@ -117,7 +118,8 @@ func TestDriverStreamJoinsSDKAndContentEndFailures(t *testing.T) {
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event.Kind)
 		if event.Kind == modelexecution.StreamEventContentEnd {
@@ -161,7 +163,8 @@ func TestDriverStreamRequestPreparationFailureRemainsPredispatch(t *testing.T) {
 		Instructions:    "",
 		Model:           testModelDescriptor(""),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, nil)
 
 	// Assert local request failure remains outside provider classification.
@@ -204,7 +207,8 @@ func TestDriverStreamPreservesTransportFailure(t *testing.T) {
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, nil)
 	response := terminalResponse(events)
 
@@ -244,7 +248,8 @@ func TestDriverStreamClassifiesDeadlineTransportFailure(t *testing.T) {
 	// Act through one raw provider attempt.
 	_, err := collectStreamEvents(service, t.Context(), modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions",
-		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil,
+		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}, nil)
 
 	// Assert the typed provider boundary retains both transient classification and timeout identity.
@@ -283,7 +288,8 @@ func TestDriverStreamClassifiesPrematureClosure(t *testing.T) {
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, nil)
 
 	// Assert the explicit source, transient classification, and no hidden SDK retry.
@@ -347,7 +353,8 @@ func TestDriverStreamFailureEventsPreserveSourceWhenContentEndFails(t *testing.T
 				Instructions:    "instructions",
 				Model:           testModelDescriptor("gpt-test"),
 				History:         nil,
-				Tools:           nil,
+				Tools:           nil, Wire: mo.None[modelexecution.
+							WireCallbacks](),
 			}, func(event modelexecution.StreamEvent) error {
 				callbacks = append(callbacks, event.Kind)
 				if event.Kind == modelexecution.StreamEventContentEnd {
@@ -408,7 +415,8 @@ func TestDriverStreamFailureEventPreservesSourceAcrossTerminalMergeFailure(t *te
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		callbacks++
 		if event.Kind == modelexecution.StreamEventError {
@@ -446,7 +454,8 @@ func TestDriverStreamMixedCancellationPreservesAcquiredProviderFailure(t *testin
 	// Act through provider execution and its cleanup finalizer.
 	events, err := collectStreamEvents(service, ctx, modelexecution.ProviderRequest{
 		ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions",
-		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil,
+		Model: testModelDescriptor("gpt-test"), History: nil, Tools: nil, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}, nil)
 	response := terminalResponse(events)
 
@@ -557,7 +566,8 @@ func TestDriverStreamPreservesMalformedReasoningCause(t *testing.T) {
 		Instructions:    "instructions",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         history,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, nil)
 	response := terminalResponse(events)
 
@@ -718,7 +728,8 @@ func TestDriverStreamHTTPFailuresDoNotRetry(t *testing.T) {
 							User:       mo.Some(model.TextMessage("hello")),
 						},
 					},
-					Tools: nil,
+					Tools: nil, Wire: mo.None[modelexecution.
+						WireCallbacks](),
 				},
 				func(modelexecution.StreamEvent) error { return nil },
 			)
@@ -834,7 +845,8 @@ func TestDriverStreamMapsIncompleteAndFailedOutcomes(t *testing.T) {
 							User:       mo.Some(model.TextMessage("hello")),
 						},
 					},
-					Tools: nil,
+					Tools: nil, Wire: mo.None[modelexecution.
+						WireCallbacks](),
 				},
 				func(modelexecution.StreamEvent) error { return nil },
 			)
@@ -905,7 +917,8 @@ func TestDriverStreamCancellationMapsAborted(t *testing.T) {
 						User:       mo.Some(model.TextMessage("hello")),
 					},
 				},
-				Tools: nil,
+				Tools: nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 			},
 			func(modelexecution.StreamEvent) error { return nil },
 		)

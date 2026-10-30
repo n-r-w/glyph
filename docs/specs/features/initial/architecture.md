@@ -150,12 +150,17 @@ The architecture keeps one `glyph` process and separate project roots for Host a
   - internal/usecase/host/ - existing Host orchestration packages
     - extensioncontext/ - session/runtime-bound extension context and commit-protection owner
     - lifecycle/ - ordered extension lifecycle observer owner
-    - modelexecution/ - existing logical model-execution owner and raw provider-attempt contract
+    - middleware/ - ordered ordinary wire handler registration, composition and action validation
+    - modelexecution/ - logical model execution, neutral raw-attempt callbacks and acquired middleware-failure retention
     - modelselection/ - shared selection admission, handler composition, commit coordination, publication, and observer-order owner
   - internal/infra/ - existing infrastructure adapters
     - headless/ - one-shot output and diagnostics
     - programmatic/output/ - run-correlated and unsolicited Programmatic output
     - plugins/ui/runtime/ - selected UI process stream and output
+    - plugins/extension/runtime/ - public extension invocation mapping and process mechanics
+    - providers/openai/ - shared SDK wire bridge, private replay projection and restoration
+      - codex/ - Codex serialization, authentication, diagnostics and streaming
+      - compatible/ - compatible Chat and Responses serialization, authentication and streaming
 - plugins/extension/tools/ - existing bundled tools extension project root
 - plugins/ui/tui/ - existing standard TUI project root
   - internal/controller/plugin/ - Host notification and initialization input

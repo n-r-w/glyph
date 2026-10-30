@@ -71,7 +71,8 @@ func TestDriverStreamEmitsProvisionalAndFinalFunctionCall(t *testing.T) {
 		Instructions:    "test",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -134,7 +135,8 @@ func TestDriverStreamRecoversFunctionCallWithoutAddedEvent(t *testing.T) {
 			Tools:           nil,
 			ReasoningChoice: model.ReasoningChoiceOn,
 			Instructions:    "test",
-			Model:           testModelDescriptor("gpt-test"),
+			Model:           testModelDescriptor("gpt-test"), Wire: mo.None[modelexecution.
+						WireCallbacks](),
 		},
 		func(event modelexecution.StreamEvent) error {
 			events = append(events, event)
@@ -200,7 +202,8 @@ func TestDriverStreamRejectsInvalidFinalFunctionArguments(t *testing.T) {
 		Instructions:    "test",
 		Model:           testModelDescriptor("gpt-test"),
 		History:         nil,
-		Tools:           nil,
+		Tools:           nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 	}, func(event modelexecution.StreamEvent) error {
 		events = append(events, event)
 		return nil
@@ -275,7 +278,8 @@ func TestDriverStreamRecoversOmittedCompletedOutputItems(t *testing.T) {
 					User:       mo.Some(model.TextMessage("request")),
 				},
 			},
-			Tools: nil,
+			Tools: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 		},
 		func(update modelexecution.StreamEvent) error {
 			if update.Kind == modelexecution.StreamEventTextDelta {

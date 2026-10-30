@@ -219,7 +219,8 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 						`"additionalProperties":false}`,
 				),
 			},
-		},
+		}, Wire: mo.None[modelexecution.
+			WireCallbacks](),
 	}, func(update modelexecution.StreamEvent) error {
 		if update.Kind == modelexecution.StreamEventTextDelta {
 			updates = append(updates, update)
@@ -361,7 +362,8 @@ func TestDriverStreamSerializesImageAndMapsTerminalAccounting(t *testing.T) {
 					}),
 				},
 			},
-			Tools: nil,
+			Tools: nil, Wire: mo.None[modelexecution.
+				WireCallbacks](),
 		},
 		func(modelexecution.StreamEvent) error { return nil },
 	)

@@ -26,6 +26,8 @@ type Request struct {
 
 // Service coordinates registration policy in its required validation order.
 type Service struct {
+	// middleware owns ordinary wire registration policy.
+	middleware MiddlewareRegistrar
 	// runtimes owns pending extension process lifetime and availability.
 	runtimes RuntimeLoader
 	// tools owns tool descriptor validation, conflicts, and publication.
@@ -50,7 +52,7 @@ func New(
 ) *Service {
 	return &Service{
 		runtimes: runtimes, tools: tools, sessionTree: sessionTree, lifecycle: lifecycle,
-		selection: selection, compaction: nil,
+		selection: selection, compaction: nil, middleware: nil,
 	}
 }
 
@@ -135,17 +137,7 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	handlerAccepted := accepted[:0]
 	for _, registration := range accepted {
 		raw := findPending(pending.Registrations, registration.ID)
-		if validationErr := validateHandlerIdentities(raw.Handlers); validationErr != nil {
-			issues = append(
-				issues,
-				Issue{PluginIDs: []string{registration.ID}, Path: registration.Path, Err: validationErr},
-			)
-			rejected[registration.ID] = struct{}{}
-			continue
-		}
-		sessionHandlers, validationErr := s.sessionTree.ValidateSessionTreeHandlers(
-			partitionHandlers(raw, isSessionTreeKind),
-		)
+		handlers, validationErr := s.validateRegistrationHandlers(raw)
 		if validationErr != nil {
 			issues = append(
 				issues,
@@ -154,39 +146,7 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 			rejected[registration.ID] = struct{}{}
 			continue
 		}
-		lifecycleHandlers, validationErr := s.lifecycle.ValidateLifecycleHandlers(
-			partitionHandlers(raw, isLifecycleKind),
-		)
-		if validationErr != nil {
-			issues = append(
-				issues,
-				Issue{PluginIDs: []string{registration.ID}, Path: registration.Path, Err: validationErr},
-			)
-			rejected[registration.ID] = struct{}{}
-			continue
-		}
-		selectionHandlers, validationErr := s.validateSelectionHandlers(raw)
-		if validationErr != nil {
-			issues = append(
-				issues,
-				Issue{PluginIDs: []string{registration.ID}, Path: registration.Path, Err: validationErr},
-			)
-			rejected[registration.ID] = struct{}{}
-			continue
-		}
-		retryHandlers := partitionHandlers(raw, RawHandlerKind.isRetry).acceptHandlers()
-		compactionHandlers, validationErr := s.validateCompactionHandlers(raw)
-		if validationErr != nil {
-			issues = append(
-				issues,
-				Issue{PluginIDs: []string{registration.ID}, Path: registration.Path, Err: validationErr},
-			)
-			rejected[registration.ID] = struct{}{}
-			continue
-		}
-		registration.Handlers = mergeHandlers(
-			raw.Handlers, sessionHandlers, lifecycleHandlers, selectionHandlers, retryHandlers, compactionHandlers,
-		)
+		registration.Handlers = handlers
 		handlerAccepted = append(handlerAccepted, registration)
 	}
 	accepted = handlerAccepted
@@ -214,6 +174,9 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	s.lifecycle.CommitLifecycleHandlers(accepted)
 	if s.selection != nil {
 		s.selection.CommitSelectionHandlers(accepted)
+	}
+	if s.middleware != nil {
+		s.middleware.CommitMiddlewareHandlers(accepted)
 	}
 	s.runtimes.Accept(accepted)
 
@@ -256,7 +219,7 @@ func validateHandlerIdentities(handlers []RawHandlerDescriptor) error {
 			return errors.New("handler ID is empty")
 		}
 		if !isSessionTreeKind(handler.Kind) && !isLifecycleKind(handler.Kind) && !isSelectionKind(handler.Kind) &&
-			!handler.Kind.isRetry() && !handler.Kind.isCompaction() {
+			!handler.Kind.isRetry() && !handler.Kind.isCompaction() && !handler.Kind.isMiddleware() {
 			return fmt.Errorf("handler %q has unknown kind %d", handler.ID, handler.Kind)
 		}
 		if _, exists := ids[handler.ID]; exists {

@@ -482,6 +482,15 @@ func newHandlerPayloadPredicates() map[extensionpb.HandlerKind]func(*extensionpb
 		extensionpb.HandlerKind_HANDLER_KIND_REASONING_SELECTION: func(request *extensionpb.HandleRequest) bool {
 			return request.GetReasoningSelection() != nil
 		},
+		extensionpb.HandlerKind_HANDLER_KIND_PROVIDER_HEADERS: func(request *extensionpb.HandleRequest) bool {
+			return request.GetProviderHeaders() != nil
+		},
+		extensionpb.HandlerKind_HANDLER_KIND_PROVIDER_BODY: func(request *extensionpb.HandleRequest) bool {
+			return request.GetProviderBody() != nil
+		},
+		extensionpb.HandlerKind_HANDLER_KIND_PROVIDER_RESPONSE: func(request *extensionpb.HandleRequest) bool {
+			return request.GetProviderResponse() != nil
+		},
 		extensionpb.HandlerKind_HANDLER_KIND_RETRY: func(request *extensionpb.HandleRequest) bool {
 			return request.GetRetry() != nil
 		},

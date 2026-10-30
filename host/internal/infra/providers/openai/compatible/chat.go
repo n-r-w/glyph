@@ -11,6 +11,7 @@ import (
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	openaiwire "github.com/n-r-w/glyph/host/internal/infra/providers/openai"
 
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
@@ -80,14 +81,16 @@ func (s *Driver) streamChatCompletions(
 	ctx context.Context,
 	configuredModel modelConfig,
 	key string,
+	wire mo.Option[modelexecution.WireCallbacks],
 	params openai.ChatCompletionNewParams,
 	target model.ProviderContextSource,
 	handle modelexecution.StreamHandler,
-) (model.Response, error) {
-	opts := s.requestOptions(key)
+	diagnostics *openaiwire.WireDiagnostics,
+) (result model.Response, returnErr error) {
+	opts := append(s.requestOptions(key), diagnostics.NewWireOption(wire))
 	service := openai.NewChatCompletionService(opts...)
 	stream := service.NewStreaming(ctx, params)
-	defer func() { _ = stream.Close() }()
+	defer func() { returnErr = errors.Join(returnErr, stream.Close()) }()
 	state := newChatAccumulator(configuredModel.reasoningFormat, target)
 	handleEvent := tagHandlerErrors(handle)
 	for stream.Next() {

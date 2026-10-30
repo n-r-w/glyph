@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -99,7 +100,8 @@ func TestRefusalContinuation(t *testing.T) {
 				Instructions:    "instructions",
 				Model:           testModelDescriptor("gpt-test"),
 				History:         nil,
-				Tools:           nil,
+				Tools:           nil, Wire: mo.None[modelexecution.
+							WireCallbacks](),
 			}, func(event modelexecution.StreamEvent) error {
 				if event.Kind == modelexecution.StreamEventTextDelta {
 					deltas = append(deltas, event.Delta.OrEmpty())
@@ -188,7 +190,8 @@ func TestTerminalImmediateExits(t *testing.T) {
 				Instructions:    "instructions",
 				Model:           testModelDescriptor("gpt-test"),
 				History:         nil,
-				Tools:           nil,
+				Tools:           nil, Wire: mo.None[modelexecution.
+							WireCallbacks](),
 			}, func(event modelexecution.StreamEvent) error {
 				if event.Kind == modelexecution.StreamEventDone || event.Kind == modelexecution.StreamEventError {
 					terminals++
@@ -260,7 +263,8 @@ func TestRefusalContinuationHTTPCancellation(t *testing.T) {
 	go func() {
 		result <- driver.Stream(ctx, modelexecution.ProviderRequest{
 			ReasoningChoice: model.ReasoningChoiceOn, Instructions: "instructions", Model: testModelDescriptor("gpt-test"),
-			History: nil, Tools: nil,
+			History: nil, Tools: nil, Wire: mo.None[modelexecution.
+					WireCallbacks](),
 		}, func(event modelexecution.StreamEvent) error {
 			if event.Kind == modelexecution.StreamEventContentEnd {
 				close(acquired)

@@ -30,8 +30,12 @@ func (s *Service) compactManualPolicy(
 ) (ManualCompactionResult, error) {
 	binding := s.catalog.ActiveBinding()
 	input := ProviderRequest{
-		Instructions: s.manualInstructions, Model: binding.Model,
-		ReasoningChoice: binding.ReasoningChoice, History: nil, Tools: s.manualTools.Tools(),
+		Instructions:    s.manualInstructions,
+		Model:           binding.Model,
+		ReasoningChoice: binding.ReasoningChoice,
+		History:         nil,
+		Tools:           s.manualTools.Tools(),
+		Wire:            mo.None[WireCallbacks](),
 	}
 	return s.manualPreparation.CompactManualPolicy(ctx, input, instructions)
 }

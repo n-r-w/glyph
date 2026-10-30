@@ -60,7 +60,7 @@ func (s *manualPolicyUsesOneCapturedSessionSuite) TestScenario() {
 	// Act through manual preparation with the captured conversation selection and manual guidance.
 	result, err := service.CompactManualPolicy(t.Context(), modelexecution.ProviderRequest{
 		Instructions: "conversation instructions", Model: model.Descriptor{}, ReasoningChoice: model.ReasoningChoiceOff,
-		History: nil, Tools: nil,
+		History: nil, Tools: nil, Wire: mo.None[modelexecution.WireCallbacks](),
 	}, mo.Some("manual guidance"))
 
 	// Assert that the captured owner's complete cause survives without replacement or recapture.

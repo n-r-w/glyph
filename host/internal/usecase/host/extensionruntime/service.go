@@ -17,6 +17,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessiontree"
@@ -58,6 +59,7 @@ type Service struct {
 }
 
 var (
+	_ middleware.Runtime                    = (*Service)(nil)
 	_ startup.RuntimeLoader                 = (*Service)(nil)
 	_ hostui.RuntimeActivation              = (*Service)(nil)
 	_ toolservice.Runtime                   = (*Service)(nil)

@@ -17,6 +17,7 @@ import (
 	extension0 "github.com/n-r-w/glyph/host/internal/domain/extension"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensioncontext "github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
+	middleware "github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -199,6 +200,21 @@ func (m *MockExtensionRuntime) HandleCompactionResult(arg0 context.Context, arg1
 func (mr *MockExtensionRuntimeMockRecorder) HandleCompactionResult(arg0, arg1, arg2, arg3 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleCompactionResult", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleCompactionResult), arg0, arg1, arg2, arg3)
+}
+
+// HandleWire mocks base method.
+func (m *MockExtensionRuntime) HandleWire(arg0 context.Context, arg1 string, arg2 middleware.Invocation) (middleware.Action, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleWire", arg0, arg1, arg2)
+	ret0, _ := ret[0].(middleware.Action)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleWire indicates an expected call of HandleWire.
+func (mr *MockExtensionRuntimeMockRecorder) HandleWire(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleWire", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleWire), arg0, arg1, arg2)
 }
 
 // InvokeCompactionPolicy mocks base method.
