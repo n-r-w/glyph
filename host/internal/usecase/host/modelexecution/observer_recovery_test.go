@@ -126,14 +126,14 @@ func TestCurrentObserverFailureStopsRecovery(t *testing.T) {
 					completion, err := service.execute(
 						ctx,
 						provider,
-						ProviderRequest{},
+						preparedRequest{},
 						func(StreamEvent) error { return observerCause },
 						func(RetryProgress) error { progress++; return nil },
 						errors.New("missing terminal"),
 						"missing terminal",
-						func(context.Context, ProviderRequest, error) (ConversationPreparation, error) {
+						func(_ context.Context, request preparedRequest, _ error, _ []error) (preparedRequest, error) {
 							recoveries++
-							return ConversationPreparation{History: nil, Committed: true}, nil
+							return request, nil
 						},
 					)
 					// Assert current observer identity, adapter identity and response data survive without any recovery.
@@ -200,7 +200,7 @@ func TestObserverOwningCancellationRetainsDiagnostics(t *testing.T) {
 	_, err := service.execute(
 		ctx,
 		provider,
-		ProviderRequest{},
+		preparedRequest{},
 		func(StreamEvent) error { cancel(); return context.Canceled },
 		nil,
 		errors.New("missing terminal"),

@@ -244,6 +244,10 @@ enum HandlerKind {
   HANDLER_KIND_PROVIDER_BODY = 27;
   // The handler observes provider response status and public headers.
   HANDLER_KIND_PROVIDER_RESPONSE = 28;
+  // The handler transforms the system instructions of one model request.
+  HANDLER_KIND_SYSTEM_INSTRUCTIONS = 29;
+  // The handler transforms the request-local history of one model request.
+  HANDLER_KIND_MODEL_CONTEXT = 30;
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.

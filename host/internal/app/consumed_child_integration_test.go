@@ -119,11 +119,15 @@ func assertConsumedCompactionStopsCore(t *testing.T, completeCause string) {
 			})
 		},
 	)
-	modelRuntime := agentrun.NewMockModelRuntime(mocks)
-	snapshot := modelExecution.Snapshot()
-	modelRuntime.EXPECT().Snapshot().Return(agentrun.RequestSnapshot{
-		Model: snapshot.Model, ReasoningChoice: snapshot.ReasoningChoice, Provider: provider,
-	})
+	modelRuntime := agentrun.NewMockEffectiveContextPort(mocks)
+	snapshot := providerCatalog.ActiveBinding()
+	modelRuntime.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request agentrun.ContextRequest) (agentrun.EffectiveContext, error) {
+			return agentrun.EffectiveContext{Request: agentrun.ModelRequest{
+				Instructions: request.Instructions, Model: snapshot.Model, ReasoningChoice: snapshot.ReasoningChoice,
+				History: request.History, Tools: request.Tools,
+			}, Provider: provider}, nil
+		})
 	events := agentrun.NewMockEventSink(mocks)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	core := agentrun.New(codingagent.Instructions(), modelRuntime, tools, events, sessionServices.active)

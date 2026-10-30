@@ -24,7 +24,7 @@ func (s *Service) composeHeaders(
 		}
 		action, err := s.invoke(ctx, handler, Invocation{
 			Context:         extension.Context{},
-			Kind:            Headers,
+			Operation:       HeadersOperation,
 			OriginalHeaders: original.Clone(),
 			CurrentHeaders:  current.Clone(),
 			OriginalBody:    nil,
@@ -68,7 +68,7 @@ func (s *Service) composeBody(
 		}
 		action, err := s.invoke(ctx, handler, Invocation{
 			Context:         extension.Context{},
-			Kind:            Body,
+			Operation:       BodyOperation,
 			OriginalHeaders: nil,
 			CurrentHeaders:  nil,
 			OriginalBody: slices.Clone(
@@ -112,7 +112,7 @@ func (s *Service) observeResponse(ctx context.Context, handlers []Handler, respo
 		}
 		action, err := s.invoke(ctx, handler, Invocation{
 			Context:         extension.Context{},
-			Kind:            Response,
+			Operation:       ResponseOperation,
 			OriginalHeaders: nil,
 			CurrentHeaders:  nil,
 			OriginalBody:    nil,

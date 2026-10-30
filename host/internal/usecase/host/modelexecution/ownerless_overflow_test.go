@@ -49,7 +49,7 @@ func TestServiceOwnerlessOverflowHandlers(t *testing.T) {
 				if configured {
 					catalog.EXPECT().ResolveConfiguredBinding(gomock.Any(), selection).Return(binding, nil)
 				} else {
-					catalog.EXPECT().ResolveBinding(selection).Return(binding, nil)
+					catalog.EXPECT().ActiveBinding().Return(binding)
 				}
 				source := errors.New("complete oversized input source cause")
 				handlerCause := errors.New("complete retry participant cause")
@@ -139,12 +139,10 @@ func TestServiceOwnerlessOverflowHandlers(t *testing.T) {
 							return nil
 						})
 				} else {
-					err = service.Stream(t.Context(), agentrun.ModelRequest{
-						Instructions:    "",
-						Model:           descriptor,
-						ReasoningChoice: selection.ReasoningChoice,
-						History:         nil,
-						Tools:           nil,
+					err = streamLogical(t.Context(), service, agentrun.ContextRequest{
+						Instructions: "",
+						History:      nil,
+						Tools:        nil,
 					}, func(agentrun.StreamEvent) error { return nil })
 				}
 

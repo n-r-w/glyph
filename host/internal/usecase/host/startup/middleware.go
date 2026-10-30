@@ -14,12 +14,12 @@ func (s *Service) BindMiddleware(owner MiddlewareRegistrar) error {
 	return nil
 }
 
-// isMiddleware reports whether a kind belongs to the ordinary wire owner.
+// isMiddleware reports whether a kind belongs to the ordinary model-facing middleware owner.
 func (kind RawHandlerKind) isMiddleware() bool {
-	return kind >= RawHandlerKindProviderHeaders && kind <= RawHandlerKindProviderResponse
+	return kind >= RawHandlerKindProviderHeaders && kind <= RawHandlerKindModelContext
 }
 
-// validateMiddlewareHandlers validates the wire partition without publishing partial registration.
+// validateMiddlewareHandlers validates the middleware partition without publishing partial registration.
 func (s *Service) validateMiddlewareHandlers(registration PendingRegistration) ([]AcceptedHandler, error) {
 	partition := partitionHandlers(registration, RawHandlerKind.isMiddleware)
 	if len(partition.Handlers) == 0 {

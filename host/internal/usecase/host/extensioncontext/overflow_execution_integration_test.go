@@ -36,7 +36,12 @@ func TestModelExecutionOverflowRecoveryRejectsPostCommitGrowth(t *testing.T) {
 		})
 
 	// Act through one logical model execution and captured recovery.
-	err := harness.execution.Stream(t.Context(), harness.agentRequest, func(agentrun.StreamEvent) error { return nil })
+	err := streamLogical(
+		t.Context(),
+		harness.execution,
+		harness.agentRequest,
+		func(agentrun.StreamEvent) error { return nil },
+	)
 
 	// Assert the independent receipt and every cause survive without another provider dispatch.
 	require.ErrorIs(t, err, providerCause)
@@ -72,7 +77,12 @@ func TestModelExecutionOverflowAtAttemptExhaustionIsTerminal(t *testing.T) {
 		})
 
 	// Act through the admitted retry and its exhausted overflow.
-	err := harness.execution.Stream(t.Context(), harness.agentRequest, func(agentrun.StreamEvent) error { return nil })
+	err := streamLogical(
+		t.Context(),
+		harness.execution,
+		harness.agentRequest,
+		func(agentrun.StreamEvent) error { return nil },
+	)
 
 	// Assert the captured owner receives only the admitted recovery and all provider causes remain terminal.
 	require.Equal(t, 2, calls)
@@ -98,7 +108,7 @@ type overflowExecutionHarness struct {
 	// retryOutput represents Host progress delivery.
 	retryOutput *modelexecution.MockRetryOutput
 	// agentRequest contains the frozen conversation binding.
-	agentRequest agentrun.ModelRequest
+	agentRequest agentrun.ContextRequest
 	// commits is the number of independently acquired replacement receipts.
 	commits *int
 }
@@ -241,10 +251,10 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 		ReasoningChoice: model.ReasoningChoiceOff,
 	}
 	catalog.EXPECT().
-		ResolveBinding(selection).
+		ActiveBinding().
 		Return(modelexecution.CatalogBinding{
 			Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-		}, nil)
+		})
 	execution := modelexecution.New(catalog, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
 	}, nil, output, service)
@@ -253,12 +263,10 @@ func newOverflowExecutionHarness(t *testing.T, initial, rebuilt string, finalCau
 		contexts:    service,
 		provider:    provider,
 		retryOutput: output,
-		agentRequest: agentrun.ModelRequest{
-			Instructions:    "instructions",
-			Model:           descriptor,
-			ReasoningChoice: selection.ReasoningChoice,
-			History:         before.History.Content(),
-			Tools:           nil,
+		agentRequest: agentrun.ContextRequest{
+			Instructions: "instructions",
+			History:      before.History.Content(),
+			Tools:        nil,
 		},
 		commits: &commits,
 	}
@@ -270,4 +278,18 @@ func newOverflowExecutionHistory(text string) agent.HistoryEntry {
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(text)),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}
+}
+
+// streamLogical executes one Agent Core request through the effective-context port and its prepared provider.
+func streamLogical(
+	ctx context.Context,
+	execution *modelexecution.Service,
+	request agentrun.ContextRequest,
+	handle agentrun.StreamHandler,
+) error {
+	effective, err := execution.PrepareContext(ctx, request)
+	if err != nil {
+		return err
+	}
+	return effective.Provider.Stream(ctx, effective.Request, handle)
 }

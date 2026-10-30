@@ -35,7 +35,7 @@ func TestWireNeutralProviderAcrossCallers(t *testing.T) {
 			if configured {
 				catalog.EXPECT().ResolveConfiguredBinding(gomock.Any(), gomock.Any()).Return(binding, nil)
 			} else {
-				catalog.EXPECT().ResolveBinding(gomock.Any()).Return(binding, nil)
+				catalog.EXPECT().ActiveBinding().Return(binding)
 			}
 			observed := false
 			middleware.EXPECT().NewWireCallbacks().Return(WireCallbacks{
@@ -83,14 +83,11 @@ func TestWireNeutralProviderAcrossCallers(t *testing.T) {
 			} else {
 				require.NoError(
 					t,
-					execution.Stream(
-						t.Context(),
-						agentrun.ModelRequest{
-							Instructions:    "",
-							Model:           model.Descriptor{},
-							ReasoningChoice: model.ReasoningChoiceOff,
-							History:         nil,
-							Tools:           nil,
+					streamLogical(t.Context(), execution,
+						agentrun.ContextRequest{
+							Instructions: "",
+							History:      nil,
+							Tools:        nil,
 						},
 						func(agentrun.StreamEvent) error { return nil },
 					),

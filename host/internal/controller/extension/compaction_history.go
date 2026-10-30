@@ -41,7 +41,7 @@ func MapCompactionHistory(history []agent.HistoryEntry) ([]*extensionpb.Compacti
 			builder.User = mapCompactionUser(entry.User.OrEmpty())
 		case agent.HistoryEntryModel:
 			response := entry.Model.OrEmpty()
-			mapped, err := mapCompactionModelResponse(response)
+			mapped, err := MapSessionTreeModelResponse(response)
 			if err != nil {
 				return nil, err
 			}
@@ -83,8 +83,8 @@ func mapCompactionUser(message model.Message) *extensionpb.SessionTreeUserMessag
 	return extensionpb.SessionTreeUserMessage_builder{Content: contents}.Build()
 }
 
-// mapCompactionModelResponse encodes public model content for prepared history.
-func mapCompactionModelResponse(response model.Response) (*extensionpb.SessionTreeModelResponse, error) {
+// MapSessionTreeModelResponse encodes model-visible response content without provider-owned replay.
+func MapSessionTreeModelResponse(response model.Response) (*extensionpb.SessionTreeModelResponse, error) {
 	contents := make([]*extensionpb.SessionTreeModelContent, 0, len(response.Content))
 	for index := range response.Content {
 		content := &response.Content[index]

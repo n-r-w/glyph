@@ -6,11 +6,12 @@ import (
 	"slices"
 	"sync"
 
+	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
-// Service owns accepted declarations and sequential wire composition.
+// Service owns accepted declarations and sequential middleware composition.
 type Service struct {
 	// mutex protects registration snapshots.
 	mutex sync.RWMutex
@@ -24,8 +25,9 @@ type Service struct {
 
 // Verify the owner implements model-execution callbacks and startup registration contracts.
 var (
-	_ modelexecution.WireMiddleware = (*Service)(nil)
-	_ startup.MiddlewareRegistrar   = (*Service)(nil)
+	_ modelexecution.WireMiddleware    = (*Service)(nil)
+	_ modelexecution.ContextMiddleware = (*Service)(nil)
+	_ startup.MiddlewareRegistrar      = (*Service)(nil)
 )
 
 // New connects ordinary invocation mechanics and trusted context issuance.
@@ -33,7 +35,7 @@ func New(runtime Runtime, contexts ContextIssuer) *Service {
 	return &Service{mutex: sync.RWMutex{}, handlers: nil, runtime: runtime, contexts: contexts}
 }
 
-// mapMiddlewareKind maps only declarations owned by ordinary wire composition.
+// mapMiddlewareKind maps only declarations owned by ordinary middleware composition.
 func mapMiddlewareKind(raw startup.RawHandlerKind) (Kind, bool) {
 	//nolint:exhaustive // Other accepted capabilities belong to separate registration owners.
 	switch raw {
@@ -43,12 +45,16 @@ func mapMiddlewareKind(raw startup.RawHandlerKind) (Kind, bool) {
 		return Body, true
 	case startup.RawHandlerKindProviderResponse:
 		return Response, true
+	case startup.RawHandlerKindSystemInstructions:
+		return SystemInstructions, true
+	case startup.RawHandlerKindModelContext:
+		return ModelContext, true
 	default:
 		return 0, false
 	}
 }
 
-// ValidateMiddlewareHandlers accepts the wire partition of a registration.
+// ValidateMiddlewareHandlers accepts the middleware partition of a registration.
 func (s *Service) ValidateMiddlewareHandlers(
 	registration startup.PendingRegistration,
 ) ([]startup.AcceptedHandler, error) {
@@ -78,11 +84,16 @@ func (s *Service) CommitMiddlewareHandlers(registrations []startup.AcceptedRegis
 	}
 }
 
+// snapshotHandlers copies the accepted declarations in registration order.
+func (s *Service) snapshotHandlers() []Handler {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	return slices.Clone(s.handlers)
+}
+
 // NewWireCallbacks captures ordered handlers for one raw provider attempt.
 func (s *Service) NewWireCallbacks() modelexecution.WireCallbacks {
-	s.mutex.RLock()
-	handlers := slices.Clone(s.handlers)
-	s.mutex.RUnlock()
+	handlers := s.snapshotHandlers()
 	return modelexecution.WireCallbacks{
 		Headers: func(
 			ctx context.Context,
@@ -101,14 +112,23 @@ func (s *Service) NewWireCallbacks() modelexecution.WireCallbacks {
 	}
 }
 
-// invoke binds one generation and exposes complete ordinary handler failures.
-func (s *Service) invoke(ctx context.Context, handler Handler, input Invocation) (Action, error) {
+// bind issues the trusted generation and session binding for one handler invocation.
+func (s *Service) bind(ctx context.Context, handler Handler) (extension.Context, error) {
 	if err := ctx.Err(); err != nil {
-		return Action{}, err
+		return extension.Context{}, err
 	}
 	binding, err := s.contexts.IssueContext(handler.ExtensionID)
 	if err != nil {
-		return Action{}, fmt.Errorf("middleware handler %q context: %w", handler.HandlerID, err)
+		return extension.Context{}, fmt.Errorf("middleware handler %q context: %w", handler.HandlerID, err)
+	}
+	return binding, nil
+}
+
+// invoke binds one generation and exposes complete ordinary handler failures.
+func (s *Service) invoke(ctx context.Context, handler Handler, input Invocation) (Action, error) {
+	binding, err := s.bind(ctx, handler)
+	if err != nil {
+		return Action{}, err
 	}
 	input.Context = binding
 	action, err := s.runtime.HandleWire(ctx, handler.ExtensionID, handler.HandlerID, input)

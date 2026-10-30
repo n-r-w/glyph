@@ -170,23 +170,25 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 
 	controller := gomock.NewController(t)
 	provider := agentrun.NewMockModelProvider(controller)
-	runtime := agentrun.NewMockModelRuntime(controller)
+	runtime := agentrun.NewMockEffectiveContextPort(controller)
 	tools := agentrun.NewMockToolRuntime(controller)
 	events := agentrun.NewMockEventSink(controller)
-	runtime.EXPECT().Snapshot().Return(agentrun.RequestSnapshot{
-		Model: model.Descriptor{
-			Provider:              "provider",
-			Model:                 "model",
-			Input:                 nil,
-			ContextWindow:         0,
-			MaxTokens:             0,
-			ReasoningCapabilities: model.ReasoningCapabilities{},
-			ToolCapabilities:      model.ToolCapabilities{},
-			Pricing:               mo.None[model.Pricing](),
-		},
-		ReasoningChoice: model.ReasoningChoiceOff,
-		Provider:        provider,
-	})
+	runtime.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request agentrun.ContextRequest) (agentrun.EffectiveContext, error) {
+			return agentrun.EffectiveContext{Request: agentrun.ModelRequest{
+				Instructions: request.Instructions, Model: model.Descriptor{
+					Provider:              "provider",
+					Model:                 "model",
+					Input:                 nil,
+					ContextWindow:         0,
+					MaxTokens:             0,
+					ReasoningCapabilities: model.ReasoningCapabilities{},
+					ToolCapabilities:      model.ToolCapabilities{},
+					Pricing:               mo.None[model.Pricing](),
+				}, ReasoningChoice: model.ReasoningChoiceOff,
+				History: request.History, Tools: request.Tools,
+			}, Provider: provider}, nil
+		})
 	tools.EXPECT().Tools().Return(nil)
 	providerErr := errors.New("provider stopped")
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(

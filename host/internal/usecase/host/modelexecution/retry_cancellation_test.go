@@ -47,7 +47,7 @@ func TestRetryCancellationRetainsProviderCause(t *testing.T) {
 				if entry == "configured" {
 					catalog.EXPECT().ResolveConfiguredBinding(gomock.Any(), selection).Return(binding, nil)
 				} else {
-					catalog.EXPECT().ResolveBinding(selection).Return(binding, nil)
+					catalog.EXPECT().ActiveBinding().Return(binding)
 				}
 				source := errors.New("transient provider failure\nsource α")
 				provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
@@ -83,9 +83,8 @@ func TestRetryCancellationRetainsProviderCause(t *testing.T) {
 					response, err = service.RequestConfigured(ctx, selection, "instructions", nil,
 						func(int64, int64, time.Duration, string) error { return cancelProgress() })
 				} else {
-					err = service.Stream(ctx, agentrun.ModelRequest{
-						Instructions: "instructions", Model: binding.Model, ReasoningChoice: selection.ReasoningChoice,
-						History: nil, Tools: nil,
+					err = streamLogical(ctx, service, agentrun.ContextRequest{
+						Instructions: "instructions", History: nil, Tools: nil,
 					}, func(agentrun.StreamEvent) error { return nil })
 				}
 
@@ -245,9 +244,9 @@ func TestServiceCancellationPreservesIndependentDeliveryFailure(t *testing.T) {
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	ctx, cancel := context.WithCancel(t.Context())
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ProviderRequest, handle StreamHandler) error {
@@ -269,9 +268,8 @@ func TestServiceCancellationPreservesIndependentDeliveryFailure(t *testing.T) {
 	independent := errors.New("deliver model content")
 
 	// Act while the logical stream callback has an independent failure.
-	err := service.Stream(ctx, agentrun.ModelRequest{
-		Instructions: "", Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice,
-		History: nil, Tools: nil,
+	err := streamLogical(ctx, service, agentrun.ContextRequest{
+		Instructions: "", History: nil, Tools: nil,
 	}, func(agentrun.StreamEvent) error { return independent })
 
 	// Assert caller cancellation and the independent delivery failure both survive.
@@ -338,7 +336,7 @@ func TestExecuteUntypedTimeoutKeepsInternalIdentity(t *testing.T) {
 	}, nil, nil, newTestConversationObservations(t))
 	// Act through the shared logical execution state machine.
 	_, err := service.execute(
-		t.Context(), provider, ProviderRequest{}, nil, nil, errors.New("terminal response missing"),
+		t.Context(), provider, preparedRequest{}, nil, nil, errors.New("terminal response missing"),
 		"terminal response missing", nil,
 	)
 
@@ -365,7 +363,7 @@ func TestExecuteRetryProgressTimeoutKeepsInternalIdentity(t *testing.T) {
 	}, nil, nil, newTestConversationObservations(t))
 	// Act with a delivery callback that returns a cancellation sentinel while the caller remains active.
 	_, err := service.execute(
-		t.Context(), provider, ProviderRequest{}, nil, func(RetryProgress) error {
+		t.Context(), provider, preparedRequest{}, nil, func(RetryProgress) error {
 			return context.DeadlineExceeded
 		}, errors.New("terminal response missing"), "terminal response missing", nil,
 	)

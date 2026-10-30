@@ -8,20 +8,6 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
-// ResolveBinding resolves one exact selection without changing active selection or checking credentials.
-func (c *Catalog) ResolveBinding(selection model.Selection) (modelexecution.CatalogBinding, error) {
-	// entry is the immutable raw binding for the exact logical selection.
-	entry, err := c.resolveEntry(selection)
-	if err != nil {
-		return modelexecution.CatalogBinding{}, err
-	}
-	return modelexecution.CatalogBinding{
-		Model:           entry.Descriptor.Clone(),
-		ReasoningChoice: selection.ReasoningChoice,
-		Provider:        entry.Provider,
-	}, nil
-}
-
 // ResolveConfiguredBinding resolves one exact selection and checks its request credentials.
 func (c *Catalog) ResolveConfiguredBinding(
 	ctx context.Context,

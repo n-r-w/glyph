@@ -2,6 +2,8 @@ edition = "2023";
 
 package glyph.plugins.extension.v1;
 
+import "api/plugins/extension/v1/session_entry.proto";
+
 option go_package = "github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1";
 
 // WireHeaders contains public headers with ordered values per name.
@@ -68,4 +70,77 @@ message ProviderResponseInvocation {
 message ProviderResponseAction {
   // True acknowledges observation; false is invalid.
   bool acknowledge = 1;
+}
+
+// SystemInstructionsInvocation supplies the immutable original and composed current system instructions.
+message SystemInstructionsInvocation {
+  // The immutable instructions of the prepared model request.
+  string original = 1;
+  // The instructions produced by preceding handlers.
+  string current = 2;
+}
+
+// SystemInstructionsAction preserves the current instructions or replaces them.
+message SystemInstructionsAction {
+  // The handler must select one valid action.
+  oneof action {
+    // True preserves current instructions; false is invalid.
+    bool preserve = 1;
+    // The complete replacement instructions.
+    string replace = 2;
+  }
+}
+
+// ModelContextInvocation supplies request-local history with invocation-local private replay references.
+// A retained reference restores its private replay; removing it discards that replay.
+// Unknown, altered, duplicated, or misplaced references fail the handler.
+message ModelContextInvocation {
+  // The immutable history of the prepared model request.
+  ModelContextHistory original = 1;
+  // The history produced by preceding handlers.
+  ModelContextHistory current = 2;
+}
+
+// ModelContextAction preserves the current history or replaces it for this model request only.
+message ModelContextAction {
+  // The handler must select one valid action.
+  oneof action {
+    // True preserves current history; false is invalid.
+    bool preserve = 1;
+    // The complete replacement history.
+    ModelContextHistory replace = 2;
+  }
+}
+
+// ModelContextHistory contains ordered provider-neutral history entries.
+message ModelContextHistory {
+  // The entries in model request order.
+  repeated ModelContextEntry entries = 1;
+}
+
+// ModelContextEntry contains one user message, model response, or tool result.
+message ModelContextEntry {
+  // Exactly one entry payload is required.
+  oneof content {
+    // One user message.
+    SessionTreeUserMessage user = 1;
+    // One model response with private replay references.
+    ReplayableModelResponse model = 2;
+    // One terminal tool result.
+    SessionTreeToolResult tool_result = 3;
+  }
+}
+
+// ReplayableModelResponse contains ordered model-visible content with private replay references.
+message ReplayableModelResponse {
+  // The ordered response blocks.
+  repeated ReplayableModelContent content = 1;
+}
+
+// ReplayableModelContent contains one model-visible block and an optional private replay reference.
+message ReplayableModelContent {
+  // The model-visible block.
+  SessionTreeModelContent content = 1;
+  // The invocation-local reference to private replay owned by reasoning content; empty when absent.
+  string replay_reference = 2;
 }

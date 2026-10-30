@@ -30,7 +30,7 @@ func TestRunSummaryAfterHistoryReplacement(t *testing.T) {
 			controller := gomock.NewController(t)
 			store := NewMockHistoryStore(controller)
 			provider := NewMockModelProvider(controller)
-			runtime := NewMockModelRuntime(controller)
+			runtime := NewMockEffectiveContextPort(controller)
 			tools := NewMockToolRuntime(controller)
 			events := NewMockEventSink(controller)
 			prepared := make([]agent.HistoryEntry, 10)
@@ -52,9 +52,10 @@ func TestRunSummaryAfterHistoryReplacement(t *testing.T) {
 					return nil
 				},
 			).AnyTimes()
-			runtime.EXPECT().Snapshot().Return(RequestSnapshot{
-				Model: testModelDescriptor, ReasoningChoice: "", Provider: provider,
-			}).AnyTimes()
+			runtime.EXPECT().
+				PrepareContext(gomock.Any(), gomock.Any()).
+				DoAndReturn(passThroughContext(testModelDescriptor, "", provider)).
+				AnyTimes()
 			tools.EXPECT().Tools().Return(nil).AnyTimes()
 			calls := 0
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -190,10 +191,11 @@ func TestRunSummaryOwnsDetachedEntries(t *testing.T) {
 	response := emptyModelResponse(model.OutcomeStop)
 	response.Content = []model.Content{testTextItem("response")}
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil)).Times(2)
-	runtime := NewMockModelRuntime(controller)
-	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
-		Model: testModelDescriptor, ReasoningChoice: "", Provider: provider,
-	}).Times(2)
+	runtime := NewMockEffectiveContextPort(controller)
+	runtime.EXPECT().
+		PrepareContext(gomock.Any(), gomock.Any()).
+		DoAndReturn(passThroughContext(testModelDescriptor, "", provider)).
+		Times(2)
 	tools := NewMockToolRuntime(controller)
 	tools.EXPECT().Tools().Return(nil).Times(2)
 	service = New(testInstructions, runtime, tools, events, store)

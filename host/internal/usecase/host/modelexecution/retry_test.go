@@ -32,9 +32,9 @@ func TestServiceStreamResetsPartialResponseBeforeRetry(t *testing.T) {
 
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	attempt := 0
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Times(2).DoAndReturn(
 		func(_ context.Context, _ ProviderRequest, handle StreamHandler) error {
@@ -77,9 +77,8 @@ func TestServiceStreamResetsPartialResponseBeforeRetry(t *testing.T) {
 	var kinds []agentrun.StreamEventKind
 
 	// Act through the Agent Core logical stream.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-		History: nil, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: nil, Tools: nil,
 	}, func(event agentrun.StreamEvent) error {
 		kinds = append(kinds, event.Kind)
 		return nil
@@ -168,9 +167,9 @@ func TestServiceFinalFailureDeliversRetainedTerminalResponse(t *testing.T) {
 	provider := NewMockProviderAttempt(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	terminal := model.Response{
 		Content: nil, Outcome: mo.Some(model.OutcomeFailed), ErrorMessage: mo.Some("provider rejected request"),
 		Provider: mo.Some(selection.Provider), Model: mo.Some(selection.Model),
@@ -200,8 +199,8 @@ func TestServiceFinalFailureDeliversRetainedTerminalResponse(t *testing.T) {
 	var delivered []agentrun.StreamEvent
 
 	// Act through the Agent Core stream boundary.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "", Model: descriptor, ReasoningChoice: selection.ReasoningChoice, History: nil, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "", History: nil, Tools: nil,
 	}, func(event agentrun.StreamEvent) error {
 		delivered = append(delivered, event)
 		return nil
@@ -255,9 +254,9 @@ func TestServiceRetryAttemptsDeepCopyToolSchemas(t *testing.T) {
 	catalog := NewMockCatalogResolver(controller)
 	provider := NewMockProviderAttempt(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	originalSchema := []byte(`{"type":"object"}`)
 	gomock.InOrder(
 		provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
@@ -284,9 +283,8 @@ func TestServiceRetryAttemptsDeepCopyToolSchemas(t *testing.T) {
 	}, nil, retryOutput, newTestConversationObservations(t))
 
 	// Act through the streaming path with one tool descriptor.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "", Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice,
-		History: nil, Tools: []tool.Descriptor{{
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "", History: nil, Tools: []tool.Descriptor{{
 			Name: "read", Description: "read", InputSchemaJSON: slices.Clone(originalSchema),
 			ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
 		}},

@@ -28,9 +28,9 @@ func TestServicePreparesInitialConversationContext(t *testing.T) {
 	preparation := NewMockCapturedConversation(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	preparedHistory := []agent.HistoryEntry{textHistoryEntry("compacted")}
 	preparation.EXPECT().Prepare(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ProviderRequest) (ConversationPreparation, error) {
@@ -47,9 +47,8 @@ func TestServicePreparesInitialConversationContext(t *testing.T) {
 	service := New(catalog, disabledRetryPolicy(), nil, nil, newTestCapturedPolicies(t, preparation))
 
 	// Act through the active-conversation stream.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-		History: []agent.HistoryEntry{textHistoryEntry("original")}, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: []agent.HistoryEntry{textHistoryEntry("original")}, Tools: nil,
 	}, func(_ agentrun.StreamEvent) error { return nil })
 
 	// Assert preparation completed before provider dispatch.
@@ -67,18 +66,17 @@ func TestServicePreservesTypedPreparationFailure(t *testing.T) {
 	preparation := NewMockCapturedConversation(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	preparation.EXPECT().Prepare(gomock.Any(), gomock.Any()).Return(
 		ConversationPreparation{}, typedPreparationFailure{cause: errors.New("extension failed")},
 	)
 	service := New(catalog, disabledRetryPolicy(), nil, nil, newTestCapturedPolicies(t, preparation))
 
 	// Act before provider dispatch.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-		History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
 	}, func(_ agentrun.StreamEvent) error { return nil })
 
 	// Assert the complete cause and original category remain discoverable.
@@ -138,9 +136,9 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
 			}
 			descriptor := modelDescriptor(selection)
-			catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+			catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 				Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-			}, nil)
+			})
 			callerCause := errors.New("user canceled initial preparation")
 			independentCause := errors.New("extension failed during initial preparation")
 			ctx, cancel := context.WithCancelCause(t.Context())
@@ -163,9 +161,8 @@ func TestServiceInitialPreparationCancellationMatrix(t *testing.T) {
 			}, nil, output, newTestCapturedPolicies(t, preparation))
 
 			// Act through the full initial context-preparation owner.
-			err := service.Stream(ctx, agentrun.ModelRequest{
-				Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-				History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
+			err := streamLogical(ctx, service, agentrun.ContextRequest{
+				Instructions: "instructions", History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
 			}, func(_ agentrun.StreamEvent) error { return nil })
 
 			// Assert pre-commit owning cancellation stays untyped while committed or independent failures retain causes.
@@ -203,9 +200,9 @@ func TestServiceDisabledRetryClassifiesOverflowWithCapturedOwner(t *testing.T) {
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	providerCause := errors.New("provider context overflow with retry disabled")
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
 		Classification: ProviderFailureContextOverflow, RetryDelay: mo.None[time.Duration](), Cause: providerCause,
@@ -215,9 +212,8 @@ func TestServiceDisabledRetryClassifiesOverflowWithCapturedOwner(t *testing.T) {
 	}, nil, output, newTestCapturedPolicies(t, preparation))
 
 	// Act through the full model-execution owner.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-		History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
 	}, func(_ agentrun.StreamEvent) error { return nil })
 
 	// Assert recovery is not called and overflow retains its public terminal identity and cause.
@@ -265,9 +261,9 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 				Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow,
 			}
 			descriptor := modelDescriptor(selection)
-			catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+			catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 				Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-			}, nil)
+			})
 			providerCause := errors.New("handled provider context overflow")
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(&ProviderFailureError{
 				Classification: ProviderFailureContextOverflow,
@@ -303,9 +299,8 @@ func TestServiceOverflowRecoveryCancellationMatrix(t *testing.T) {
 			}, nil, output, newTestCapturedPolicies(t, preparation))
 
 			// Act through the complete model-execution owner.
-			err := service.Stream(ctx, agentrun.ModelRequest{
-				Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-				History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
+			err := streamLogical(ctx, service, agentrun.ContextRequest{
+				Instructions: "instructions", History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
 			}, func(_ agentrun.StreamEvent) error { return nil })
 
 			// Assert pure owner cancellation stays untyped while mixed failure retains category and every cause.
@@ -340,9 +335,9 @@ func TestServiceRecoversAdmittedOverflowsWithinRetryAllowance(t *testing.T) {
 	output := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	changed := []agent.HistoryEntry{textHistoryEntry("summary"), textHistoryEntry("suffix")}
 	overflow := &ProviderFailureError{
 		Classification: ProviderFailureContextOverflow, RetryDelay: mo.None[time.Duration](),
@@ -389,9 +384,8 @@ func TestServiceRecoversAdmittedOverflowsWithinRetryAllowance(t *testing.T) {
 	}, nil, output, policies)
 
 	// Act through one logical agent request.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-		History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: []agent.HistoryEntry{textHistoryEntry("oversized")}, Tools: nil,
 	}, func(_ agentrun.StreamEvent) error { return nil })
 
 	// Assert both admitted overflows reached the captured owner before logical success.

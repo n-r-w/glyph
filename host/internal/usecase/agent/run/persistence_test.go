@@ -61,7 +61,7 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 
 	// Arrange a first-user persistence failure and event capture without provider or tool expectations.
 	controller := gomock.NewController(t)
-	runtime := NewMockModelRuntime(controller)
+	runtime := NewMockEffectiveContextPort(controller)
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
 	store := NewMockHistoryStore(controller)
@@ -111,7 +111,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 
 			// Arrange a tool or progress failure followed by ToolResult persistence failure.
 			controller := gomock.NewController(t)
-			runtime := NewMockModelRuntime(controller)
+			runtime := NewMockEffectiveContextPort(controller)
 			provider := NewMockModelProvider(controller)
 			tools := NewMockToolRuntime(controller)
 			events := NewMockEventSink(controller)
@@ -132,9 +132,9 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 			}
 			history := make([]agent.HistoryEntry, 0, 2)
 			expectToolResultPersistenceFailure(t, store, &history, persistenceErr)
-			runtime.EXPECT().Snapshot().Return(RequestSnapshot{
-				Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
-			})
+			runtime.EXPECT().
+				PrepareContext(gomock.Any(), gomock.Any()).
+				DoAndReturn(passThroughContext(testModelDescriptor, model.ReasoningChoiceHigh, provider))
 			tools.EXPECT().Tools().Return(nil)
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
 			observed := make([]agent.EventType, 0)
@@ -202,7 +202,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 
 	// Arrange one completed tool effect followed by terminal tool-result persistence failure.
 	controller := gomock.NewController(t)
-	runtime := NewMockModelRuntime(controller)
+	runtime := NewMockEffectiveContextPort(controller)
 	provider := NewMockModelProvider(controller)
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
@@ -217,9 +217,9 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	}
 	history := make([]agent.HistoryEntry, 0, 2)
 	expectToolResultPersistenceFailure(t, store, &history, persistErr)
-	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
-		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
-	})
+	runtime.EXPECT().
+		PrepareContext(gomock.Any(), gomock.Any()).
+		DoAndReturn(passThroughContext(testModelDescriptor, model.ReasoningChoiceHigh, provider))
 	tools.EXPECT().Tools().Return(nil)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
@@ -270,7 +270,7 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 
 	// Arrange a terminal model persistence failure after one provider response.
 	controller := gomock.NewController(t)
-	runtime := NewMockModelRuntime(controller)
+	runtime := NewMockEffectiveContextPort(controller)
 	provider := NewMockModelProvider(controller)
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
@@ -285,9 +285,9 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 		},
 	)
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistErr)
-	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
-		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
-	})
+	runtime.EXPECT().
+		PrepareContext(gomock.Any(), gomock.Any()).
+		DoAndReturn(passThroughContext(testModelDescriptor, model.ReasoningChoiceHigh, provider))
 	tools.EXPECT().Tools().Return(nil)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {

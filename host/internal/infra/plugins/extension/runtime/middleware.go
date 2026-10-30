@@ -14,8 +14,22 @@ func (r *Runtime) HandleWire(
 	ctx context.Context,
 	handlerID string,
 	input middleware.Invocation,
-) (action middleware.Action, returnErr error) {
-	request := mapWireRequest(handlerID, input)
+) (middleware.Action, error) {
+	var action middleware.Action
+	err := r.handleMiddleware(ctx, mapWireRequest(handlerID, input), func(response *extensionpb.HandleResponse) error {
+		action = mapWireAction(input.Operation, response)
+		return nil
+	})
+	return action, err
+}
+
+// handleMiddleware sends one typed middleware payload and decodes its action inside the invocation.
+func (r *Runtime) handleMiddleware(
+	ctx context.Context,
+	request *extensionpb.HandleRequest,
+	decode func(*extensionpb.HandleResponse) error,
+) (returnErr error) {
+	handlerID := request.GetHandlerId()
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)
 	operationID := r.operationID()
@@ -23,23 +37,23 @@ func (r *Runtime) HandleWire(
 	defer func() { returnErr = finish(classifyHandlerFailure(ctx, returnErr)) }()
 	started, err := r.connection.Start(ctx, operationID, hostRequest)
 	if err != nil {
-		return middleware.Action{}, r.handlerOperationError(ctx, handlerID, err)
+		return r.handlerOperationError(ctx, handlerID, err)
 	}
 	completed, waitErr := r.waitForOperation(ctx, operationID, started, nil)
 	if waitErr != nil {
 		waitErr = r.handlerOperationError(ctx, handlerID, waitErr)
 	}
 	if completed == nil {
-		return middleware.Action{}, waitErr
+		return waitErr
 	}
 	response := completed.GetHandle()
 	if response == nil {
-		return middleware.Action{}, errors.Join(waitErr, errors.New("wire handler response is missing"))
+		return errors.Join(waitErr, errors.New("middleware handler response is missing"))
 	}
 	if handlerErr := response.GetError(); handlerErr != nil {
-		return middleware.Action{}, errors.Join(waitErr, newOrdinaryHandlerError(handlerErr.GetMessage()))
+		return errors.Join(waitErr, newOrdinaryHandlerError(handlerErr.GetMessage()))
 	}
-	return mapWireAction(input.Kind, response), waitErr
+	return errors.Join(waitErr, decode(response))
 }
 
 // mapWireRequest converts detached owner data into its declared public payload.
@@ -47,19 +61,19 @@ func mapWireRequest(handlerID string, input middleware.Invocation) *extensionpb.
 	request := new(extensionpb.HandleRequest)
 	request.SetHandlerId(handlerID)
 	request.SetContext(mapContext(input.Context))
-	switch input.Kind {
-	case middleware.Headers:
+	switch input.Operation {
+	case middleware.HeadersOperation:
 		request.SetProviderHeaders(extensionpb.ProviderHeadersInvocation_builder{
 			Original: mapWireHeaders(input.OriginalHeaders), Current: mapWireHeaders(input.CurrentHeaders),
 		}.Build())
-	case middleware.Body:
+	case middleware.BodyOperation:
 		request.SetProviderBody(
 			extensionpb.ProviderBodyInvocation_builder{
 				Original: input.OriginalBody,
 				Current:  input.CurrentBody,
 			}.Build(),
 		)
-	case middleware.Response:
+	case middleware.ResponseOperation:
 		request.SetProviderResponse(
 			extensionpb.ProviderResponseInvocation_builder{
 				Status:  new(input.Response.Status),
@@ -89,9 +103,9 @@ func decodeWireHeaders(headers *extensionpb.WireHeaders) modelexecution.WireHead
 }
 
 // mapWireAction leaves mismatched or false actions invalid for ordinary owner failure mapping.
-func mapWireAction(kind middleware.Kind, response *extensionpb.HandleResponse) middleware.Action {
-	switch kind {
-	case middleware.Headers:
+func mapWireAction(operation middleware.WireOperation, response *extensionpb.HandleResponse) middleware.Action {
+	switch operation {
+	case middleware.HeadersOperation:
 		value := response.GetProviderHeaders()
 		if value.GetPreserve() {
 			return middleware.Action{Kind: middleware.Preserve, Headers: nil, Body: nil}
@@ -103,7 +117,7 @@ func mapWireAction(kind middleware.Kind, response *extensionpb.HandleResponse) m
 				Body:    nil,
 			}
 		}
-	case middleware.Body:
+	case middleware.BodyOperation:
 		value := response.GetProviderBody()
 		if value.GetPreserve() {
 			return middleware.Action{Kind: middleware.Preserve, Headers: nil, Body: nil}
@@ -115,7 +129,7 @@ func mapWireAction(kind middleware.Kind, response *extensionpb.HandleResponse) m
 				Body:    append([]byte(nil), value.GetReplace()...),
 			}
 		}
-	case middleware.Response:
+	case middleware.ResponseOperation:
 		if response.GetProviderResponse().GetAcknowledge() {
 			return middleware.Action{Kind: middleware.Acknowledge, Headers: nil, Body: nil}
 		}

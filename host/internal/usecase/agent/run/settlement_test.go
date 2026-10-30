@@ -36,7 +36,13 @@ func TestCancellationBeforeFirstAppendReportsSettlement(t *testing.T) {
 			require.Empty(t, event.Agent.MustGet().AddedHistory)
 			return nil
 		})
-	service := New(testInstructions, NewMockModelRuntime(controller), NewMockToolRuntime(controller), events, history)
+	service := New(
+		testInstructions,
+		NewMockEffectiveContextPort(controller),
+		NewMockToolRuntime(controller),
+		events,
+		history,
+	)
 
 	// Act by finishing the canceled run, then attempting another begin before settlement.
 	result, err := service.Run(ctx, runcontrol.Request{RunID: "canceled", UserText: "request"})

@@ -877,11 +877,1019 @@ func (b0 ProviderResponseAction_builder) Build() *ProviderResponseAction {
 	return m0
 }
 
+// SystemInstructionsInvocation supplies the immutable original and composed current system instructions.
+type SystemInstructionsInvocation struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Original    *string                `protobuf:"bytes,1,opt,name=original"`
+	xxx_hidden_Current     *string                `protobuf:"bytes,2,opt,name=current"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *SystemInstructionsInvocation) Reset() {
+	*x = SystemInstructionsInvocation{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[8]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SystemInstructionsInvocation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SystemInstructionsInvocation) ProtoMessage() {}
+
+func (x *SystemInstructionsInvocation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[8]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SystemInstructionsInvocation) GetOriginal() string {
+	if x != nil {
+		if x.xxx_hidden_Original != nil {
+			return *x.xxx_hidden_Original
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SystemInstructionsInvocation) GetCurrent() string {
+	if x != nil {
+		if x.xxx_hidden_Current != nil {
+			return *x.xxx_hidden_Current
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *SystemInstructionsInvocation) SetOriginal(v string) {
+	x.xxx_hidden_Original = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *SystemInstructionsInvocation) SetCurrent(v string) {
+	x.xxx_hidden_Current = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *SystemInstructionsInvocation) HasOriginal() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *SystemInstructionsInvocation) HasCurrent() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *SystemInstructionsInvocation) ClearOriginal() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Original = nil
+}
+
+func (x *SystemInstructionsInvocation) ClearCurrent() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_Current = nil
+}
+
+type SystemInstructionsInvocation_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The immutable instructions of the prepared model request.
+	Original *string
+	// The instructions produced by preceding handlers.
+	Current *string
+}
+
+func (b0 SystemInstructionsInvocation_builder) Build() *SystemInstructionsInvocation {
+	m0 := &SystemInstructionsInvocation{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Original != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Original = b.Original
+	}
+	if b.Current != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_Current = b.Current
+	}
+	return m0
+}
+
+// SystemInstructionsAction preserves the current instructions or replaces them.
+type SystemInstructionsAction struct {
+	state             protoimpl.MessageState            `protogen:"opaque.v1"`
+	xxx_hidden_Action isSystemInstructionsAction_Action `protobuf_oneof:"action"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *SystemInstructionsAction) Reset() {
+	*x = SystemInstructionsAction{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[9]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SystemInstructionsAction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SystemInstructionsAction) ProtoMessage() {}
+
+func (x *SystemInstructionsAction) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[9]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SystemInstructionsAction) GetPreserve() bool {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*systemInstructionsAction_Preserve); ok {
+			return x.Preserve
+		}
+	}
+	return false
+}
+
+func (x *SystemInstructionsAction) GetReplace() string {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*systemInstructionsAction_Replace); ok {
+			return x.Replace
+		}
+	}
+	return ""
+}
+
+func (x *SystemInstructionsAction) SetPreserve(v bool) {
+	x.xxx_hidden_Action = &systemInstructionsAction_Preserve{v}
+}
+
+func (x *SystemInstructionsAction) SetReplace(v string) {
+	x.xxx_hidden_Action = &systemInstructionsAction_Replace{v}
+}
+
+func (x *SystemInstructionsAction) HasAction() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Action != nil
+}
+
+func (x *SystemInstructionsAction) HasPreserve() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*systemInstructionsAction_Preserve)
+	return ok
+}
+
+func (x *SystemInstructionsAction) HasReplace() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*systemInstructionsAction_Replace)
+	return ok
+}
+
+func (x *SystemInstructionsAction) ClearAction() {
+	x.xxx_hidden_Action = nil
+}
+
+func (x *SystemInstructionsAction) ClearPreserve() {
+	if _, ok := x.xxx_hidden_Action.(*systemInstructionsAction_Preserve); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+func (x *SystemInstructionsAction) ClearReplace() {
+	if _, ok := x.xxx_hidden_Action.(*systemInstructionsAction_Replace); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+const SystemInstructionsAction_Action_not_set_case case_SystemInstructionsAction_Action = 0
+const SystemInstructionsAction_Preserve_case case_SystemInstructionsAction_Action = 1
+const SystemInstructionsAction_Replace_case case_SystemInstructionsAction_Action = 2
+
+func (x *SystemInstructionsAction) WhichAction() case_SystemInstructionsAction_Action {
+	if x == nil {
+		return SystemInstructionsAction_Action_not_set_case
+	}
+	switch x.xxx_hidden_Action.(type) {
+	case *systemInstructionsAction_Preserve:
+		return SystemInstructionsAction_Preserve_case
+	case *systemInstructionsAction_Replace:
+		return SystemInstructionsAction_Replace_case
+	default:
+		return SystemInstructionsAction_Action_not_set_case
+	}
+}
+
+type SystemInstructionsAction_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The handler must select one valid action.
+
+	// Fields of oneof xxx_hidden_Action:
+	// True preserves current instructions; false is invalid.
+	Preserve *bool
+	// The complete replacement instructions.
+	Replace *string
+	// -- end of xxx_hidden_Action
+}
+
+func (b0 SystemInstructionsAction_builder) Build() *SystemInstructionsAction {
+	m0 := &SystemInstructionsAction{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Preserve != nil {
+		x.xxx_hidden_Action = &systemInstructionsAction_Preserve{*b.Preserve}
+	}
+	if b.Replace != nil {
+		x.xxx_hidden_Action = &systemInstructionsAction_Replace{*b.Replace}
+	}
+	return m0
+}
+
+type case_SystemInstructionsAction_Action protoreflect.FieldNumber
+
+func (x case_SystemInstructionsAction_Action) String() string {
+	md := file_api_plugins_extension_v1_middleware_proto_msgTypes[9].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isSystemInstructionsAction_Action interface {
+	isSystemInstructionsAction_Action()
+}
+
+type systemInstructionsAction_Preserve struct {
+	// True preserves current instructions; false is invalid.
+	Preserve bool `protobuf:"varint,1,opt,name=preserve,oneof"`
+}
+
+type systemInstructionsAction_Replace struct {
+	// The complete replacement instructions.
+	Replace string `protobuf:"bytes,2,opt,name=replace,oneof"`
+}
+
+func (*systemInstructionsAction_Preserve) isSystemInstructionsAction_Action() {}
+
+func (*systemInstructionsAction_Replace) isSystemInstructionsAction_Action() {}
+
+// ModelContextInvocation supplies request-local history with invocation-local private replay references.
+// A retained reference restores its private replay; removing it discards that replay.
+// Unknown, altered, duplicated, or misplaced references fail the handler.
+type ModelContextInvocation struct {
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Original *ModelContextHistory   `protobuf:"bytes,1,opt,name=original"`
+	xxx_hidden_Current  *ModelContextHistory   `protobuf:"bytes,2,opt,name=current"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ModelContextInvocation) Reset() {
+	*x = ModelContextInvocation{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[10]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModelContextInvocation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModelContextInvocation) ProtoMessage() {}
+
+func (x *ModelContextInvocation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[10]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ModelContextInvocation) GetOriginal() *ModelContextHistory {
+	if x != nil {
+		return x.xxx_hidden_Original
+	}
+	return nil
+}
+
+func (x *ModelContextInvocation) GetCurrent() *ModelContextHistory {
+	if x != nil {
+		return x.xxx_hidden_Current
+	}
+	return nil
+}
+
+func (x *ModelContextInvocation) SetOriginal(v *ModelContextHistory) {
+	x.xxx_hidden_Original = v
+}
+
+func (x *ModelContextInvocation) SetCurrent(v *ModelContextHistory) {
+	x.xxx_hidden_Current = v
+}
+
+func (x *ModelContextInvocation) HasOriginal() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Original != nil
+}
+
+func (x *ModelContextInvocation) HasCurrent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Current != nil
+}
+
+func (x *ModelContextInvocation) ClearOriginal() {
+	x.xxx_hidden_Original = nil
+}
+
+func (x *ModelContextInvocation) ClearCurrent() {
+	x.xxx_hidden_Current = nil
+}
+
+type ModelContextInvocation_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The immutable history of the prepared model request.
+	Original *ModelContextHistory
+	// The history produced by preceding handlers.
+	Current *ModelContextHistory
+}
+
+func (b0 ModelContextInvocation_builder) Build() *ModelContextInvocation {
+	m0 := &ModelContextInvocation{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Original = b.Original
+	x.xxx_hidden_Current = b.Current
+	return m0
+}
+
+// ModelContextAction preserves the current history or replaces it for this model request only.
+type ModelContextAction struct {
+	state             protoimpl.MessageState      `protogen:"opaque.v1"`
+	xxx_hidden_Action isModelContextAction_Action `protobuf_oneof:"action"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ModelContextAction) Reset() {
+	*x = ModelContextAction{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModelContextAction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModelContextAction) ProtoMessage() {}
+
+func (x *ModelContextAction) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ModelContextAction) GetPreserve() bool {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*modelContextAction_Preserve); ok {
+			return x.Preserve
+		}
+	}
+	return false
+}
+
+func (x *ModelContextAction) GetReplace() *ModelContextHistory {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*modelContextAction_Replace); ok {
+			return x.Replace
+		}
+	}
+	return nil
+}
+
+func (x *ModelContextAction) SetPreserve(v bool) {
+	x.xxx_hidden_Action = &modelContextAction_Preserve{v}
+}
+
+func (x *ModelContextAction) SetReplace(v *ModelContextHistory) {
+	if v == nil {
+		x.xxx_hidden_Action = nil
+		return
+	}
+	x.xxx_hidden_Action = &modelContextAction_Replace{v}
+}
+
+func (x *ModelContextAction) HasAction() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Action != nil
+}
+
+func (x *ModelContextAction) HasPreserve() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*modelContextAction_Preserve)
+	return ok
+}
+
+func (x *ModelContextAction) HasReplace() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*modelContextAction_Replace)
+	return ok
+}
+
+func (x *ModelContextAction) ClearAction() {
+	x.xxx_hidden_Action = nil
+}
+
+func (x *ModelContextAction) ClearPreserve() {
+	if _, ok := x.xxx_hidden_Action.(*modelContextAction_Preserve); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+func (x *ModelContextAction) ClearReplace() {
+	if _, ok := x.xxx_hidden_Action.(*modelContextAction_Replace); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+const ModelContextAction_Action_not_set_case case_ModelContextAction_Action = 0
+const ModelContextAction_Preserve_case case_ModelContextAction_Action = 1
+const ModelContextAction_Replace_case case_ModelContextAction_Action = 2
+
+func (x *ModelContextAction) WhichAction() case_ModelContextAction_Action {
+	if x == nil {
+		return ModelContextAction_Action_not_set_case
+	}
+	switch x.xxx_hidden_Action.(type) {
+	case *modelContextAction_Preserve:
+		return ModelContextAction_Preserve_case
+	case *modelContextAction_Replace:
+		return ModelContextAction_Replace_case
+	default:
+		return ModelContextAction_Action_not_set_case
+	}
+}
+
+type ModelContextAction_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The handler must select one valid action.
+
+	// Fields of oneof xxx_hidden_Action:
+	// True preserves current history; false is invalid.
+	Preserve *bool
+	// The complete replacement history.
+	Replace *ModelContextHistory
+	// -- end of xxx_hidden_Action
+}
+
+func (b0 ModelContextAction_builder) Build() *ModelContextAction {
+	m0 := &ModelContextAction{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Preserve != nil {
+		x.xxx_hidden_Action = &modelContextAction_Preserve{*b.Preserve}
+	}
+	if b.Replace != nil {
+		x.xxx_hidden_Action = &modelContextAction_Replace{b.Replace}
+	}
+	return m0
+}
+
+type case_ModelContextAction_Action protoreflect.FieldNumber
+
+func (x case_ModelContextAction_Action) String() string {
+	md := file_api_plugins_extension_v1_middleware_proto_msgTypes[11].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isModelContextAction_Action interface {
+	isModelContextAction_Action()
+}
+
+type modelContextAction_Preserve struct {
+	// True preserves current history; false is invalid.
+	Preserve bool `protobuf:"varint,1,opt,name=preserve,oneof"`
+}
+
+type modelContextAction_Replace struct {
+	// The complete replacement history.
+	Replace *ModelContextHistory `protobuf:"bytes,2,opt,name=replace,oneof"`
+}
+
+func (*modelContextAction_Preserve) isModelContextAction_Action() {}
+
+func (*modelContextAction_Replace) isModelContextAction_Action() {}
+
+// ModelContextHistory contains ordered provider-neutral history entries.
+type ModelContextHistory struct {
+	state              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Entries *[]*ModelContextEntry  `protobuf:"bytes,1,rep,name=entries"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ModelContextHistory) Reset() {
+	*x = ModelContextHistory{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModelContextHistory) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModelContextHistory) ProtoMessage() {}
+
+func (x *ModelContextHistory) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ModelContextHistory) GetEntries() []*ModelContextEntry {
+	if x != nil {
+		if x.xxx_hidden_Entries != nil {
+			return *x.xxx_hidden_Entries
+		}
+	}
+	return nil
+}
+
+func (x *ModelContextHistory) SetEntries(v []*ModelContextEntry) {
+	x.xxx_hidden_Entries = &v
+}
+
+type ModelContextHistory_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The entries in model request order.
+	Entries []*ModelContextEntry
+}
+
+func (b0 ModelContextHistory_builder) Build() *ModelContextHistory {
+	m0 := &ModelContextHistory{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Entries = &b.Entries
+	return m0
+}
+
+// ModelContextEntry contains one user message, model response, or tool result.
+type ModelContextEntry struct {
+	state              protoimpl.MessageState      `protogen:"opaque.v1"`
+	xxx_hidden_Content isModelContextEntry_Content `protobuf_oneof:"content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ModelContextEntry) Reset() {
+	*x = ModelContextEntry{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ModelContextEntry) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ModelContextEntry) ProtoMessage() {}
+
+func (x *ModelContextEntry) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ModelContextEntry) GetUser() *SessionTreeUserMessage {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*modelContextEntry_User); ok {
+			return x.User
+		}
+	}
+	return nil
+}
+
+func (x *ModelContextEntry) GetModel() *ReplayableModelResponse {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*modelContextEntry_Model); ok {
+			return x.Model
+		}
+	}
+	return nil
+}
+
+func (x *ModelContextEntry) GetToolResult() *SessionTreeToolResult {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Content.(*modelContextEntry_ToolResult); ok {
+			return x.ToolResult
+		}
+	}
+	return nil
+}
+
+func (x *ModelContextEntry) SetUser(v *SessionTreeUserMessage) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &modelContextEntry_User{v}
+}
+
+func (x *ModelContextEntry) SetModel(v *ReplayableModelResponse) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &modelContextEntry_Model{v}
+}
+
+func (x *ModelContextEntry) SetToolResult(v *SessionTreeToolResult) {
+	if v == nil {
+		x.xxx_hidden_Content = nil
+		return
+	}
+	x.xxx_hidden_Content = &modelContextEntry_ToolResult{v}
+}
+
+func (x *ModelContextEntry) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Content != nil
+}
+
+func (x *ModelContextEntry) HasUser() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*modelContextEntry_User)
+	return ok
+}
+
+func (x *ModelContextEntry) HasModel() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*modelContextEntry_Model)
+	return ok
+}
+
+func (x *ModelContextEntry) HasToolResult() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Content.(*modelContextEntry_ToolResult)
+	return ok
+}
+
+func (x *ModelContextEntry) ClearContent() {
+	x.xxx_hidden_Content = nil
+}
+
+func (x *ModelContextEntry) ClearUser() {
+	if _, ok := x.xxx_hidden_Content.(*modelContextEntry_User); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *ModelContextEntry) ClearModel() {
+	if _, ok := x.xxx_hidden_Content.(*modelContextEntry_Model); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+func (x *ModelContextEntry) ClearToolResult() {
+	if _, ok := x.xxx_hidden_Content.(*modelContextEntry_ToolResult); ok {
+		x.xxx_hidden_Content = nil
+	}
+}
+
+const ModelContextEntry_Content_not_set_case case_ModelContextEntry_Content = 0
+const ModelContextEntry_User_case case_ModelContextEntry_Content = 1
+const ModelContextEntry_Model_case case_ModelContextEntry_Content = 2
+const ModelContextEntry_ToolResult_case case_ModelContextEntry_Content = 3
+
+func (x *ModelContextEntry) WhichContent() case_ModelContextEntry_Content {
+	if x == nil {
+		return ModelContextEntry_Content_not_set_case
+	}
+	switch x.xxx_hidden_Content.(type) {
+	case *modelContextEntry_User:
+		return ModelContextEntry_User_case
+	case *modelContextEntry_Model:
+		return ModelContextEntry_Model_case
+	case *modelContextEntry_ToolResult:
+		return ModelContextEntry_ToolResult_case
+	default:
+		return ModelContextEntry_Content_not_set_case
+	}
+}
+
+type ModelContextEntry_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// Exactly one entry payload is required.
+
+	// Fields of oneof xxx_hidden_Content:
+	// One user message.
+	User *SessionTreeUserMessage
+	// One model response with private replay references.
+	Model *ReplayableModelResponse
+	// One terminal tool result.
+	ToolResult *SessionTreeToolResult
+	// -- end of xxx_hidden_Content
+}
+
+func (b0 ModelContextEntry_builder) Build() *ModelContextEntry {
+	m0 := &ModelContextEntry{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.User != nil {
+		x.xxx_hidden_Content = &modelContextEntry_User{b.User}
+	}
+	if b.Model != nil {
+		x.xxx_hidden_Content = &modelContextEntry_Model{b.Model}
+	}
+	if b.ToolResult != nil {
+		x.xxx_hidden_Content = &modelContextEntry_ToolResult{b.ToolResult}
+	}
+	return m0
+}
+
+type case_ModelContextEntry_Content protoreflect.FieldNumber
+
+func (x case_ModelContextEntry_Content) String() string {
+	md := file_api_plugins_extension_v1_middleware_proto_msgTypes[13].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isModelContextEntry_Content interface {
+	isModelContextEntry_Content()
+}
+
+type modelContextEntry_User struct {
+	// One user message.
+	User *SessionTreeUserMessage `protobuf:"bytes,1,opt,name=user,oneof"`
+}
+
+type modelContextEntry_Model struct {
+	// One model response with private replay references.
+	Model *ReplayableModelResponse `protobuf:"bytes,2,opt,name=model,oneof"`
+}
+
+type modelContextEntry_ToolResult struct {
+	// One terminal tool result.
+	ToolResult *SessionTreeToolResult `protobuf:"bytes,3,opt,name=tool_result,json=toolResult,oneof"`
+}
+
+func (*modelContextEntry_User) isModelContextEntry_Content() {}
+
+func (*modelContextEntry_Model) isModelContextEntry_Content() {}
+
+func (*modelContextEntry_ToolResult) isModelContextEntry_Content() {}
+
+// ReplayableModelResponse contains ordered model-visible content with private replay references.
+type ReplayableModelResponse struct {
+	state              protoimpl.MessageState     `protogen:"opaque.v1"`
+	xxx_hidden_Content *[]*ReplayableModelContent `protobuf:"bytes,1,rep,name=content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
+}
+
+func (x *ReplayableModelResponse) Reset() {
+	*x = ReplayableModelResponse{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[14]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplayableModelResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplayableModelResponse) ProtoMessage() {}
+
+func (x *ReplayableModelResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[14]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReplayableModelResponse) GetContent() []*ReplayableModelContent {
+	if x != nil {
+		if x.xxx_hidden_Content != nil {
+			return *x.xxx_hidden_Content
+		}
+	}
+	return nil
+}
+
+func (x *ReplayableModelResponse) SetContent(v []*ReplayableModelContent) {
+	x.xxx_hidden_Content = &v
+}
+
+type ReplayableModelResponse_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The ordered response blocks.
+	Content []*ReplayableModelContent
+}
+
+func (b0 ReplayableModelResponse_builder) Build() *ReplayableModelResponse {
+	m0 := &ReplayableModelResponse{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Content = &b.Content
+	return m0
+}
+
+// ReplayableModelContent contains one model-visible block and an optional private replay reference.
+type ReplayableModelContent struct {
+	state                      protoimpl.MessageState   `protogen:"opaque.v1"`
+	xxx_hidden_Content         *SessionTreeModelContent `protobuf:"bytes,1,opt,name=content"`
+	xxx_hidden_ReplayReference *string                  `protobuf:"bytes,2,opt,name=replay_reference,json=replayReference"`
+	XXX_raceDetectHookData     protoimpl.RaceDetectHookData
+	XXX_presence               [1]uint32
+	unknownFields              protoimpl.UnknownFields
+	sizeCache                  protoimpl.SizeCache
+}
+
+func (x *ReplayableModelContent) Reset() {
+	*x = ReplayableModelContent{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[15]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReplayableModelContent) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReplayableModelContent) ProtoMessage() {}
+
+func (x *ReplayableModelContent) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[15]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReplayableModelContent) GetContent() *SessionTreeModelContent {
+	if x != nil {
+		return x.xxx_hidden_Content
+	}
+	return nil
+}
+
+func (x *ReplayableModelContent) GetReplayReference() string {
+	if x != nil {
+		if x.xxx_hidden_ReplayReference != nil {
+			return *x.xxx_hidden_ReplayReference
+		}
+		return ""
+	}
+	return ""
+}
+
+func (x *ReplayableModelContent) SetContent(v *SessionTreeModelContent) {
+	x.xxx_hidden_Content = v
+}
+
+func (x *ReplayableModelContent) SetReplayReference(v string) {
+	x.xxx_hidden_ReplayReference = &v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+}
+
+func (x *ReplayableModelContent) HasContent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Content != nil
+}
+
+func (x *ReplayableModelContent) HasReplayReference() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 1)
+}
+
+func (x *ReplayableModelContent) ClearContent() {
+	x.xxx_hidden_Content = nil
+}
+
+func (x *ReplayableModelContent) ClearReplayReference() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 1)
+	x.xxx_hidden_ReplayReference = nil
+}
+
+type ReplayableModelContent_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The model-visible block.
+	Content *SessionTreeModelContent
+	// The invocation-local reference to private replay owned by reasoning content; empty when absent.
+	ReplayReference *string
+}
+
+func (b0 ReplayableModelContent_builder) Build() *ReplayableModelContent {
+	m0 := &ReplayableModelContent{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Content = b.Content
+	if b.ReplayReference != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		x.xxx_hidden_ReplayReference = b.ReplayReference
+	}
+	return m0
+}
+
 var File_api_plugins_extension_v1_middleware_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_middleware_proto_rawDesc = "" +
 	"\n" +
-	")api/plugins/extension/v1/middleware.proto\x12\x1aglyph.plugins.extension.v1\"\xc7\x01\n" +
+	")api/plugins/extension/v1/middleware.proto\x12\x1aglyph.plugins.extension.v1\x1a,api/plugins/extension/v1/session_entry.proto\"\xc7\x01\n" +
 	"\vWireHeaders\x12N\n" +
 	"\aentries\x18\x01 \x03(\v24.glyph.plugins.extension.v1.WireHeaders.EntriesEntryR\aentries\x1ah\n" +
 	"\fEntriesEntry\x12\x10\n" +
@@ -907,32 +1915,79 @@ const file_api_plugins_extension_v1_middleware_proto_rawDesc = "" +
 	"\x06status\x18\x01 \x01(\x03R\x06status\x12A\n" +
 	"\aheaders\x18\x02 \x01(\v2'.glyph.plugins.extension.v1.WireHeadersR\aheaders\":\n" +
 	"\x16ProviderResponseAction\x12 \n" +
-	"\vacknowledge\x18\x01 \x01(\bR\vacknowledgeB=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
+	"\vacknowledge\x18\x01 \x01(\bR\vacknowledge\"T\n" +
+	"\x1cSystemInstructionsInvocation\x12\x1a\n" +
+	"\boriginal\x18\x01 \x01(\tR\boriginal\x12\x18\n" +
+	"\acurrent\x18\x02 \x01(\tR\acurrent\"^\n" +
+	"\x18SystemInstructionsAction\x12\x1c\n" +
+	"\bpreserve\x18\x01 \x01(\bH\x00R\bpreserve\x12\x1a\n" +
+	"\areplace\x18\x02 \x01(\tH\x00R\areplaceB\b\n" +
+	"\x06action\"\xb0\x01\n" +
+	"\x16ModelContextInvocation\x12K\n" +
+	"\boriginal\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ModelContextHistoryR\boriginal\x12I\n" +
+	"\acurrent\x18\x02 \x01(\v2/.glyph.plugins.extension.v1.ModelContextHistoryR\acurrent\"\x89\x01\n" +
+	"\x12ModelContextAction\x12\x1c\n" +
+	"\bpreserve\x18\x01 \x01(\bH\x00R\bpreserve\x12K\n" +
+	"\areplace\x18\x02 \x01(\v2/.glyph.plugins.extension.v1.ModelContextHistoryH\x00R\areplaceB\b\n" +
+	"\x06action\"^\n" +
+	"\x13ModelContextHistory\x12G\n" +
+	"\aentries\x18\x01 \x03(\v2-.glyph.plugins.extension.v1.ModelContextEntryR\aentries\"\x8b\x02\n" +
+	"\x11ModelContextEntry\x12H\n" +
+	"\x04user\x18\x01 \x01(\v22.glyph.plugins.extension.v1.SessionTreeUserMessageH\x00R\x04user\x12K\n" +
+	"\x05model\x18\x02 \x01(\v23.glyph.plugins.extension.v1.ReplayableModelResponseH\x00R\x05model\x12T\n" +
+	"\vtool_result\x18\x03 \x01(\v21.glyph.plugins.extension.v1.SessionTreeToolResultH\x00R\n" +
+	"toolResultB\t\n" +
+	"\acontent\"g\n" +
+	"\x17ReplayableModelResponse\x12L\n" +
+	"\acontent\x18\x01 \x03(\v22.glyph.plugins.extension.v1.ReplayableModelContentR\acontent\"\x92\x01\n" +
+	"\x16ReplayableModelContent\x12M\n" +
+	"\acontent\x18\x01 \x01(\v23.glyph.plugins.extension.v1.SessionTreeModelContentR\acontent\x12)\n" +
+	"\x10replay_reference\x18\x02 \x01(\tR\x0freplayReferenceB=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_middleware_proto_msgTypes = make([]protoimpl.MessageInfo, 9)
+var file_api_plugins_extension_v1_middleware_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_api_plugins_extension_v1_middleware_proto_goTypes = []any{
-	(*WireHeaders)(nil),                // 0: glyph.plugins.extension.v1.WireHeaders
-	(*WireHeaderValues)(nil),           // 1: glyph.plugins.extension.v1.WireHeaderValues
-	(*ProviderHeadersInvocation)(nil),  // 2: glyph.plugins.extension.v1.ProviderHeadersInvocation
-	(*ProviderHeadersAction)(nil),      // 3: glyph.plugins.extension.v1.ProviderHeadersAction
-	(*ProviderBodyInvocation)(nil),     // 4: glyph.plugins.extension.v1.ProviderBodyInvocation
-	(*ProviderBodyAction)(nil),         // 5: glyph.plugins.extension.v1.ProviderBodyAction
-	(*ProviderResponseInvocation)(nil), // 6: glyph.plugins.extension.v1.ProviderResponseInvocation
-	(*ProviderResponseAction)(nil),     // 7: glyph.plugins.extension.v1.ProviderResponseAction
-	nil,                                // 8: glyph.plugins.extension.v1.WireHeaders.EntriesEntry
+	(*WireHeaders)(nil),                  // 0: glyph.plugins.extension.v1.WireHeaders
+	(*WireHeaderValues)(nil),             // 1: glyph.plugins.extension.v1.WireHeaderValues
+	(*ProviderHeadersInvocation)(nil),    // 2: glyph.plugins.extension.v1.ProviderHeadersInvocation
+	(*ProviderHeadersAction)(nil),        // 3: glyph.plugins.extension.v1.ProviderHeadersAction
+	(*ProviderBodyInvocation)(nil),       // 4: glyph.plugins.extension.v1.ProviderBodyInvocation
+	(*ProviderBodyAction)(nil),           // 5: glyph.plugins.extension.v1.ProviderBodyAction
+	(*ProviderResponseInvocation)(nil),   // 6: glyph.plugins.extension.v1.ProviderResponseInvocation
+	(*ProviderResponseAction)(nil),       // 7: glyph.plugins.extension.v1.ProviderResponseAction
+	(*SystemInstructionsInvocation)(nil), // 8: glyph.plugins.extension.v1.SystemInstructionsInvocation
+	(*SystemInstructionsAction)(nil),     // 9: glyph.plugins.extension.v1.SystemInstructionsAction
+	(*ModelContextInvocation)(nil),       // 10: glyph.plugins.extension.v1.ModelContextInvocation
+	(*ModelContextAction)(nil),           // 11: glyph.plugins.extension.v1.ModelContextAction
+	(*ModelContextHistory)(nil),          // 12: glyph.plugins.extension.v1.ModelContextHistory
+	(*ModelContextEntry)(nil),            // 13: glyph.plugins.extension.v1.ModelContextEntry
+	(*ReplayableModelResponse)(nil),      // 14: glyph.plugins.extension.v1.ReplayableModelResponse
+	(*ReplayableModelContent)(nil),       // 15: glyph.plugins.extension.v1.ReplayableModelContent
+	nil,                                  // 16: glyph.plugins.extension.v1.WireHeaders.EntriesEntry
+	(*SessionTreeUserMessage)(nil),       // 17: glyph.plugins.extension.v1.SessionTreeUserMessage
+	(*SessionTreeToolResult)(nil),        // 18: glyph.plugins.extension.v1.SessionTreeToolResult
+	(*SessionTreeModelContent)(nil),      // 19: glyph.plugins.extension.v1.SessionTreeModelContent
 }
 var file_api_plugins_extension_v1_middleware_proto_depIdxs = []int32{
-	8, // 0: glyph.plugins.extension.v1.WireHeaders.entries:type_name -> glyph.plugins.extension.v1.WireHeaders.EntriesEntry
-	0, // 1: glyph.plugins.extension.v1.ProviderHeadersInvocation.original:type_name -> glyph.plugins.extension.v1.WireHeaders
-	0, // 2: glyph.plugins.extension.v1.ProviderHeadersInvocation.current:type_name -> glyph.plugins.extension.v1.WireHeaders
-	0, // 3: glyph.plugins.extension.v1.ProviderHeadersAction.replace:type_name -> glyph.plugins.extension.v1.WireHeaders
-	0, // 4: glyph.plugins.extension.v1.ProviderResponseInvocation.headers:type_name -> glyph.plugins.extension.v1.WireHeaders
-	1, // 5: glyph.plugins.extension.v1.WireHeaders.EntriesEntry.value:type_name -> glyph.plugins.extension.v1.WireHeaderValues
-	6, // [6:6] is the sub-list for method output_type
-	6, // [6:6] is the sub-list for method input_type
-	6, // [6:6] is the sub-list for extension type_name
-	6, // [6:6] is the sub-list for extension extendee
-	0, // [0:6] is the sub-list for field type_name
+	16, // 0: glyph.plugins.extension.v1.WireHeaders.entries:type_name -> glyph.plugins.extension.v1.WireHeaders.EntriesEntry
+	0,  // 1: glyph.plugins.extension.v1.ProviderHeadersInvocation.original:type_name -> glyph.plugins.extension.v1.WireHeaders
+	0,  // 2: glyph.plugins.extension.v1.ProviderHeadersInvocation.current:type_name -> glyph.plugins.extension.v1.WireHeaders
+	0,  // 3: glyph.plugins.extension.v1.ProviderHeadersAction.replace:type_name -> glyph.plugins.extension.v1.WireHeaders
+	0,  // 4: glyph.plugins.extension.v1.ProviderResponseInvocation.headers:type_name -> glyph.plugins.extension.v1.WireHeaders
+	12, // 5: glyph.plugins.extension.v1.ModelContextInvocation.original:type_name -> glyph.plugins.extension.v1.ModelContextHistory
+	12, // 6: glyph.plugins.extension.v1.ModelContextInvocation.current:type_name -> glyph.plugins.extension.v1.ModelContextHistory
+	12, // 7: glyph.plugins.extension.v1.ModelContextAction.replace:type_name -> glyph.plugins.extension.v1.ModelContextHistory
+	13, // 8: glyph.plugins.extension.v1.ModelContextHistory.entries:type_name -> glyph.plugins.extension.v1.ModelContextEntry
+	17, // 9: glyph.plugins.extension.v1.ModelContextEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	14, // 10: glyph.plugins.extension.v1.ModelContextEntry.model:type_name -> glyph.plugins.extension.v1.ReplayableModelResponse
+	18, // 11: glyph.plugins.extension.v1.ModelContextEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
+	15, // 12: glyph.plugins.extension.v1.ReplayableModelResponse.content:type_name -> glyph.plugins.extension.v1.ReplayableModelContent
+	19, // 13: glyph.plugins.extension.v1.ReplayableModelContent.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
+	1,  // 14: glyph.plugins.extension.v1.WireHeaders.EntriesEntry.value:type_name -> glyph.plugins.extension.v1.WireHeaderValues
+	15, // [15:15] is the sub-list for method output_type
+	15, // [15:15] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_middleware_proto_init() }
@@ -940,6 +1995,7 @@ func file_api_plugins_extension_v1_middleware_proto_init() {
 	if File_api_plugins_extension_v1_middleware_proto != nil {
 		return
 	}
+	file_api_plugins_extension_v1_session_entry_proto_init()
 	file_api_plugins_extension_v1_middleware_proto_msgTypes[3].OneofWrappers = []any{
 		(*providerHeadersAction_Preserve)(nil),
 		(*providerHeadersAction_Replace)(nil),
@@ -948,13 +2004,26 @@ func file_api_plugins_extension_v1_middleware_proto_init() {
 		(*providerBodyAction_Preserve)(nil),
 		(*providerBodyAction_Replace)(nil),
 	}
+	file_api_plugins_extension_v1_middleware_proto_msgTypes[9].OneofWrappers = []any{
+		(*systemInstructionsAction_Preserve)(nil),
+		(*systemInstructionsAction_Replace)(nil),
+	}
+	file_api_plugins_extension_v1_middleware_proto_msgTypes[11].OneofWrappers = []any{
+		(*modelContextAction_Preserve)(nil),
+		(*modelContextAction_Replace)(nil),
+	}
+	file_api_plugins_extension_v1_middleware_proto_msgTypes[13].OneofWrappers = []any{
+		(*modelContextEntry_User)(nil),
+		(*modelContextEntry_Model)(nil),
+		(*modelContextEntry_ToolResult)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_middleware_proto_rawDesc), len(file_api_plugins_extension_v1_middleware_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   9,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

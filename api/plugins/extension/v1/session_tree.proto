@@ -54,6 +54,10 @@ message HandleRequest {
     ProviderBodyInvocation provider_body = 20;
     // Public provider response metadata.
     ProviderResponseInvocation provider_response = 21;
+    // The system instructions of one model request.
+    SystemInstructionsInvocation system_instructions = 22;
+    // The request-local history of one model request.
+    ModelContextInvocation model_context = 23;
   }
 }
 
@@ -94,6 +98,10 @@ message HandleResponse {
     ProviderBodyAction provider_body = 18;
     // The response observation acknowledgement.
     ProviderResponseAction provider_response = 19;
+    // The system-instructions preservation or replacement action.
+    SystemInstructionsAction system_instructions = 20;
+    // The request-local history preservation or replacement action.
+    ModelContextAction model_context = 21;
   }
 }
 

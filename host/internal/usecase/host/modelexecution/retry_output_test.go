@@ -28,9 +28,9 @@ func TestServiceCanceledRetryProgressDoesNotRestoreResetResponse(t *testing.T) {
 
 	retryOutput := NewMockRetryOutput(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ProviderRequest, handle StreamHandler) error {
 			require.NoError(t, handle(StreamEvent{
@@ -71,9 +71,8 @@ func TestServiceCanceledRetryProgressDoesNotRestoreResetResponse(t *testing.T) {
 	var kinds []agentrun.StreamEventKind
 
 	// Act through the logical agent stream.
-	err := service.Stream(ctx, agentrun.ModelRequest{
-		Instructions: "", Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice,
-		History: nil, Tools: nil,
+	err := streamLogical(ctx, service, agentrun.ContextRequest{
+		Instructions: "", History: nil, Tools: nil,
 	}, func(event agentrun.StreamEvent) error {
 		kinds = append(kinds, event.Kind)
 		return nil

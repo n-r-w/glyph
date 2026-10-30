@@ -121,7 +121,7 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 
 			// Arrange provider cancellation with an optional independent terminal failure.
 			controller := gomock.NewController(t)
-			runtime := NewMockModelRuntime(controller)
+			runtime := NewMockEffectiveContextPort(controller)
 			provider := NewMockModelProvider(controller)
 			tools := NewMockToolRuntime(controller)
 			events := NewMockEventSink(controller)
@@ -145,9 +145,9 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 					return nil
 				},
 			).AnyTimes()
-			runtime.EXPECT().Snapshot().Return(RequestSnapshot{
-				Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
-			})
+			runtime.EXPECT().
+				PrepareContext(gomock.Any(), gomock.Any()).
+				DoAndReturn(passThroughContext(testModelDescriptor, model.ReasoningChoiceHigh, provider))
 			tools.EXPECT().Tools().Return(nil)
 			provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 				func(_ context.Context, _ ModelRequest, handle StreamHandler) error {

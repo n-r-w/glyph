@@ -37,8 +37,8 @@ var (
 type Service struct {
 	// instructions contains the system prompt for each model request.
 	instructions string
-	// runtime provides the current immutable model selection.
-	runtime ModelRuntime
+	// contexts supplies the effective context and execution capability of each model request.
+	contexts EffectiveContextPort
 	// tools provides the active tool catalog and execution.
 	tools ToolRuntime
 	// events receives ordered Agent Core lifecycle events.
@@ -62,14 +62,14 @@ var (
 // New creates an Agent Core run service.
 func New(
 	instructions string,
-	runtime ModelRuntime,
+	contexts EffectiveContextPort,
 	tools ToolRuntime,
 	events EventSink,
 	historyStore HistoryStore,
 ) *Service {
 	return &Service{
 		instructions: instructions,
-		runtime:      runtime,
+		contexts:     contexts,
 		tools:        tools,
 		events:       events,
 		historyStore: historyStore,
@@ -194,14 +194,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (turnResult, bool, 
 	var deliveryErr error
 	var response model.Response
 	tools := s.tools.Tools()
-	snapshot := s.runtime.Snapshot()
-	providerErr := snapshot.Provider.Stream(ctx, ModelRequest{
-		Instructions:    s.instructions,
-		Model:           snapshot.Model,
-		ReasoningChoice: snapshot.ReasoningChoice,
-		History:         s.ProjectHistory(),
-		Tools:           tools,
-	}, func(streamEvent StreamEvent) error {
+	handle := func(streamEvent StreamEvent) error {
 		var terminal model.Response
 		if streamEvent.Kind == StreamEventDone || streamEvent.Kind == StreamEventError {
 			var terminalErr error
@@ -252,7 +245,13 @@ func (s *Service) runTurn(ctx context.Context, runID string) (turnResult, bool, 
 			deliveryErr = eventErr
 		}
 		return eventErr
+	}
+	effective, providerErr := s.contexts.PrepareContext(ctx, ContextRequest{
+		Instructions: s.instructions, History: s.ProjectHistory(), Tools: tools,
 	})
+	if providerErr == nil {
+		providerErr = effective.Provider.Stream(ctx, effective.Request, handle)
+	}
 	if deliveryErr != nil {
 		s.clearPartial()
 		combinedErr := composeErrorWithCause(providerErr, deliveryErr)

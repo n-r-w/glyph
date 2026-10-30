@@ -121,42 +121,43 @@ func (mr *MockHistoryStoreMockRecorder) Snapshot() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockHistoryStore)(nil).Snapshot))
 }
 
-// MockModelRuntime is a mock of ModelRuntime interface.
-type MockModelRuntime struct {
+// MockEffectiveContextPort is a mock of EffectiveContextPort interface.
+type MockEffectiveContextPort struct {
 	ctrl     *gomock.Controller
-	recorder *MockModelRuntimeMockRecorder
+	recorder *MockEffectiveContextPortMockRecorder
 	isgomock struct{}
 }
 
-// MockModelRuntimeMockRecorder is the mock recorder for MockModelRuntime.
-type MockModelRuntimeMockRecorder struct {
-	mock *MockModelRuntime
+// MockEffectiveContextPortMockRecorder is the mock recorder for MockEffectiveContextPort.
+type MockEffectiveContextPortMockRecorder struct {
+	mock *MockEffectiveContextPort
 }
 
-// NewMockModelRuntime creates a new mock instance.
-func NewMockModelRuntime(ctrl *gomock.Controller) *MockModelRuntime {
-	mock := &MockModelRuntime{ctrl: ctrl}
-	mock.recorder = &MockModelRuntimeMockRecorder{mock}
+// NewMockEffectiveContextPort creates a new mock instance.
+func NewMockEffectiveContextPort(ctrl *gomock.Controller) *MockEffectiveContextPort {
+	mock := &MockEffectiveContextPort{ctrl: ctrl}
+	mock.recorder = &MockEffectiveContextPortMockRecorder{mock}
 	return mock
 }
 
 // EXPECT returns an object that allows the caller to indicate expected use.
-func (m *MockModelRuntime) EXPECT() *MockModelRuntimeMockRecorder {
+func (m *MockEffectiveContextPort) EXPECT() *MockEffectiveContextPortMockRecorder {
 	return m.recorder
 }
 
-// Snapshot mocks base method.
-func (m *MockModelRuntime) Snapshot() RequestSnapshot {
+// PrepareContext mocks base method.
+func (m *MockEffectiveContextPort) PrepareContext(arg0 context.Context, arg1 ContextRequest) (EffectiveContext, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Snapshot")
-	ret0, _ := ret[0].(RequestSnapshot)
-	return ret0
+	ret := m.ctrl.Call(m, "PrepareContext", arg0, arg1)
+	ret0, _ := ret[0].(EffectiveContext)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
-// Snapshot indicates an expected call of Snapshot.
-func (mr *MockModelRuntimeMockRecorder) Snapshot() *gomock.Call {
+// PrepareContext indicates an expected call of PrepareContext.
+func (mr *MockEffectiveContextPortMockRecorder) PrepareContext(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Snapshot", reflect.TypeOf((*MockModelRuntime)(nil).Snapshot))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContext", reflect.TypeOf((*MockEffectiveContextPort)(nil).PrepareContext), arg0, arg1)
 }
 
 // MockModelProvider is a mock of ModelProvider interface.

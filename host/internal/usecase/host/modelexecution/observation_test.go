@@ -109,8 +109,8 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 				Diagnostics: []model.Diagnostic{{Code: "provider-detail", Message: "original diagnostic"}},
 			}
 			catalog.EXPECT().
-				ResolveBinding(selection).
-				Return(CatalogBinding{Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider}, nil)
+				ActiveBinding().
+				Return(CatalogBinding{Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider})
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 			priorFirst := errors.New("first recovered provider cause")
@@ -172,14 +172,11 @@ func TestObservationFailureRetainsOwnedAttempt(t *testing.T) {
 			service := New(catalog, retry, nil, output, observations)
 			var terminal agentrun.StreamEvent
 			// Act through the model-execution service's conversation stream.
-			err := service.Stream(
-				ctx,
-				agentrun.ModelRequest{
-					Instructions:    "",
-					Model:           descriptor,
-					ReasoningChoice: selection.ReasoningChoice,
-					History:         []agent.HistoryEntry{textHistoryEntry("original input")},
-					Tools:           nil,
+			err := streamLogical(ctx, service,
+				agentrun.ContextRequest{
+					Instructions: "",
+					History:      []agent.HistoryEntry{textHistoryEntry("original input")},
+					Tools:        nil,
 				},
 				func(event agentrun.StreamEvent) error {
 					if event.Kind == agentrun.StreamEventError {

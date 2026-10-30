@@ -30,15 +30,26 @@ func buildWireFixture(t *testing.T, mode string) string {
 	return directory
 }
 
-// newWireProviderFixture routes the production Codex HTTP adapter to a real local provider server.
+// newWireProviderFixture routes Codex requests to a recording provider that checks the final wire header.
 func newWireProviderFixture(t *testing.T, failures int) *requestBodies {
+	t.Helper()
+	return newRecordingProviderFixture(t, failures, func(r *http.Request) {
+		assert.Equal(t, "B", r.Header.Get("X-Glyph-Wire"))
+	})
+}
+
+// newRecordingProviderFixture routes Codex requests to a recording local server,
+// which answers the first failures requests with HTTP 429 and checks each request with inspect when supplied.
+func newRecordingProviderFixture(t *testing.T, failures int, inspect func(*http.Request)) *requestBodies {
 	t.Helper()
 	bodies := new(requestBodies)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, err := io.ReadAll(r.Body)
 		assert.NoError(t, err)
 		position := bodies.append(body)
-		assert.Equal(t, "B", r.Header.Get("X-Glyph-Wire"))
+		if inspect != nil {
+			inspect(r)
+		}
 		if position <= failures {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(http.StatusTooManyRequests)

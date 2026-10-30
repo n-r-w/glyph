@@ -47,7 +47,7 @@ func TestWireFailureSurvivesSDKReduction(t *testing.T) {
 	}, nil, nil, nil)
 	require.NoError(t, service.BindWireMiddleware(owner))
 	// Act through the ordinary shared attempt/retry owner.
-	_, err := service.execute(ctx, provider, ProviderRequest{}, nil, nil,
+	_, err := service.execute(ctx, provider, preparedRequest{}, nil, nil,
 		errors.New("missing terminal"), "missing terminal", nil)
 	// Assert the acquired middleware cause wins over cancellation and retry-like descendants.
 	var failure *LogicalFailureError

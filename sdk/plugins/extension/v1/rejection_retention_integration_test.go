@@ -122,21 +122,33 @@ func TestCanceledServerSendUsesActualConfirmationAtCollection(t *testing.T) {
 				newHandleRequest := func(id string) *extensionpb.OpenRequest {
 					payload := new(extensionpb.HostRequest)
 					payload.SetHandle(extensionpb.HandleRequest_builder{
-						CompactionOutgoingInput: nil,
-						CompletedConversation:   nil,
-						CompactionRequest:       nil, CompactionGenerate: nil, CompactionResult: nil,
-						CompactionSuccess: nil, CompactionFailure: nil,
-						Retry:          nil,
-						ModelSelection: nil, ReasoningSelection: nil,
-						Context: testInvocationIdentity(), HandlerId: new("handler"),
-						SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, Lifecycle: nil,
+						CompactionOutgoingInput:  nil,
+						CompletedConversation:    nil,
+						CompactionRequest:        nil,
+						CompactionGenerate:       nil,
+						CompactionResult:         nil,
+						CompactionSuccess:        nil,
+						CompactionFailure:        nil,
+						Retry:                    nil,
+						ModelSelection:           nil,
+						ReasoningSelection:       nil,
+						Context:                  testInvocationIdentity(),
+						HandlerId:                new("handler"),
+						SessionBeforeTreeRequest: nil,
+						SessionBeforeTreeResult:  nil,
+						Lifecycle:                nil,
 						SessionTree: extensionpb.SessionTreeInvocation_builder{
 							SessionId: new("session"), TargetEntryId: new("target"), PrecedingActiveLeafId: nil,
 							NavigationDestinationId: nil, CommittedActiveLeafId: nil, CreatedSummary: nil,
 						}.Build(),
 
 						ParentCompactionId: nil,
-						CompactionPolicy:   nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
+						CompactionPolicy:   nil,
+						ProviderHeaders:    nil,
+						ProviderBody:       nil,
+						ProviderResponse:   nil,
+						SystemInstructions: nil,
+						ModelContext:       nil,
 					}.Build())
 					request := new(extensionpb.OpenRequest)
 					request.SetOperationId(id)

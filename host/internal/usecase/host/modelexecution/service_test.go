@@ -28,9 +28,9 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 	provider := NewMockProviderAttempt(controller)
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceHigh}
 	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	history := []agent.HistoryEntry{{
 		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("question")),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
@@ -73,9 +73,8 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 	var received agentrun.StreamEvent
 
 	// Act through the Agent Core logical provider contract.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-		History: history, Tools: tools,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: history, Tools: tools,
 	}, func(event agentrun.StreamEvent) error {
 		if event.Kind == agentrun.StreamEventTextDelta {
 			received = event
@@ -101,9 +100,9 @@ func TestServiceReturnsTerminalDeliveryFailure(t *testing.T) {
 
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	descriptor := modelDescriptor(selection)
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	terminal := model.Response{
 		Content: nil, Outcome: mo.Some(model.OutcomeStop), ErrorMessage: mo.None[string](),
 		Provider: mo.Some(selection.Provider), Model: mo.Some(selection.Model),
@@ -123,9 +122,8 @@ func TestServiceReturnsTerminalDeliveryFailure(t *testing.T) {
 	service := New(catalog, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 
 	// Act by rejecting the terminal event at the conversation delivery boundary.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: descriptor, ReasoningChoice: selection.ReasoningChoice,
-		History: nil, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: nil, Tools: nil,
 	}, func(_ agentrun.StreamEvent) error { return deliveryErr })
 
 	// Assert the delivery error reaches the logical caller.
@@ -236,16 +234,15 @@ func TestServiceStreamRejectsMissingTerminalResponse(t *testing.T) {
 	selection := model.Selection{
 		Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff,
 	}
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil)
 	service := newTestService(t, catalog)
 
 	// Act through the logical stream boundary.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice,
-		History: nil, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: nil, Tools: nil,
 	}, func(agentrun.StreamEvent) error { return nil })
 
 	// Assert missing terminal provider output is a transient failed attempt.
@@ -267,9 +264,9 @@ func TestServiceStreamRejectsTerminalWithoutResponse(t *testing.T) {
 	selection := model.Selection{
 		Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff,
 	}
-	catalog.EXPECT().ResolveBinding(selection).Return(CatalogBinding{
+	catalog.EXPECT().ActiveBinding().Return(CatalogBinding{
 		Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-	}, nil)
+	})
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ProviderRequest, handle StreamHandler) error {
 			return handle(StreamEvent{
@@ -282,9 +279,8 @@ func TestServiceStreamRejectsTerminalWithoutResponse(t *testing.T) {
 	service := newTestService(t, catalog)
 
 	// Act through the logical stream boundary.
-	err := service.Stream(t.Context(), agentrun.ModelRequest{
-		Instructions: "instructions", Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice,
-		History: nil, Tools: nil,
+	err := streamLogical(t.Context(), service, agentrun.ContextRequest{
+		Instructions: "instructions", History: nil, Tools: nil,
 	}, func(agentrun.StreamEvent) error { return nil })
 
 	// Assert the malformed terminal event is one transient failed attempt.
@@ -400,4 +396,18 @@ func modelDescriptor(selection model.Selection) model.Descriptor {
 		},
 		ToolCapabilities: model.ToolCapabilities{}, Pricing: mo.None[model.Pricing](),
 	}
+}
+
+// streamLogical executes one Agent Core request through the effective-context port and its prepared provider.
+func streamLogical(
+	ctx context.Context,
+	service *Service,
+	request agentrun.ContextRequest,
+	handle agentrun.StreamHandler,
+) error {
+	effective, err := service.PrepareContext(ctx, request)
+	if err != nil {
+		return err
+	}
+	return effective.Provider.Stream(ctx, effective.Request, handle)
 }

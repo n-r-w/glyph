@@ -305,7 +305,7 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 
 	// Arrange a provider failure followed by failed-response persistence failure.
 	controller := gomock.NewController(t)
-	runtime := NewMockModelRuntime(controller)
+	runtime := NewMockEffectiveContextPort(controller)
 	provider := NewMockModelProvider(controller)
 	tools := NewMockToolRuntime(controller)
 	events := NewMockEventSink(controller)
@@ -321,9 +321,9 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 		},
 	)
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).Return(persistenceErr)
-	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
-		Model: testModelDescriptor, ReasoningChoice: model.ReasoningChoiceHigh, Provider: provider,
-	})
+	runtime.EXPECT().
+		PrepareContext(gomock.Any(), gomock.Any()).
+		DoAndReturn(passThroughContext(testModelDescriptor, model.ReasoningChoiceHigh, provider))
 	tools.EXPECT().Tools().Return(nil)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {

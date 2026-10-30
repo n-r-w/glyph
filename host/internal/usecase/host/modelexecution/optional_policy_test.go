@@ -30,8 +30,8 @@ func TestAbsentPolicyDispatchesOrdinaryHistory(t *testing.T) {
 	descriptor := modelDescriptor(selection)
 	history := []agent.HistoryEntry{textHistoryEntry("ordinary history")}
 	catalog.EXPECT().
-		ResolveBinding(selection).
-		Return(CatalogBinding{Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider}, nil)
+		ActiveBinding().
+		Return(CatalogBinding{Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider})
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, input ProviderRequest, handle StreamHandler) error {
 			require.Equal(t, history, input.History)
@@ -40,14 +40,11 @@ func TestAbsentPolicyDispatchesOrdinaryHistory(t *testing.T) {
 	)
 	execution := New(catalog, disabledRetryPolicy(), nil, nil, newTestConversationObservations(t))
 	// Act through the logical conversation entry point.
-	err := execution.Stream(
-		t.Context(),
-		agentrun.ModelRequest{
-			Instructions:    "instructions",
-			Model:           descriptor,
-			ReasoningChoice: selection.ReasoningChoice,
-			History:         history,
-			Tools:           nil,
+	err := streamLogical(t.Context(), execution,
+		agentrun.ContextRequest{
+			Instructions: "instructions",
+			History:      history,
+			Tools:        nil,
 		},
 		func(_ agentrun.StreamEvent) error { return nil },
 	)
@@ -67,8 +64,8 @@ func TestAbsentPolicySuppressesCompactionOverflow(t *testing.T) {
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceLow}
 	descriptor := modelDescriptor(selection)
 	catalog.EXPECT().
-		ResolveBinding(selection).
-		Return(CatalogBinding{Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider}, nil)
+		ActiveBinding().
+		Return(CatalogBinding{Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider})
 	cause := errors.New("provider rejected oversized ordinary input: complete source")
 	calls := 0
 	provider.EXPECT().
@@ -91,14 +88,11 @@ func TestAbsentPolicySuppressesCompactionOverflow(t *testing.T) {
 		newTestConversationObservations(t),
 	)
 	// Act through the ordinary logical conversation path.
-	err := execution.Stream(
-		t.Context(),
-		agentrun.ModelRequest{
-			Instructions:    "instructions",
-			Model:           descriptor,
-			ReasoningChoice: selection.ReasoningChoice,
-			History:         []agent.HistoryEntry{textHistoryEntry("ordinary oversized input")},
-			Tools:           nil,
+	err := streamLogical(t.Context(), execution,
+		agentrun.ContextRequest{
+			Instructions: "instructions",
+			History:      []agent.HistoryEntry{textHistoryEntry("ordinary oversized input")},
+			Tools:        nil,
 		},
 		func(_ agentrun.StreamEvent) error { return nil },
 	)

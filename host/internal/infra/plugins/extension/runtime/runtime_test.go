@@ -1278,17 +1278,28 @@ func (operation *protocolHandleOperation) Run(
 			message = ""
 		}
 		return extensionpb.HandleResponse_builder{
-			CompactionOutgoingInput: nil,
-			CompletedConversation:   nil,
-			CompactionRequest:       nil, CompactionGenerate: nil, CompactionResult: nil,
-			CompactionSuccess: nil, CompactionFailure: nil,
-			Retry:          nil,
-			ModelSelection: nil, ReasoningSelection: nil,
+			CompactionOutgoingInput:  nil,
+			CompletedConversation:    nil,
+			CompactionRequest:        nil,
+			CompactionGenerate:       nil,
+			CompactionResult:         nil,
+			CompactionSuccess:        nil,
+			CompactionFailure:        nil,
+			Retry:                    nil,
+			ModelSelection:           nil,
+			ReasoningSelection:       nil,
 			Lifecycle:                nil,
-			SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil,
-			Error: extensionpb.HandlerError_builder{Message: new(message)}.Build(),
+			SessionBeforeTreeRequest: nil,
+			SessionBeforeTreeResult:  nil,
+			SessionTree:              nil,
+			Error:                    extensionpb.HandlerError_builder{Message: new(message)}.Build(),
 
-			CompactionPolicy: nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
+			CompactionPolicy:   nil,
+			ProviderHeaders:    nil,
+			ProviderBody:       nil,
+			ProviderResponse:   nil,
+			SystemInstructions: nil,
+			ModelContext:       nil,
 		}.Build(), nil
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.

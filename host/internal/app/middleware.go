@@ -10,8 +10,8 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
-// bindWireMiddleware supplies the same ordinary wire owner to registration and logical execution.
-func bindWireMiddleware(
+// bindMiddleware supplies the same ordinary middleware owner to registration and logical execution.
+func bindMiddleware(
 	registration *startup.Service,
 	execution *modelexecution.Service,
 	runtimes *extensionruntime.Service,
@@ -23,6 +23,9 @@ func bindWireMiddleware(
 	}
 	if err := execution.BindWireMiddleware(owner); err != nil {
 		return fmt.Errorf("bind ordinary wire execution: %w", err)
+	}
+	if err := execution.BindContextMiddleware(owner); err != nil {
+		return fmt.Errorf("bind ordinary context execution: %w", err)
 	}
 	return nil
 }

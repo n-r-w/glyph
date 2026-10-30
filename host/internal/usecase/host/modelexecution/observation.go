@@ -24,11 +24,11 @@ func (s *Service) captureConversation(ctx context.Context) (mo.Option[CapturedCo
 	return observation, nil
 }
 
-// providerCompletion contains the final attempt input, response, and earlier attempt errors.
+// providerCompletion contains the prepared request, response, and earlier attempt errors.
 type providerCompletion struct {
 	// response contains the terminal provider result.
 	response model.Response
-	// input contains the final attempt input.
+	// input contains the prepared request of the final attempt before middleware transformation.
 	input ProviderRequest
 	// causes contains errors from earlier failed attempts.
 	causes error

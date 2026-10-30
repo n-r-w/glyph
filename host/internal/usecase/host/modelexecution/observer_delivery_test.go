@@ -40,8 +40,8 @@ func TestObserverDeliveryFailurePreventsProviderRetry(t *testing.T) {
 	).AnyTimes()
 	selection := model.Selection{Provider: "provider", Model: "model", ReasoningChoice: model.ReasoningChoiceOff}
 	catalog.EXPECT().
-		ResolveBinding(selection).
-		Return(CatalogBinding{Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider}, nil)
+		ActiveBinding().
+		Return(CatalogBinding{Model: modelDescriptor(selection), ReasoningChoice: selection.ReasoningChoice, Provider: provider})
 	observerCause := errors.New("observer complete original cause")
 	providerCause := errors.New("provider independent original cause")
 	provider.EXPECT().
@@ -89,14 +89,11 @@ func TestObserverDeliveryFailurePreventsProviderRetry(t *testing.T) {
 	)
 
 	// Act through the actual logical stream with failed observer delivery.
-	err := service.Stream(
-		t.Context(),
-		agentrun.ModelRequest{
-			Instructions:    "",
-			Model:           modelDescriptor(selection),
-			ReasoningChoice: selection.ReasoningChoice,
-			History:         nil,
-			Tools:           nil,
+	err := streamLogical(t.Context(), service,
+		agentrun.ContextRequest{
+			Instructions: "",
+			History:      nil,
+			Tools:        nil,
 		},
 		func(event agentrun.StreamEvent) error {
 			if event.Kind == agentrun.StreamEventTextDelta {

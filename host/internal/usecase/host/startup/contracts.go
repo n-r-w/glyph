@@ -150,6 +150,10 @@ const (
 	RawHandlerKindProviderBody RawHandlerKind = 27
 	// RawHandlerKindProviderResponse observes public response metadata.
 	RawHandlerKindProviderResponse RawHandlerKind = 28
+	// RawHandlerKindSystemInstructions transforms model request system instructions.
+	RawHandlerKindSystemInstructions RawHandlerKind = 29
+	// RawHandlerKindModelContext transforms request-local model history.
+	RawHandlerKindModelContext RawHandlerKind = 30
 )
 
 // isCompaction reports whether kind identifies a compaction capability.
@@ -217,7 +221,7 @@ type LoadReport struct {
 
 //go:generate go tool mockgen -source=contracts.go -destination=contracts_mock.go -package=startup
 
-// MiddlewareRegistrar validates and publishes ordinary wire declarations.
+// MiddlewareRegistrar validates and publishes ordinary model-facing middleware declarations.
 type MiddlewareRegistrar interface {
 	ValidateMiddlewareHandlers(PendingRegistration) ([]AcceptedHandler, error)
 	CommitMiddlewareHandlers([]AcceptedRegistration)

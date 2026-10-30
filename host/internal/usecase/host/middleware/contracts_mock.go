@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -39,6 +40,36 @@ func NewMockRuntime(ctrl *gomock.Controller) *MockRuntime {
 // EXPECT returns an object that allows the caller to indicate expected use.
 func (m *MockRuntime) EXPECT() *MockRuntimeMockRecorder {
 	return m.recorder
+}
+
+// HandleModelContext mocks base method.
+func (m *MockRuntime) HandleModelContext(arg0 context.Context, arg1, arg2 string, arg3 Transformation[[]agent.HistoryEntry]) (Transformed[[]agent.HistoryEntry], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleModelContext", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(Transformed[[]agent.HistoryEntry])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleModelContext indicates an expected call of HandleModelContext.
+func (mr *MockRuntimeMockRecorder) HandleModelContext(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleModelContext", reflect.TypeOf((*MockRuntime)(nil).HandleModelContext), arg0, arg1, arg2, arg3)
+}
+
+// HandleSystemInstructions mocks base method.
+func (m *MockRuntime) HandleSystemInstructions(arg0 context.Context, arg1, arg2 string, arg3 Transformation[string]) (Transformed[string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleSystemInstructions", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(Transformed[string])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleSystemInstructions indicates an expected call of HandleSystemInstructions.
+func (mr *MockRuntimeMockRecorder) HandleSystemInstructions(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSystemInstructions", reflect.TypeOf((*MockRuntime)(nil).HandleSystemInstructions), arg0, arg1, arg2, arg3)
 }
 
 // HandleWire mocks base method.

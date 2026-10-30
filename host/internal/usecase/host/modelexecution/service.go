@@ -43,6 +43,8 @@ var (
 type Service struct {
 	// wire supplies Host-owned per-attempt middleware without provider dependencies.
 	wire WireMiddleware
+	// contextMiddleware supplies Host-owned instruction and history middleware for each logical execution.
+	contextMiddleware ContextMiddleware
 	// catalog resolves logical model selections to raw provider bindings.
 	catalog CatalogResolver
 	// policies captures preparation and observation for the admitted owner.
@@ -64,8 +66,7 @@ type Service struct {
 }
 
 var (
-	_ agentrun.ModelRuntime                    = (*Service)(nil)
-	_ agentrun.ModelProvider                   = (*Service)(nil)
+	_ agentrun.EffectiveContextPort            = (*Service)(nil)
 	_ extensionmodels.ModelRequester           = (*Service)(nil)
 	_ sessiontree.ModelRequester               = (*Service)(nil)
 	_ hostprogrammatic.RetryControl            = (*Service)(nil)
@@ -88,7 +89,7 @@ func New(
 	service := &Service{
 		catalog: catalog, policies: policies,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
-		manualPreparation: nil, manualTools: nil, manualInstructions: "", wire: nil,
+		manualPreparation: nil, manualTools: nil, manualInstructions: "", wire: nil, contextMiddleware: nil,
 	}
 	service.retryEnabled.Store(policy.Enabled)
 	return service
@@ -116,108 +117,44 @@ func (s *Service) retryPolicySnapshot() RetryPolicy {
 	return policy
 }
 
-// Snapshot returns the active logical model snapshot with this service as its provider.
-func (s *Service) Snapshot() agentrun.RequestSnapshot {
-	// binding keeps the model and provider selection atomic.
-	binding := s.catalog.ActiveBinding()
-	return agentrun.RequestSnapshot{
-		Model:           binding.Model,
-		ReasoningChoice: binding.ReasoningChoice,
-		Provider:        s,
-	}
-}
-
-// Stream executes one logical Agent Core request across its retry-coordinated raw provider attempts.
-func (s *Service) Stream(
+// PrepareContext returns the effective request of the active conversation and the capability that executes it.
+func (s *Service) PrepareContext(
 	ctx context.Context,
-	request agentrun.ModelRequest,
-	handle agentrun.StreamHandler,
-) error {
+	request agentrun.ContextRequest,
+) (agentrun.EffectiveContext, error) {
 	captured, err := s.captureConversation(ctx)
 	if err != nil {
-		return err
+		return agentrun.EffectiveContext{}, err
 	}
-	// selection reconstructs the exact catalog key captured by Agent Core.
-	selection := model.Selection{
-		Provider:        request.Model.Provider,
-		Model:           request.Model.Model,
-		ReasoningChoice: request.ReasoningChoice,
-	}
-	// binding selects one raw provider without configured-request credential policy.
-	binding, err := s.catalog.ResolveBinding(selection)
-	if err != nil {
-		return err
-	}
-	// ownedHistory prevents the raw provider from mutating Agent Core history.
+	// binding keeps the model and provider selection atomic.
+	binding := s.catalog.ActiveBinding()
+	// ownedHistory prevents preparation and middleware from mutating Agent Core history.
 	ownedHistory, err := cloneHistory(request.History)
 	if err != nil {
-		return err
+		return agentrun.EffectiveContext{}, err
 	}
-	providerRequest := ProviderRequest{
+	base, err := s.prepareProviderContext(ctx, ProviderRequest{
 		Instructions: request.Instructions, Model: binding.Model, ReasoningChoice: binding.ReasoningChoice,
 		History: ownedHistory, Tools: request.Tools, Wire: mo.None[WireCallbacks](),
-	}
-	providerRequest, err = s.prepareProviderContext(ctx, providerRequest, captured)
+	}, captured)
 	if err != nil {
-		return err
+		return agentrun.EffectiveContext{}, err
 	}
-	recoverOverflow := selectCapturedOverflowRecovery(captured)
-	responseStarted := false
-	completion, err := s.execute(
-		ctx, binding.Provider, providerRequest,
-		func(event StreamEvent) error {
-			responseStarted = true
-			return handle(logicalStreamEvent(event))
-		},
-		func(progress RetryProgress) error {
-			if responseStarted {
-				if resetErr := handle(agentrun.StreamEvent{
-					Kind: agentrun.StreamEventResponseReset, Position: mo.None[int](),
-					Content: mo.None[model.Content](), Delta: mo.None[string](),
-					Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](),
-					Response: mo.None[model.Response](),
-				}); resetErr != nil {
-					return resetErr
-				}
-				responseStarted = false
-			}
-			if s.retryOutput == nil {
-				return errors.New("deliver retry progress: Host retry output is unavailable")
-			}
-			return s.retryOutput.DeliverRetry(ctx, progress)
-		},
-		errModelStreamTerminalMissingResponse,
-		modelStreamMissingTerminalMessage,
-		recoverOverflow,
-	)
-	response := completion.response
-	if err == nil {
-		err = completion.observe(ctx, captured)
-	}
+	composer := s.newContextComposer()
+	prepared, err := composeRequest(ctx, composer, base, nil)
 	if err != nil {
-		if response.Outcome.IsSome() {
-			deliveryErr := handle(agentrun.StreamEvent{
-				Kind: agentrun.StreamEventError, Position: mo.None[int](), Content: mo.None[model.Content](),
-				Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](),
-				ToolCall: mo.None[model.ToolCall](), Response: mo.Some(response),
-			})
-			return errors.Join(err, deliveryErr)
-		}
-		return err
+		return agentrun.EffectiveContext{}, err
 	}
-	terminalKind := agentrun.StreamEventDone
-	if outcome, present := response.Outcome.Get(); present &&
-		(outcome == model.OutcomeFailed || outcome == model.OutcomeAborted) {
-		terminalKind = agentrun.StreamEventError
-	}
-	if handleErr := handle(agentrun.StreamEvent{
-		Kind: terminalKind, Position: mo.None[int](), Content: mo.None[model.Content](),
-		Delta: mo.None[string](), Preview: mo.None[model.ToolCallPreview](), ToolCall: mo.None[model.ToolCall](),
-		Response: mo.Some(response),
-	}); handleErr != nil {
-		return handleErr
-	}
-	return nil
+	effective := prepared.effective.cloneBinding()
+	return agentrun.EffectiveContext{
+		Request: agentrun.ModelRequest{
+			Instructions: effective.Instructions, Model: effective.Model, ReasoningChoice: effective.ReasoningChoice,
+			History: agent.CloneHistory(effective.History), Tools: effective.Tools,
+		},
+		Provider: &preparedProviderBinding{
+			service: s, provider: binding.Provider, captured: captured, composer: composer, base: prepared.base,
+		},
+	}, nil
 }
 
 // prepareProviderContext obtains policy-selected history for provider dispatch.
@@ -256,28 +193,17 @@ func (s *Service) RequestConfigured(
 	if err != nil {
 		return model.Response{}, err
 	}
-	if !slices.Contains(binding.Model.Input, model.InputModalityImage) {
-		for messageIndex := range history {
-			if user, present := history[messageIndex].User.Get(); present {
-				for contentIndex, content := range user.Content {
-					if content.Kind == model.InputContentImage {
-						return model.Response{}, fmt.Errorf(
-							"configured model %s does not accept image input at message %d content %d",
-							binding.Model.Model, messageIndex, contentIndex,
-						)
-					}
-				}
-			}
-		}
-	}
 	// ownedHistory prevents the raw provider from mutating caller history.
 	ownedHistory, err := cloneHistory(history)
 	if err != nil {
 		return model.Response{}, err
 	}
-	request := ProviderRequest{
+	request, err := composeRequest(ctx, s.newContextComposer(), ProviderRequest{
 		Instructions: instructions, Model: binding.Model, ReasoningChoice: binding.ReasoningChoice,
 		History: ownedHistory, Tools: nil, Wire: mo.None[WireCallbacks](),
+	}, nil)
+	if err != nil {
+		return model.Response{}, err
 	}
 	completion, err := s.execute(
 		ctx, binding.Provider, request, nil, func(value RetryProgress) error {
@@ -330,14 +256,9 @@ func missingTerminalFailure(message string) error {
 
 // cloneHistory validates and transfers immutable history ownership to one raw attempt.
 func cloneHistory(history []agent.HistoryEntry) ([]agent.HistoryEntry, error) {
-	// ownedHistory receives validated deep clones in source order.
-	ownedHistory := make([]agent.HistoryEntry, len(history))
-	for index := range history {
-		clone, err := history[index].ValidatedClone()
-		if err != nil {
-			return nil, fmt.Errorf("validate model request history: %w", err)
-		}
-		ownedHistory[index] = clone
+	ownedHistory, err := agent.ValidatedCloneHistory(history)
+	if err != nil {
+		return nil, fmt.Errorf("validate model request history: %w", err)
 	}
 	return ownedHistory, nil
 }

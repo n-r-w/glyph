@@ -236,21 +236,6 @@ func (mr *MockCatalogResolverMockRecorder) ActiveBinding() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveBinding", reflect.TypeOf((*MockCatalogResolver)(nil).ActiveBinding))
 }
 
-// ResolveBinding mocks base method.
-func (m *MockCatalogResolver) ResolveBinding(selection model.Selection) (CatalogBinding, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "ResolveBinding", selection)
-	ret0, _ := ret[0].(CatalogBinding)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// ResolveBinding indicates an expected call of ResolveBinding.
-func (mr *MockCatalogResolverMockRecorder) ResolveBinding(selection any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveBinding", reflect.TypeOf((*MockCatalogResolver)(nil).ResolveBinding), selection)
-}
-
 // ResolveConfiguredBinding mocks base method.
 func (m *MockCatalogResolver) ResolveConfiguredBinding(ctx context.Context, selection model.Selection) (CatalogBinding, error) {
 	m.ctrl.T.Helper()

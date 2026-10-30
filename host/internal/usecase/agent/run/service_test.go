@@ -60,11 +60,26 @@ func newTestService(
 	events EventSink,
 ) *Service {
 	t.Helper()
-	runtime := NewMockModelRuntime(gomock.NewController(t))
-	runtime.EXPECT().Snapshot().Return(RequestSnapshot{
-		Model: descriptor, ReasoningChoice: choice, Provider: provider,
-	}).AnyTimes()
+	runtime := NewMockEffectiveContextPort(gomock.NewController(t))
+	runtime.EXPECT().
+		PrepareContext(gomock.Any(), gomock.Any()).
+		DoAndReturn(passThroughContext(descriptor, choice, provider)).
+		AnyTimes()
 	return New(instructions, runtime, tools, events, newMockHistoryStore(t))
+}
+
+// passThroughContext returns effective context that keeps Core request data for one model and provider.
+func passThroughContext(
+	descriptor model.Descriptor,
+	choice model.ReasoningChoice,
+	provider ModelProvider,
+) func(context.Context, ContextRequest) (EffectiveContext, error) {
+	return func(_ context.Context, request ContextRequest) (EffectiveContext, error) {
+		return EffectiveContext{Request: ModelRequest{
+			Instructions: request.Instructions, Model: descriptor, ReasoningChoice: choice,
+			History: request.History, Tools: request.Tools,
+		}, Provider: provider}, nil
+	}
 }
 
 func newMockHistoryStore(t *testing.T) *MockHistoryStore {

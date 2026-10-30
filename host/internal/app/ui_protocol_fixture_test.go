@@ -76,7 +76,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runObserverCancellationUIFixture(t, ctx, host)
 		case abortUIBehavior:
 			return runAbortRetryUIFixture(ctx, host)
-		case "summary-control", "summary-read", "summary-blocked", "summary-retry", "summary-retry-failure":
+		case "summary-control", "summary-read", "summary-blocked", "summary-retry", "summary-retry-failure",
+			summaryContextFailureBehavior:
 			return runSummaryControlUIFixture(t, ctx, host)
 		case ordinaryFailureUIBehavior:
 			return runOrdinaryFailureUIFixture(ctx, host)

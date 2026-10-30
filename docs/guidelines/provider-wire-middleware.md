@@ -1,6 +1,6 @@
 # Provider-wire middleware
 
-Ordinary extensions can transform public provider request headers, replace safe serialized request JSON, and observe response status and public headers. These operations apply to ordinary agent requests and configured-model requests in headless, Programmatic and UI modes.
+Ordinary extensions can transform public provider request headers, replace safe serialized request JSON, and observe response status and public headers. These operations apply to ordinary agent requests and configured-model requests in headless, Programmatic and UI modes. [System-instruction and model-context middleware](context-middleware.md) changes the provider-neutral request before these operations run.
 
 ## Register and handle operations
 

@@ -20,7 +20,7 @@ func (testSuite *ProgrammaticAppSuite) TestSessionLifecycleRoundTrip() {
 	t := testSuite.T()
 
 	// Arrange persistent paths, provider transport, extension tools, and a Programmatic stream.
-	paths := testPaths(t, restartSelectionSettings())
+	paths := testPaths(t, imageRestartSelectionSettings())
 	accessToken := semanticAccessToken(t, "account")
 	credentials := fmt.Sprintf(
 		`{"version":1,"providers":{"openai-codex":{"access_token":%q,`+

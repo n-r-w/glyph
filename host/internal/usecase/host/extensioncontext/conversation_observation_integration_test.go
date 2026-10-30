@@ -112,10 +112,10 @@ func TestConversationObservationClassifiedSessionFailure(t *testing.T) {
 				ReasoningChoice: model.ReasoningChoiceOff,
 			}
 			catalog.EXPECT().
-				ResolveBinding(selection).
+				ActiveBinding().
 				Return(modelexecution.CatalogBinding{
 					Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
-				}, nil)
+				})
 			response := model.Response{
 				Content:      nil,
 				Outcome:      mo.Some(model.OutcomeStop),
@@ -153,14 +153,11 @@ func TestConversationObservationClassifiedSessionFailure(t *testing.T) {
 			)
 			var terminal agentrun.StreamEvent
 			// Act through logical Stream with the captured owner's production lifetime, without granting compaction authority.
-			err := execution.Stream(
-				ctx,
-				agentrun.ModelRequest{
-					Instructions:    "",
-					Model:           descriptor,
-					ReasoningChoice: selection.ReasoningChoice,
-					History:         nil,
-					Tools:           nil,
+			err := streamLogical(ctx, execution,
+				agentrun.ContextRequest{
+					Instructions: "",
+					History:      nil,
+					Tools:        nil,
 				},
 				func(event agentrun.StreamEvent) error { terminal = event; return nil },
 			)

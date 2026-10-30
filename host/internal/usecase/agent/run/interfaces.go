@@ -35,16 +35,6 @@ type ModelRequest struct {
 	Tools []tool.Descriptor
 }
 
-// RequestSnapshot is one immutable model request snapshot.
-type RequestSnapshot struct {
-	// Model contains the immutable configured model snapshot.
-	Model model.Descriptor
-	// ReasoningChoice identifies the selected reasoning behavior.
-	ReasoningChoice model.ReasoningChoice
-	// Provider executes the selected model request.
-	Provider ModelProvider
-}
-
 // HistoryStore owns canonical provider-neutral history for the active session.
 type HistoryStore interface {
 	// Snapshot returns an immutable copy that includes complete process-local history.
@@ -53,10 +43,28 @@ type HistoryStore interface {
 	Append(context.Context, agent.HistoryEntry) error
 }
 
-// ModelRuntime supplies an immutable snapshot immediately before each model request.
-type ModelRuntime interface {
-	// Snapshot returns the active model descriptor, reasoning choice, and provider.
-	Snapshot() RequestSnapshot
+// ContextRequest contains the provider-neutral request data that Agent Core assembles for one model request.
+type ContextRequest struct {
+	// Instructions contains the system prompt.
+	Instructions string
+	// History contains projected provider-neutral conversation history.
+	History []agent.HistoryEntry
+	// Tools contains the available model-callable tool catalog.
+	Tools []tool.Descriptor
+}
+
+// EffectiveContext contains the final provider-neutral request and the capability that executes it.
+type EffectiveContext struct {
+	// Request contains the final instructions, model, history, and tools of the model request.
+	Request ModelRequest
+	// Provider executes Request without preparing its context again.
+	Provider ModelProvider
+}
+
+// EffectiveContextPort supplies the effective context of each model request immediately before it starts.
+type EffectiveContextPort interface {
+	// PrepareContext returns the effective request for the active model and its execution capability.
+	PrepareContext(context.Context, ContextRequest) (EffectiveContext, error)
 }
 
 // StreamEventKind identifies one provider-neutral model stream transition.

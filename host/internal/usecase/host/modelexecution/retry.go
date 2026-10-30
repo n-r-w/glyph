@@ -16,16 +16,25 @@ import (
 	"github.com/n-r-w/glyph/internal/errtree"
 )
 
-// overflowRecoveryHandler obtains history and durable-replacement status from the captured conversation owner.
-type overflowRecoveryHandler func(context.Context, ProviderRequest, error) (ConversationPreparation, error)
+// overflowRecoveryHandler replaces a rejected request with a composed revision of recovered history.
+type overflowRecoveryHandler func(context.Context, preparedRequest, error, []error) (preparedRequest, error)
 
-// selectCapturedOverflowRecovery selects recovery from the admitted conversation owner.
-func selectCapturedOverflowRecovery(captured mo.Option[CapturedConversation]) overflowRecoveryHandler {
+// selectCapturedOverflowRecovery selects recovery from the admitted conversation owner and composes its result.
+func selectCapturedOverflowRecovery(
+	captured mo.Option[CapturedConversation],
+	composer mo.Option[ContextComposer],
+) overflowRecoveryHandler {
 	owner, present := captured.Get()
 	if !present {
 		return nil
 	}
-	return owner.RecoverOverflow
+	return func(ctx context.Context, request preparedRequest, source error, causes []error) (preparedRequest, error) {
+		base, err := prepareOverflowRecovery(ctx, request.base, source, owner, causes)
+		if err != nil {
+			return request, err
+		}
+		return composeRequest(ctx, composer, base, causes)
+	}
 }
 
 // execute runs one provider request through the captured retry policy and handler snapshot.
@@ -34,7 +43,7 @@ func selectCapturedOverflowRecovery(captured mo.Option[CapturedConversation]) ov
 func (s *Service) execute(
 	ctx context.Context,
 	provider ProviderAttempt,
-	request ProviderRequest,
+	request preparedRequest,
 	handle StreamHandler,
 	progress retryProgressHandler,
 	terminalMissingError error,
@@ -52,7 +61,7 @@ func (s *Service) execute(
 	response, retryErr := backoff.Retry(ctx, func() (model.Response, error) {
 		completedAttempts++
 		terminal := mo.None[model.Response]()
-		attemptRequest, cloneErr := request.clone()
+		attemptRequest, cloneErr := request.effective.clone()
 		if cloneErr != nil {
 			return model.Response{}, backoff.Permanent(errors.Join(append(causes, cloneErr)...))
 		}
@@ -200,9 +209,7 @@ func (s *Service) execute(
 		}
 		if providerFailure.Classification == ProviderFailureContextOverflow {
 			var recoveryErr error
-			request, recoveryErr = prepareOverflowRecovery(
-				ctx, request, attemptErr, recoverOverflow, causes,
-			)
+			request, recoveryErr = recoverOverflow(ctx, request, attemptErr, causes)
 			if recoveryErr != nil {
 				return failedResponse, backoff.Permanent(recoveryErr)
 			}
@@ -223,7 +230,7 @@ func (s *Service) execute(
 		}
 		return model.Response{}, backoff.RetryAfter(decision.Delay, attemptErr)
 	}, backoff.WithBackOff(backoff.NewConstantBackOff(0)), backoff.WithMaxTries(0), backoff.WithMaxElapsedTime(0))
-	completion := providerCompletion{response: response, input: request, causes: errors.Join(causes...)}
+	completion := providerCompletion{response: response, input: request.base, causes: errors.Join(causes...)}
 	if retryErr == nil {
 		return completion, nil
 	}
@@ -237,15 +244,15 @@ func (s *Service) execute(
 	return completion, details.LastErr
 }
 
-// prepareOverflowRecovery settles captured recovery within an admitted provider retry.
+// prepareOverflowRecovery settles captured recovery of the prepared request within an admitted provider retry.
 func prepareOverflowRecovery(
 	ctx context.Context,
 	request ProviderRequest,
 	source error,
-	recoverOverflow overflowRecoveryHandler,
+	owner CapturedConversation,
 	causes []error,
 ) (ProviderRequest, error) {
-	recovered, err := recoverOverflow(ctx, request.cloneBinding(), source)
+	recovered, err := owner.RecoverOverflow(ctx, request.cloneBinding(), source)
 	if err != nil {
 		if !recovered.Committed && isPureOwningCancellation(ctx, err) {
 			return request, diagnostic.NewCurrentCause(joinOwningContextCause(ctx, err), errors.Join(causes...))

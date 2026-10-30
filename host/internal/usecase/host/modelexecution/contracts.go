@@ -284,8 +284,6 @@ type CatalogBinding struct {
 type CatalogResolver interface {
 	// ActiveBinding returns an atomic snapshot of the active model binding.
 	ActiveBinding() CatalogBinding
-	// ResolveBinding validates one exact selection without credential preflight.
-	ResolveBinding(selection model.Selection) (CatalogBinding, error)
 	// ResolveConfiguredBinding validates one exact selection and performs credential preflight.
 	ResolveConfiguredBinding(ctx context.Context, selection model.Selection) (CatalogBinding, error)
 }

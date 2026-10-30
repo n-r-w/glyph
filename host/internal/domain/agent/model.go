@@ -80,6 +80,28 @@ func (entry HistoryEntry) ValidatedClone() (HistoryEntry, error) {
 	}
 }
 
+// CloneHistory returns deep copies of ordered history entries.
+func CloneHistory(history []HistoryEntry) []HistoryEntry {
+	owned := make([]HistoryEntry, len(history))
+	for index := range history {
+		owned[index] = history[index].Clone()
+	}
+	return owned
+}
+
+// ValidatedCloneHistory returns deep copies of ordered history entries after validating each payload.
+func ValidatedCloneHistory(history []HistoryEntry) ([]HistoryEntry, error) {
+	owned := make([]HistoryEntry, len(history))
+	for index := range history {
+		clone, err := history[index].ValidatedClone()
+		if err != nil {
+			return nil, fmt.Errorf("history entry %d: %w", index, err)
+		}
+		owned[index] = clone
+	}
+	return owned, nil
+}
+
 // ToolResult is one model-visible terminal tool result.
 type ToolResult struct {
 	// CallID identifies the model-requested tool call.

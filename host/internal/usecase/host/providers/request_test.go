@@ -103,8 +103,8 @@ func TestResolveConfiguredBindingPreservesCredentialFailure(t *testing.T) {
 	assert.Equal(t, selection, catalog.ActiveSelection())
 }
 
-// TestResolveBindingRejectsUnavailableSelectionWithoutMutation verifies exact model and reasoning validation.
-func TestResolveBindingRejectsUnavailableSelectionWithoutMutation(t *testing.T) {
+// TestResolveConfiguredBindingRejectsUnavailableSelectionWithoutMutation verifies exact model and reasoning validation.
+func TestResolveConfiguredBindingRejectsUnavailableSelectionWithoutMutation(t *testing.T) {
 	t.Parallel()
 
 	tests := []struct {
@@ -146,7 +146,7 @@ func TestResolveBindingRejectsUnavailableSelectionWithoutMutation(t *testing.T) 
 			require.NoError(t, err)
 
 			// Act with an unavailable explicit selection.
-			_, err = catalog.ResolveBinding(test.selection)
+			_, err = catalog.ResolveConfiguredBinding(t.Context(), test.selection)
 
 			// Assert rejection and unchanged active state.
 			var selectionErr *SelectionError

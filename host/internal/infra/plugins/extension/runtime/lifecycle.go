@@ -20,17 +20,30 @@ func (r *Runtime) ObserveLifecycle(
 		return fmt.Errorf("map lifecycle observer %q: %w", handlerID, err)
 	}
 	request := extensionpb.HandleRequest_builder{
-		CompactionOutgoingInput: nil,
-		CompletedConversation:   nil,
-		Retry:                   nil,
-		HandlerId:               new(handlerID), Context: mapContext(event.Context),
-		SessionBeforeTreeRequest: nil, SessionBeforeTreeResult: nil, SessionTree: nil, Lifecycle: invocation,
-		ModelSelection: nil, ReasoningSelection: nil,
-		CompactionRequest: nil, CompactionGenerate: nil, CompactionResult: nil,
-		CompactionSuccess: nil, CompactionFailure: nil,
+		CompactionOutgoingInput:  nil,
+		CompletedConversation:    nil,
+		Retry:                    nil,
+		HandlerId:                new(handlerID),
+		Context:                  mapContext(event.Context),
+		SessionBeforeTreeRequest: nil,
+		SessionBeforeTreeResult:  nil,
+		SessionTree:              nil,
+		Lifecycle:                invocation,
+		ModelSelection:           nil,
+		ReasoningSelection:       nil,
+		CompactionRequest:        nil,
+		CompactionGenerate:       nil,
+		CompactionResult:         nil,
+		CompactionSuccess:        nil,
+		CompactionFailure:        nil,
 
 		ParentCompactionId: nil,
-		CompactionPolicy:   nil, ProviderHeaders: nil, ProviderBody: nil, ProviderResponse: nil,
+		CompactionPolicy:   nil,
+		ProviderHeaders:    nil,
+		ProviderBody:       nil,
+		ProviderResponse:   nil,
+		SystemInstructions: nil,
+		ModelContext:       nil,
 	}.Build()
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)

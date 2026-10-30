@@ -50,7 +50,7 @@ func TestWireOwningCancellationKeepsCancellation(t *testing.T) {
 	_, err := service.execute(
 		ctx,
 		provider,
-		ProviderRequest{},
+		preparedRequest{},
 		nil,
 		nil,
 		errors.New("missing terminal"),

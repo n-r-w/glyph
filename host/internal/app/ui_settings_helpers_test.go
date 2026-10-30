@@ -56,6 +56,16 @@ providers:
 `
 }
 
+// imageRestartSelectionSettings lets the restart model accept the user images of restored history.
+func imageRestartSelectionSettings() string {
+	return strings.Replace(
+		restartSelectionSettings(),
+		"      - id: selected-model\n        input: [text]\n",
+		"      - id: selected-model\n        input: [text, image]\n",
+		1,
+	)
+}
+
 // pricedRestartSelectionSettings applies distinct rates to the restart model.
 func pricedRestartSelectionSettings() string {
 	return strings.Replace(

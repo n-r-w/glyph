@@ -51,7 +51,6 @@ func TestCoreRetainsConcurrentProviderTimeoutIdentityWithAttemptsRemaining(t *te
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 	}
 	catalog.EXPECT().ActiveBinding().Return(binding)
-	catalog.EXPECT().ResolveBinding(selection).Return(binding, nil)
 	firstCause := fmt.Errorf("earlier provider timeout: %w", context.DeadlineExceeded)
 	lastCause := fmt.Errorf("final provider timeout: %w", context.DeadlineExceeded)
 	ctx, cancel := context.WithCancel(t.Context())
@@ -139,7 +138,6 @@ func TestCoreDoesNotRestoreDiscardedAttemptAfterRetryProgressFailure(t *testing.
 		Model: descriptor, ReasoningChoice: selection.ReasoningChoice, Provider: provider,
 	}
 	catalog.EXPECT().ActiveBinding().Return(binding)
-	catalog.EXPECT().ResolveBinding(selection).Return(binding, nil)
 	providerCause := errors.New("temporary provider failure")
 	deliveryCause := errors.New("retry progress delivery failed")
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(

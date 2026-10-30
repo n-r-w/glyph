@@ -30,7 +30,7 @@ func assertConfiguredInputErrors(t *testing.T, failures map[string]string) {
 		emptyConfiguredImageData:   "configured model message 0 content 1: image media type and data are required",
 		assistantConfiguredImage:   "configured model message 0 content 1: assistant content must be text",
 		unknownConfiguredRole:      "configured model message 0 role 99 is unknown",
-		unsupportedConfiguredImage: "configured model gpt-active does not accept image input at message 0 content 1",
+		unsupportedConfiguredImage: "model gpt-active does not accept image input at message 0 content 1",
 	}
 	require.Len(t, failures, len(expected))
 	for name, cause := range expected {

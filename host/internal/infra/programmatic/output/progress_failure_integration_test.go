@@ -55,16 +55,23 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 				return context.Cause(ctx)
 			},
 		).AnyTimes()
-		runtime := agentrun.NewMockModelRuntime(mockController)
-		runtime.EXPECT().Snapshot().Return(agentrun.RequestSnapshot{
-			Model: model.Descriptor{
-				Provider: "provider", Model: "model", Input: nil, ContextWindow: 0, MaxTokens: 0,
-				ReasoningCapabilities: model.ReasoningCapabilities{}, ToolCapabilities: model.ToolCapabilities{},
-				Pricing: mo.None[model.Pricing](),
-			},
-			ReasoningChoice: model.ReasoningChoiceHigh,
-			Provider:        provider,
-		}).AnyTimes()
+		runtime := agentrun.NewMockEffectiveContextPort(mockController)
+		runtime.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
+			func(_ context.Context, request agentrun.ContextRequest) (agentrun.EffectiveContext, error) {
+				return agentrun.EffectiveContext{Request: agentrun.ModelRequest{
+					Instructions: request.Instructions, Model: model.Descriptor{
+						Provider:              "provider",
+						Model:                 "model",
+						Input:                 nil,
+						ContextWindow:         0,
+						MaxTokens:             0,
+						ReasoningCapabilities: model.ReasoningCapabilities{},
+						ToolCapabilities:      model.ToolCapabilities{},
+						Pricing:               mo.None[model.Pricing](),
+					}, ReasoningChoice: model.ReasoningChoiceHigh,
+					History: request.History, Tools: request.Tools,
+				}, Provider: provider}, nil
+			}).AnyTimes()
 		tools := agentrun.NewMockToolRuntime(mockController)
 		tools.EXPECT().Tools().Return(nil).AnyTimes()
 		agentCore := agentrun.New(

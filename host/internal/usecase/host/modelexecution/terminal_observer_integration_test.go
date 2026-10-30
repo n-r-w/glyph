@@ -31,7 +31,7 @@ func TestTerminalObserverFailureSelectsFailedRun(t *testing.T) {
 					t.Parallel()
 					// Arrange a canceled provider completion and an independent current terminal-observer failure.
 					mocks := gomock.NewController(t)
-					runtime := agentrun.NewMockModelRuntime(mocks)
+					runtime := agentrun.NewMockEffectiveContextPort(mocks)
 					provider := agentrun.NewMockModelProvider(mocks)
 					tools := agentrun.NewMockToolRuntime(mocks)
 					events := agentrun.NewMockEventSink(mocks)
@@ -45,10 +45,15 @@ func TestTerminalObserverFailureSelectsFailedRun(t *testing.T) {
 							return nil
 						}).
 						AnyTimes()
-					runtime.EXPECT().
-						Snapshot().
-						Return(agentrun.RequestSnapshot{
-							Model: model.Descriptor{}, ReasoningChoice: model.ReasoningChoiceOff, Provider: provider,
+					runtime.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
+						func(_ context.Context, request agentrun.ContextRequest) (agentrun.EffectiveContext, error) {
+							return agentrun.EffectiveContext{Request: agentrun.ModelRequest{
+								Instructions:    request.Instructions,
+								Model:           model.Descriptor{},
+								ReasoningChoice: model.ReasoningChoiceOff,
+								History:         request.History,
+								Tools:           request.Tools,
+							}, Provider: provider}, nil
 						})
 					tools.EXPECT().Tools().Return(nil)
 					ctx, cancel := context.WithCancel(t.Context())

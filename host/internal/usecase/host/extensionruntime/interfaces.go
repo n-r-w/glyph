@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
@@ -70,6 +71,14 @@ type Catalog interface {
 type ExtensionRuntime interface {
 	// HandleWire invokes one ordinary provider-wire operation.
 	HandleWire(context.Context, string, middleware.Invocation) (middleware.Action, error)
+	// HandleSystemInstructions invokes one system-instructions transformer.
+	HandleSystemInstructions(
+		context.Context, string, middleware.Transformation[string],
+	) (middleware.Transformed[string], error)
+	// HandleModelContext invokes one request-local history transformer and restores retained private replay.
+	HandleModelContext(
+		context.Context, string, middleware.Transformation[[]agent.HistoryEntry],
+	) (middleware.Transformed[[]agent.HistoryEntry], error)
 	// BeginInvocationChild admits work owned by one live connection-local Host invocation.
 	BeginInvocationChild(parentID string) (extensioncontroller.InvocationChild, error)
 	// Register invokes extension registration and returns its raw result.

@@ -119,7 +119,7 @@ func (s *requestEncodingSuite) TestModelPayloadBoundaries() {
 					)
 				}
 				// Act through the shared public decoder.
-				decoded, err := decodeRequestModelContents([]*extensionpb.SessionTreeModelContent{content})
+				decoded, err := DecodeSessionTreeModelContents([]*extensionpb.SessionTreeModelContent{content})
 				// Assert exact rejection or complete finalized content with absent provider context.
 				if kind == extensionpb.SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL {
 					if !callPresent || textPresent {
@@ -138,10 +138,10 @@ func (s *requestEncodingSuite) TestModelPayloadBoundaries() {
 			}
 		}
 	}
-	_, err := decodeRequestModelContents([]*extensionpb.SessionTreeModelContent{nil})
+	_, err := DecodeSessionTreeModelContents([]*extensionpb.SessionTreeModelContent{nil})
 	require.EqualError(t, err, "model content payload is missing")
 	for _, kind := range []extensionpb.SessionTreeModelContentKind{extensionpb.SessionTreeModelContentKind_SESSION_TREE_MODEL_CONTENT_KIND_UNSPECIFIED, 99} {
-		_, err = decodeRequestModelContents(
+		_, err = DecodeSessionTreeModelContents(
 			[]*extensionpb.SessionTreeModelContent{
 				extensionpb.SessionTreeModelContent_builder{Kind: new(kind), Text: nil, ToolCall: nil}.Build(),
 			},
@@ -153,7 +153,7 @@ func (s *requestEncodingSuite) TestModelPayloadBoundaries() {
 		Text:     nil,
 		ToolCall: extensionpb.SessionTreeToolCall_builder{Id: nil, Name: nil, ArgumentsJson: []byte(`broken`)}.Build(),
 	}.Build()
-	_, err = decodeRequestModelContents([]*extensionpb.SessionTreeModelContent{content})
+	_, err = DecodeSessionTreeModelContents([]*extensionpb.SessionTreeModelContent{content})
 	require.ErrorContains(t, err, "validate tool call arguments:")
 }
 

@@ -208,23 +208,13 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 				)
 			}
 		})
-		if os.Getenv(appUIBehaviorEnvironment) == "summary-retry-failure" {
-			if err == nil {
-				return errors.New("navigation retry failure was not received")
+		if behavior := os.Getenv(appUIBehaviorEnvironment); behavior == "summary-retry-failure" ||
+			behavior == summaryContextFailureBehavior && id == "navigate-first" {
+			if recordErr := recordSummaryNavigationFailure(err); recordErr != nil {
+				return recordErr
 			}
-			var failure *uisdk.FailureError
-			if !errors.As(err, &failure) {
-				return err
-			}
-			if writeErr := os.WriteFile(
-				os.Getenv(appUITraceEnvironment)+".failure-code", []byte(failure.Code()), 0o600,
-			); writeErr != nil {
-				return writeErr
-			}
-			if writeErr := os.WriteFile(
-				os.Getenv(appUITraceEnvironment)+".failure-message", []byte(failure.Error()), 0o600,
-			); writeErr != nil {
-				return writeErr
+			if behavior == summaryContextFailureBehavior {
+				continue
 			}
 			return host.Close(ctx)
 		}
@@ -259,6 +249,23 @@ func runSummaryControlUIFixture(t *testing.T, ctx context.Context, host *uisdk.H
 		return err
 	}
 	return writeSummaryControlObservation(ctx, host, payload)
+}
+
+// recordSummaryNavigationFailure saves the code and complete text of an expected navigation failure.
+func recordSummaryNavigationFailure(err error) error {
+	if err == nil {
+		return errors.New("navigation failure was not received")
+	}
+	var failure *uisdk.FailureError
+	if !errors.As(err, &failure) {
+		return err
+	}
+	if writeErr := os.WriteFile(
+		os.Getenv(appUITraceEnvironment)+".failure-code", []byte(failure.Code()), 0o600,
+	); writeErr != nil {
+		return writeErr
+	}
+	return os.WriteFile(os.Getenv(appUITraceEnvironment)+".failure-message", []byte(failure.Error()), 0o600)
 }
 
 // writeSummaryControlObservation saves the exact received wire payload before closing the UI connection.

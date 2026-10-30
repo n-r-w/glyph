@@ -104,14 +104,14 @@ func DecodeCompactionRequestEntry(value *extensionpb.CompactionHistoryRecord) (s
 	}
 	switch {
 	case value.GetUser() != nil:
-		message, err := decodeRequestUser(value.GetUser())
+		message, err := DecodeSessionTreeUser(value.GetUser())
 		if err != nil {
 			return session.PreparedHistoryEntry{}, err
 		}
 		history.Kind = agent.HistoryEntryUser
 		history.User = mo.Some(message)
 	case value.GetModel() != nil:
-		contents, err := decodeRequestModelContents(value.GetModel().GetContent())
+		contents, err := DecodeSessionTreeModelContents(value.GetModel().GetContent())
 		if err != nil {
 			return session.PreparedHistoryEntry{}, err
 		}
@@ -130,7 +130,7 @@ func DecodeCompactionRequestEntry(value *extensionpb.CompactionHistoryRecord) (s
 			},
 		)
 	case value.GetToolResult() != nil:
-		result, err := decodeRequestToolResult(value.GetToolResult())
+		result, err := DecodeSessionTreeToolResult(value.GetToolResult())
 		if err != nil {
 			return session.PreparedHistoryEntry{}, err
 		}
@@ -148,8 +148,8 @@ func DecodeCompactionRequestEntry(value *extensionpb.CompactionHistoryRecord) (s
 	}, nil
 }
 
-// decodeRequestModelContents validates and maps closed public model content variants.
-func decodeRequestModelContents(values []*extensionpb.SessionTreeModelContent) ([]model.Content, error) {
+// DecodeSessionTreeModelContents validates and maps closed public model content variants.
+func DecodeSessionTreeModelContents(values []*extensionpb.SessionTreeModelContent) ([]model.Content, error) {
 	contents := make([]model.Content, len(values))
 	for index, content := range values {
 		if content == nil {
@@ -222,8 +222,8 @@ func decodeCompactionUsage(usage *extensionpb.TokenUsage) session.TokenUsage {
 	}
 }
 
-// decodeRequestUser supplies detached public user content.
-func decodeRequestUser(user *extensionpb.SessionTreeUserMessage) (model.Message, error) {
+// DecodeSessionTreeUser supplies detached public user content.
+func DecodeSessionTreeUser(user *extensionpb.SessionTreeUserMessage) (model.Message, error) {
 	contents := make([]model.InputContent, len(user.GetContent()))
 	for index, content := range user.GetContent() {
 		if content == nil || content.WhichContent() == extensionpb.SessionTreeUserContent_Content_not_set_case {
@@ -246,8 +246,8 @@ func decodeRequestUser(user *extensionpb.SessionTreeUserMessage) (model.Message,
 	return model.Message{Content: contents}, nil
 }
 
-// decodeRequestToolResult supplies detached public tool-result content.
-func decodeRequestToolResult(result *extensionpb.SessionTreeToolResult) (agent.ToolResult, error) {
+// DecodeSessionTreeToolResult supplies detached public tool-result content.
+func DecodeSessionTreeToolResult(result *extensionpb.SessionTreeToolResult) (agent.ToolResult, error) {
 	contents := make([]tool.ResultContent, len(result.GetContents()))
 	for index, content := range result.GetContents() {
 		if content == nil || content.WhichContent() == extensionpb.ToolResultContent_Content_not_set_case {

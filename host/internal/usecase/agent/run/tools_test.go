@@ -188,7 +188,7 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	// Arrange old and new runtimes around a blocked first provider request.
 	oldProvider := NewMockModelProvider(gomock.NewController(t))
 	newProvider := NewMockModelProvider(gomock.NewController(t))
-	runtime := NewMockModelRuntime(gomock.NewController(t))
+	runtime := NewMockEffectiveContextPort(gomock.NewController(t))
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	events := NewMockEventSink(gomock.NewController(t))
 	oldModel := model.Descriptor{
@@ -212,16 +212,14 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 		Pricing:               mo.None[model.Pricing](),
 	}
 	committed := false
-	runtime.EXPECT().Snapshot().DoAndReturn(func() RequestSnapshot {
-		if committed {
-			return RequestSnapshot{
-				Model: newModel, ReasoningChoice: model.ReasoningChoiceHigh, Provider: newProvider,
+	runtime.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(ctx context.Context, request ContextRequest) (EffectiveContext, error) {
+			if committed {
+				return passThroughContext(newModel, model.ReasoningChoiceHigh, newProvider)(ctx, request)
 			}
-		}
-		return RequestSnapshot{
-			Model: oldModel, ReasoningChoice: model.ReasoningChoiceLow, Provider: oldProvider,
-		}
-	}).AnyTimes()
+			return passThroughContext(oldModel, model.ReasoningChoiceLow, oldProvider)(ctx, request)
+		},
+	).AnyTimes()
 	requestStarted := make(chan struct{})
 	releaseRequest := make(chan struct{})
 	call := model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{"path":"file"}`)}

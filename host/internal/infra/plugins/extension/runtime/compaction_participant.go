@@ -78,5 +78,7 @@ func newCompactionParticipantRequest(
 		ProviderHeaders:          nil,
 		ProviderBody:             nil,
 		ProviderResponse:         nil,
+		SystemInstructions:       nil,
+		ModelContext:             nil,
 	}.Build()
 }
