@@ -2,7 +2,16 @@
 
 ## Status
 
-The latest 2026-10-30 follow-up corrects behavior FND-03 in `6aae0713-3703-49e8-9b07-f2af7b9e9522` and text FND-02/FND-03 in `9d216f24-f539-4cf5-b69f-89de93f76e35`. The response-secret lifetime and cookie over-redaction defects are corrected in code; the guide now qualifies acquired rejection diagnostics. Prior code/conformance reviews passed the earlier correction, and prior token/URL-auth fixes were confirmed. The new changes require all affected reviews again. This record does not declare UNT-01 accepted. No full-project check, dependency change, commit or UNT-02 work occurred. Earlier correction records remain explicitly identified as history.
+UNT-01 is ready. Commit `b8e3754` contains the implementation. The final code-quality, text-quality, behavior and technical-solution-conformance reviews approved it with no open findings; their reports are messages on review desk `28681c8f-bac2-4729-af45-207ea602613f`, topic `57f443f5-4bd7-4bfa-94d7-5775cec6638d`.
+
+The whole-project checks ran on commit `1fef01e`, which changes only `AGENTS.md` after `b8e3754`:
+
+- `task fmt` and `task fix_dry_run` proposed no changes.
+- `task lint` reported 0 issues.
+- `task test`, `task itest` and `task build` passed.
+- `task test-coverage` reported 85.0% against the required 80.0%.
+
+Phase acceptance by the user remains part of final verification. The sections below are history: they record focused RED/GREEN evidence and the review corrections, and their statements about uncommitted changes or missing checks describe the state before the commit.
 
 ## Public wire admission
 
@@ -387,13 +396,11 @@ Lint reported `0 issues.` Both test commands compiled the command and reported `
 
 ## Verification limits and handoff
 
-- Whole-project formatting, fix analysis, lint, tests, integration tests, coverage and build were deliberately not run in this continuation. The pre-task baseline and its reported 84.8% coverage are historical context, not measurements of this implementation.
-- The earlier completion awaited independent reviews. The correction task supplies later code-quality and behavior reports; the 2026-10-30 corrections still require reviewer/acceptor disposition. No full acceptance or complete UNT-01 plan exit is claimed.
 - Recovered original missing-behavior evidence now includes the seven historical records above as well as SDK admission. Missing RED pairs for additional cases remain an acceptance-evidence limitation. Current GREEN does not reconstruct missing history.
 - No-tag unfiltered lint remains a limitation. The project-configured integration-tag lint passes, and changed-line no-tag lint passes. The extra no-tag check also reports findings outside changed lines, including helpers used only by integration builds; these findings were not redesigned or suppressed.
 - The generated raw-provider substitute tests the neutral callback boundary. No production PHS-12 extension-provider process is implemented or claimed.
 - The LSP reference lookup for integration test symbols failed because its active build excludes integration-tagged files. Formatting changes did not rename symbols or alter behavior. Runtime tests and compiler checks supplied verification for those files.
-- No dependency, environment, architecture or public-contract redesign was introduced during completion. All previous PHS-08 changes remain uncommitted.
+- No dependency, environment, architecture or public-contract redesign was introduced during completion.
 
 ### Additional no-tag lint finding
 

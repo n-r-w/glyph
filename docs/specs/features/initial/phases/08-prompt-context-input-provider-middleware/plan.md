@@ -33,9 +33,9 @@ No backward compatibility.
 
 | Unit | Outcome | Performer | Status |
 | --- | --- | --- | --- |
-| UNT-01 | Safe provider-wire middleware through ordinary extension operations | SubAgentDeveloperComplex | In progress |
+| UNT-01 | Safe provider-wire middleware through ordinary extension operations | SubAgentDeveloperComplex | Ready |
 | UNT-02 | Ordered effective instructions/context after preparation | SubAgentDeveloperComplex | Accepted for execution |
-| UNT-03 | Public text/image input transformation and full handling | SubAgentDeveloperRegular | Accepted for execution |
+| UNT-03 | Public text/image input transformation and full handling | SubAgentDeveloperComplex | Accepted for execution |
 | UNT-04 | Role-preserving finalized messages used consistently | SubAgentDeveloperComplex | Accepted for execution |
 | UNT-05 | Public author guide and integrated phase records | SubAgentDeveloperRegular | Accepted for execution |
 
@@ -161,7 +161,7 @@ Own verification through real Programmatic/UI operations, extension processes, s
 
 ### Relation
 
-Depends on ready UNT-02 and its stable model-context boundary. Shares middleware, public envelopes, assembly and fixtures with earlier units. Runs sequentially.
+Depends on ready UNT-02 and its stable model-context boundary. Shares middleware, public envelopes, assembly and fixtures with earlier units. Runs sequentially. SubAgentDeveloperComplex performs it because completion of an accepted operation without Core execution is a mechanism that no existing path shows.
 
 ### Risks
 
@@ -239,6 +239,14 @@ MEDIUM: status or prose could claim acceptance before evidence/user review. Keep
 Generated mocks isolate capability-owner composition, validation and error decisions. Integration-tagged tests combine real production components and public SDK/process/network/filesystem boundaries. Public client probes verify handler order, source preservation, private-data exclusion, session/request separation, modality timing, handled completion, retry suppression and recovery for a subsequent request. Existing provider failure and compaction/retry tests remain part of full checks.
 
 Each slice records focused RED/GREEN commands and output before parent acceptance. Run the mandatory checks in project order, analyze `fix_dry_run` output before fixing, and retain exact failure output when a check blocks completion. Use all available public fixtures; describe unavailable production PHS-12 process-provider behavior as a scope boundary rather than inventing it.
+
+Within a unit, checks run in this order:
+
+1. While the unit performer works and while review corrections continue, the performer runs the tests that cover the changed files, `task fmt`, `task lint` and `task test`.
+2. After the reviews of the unit end with no accepted findings, the parent starts a separate agent that runs the full mandatory set of the project rules and `task build`.
+3. If the full run passes, the parent creates the local unit commit. If the full run fails, or `task fmt` or `task fix_dry_run` changes files, the parent assigns the correction to the performer. The performer runs the checks of step 1, the reviewers review the correction, and the separate agent runs the full set again.
+
+The full set runs once per passing unit because one run is slow; see [TD-02](../../../../../tech-debt.md#td-02-integration-tests-are-slow). The code changes of a unit are complete at its local commit, so this order still runs the mandatory project checks before code changes are complete.
 
 ## Dependencies and resourcing
 
