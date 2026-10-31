@@ -46,12 +46,14 @@ type Service struct {
 	// finalizer supplies the final value of each terminal model response and completed tool result.
 	finalizer MessageFinalizer
 
-	// mutex protects state, pending steer messages, and appended-history accounting.
+	// mutex protects state, pending queued messages, and appended-history accounting.
 	mutex sync.RWMutex
 	// state contains the current run snapshot.
 	state State
 	// steering holds the steer messages of the active run that history has not received yet, in arrival order.
 	steering []model.Message
+	// followUps holds the followUp messages of the active run that history has not received yet, in arrival order.
+	followUps []model.Message
 	// addedHistory owns detached entries appended successfully by the active run.
 	addedHistory []agent.HistoryEntry
 }
@@ -79,6 +81,7 @@ func New(
 		finalizer:    finalizer,
 		mutex:        sync.RWMutex{},
 		steering:     nil,
+		followUps:    nil,
 		addedHistory: nil,
 		state: State{
 			Status:          StatusIdle,
@@ -113,20 +116,20 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 			)
 		}
 		turnResult, next, runErr := s.runTurn(ctx, request.RunID)
-		var steer mo.Option[model.Message]
+		var queued mo.Option[model.Message]
 		switch {
 		case next:
-			steer = s.takeSteer()
+			queued = s.takeSteer()
 		case turnResult.Outcome == agent.RunOutcomeCompleted && runErr == nil:
-			// A final response delivers a pending steer message instead of completing the run.
-			steer = s.takeSteerOrComplete()
-			if steer.IsAbsent() {
+			// A final response delivers a pending steer or followUp message instead of completing the run.
+			queued = s.takeQueuedOrComplete()
+			if queued.IsAbsent() {
 				return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
 			}
 		default:
 			return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
 		}
-		message, present := steer.Get()
+		message, present := queued.Get()
 		if !present {
 			continue
 		}
@@ -440,8 +443,9 @@ func (s *Service) finish(
 	s.mutex.Lock()
 	added := s.addedHistory
 	s.addedHistory = nil
-	// The run ends here, so steer messages that it has not delivered are discarded.
+	// The run ends here, so queued messages that it has not delivered are discarded.
 	s.steering = nil
+	s.followUps = nil
 	s.state = State{
 		Status:          StatusAwaitingSettlement,
 		RunID:           mo.Some(runID),

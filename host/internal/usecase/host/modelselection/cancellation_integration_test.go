@@ -14,6 +14,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
@@ -146,11 +147,20 @@ func TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission(t *tes
 // reasoningSelectionCommand creates one complete Programmatic reasoning-selection command.
 func reasoningSelectionCommand(operationID string, choice model.ReasoningChoice) controller.Command {
 	return controller.Command{
-		OperationID: operationID, Kind: controller.CommandSelectReasoningChoice,
-		UserMessage: mo.None[model.Message](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-		ReasoningChoice: mo.Some(choice), SessionID: mo.None[session.ID](), SessionName: mo.None[string](),
-		TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary,
-		CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),
-		RetryEnabled: mo.None[bool](), CompactionInstructions: mo.None[string](),
+		OperationID:            operationID,
+		Kind:                   controller.CommandSelectReasoningChoice,
+		UserMessage:            mo.None[model.Message](),
+		Delivery:               mo.None[agent.MessageDelivery](),
+		ProviderID:             mo.None[model.ProviderID](),
+		ModelID:                mo.None[model.ID](),
+		ReasoningChoice:        mo.Some(choice),
+		SessionID:              mo.None[session.ID](),
+		SessionName:            mo.None[string](),
+		TargetEntryID:          mo.None[string](),
+		SummaryMode:            controller.SummaryModeNoSummary,
+		CustomFocus:            mo.None[string](),
+		EntryLabel:             mo.None[string](),
+		RetryEnabled:           mo.None[bool](),
+		CompactionInstructions: mo.None[string](),
 	}
 }

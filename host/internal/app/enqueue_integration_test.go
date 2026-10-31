@@ -22,16 +22,18 @@ import (
 )
 
 const (
-	// steerRunID identifies the user request whose agent run receives steer messages.
-	steerRunID = "steer-run"
+	// queueRunID identifies the user request whose agent run receives queued messages.
+	queueRunID = "steer-run"
 	// steerFirstText is the steer message that the agent receives first.
 	steerFirstText = "unique first steer instruction"
+	// followUpText is the followUp message that the agent receives after all steer messages.
+	followUpText = "unique follow up instruction"
 	// steerSecondText is the steer message that the agent receives second.
 	steerSecondText = "unique second steer instruction"
 	// steerToolOutput is the result text of the reference tool in ordinary mode.
 	steerToolOutput = "ordinary complete"
-	// steerNotActiveCode is the failure code of an enqueue without an active agent run.
-	steerNotActiveCode = "RUN_NOT_ACTIVE"
+	// queueNotActiveCode is the failure code of an enqueue without an active agent run.
+	queueNotActiveCode = "RUN_NOT_ACTIVE"
 	// steerPausedText is steer text whose input-text invocation the input reference pauses.
 	steerPausedText = "glyph-pause-input stale steer"
 	// steerPausedMarker identifies the paused steer text in provider requests and history.
@@ -47,8 +49,8 @@ const (
 		`"arguments":"{\"mode\":\"ordinary\"}","status":"completed"}]}}` + "\n\n" + "data: [DONE]\n\n"
 )
 
-// steerProvider is a local Responses endpoint that records request bodies and holds its first requests.
-type steerProvider struct {
+// queueProvider is a local Responses endpoint that records request bodies and holds its first requests.
+type queueProvider struct {
 	// server serves the scripted responses.
 	server *httptest.Server
 	// held contains one channel per held request, closed when that request arrives.
@@ -61,11 +63,11 @@ type steerProvider struct {
 	bodies []string
 }
 
-// startSteerProvider serves the responses in order; each of the first heldRequests requests waits until the test
+// startQueueProvider serves the responses in order; each of the first heldRequests requests waits until the test
 // releases it.
-func startSteerProvider(t *testing.T, heldRequests int, responses ...string) *steerProvider {
+func startQueueProvider(t *testing.T, heldRequests int, responses ...string) *queueProvider {
 	t.Helper()
-	provider := &steerProvider{
+	provider := &queueProvider{
 		server: nil, held: make([]chan struct{}, heldRequests), release: make([]chan struct{}, heldRequests),
 		mutex: sync.Mutex{}, bodies: nil,
 	}
@@ -100,14 +102,14 @@ func startSteerProvider(t *testing.T, heldRequests int, responses ...string) *st
 }
 
 // snapshot returns the recorded request bodies.
-func (provider *steerProvider) snapshot() []string {
+func (provider *queueProvider) snapshot() []string {
 	provider.mutex.Lock()
 	defer provider.mutex.Unlock()
 	return append([]string(nil), provider.bodies...)
 }
 
-// steerSettings selects a Responses-compatible provider at the given endpoint.
-func steerSettings(serverURL string) string {
+// queueSettings selects a Responses-compatible provider at the given endpoint.
+func queueSettings(serverURL string) string {
 	compatible := strings.Replace(
 		strings.SplitN(configuredRequestSettings, retryProvidersKey, 2)[1],
 		retryCodexProviderKey,
@@ -121,31 +123,51 @@ func steerSettings(serverURL string) string {
 	return strings.Replace(settings, retryProvidersKey, retryProvidersKey+compatible, 1)
 }
 
-// startSteerFixture starts a Programmatic Control process against the provider.
-func startSteerFixture(t *testing.T, provider *steerProvider, extensionDirectory string) *programmaticFixture {
+// startQueueFixture starts a Programmatic Control process against the provider.
+func startQueueFixture(t *testing.T, provider *queueProvider, extensionDirectory string) *programmaticFixture {
 	t.Helper()
-	paths := testPaths(t, steerSettings(provider.server.URL))
+	paths := testPaths(t, queueSettings(provider.server.URL))
 	writeProgrammaticCredentials(t, paths)
 	return startProgrammaticFixtureWithExtension(t, paths, extensionDirectory)
 }
 
-// steerRequest builds one operation frame that queues text as a steer message.
-func steerRequest(operationID, text string) *programmaticv1.OpenRequest {
+// enqueueRequest builds one operation frame that queues text with the given delivery point.
+func enqueueRequest(
+	operationID string, delivery programmaticv1.MessageDelivery, text string,
+) *programmaticv1.OpenRequest {
 	return testProgrammaticRequest(operationID, func(request *programmaticv1.ControllerRequest) {
 		payload := new(programmaticv1.EnqueueMessage)
 		payload.SetContent([]*programmaticv1.UserContent{
 			programmaticv1.UserContent_builder{Text: new(text), Image: nil}.Build(),
 		})
-		payload.SetDelivery(programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER)
+		payload.SetDelivery(delivery)
 		request.SetEnqueueMessage(payload)
 	})
+}
+
+// sendEnqueue sends one queued message and returns the terminal lifecycle event of its operation.
+func sendEnqueue(
+	t *testing.T,
+	fixture *programmaticFixture,
+	operationID string,
+	delivery programmaticv1.MessageDelivery,
+	text string,
+) *programmaticv1.HostEvent {
+	t.Helper()
+	require.NoError(t, fixture.stream.Send(enqueueRequest(operationID, delivery, text)))
+	return waitForTerminalEvent(t, fixture, operationID)
 }
 
 // sendSteer sends one steer message and returns the terminal lifecycle event of its operation.
 func sendSteer(t *testing.T, fixture *programmaticFixture, operationID, text string) *programmaticv1.HostEvent {
 	t.Helper()
-	require.NoError(t, fixture.stream.Send(steerRequest(operationID, text)))
-	return waitForTerminalEvent(t, fixture, operationID)
+	return sendEnqueue(t, fixture, operationID, programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER, text)
+}
+
+// sendFollowUp sends one followUp message and returns the terminal lifecycle event of its operation.
+func sendFollowUp(t *testing.T, fixture *programmaticFixture, operationID, text string) *programmaticv1.HostEvent {
+	t.Helper()
+	return sendEnqueue(t, fixture, operationID, programmaticv1.MessageDelivery_MESSAGE_DELIVERY_FOLLOW_UP, text)
 }
 
 // waitForTerminalEvent skips the events of other operations and returns the terminal event of one operation.
@@ -162,7 +184,7 @@ func waitForTerminalEvent(t *testing.T, fixture *programmaticFixture, operationI
 // requireQueued checks that Host queued the message instead of an extension handling it.
 func requireQueued(t *testing.T, event *programmaticv1.HostEvent) {
 	t.Helper()
-	require.True(t, event.HasCompleted(), "steer operation did not complete: %v", event)
+	require.True(t, event.HasCompleted(), "enqueue operation did not complete: %v", event)
 	require.True(t, event.GetCompleted().HasEnqueueMessage())
 	require.False(t, event.GetCompleted().GetEnqueueMessage().GetHandled())
 }
@@ -172,16 +194,16 @@ func requireQueued(t *testing.T, event *programmaticv1.HostEvent) {
 func TestPublicSteerAfterFinalResponse(t *testing.T) {
 	t.Parallel()
 	// Arrange a provider that holds the final response of the first request.
-	provider := startSteerProvider(t, 1, finalResponseSSE, finalResponseSSE)
-	fixture := startSteerFixture(t, provider, t.TempDir())
+	provider := startQueueProvider(t, 1, finalResponseSSE, finalResponseSSE)
+	fixture := startQueueFixture(t, provider, t.TempDir())
 	defer fixture.closeOwner(t)
-	require.NoError(t, fixture.stream.Send(userRequest(steerRunID, "first request")))
+	require.NoError(t, fixture.stream.Send(userRequest(queueRunID, "first request")))
 	<-provider.held[0]
 
 	// Act by queuing a steer message, then releasing the final response.
 	queued := sendSteer(t, fixture, "steer-final", steerFirstText)
 	close(provider.release[0])
-	terminal := waitForTerminalEvent(t, fixture, steerRunID)
+	terminal := waitForTerminalEvent(t, fixture, queueRunID)
 
 	// Assert the run made a second model request with the steer message and then completed.
 	requireQueued(t, queued)
@@ -197,16 +219,16 @@ func TestPublicSteerAfterFinalResponse(t *testing.T) {
 func TestPublicSteerAfterToolBatch(t *testing.T) {
 	t.Parallel()
 	// Arrange a provider that holds a tool-call response of the reference extension tool.
-	provider := startSteerProvider(t, 1, steerToolSSE, finalResponseSSE)
-	fixture := startSteerFixture(t, provider, buildPublicExtensionFixture(t))
+	provider := startQueueProvider(t, 1, steerToolSSE, finalResponseSSE)
+	fixture := startQueueFixture(t, provider, buildPublicExtensionFixture(t))
 	defer fixture.closeOwner(t)
-	require.NoError(t, fixture.stream.Send(userRequest(steerRunID, "first request")))
+	require.NoError(t, fixture.stream.Send(userRequest(queueRunID, "first request")))
 	<-provider.held[0]
 
 	// Act by queuing a steer message, then releasing the tool-call response.
 	queued := sendSteer(t, fixture, "steer-tool", steerFirstText)
 	close(provider.release[0])
-	terminal := waitForTerminalEvent(t, fixture, steerRunID)
+	terminal := waitForTerminalEvent(t, fixture, queueRunID)
 
 	// Assert the next model request contains the tool result followed by the steer message.
 	requireQueued(t, queued)
@@ -225,17 +247,17 @@ func TestPublicSteerAfterToolBatch(t *testing.T) {
 func TestPublicSteerOneAtATime(t *testing.T) {
 	t.Parallel()
 	// Arrange a provider that holds the final response of the first request.
-	provider := startSteerProvider(t, 1, finalResponseSSE, finalResponseSSE, finalResponseSSE)
-	fixture := startSteerFixture(t, provider, t.TempDir())
+	provider := startQueueProvider(t, 1, finalResponseSSE, finalResponseSSE, finalResponseSSE)
+	fixture := startQueueFixture(t, provider, t.TempDir())
 	defer fixture.closeOwner(t)
-	require.NoError(t, fixture.stream.Send(userRequest(steerRunID, "first request")))
+	require.NoError(t, fixture.stream.Send(userRequest(queueRunID, "first request")))
 	<-provider.held[0]
 
 	// Act by queuing two steer messages, then releasing the final response.
 	first := sendSteer(t, fixture, "steer-first", steerFirstText)
 	second := sendSteer(t, fixture, "steer-second", steerSecondText)
 	close(provider.release[0])
-	terminal := waitForTerminalEvent(t, fixture, steerRunID)
+	terminal := waitForTerminalEvent(t, fixture, queueRunID)
 
 	// Assert each following model request adds one steer message in queue order.
 	requireQueued(t, first)
@@ -249,12 +271,69 @@ func TestPublicSteerOneAtATime(t *testing.T) {
 	require.Contains(t, bodies[2], steerSecondText)
 }
 
+// TestPublicFollowUpAfterSteerAtFinalResponse checks that steer and followUp messages sent during the final model
+// response reach two following model requests, steer first, before the agent run completes.
+func TestPublicFollowUpAfterSteerAtFinalResponse(t *testing.T) {
+	t.Parallel()
+	// Arrange a provider that holds the final response of the first request.
+	provider := startQueueProvider(t, 1, finalResponseSSE, finalResponseSSE, finalResponseSSE)
+	fixture := startQueueFixture(t, provider, t.TempDir())
+	defer fixture.closeOwner(t)
+	require.NoError(t, fixture.stream.Send(userRequest(queueRunID, "first request")))
+	<-provider.held[0]
+
+	// Act by queuing a followUp message and then a steer message, then releasing the final response.
+	followUp := sendFollowUp(t, fixture, "follow-up", followUpText)
+	steer := sendSteer(t, fixture, "steer-final", steerFirstText)
+	close(provider.release[0])
+	terminal := waitForTerminalEvent(t, fixture, queueRunID)
+
+	// Assert the second request has only the steer message, the third has both, and the run then completed.
+	requireQueued(t, followUp)
+	requireQueued(t, steer)
+	require.True(t, terminal.HasCompleted(), "agent run did not complete: %v", terminal)
+	bodies := provider.snapshot()
+	require.Len(t, bodies, 3)
+	require.NotContains(t, bodies[0], steerFirstText)
+	require.NotContains(t, bodies[0], followUpText)
+	require.Contains(t, bodies[1], steerFirstText)
+	require.NotContains(t, bodies[1], followUpText)
+	require.Contains(t, bodies[2], steerFirstText)
+	require.Contains(t, bodies[2], followUpText)
+}
+
+// TestPublicFollowUpWaitsForToolBatch checks that a followUp message sent while the model requests a tool call
+// stays pending after the tool batch and reaches the model only after the final response.
+func TestPublicFollowUpWaitsForToolBatch(t *testing.T) {
+	t.Parallel()
+	// Arrange a provider that holds a tool-call response of the reference extension tool.
+	provider := startQueueProvider(t, 1, steerToolSSE, finalResponseSSE, finalResponseSSE)
+	fixture := startQueueFixture(t, provider, buildPublicExtensionFixture(t))
+	defer fixture.closeOwner(t)
+	require.NoError(t, fixture.stream.Send(userRequest(queueRunID, "first request")))
+	<-provider.held[0]
+
+	// Act by queuing a followUp message, then releasing the tool-call response.
+	queued := sendFollowUp(t, fixture, "follow-up-tool", followUpText)
+	close(provider.release[0])
+	terminal := waitForTerminalEvent(t, fixture, queueRunID)
+
+	// Assert the request after the tool batch lacks the message, and the request after the final response has it.
+	requireQueued(t, queued)
+	require.True(t, terminal.HasCompleted(), "agent run did not complete: %v", terminal)
+	bodies := provider.snapshot()
+	require.Len(t, bodies, 3)
+	require.Contains(t, bodies[1], steerToolOutput)
+	require.NotContains(t, bodies[1], followUpText)
+	require.Contains(t, bodies[2], followUpText)
+}
+
 // TestPublicSteerWithoutActiveRun checks that a steer message fails explicitly while no agent run is active.
 func TestPublicSteerWithoutActiveRun(t *testing.T) {
 	t.Parallel()
 	// Arrange an idle Programmatic Control process.
-	provider := startSteerProvider(t, 0)
-	fixture := startSteerFixture(t, provider, t.TempDir())
+	provider := startQueueProvider(t, 0)
+	fixture := startQueueFixture(t, provider, t.TempDir())
 	defer fixture.closeOwner(t)
 
 	// Act by queuing a steer message.
@@ -263,7 +342,7 @@ func TestPublicSteerWithoutActiveRun(t *testing.T) {
 	// Assert the operation failed with its category and complete text, and the model received nothing.
 	require.True(t, terminal.HasFailed(), "steer operation did not fail: %v", terminal)
 	failure := terminal.GetFailed().GetFailure()
-	require.Equal(t, steerNotActiveCode, failure.GetCode())
+	require.Equal(t, queueNotActiveCode, failure.GetCode())
 	require.NotEmpty(t, failure.GetMessage())
 	require.Empty(t, provider.snapshot())
 }
@@ -275,8 +354,8 @@ func TestPublicSteerWithoutActiveRun(t *testing.T) {
 func TestPublicSteerHandledWithoutActiveRun(t *testing.T) {
 	// Arrange an idle process with the input reference extension and its invocation trace.
 	trace := enableInputTrace(t)
-	provider := startSteerProvider(t, 0)
-	fixture := startSteerFixture(t, provider, buildInputFixture(t, "input"))
+	provider := startQueueProvider(t, 0)
+	fixture := startQueueFixture(t, provider, buildInputFixture(t, "input"))
 	defer fixture.closeOwner(t)
 
 	// Act by queuing input that the reference handler fully handles.
@@ -284,7 +363,7 @@ func TestPublicSteerHandledWithoutActiveRun(t *testing.T) {
 
 	// Assert the operation failed without a handler invocation or a model request.
 	require.True(t, terminal.HasFailed(), "steer operation did not fail: %v", terminal)
-	require.Equal(t, steerNotActiveCode, terminal.GetFailed().GetFailure().GetCode())
+	require.Equal(t, queueNotActiveCode, terminal.GetFailed().GetFailure().GetCode())
 	require.Empty(t, readInputTrace(t, trace))
 	require.Empty(t, provider.snapshot())
 }
@@ -294,16 +373,16 @@ func TestPublicSteerHandledWithoutActiveRun(t *testing.T) {
 func TestPublicSteerHandledDuringRun(t *testing.T) {
 	t.Parallel()
 	// Arrange a provider that holds the final response, with the input reference extension loaded.
-	provider := startSteerProvider(t, 1, finalResponseSSE)
-	fixture := startSteerFixture(t, provider, buildInputFixture(t, "input"))
+	provider := startQueueProvider(t, 1, finalResponseSSE)
+	fixture := startQueueFixture(t, provider, buildInputFixture(t, "input"))
 	defer fixture.closeOwner(t)
-	require.NoError(t, fixture.stream.Send(userRequest(steerRunID, "first request")))
+	require.NoError(t, fixture.stream.Send(userRequest(queueRunID, "first request")))
 	<-provider.held[0]
 
 	// Act by queuing handled input, then releasing the final response.
 	queued := sendSteer(t, fixture, "steer-handled", inputHandledText)
 	close(provider.release[0])
-	terminal := waitForTerminalEvent(t, fixture, steerRunID)
+	terminal := waitForTerminalEvent(t, fixture, queueRunID)
 
 	// Assert the handled result, one model request, and a history without the handled input.
 	require.True(t, queued.HasCompleted(), "steer operation did not complete: %v", queued)
@@ -333,14 +412,16 @@ func TestPublicSteerFromEndedRunNotQueued(t *testing.T) {
 	require.NoError(t, syscall.Mkfifo(paused, 0o600))
 	require.NoError(t, syscall.Mkfifo(resume, 0o600))
 	t.Setenv(inputSignalsEnvironment, signals)
-	provider := startSteerProvider(t, 2, finalResponseSSE, finalResponseSSE, finalResponseSSE)
-	fixture := startSteerFixture(t, provider, buildInputFixture(t, "input-pause"))
+	provider := startQueueProvider(t, 2, finalResponseSSE, finalResponseSSE, finalResponseSSE)
+	fixture := startQueueFixture(t, provider, buildInputFixture(t, "input-pause"))
 	defer fixture.closeOwner(t)
 	require.NoError(t, fixture.stream.Send(userRequest("steer-run-a", "first request")))
 	<-provider.held[0]
 
 	// Act by pausing the steer input handler while the first run ends and the second run starts.
-	require.NoError(t, fixture.stream.Send(steerRequest("steer-stale", steerPausedText)))
+	require.NoError(t, fixture.stream.Send(enqueueRequest(
+		"steer-stale", programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER, steerPausedText,
+	)))
 	openSignalPipe(t, paused, os.O_RDONLY)
 	close(provider.release[0])
 	first := waitForTerminalEvent(t, fixture, "steer-run-a")
@@ -354,7 +435,7 @@ func TestPublicSteerFromEndedRunNotQueued(t *testing.T) {
 	// Assert the steer operation failed, both runs completed, and neither the model nor history received it.
 	require.True(t, first.HasCompleted(), "first agent run did not complete: %v", first)
 	require.True(t, queued.HasFailed(), "steer operation did not fail: %v", queued)
-	require.Equal(t, steerNotActiveCode, queued.GetFailed().GetFailure().GetCode())
+	require.Equal(t, queueNotActiveCode, queued.GetFailed().GetFailure().GetCode())
 	require.Contains(t, queued.GetFailed().GetFailure().GetMessage(), agent.ErrRunNotActive.Error())
 	require.True(t, second.HasCompleted(), "second agent run did not complete: %v", second)
 	bodies := provider.snapshot()

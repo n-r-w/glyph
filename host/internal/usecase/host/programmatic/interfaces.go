@@ -61,9 +61,9 @@ type Coordinator interface {
 	PrepareRun() (string, error)
 	CancelPrepared(runID string)
 	RunPrepared(ctx context.Context, runID string, message model.Message) (agent.RunOutcome, error)
-	// Steer processes and queues a steer message for the active agent run; handled reports that an extension
-	// fully handled the message, so nothing was queued.
-	Steer(ctx context.Context, message model.Message) (handled bool, err error)
+	// Enqueue processes and queues a message with the given delivery kind for the active agent run; handled reports
+	// that an extension fully handled the message, so nothing was queued.
+	Enqueue(ctx context.Context, delivery agent.MessageDelivery, message model.Message) (handled bool, err error)
 }
 
 // ActiveSessions provides client session lifecycle operations.

@@ -93,8 +93,8 @@ func (p *commandPrepared) Run(
 	if p.command.Kind == controller.CommandNavigateSessionTree {
 		return p.runNavigation(ctx, reporter)
 	}
-	if p.command.Kind == controller.CommandSteer {
-		return p.runSteer(ctx)
+	if p.command.Kind == controller.CommandEnqueueMessage {
+		return p.runEnqueue(ctx)
 	}
 	var response controller.Response
 	var active *runPrepared
@@ -170,11 +170,18 @@ func (p *commandPrepared) runNavigation(
 	return operation.Completed(response)
 }
 
-// runSteer queues the message of the command and completes when the queue accepts it or an extension fully
+// runEnqueue queues the message of the command and completes when the queue accepts it or an extension fully
 // handles it.
-func (p *commandPrepared) runSteer(ctx context.Context) operation.Outcome[controller.Response] {
-	// Preparation validated that the command carries a message.
-	handled, err := p.service.coordinator.Steer(ctx, p.command.UserMessage.OrEmpty())
+func (p *commandPrepared) runEnqueue(ctx context.Context) operation.Outcome[controller.Response] {
+	delivery, deliveryPresent := p.command.Delivery.Get()
+	message, messagePresent := p.command.UserMessage.Get()
+	if !deliveryPresent || !messagePresent {
+		return operation.Failed[controller.Response](
+			controller.FailureCodeInternal,
+			errors.New("enqueue command lacks its delivery kind or message after validation"),
+		)
+	}
+	handled, err := p.service.coordinator.Enqueue(ctx, delivery, message)
 	if err != nil {
 		if isOperationCancellation(ctx, err) {
 			return newCanceledCommandOutcome(err)
@@ -369,7 +376,7 @@ func isSessionMutation(kind controller.CommandKind) bool {
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice, controller.CommandListSessions,
 		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries, controller.CommandGetSessionStats,
-		controller.CommandGetSessionTree, controller.CommandSetRetryEnabled, controller.CommandSteer:
+		controller.CommandGetSessionTree, controller.CommandSetRetryEnabled, controller.CommandEnqueueMessage:
 		return false
 	default:
 		return false

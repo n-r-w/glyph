@@ -7,6 +7,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
@@ -37,6 +38,7 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		OperationID:            operationID,
 		Kind:                   CommandUnspecified,
 		UserMessage:            mo.None[model.Message](),
+		Delivery:               mo.None[agent.MessageDelivery](),
 		ProviderID:             mo.None[model.ProviderID](),
 		ModelID:                mo.None[model.ID](),
 		ReasoningChoice:        mo.None[model.ReasoningChoice](),
@@ -72,17 +74,16 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 		command.UserMessage = mo.Some(message)
 	case programmaticv1.ControllerRequest_EnqueueMessage_case:
 		enqueue := request.GetEnqueueMessage()
-		if enqueue.GetDelivery() != programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER {
-			return Command{}, Reject(
-				RejectionCodeInvalidArgument,
-				fmt.Errorf("programmatic message delivery %s is not supported", enqueue.GetDelivery()),
-			)
+		delivery, deliveryErr := mapMessageDelivery(enqueue.GetDelivery())
+		if deliveryErr != nil {
+			return Command{}, Reject(RejectionCodeInvalidArgument, deliveryErr)
 		}
 		message, err := mapUserContent(enqueue.GetContent())
 		if err != nil {
 			return Command{}, Reject(RejectionCodeInvalidArgument, fmt.Errorf("programmatic queued message: %w", err))
 		}
-		command.Kind = CommandSteer
+		command.Kind = CommandEnqueueMessage
+		command.Delivery = mo.Some(delivery)
 		command.UserMessage = mo.Some(message)
 	case programmaticv1.ControllerRequest_GetRunState_case:
 		command.Kind = CommandGetRunState
@@ -238,6 +239,20 @@ func mapSessionRequest(request *programmaticv1.ControllerRequest, command *Comma
 		return false
 	}
 	return true
+}
+
+// mapMessageDelivery maps the closed public delivery point of a queued message.
+func mapMessageDelivery(delivery programmaticv1.MessageDelivery) (agent.MessageDelivery, error) {
+	switch delivery {
+	case programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER:
+		return agent.MessageDeliverySteer, nil
+	case programmaticv1.MessageDelivery_MESSAGE_DELIVERY_FOLLOW_UP:
+		return agent.MessageDeliveryFollowUp, nil
+	case programmaticv1.MessageDelivery_MESSAGE_DELIVERY_UNSPECIFIED:
+		return 0, fmt.Errorf("programmatic message delivery %s is not supported", delivery)
+	default:
+		return 0, fmt.Errorf("programmatic message delivery %s is not supported", delivery)
+	}
 }
 
 // mapRequestSummaryMode maps the closed public navigation mode.

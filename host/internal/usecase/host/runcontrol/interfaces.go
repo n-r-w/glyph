@@ -33,11 +33,11 @@ type Executor interface {
 	Run(context.Context, Request) (Result, error)
 	// Settle makes the matching finished run idle.
 	Settle(runID string) error
-	// CheckSteer returns the ID of the run that accepts steer messages, or fails with agent.ErrRunNotActive.
-	CheckSteer() (runID string, err error)
-	// Steer queues a final user message for the run with the given ID, or fails with agent.ErrRunNotActive when that
-	// run is no longer running.
-	Steer(runID string, message model.Message) error
+	// CheckEnqueue returns the ID of the run that accepts queued messages, or fails with agent.ErrRunNotActive.
+	CheckEnqueue() (runID string, err error)
+	// Enqueue queues a final user message with the given delivery kind for the run with the given ID, or fails with
+	// agent.ErrRunNotActive when that run is no longer running.
+	Enqueue(runID string, delivery agent.MessageDelivery, message model.Message) error
 }
 
 // InputProcessor produces the final user message of an accepted run before Core execution.

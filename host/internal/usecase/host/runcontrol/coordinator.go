@@ -135,14 +135,18 @@ func (c *Coordinator) RunPrepared(ctx context.Context, runID string, message mod
 	return result.Outcome, errors.Join(runErr, settleErr, settledErr)
 }
 
-// Steer processes the message as user input and queues it as a steer message of the active run.
+// Enqueue processes the message as user input and queues it with the given delivery kind for the active run.
 // It reports true when an extension fully handled the message, so nothing was queued.
-func (c *Coordinator) Steer(ctx context.Context, message model.Message) (bool, error) {
+func (c *Coordinator) Enqueue(
+	ctx context.Context,
+	delivery agent.MessageDelivery,
+	message model.Message,
+) (bool, error) {
 	// Input handlers run only for a message that a run can receive. Core checks the same run again when it queues
 	// the message, because that run can end and another can start while the handlers run.
-	runID, err := c.executor.CheckSteer()
+	runID, err := c.executor.CheckEnqueue()
 	if err != nil {
-		return false, fmt.Errorf("queue steer message: %w", err)
+		return false, fmt.Errorf("queue %s message: %w", delivery, err)
 	}
 	processed, err := c.input.ProcessInput(ctx, message)
 	if err != nil {
@@ -152,8 +156,8 @@ func (c *Coordinator) Steer(ctx context.Context, message model.Message) (bool, e
 	if !present {
 		return true, nil
 	}
-	if steerErr := c.executor.Steer(runID, final); steerErr != nil {
-		return false, fmt.Errorf("queue steer message: %w", steerErr)
+	if enqueueErr := c.executor.Enqueue(runID, delivery, final); enqueueErr != nil {
+		return false, fmt.Errorf("queue %s message: %w", delivery, enqueueErr)
 	}
 	return false, nil
 }

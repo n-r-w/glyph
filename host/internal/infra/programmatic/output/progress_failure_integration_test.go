@@ -92,6 +92,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 			OperationID:            "progress-failure",
 			Kind:                   controller.CommandUserRequest,
 			UserMessage:            mo.None[model.Message](),
+			Delivery:               mo.None[agent.MessageDelivery](),
 			ProviderID:             mo.None[model.ProviderID](),
 			ModelID:                mo.None[model.ID](),
 			ReasoningChoice:        mo.None[model.ReasoningChoice](),

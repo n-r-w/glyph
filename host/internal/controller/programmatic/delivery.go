@@ -161,7 +161,7 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 		default:
 			return FailureCodeInternal
 		}
-	case CommandSteer:
+	case CommandEnqueueMessage:
 		switch proposed {
 		case FailureCodeRunNotActive, FailureCodeExtensionFailed, FailureCodeInputInvalid:
 			return proposed
@@ -239,7 +239,7 @@ func completionMatches(command CommandKind, response ResponseKind) bool {
 		return response == ResponseRetryEnabled
 	case CommandCompact:
 		return response == ResponseCompaction
-	case CommandSteer:
+	case CommandEnqueueMessage:
 		return response == ResponseEnqueueMessage
 	case CommandUnspecified:
 		return false

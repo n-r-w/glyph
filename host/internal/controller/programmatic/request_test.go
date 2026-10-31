@@ -6,9 +6,11 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
@@ -98,9 +100,9 @@ func TestMapOpenRequestMapsEveryOperationKind(t *testing.T) {
 			payload.SetLabel("label")
 			request.SetSetEntryLabel(payload)
 		}, kind: CommandSetEntryLabel},
-		"steer": {set: func(request *programmaticv1.ControllerRequest) {
+		"enqueue message": {set: func(request *programmaticv1.ControllerRequest) {
 			request.SetEnqueueMessage(testEnqueueMessage(programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER))
-		}, kind: CommandSteer},
+		}, kind: CommandEnqueueMessage},
 	}
 
 	for name, test := range tests {
@@ -322,7 +324,7 @@ func TestUserRequestRejectsBlankText(t *testing.T) {
 func testEnqueueMessage(delivery programmaticv1.MessageDelivery) *programmaticv1.EnqueueMessage {
 	payload := new(programmaticv1.EnqueueMessage)
 	payload.SetContent([]*programmaticv1.UserContent{
-		programmaticv1.UserContent_builder{Text: new("steer"), Image: nil}.Build(),
+		programmaticv1.UserContent_builder{Text: new("queued"), Image: nil}.Build(),
 	})
 	payload.SetDelivery(delivery)
 	return payload
@@ -343,4 +345,60 @@ func TestMapOpenRequestRejectsMissingDelivery(t *testing.T) {
 	var rejection *RejectionError
 	require.ErrorAs(t, err, &rejection)
 	assert.Equal(t, RejectionCodeInvalidArgument, rejection.Code())
+}
+
+// TestMapOpenRequestMapsMessageDelivery verifies that each public delivery point maps to its domain delivery kind.
+func TestMapOpenRequestMapsMessageDelivery(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		wire     programmaticv1.MessageDelivery
+		delivery agent.MessageDelivery
+	}{
+		"steer": {
+			wire:     programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER,
+			delivery: agent.MessageDeliverySteer,
+		},
+		"follow up": {
+			wire:     programmaticv1.MessageDelivery_MESSAGE_DELIVERY_FOLLOW_UP,
+			delivery: agent.MessageDeliveryFollowUp,
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange a queued message with the public delivery point.
+			request := testRequest("operation", func(request *programmaticv1.ControllerRequest) {
+				request.SetEnqueueMessage(testEnqueueMessage(test.wire))
+			})
+
+			// Act by mapping the request envelope.
+			command, err := mapOpenRequest(request)
+
+			// Assert the command carries the delivery kind and is valid.
+			require.NoError(t, err)
+			assert.Equal(t, mo.Some(test.delivery), command.Delivery)
+			assert.True(t, command.Valid())
+		})
+	}
+}
+
+// TestCommandValidRequiresDeliveryOnlyForEnqueue verifies that a delivery kind belongs to the enqueue command alone.
+func TestCommandValidRequiresDeliveryOnlyForEnqueue(t *testing.T) {
+	t.Parallel()
+	// Arrange an enqueue command without a delivery kind and a user request with one.
+	enqueue, err := mapOpenRequest(testRequest("enqueue", func(request *programmaticv1.ControllerRequest) {
+		request.SetEnqueueMessage(testEnqueueMessage(programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER))
+	}))
+	require.NoError(t, err)
+	userRequest := enqueue
+	userRequest.Kind = CommandUserRequest
+	enqueue.Delivery = mo.None[agent.MessageDelivery]()
+
+	// Act by validating both payloads.
+	enqueueValid := enqueue.Valid()
+	userRequestValid := userRequest.Valid()
+
+	// Assert both payloads are invalid.
+	assert.False(t, enqueueValid)
+	assert.False(t, userRequestValid)
 }

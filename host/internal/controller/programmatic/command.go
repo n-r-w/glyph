@@ -3,6 +3,7 @@ package programmatic
 import (
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
@@ -56,8 +57,8 @@ const (
 	CommandSetRetryEnabled
 	// CommandCompact requests manual active-conversation compaction.
 	CommandCompact
-	// CommandSteer queues user input as a steer message of the active agent run.
-	CommandSteer
+	// CommandEnqueueMessage queues user input as a steer or followUp message of the active agent run.
+	CommandEnqueueMessage
 )
 
 // Command is one transport-independent controller operation.
@@ -68,6 +69,8 @@ type Command struct {
 	Kind CommandKind
 	// UserMessage contains the submitted ordered user input of a user request or a queued message.
 	UserMessage mo.Option[model.Message]
+	// Delivery is present only for a queued message and identifies when the agent receives it.
+	Delivery mo.Option[agent.MessageDelivery]
 	// ProviderID identifies a requested model provider.
 	ProviderID mo.Option[model.ProviderID]
 	// ModelID identifies a requested provider model.

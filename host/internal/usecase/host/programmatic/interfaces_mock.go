@@ -267,6 +267,21 @@ func (mr *MockCoordinatorMockRecorder) CancelPrepared(runID any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelPrepared", reflect.TypeOf((*MockCoordinator)(nil).CancelPrepared), runID)
 }
 
+// Enqueue mocks base method.
+func (m *MockCoordinator) Enqueue(ctx context.Context, delivery agent.MessageDelivery, message model.Message) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Enqueue", ctx, delivery, message)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Enqueue indicates an expected call of Enqueue.
+func (mr *MockCoordinatorMockRecorder) Enqueue(ctx, delivery, message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockCoordinator)(nil).Enqueue), ctx, delivery, message)
+}
+
 // PrepareRun mocks base method.
 func (m *MockCoordinator) PrepareRun() (string, error) {
 	m.ctrl.T.Helper()
@@ -295,21 +310,6 @@ func (m *MockCoordinator) RunPrepared(ctx context.Context, runID string, message
 func (mr *MockCoordinatorMockRecorder) RunPrepared(ctx, runID, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockCoordinator)(nil).RunPrepared), ctx, runID, message)
-}
-
-// Steer mocks base method.
-func (m *MockCoordinator) Steer(ctx context.Context, message model.Message) (bool, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Steer", ctx, message)
-	ret0, _ := ret[0].(bool)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Steer indicates an expected call of Steer.
-func (mr *MockCoordinatorMockRecorder) Steer(ctx, message any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Steer", reflect.TypeOf((*MockCoordinator)(nil).Steer), ctx, message)
 }
 
 // MockActiveSessions is a mock of ActiveSessions interface.

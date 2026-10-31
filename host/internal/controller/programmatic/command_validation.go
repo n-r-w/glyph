@@ -14,12 +14,17 @@ func (command Command) Valid() bool {
 	if command.Kind != CommandCompact && command.CompactionInstructions.IsSome() {
 		return false
 	}
+	if command.Kind != CommandEnqueueMessage && command.Delivery.IsSome() {
+		return false
+	}
 	if invalid, handled := command.invalidSessionCommand(); handled {
 		return !invalid
 	}
 	switch command.Kind {
-	case CommandUserRequest, CommandSteer:
+	case CommandUserRequest:
 		return !command.invalidUserRequest()
+	case CommandEnqueueMessage:
+		return command.Delivery.IsSome() && !command.invalidUserRequest()
 	case CommandCancel, CommandGetRunState, CommandGetMessages, CommandGetModels:
 		return command.UserMessage.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
 			command.RetryEnabled.IsNone() && command.CompactionInstructions.IsNone()
@@ -62,7 +67,7 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 		return command.invalidSetEntryLabel(), true
 	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
 		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice, CommandSetRetryEnabled, CommandCompact,
-		CommandSteer:
+		CommandEnqueueMessage:
 		return false, false
 	default:
 		return false, false

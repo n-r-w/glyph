@@ -29,6 +29,9 @@ const (
 	// The agent receives the message after all tools of the current turn finish,
 	// or after a final model response, and then makes another model request.
 	MessageDelivery_MESSAGE_DELIVERY_STEER MessageDelivery = 1
+	// The agent receives the message only when the run has no remaining tool calls and no pending steer messages,
+	// and then makes another model request.
+	MessageDelivery_MESSAGE_DELIVERY_FOLLOW_UP MessageDelivery = 2
 )
 
 // Enum value maps for MessageDelivery.
@@ -36,10 +39,12 @@ var (
 	MessageDelivery_name = map[int32]string{
 		0: "MESSAGE_DELIVERY_UNSPECIFIED",
 		1: "MESSAGE_DELIVERY_STEER",
+		2: "MESSAGE_DELIVERY_FOLLOW_UP",
 	}
 	MessageDelivery_value = map[string]int32{
 		"MESSAGE_DELIVERY_UNSPECIFIED": 0,
 		"MESSAGE_DELIVERY_STEER":       1,
+		"MESSAGE_DELIVERY_FOLLOW_UP":   2,
 	}
 )
 
@@ -249,10 +254,11 @@ const file_api_programmatic_v1_queue_proto_rawDesc = "" +
 	"\acontent\x18\x01 \x03(\v2\".glyph.programmatic.v1.UserContentR\acontent\x12B\n" +
 	"\bdelivery\x18\x02 \x01(\x0e2&.glyph.programmatic.v1.MessageDeliveryR\bdelivery\"0\n" +
 	"\x14EnqueueMessageResult\x12\x18\n" +
-	"\ahandled\x18\x01 \x01(\bR\ahandled*O\n" +
+	"\ahandled\x18\x01 \x01(\bR\ahandled*o\n" +
 	"\x0fMessageDelivery\x12 \n" +
 	"\x1cMESSAGE_DELIVERY_UNSPECIFIED\x10\x00\x12\x1a\n" +
-	"\x16MESSAGE_DELIVERY_STEER\x10\x01B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
+	"\x16MESSAGE_DELIVERY_STEER\x10\x01\x12\x1e\n" +
+	"\x1aMESSAGE_DELIVERY_FOLLOW_UP\x10\x02B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
 
 var file_api_programmatic_v1_queue_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_api_programmatic_v1_queue_proto_msgTypes = make([]protoimpl.MessageInfo, 2)

@@ -128,13 +128,21 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 	release, acquired := gate.TryAcquire()
 	require.True(t, acquired)
 	command := programmaticcontroller.Command{
-		OperationID: "resume", Kind: programmaticcontroller.CommandResumeSession,
-		UserMessage: mo.None[model.Message](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
-		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.Some(session.ID("stored")),
-		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
-		SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](),
-		EntryLabel:   mo.None[string](),
-		RetryEnabled: mo.None[bool](), CompactionInstructions: mo.None[string](),
+		OperationID:            "resume",
+		Kind:                   programmaticcontroller.CommandResumeSession,
+		UserMessage:            mo.None[model.Message](),
+		Delivery:               mo.None[agent.MessageDelivery](),
+		ProviderID:             mo.None[model.ProviderID](),
+		ModelID:                mo.None[model.ID](),
+		ReasoningChoice:        mo.None[model.ReasoningChoice](),
+		SessionID:              mo.Some(session.ID("stored")),
+		SessionName:            mo.None[string](),
+		TargetEntryID:          mo.None[string](),
+		SummaryMode:            programmaticcontroller.SummaryModeNoSummary,
+		CustomFocus:            mo.None[string](),
+		EntryLabel:             mo.None[string](),
+		RetryEnabled:           mo.None[bool](),
+		CompactionInstructions: mo.None[string](),
 	}
 
 	// Act by preparing before and after releasing the shared gate.

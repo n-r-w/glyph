@@ -13,6 +13,7 @@ import (
 	context "context"
 	reflect "reflect"
 
+	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
@@ -42,19 +43,33 @@ func (m *MockExecutor) EXPECT() *MockExecutorMockRecorder {
 	return m.recorder
 }
 
-// CheckSteer mocks base method.
-func (m *MockExecutor) CheckSteer() (string, error) {
+// CheckEnqueue mocks base method.
+func (m *MockExecutor) CheckEnqueue() (string, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "CheckSteer")
+	ret := m.ctrl.Call(m, "CheckEnqueue")
 	ret0, _ := ret[0].(string)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
-// CheckSteer indicates an expected call of CheckSteer.
-func (mr *MockExecutorMockRecorder) CheckSteer() *gomock.Call {
+// CheckEnqueue indicates an expected call of CheckEnqueue.
+func (mr *MockExecutorMockRecorder) CheckEnqueue() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckSteer", reflect.TypeOf((*MockExecutor)(nil).CheckSteer))
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckEnqueue", reflect.TypeOf((*MockExecutor)(nil).CheckEnqueue))
+}
+
+// Enqueue mocks base method.
+func (m *MockExecutor) Enqueue(runID string, delivery agent.MessageDelivery, message model.Message) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Enqueue", runID, delivery, message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Enqueue indicates an expected call of Enqueue.
+func (mr *MockExecutorMockRecorder) Enqueue(runID, delivery, message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockExecutor)(nil).Enqueue), runID, delivery, message)
 }
 
 // Run mocks base method.
@@ -84,20 +99,6 @@ func (m *MockExecutor) Settle(runID string) error {
 func (mr *MockExecutorMockRecorder) Settle(runID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Settle", reflect.TypeOf((*MockExecutor)(nil).Settle), runID)
-}
-
-// Steer mocks base method.
-func (m *MockExecutor) Steer(runID string, message model.Message) error {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Steer", runID, message)
-	ret0, _ := ret[0].(error)
-	return ret0
-}
-
-// Steer indicates an expected call of Steer.
-func (mr *MockExecutorMockRecorder) Steer(runID, message any) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Steer", reflect.TypeOf((*MockExecutor)(nil).Steer), runID, message)
 }
 
 // MockInputProcessor is a mock of InputProcessor interface.

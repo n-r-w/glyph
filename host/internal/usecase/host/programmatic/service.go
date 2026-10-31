@@ -178,7 +178,7 @@ func (s *Service) handleImmediate(
 		response.RetryPolicy = mo.Some(retryPolicy(s.retryControl))
 		return response, true, nil
 	case controller.CommandUnspecified, controller.CommandCancel,
-		controller.CommandSelectModel, controller.CommandSelectReasoningChoice, controller.CommandSteer:
+		controller.CommandSelectModel, controller.CommandSelectReasoningChoice, controller.CommandEnqueueMessage:
 		return s.rejection(
 			command,
 			controller.RejectionInvalidArgument,
@@ -239,7 +239,7 @@ func (s *Service) handleSessionImmediate(
 	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandCancel,
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
-		controller.CommandNavigateSessionTree, controller.CommandSteer:
+		controller.CommandNavigateSessionTree, controller.CommandEnqueueMessage:
 		return controller.Response{}, false, nil
 	default:
 		return controller.Response{}, false, nil

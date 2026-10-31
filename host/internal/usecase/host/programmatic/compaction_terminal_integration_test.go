@@ -13,6 +13,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -78,6 +79,7 @@ func TestCommittedCompactionTerminalCancellation(t *testing.T) {
 					OperationID:            compactionTerminalOperationID,
 					Kind:                   controller.CommandCompact,
 					UserMessage:            mo.None[model.Message](),
+					Delivery:               mo.None[agent.MessageDelivery](),
 					ProviderID:             mo.None[model.ProviderID](),
 					ModelID:                mo.None[model.ID](),
 					ReasoningChoice:        mo.None[model.ReasoningChoice](),
