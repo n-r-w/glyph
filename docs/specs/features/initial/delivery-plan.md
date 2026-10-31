@@ -81,6 +81,7 @@
 ### PHS-09. Tool middleware and run control
 - Dependencies: PHS-08
 - Ticket: [Ticket](phases/09-tool-middleware-run-control/ticket.md)
+- Technical Solution: [Technical Solution](phases/09-tool-middleware-run-control/solution.md)
 
 ### PHS-10. Commands, interaction, notifications, and extension events
 - Dependencies: PHS-09

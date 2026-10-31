@@ -11,9 +11,14 @@
 - `agent core`: The required part of an agent platform that provides runtime behavior shared by its agents. It consumes prepared history and owns no compaction policy or compaction-specific orchestration.
 - `agent loop`: The repeated sequence of requesting a model response, executing model-requested actions, and returning their results to the model until the run completes or is stopped.
 - `agent run`: One continuous agent-loop execution initiated by a message and ending when no automatic model or tool work remains or the run is stopped.
+- `abort`: A stop of an agent run that a client or an extension requests. Agent Core cancels the model request or tool execution in progress, and the run ends with the aborted outcome.
 - `coding agent`: An agent intended to work with source code and related software development tasks.
 - `standard coding agent`: The coding-agent configuration distributed with Glyph; it enables the bundled tools, resource, and compaction extensions and can run headlessly or through the standard TUI.
 - `tool`: A typed operation that an agent exposes to a model by name.
+- `turn`: One model request of an agent run together with the execution of the tools that the model requested in its response.
+- `tool batch`: The tool calls of one model response.
+- `active tool set`: The registered tools that Host includes in the next model request.
+- `tool policy`: An extension decision to allow, reject, or change one tool call before the tool runs.
 - `Glyph plugin`: A separately delivered Glyph component. The defined Glyph plugin kinds are extension and UI plugin.
 - `extension`: A Glyph plugin that contributes platform or agent capabilities through extension contracts.
 - `UI plugin`: A Glyph plugin that presents Glyph to a person and communicates with Glyph as a Glyph client.
@@ -94,10 +99,10 @@
 - `interaction request`: A request from an extension through the Glyph host to a Glyph client that expects a result.
 - `notification`: Information sent by an extension through the Glyph host to a Glyph client without expecting a user response; the host reports delivery success or an error.
 - `queue mode`: A setting with values `all` and `one-at-a-time` that controls delivery of queued `steer` and `followUp` messages.
-- `steer`: A queued message intended to influence an active agent run.
-- `followUp`: A queued message intended for delivery after an active agent run.
-- `nextTurn`: A queued message intended for the next user turn.
-- `terminate`: A tool-result signal that controls whether the agent performs another automatic model request.
+- `steer`: A message that the agent receives during an agent run. Agent Core adds it to the next model request of that run after all tools of the current turn finish.
+- `followUp`: A message that the agent receives during an agent run. Agent Core sends it to the model only when the run has no remaining tool calls or `steer` messages, and the model responds to it.
+- `nextTurn`: A message that the agent keeps until the next user message. Agent Core adds it to the model context together with that user message; the message does not start an agent run by itself.
+- `terminate`: A tool-result signal that controls whether the agent performs another automatic model request. It cancels no work; when it skips the request, the agent run ends with the completed outcome.
 - `model provider`: A local or remote system through which an agent accesses a language model.
 - `provider type`: A provider driver category that defines shared protocol and authentication behavior for configured provider instances.
 - `provider driver`: A component inside a provider extension that translates provider-neutral model operations into one provider type's authentication, wire requests, streaming responses, and provider reasoning context replay.

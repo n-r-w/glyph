@@ -210,12 +210,15 @@ Documents:
 
 ## PHS-09: Tool middleware and run control
 
-Status: Planned
+Status: Technical solution approved; implementation not started
 
 Add extension control over tool policy and agent-run continuation.
 
 Documents:
 - [Ticket](specs/features/initial/phases/09-tool-middleware-run-control/ticket.md)
+- [Problem Statement](specs/features/initial/phases/09-tool-middleware-run-control/problem.md)
+- [PRD](specs/features/initial/phases/09-tool-middleware-run-control/prd.md)
+- [Technical Solution](specs/features/initial/phases/09-tool-middleware-run-control/solution.md)
 
 ## PHS-10: Commands, interaction, notifications, and extension events
 

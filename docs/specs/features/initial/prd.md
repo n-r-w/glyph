@@ -21,6 +21,7 @@
 - `extension runtime`: One loaded execution environment for an extension and its in-memory state.
 - `extension context`: Host-provided access to one extension runtime and its active session.
 - `agent run`: One continuous agent-loop execution initiated by a message and ending when no automatic model or tool work remains or the run is stopped.
+- `abort`: A stop of an agent run that a client or an extension requests. Agent Core cancels the model request or tool execution in progress, and the run ends with the aborted outcome.
 - `standard coding agent`: The coding-agent configuration distributed with Glyph; it enables the bundled tools, resource, and compaction extensions and can run headlessly or through the standard TUI.
 - `context`: The information sent to a model to produce its next response or tool request.
 - `context compaction`: Replacement of an older context prefix in model-visible context with a summary while retaining the original session entries and preserving the remaining context suffix.
@@ -40,10 +41,10 @@
 - `programmatic control contract`: The transport-independent correlated commands, acceptance responses, asynchronous execution events, interaction requests, and notifications for a long-lived headless agent.
 - `Programmatic Control transport`: The bidirectional gRPC stream over a Unix socket that exposes the programmatic control contract from the current `glyph` application's headless composition.
 - `queue mode`: A setting with values `all` and `one-at-a-time` that controls delivery of queued `steer` and `followUp` messages.
-- `steer`: A queued message intended to influence an active agent run.
-- `followUp`: A queued message intended for delivery after an active agent run.
-- `nextTurn`: A queued message intended for the next user turn.
-- `terminate`: A tool-result signal that controls whether the agent performs another automatic model request.
+- `steer`: A message that the agent receives during an agent run. Agent Core adds it to the next model request of that run after all tools of the current turn finish.
+- `followUp`: A message that the agent receives during an agent run. Agent Core sends it to the model only when the run has no remaining tool calls or `steer` messages, and the model responds to it.
+- `nextTurn`: A message that the agent keeps until the next user message. Agent Core adds it to the model context together with that user message; the message does not start an agent run by itself.
+- `terminate`: A tool-result signal that controls whether the agent performs another automatic model request. It cancels no work; when it skips the request, the agent run ends with the completed outcome.
 - `interaction request`: A request from an extension through the Glyph host to a Glyph client that expects a result.
 - `notification`: Information sent by an extension through the Glyph host to a Glyph client without expecting a user response; the host reports delivery success or an error.
 - `credential source`: The name of an environment variable or local credential-file entry from which Glyph reads an API key; it is not the secret itself.
