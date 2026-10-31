@@ -2,7 +2,7 @@
 
 ## Status
 
-UNT-03 is implemented in the working copy on top of commit `ffb3c1c`; it is not committed. It was delivered in two sequential assignments and one round of review corrections. Part 1 replaced the text-only submit payloads with ordered text and image blocks, added the run-control input-processing port with final validation against the selected model, and added the `INPUT_INVALID` category. Part 2 added extension user-input handlers to that port, completion of fully handled input, the public reference extension and the author guide. The corrections are recorded in [Review corrections, round 1](#review-corrections-round-1). `task itest`, `task test-coverage` and the whole `host/internal/app` integration package have not run.
+UNT-03 is ready. Commit `cb63b80` contains the implementation, on top of commit `ffb3c1c`. It was delivered in two sequential assignments and one round of review corrections. Part 1 replaced the text-only submit payloads with ordered text and image blocks, added the run-control input-processing port with final validation against the selected model, and added the `INPUT_INVALID` category. Part 2 added extension user-input handlers to that port, completion of fully handled input, the public reference extension and the author guide. The corrections are recorded in [Review corrections, round 1](#review-corrections-round-1). After the last correction, a separate agent ran the full set of project checks; see [Full checks](#full-checks).
 
 The decisions are [D8-13](decisions.md#d8-13-submit-payloads-and-final-input-validation), [D8-14](decisions.md#d8-14-user-input-handlers-handled-completion-and-the-input-reference) and [D8-15](decisions.md#d8-15-one-shot-errors-show-the-current-category).
 
@@ -343,3 +343,17 @@ After the last change of the review corrections:
 | `go test -race -tags=integration -p 1 -parallel 1 ./host/internal/app -run` with the input, user-input, context, wire, terminal refusal, headless semantic and `TestClientAppSuites` tests | Passed; `TestRunWithPathsHeadlessPersistenceFailurePreservesContext` skips here because its permission failure injection requires Darwin |
 
 Part 2 ran the same `host/internal/app` set with the handler-composition, UI submit and configured request tests; `TestStandardTUIHostSmoke` skips on this platform because its real-PTY acceptance runs only on Darwin arm64. Part 1 ran `TestExternalUIPlugin` in `testdata/external-plugins`; it passed.
+
+## Full checks
+
+A separate agent ran the full set of project checks on the working copy of commit `cb63b80`, before the commit, after the last correction. Every command exited 0, and neither `task fmt` nor `task fix_dry_run` changed a file.
+
+| Command | Result |
+| --- | --- |
+| `task fmt` | Exit 0; no changed files |
+| `task fix_dry_run` | Exit 0; no proposed changes |
+| `task lint` | Exit 0 |
+| `task test` | Exit 0 |
+| `task itest` | Exit 0; `host/internal/app` passed in 425.9 s |
+| `task test-coverage` | Exit 0; coverage 85.2%, required 80.0% |
+| `task build` | Exit 0 |

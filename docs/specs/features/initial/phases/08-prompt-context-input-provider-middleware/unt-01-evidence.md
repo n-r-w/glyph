@@ -2,7 +2,7 @@
 
 ## Status
 
-UNT-01 is ready. Commit `b8e3754` contains the implementation. The final code-quality, text-quality, behavior and technical-solution-conformance reviews approved it with no open findings; their reports are messages on review desk `28681c8f-bac2-4729-af45-207ea602613f`, topic `57f443f5-4bd7-4bfa-94d7-5775cec6638d`.
+UNT-01 is ready. Commit `b8e3754` contains the implementation. The final code-quality, text-quality, behavior and technical-solution-conformance reviews approved it with no open findings.
 
 The whole-project checks ran on commit `1fef01e`, which changes only `AGENTS.md` after `b8e3754`:
 
@@ -55,7 +55,7 @@ Host registers handlers through `startup.Service`, invokes the exact runtime gen
 
 `openai.WireDiagnostics.NewWireOption` uses the declared SDK middleware hook. Codex, compatible Chat and compatible Responses retain a fresh infrastructure-owned `WireDiagnostics` value through each raw attempt's final error delivery. `prepareWireRequest` retains original body bytes on preserve, validates each replacement, and restores retained private replay references. `wireProjection` keeps replay fragments invocation-local. Header projection excludes protected authentication, cookie and account state, validates public writes and redacts known authentication-secret echoes. Ordinary account identifiers remain in diagnostics. Observer failure closes the response and retains close errors.
 
-Application assembly binds the owner in Programmatic, UI and headless execution. The separately built public reference extension is `testdata/external-plugins/cmd/wire`. See the [author guide](../../../../../guidelines/provider-wire-middleware.md) and [technical solution](technical-solution.md) for the contract and selected mechanisms.
+Application assembly binds the owner in Programmatic, UI and headless execution. The separately built public reference extension is `testdata/external-plugins/cmd/wire`. See the [author guide](../../../../../guidelines/provider-wire-middleware.md) and [technical solution](solution.md) for the contract and selected mechanisms.
 
 This is an implementation inventory supported by focused tests and inspection, not an independent conformance review of every changed line.
 
@@ -281,7 +281,7 @@ host/internal/app/wire_redaction_integration_test.go
 testdata/external-plugins/cmd/wire/main.go
 docs/guidelines/provider-wire-middleware.md
 docs/specs/features/initial/phases/08-prompt-context-input-provider-middleware/decisions.md
-docs/specs/features/initial/phases/08-prompt-context-input-provider-middleware/technical-solution.md
+docs/specs/features/initial/phases/08-prompt-context-input-provider-middleware/solution.md
 docs/specs/features/initial/phases/08-prompt-context-input-provider-middleware/unt-01-evidence.md
 ```
 

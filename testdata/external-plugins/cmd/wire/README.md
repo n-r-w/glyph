@@ -2,15 +2,15 @@
 
 This command imports only Glyph's public protobuf contracts and Extension SDK. It registers two header transformers, two safe-body transformers and two response observers. The second transformer replaces the first transformer's marker from immutable original input. Provider requests receive header `X-Glyph-Wire: B` and JSON field `glyph_wire_marker: "B"`. Session entries retain their original content.
 
-From `testdata/external-plugins`, build the ordinary reference:
+From `testdata/external-plugins`, build the ordinary reference into a new directory that you name in the shell variable `EXTENSION_DIR`:
 
 ```sh
-go build -o /tmp/glyph-wire-extensions/wire ./cmd/wire
+go build -o "$EXTENSION_DIR/wire" ./cmd/wire
 ```
 
-Point Glyph's `--extension-dir` at `/tmp/glyph-wire-extensions`. See the [author guide](../../../../docs/guidelines/provider-wire-middleware.md) for public payloads, action semantics, private replay and failures.
+See [Reference commands](../../../../docs/guidelines/model-middleware.md#reference-commands) for how to install and start it, and the [author guide](../../../../docs/guidelines/provider-wire-middleware.md) for public payloads, private replay and failures.
 
-The executable name selects acceptance scenarios. Build or copy the same binary under one of these names:
+The executable name selects the scenario. Build or copy the same binary under one of these names:
 
 | Executable | Behavior |
 | --- | --- |
@@ -22,6 +22,4 @@ The executable name selects acceptance scenarios. Build or copy the same binary 
 | `wire-bad-reference` | Return an unknown replay reference |
 | `wire-fail-response` | Fail the first observer after one provider dispatch |
 
-Install only the selected scenario in the extension directory. The failure text includes `unexpected EOF` to demonstrate that retry-like text does not turn an ordinary extension failure into permission for provider recovery.
-
-The Host integration fixtures build this command independently and invoke it through real public client operations and extension processes. The reference contributes no tools or provider registrations.
+The failure scenarios return error text that contains `unexpected EOF`. Host still treats it as an ordinary extension failure and starts no provider recovery. The reference contributes no tools or provider registrations.

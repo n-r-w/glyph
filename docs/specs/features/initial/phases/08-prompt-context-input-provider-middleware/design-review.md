@@ -6,7 +6,7 @@ Independent static review approved the design for implementation planning. No bl
 
 ## Scope
 
-The reviewer checked [target-picture.md](target-picture.md), [problem.md](problem.md), [requirements.md](requirements.md), [technical-solution.md](technical-solution.md), and [decisions.md](decisions.md) against the ticket and primary code.
+The reviewer checked [target-picture.md](target-picture.md), [problem.md](problem.md), [requirements.md](requirements.md), [solution.md](solution.md), and [decisions.md](decisions.md) against the ticket and primary code.
 
 Coverage included context composition after initial and overflow preparation, captured provider/owner identity, configured callers, finalized-message consistency, fully-handled input, image validation, SDK wire interception, confidential projection/restoration, error and cancellation precedence, consumer ownership and available public verification infrastructure.
 

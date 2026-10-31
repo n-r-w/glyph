@@ -11,15 +11,15 @@ This command imports only Glyph's public protobuf contracts and Extension SDK. I
 
 The command embeds `project-instructions.md` at build time. Provider requests therefore receive the original instructions followed by the project instructions, and the original history followed by `glyph-context-B`. They contain neither `A` value. Session entries keep their original content. Because `context-b` copies the original entries, reasoning blocks keep their replay references and the provider receives their private replay.
 
-From `testdata/external-plugins`, build the ordinary reference:
+From `testdata/external-plugins`, build the ordinary reference into a new directory that you name in the shell variable `EXTENSION_DIR`:
 
 ```sh
-go build -o /tmp/glyph-context-extensions/context ./cmd/context
+go build -o "$EXTENSION_DIR/context" ./cmd/context
 ```
 
-Point Glyph's `--extension-dir` at `/tmp/glyph-context-extensions`. See the [author guide](../../../../docs/guidelines/context-middleware.md) for public payloads, action semantics, replay references and failures.
+See [Reference commands](../../../../docs/guidelines/model-middleware.md#reference-commands) for how to install and start it, and the [author guide](../../../../docs/guidelines/context-middleware.md) for public payloads, replay references and failures.
 
-The executable name selects acceptance scenarios. Build or copy the same binary under one of these names:
+The executable name selects the scenario. Build or copy the same binary under one of these names:
 
 | Executable | Behavior |
 | --- | --- |
@@ -33,6 +33,4 @@ The executable name selects acceptance scenarios. Build or copy the same binary 
 
 When the environment variable `GLYPH_CONTEXT_TRACE` names a file, every invocation appends one line with the handler identifier, a tab and the received payload as protobuf JSON. The trace shows which handlers ran and that history payloads contain replay references instead of private replay.
 
-Install only the selected scenario in the extension directory. The failure text includes `unexpected EOF` to demonstrate that retry-like text does not turn an ordinary extension failure into permission for provider recovery.
-
-The Host integration fixtures build this command independently and invoke it through real public client operations and extension processes. The reference contributes no tools or provider registrations.
+The failure scenarios return error text that contains `unexpected EOF`. Host still treats it as an ordinary extension failure and starts no provider recovery. The reference contributes no tools or provider registrations.

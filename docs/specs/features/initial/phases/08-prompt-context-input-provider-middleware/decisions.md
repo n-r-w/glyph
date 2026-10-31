@@ -1,6 +1,6 @@
 # PHS-08 decisions
 
-Decisions below are inside the [confirmed authority](target-picture.md). They supplement the [technical solution](technical-solution.md) and preserve the ticket's scope.
+Decisions below are inside the [confirmed authority](target-picture.md). They supplement the [technical solution](solution.md) and preserve the ticket's scope.
 
 ## D8-01: Context composition follows prepared-context revisions
 
@@ -118,13 +118,13 @@ A handler error, runtime loss, invalid action, invalid reference or rejected rep
 
 ## D8-17: Agent Core finalizes model responses and tool results through its own port
 
-Agent Core declares `MessageFinalizer` with `FinalizeModelResponse` and `FinalizeToolResult`. `middleware.Service` implements both methods with the D8-16 chain, and the three application assemblies pass the same owner to Core and to run control. One method per role keeps user messages out of the Core port. A single method that takes a history entry would accept a user message and would make Core wrap and unwrap each value.
+Agent Core declares `MessageFinalizer` with `FinalizeModelResponse` and `FinalizeToolResult`. `middleware.Service` implements both methods with the D8-16 chain, and the three application assemblies pass the same owner to Core and to run control. One method per role keeps user messages out of the Core port. A single method that takes a history entry would accept a user message and would make Core wrap and unwrap each value. Client event names in this record are the suffixes of the `AGENT_EVENT_TYPE_` values of Programmatic Control and of the `LIFECYCLE_TYPE_` values of the UI Plugin Contract.
 
 Core finalizes a value immediately before its append and uses the returned value for the append, the completion events, the turn and run summaries, tool execution and the next model request:
 
-- a successful terminal model response in `runTurn`, before `message_end`;
+- a successful terminal model response in `runTurn`, before `MESSAGE_END`;
 - a response retained after a provider failure in `finalizeProviderError`;
-- each executed tool result in `executeCalls`, before `tool_execution_end` and `tool_result`;
+- each executed tool result in `executeCalls`, before `TOOL_EXECUTION_END` and `TOOL_RESULT`;
 - each tool result that `skipLengthCalls` generates for the calls of a length-limited response.
 
 Core calls the finalizer with the run context and outside `appendHistory`, so a finalization failure keeps `EXTENSION_FAILED` and never becomes `PERSISTENCE_UNAVAILABLE`. A failure other than cancellation ends the run as failed with the complete text. Core appends nothing for the failed value and delivers no completion event for it. Entries committed earlier and tool calls that already ran remain. Core does not invoke the chain again for that value. In particular, the failure does not pass to `finalizeProviderError`, which would finalize the same response a second time.
@@ -149,7 +149,7 @@ Model execution declares `ResponseFinalizer` with `FinalizeConfiguredResponse`, 
 
 `RequestConfigured` finalizes the terminal response of a configured-model request before it returns the response; extension configured-model requests and branch summaries both use it. Model execution persists nothing for these responses. A finalization failure is a logical `EXTENSION_FAILED` failure with the text `finalize configured model response: <complete cause>`. A failure whose current cause is only the cancellation of the owning context keeps no category, as in D8-14.
 
-Programmatic and UI clients receive every streamed event of a model message with provider values: content start, text delta and content end, and tool-call start, delta and end, including the arguments of `tool_call_end`. The client events `message_end`, `tool_execution_start`, `tool_execution_end`, `tool_result` and `turn_end`, session history, tool execution and later model requests carry the final value.
+Programmatic and UI clients receive every streamed event of a model message with provider values: content start, text delta and content end, and tool-call start, delta and end, including the arguments of `TOOL_CALL_END`. The client events `MESSAGE_END`, `TOOL_EXECUTION_START`, `TOOL_EXECUTION_END`, `TOOL_RESULT` and `TURN_END`, session history, tool execution and later model requests carry the final value.
 
 One-shot output is permanent, so it shows only final model text when an extension can replace it. After startup, the headless assembly asks the middleware owner whether an accepted extension registered a finalized-message handler. If one did, the assembly switches the one-shot renderer to final-text output: the renderer ignores streamed text deltas and writes the final text of each model message when `message_end` arrives. Without such a handler, one-shot output streams as before. Final-text output delays the visible answer until the model message is finalized.
 

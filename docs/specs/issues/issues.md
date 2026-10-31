@@ -1,6 +1,6 @@
 # Issues
 
-- [X] [Extension failure propagation](extension-failure-propagation/ticket.md): Verified and complete within ticket scope. The [cross-cutting gate](../features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08) is satisfied; see the [final verification record](../../artefacts/pre-phs08-corrections-verification.md). PHS-08 remains unstarted.
+- [X] [Extension failure propagation](extension-failure-propagation/ticket.md): Verified and complete within ticket scope. The [cross-cutting gate](../features/initial/delivery-plan.md#cross-cutting-corrections-before-phs-08) is satisfied; see the [final verification record](../../artefacts/pre-phs08-corrections-verification.md).
 
 - [ ] PHS-07 standard TUI PTY verification: [Accepted technical debt](../features/initial/phases/07-extension-context-lifecycle/technical-debt.md)
 

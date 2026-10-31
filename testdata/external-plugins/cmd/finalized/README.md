@@ -10,15 +10,15 @@ This command imports only Glyph's public protobuf contracts and Extension SDK. I
 
 `finalized-mark` keeps tool calls, images and replay references unchanged. For example, the request `finalize me` is stored and sent as `finalize me [final user]`. A model response `Calling tool.` with a call of `finalized_echo` becomes `Calling tool. [final model]`, and the tool result becomes `echo output [final tool]`. The session, the completion events and the next model request contain these values.
 
-From `testdata/external-plugins`, build the ordinary reference:
+From `testdata/external-plugins`, build the ordinary reference into a new directory that you name in the shell variable `EXTENSION_DIR`:
 
 ```sh
-go build -o /tmp/glyph-finalized-extensions/finalized ./cmd/finalized
+go build -o "$EXTENSION_DIR/finalized" ./cmd/finalized
 ```
 
-Point Glyph's `--extension-dir` at `/tmp/glyph-finalized-extensions`. See the [author guide](../../../../docs/guidelines/finalized-message-middleware.md) for payloads, actions, replacement rules and failures.
+See [Reference commands](../../../../docs/guidelines/model-middleware.md#reference-commands) for how to install and start it, and the [author guide](../../../../docs/guidelines/finalized-message-middleware.md) for replacement rules and failures.
 
-The executable name selects acceptance scenarios. Build or copy the same binary under one of these names:
+The executable name selects the scenario. Build or copy the same binary under one of these names:
 
 | Executable | Behavior of `finalized-mark` |
 | --- | --- |
@@ -39,5 +39,3 @@ When the environment variable `GLYPH_FINALIZED_FAILING_MODEL` holds a number N, 
 When the environment variable `GLYPH_FINALIZED_SIGNALS` names a directory, the blocked `finalized-block` invocation writes the empty file `finalized-blocked` there before it waits.
 
 When the environment variable `GLYPH_FINALIZED_TRACE` names a file, every handler invocation appends one line with the handler identifier, a tab and the received `FinalizedMessageInvocation` as protobuf JSON. Every call of `finalized_echo` appends a line with the tool name and its JSON arguments.
-
-Install only the selected scenario in the extension directory. The Host integration fixtures build this command independently and invoke it through real public client operations and extension processes.

@@ -169,6 +169,8 @@ The architecture keeps one `glyph` process and separate project roots for Host a
   - internal/infra/host/ - initialized SDK command and notification I/O
   - internal/infra/terminal/ - Bubble Tea runtime, snapshots and rendering
     - device/ - controlling-terminal file acquisition and cleanup
+- testdata/external-plugins/ - separate Go module of test extensions and a test UI plugin that are built independently of the Host
+  - cmd/wire/, cmd/context/, cmd/input/, cmd/finalized/ - public middleware reference extensions that import only the generated Extension Contract and the Extension SDK
 - docs/specs/features/initial/architecture.md - target architecture authority
 ```
 

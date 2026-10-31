@@ -2,7 +2,7 @@
 
 ## Status
 
-UNT-02 is implemented in the working copy and is not committed. It was delivered in two sequential assignments, called part 1 and part 2 below, followed by one round of review corrections. Part 1 added the public contract, SDK admission, startup registration, the middleware owner and runtime mapping. Part 2 connected them to Agent Core, model execution, configured-model callers, the three application assemblies, the public reference extension and the author documentation. The review corrections are recorded in [Review corrections, round 1](#review-corrections-round-1). `task itest`, `task test-coverage` and the whole `host/internal/app` integration package have not run yet.
+UNT-02 is ready. Commit `ffb3c1c` contains the implementation. It was delivered in two sequential assignments, called part 1 and part 2 below, followed by one round of review corrections. Part 1 added the public contract, SDK admission, startup registration, the middleware owner and runtime mapping. Part 2 connected them to Agent Core, model execution, configured-model callers, the three application assemblies, the public reference extension and the author documentation. The review corrections are recorded in [Review corrections, round 1](#review-corrections-round-1). After the last correction, a separate agent ran the full set of project checks; see [Full checks](#full-checks).
 
 The decisions are [D8-08 through D8-12](decisions.md).
 
@@ -294,6 +294,16 @@ Runtime loss and cancellation have no public test, as the correction list allows
 | `go test -race -tags=integration -p 1 -parallel 1` on `agent/run`, `modelexecution`, `extensioncontext`, the extension runtime package, `infra/programmatic/output` and `sessions` | all ok |
 | `host/internal/app` with `-run` for all `TestPublicContext*` tests, `TestPublicConfiguredRequestAcrossApplicationModes`, `TestConsumedNestedCompactionFailureStopsCore`, `TestStandardOverflowRecovery`, `TestStandardOverflowSuppliedResult`, `TestStandardAutomaticCompaction`, `TestNavigationSummaryRetryProgressAcrossClients`, `TestNavigationSummaryTerminalFailureAcrossClients`, `TestPublicWire*` and `TestSessionTreeComposesRealGRPCHandlers` | all passed |
 
-## Verification limits
+## Full checks
 
-`task itest`, `task test-coverage` and the whole `host/internal/app` integration package have not run.
+A separate agent ran the full set of project checks on the working copy of commit `ffb3c1c`, before the commit, after the last correction. Every command exited 0, and neither `task fmt` nor `task fix_dry_run` changed a file.
+
+| Command | Result |
+| --- | --- |
+| `task fmt` | Exit 0; no changed files |
+| `task fix_dry_run` | Exit 0; no proposed changes |
+| `task lint` | Exit 0 |
+| `task test` | Exit 0 |
+| `task itest` | Exit 0; `host/internal/app` passed in 412.7 s |
+| `task test-coverage` | Exit 0; coverage 85.0%, required 80.0% |
+| `task build` | Exit 0 |

@@ -69,11 +69,14 @@
 - Status: Both scoped corrections are verified and complete; see the [final verification record](../../../artefacts/pre-phs08-corrections-verification.md).
 - Production panic elimination: [Ticket](../../issues/production-panic-elimination/ticket.md).
 - Extension failure propagation: [Ticket](../../issues/extension-failure-propagation/ticket.md).
-- Completion gate: Satisfied by the verifier's final checks of both scoped corrections in UNT12. PHS-08 remains unstarted. These tasks correct known defects in implemented behavior; they do not reopen unrelated phase acceptance or require a general codebase audit. No relative execution order between the two corrections is imposed.
+- Completion gate: Satisfied by the verifier's final checks of both scoped corrections in UNT12. These tasks correct known defects in implemented behavior; they do not reopen unrelated phase acceptance or require a general codebase audit. No relative execution order between the two corrections is imposed.
 
 ### PHS-08. Prompt, context, input, and provider middleware
 - Dependencies: PHS-06, PHS-04.1, Cross-cutting corrections before PHS-08
 - Ticket: [Ticket](phases/08-prompt-context-input-provider-middleware/ticket.md)
+- Technical Solution: [Technical Solution](phases/08-prompt-context-input-provider-middleware/solution.md)
+- Author guide: [Model-facing middleware](../../../guidelines/model-middleware.md)
+- Completion status: Implemented; awaiting final verification and user acceptance. The [acceptance report](phases/08-prompt-context-input-provider-middleware/acceptance-report.md) maps each ticket criterion to executed evidence or a recorded verification limit.
 
 ### PHS-09. Tool middleware and run control
 - Dependencies: PHS-08

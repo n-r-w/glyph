@@ -1,6 +1,6 @@
 # Delivery plan: PHS-08
 
-Deliver the complete [ticket](ticket.md) through independently verifiable behavior slices, followed by author documentation. The [technical solution](technical-solution.md) defines the mechanisms; this plan defines delivery and checks.
+Deliver the complete [ticket](ticket.md) through independently verifiable behavior slices, followed by author documentation. The [technical solution](solution.md) defines the mechanisms; this plan defines delivery and checks.
 
 ## Key definitions and abbreviations
 
@@ -8,7 +8,7 @@ Use the [domain glossary](../../../../../terms.md). A unit is ready only after i
 
 ## Delivery strategy
 
-Use the [technical solution](technical-solution.md), especially Data ownership and public operations, Effective-context port and prepared provider binding, and Provider-neutral wire callbacks. Deliver sequentially in the visible working copy. Replace obsolete internal/public paths in the same behavior slice; add no compatibility path, feature flag or storage migration.
+Use the [technical solution](solution.md), especially Data ownership and public operations, Effective-context port and prepared provider binding, and Provider-neutral wire callbacks. Deliver sequentially in the visible working copy. Replace obsolete internal/public paths in the same behavior slice; add no compatibility path, feature flag or storage migration.
 
 ## Main changes
 
@@ -34,10 +34,10 @@ No backward compatibility.
 | Unit | Outcome | Performer | Status |
 | --- | --- | --- | --- |
 | UNT-01 | Safe provider-wire middleware through ordinary extension operations | SubAgentDeveloperComplex | Ready |
-| UNT-02 | Ordered effective instructions/context after preparation | SubAgentDeveloperComplex | Accepted for execution |
-| UNT-03 | Public text/image input transformation and full handling | SubAgentDeveloperComplex | Accepted for execution |
-| UNT-04 | Role-preserving finalized messages used consistently | SubAgentDeveloperComplex | Accepted for execution |
-| UNT-05 | Public author guide and integrated phase records | SubAgentDeveloperRegular | Accepted for execution |
+| UNT-02 | Ordered effective instructions/context after preparation | SubAgentDeveloperComplex | Ready |
+| UNT-03 | Public text/image input transformation and full handling | SubAgentDeveloperComplex | Ready |
+| UNT-04 | Role-preserving finalized messages used consistently | SubAgentDeveloperComplex | Ready |
+| UNT-05 | Public author guide and integrated phase records | SubAgentDeveloperRegular | Ready |
 
 ### Unit tree
 
@@ -270,5 +270,5 @@ None.
 
 ## References
 
-- [Ticket](ticket.md), [requirements](requirements.md), [technical solution](technical-solution.md), [decisions](decisions.md).
+- [Ticket](ticket.md), [requirements](requirements.md), [technical solution](solution.md), [decisions](decisions.md).
 - [Facts](facts.md), [project state](project-state.md), [design review](design-review.md).

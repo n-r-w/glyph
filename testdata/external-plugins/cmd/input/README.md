@@ -12,15 +12,15 @@ For example, the submitted blocks `describe this`, an image and `after image` re
 
 A request with the text `glyph-handle-input please` completes successfully. Host starts no agent run for it: it sends no model request and appends nothing to the session. The two later handlers do not run.
 
-From `testdata/external-plugins`, build the ordinary reference:
+From `testdata/external-plugins`, build the ordinary reference into a new directory that you name in the shell variable `EXTENSION_DIR`:
 
 ```sh
-go build -o /tmp/glyph-input-extensions/input ./cmd/input
+go build -o "$EXTENSION_DIR/input" ./cmd/input
 ```
 
-Point Glyph's `--extension-dir` at `/tmp/glyph-input-extensions`. See the [author guide](../../../../docs/guidelines/input-middleware.md) for payloads, actions and failures.
+See [Reference commands](../../../../docs/guidelines/model-middleware.md#reference-commands) for how to install and start it, and the [author guide](../../../../docs/guidelines/input-middleware.md) for payloads and final validation.
 
-The executable name selects acceptance scenarios. Build or copy the same binary under one of these names:
+The executable name selects the scenario. Build or copy the same binary under one of these names:
 
 | Executable | Behavior |
 | --- | --- |
@@ -37,4 +37,4 @@ When the environment variable `GLYPH_INPUT_SIGNALS` names a directory, the block
 
 When the environment variable `GLYPH_INPUT_TRACE` names a file, every invocation appends one line with the handler identifier, a tab and the received `UserInputInvocation` as protobuf JSON. The trace shows which handlers ran and the original and current input of each invocation.
 
-Install only the selected scenario in the extension directory. The Host integration fixtures build this command independently and invoke it through real public client operations and extension processes. The reference contributes no tools or provider registrations.
+The reference contributes no tools or provider registrations.

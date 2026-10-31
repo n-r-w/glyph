@@ -18,7 +18,7 @@ Status: Accepted, verified and complete within the [ticket scope](specs/issues/e
 
 Execution position: After PHS-06 and before PHS-08, together with production panic elimination.
 
-The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) defines the required behavior. The [correction ticket](specs/issues/extension-failure-propagation/ticket.md) records the confirmed implementation gaps, regression evidence, and acceptance criteria. Completed phase statuses below retain their accepted implementation baselines. The cross-cutting completion gate is satisfied; PHS-08 remains unstarted.
+The [extension failure rule](specs/features/initial/prd.md#extension-failure-rule) defines the required behavior. The [correction ticket](specs/issues/extension-failure-propagation/ticket.md) records the confirmed implementation gaps, regression evidence, and acceptance criteria. Completed phase statuses below retain their accepted implementation baselines. The cross-cutting completion gate was satisfied before PHS-08 started.
 
 ### TUI hyperlinks
 
@@ -196,13 +196,17 @@ Documents:
 
 ## PHS-08: Prompt, context, input, and provider middleware
 
-Status: In progress. UNT-01 implements provider-wire operations; independent review and full-project verification remain separate. UNT-02 through UNT-05 remain pending.
+Status: Implemented; awaiting final verification and user acceptance.
 
-Add ordered model-facing middleware through provider-neutral Host boundaries and final input validation against model modalities.
+Added ordered model-facing middleware through provider-neutral Host boundaries and final input validation against model modalities.
 
 Documents:
 - [Ticket](specs/features/initial/phases/08-prompt-context-input-provider-middleware/ticket.md)
-- [UNT-01 evidence](specs/features/initial/phases/08-prompt-context-input-provider-middleware/unt-01-evidence.md)
+- [Technical solution](specs/features/initial/phases/08-prompt-context-input-provider-middleware/solution.md)
+- [Plan](specs/features/initial/phases/08-prompt-context-input-provider-middleware/plan.md)
+- [Acceptance report](specs/features/initial/phases/08-prompt-context-input-provider-middleware/acceptance-report.md)
+- Unit evidence: [UNT-01](specs/features/initial/phases/08-prompt-context-input-provider-middleware/unt-01-evidence.md), [UNT-02](specs/features/initial/phases/08-prompt-context-input-provider-middleware/unt-02-evidence.md), [UNT-03](specs/features/initial/phases/08-prompt-context-input-provider-middleware/unt-03-evidence.md), [UNT-04](specs/features/initial/phases/08-prompt-context-input-provider-middleware/unt-04-evidence.md), [UNT-05](specs/features/initial/phases/08-prompt-context-input-provider-middleware/unt-05-evidence.md)
+- [Model-facing middleware guide](guidelines/model-middleware.md)
 
 ## PHS-09: Tool middleware and run control
 
