@@ -2,7 +2,7 @@ edition = "2023";
 
 package glyph.programmatic.v1;
 
-import "api/programmatic/v1/session.proto";
+import "api/programmatic/v1/user.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
 
@@ -26,6 +26,15 @@ enum MessageDelivery {
   // The agent receives the message only when the run has no remaining tool calls and no pending steer messages,
   // and then makes another model request.
   MESSAGE_DELIVERY_FOLLOW_UP = 2;
+}
+
+// ReturnedMessage carries a queued message that the agent run did not give to the agent,
+// in the form in which the client sent it.
+message ReturnedMessage {
+  // The delivery point that the client chose for the message.
+  MessageDelivery delivery = 1;
+  // The ordered user input blocks as the client sent them, before input processing.
+  repeated UserContent content = 2;
 }
 
 // EnqueueMessageResult reports how Host accepted a queued message.

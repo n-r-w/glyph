@@ -9,6 +9,7 @@ import "api/programmatic/v1/model.proto";
 import "api/programmatic/v1/queue.proto";
 import "api/programmatic/v1/retry.proto";
 import "api/programmatic/v1/session.proto";
+import "api/programmatic/v1/user.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
 

@@ -89,4 +89,15 @@ type RunSummary struct {
 	AddedHistory []HistoryEntry
 	// ErrorMessage contains a terminal failure message.
 	ErrorMessage mo.Option[string]
+	// ReturnedMessages contains the client messages that the run accepted but did not give to the model, in arrival
+	// order.
+	ReturnedMessages []ReturnedMessage
+}
+
+// ReturnedMessage is a client message that a failed or aborted run gave back, in the form the client sent it.
+type ReturnedMessage struct {
+	// Delivery identifies the delivery kind that the client chose for the message.
+	Delivery MessageDelivery
+	// Message contains the content before input processing.
+	Message model.Message
 }

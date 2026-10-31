@@ -4149,7 +4149,7 @@ var File_api_programmatic_v1_programmatic_proto protoreflect.FileDescriptor
 
 const file_api_programmatic_v1_programmatic_proto_rawDesc = "" +
 	"\n" +
-	"&api/programmatic/v1/programmatic.proto\x12\x15glyph.programmatic.v1\x1a api/operation/v1/operation.proto\x1a\x1fapi/programmatic/v1/agent.proto\x1a$api/programmatic/v1/compaction.proto\x1a\x1fapi/programmatic/v1/model.proto\x1a\x1fapi/programmatic/v1/queue.proto\x1a\x1fapi/programmatic/v1/retry.proto\x1a!api/programmatic/v1/session.proto\"\x81\x01\n" +
+	"&api/programmatic/v1/programmatic.proto\x12\x15glyph.programmatic.v1\x1a api/operation/v1/operation.proto\x1a\x1fapi/programmatic/v1/agent.proto\x1a$api/programmatic/v1/compaction.proto\x1a\x1fapi/programmatic/v1/model.proto\x1a\x1fapi/programmatic/v1/queue.proto\x1a\x1fapi/programmatic/v1/retry.proto\x1a!api/programmatic/v1/session.proto\x1a\x1eapi/programmatic/v1/user.proto\"\x81\x01\n" +
 	"\vOpenRequest\x12!\n" +
 	"\foperation_id\x18\x01 \x01(\tR\voperationId\x12D\n" +
 	"\arequest\x18\x02 \x01(\v2(.glyph.programmatic.v1.ControllerRequestH\x00R\arequestB\t\n" +
@@ -4424,6 +4424,7 @@ func file_api_programmatic_v1_programmatic_proto_init() {
 	file_api_programmatic_v1_queue_proto_init()
 	file_api_programmatic_v1_retry_proto_init()
 	file_api_programmatic_v1_session_proto_init()
+	file_api_programmatic_v1_user_proto_init()
 	file_api_programmatic_v1_programmatic_proto_msgTypes[0].OneofWrappers = []any{
 		(*openRequest_Request)(nil),
 	}

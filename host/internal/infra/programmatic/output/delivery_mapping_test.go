@@ -597,6 +597,9 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 					AddedHistory: nil,
 					Outcome:      agent.RunOutcomeFailed,
 					ErrorMessage: mo.Some("failed"),
+					ReturnedMessages: []agent.ReturnedMessage{
+						{Delivery: agent.MessageDeliverySteer, Message: model.TextMessage("returned")},
+					},
 				}),
 			),
 			expected: testAgentEvent(
@@ -612,6 +615,9 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 				mo.Some(controller.AgentSummary{
 					Outcome:      controller.RunOutcomeFailed,
 					ErrorMessage: mo.Some("failed"),
+					ReturnedMessages: []agent.ReturnedMessage{
+						{Delivery: agent.MessageDeliverySteer, Message: model.TextMessage("returned")},
+					},
 				}),
 			),
 		},

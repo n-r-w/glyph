@@ -3,6 +3,7 @@ edition = "2023";
 package glyph.programmatic.v1;
 
 import "google/protobuf/struct.proto";
+import "api/programmatic/v1/queue.proto";
 import "api/programmatic/v1/retry.proto";
 
 option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
@@ -184,6 +185,9 @@ message AgentSummary {
   RunOutcome outcome = 1;
   // The safe terminal error message.
   string error_message = 2;
+  // The queued steer and followUp messages that the run did not give to the agent because it failed or was aborted,
+  // in arrival order. The client can show them to the user again.
+  repeated ReturnedMessage returned_messages = 3;
 }
 // AgentEventType identifies an agent lifecycle event.
 enum AgentEventType {

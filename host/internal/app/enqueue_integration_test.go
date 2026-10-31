@@ -42,6 +42,9 @@ const (
 	inputPausedSignal = "input-paused"
 	// inputResumeSignal is the named pipe that a paused input invocation opens for reading before it continues.
 	inputResumeSignal = "input-resume"
+	// queueRejectedRequest is the scripted response that makes the provider reject the request with a failure that
+	// Host does not retry.
+	queueRejectedRequest = "rejected request"
 	// steerToolSSE requests one ordinary call of the reference extension tool.
 	steerToolSSE = `data: {"type":"response.completed","response":{"id":"resp-steer-tool","model":"gpt-active",` +
 		`"status":"completed","output":[` +
@@ -64,7 +67,8 @@ type queueProvider struct {
 }
 
 // startQueueProvider serves the responses in order; each of the first heldRequests requests waits until the test
-// releases it.
+// releases it, and the response queueRejectedRequest makes the provider reject its request with a failure that
+// Host does not retry.
 func startQueueProvider(t *testing.T, heldRequests int, responses ...string) *queueProvider {
 	t.Helper()
 	provider := &queueProvider{
@@ -93,6 +97,12 @@ func startQueueProvider(t *testing.T, heldRequests int, responses ...string) *qu
 			case <-request.Context().Done():
 				return
 			}
+		}
+		if responses[position-1] == queueRejectedRequest {
+			writer.Header().Set(retryContentTypeHeader, retryJSONContentType)
+			writer.WriteHeader(http.StatusBadRequest)
+			_, _ = writer.Write([]byte(retryProviderError))
+			return
 		}
 		writer.Header().Set(retryContentTypeHeader, retryStreamContentType)
 		_, _ = writer.Write([]byte(responses[position-1]))

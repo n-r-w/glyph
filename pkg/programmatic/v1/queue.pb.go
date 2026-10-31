@@ -216,6 +216,103 @@ func (b0 EnqueueMessage_builder) Build() *EnqueueMessage {
 	return m0
 }
 
+// ReturnedMessage carries a queued message that the agent run did not give to the agent,
+// in the form in which the client sent it.
+type ReturnedMessage struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Delivery    MessageDelivery        `protobuf:"varint,1,opt,name=delivery,enum=glyph.programmatic.v1.MessageDelivery"`
+	xxx_hidden_Content     *[]*UserContent        `protobuf:"bytes,2,rep,name=content"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *ReturnedMessage) Reset() {
+	*x = ReturnedMessage{}
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[1]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ReturnedMessage) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ReturnedMessage) ProtoMessage() {}
+
+func (x *ReturnedMessage) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[1]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ReturnedMessage) GetDelivery() MessageDelivery {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Delivery
+		}
+	}
+	return MessageDelivery_MESSAGE_DELIVERY_UNSPECIFIED
+}
+
+func (x *ReturnedMessage) GetContent() []*UserContent {
+	if x != nil {
+		if x.xxx_hidden_Content != nil {
+			return *x.xxx_hidden_Content
+		}
+	}
+	return nil
+}
+
+func (x *ReturnedMessage) SetDelivery(v MessageDelivery) {
+	x.xxx_hidden_Delivery = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+}
+
+func (x *ReturnedMessage) SetContent(v []*UserContent) {
+	x.xxx_hidden_Content = &v
+}
+
+func (x *ReturnedMessage) HasDelivery() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *ReturnedMessage) ClearDelivery() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Delivery = MessageDelivery_MESSAGE_DELIVERY_UNSPECIFIED
+}
+
+type ReturnedMessage_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The delivery point that the client chose for the message.
+	Delivery *MessageDelivery
+	// The ordered user input blocks as the client sent them, before input processing.
+	Content []*UserContent
+}
+
+func (b0 ReturnedMessage_builder) Build() *ReturnedMessage {
+	m0 := &ReturnedMessage{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Delivery != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		x.xxx_hidden_Delivery = *b.Delivery
+	}
+	x.xxx_hidden_Content = &b.Content
+	return m0
+}
+
 // EnqueueMessageResult reports how Host accepted a queued message.
 type EnqueueMessageResult struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
@@ -228,7 +325,7 @@ type EnqueueMessageResult struct {
 
 func (x *EnqueueMessageResult) Reset() {
 	*x = EnqueueMessageResult{}
-	mi := &file_api_programmatic_v1_queue_proto_msgTypes[1]
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -240,7 +337,7 @@ func (x *EnqueueMessageResult) String() string {
 func (*EnqueueMessageResult) ProtoMessage() {}
 
 func (x *EnqueueMessageResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_queue_proto_msgTypes[1]
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -306,7 +403,7 @@ type SetQueueMode struct {
 
 func (x *SetQueueMode) Reset() {
 	*x = SetQueueMode{}
-	mi := &file_api_programmatic_v1_queue_proto_msgTypes[2]
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -318,7 +415,7 @@ func (x *SetQueueMode) String() string {
 func (*SetQueueMode) ProtoMessage() {}
 
 func (x *SetQueueMode) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_queue_proto_msgTypes[2]
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -385,7 +482,7 @@ type QueueModeResult struct {
 
 func (x *QueueModeResult) Reset() {
 	*x = QueueModeResult{}
-	mi := &file_api_programmatic_v1_queue_proto_msgTypes[3]
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -397,7 +494,7 @@ func (x *QueueModeResult) String() string {
 func (*QueueModeResult) ProtoMessage() {}
 
 func (x *QueueModeResult) ProtoReflect() protoreflect.Message {
-	mi := &file_api_programmatic_v1_queue_proto_msgTypes[3]
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -456,10 +553,13 @@ var File_api_programmatic_v1_queue_proto protoreflect.FileDescriptor
 
 const file_api_programmatic_v1_queue_proto_rawDesc = "" +
 	"\n" +
-	"\x1fapi/programmatic/v1/queue.proto\x12\x15glyph.programmatic.v1\x1a!api/programmatic/v1/session.proto\"\x92\x01\n" +
+	"\x1fapi/programmatic/v1/queue.proto\x12\x15glyph.programmatic.v1\x1a\x1eapi/programmatic/v1/user.proto\"\x92\x01\n" +
 	"\x0eEnqueueMessage\x12<\n" +
 	"\acontent\x18\x01 \x03(\v2\".glyph.programmatic.v1.UserContentR\acontent\x12B\n" +
-	"\bdelivery\x18\x02 \x01(\x0e2&.glyph.programmatic.v1.MessageDeliveryR\bdelivery\"0\n" +
+	"\bdelivery\x18\x02 \x01(\x0e2&.glyph.programmatic.v1.MessageDeliveryR\bdelivery\"\x93\x01\n" +
+	"\x0fReturnedMessage\x12B\n" +
+	"\bdelivery\x18\x01 \x01(\x0e2&.glyph.programmatic.v1.MessageDeliveryR\bdelivery\x12<\n" +
+	"\acontent\x18\x02 \x03(\v2\".glyph.programmatic.v1.UserContentR\acontent\"0\n" +
 	"\x14EnqueueMessageResult\x12\x18\n" +
 	"\ahandled\x18\x01 \x01(\bR\ahandled\"D\n" +
 	"\fSetQueueMode\x124\n" +
@@ -476,26 +576,29 @@ const file_api_programmatic_v1_queue_proto_rawDesc = "" +
 	"\x0eQUEUE_MODE_ALL\x10\x02B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
 
 var file_api_programmatic_v1_queue_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_api_programmatic_v1_queue_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_api_programmatic_v1_queue_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_api_programmatic_v1_queue_proto_goTypes = []any{
 	(MessageDelivery)(0),         // 0: glyph.programmatic.v1.MessageDelivery
 	(QueueMode)(0),               // 1: glyph.programmatic.v1.QueueMode
 	(*EnqueueMessage)(nil),       // 2: glyph.programmatic.v1.EnqueueMessage
-	(*EnqueueMessageResult)(nil), // 3: glyph.programmatic.v1.EnqueueMessageResult
-	(*SetQueueMode)(nil),         // 4: glyph.programmatic.v1.SetQueueMode
-	(*QueueModeResult)(nil),      // 5: glyph.programmatic.v1.QueueModeResult
-	(*UserContent)(nil),          // 6: glyph.programmatic.v1.UserContent
+	(*ReturnedMessage)(nil),      // 3: glyph.programmatic.v1.ReturnedMessage
+	(*EnqueueMessageResult)(nil), // 4: glyph.programmatic.v1.EnqueueMessageResult
+	(*SetQueueMode)(nil),         // 5: glyph.programmatic.v1.SetQueueMode
+	(*QueueModeResult)(nil),      // 6: glyph.programmatic.v1.QueueModeResult
+	(*UserContent)(nil),          // 7: glyph.programmatic.v1.UserContent
 }
 var file_api_programmatic_v1_queue_proto_depIdxs = []int32{
-	6, // 0: glyph.programmatic.v1.EnqueueMessage.content:type_name -> glyph.programmatic.v1.UserContent
+	7, // 0: glyph.programmatic.v1.EnqueueMessage.content:type_name -> glyph.programmatic.v1.UserContent
 	0, // 1: glyph.programmatic.v1.EnqueueMessage.delivery:type_name -> glyph.programmatic.v1.MessageDelivery
-	1, // 2: glyph.programmatic.v1.SetQueueMode.mode:type_name -> glyph.programmatic.v1.QueueMode
-	1, // 3: glyph.programmatic.v1.QueueModeResult.mode:type_name -> glyph.programmatic.v1.QueueMode
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0, // 2: glyph.programmatic.v1.ReturnedMessage.delivery:type_name -> glyph.programmatic.v1.MessageDelivery
+	7, // 3: glyph.programmatic.v1.ReturnedMessage.content:type_name -> glyph.programmatic.v1.UserContent
+	1, // 4: glyph.programmatic.v1.SetQueueMode.mode:type_name -> glyph.programmatic.v1.QueueMode
+	1, // 5: glyph.programmatic.v1.QueueModeResult.mode:type_name -> glyph.programmatic.v1.QueueMode
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_queue_proto_init() }
@@ -503,14 +606,14 @@ func file_api_programmatic_v1_queue_proto_init() {
 	if File_api_programmatic_v1_queue_proto != nil {
 		return
 	}
-	file_api_programmatic_v1_session_proto_init()
+	file_api_programmatic_v1_user_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_programmatic_v1_queue_proto_rawDesc), len(file_api_programmatic_v1_queue_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

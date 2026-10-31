@@ -50,10 +50,11 @@ type Service struct {
 	mutex sync.RWMutex
 	// state contains the current run snapshot.
 	state State
-	// steering holds the steer messages of the active run that history has not received yet, in arrival order.
-	steering []model.Message
-	// followUps holds the followUp messages of the active run that history has not received yet, in arrival order.
-	followUps []model.Message
+	// pending holds the steer and followUp messages of the active run that history has not received yet, in
+	// arrival order.
+	pending []queuedMessage
+	// nextSequence is the arrival number of the latest queued message.
+	nextSequence uint64
 	// queueMode selects how many pending messages of one kind a delivery point gives the model.
 	queueMode agent.QueueMode
 	// addedHistory owns detached entries appended successfully by the active run.
@@ -82,8 +83,8 @@ func New(
 		historyStore: historyStore,
 		finalizer:    finalizer,
 		mutex:        sync.RWMutex{},
-		steering:     nil,
-		followUps:    nil,
+		pending:      nil,
+		nextSequence: 0,
 		queueMode:    agent.QueueModeOneAtATime,
 		addedHistory: nil,
 		state: State{
@@ -104,38 +105,48 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 	deliveryErr := s.deliver(ctx, newEvent(agent.EventAgentStart, request.RunID))
 	if deliveryErr != nil {
 		return s.finish(
-			ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(deliveryErr.Error()), deliveryErr,
+			ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(deliveryErr.Error()), deliveryErr, nil,
 		)
 	}
 	// The user entry must transfer to history ownership before any turn or provider request can depend on it.
 	if err := s.appendUser(ctx, request.Message); err != nil {
-		return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
+		return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err, nil)
 	}
 
 	for {
 		if contextErr := ctx.Err(); contextErr != nil {
 			return s.finish(
-				ctx, request.RunID, agent.RunOutcomeAborted, mo.Some(abortedModelMessage), contextErr,
+				ctx, request.RunID, agent.RunOutcomeAborted, mo.Some(abortedModelMessage), contextErr, nil,
 			)
 		}
 		turnResult, next, runErr := s.runTurn(ctx, request.RunID)
-		var queued []model.Message
+		var queued []queuedMessage
+		var cancelErr error
 		switch {
 		case next:
-			queued = s.takeSteer()
+			queued, cancelErr = s.takeSteer(ctx)
 		case turnResult.Outcome == agent.RunOutcomeCompleted && runErr == nil:
 			// A final response delivers a pending steer or followUp message instead of completing the run.
-			queued = s.takeQueuedOrComplete()
-			if len(queued) == 0 {
-				return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
+			queued, cancelErr = s.takeQueuedOrComplete(ctx)
+			if cancelErr == nil && len(queued) == 0 {
+				return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr, nil)
 			}
 		default:
-			return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
+			return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr, nil)
+		}
+		if cancelErr != nil {
+			// A canceled run delivers no instruction to a model that a later run could see.
+			return s.finish(
+				ctx, request.RunID, agent.RunOutcomeAborted, mo.Some(abortedModelMessage), cancelErr, nil,
+			)
 		}
 		// The next turn reads history again, so the model receives the messages in its next request.
-		for _, message := range queued {
-			if err := s.appendUser(ctx, message); err != nil {
-				return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
+		for index, message := range queued {
+			if err := s.appendUser(ctx, message.processed); err != nil {
+				// The failed message and the later ones are not in history, so the client gets them back.
+				return s.finish(
+					ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err, queued[index:],
+				)
 			}
 		}
 	}
@@ -430,13 +441,15 @@ func (s *Service) endTurn(
 	}, false, runErr
 }
 
-// finish emits agent_end and leaves the run awaiting explicit Host settlement.
+// finish emits agent_end and leaves the run awaiting explicit Host settlement. The client gets back the queued
+// messages that are still pending and the popped ones in undelivered, which history did not receive.
 func (s *Service) finish(
 	ctx context.Context,
 	runID string,
 	outcome agent.RunOutcome,
 	errorMessage mo.Option[string],
 	runErr error,
+	undelivered []queuedMessage,
 ) (runcontrol.Result, error) {
 	if ctx.Err() != nil && isPureCancellation(runErr) {
 		outcome = agent.RunOutcomeAborted
@@ -444,9 +457,9 @@ func (s *Service) finish(
 	s.mutex.Lock()
 	added := s.addedHistory
 	s.addedHistory = nil
-	// The run ends here, so queued messages that it has not delivered are discarded.
-	s.steering = nil
-	s.followUps = nil
+	// The run ends here, so queued messages that it has not delivered go back to the client.
+	returned := s.collectReturnedMessages(undelivered)
+	s.pending = nil
 	s.state = State{
 		Status:          StatusAwaitingSettlement,
 		RunID:           mo.Some(runID),
@@ -457,7 +470,7 @@ func (s *Service) finish(
 	result := runcontrol.Result{Outcome: outcome, SettlementRequired: true}
 	agentEnd := newEvent(agent.EventAgentEnd, runID)
 	agentEnd.Agent = mo.Some(agent.RunSummary{
-		Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage,
+		Outcome: outcome, AddedHistory: added, ErrorMessage: errorMessage, ReturnedMessages: returned,
 	})
 	eventErr := s.deliver(context.WithoutCancel(ctx), agentEnd)
 	if eventErr != nil {

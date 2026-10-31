@@ -584,4 +584,6 @@ type AgentSummary struct {
 	Outcome RunOutcome
 	// ErrorMessage contains a terminal failure message.
 	ErrorMessage mo.Option[string]
+	// ReturnedMessages contains the client messages that the run did not give to the model, in arrival order.
+	ReturnedMessages []agent.ReturnedMessage
 }

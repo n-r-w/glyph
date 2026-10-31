@@ -156,7 +156,11 @@ func (c *Coordinator) Enqueue(
 	if !present {
 		return true, nil
 	}
-	if enqueueErr := c.executor.Enqueue(runID, delivery, final); enqueueErr != nil {
+	if enqueueErr := c.executor.Enqueue(
+		runID,
+		delivery,
+		QueuedMessage{Original: message, Processed: final},
+	); enqueueErr != nil {
 		return false, fmt.Errorf("queue %s message: %w", delivery, enqueueErr)
 	}
 	return false, nil

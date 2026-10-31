@@ -245,8 +245,9 @@ func TestMapEventPreservesEveryEvent(t *testing.T) {
 			payload:   "agent",
 			event: AgentEvent{
 				Agent: mo.Some(AgentSummary{
-					Outcome:      RunOutcomeFailed,
-					ErrorMessage: mo.Some("failed"),
+					Outcome:          RunOutcomeFailed,
+					ErrorMessage:     mo.Some("failed"),
+					ReturnedMessages: nil,
 				}),
 				OperationID:     "",
 				Type:            0,

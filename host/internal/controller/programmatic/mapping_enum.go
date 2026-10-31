@@ -36,6 +36,18 @@ func mapWireQueueMode(mode agent.QueueMode) (programmaticv1.QueueMode, error) {
 	}
 }
 
+// mapWireMessageDelivery maps one domain delivery kind to its public enum.
+func mapWireMessageDelivery(delivery agent.MessageDelivery) (programmaticv1.MessageDelivery, error) {
+	switch delivery {
+	case agent.MessageDeliverySteer:
+		return programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER, nil
+	case agent.MessageDeliveryFollowUp:
+		return programmaticv1.MessageDelivery_MESSAGE_DELIVERY_FOLLOW_UP, nil
+	default:
+		return 0, fmt.Errorf("map message delivery: unknown value %d", delivery)
+	}
+}
+
 // mapAgentEventType maps one internal agent event type to its public enum.
 //
 //nolint:gocyclo // The closed event enum is mapped exhaustively.

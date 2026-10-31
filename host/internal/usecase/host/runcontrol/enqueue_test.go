@@ -15,7 +15,7 @@ import (
 )
 
 // TestCoordinatorEnqueueQueuesProcessedInput verifies that Core queues, with its delivery kind, the final message
-// of input processing for the run that the admission check returned.
+// of input processing together with the submitted message for the run that the admission check returned.
 func TestCoordinatorEnqueueQueuesProcessedInput(t *testing.T) {
 	t.Parallel()
 	// Arrange an active run and input processing that returns a final message different from the submitted one.
@@ -27,14 +27,16 @@ func TestCoordinatorEnqueueQueuesProcessedInput(t *testing.T) {
 	gomock.InOrder(
 		executor.EXPECT().CheckEnqueue().Return("run", nil),
 		input.EXPECT().ProcessInput(gomock.Any(), submitted).Return(mo.Some(final), nil),
-		executor.EXPECT().Enqueue("run", agent.MessageDeliverySteer, final).Return(nil),
+		executor.EXPECT().Enqueue(
+			"run", agent.MessageDeliverySteer, QueuedMessage{Original: submitted, Processed: final},
+		).Return(nil),
 	)
 	coordinator := NewCoordinator(executor, input, nil, nil)
 
 	// Act by queuing the submitted message.
 	handled, err := coordinator.Enqueue(t.Context(), agent.MessageDeliverySteer, submitted)
 
-	// Assert Core received the final message and the result reports a queued message.
+	// Assert Core received both messages and the result reports a queued message.
 	require.NoError(t, err)
 	require.False(t, handled)
 }
@@ -106,7 +108,9 @@ func TestCoordinatorEnqueueFailsWhenQueueRejects(t *testing.T) {
 	final := model.TextMessage("final")
 	executor.EXPECT().CheckEnqueue().Return("run", nil)
 	input.EXPECT().ProcessInput(gomock.Any(), gomock.Any()).Return(mo.Some(final), nil)
-	executor.EXPECT().Enqueue("run", agent.MessageDeliverySteer, final).Return(agent.ErrRunNotActive)
+	executor.EXPECT().Enqueue(
+		"run", agent.MessageDeliverySteer, gomock.Any(),
+	).Return(agent.ErrRunNotActive)
 	coordinator := NewCoordinator(executor, input, nil, nil)
 
 	// Act by queuing a message.
@@ -127,7 +131,9 @@ func TestCoordinatorEnqueuePassesFollowUpDelivery(t *testing.T) {
 	message := model.TextMessage("queued")
 	executor.EXPECT().CheckEnqueue().Return("run", nil)
 	input.EXPECT().ProcessInput(gomock.Any(), message).Return(mo.Some(message), nil)
-	executor.EXPECT().Enqueue("run", agent.MessageDeliveryFollowUp, message).Return(nil)
+	executor.EXPECT().Enqueue(
+		"run", agent.MessageDeliveryFollowUp, QueuedMessage{Original: message, Processed: message},
+	).Return(nil)
 	coordinator := NewCoordinator(executor, input, nil, nil)
 
 	// Act by queuing the message as followUp.

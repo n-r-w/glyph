@@ -27,6 +27,14 @@ type Result struct {
 	SettlementRequired bool
 }
 
+// QueuedMessage is one client message for an active run, with its two forms.
+type QueuedMessage struct {
+	// Original contains the content in the form the client sent it, before input processing.
+	Original model.Message
+	// Processed contains the final user message after input processing, which the model receives.
+	Processed model.Message
+}
+
 // Executor owns Core execution state and its terminal settlement transition.
 type Executor interface {
 	// Run executes one prepared request and reports whether this run needs settlement.
@@ -35,9 +43,9 @@ type Executor interface {
 	Settle(runID string) error
 	// CheckEnqueue returns the ID of the run that accepts queued messages, or fails with agent.ErrRunNotActive.
 	CheckEnqueue() (runID string, err error)
-	// Enqueue queues a final user message with the given delivery kind for the run with the given ID, or fails with
+	// Enqueue queues a message with the given delivery kind for the run with the given ID, or fails with
 	// agent.ErrRunNotActive when that run is no longer running.
-	Enqueue(runID string, delivery agent.MessageDelivery, message model.Message) error
+	Enqueue(runID string, delivery agent.MessageDelivery, message QueuedMessage) error
 	// SetQueueMode selects how many pending messages of one kind a delivery point gives the model, from the next
 	// delivery point on.
 	SetQueueMode(mode agent.QueueMode)

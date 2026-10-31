@@ -3503,13 +3503,14 @@ func (b0 TurnSummary_builder) Build() *TurnSummary {
 
 // AgentSummary carries the terminal outcome of one agent run.
 type AgentSummary struct {
-	state                   protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Outcome      RunOutcome             `protobuf:"varint,1,opt,name=outcome,enum=glyph.programmatic.v1.RunOutcome"`
-	xxx_hidden_ErrorMessage *string                `protobuf:"bytes,2,opt,name=error_message,json=errorMessage"`
-	XXX_raceDetectHookData  protoimpl.RaceDetectHookData
-	XXX_presence            [1]uint32
-	unknownFields           protoimpl.UnknownFields
-	sizeCache               protoimpl.SizeCache
+	state                       protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Outcome          RunOutcome             `protobuf:"varint,1,opt,name=outcome,enum=glyph.programmatic.v1.RunOutcome"`
+	xxx_hidden_ErrorMessage     *string                `protobuf:"bytes,2,opt,name=error_message,json=errorMessage"`
+	xxx_hidden_ReturnedMessages *[]*ReturnedMessage    `protobuf:"bytes,3,rep,name=returned_messages,json=returnedMessages"`
+	XXX_raceDetectHookData      protoimpl.RaceDetectHookData
+	XXX_presence                [1]uint32
+	unknownFields               protoimpl.UnknownFields
+	sizeCache                   protoimpl.SizeCache
 }
 
 func (x *AgentSummary) Reset() {
@@ -3556,14 +3557,27 @@ func (x *AgentSummary) GetErrorMessage() string {
 	return ""
 }
 
+func (x *AgentSummary) GetReturnedMessages() []*ReturnedMessage {
+	if x != nil {
+		if x.xxx_hidden_ReturnedMessages != nil {
+			return *x.xxx_hidden_ReturnedMessages
+		}
+	}
+	return nil
+}
+
 func (x *AgentSummary) SetOutcome(v RunOutcome) {
 	x.xxx_hidden_Outcome = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
 func (x *AgentSummary) SetErrorMessage(v string) {
 	x.xxx_hidden_ErrorMessage = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 3)
+}
+
+func (x *AgentSummary) SetReturnedMessages(v []*ReturnedMessage) {
+	x.xxx_hidden_ReturnedMessages = &v
 }
 
 func (x *AgentSummary) HasOutcome() bool {
@@ -3597,6 +3611,9 @@ type AgentSummary_builder struct {
 	Outcome *RunOutcome
 	// The safe terminal error message.
 	ErrorMessage *string
+	// The queued steer and followUp messages that the run did not give to the agent because it failed or was aborted,
+	// in arrival order. The client can show them to the user again.
+	ReturnedMessages []*ReturnedMessage
 }
 
 func (b0 AgentSummary_builder) Build() *AgentSummary {
@@ -3604,13 +3621,14 @@ func (b0 AgentSummary_builder) Build() *AgentSummary {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Outcome != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_Outcome = *b.Outcome
 	}
 	if b.ErrorMessage != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 3)
 		x.xxx_hidden_ErrorMessage = b.ErrorMessage
 	}
+	x.xxx_hidden_ReturnedMessages = &b.ReturnedMessages
 	return m0
 }
 
@@ -3618,7 +3636,7 @@ var File_api_programmatic_v1_agent_proto protoreflect.FileDescriptor
 
 const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x1fapi/programmatic/v1/agent.proto\x12\x15glyph.programmatic.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fapi/programmatic/v1/retry.proto\"\xa0\a\n" +
+	"\x1fapi/programmatic/v1/agent.proto\x12\x15glyph.programmatic.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fapi/programmatic/v1/queue.proto\x1a\x1fapi/programmatic/v1/retry.proto\"\xa0\a\n" +
 	"\n" +
 	"AgentEvent\x129\n" +
 	"\x04type\x18\x01 \x01(\x0e2%.glyph.programmatic.v1.AgentEventTypeR\x04type\x12\x15\n" +
@@ -3711,10 +3729,11 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\amessage\x18\x02 \x01(\tR\amessage\"\x95\x01\n" +
 	"\vTurnSummary\x12@\n" +
 	"\bresponse\x18\x01 \x01(\v2$.glyph.programmatic.v1.ModelResponseR\bresponse\x12D\n" +
-	"\ftool_results\x18\x02 \x03(\v2!.glyph.programmatic.v1.ToolResultR\vtoolResults\"p\n" +
+	"\ftool_results\x18\x02 \x03(\v2!.glyph.programmatic.v1.ToolResultR\vtoolResults\"\xc5\x01\n" +
 	"\fAgentSummary\x12;\n" +
 	"\aoutcome\x18\x01 \x01(\x0e2!.glyph.programmatic.v1.RunOutcomeR\aoutcome\x12#\n" +
-	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage*\xcf\x05\n" +
+	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\x12S\n" +
+	"\x11returned_messages\x18\x03 \x03(\v2&.glyph.programmatic.v1.ReturnedMessageR\x10returnedMessages*\xcf\x05\n" +
 	"\x0eAgentEventType\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_AGENT_START\x10\x01\x12\x1f\n" +
@@ -3788,6 +3807,7 @@ var file_api_programmatic_v1_agent_proto_goTypes = []any{
 	(*RetryProgress)(nil),        // 22: glyph.programmatic.v1.RetryProgress
 	(*ResponseReset)(nil),        // 23: glyph.programmatic.v1.ResponseReset
 	(*structpb.Value)(nil),       // 24: google.protobuf.Value
+	(*ReturnedMessage)(nil),      // 25: glyph.programmatic.v1.ReturnedMessage
 }
 var file_api_programmatic_v1_agent_proto_depIdxs = []int32{
 	0,  // 0: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
@@ -3819,11 +3839,12 @@ var file_api_programmatic_v1_agent_proto_depIdxs = []int32{
 	15, // 26: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
 	12, // 27: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
 	4,  // 28: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
-	29, // [29:29] is the sub-list for method output_type
-	29, // [29:29] is the sub-list for method input_type
-	29, // [29:29] is the sub-list for extension type_name
-	29, // [29:29] is the sub-list for extension extendee
-	0,  // [0:29] is the sub-list for field type_name
+	25, // 29: glyph.programmatic.v1.AgentSummary.returned_messages:type_name -> glyph.programmatic.v1.ReturnedMessage
+	30, // [30:30] is the sub-list for method output_type
+	30, // [30:30] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_agent_proto_init() }
@@ -3831,6 +3852,7 @@ func file_api_programmatic_v1_agent_proto_init() {
 	if File_api_programmatic_v1_agent_proto != nil {
 		return
 	}
+	file_api_programmatic_v1_queue_proto_init()
 	file_api_programmatic_v1_retry_proto_init()
 	file_api_programmatic_v1_agent_proto_msgTypes[0].OneofWrappers = []any{
 		(*agentEvent_ModelContent)(nil),

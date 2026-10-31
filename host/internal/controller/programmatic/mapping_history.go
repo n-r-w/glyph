@@ -10,6 +10,7 @@ import (
 	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
@@ -411,15 +412,38 @@ func mapTurnSummary(turn TurnSummary) (*programmaticv1.TurnSummary, error) {
 	return mapped, nil
 }
 
-func mapAgentSummary(agent AgentSummary) (*programmaticv1.AgentSummary, error) {
-	outcome, err := mapRunOutcome(agent.Outcome)
+// mapAgentSummary maps the terminal agent result, with the messages the run returned to the client, to the public
+// contract.
+func mapAgentSummary(summary AgentSummary) (*programmaticv1.AgentSummary, error) {
+	outcome, err := mapRunOutcome(summary.Outcome)
 	if err != nil {
 		return nil, err
 	}
 	mapped := new(programmaticv1.AgentSummary)
 	mapped.SetOutcome(outcome)
-	if errorMessage, present := agent.ErrorMessage.Get(); present {
+	if errorMessage, present := summary.ErrorMessage.Get(); present {
 		mapped.SetErrorMessage(errorMessage)
 	}
+	returned, err := lo.MapErr(summary.ReturnedMessages, mapReturnedMessage)
+	if err != nil {
+		return nil, err
+	}
+	mapped.SetReturnedMessages(returned)
 	return mapped, nil
+}
+
+// mapReturnedMessage maps one message that a run gave back to the client, with its delivery kind and content.
+func mapReturnedMessage(message agent.ReturnedMessage, index int) (*programmaticv1.ReturnedMessage, error) {
+	delivery, err := mapWireMessageDelivery(message.Delivery)
+	if err != nil {
+		return nil, fmt.Errorf("map returned message %d: %w", index, err)
+	}
+	content, err := mapUserMessage(message.Message)
+	if err != nil {
+		return nil, fmt.Errorf("map returned message %d: %w", index, err)
+	}
+	wire := new(programmaticv1.ReturnedMessage)
+	wire.SetDelivery(delivery)
+	wire.SetContent(content.GetContent())
+	return wire, nil
 }

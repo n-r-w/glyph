@@ -34,7 +34,7 @@ func TestOwningObserverCancellationAbortsRun(t *testing.T) {
 			t,
 			agent.RunOutcomeAborted,
 			event.Agent.OrElse(
-				agent.RunSummary{Outcome: 0, AddedHistory: nil, ErrorMessage: mo.None[string]()},
+				agent.RunSummary{Outcome: 0, AddedHistory: nil, ErrorMessage: mo.None[string](), ReturnedMessages: nil},
 			).Outcome,
 		)
 		return nil

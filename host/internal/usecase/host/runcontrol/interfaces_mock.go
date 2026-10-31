@@ -59,7 +59,7 @@ func (mr *MockExecutorMockRecorder) CheckEnqueue() *gomock.Call {
 }
 
 // Enqueue mocks base method.
-func (m *MockExecutor) Enqueue(runID string, delivery agent.MessageDelivery, message model.Message) error {
+func (m *MockExecutor) Enqueue(runID string, delivery agent.MessageDelivery, message QueuedMessage) error {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Enqueue", runID, delivery, message)
 	ret0, _ := ret[0].(error)

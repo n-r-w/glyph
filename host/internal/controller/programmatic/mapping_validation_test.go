@@ -299,8 +299,9 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventAgentEnd,
 				Agent: mo.Some(AgentSummary{
-					Outcome:      RunOutcomeUnspecified,
-					ErrorMessage: mo.None[string](),
+					Outcome:          RunOutcomeUnspecified,
+					ErrorMessage:     mo.None[string](),
+					ReturnedMessages: nil,
 				}),
 				OperationID:     "",
 				RunID:           "",

@@ -36,6 +36,11 @@ func newNoTools(t *testing.T) *MockToolRuntime {
 	return tools
 }
 
+// queuedText returns a queued message whose original and processed forms are the same text.
+func queuedText(text string) runcontrol.QueuedMessage {
+	return runcontrol.QueuedMessage{Original: model.TextMessage(text), Processed: model.TextMessage(text)}
+}
+
 // userTexts returns the text of each user entry in history order.
 func userTexts(history []agent.HistoryEntry) []string {
 	texts := make([]string, 0, len(history))
@@ -62,10 +67,10 @@ func TestEnqueueSteerAtRunCompletion(t *testing.T) {
 		case agent.EventTurnEnd:
 			turnEnds++
 			if turnEnds == 1 {
-				require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage("steer")))
+				require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, queuedText("steer")))
 			}
 		case agent.EventAgentEnd:
-			lateErr = service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage("late"))
+			lateErr = service.Enqueue("run", agent.MessageDeliverySteer, queuedText("late"))
 		default:
 		}
 		return nil
@@ -87,13 +92,13 @@ func TestEnqueueSteerAtRunCompletion(t *testing.T) {
 	require.ErrorIs(t, lateErr, agent.ErrRunNotActive)
 	require.NoError(t, service.Settle("run"))
 	for _, delivery := range []agent.MessageDelivery{agent.MessageDeliverySteer, agent.MessageDeliveryFollowUp} {
-		require.ErrorIs(t, service.Enqueue("run", delivery, model.TextMessage("idle")), agent.ErrRunNotActive)
+		require.ErrorIs(t, service.Enqueue("run", delivery, queuedText("idle")), agent.ErrRunNotActive)
 	}
 }
 
-// TestEnqueueDiscardedWhenRunFails checks that a steer or followUp message pending when a run fails reaches no later
+// TestEnqueueNotCarriedToLaterRunAfterFailure checks that a steer or followUp message pending when a run fails reaches no later
 // run.
-func TestEnqueueDiscardedWhenRunFails(t *testing.T) {
+func TestEnqueueNotCarriedToLaterRunAfterFailure(t *testing.T) {
 	t.Parallel()
 	// Arrange a provider whose first request queues a steer message and fails.
 	var histories [][]agent.HistoryEntry
@@ -103,10 +108,10 @@ func TestEnqueueDiscardedWhenRunFails(t *testing.T) {
 		func(_ context.Context, request ModelRequest, handle StreamHandler) error {
 			histories = append(histories, request.History)
 			if len(histories) == 1 {
-				require.NoError(t, service.Enqueue("failed", agent.MessageDeliverySteer, model.TextMessage("stale")))
+				require.NoError(t, service.Enqueue("failed", agent.MessageDeliverySteer, queuedText("stale")))
 				require.NoError(
 					t,
-					service.Enqueue("failed", agent.MessageDeliveryFollowUp, model.TextMessage("stale-follow-up")),
+					service.Enqueue("failed", agent.MessageDeliveryFollowUp, queuedText("stale-follow-up")),
 				)
 				return emitStream(handle, emptyModelResponse(model.OutcomeFailed), nil)
 			}
@@ -153,7 +158,7 @@ func TestEnqueueRejectsEarlierRun(t *testing.T) {
 				checkedID, err = service.CheckEnqueue()
 			} else {
 				secondID, err = service.CheckEnqueue()
-				staleErr = service.Enqueue(checkedID, agent.MessageDeliverySteer, model.TextMessage("stale"))
+				staleErr = service.Enqueue(checkedID, agent.MessageDeliverySteer, queuedText("stale"))
 			}
 			require.NoError(t, err)
 			return emitStream(handle, emptyModelResponse(model.OutcomeStop), nil)
@@ -193,10 +198,10 @@ func TestEnqueueFollowUpAtRunCompletion(t *testing.T) {
 			turnEnds++
 			if turnEnds == 1 {
 				for _, text := range []string{"follow-1", "follow-2"} {
-					require.NoError(t, service.Enqueue("run", agent.MessageDeliveryFollowUp, model.TextMessage(text)))
+					require.NoError(t, service.Enqueue("run", agent.MessageDeliveryFollowUp, queuedText(text)))
 				}
 				for _, text := range []string{"steer-1", "steer-2"} {
-					require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage(text)))
+					require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, queuedText(text)))
 				}
 			}
 		}
@@ -236,7 +241,7 @@ func TestEnqueueFollowUpWaitsForToolBatch(t *testing.T) {
 		func(_ context.Context, request ModelRequest, handle StreamHandler) error {
 			histories = append(histories, request.History)
 			if len(histories) == 1 {
-				require.NoError(t, service.Enqueue("run", agent.MessageDeliveryFollowUp, model.TextMessage("follow")))
+				require.NoError(t, service.Enqueue("run", agent.MessageDeliveryFollowUp, queuedText("follow")))
 				return emitStream(handle, toolUse, nil)
 			}
 			return emitStream(handle, emptyModelResponse(model.OutcomeStop), nil)
@@ -279,7 +284,7 @@ func TestEnqueueRejectsUnknownDelivery(t *testing.T) {
 	provider := NewMockModelProvider(gomock.NewController(t))
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
-			enqueueErr = service.Enqueue("run", agent.MessageDelivery(0), model.TextMessage("unknown"))
+			enqueueErr = service.Enqueue("run", agent.MessageDelivery(0), queuedText("unknown"))
 			return emitStream(handle, emptyModelResponse(model.OutcomeStop), nil)
 		},
 	)
@@ -312,10 +317,10 @@ func TestQueueModeAllDeliversEveryPendingMessage(t *testing.T) {
 			if turnEnds == 1 {
 				service.SetQueueMode(agent.QueueModeAll)
 				for _, text := range []string{"follow-1", "follow-2"} {
-					require.NoError(t, service.Enqueue("run", agent.MessageDeliveryFollowUp, model.TextMessage(text)))
+					require.NoError(t, service.Enqueue("run", agent.MessageDeliveryFollowUp, queuedText(text)))
 				}
 				for _, text := range []string{"steer-1", "steer-2"} {
-					require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage(text)))
+					require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, queuedText(text)))
 				}
 			}
 		}
@@ -355,7 +360,7 @@ func TestQueueModeAppliesFromNextDeliveryPoint(t *testing.T) {
 		switch turnEnds {
 		case 1:
 			for _, text := range []string{"steer-1", "steer-2", "steer-3", "steer-4"} {
-				require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage(text)))
+				require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, queuedText(text)))
 			}
 		case 2:
 			service.SetQueueMode(agent.QueueModeAll)
@@ -395,7 +400,7 @@ func TestQueueModeAllDeliversEverySteerAfterToolBatch(t *testing.T) {
 			histories = append(histories, request.History)
 			if len(histories) == 1 {
 				for _, text := range []string{"steer-1", "steer-2"} {
-					require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage(text)))
+					require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, queuedText(text)))
 				}
 				return emitStream(handle, toolUse, nil)
 			}

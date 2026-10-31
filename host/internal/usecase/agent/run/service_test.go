@@ -84,6 +84,13 @@ func passThroughContext(
 
 func newMockHistoryStore(t *testing.T) *MockHistoryStore {
 	t.Helper()
+	return newRejectingHistoryStore(t, func(agent.HistoryEntry) error { return nil })
+}
+
+// newRejectingHistoryStore returns a history store that keeps each appended entry unless reject returns an error
+// for it; a rejected entry is not kept and its error is the append error.
+func newRejectingHistoryStore(t *testing.T, reject func(agent.HistoryEntry) error) *MockHistoryStore {
+	t.Helper()
 	store := NewMockHistoryStore(gomock.NewController(t))
 	history := make([]agent.HistoryEntry, 0)
 	store.EXPECT().Snapshot().DoAndReturn(func() []agent.HistoryEntry {
@@ -91,6 +98,9 @@ func newMockHistoryStore(t *testing.T) *MockHistoryStore {
 	}).AnyTimes()
 	store.EXPECT().Append(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, entry agent.HistoryEntry) error {
+			if err := reject(entry); err != nil {
+				return err
+			}
 			history = append(history, entry.Clone())
 			return nil
 		},

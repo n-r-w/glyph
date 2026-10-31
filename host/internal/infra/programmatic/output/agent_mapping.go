@@ -156,6 +156,7 @@ func mapProgrammaticTerminalEvent(event agent.Event, mapped *controller.AgentEve
 		}
 		mapped.Agent = mo.Some(controller.AgentSummary{
 			Outcome: controller.MapRunOutcome(summary.Outcome), ErrorMessage: summary.ErrorMessage,
+			ReturnedMessages: summary.ReturnedMessages,
 		})
 	case agent.EventAgentStart, agent.EventTurnStart, agent.EventMessageStart,
 		agent.EventContentStart, agent.EventTextDelta, agent.EventContentEnd,

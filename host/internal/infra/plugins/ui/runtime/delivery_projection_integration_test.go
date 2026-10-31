@@ -356,9 +356,10 @@ func TestDeliveryLeavesSettlementToOperationTerminal(t *testing.T) {
 			ToolResult: mo.None[agent.ToolResult](),
 			Turn:       mo.None[agent.TurnSummary](),
 			Agent: mo.Some(agent.RunSummary{
-				Outcome:      agent.RunOutcomeCompleted,
-				AddedHistory: nil,
-				ErrorMessage: mo.None[string](),
+				Outcome:          agent.RunOutcomeCompleted,
+				AddedHistory:     nil,
+				ErrorMessage:     mo.None[string](),
+				ReturnedMessages: nil,
 			}),
 		}),
 	)
