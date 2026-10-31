@@ -82,7 +82,17 @@ message HostConnectionEvent {
     SessionEntryAdded session_entry_added = 1;
     ExtensionIssue extension_issue = 2;
     ModelSelectionChanged model_selection_changed = 3;
+    StartupIssue startup_issue = 4;
   }
+}
+// StartupIssue reports one failure of extension loading that Host isolated before the stream opened.
+message StartupIssue {
+  // The extensions affected by the failure; empty when the failure belongs to no extension.
+  repeated string extension_ids = 1;
+  // The catalog path of the failed entry; empty when the failure has no single path.
+  string catalog_path = 2;
+  // The complete cause text.
+  string text = 3;
 }
 // ExtensionIssue reports one nonterminal extension handler failure.
 message ExtensionIssue {

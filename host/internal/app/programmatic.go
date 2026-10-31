@@ -109,11 +109,13 @@ func runProgrammaticWithPaths(
 	if err = startupService.BindCompaction(contexts); err != nil {
 		return fmt.Errorf("bind Programmatic compaction registration: %w", err)
 	}
-	if _, err = startupService.Load(ctx, startup.Request{
+	report, err := startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
-	}); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("start programmatic Host extensions: %w", err)
 	}
+	delivery.HoldStartupIssues(report.Issues)
 	extensions.Activate(ctx)
 
 	dispatcher := events.NewDispatcher(delivery, lifecycleObservers)

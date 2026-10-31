@@ -14,7 +14,7 @@ Example: extensions `a` and `b` both register `edit`. Right after the client ope
 
 ## Verification
 
-An integration test in `host/internal/app` starts Host in Programmatic Control mode with two extensions from `testdata/external-plugins` that register the same tool name. The client receives the startup-issue event with both extension IDs and the complete text before the result of its first request.
+An integration test in `host/internal/app` starts Host in Programmatic Control mode with the bundled tools extension installed under two executable names, so both extensions register the same tool names. The client receives a startup-issue event for each conflict, with both extension IDs and the complete text, before any message of its first request. A unit test of the Programmatic output adapter checks that the events keep the report order, map each field, and come before a connection event published later.
 
 ## Overengineering and overspecification considerations
 

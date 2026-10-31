@@ -14,6 +14,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 
 	"github.com/samber/mo"
 
@@ -44,6 +45,8 @@ type Service struct {
 	active *activeOutput
 	// writer is also used by the input controller's operation delivery.
 	writer *operation.Writer[*programmaticv1.OpenResponse]
+	// startupIssues are sent at the head of the stream when the writer is bound.
+	startupIssues []startup.Issue
 }
 
 var (
@@ -61,7 +64,7 @@ var (
 
 // New creates an output owner before the connection is opened.
 func New() *Service {
-	return &Service{mutex: sync.Mutex{}, active: nil, writer: nil}
+	return &Service{mutex: sync.Mutex{}, active: nil, writer: nil, startupIssues: nil}
 }
 
 // Reserve associates the public operation with its prepared run before acceptance.
@@ -212,9 +215,11 @@ func (s *Service) DeliverSettled(_ context.Context, runID string) error {
 	return nil
 }
 
-// BindWriter attaches the same ordered writer used for operation events.
+// BindWriter attaches the same ordered writer used for operation events and queues the held startup issues first.
 func (s *Service) BindWriter(writer *operation.Writer[*programmaticv1.OpenResponse]) func() {
 	s.mutex.Lock()
+	// The writer is published only after the issues are queued, so no other event can precede them.
+	s.enqueueStartupIssues(writer)
 	s.writer = writer
 	s.mutex.Unlock()
 	return func() {
