@@ -11,6 +11,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 )
 
@@ -62,4 +63,38 @@ func TestContextMiddlewareChecksExactRuntimeGeneration(t *testing.T) {
 	require.Equal(t, middleware.Preserve, historyAction.Kind)
 	require.ErrorIs(t, staleInstructionsErr, ErrExtensionUnavailable)
 	require.ErrorIs(t, staleHistoryErr, ErrExtensionUnavailable)
+}
+
+// TestUserInputMiddlewareChecksExactRuntimeGeneration forwards user-input handlers only to the bound runtime.
+func TestUserInputMiddlewareChecksExactRuntimeGeneration(t *testing.T) {
+	t.Parallel()
+	// Arrange one live runtime generation and bindings for the current and a previous generation.
+	mocks := gomock.NewController(t)
+	process := NewMockExtensionRuntime(mocks)
+	service := New(nil, nil, nil)
+	service.runtimes["extension"] = &runtimeState{
+		runtime: process, instanceID: "current", available: true, activeExecutions: 0, exitPending: false,
+		work: sync.WaitGroup{}, closeOnce: sync.Once{}, shutdownDone: make(chan struct{}), observed: false,
+		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
+		invalidateOnce: sync.Once{},
+	}
+	current := extension.Context{
+		ID: "binding", ExtensionID: "extension", RuntimeInstanceID: "current", SessionID: "", WorkingDirectory: "",
+	}
+	input := middleware.Transformation[model.Message]{
+		Context: current, Original: model.TextMessage("hello"), Current: model.TextMessage("hello"),
+	}
+	process.EXPECT().HandleUserInput(gomock.Any(), "input", input).Return(
+		middleware.Transformed[model.Message]{Kind: middleware.Handle, Replacement: model.Message{}}, nil,
+	)
+
+	// Act through the current and the stale generation.
+	action, err := service.HandleUserInput(t.Context(), "extension", "input", input)
+	input.Context.RuntimeInstanceID = "previous"
+	_, staleErr := service.HandleUserInput(t.Context(), "extension", "input", input)
+
+	// Assert only the exact generation is invoked; strict mocks reject stale invocations.
+	require.NoError(t, err)
+	require.Equal(t, middleware.Handle, action.Kind)
+	require.ErrorIs(t, staleErr, ErrExtensionUnavailable)
 }

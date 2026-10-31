@@ -14,6 +14,7 @@ import (
 	reflect "reflect"
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -42,16 +43,16 @@ func (m *MockAgentRunner) EXPECT() *MockAgentRunnerMockRecorder {
 }
 
 // Run mocks base method.
-func (m *MockAgentRunner) Run(ctx context.Context, userText string) (agent.RunOutcome, error) {
+func (m *MockAgentRunner) Run(ctx context.Context, message model.Message) (agent.RunOutcome, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Run", ctx, userText)
+	ret := m.ctrl.Call(m, "Run", ctx, message)
 	ret0, _ := ret[0].(agent.RunOutcome)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // Run indicates an expected call of Run.
-func (mr *MockAgentRunnerMockRecorder) Run(ctx, userText any) *gomock.Call {
+func (mr *MockAgentRunnerMockRecorder) Run(ctx, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockAgentRunner)(nil).Run), ctx, userText)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockAgentRunner)(nil).Run), ctx, message)
 }

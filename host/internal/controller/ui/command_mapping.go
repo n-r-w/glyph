@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 
@@ -32,14 +33,16 @@ func mapUIRequest(command *uiv1.UIRequest) (Command, error) {
 	}
 	switch {
 	case command.GetSubmit() != nil:
-		submit := command.GetSubmit()
-		if !submit.HasText() {
-			return Command{}, errors.New("receive UI command: submit text is required")
+		message, err := mapSubmitMessage(command.GetSubmit())
+		if err != nil {
+			return Command{}, fmt.Errorf("receive UI command: submit: %w", err)
 		}
-		return newCommand(CommandSubmit, mo.Some(submit.GetText())), nil
+		mapped := newCommand(CommandSubmit)
+		mapped.Message = mo.Some(message)
+		return mapped, nil
 	case command.GetCompact() != nil:
 		compact := command.GetCompact()
-		mapped := newCommand(CommandCompact, mo.None[string]())
+		mapped := newCommand(CommandCompact)
 		if compact.HasInstructions() {
 			mapped.CompactionInstructions = mo.Some(compact.GetInstructions())
 		}
@@ -49,11 +52,11 @@ func mapUIRequest(command *uiv1.UIRequest) (Command, error) {
 		if !retry.HasEnabled() {
 			return Command{}, errors.New("receive UI command: retry enablement is required")
 		}
-		mapped := newCommand(CommandSetRetryEnabled, mo.None[string]())
+		mapped := newCommand(CommandSetRetryEnabled)
 		mapped.RetryEnabled = mo.Some(retry.GetEnabled())
 		return mapped, nil
 	case command.GetRetryAuthentication() != nil:
-		mapped := newCommand(CommandRetryAuthentication, mo.None[string]())
+		mapped := newCommand(CommandRetryAuthentication)
 		switch command.GetRetryAuthentication().GetMethod() {
 		case uiv1.AuthenticationMethod_AUTHENTICATION_METHOD_BROWSER:
 			mapped.AuthenticationMethod = authentication.MethodBrowser
@@ -96,7 +99,7 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 			AuthenticationMethod:   authentication.MethodUnspecified,
 			ProviderID:             mo.Some(selected.GetProviderId()),
 			ModelID:                mo.Some(selected.GetModelId()),
-			Text:                   mo.None[string](),
+			Message:                mo.None[model.Message](),
 			ReasoningChoice:        mo.None[model.ReasoningChoice](),
 			SessionID:              mo.None[string](),
 			SessionName:            mo.None[string](),
@@ -121,7 +124,7 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 			Kind:                   CommandSelectReasoningChoice,
 			AuthenticationMethod:   authentication.MethodUnspecified,
 			ReasoningChoice:        mo.Some(choice),
-			Text:                   mo.None[string](),
+			Message:                mo.None[model.Message](),
 			ProviderID:             mo.None[string](),
 			ModelID:                mo.None[string](),
 			SessionID:              mo.None[string](),
@@ -144,16 +147,16 @@ func mapSelectionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 func mapSessionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 	switch {
 	case command.GetCreateSession() != nil:
-		return newCommand(CommandCreateSession, mo.None[string]()), true, nil
+		return newCommand(CommandCreateSession), true, nil
 	case command.GetListSessions() != nil:
-		return newCommand(CommandListSessions, mo.None[string]()), true, nil
+		return newCommand(CommandListSessions), true, nil
 	case command.GetGetSessionInfo() != nil:
-		return newCommand(CommandGetSessionInfo, mo.None[string]()), true, nil
+		return newCommand(CommandGetSessionInfo), true, nil
 	case command.GetGetSessionTree() != nil:
-		return newCommand(CommandGetSessionTree, mo.None[string]()), true, nil
+		return newCommand(CommandGetSessionTree), true, nil
 	case command.GetNavigateSessionTree() != nil:
 		navigate := command.GetNavigateSessionTree()
-		mapped := newCommand(CommandNavigateSessionTree, mo.None[string]())
+		mapped := newCommand(CommandNavigateSessionTree)
 		if navigate.HasTargetEntryId() {
 			mapped.TargetEntryID = mo.Some(navigate.GetTargetEntryId())
 		}
@@ -164,16 +167,16 @@ func mapSessionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 		return mapped, true, nil
 	case command.GetForkSession() != nil:
 		fork := command.GetForkSession()
-		mapped := newCommand(CommandForkSession, mo.None[string]())
+		mapped := newCommand(CommandForkSession)
 		if fork.HasTargetEntryId() {
 			mapped.TargetEntryID = mo.Some(fork.GetTargetEntryId())
 		}
 		return mapped, true, nil
 	case command.GetCloneSession() != nil:
-		return newCommand(CommandCloneSession, mo.None[string]()), true, nil
+		return newCommand(CommandCloneSession), true, nil
 	case command.GetSetEntryLabel() != nil:
 		label := command.GetSetEntryLabel()
-		mapped := newCommand(CommandSetEntryLabel, mo.None[string]())
+		mapped := newCommand(CommandSetEntryLabel)
 		if label.HasTargetEntryId() {
 			mapped.TargetEntryID = mo.Some(label.GetTargetEntryId())
 		}
@@ -186,7 +189,7 @@ func mapSessionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 		if !resume.HasSessionId() || resume.GetSessionId() == "" {
 			return Command{}, true, errors.New("receive UI command: session ID is required")
 		}
-		mapped := newCommand(CommandResumeSession, mo.None[string]())
+		mapped := newCommand(CommandResumeSession)
 		mapped.SessionID = mo.Some(resume.GetSessionId())
 		return mapped, true, nil
 	case command.GetSetSessionName() != nil:
@@ -194,7 +197,7 @@ func mapSessionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 		if !name.HasName() {
 			return Command{}, true, errors.New("receive UI command: session name is required")
 		}
-		mapped := newCommand(CommandSetSessionName, mo.None[string]())
+		mapped := newCommand(CommandSetSessionName)
 		mapped.SessionName = mo.Some(name.GetName())
 		return mapped, true, nil
 	default:
@@ -202,13 +205,13 @@ func mapSessionCommand(command *uiv1.UIRequest) (Command, bool, error) {
 	}
 }
 
-// emptySessionCommand initializes absent arguments for lifecycle commands without payloads.
-func newCommand(kind CommandKind, text mo.Option[string]) Command {
+// newCommand initializes absent arguments for one command kind.
+func newCommand(kind CommandKind) Command {
 	return Command{
 		OperationID:            "",
 		Kind:                   kind,
 		AuthenticationMethod:   authentication.MethodUnspecified,
-		Text:                   text,
+		Message:                mo.None[model.Message](),
 		ProviderID:             mo.None[string](),
 		ModelID:                mo.None[string](),
 		ReasoningChoice:        mo.None[model.ReasoningChoice](),
@@ -221,6 +224,28 @@ func newCommand(kind CommandKind, text mo.Option[string]) Command {
 		RetryEnabled:           mo.None[bool](),
 		CompactionInstructions: mo.None[string](),
 	}
+}
+
+// mapSubmitMessage maps ordered public input blocks to a user message with a valid shape.
+func mapSubmitMessage(submit *uiv1.SubmitCommand) (model.Message, error) {
+	content := make([]model.InputContent, len(submit.GetContent()))
+	for index, item := range submit.GetContent() {
+		switch item.WhichContent() {
+		case uiv1.UserContent_Text_case:
+			content[index] = model.TextContent(item.GetText())
+		case uiv1.UserContent_Image_case:
+			content[index] = model.ImageContent(item.GetImage().GetMediaType(), bytes.Clone(item.GetImage().GetData()))
+		case uiv1.UserContent_Content_not_set_case:
+			return model.Message{}, fmt.Errorf("content %d: content payload is required", index)
+		default:
+			return model.Message{}, fmt.Errorf("content %d: content payload is unknown", index)
+		}
+	}
+	message := model.Message{Content: content}
+	if err := message.ValidateShape(); err != nil {
+		return model.Message{}, err
+	}
+	return message, nil
 }
 
 // mapSummaryModeFromProto maps all public modes and preserves unknown values for typed rejection.

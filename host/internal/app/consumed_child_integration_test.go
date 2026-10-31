@@ -133,7 +133,10 @@ func assertConsumedCompactionStopsCore(t *testing.T, completeCause string) {
 	core := agentrun.New(codingagent.Instructions(), modelRuntime, tools, events, sessionServices.active)
 
 	// Act through Core while the ordinary tool consumes a nested compaction failure.
-	result, runErr := core.Run(t.Context(), runcontrol.Request{RunID: "consumed-child", UserText: "invoke tool"})
+	result, runErr := core.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "consumed-child", Message: model.TextMessage("invoke tool")},
+	)
 
 	// Assert the parent and run fail with the original cause and retain required tool-result history.
 	require.ErrorContains(t, runErr, completeCause)

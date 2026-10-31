@@ -10,6 +10,7 @@ import (
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/errtree"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -231,8 +232,8 @@ type runPrepared struct {
 	operationID string
 	// runID identifies the reserved Core run.
 	runID string
-	// userText contains the admitted input.
-	userText string
+	// message contains the admitted user input.
+	message model.Message
 	// started distinguishes execution from canceled preparation.
 	started bool
 	// release frees prepared resources once after operation work finishes.
@@ -249,7 +250,7 @@ func (p *runPrepared) Run(
 	p.started = true
 	unbind := p.output.BindProgress(p.runID, reporter)
 	defer unbind()
-	outcome, runErr := p.coordinator.RunPrepared(ctx, p.runID, p.userText)
+	outcome, runErr := p.coordinator.RunPrepared(ctx, p.runID, p.message)
 	if err := filterRunError(outcome, runErr); err != nil {
 		return operation.Failed[controller.Response](failureCode(err), err)
 	}
@@ -264,13 +265,14 @@ func (p *runPrepared) Run(
 	return operation.Completed(emptyResponse(p.operationID, controller.ResponseUserRequestCompleted))
 }
 
-// Release frees unstarted reservations after Run has returned or acceptance has failed.
+// Release frees reservations that no settlement freed after Run has returned or acceptance has failed.
 func (p *runPrepared) Release() {
 	p.release.Do(func() {
 		if !p.started {
 			p.coordinator.CancelPrepared(p.runID)
-			p.output.CancelPrepared(p.runID)
 		}
+		// Only Core settlement clears output, so a run that failed before Core execution clears it here.
+		p.output.ReleaseRun(p.runID)
 	})
 }
 
@@ -398,9 +400,11 @@ func failureCode(err error) string {
 	}
 	for current := range errtree.IterateCurrentErrors(err) {
 		//nolint:errorlint // Current-node inspection excludes categories retained only as diagnostic history.
-		if classified, present := current.(errtree.CodedError); present &&
-			classified.Code() == controller.FailureCodeExtensionFailed {
-			return controller.FailureCodeExtensionFailed
+		if classified, present := current.(errtree.CodedError); present {
+			switch classified.Code() {
+			case controller.FailureCodeExtensionFailed, controller.FailureCodeInputInvalid:
+				return classified.Code()
+			}
 		}
 	}
 	return controller.FailureCodeInternal

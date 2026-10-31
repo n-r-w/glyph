@@ -229,7 +229,7 @@ func TestSessionErrorsUsePublicRejectionCodes(t *testing.T) {
 			response, operation, err := service.handle(t.Context(), controller.Command{
 				OperationID:     test.name,
 				Kind:            test.kind,
-				UserText:        mo.None[string](),
+				UserMessage:     mo.None[model.Message](),
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),
@@ -369,7 +369,7 @@ func TestSessionLifecycleCommands(t *testing.T) {
 			response, operation, err := service.handle(t.Context(), controller.Command{
 				OperationID:     test.name,
 				Kind:            test.kind,
-				UserText:        mo.None[string](),
+				UserMessage:     mo.None[model.Message](),
 				ProviderID:      mo.None[model.ProviderID](),
 				ModelID:         mo.None[model.ID](),
 				ReasoningChoice: mo.None[model.ReasoningChoice](),

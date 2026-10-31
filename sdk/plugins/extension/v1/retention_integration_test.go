@@ -59,34 +59,14 @@ func TestServerRetainsWorkSourceBeforeTerminal(t *testing.T) {
 				request := new(extensionpb.OpenRequest)
 				request.SetOperationId("handler-operation")
 				payload := new(extensionpb.HostRequest)
+				//nolint:exhaustruct_v5 // The request builder sets only the active session-tree payload.
 				payload.SetHandle(extensionpb.HandleRequest_builder{
-					CompactionOutgoingInput:  nil,
-					CompletedConversation:    nil,
-					CompactionRequest:        nil,
-					CompactionGenerate:       nil,
-					CompactionResult:         nil,
-					CompactionSuccess:        nil,
-					CompactionFailure:        nil,
-					Retry:                    nil,
-					ModelSelection:           nil,
-					ReasoningSelection:       nil,
-					Context:                  testInvocationIdentity(),
-					HandlerId:                new("handler"),
-					SessionBeforeTreeRequest: nil,
-					SessionBeforeTreeResult:  nil,
-					Lifecycle:                nil,
+					Context:   testInvocationIdentity(),
+					HandlerId: new("handler"),
 					SessionTree: extensionpb.SessionTreeInvocation_builder{
 						SessionId: new("session"), TargetEntryId: new("target"), PrecedingActiveLeafId: nil,
 						NavigationDestinationId: nil, CommittedActiveLeafId: nil, CreatedSummary: nil,
 					}.Build(),
-
-					ParentCompactionId: nil,
-					CompactionPolicy:   nil,
-					ProviderHeaders:    nil,
-					ProviderBody:       nil,
-					ProviderResponse:   nil,
-					SystemInstructions: nil,
-					ModelContext:       nil,
 				}.Build())
 				request.SetRequest(payload)
 				stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](

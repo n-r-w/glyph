@@ -16,6 +16,8 @@ type transformer[T any] struct {
 	clone func(T) T
 	// accept validates a replacement and detaches it for the owner.
 	accept func(T) (T, error)
+	// handles permits a handler to fully handle the value and end the chain.
+	handles bool
 	// handle invokes one handler through runtime management.
 	handle func(context.Context, string, string, Transformation[T]) (Transformed[T], error)
 }
@@ -24,80 +26,95 @@ type transformer[T any] struct {
 func (s *Service) NewContextComposer() modelexecution.ContextComposer {
 	handlers := s.snapshotHandlers()
 	instructions := transformer[string]{
-		kind:   SystemInstructions,
-		clone:  func(value string) string { return value },
-		accept: func(value string) (string, error) { return value, nil },
-		handle: s.runtime.HandleSystemInstructions,
+		kind:    SystemInstructions,
+		clone:   func(value string) string { return value },
+		accept:  func(value string) (string, error) { return value, nil },
+		handles: false,
+		handle:  s.runtime.HandleSystemInstructions,
 	}
 	history := transformer[[]agent.HistoryEntry]{
-		kind:   ModelContext,
-		clone:  agent.CloneHistory,
-		accept: agent.ValidatedCloneHistory,
-		handle: s.runtime.HandleModelContext,
+		kind:    ModelContext,
+		clone:   agent.CloneHistory,
+		accept:  agent.ValidatedCloneHistory,
+		handles: false,
+		handle:  s.runtime.HandleModelContext,
 	}
 	return func(
 		ctx context.Context,
 		request modelexecution.RequestContext,
 	) (modelexecution.ComposedContext, error) {
-		finalInstructions, _, err := compose(ctx, s, handlers, instructions, request.Instructions)
+		finalInstructions, err := compose(ctx, s, handlers, instructions, request.Instructions)
 		if err != nil {
 			return modelexecution.ComposedContext{}, err
 		}
-		finalHistory, replaced, err := compose(ctx, s, handlers, history, request.History)
+		finalHistory, err := compose(ctx, s, handlers, history, request.History)
 		if err != nil {
 			return modelexecution.ComposedContext{}, err
 		}
 		return modelexecution.ComposedContext{
-			Context:         modelexecution.RequestContext{Instructions: finalInstructions, History: finalHistory},
-			HistoryReplaced: replaced,
+			Context: modelexecution.RequestContext{
+				Instructions: finalInstructions.value, History: finalHistory.value,
+			},
+			HistoryReplaced: finalHistory.replaced,
 		}, nil
 	}
 }
 
-// compose applies one transformer chain sequentially and reports whether a handler replaced the value.
-// It stops at the first failure or invalid action.
+// composition is the result of one transformer chain.
+type composition[T any] struct {
+	// value contains the final value when no handler fully handled it.
+	value T
+	// replaced reports that a handler replaced the value.
+	replaced bool
+	// handled reports that a handler fully handled the value and ended the chain.
+	handled bool
+}
+
+// compose applies one transformer chain sequentially in registration order.
+// It stops at the first failure, invalid action, or permitted handling.
 func compose[T any](
 	ctx context.Context,
 	owner *Service,
 	handlers []Handler,
 	chain transformer[T],
 	original T,
-) (final T, replaced bool, failure error) {
+) (composition[T], error) {
 	original = chain.clone(original)
-	current := chain.clone(original)
+	result := composition[T]{value: chain.clone(original), replaced: false, handled: false}
 	for _, handler := range handlers {
 		if handler.Kind != chain.kind {
 			continue
 		}
 		binding, err := owner.bind(ctx, handler)
 		if err != nil {
-			return final, false, err
+			return composition[T]{}, err
 		}
 		action, err := chain.handle(ctx, handler.ExtensionID, handler.HandlerID, Transformation[T]{
-			Context: binding, Original: chain.clone(original), Current: chain.clone(current),
+			Context: binding, Original: chain.clone(original), Current: chain.clone(result.value),
 		})
 		if err != nil {
-			return final, false, fmt.Errorf("middleware handler %q: %w", handler.HandlerID, err)
+			return composition[T]{}, fmt.Errorf("middleware handler %q: %w", handler.HandlerID, err)
 		}
-		if action.Kind == Preserve {
+		switch {
+		case action.Kind == Preserve:
 			continue
-		}
-		if action.Kind != Replace {
-			return final, false, fmt.Errorf(
+		case action.Kind == Handle && chain.handles:
+			var empty T
+			return composition[T]{value: empty, replaced: result.replaced, handled: true}, nil
+		case action.Kind == Replace:
+			replacement, acceptErr := chain.accept(action.Replacement)
+			if acceptErr != nil {
+				return composition[T]{}, fmt.Errorf(
+					"middleware handler %q %s replacement: %w", handler.HandlerID, chain.kind, acceptErr,
+				)
+			}
+			result.value = replacement
+			result.replaced = true
+		default:
+			return composition[T]{}, fmt.Errorf(
 				"middleware handler %q returned invalid %s action %d", handler.HandlerID, chain.kind, action.Kind,
 			)
 		}
-		replacement, err := chain.accept(action.Replacement)
-		if err != nil {
-			return final, false, fmt.Errorf(
-				"middleware handler %q %s replacement: %w",
-				handler.HandlerID,
-				chain.kind,
-				err,
-			)
-		}
-		current = replacement
-		replaced = true
 	}
-	return current, replaced, nil
+	return result, nil
 }

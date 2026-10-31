@@ -64,8 +64,8 @@ type Command struct {
 	OperationID string
 	// Kind identifies the requested controller operation.
 	Kind CommandKind
-	// UserText contains submitted user text.
-	UserText mo.Option[string]
+	// UserMessage contains the submitted ordered user input.
+	UserMessage mo.Option[model.Message]
 	// ProviderID identifies a requested model provider.
 	ProviderID mo.Option[model.ProviderID]
 	// ModelID identifies a requested provider model.

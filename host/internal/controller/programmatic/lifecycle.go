@@ -31,6 +31,8 @@ const (
 	FailureCodeRetryCanceled = "RETRY_CANCELED"
 	// FailureCodeExtensionFailed reports a retry-handler failure or invalid action.
 	FailureCodeExtensionFailed = "EXTENSION_FAILED"
+	// FailureCodeInputInvalid reports final user input that the selected model does not accept.
+	FailureCodeInputInvalid = "INPUT_INVALID"
 	// FailureCodeRetryDelayExceeded reports a provider delay above the configured maximum.
 	FailureCodeRetryDelayExceeded = "RETRY_DELAY_EXCEEDED"
 	// FailureCodeContextLimit reports terminal provider context overflow.

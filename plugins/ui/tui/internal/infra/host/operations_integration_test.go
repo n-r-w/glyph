@@ -63,7 +63,7 @@ func TestSDKMapsOperationProgressAndCompletion(t *testing.T) {
 	// Act by accepting the encoded Submit and delivering ordered progress and completion.
 	request, err := stream.Recv()
 	require.NoError(t, err)
-	require.Equal(t, "hello", request.GetRequest().GetSubmit().GetText())
+	require.Equal(t, "hello", request.GetRequest().GetSubmit().GetContent()[0].GetText())
 	id := request.GetOperationId()
 	accepted := new(uiv1.HostEvent)
 	accepted.SetAccepted(new(operationv1.Accepted))

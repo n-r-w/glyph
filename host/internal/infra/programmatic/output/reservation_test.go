@@ -20,11 +20,11 @@ func TestReservationRejectsCompetingRuns(t *testing.T) {
 
 	// Act with a competing reservation and cleanup for a different run.
 	require.False(t, output.Reserve("second-operation", "second-run"))
-	output.CancelPrepared("second-run")
+	output.ReleaseRun("second-run")
 
 	// Assert only cleanup for the reserved run permits another operation.
 	require.Equal(t, "first-operation", output.ActiveOperation())
-	output.CancelPrepared("first-run")
+	output.ReleaseRun("first-run")
 	require.True(t, output.Reserve("second-operation", "second-run"))
 	require.Equal(t, "second-operation", output.ActiveOperation())
 }

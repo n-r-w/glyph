@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 )
 
@@ -45,9 +46,12 @@ func TestCancellationBeforeFirstAppendReportsSettlement(t *testing.T) {
 	)
 
 	// Act by finishing the canceled run, then attempting another begin before settlement.
-	result, err := service.Run(ctx, runcontrol.Request{RunID: "canceled", UserText: "request"})
+	result, err := service.Run(ctx, runcontrol.Request{RunID: "canceled", Message: model.TextMessage("request")})
 	require.ErrorIs(t, err, context.Canceled)
-	rejected, beginErr := service.Run(t.Context(), runcontrol.Request{RunID: "other", UserText: "request"})
+	rejected, beginErr := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "other", Message: model.TextMessage("request")},
+	)
 
 	// Assert only the finished run requires settlement, and failed begin preserves that run's state.
 	require.True(t, result.SettlementRequired)

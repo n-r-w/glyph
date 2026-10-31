@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
 // Service executes one parsed headless request.
@@ -19,9 +20,9 @@ func New(runner AgentRunner) *Service {
 	return &Service{runner: runner}
 }
 
-// Execute runs the request and accepts only a completed terminal outcome.
+// Execute runs the request text as one text block and accepts only a completed terminal outcome.
 func (s *Service) Execute(ctx context.Context, userText string) error {
-	outcome, err := s.runner.Run(ctx, userText)
+	outcome, err := s.runner.Run(ctx, model.TextMessage(userText))
 	if err != nil {
 		return fmt.Errorf("run headless agent: %w", err)
 	}

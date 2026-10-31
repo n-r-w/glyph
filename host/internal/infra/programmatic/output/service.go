@@ -104,8 +104,8 @@ func (s *Service) BindProgress(runID string, reporter operation.Reporter[control
 	}
 }
 
-// CancelPrepared releases output correlation only for a run that never started.
-func (s *Service) CancelPrepared(runID string) {
+// ReleaseRun releases the output correlation of a finished or unstarted run that no Core settlement released.
+func (s *Service) ReleaseRun(runID string) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.active != nil && s.active.runID == runID {

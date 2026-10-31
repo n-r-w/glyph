@@ -25,7 +25,7 @@ func TestContextComposition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	runtime := NewMockRuntime(ctrl)
 	contexts := NewMockContextIssuer(ctrl)
-	service := New(runtime, contexts)
+	service := New(runtime, contexts, nil)
 	first := startup.PendingRegistration{ID: "first", Path: "", Tools: nil, Handlers: []startup.RawHandlerDescriptor{
 		{Present: true, ID: "history-a", Kind: startup.RawHandlerKindModelContext},
 		{Present: true, ID: "instructions-a", Kind: startup.RawHandlerKindSystemInstructions},
@@ -118,7 +118,7 @@ func TestContextCompositionStopsChain(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			runtime := NewMockRuntime(ctrl)
 			contexts := NewMockContextIssuer(ctrl)
-			service := New(runtime, contexts)
+			service := New(runtime, contexts, nil)
 			service.CommitMiddlewareHandlers([]startup.AcceptedRegistration{{
 				ID: "ext", Path: "", Tools: nil,
 				Handlers: []startup.AcceptedHandler{
@@ -153,7 +153,7 @@ func TestContextCompositionRejectsInvalidHistory(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	runtime := NewMockRuntime(ctrl)
 	contexts := NewMockContextIssuer(ctrl)
-	service := New(runtime, contexts)
+	service := New(runtime, contexts, nil)
 	service.CommitMiddlewareHandlers([]startup.AcceptedRegistration{{
 		ID: "ext", Path: "", Tools: nil,
 		Handlers: []startup.AcceptedHandler{
@@ -193,7 +193,7 @@ func TestContextCompositionAcceptsIntermediateImages(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	runtime := NewMockRuntime(ctrl)
 	contexts := NewMockContextIssuer(ctrl)
-	service := New(runtime, contexts)
+	service := New(runtime, contexts, nil)
 	service.CommitMiddlewareHandlers([]startup.AcceptedRegistration{{
 		ID: "ext", Path: "", Tools: nil,
 		Handlers: []startup.AcceptedHandler{
@@ -239,7 +239,7 @@ func TestContextCompositionReportsPreservedHistory(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	runtime := NewMockRuntime(ctrl)
 	contexts := NewMockContextIssuer(ctrl)
-	service := New(runtime, contexts)
+	service := New(runtime, contexts, nil)
 	service.CommitMiddlewareHandlers([]startup.AcceptedRegistration{{
 		ID: "ext", Path: "", Tools: nil,
 		Handlers: []startup.AcceptedHandler{{ID: "keep", Kind: startup.RawHandlerKindModelContext}},

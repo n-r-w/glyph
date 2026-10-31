@@ -79,7 +79,7 @@ func TestServiceRunMixedProviderCancellationPreservesIndependentDetail(t *testin
 			// Act by finalizing the provider cancellation.
 			result, err := service.Run(
 				t.Context(),
-				runcontrol.Request{RunID: "mixed-provider-cancel", UserText: "cancel"},
+				runcontrol.Request{RunID: "mixed-provider-cancel", Message: model.TextMessage("cancel")},
 			)
 
 			// Assert the original error tree and outcome remain while public text follows cancellation purity.
@@ -188,7 +188,7 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 			// Act by running the canceled provider through terminal finalization.
 			result, err := service.Run(
 				t.Context(),
-				runcontrol.Request{RunID: "cancellation-terminal-failure", UserText: "cancel"},
+				runcontrol.Request{RunID: "cancellation-terminal-failure", Message: model.TextMessage("cancel")},
 			)
 
 			// Assert pure cancellation is canonical and combined failures expose only non-cancellation detail.
@@ -261,7 +261,7 @@ func TestServiceRunProviderCancellation(t *testing.T) {
 			events,
 		)
 
-		_, err := service.Run(ctx, runcontrol.Request{RunID: "run-provider-cancel", UserText: "hi"})
+		_, err := service.Run(ctx, runcontrol.Request{RunID: "run-provider-cancel", Message: model.TextMessage("hi")})
 
 		require.ErrorIs(t, err, context.Canceled)
 		require.NotErrorIs(t, err, terminalContextErr)
@@ -323,7 +323,7 @@ func TestServiceRunToolMixedCancellationUsesOriginalTerminalText(t *testing.T) {
 	// Act through normal tool execution and turn finalization.
 	result, err := service.Run(
 		t.Context(),
-		runcontrol.Request{RunID: "mixed-tool-cancel", UserText: "run tool"},
+		runcontrol.Request{RunID: "mixed-tool-cancel", Message: model.TextMessage("run tool")},
 	)
 
 	// Assert the aborted outcome, original text, and all internal identities survive.
@@ -387,7 +387,7 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 		defer cancel()
 		outcome := make(chan error, 1)
 		go func() {
-			_, err := service.Run(ctx, runcontrol.Request{RunID: "run-cancel", UserText: "go"})
+			_, err := service.Run(ctx, runcontrol.Request{RunID: "run-cancel", Message: model.TextMessage("go")})
 			outcome <- err
 		}()
 		select {
@@ -496,7 +496,10 @@ func TestServiceRunTerminalProviderOutcomes(t *testing.T) {
 				events,
 			)
 
-			result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-" + name, UserText: "hi"})
+			result, err := service.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "run-" + name, Message: model.TextMessage("hi")},
+			)
 
 			require.Error(t, err)
 			assert.Equal(t, testCase.runOutcome, result.Outcome)

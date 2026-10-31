@@ -11,9 +11,11 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	hostui "github.com/n-r-w/glyph/host/internal/usecase/host/ui"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 // runIDBytes is the entropy size of a Host run identifier.
@@ -23,6 +25,8 @@ const runIDBytes = 16
 type Coordinator struct {
 	// executor runs requests and completes the Core settlement transition.
 	executor Executor
+	// input produces the final user message before Core execution.
+	input InputProcessor
 	// events completes client settlement delivery and subsequent observation.
 	events SettledDelivery
 	// newRunID creates one opaque run identifier.
@@ -44,21 +48,24 @@ var (
 // NewCoordinator creates the production Host run coordinator.
 func NewCoordinator(
 	executor Executor,
+	input InputProcessor,
 	events SettledDelivery,
 	gate Gate,
 ) *Coordinator {
-	return newCoordinator(executor, events, generateRunID, gate)
+	return newCoordinator(executor, input, events, generateRunID, gate)
 }
 
 // newCoordinator creates a coordinator with deterministic package-test seams.
 func newCoordinator(
 	executor Executor,
+	input InputProcessor,
 	events SettledDelivery,
 	newRunID func() (string, error),
 	gate Gate,
 ) *Coordinator {
 	return &Coordinator{
 		executor: executor,
+		input:    input,
 		events:   events,
 		newRunID: newRunID,
 		gate:     gate,
@@ -92,14 +99,29 @@ func (c *Coordinator) CancelPrepared(runID string) {
 	}
 }
 
-// RunPrepared executes one run whose Host ID was allocated before acceptance.
-func (c *Coordinator) RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error) {
+// RunPrepared processes the submitted input and executes one run whose Host ID was allocated before acceptance,
+// or completes a fully handled input without Core execution.
+func (c *Coordinator) RunPrepared(ctx context.Context, runID string, message model.Message) (agent.RunOutcome, error) {
 	release := c.takePrepared(runID)
 	if release == nil {
 		return 0, errors.New("run is not prepared")
 	}
 	defer release()
-	result, runErr := c.executor.Run(ctx, Request{RunID: runID, UserText: userText})
+	processed, err := c.input.ProcessInput(ctx, message)
+	if err != nil {
+		outcome := agent.RunOutcomeFailed
+		if isOwningCancellation(ctx, err) {
+			// Pure owner cancellation follows the aborted-run path, as when Core observes it.
+			outcome = agent.RunOutcomeAborted
+		}
+		return outcome, fmt.Errorf("process user input: %w", err)
+	}
+	final, present := processed.Get()
+	if !present {
+		// A fully handled input completes the run without Core execution or settlement.
+		return agent.RunOutcomeCompleted, nil
+	}
+	result, runErr := c.executor.Run(ctx, Request{RunID: runID, Message: final})
 	if !result.SettlementRequired {
 		return result.Outcome, runErr
 	}
@@ -114,12 +136,22 @@ func (c *Coordinator) RunPrepared(ctx context.Context, runID, userText string) (
 }
 
 // Run executes one Agent Core run, emits Host settlement, and makes Agent Core idle.
-func (c *Coordinator) Run(ctx context.Context, userText string) (agent.RunOutcome, error) {
+func (c *Coordinator) Run(ctx context.Context, message model.Message) (agent.RunOutcome, error) {
 	runID, err := c.PrepareRun()
 	if err != nil {
 		return 0, err
 	}
-	return c.RunPrepared(ctx, runID, userText)
+	return c.RunPrepared(ctx, runID, message)
+}
+
+// isOwningCancellation reports a failure whose current cause is only the cancellation of the owning context.
+func isOwningCancellation(ctx context.Context, err error) bool {
+	if ctx.Err() == nil {
+		return false
+	}
+	return errtree.IsCurrentCancellation(err, func(cause error) bool {
+		return errors.Is(cause, ctx.Err()) || errors.Is(cause, context.Cause(ctx))
+	})
 }
 
 // takePrepared atomically transfers reservation cleanup to execution or cancellation.

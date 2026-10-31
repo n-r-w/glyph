@@ -96,7 +96,11 @@ func hostOperationEvent(event *uiv1.HostEvent) *uiv1.OpenRequest {
 // submitUIRequest creates one submit request.
 func submitUIRequest() *uiv1.UIRequest {
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("request")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("request"), Image: nil}.Build()},
+		}.Build(),
+	)
 	return request
 }
 

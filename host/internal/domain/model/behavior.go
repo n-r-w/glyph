@@ -2,6 +2,7 @@ package model
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"maps"
 	"slices"
@@ -98,6 +99,38 @@ func (message Message) Text(separator string) string {
 		}
 	}
 	return strings.Join(parts, separator)
+}
+
+// ValidateShape reports an empty message or the first block without its required payload.
+func (message Message) ValidateShape() error {
+	if len(message.Content) == 0 {
+		return errors.New("at least one content block is required")
+	}
+	for index, content := range message.Content {
+		switch content.Kind {
+		case InputContentText:
+			if content.Text.OrEmpty() == "" {
+				return fmt.Errorf("content %d: nonempty text is required", index)
+			}
+		case InputContentImage:
+			if content.MediaType.OrEmpty() == "" || len(content.Data.OrEmpty()) == 0 {
+				return fmt.Errorf("content %d: image media type and data are required", index)
+			}
+		}
+	}
+	return nil
+}
+
+// FindUnsupportedImage returns the index of the first image block and true when the model accepts no image input;
+// otherwise it returns false.
+func (descriptor Descriptor) FindUnsupportedImage(message Message) (int, bool) {
+	if slices.Contains(descriptor.Input, InputModalityImage) {
+		return 0, false
+	}
+	index := slices.IndexFunc(message.Content, func(content InputContent) bool {
+		return content.Kind == InputContentImage
+	})
+	return index, index >= 0
 }
 
 // Clone returns a deep copy of the message.

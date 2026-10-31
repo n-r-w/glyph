@@ -14,6 +14,7 @@ import (
 	authdomain "github.com/n-r-w/glyph/host/internal/domain/authentication"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
@@ -118,6 +119,7 @@ type Catalog struct {
 
 var (
 	_ modelexecution.CatalogResolver = (*Catalog)(nil)
+	_ middleware.SelectedModel       = (*Catalog)(nil)
 	_ modelselection.Catalog         = (*Catalog)(nil)
 	_ extensionmodels.Catalog        = (*Catalog)(nil)
 	_ sessiontree.ModelSelection     = (*Catalog)(nil)

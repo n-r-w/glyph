@@ -150,7 +150,9 @@ func TestBlockedOperationDoesNotBlockLaterRequest(t *testing.T) {
 	go func() { result <- service.open(stream.stream) }()
 	stream.requests <- testRequest("blocked", func(request *programmaticv1.ControllerRequest) {
 		payload := new(programmaticv1.UserRequest)
-		payload.SetText("blocked")
+		payload.SetContent([]*programmaticv1.UserContent{
+			programmaticv1.UserContent_builder{Text: new("blocked"), Image: nil}.Build(),
+		})
 		request.SetUserRequest(payload)
 	})
 	for {
@@ -277,7 +279,9 @@ func TestInvalidSessionMutationPayloadsStayBeforeAcceptance(t *testing.T) {
 
 			stream.requests <- testRequest("valid", func(request *programmaticv1.ControllerRequest) {
 				payload := new(programmaticv1.UserRequest)
-				payload.SetText("request")
+				payload.SetContent([]*programmaticv1.UserContent{
+					programmaticv1.UserContent_builder{Text: new("request"), Image: nil}.Build(),
+				})
 				request.SetUserRequest(payload)
 			})
 			validAccepted := false
@@ -342,7 +346,9 @@ func TestMalformedDuplicateAndFailedOperationsKeepStreamOpen(t *testing.T) {
 	go func() { result <- service.open(stream.stream) }()
 	user := func(request *programmaticv1.ControllerRequest) {
 		payload := new(programmaticv1.UserRequest)
-		payload.SetText("request")
+		payload.SetContent([]*programmaticv1.UserContent{
+			programmaticv1.UserContent_builder{Text: new("request"), Image: nil}.Build(),
+		})
 		request.SetUserRequest(payload)
 	}
 	stream.requests <- testRequest("active", user)

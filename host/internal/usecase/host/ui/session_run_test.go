@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/assert"
@@ -31,7 +32,7 @@ func TestSubmitPreparationReservesRunnerBeforeAcceptance(t *testing.T) {
 	runner.EXPECT().PrepareRun().Return("run", nil)
 	channel.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
-	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, nil)
+	runner.EXPECT().RunPrepared(gomock.Any(), "run", model.TextMessage("hello")).Return(agent.RunOutcomeCompleted, nil)
 	runner.EXPECT().CancelPrepared("run")
 	service := NewSession(
 		channel, runner, authenticator, NewMockModelCatalog(controller), nil, nil, nil, nil, nil, nil)
@@ -39,7 +40,7 @@ func TestSubmitPreparationReservesRunnerBeforeAcceptance(t *testing.T) {
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
 	command.OperationID = "operation"
-	command.Text = mo.Some("hello")
+	command.Message = mo.Some(model.TextMessage("hello"))
 
 	// Act by invoking service.Prepare to exercise submit admission and execution ownership.
 	prepared, err := service.Prepare(t.Context(), command)
@@ -75,7 +76,7 @@ func TestSubmitAvailabilityDeliveryFailureStopsRun(t *testing.T) {
 
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
-	command.Text = mo.Some("hello")
+	command.Message = mo.Some(model.TextMessage("hello"))
 	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)
 
@@ -102,7 +103,7 @@ func TestSubmitPreparationRejectsBusyRunner(t *testing.T) {
 
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
-	command.Text = mo.Some("hello")
+	command.Message = mo.Some(model.TextMessage("hello"))
 
 	// Act by invoking service.Prepare to exercise busy is decided before acceptance.
 	_, err := service.Prepare(t.Context(), command)
@@ -127,7 +128,9 @@ func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) 
 	runner.EXPECT().PrepareRun().Return("run", nil)
 	channel.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {})
 	channel.EXPECT().SetAvailability(gomock.Any()).Times(2).Return(nil)
-	runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeCompleted, source)
+	runner.EXPECT().
+		RunPrepared(gomock.Any(), "run", model.TextMessage("hello")).
+		Return(agent.RunOutcomeCompleted, source)
 	runner.EXPECT().CancelPrepared("run")
 	authenticator.EXPECT().IsSignInRequired(source).Return(true)
 	service := NewSession(
@@ -136,7 +139,7 @@ func TestSubmitFailurePreservesCauseAndAuthenticationAvailability(t *testing.T) 
 	service.setOperationAvailability(AvailabilityIdle)
 	command := newCommandForPreparedTest(controllerui.CommandSubmit)
 	command.OperationID = "operation"
-	command.Text = mo.Some("hello")
+	command.Message = mo.Some(model.TextMessage("hello"))
 	prepared, err := service.Prepare(t.Context(), command)
 	require.NoError(t, err)
 

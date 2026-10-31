@@ -40,7 +40,7 @@ func TestManualCompactionRunsThroughUIOperationOwner(t *testing.T) {
 	require.NoError(t, service.BindCompactor(compactor))
 	command := controllerui.Command{
 		OperationID: "compact", Kind: controllerui.CommandCompact,
-		AuthenticationMethod: authentication.MethodUnspecified, Text: mo.None[string](),
+		AuthenticationMethod: authentication.MethodUnspecified, Message: mo.None[model.Message](),
 		ProviderID: mo.None[string](), ModelID: mo.None[string](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[string](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),

@@ -87,6 +87,8 @@ const (
 	HandlerKind_HANDLER_KIND_SYSTEM_INSTRUCTIONS HandlerKind = 29
 	// The handler transforms the request-local history of one model request.
 	HandlerKind_HANDLER_KIND_MODEL_CONTEXT HandlerKind = 30
+	// The handler preserves, replaces, or fully handles the user input of one accepted run.
+	HandlerKind_HANDLER_KIND_USER_INPUT HandlerKind = 31
 )
 
 // Enum value maps for HandlerKind.
@@ -123,6 +125,7 @@ var (
 		28: "HANDLER_KIND_PROVIDER_RESPONSE",
 		29: "HANDLER_KIND_SYSTEM_INSTRUCTIONS",
 		30: "HANDLER_KIND_MODEL_CONTEXT",
+		31: "HANDLER_KIND_USER_INPUT",
 	}
 	HandlerKind_value = map[string]int32{
 		"HANDLER_KIND_UNSPECIFIED":                  0,
@@ -156,6 +159,7 @@ var (
 		"HANDLER_KIND_PROVIDER_RESPONSE":            28,
 		"HANDLER_KIND_SYSTEM_INSTRUCTIONS":          29,
 		"HANDLER_KIND_MODEL_CONTEXT":                30,
+		"HANDLER_KIND_USER_INPUT":                   31,
 	}
 )
 
@@ -4243,7 +4247,7 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x0fRegisterRequest\"\x9f\x01\n" +
 	"\x10RegisterResponse\x12@\n" +
 	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\x12I\n" +
-	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xce\b\n" +
+	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xeb\b\n" +
 	"\vHandlerKind\x12\x1c\n" +
 	"\x18HANDLER_KIND_UNSPECIFIED\x10\x00\x12,\n" +
 	"(HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST\x10\x01\x12+\n" +
@@ -4276,7 +4280,8 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x1aHANDLER_KIND_PROVIDER_BODY\x10\x1b\x12\"\n" +
 	"\x1eHANDLER_KIND_PROVIDER_RESPONSE\x10\x1c\x12$\n" +
 	" HANDLER_KIND_SYSTEM_INSTRUCTIONS\x10\x1d\x12\x1e\n" +
-	"\x1aHANDLER_KIND_MODEL_CONTEXT\x10\x1e2q\n" +
+	"\x1aHANDLER_KIND_MODEL_CONTEXT\x10\x1e\x12\x1b\n" +
+	"\x17HANDLER_KIND_USER_INPUT\x10\x1f2q\n" +
 	"\x10ExtensionService\x12]\n" +
 	"\x04Open\x12'.glyph.plugins.extension.v1.OpenRequest\x1a(.glyph.plugins.extension.v1.OpenResponse(\x010\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 

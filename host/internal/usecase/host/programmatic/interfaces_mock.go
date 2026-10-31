@@ -205,16 +205,16 @@ func (mr *MockRunOutputMockRecorder) BindProgress(runID, reporter any) *gomock.C
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "BindProgress", reflect.TypeOf((*MockRunOutput)(nil).BindProgress), runID, reporter)
 }
 
-// CancelPrepared mocks base method.
-func (m *MockRunOutput) CancelPrepared(runID string) {
+// ReleaseRun mocks base method.
+func (m *MockRunOutput) ReleaseRun(runID string) {
 	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "CancelPrepared", runID)
+	m.ctrl.Call(m, "ReleaseRun", runID)
 }
 
-// CancelPrepared indicates an expected call of CancelPrepared.
-func (mr *MockRunOutputMockRecorder) CancelPrepared(runID any) *gomock.Call {
+// ReleaseRun indicates an expected call of ReleaseRun.
+func (mr *MockRunOutputMockRecorder) ReleaseRun(runID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CancelPrepared", reflect.TypeOf((*MockRunOutput)(nil).CancelPrepared), runID)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReleaseRun", reflect.TypeOf((*MockRunOutput)(nil).ReleaseRun), runID)
 }
 
 // Reserve mocks base method.
@@ -283,18 +283,18 @@ func (mr *MockCoordinatorMockRecorder) PrepareRun() *gomock.Call {
 }
 
 // RunPrepared mocks base method.
-func (m *MockCoordinator) RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error) {
+func (m *MockCoordinator) RunPrepared(ctx context.Context, runID string, message model.Message) (agent.RunOutcome, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunPrepared", ctx, runID, userText)
+	ret := m.ctrl.Call(m, "RunPrepared", ctx, runID, message)
 	ret0, _ := ret[0].(agent.RunOutcome)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunPrepared indicates an expected call of RunPrepared.
-func (mr *MockCoordinatorMockRecorder) RunPrepared(ctx, runID, userText any) *gomock.Call {
+func (mr *MockCoordinatorMockRecorder) RunPrepared(ctx, runID, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockCoordinator)(nil).RunPrepared), ctx, runID, userText)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockCoordinator)(nil).RunPrepared), ctx, runID, message)
 }
 
 // MockActiveSessions is a mock of ActiveSessions interface.

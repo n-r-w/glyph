@@ -58,6 +58,8 @@ message HandleRequest {
     SystemInstructionsInvocation system_instructions = 22;
     // The request-local history of one model request.
     ModelContextInvocation model_context = 23;
+    // The user input of one accepted run.
+    UserInputInvocation user_input = 24;
   }
 }
 
@@ -102,6 +104,8 @@ message HandleResponse {
     SystemInstructionsAction system_instructions = 20;
     // The request-local history preservation or replacement action.
     ModelContextAction model_context = 21;
+    // The user-input preservation, replacement, or handling action.
+    UserInputAction user_input = 22;
   }
 }
 

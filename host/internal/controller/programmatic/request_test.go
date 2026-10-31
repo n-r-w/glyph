@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -23,7 +24,9 @@ func TestMapOpenRequestMapsEveryOperationKind(t *testing.T) {
 	}{
 		"user request": {set: func(request *programmaticv1.ControllerRequest) {
 			payload := new(programmaticv1.UserRequest)
-			payload.SetText("request")
+			payload.SetContent([]*programmaticv1.UserContent{
+				programmaticv1.UserContent_builder{Text: new("request"), Image: nil}.Build(),
+			})
 			request.SetUserRequest(payload)
 		}, kind: CommandUserRequest},
 		"run state": {set: func(request *programmaticv1.ControllerRequest) {
@@ -223,4 +226,91 @@ func TestRejectPreservesCategoryAndOriginalCause(t *testing.T) {
 	assert.Equal(t, RejectionCodeNotFound, rejection.Code())
 	assert.Equal(t, cause.Error(), err.Error())
 	require.ErrorIs(t, err, cause)
+}
+
+// TestMapOpenRequestMapsUserContent verifies ordered text and image blocks and the rejection of malformed input.
+func TestMapOpenRequestMapsUserContent(t *testing.T) {
+	t.Parallel()
+	text := func(value string) *programmaticv1.UserContent {
+		return programmaticv1.UserContent_builder{Text: new(value), Image: nil}.Build()
+	}
+	image := func(mediaType string, data []byte) *programmaticv1.UserContent {
+		return programmaticv1.UserContent_builder{
+			Text: nil, Image: programmaticv1.UserImage_builder{MediaType: new(mediaType), Data: data}.Build(),
+		}.Build()
+	}
+	tests := map[string]struct {
+		content []*programmaticv1.UserContent
+		err     string
+	}{
+		"text and image": {
+			content: []*programmaticv1.UserContent{
+				text("look"),
+				image("image/png", []byte{1, 2}),
+				text("done"),
+			},
+			err: "",
+		},
+		"empty text": {
+			content: []*programmaticv1.UserContent{text("")},
+			err:     "programmatic user request: content 0: nonempty text is required",
+		},
+		"block without payload": {
+			content: []*programmaticv1.UserContent{new(programmaticv1.UserContent)},
+			err:     "programmatic user request: content 0: content payload is required",
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one user request with the case content.
+			request := testRequest("operation", func(request *programmaticv1.ControllerRequest) {
+				payload := new(programmaticv1.UserRequest)
+				payload.SetContent(test.content)
+				request.SetUserRequest(payload)
+			})
+
+			// Act by mapping the request envelope.
+			command, err := mapOpenRequest(request)
+
+			// Assert the ordered message or the complete invalid-argument rejection.
+			if test.err != "" {
+				require.EqualError(t, err, test.err)
+				rejection, rejected := errors.AsType[*RejectionError](err)
+				require.True(t, rejected)
+				assert.Equal(t, RejectionCodeInvalidArgument, rejection.Code())
+				return
+			}
+			require.NoError(t, err)
+			assert.True(t, command.Valid())
+			message, present := command.UserMessage.Get()
+			require.True(t, present)
+			require.Len(t, message.Content, 3)
+			assert.Equal(t, "look", message.Content[0].Text.OrEmpty())
+			assert.Equal(t, model.InputContentImage, message.Content[1].Kind)
+			assert.Equal(t, "image/png", message.Content[1].MediaType.OrEmpty())
+			assert.Equal(t, []byte{1, 2}, message.Content[1].Data.OrEmpty())
+			assert.Equal(t, "done", message.Content[2].Text.OrEmpty())
+		})
+	}
+}
+
+// TestUserRequestRejectsBlankText verifies a text block without visible text keeps its invalid-payload rejection.
+func TestUserRequestRejectsBlankText(t *testing.T) {
+	t.Parallel()
+	// Arrange a mapped request whose only text block contains whitespace.
+	command, err := mapOpenRequest(testRequest("operation", func(request *programmaticv1.ControllerRequest) {
+		payload := new(programmaticv1.UserRequest)
+		payload.SetContent([]*programmaticv1.UserContent{
+			programmaticv1.UserContent_builder{Text: new(" \t\n "), Image: nil}.Build(),
+		})
+		request.SetUserRequest(payload)
+	}))
+	require.NoError(t, err)
+
+	// Act by validating the command payload.
+	valid := command.Valid()
+
+	// Assert the blank text is not a valid user request.
+	assert.False(t, valid)
 }

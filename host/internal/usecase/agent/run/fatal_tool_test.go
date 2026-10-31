@@ -63,7 +63,7 @@ func TestConsumedChildFailureStopsLaterTools(t *testing.T) {
 				events,
 			)
 			// Act through Core's public run entry point.
-			result, err := service.Run(ctx, runcontrol.Request{RunID: "fatal-tool", UserText: "go"})
+			result, err := service.Run(ctx, runcontrol.Request{RunID: "fatal-tool", Message: model.TextMessage("go")})
 			// Assert failure preserves the original cause and never starts another tool or provider request.
 			require.ErrorIs(t, err, cause)
 			require.Equal(t, agent.RunOutcomeFailed, result.Outcome)

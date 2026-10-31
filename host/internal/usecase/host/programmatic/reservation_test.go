@@ -123,7 +123,7 @@ func (s *ServiceSuite) TestConcurrentReservationRejectsOneRequest() {
 						rune('a' + index),
 					),
 					Kind:            controller.CommandUserRequest,
-					UserText:        mo.Some("request"),
+					UserMessage:     mo.Some(model.TextMessage("request")),
 					ProviderID:      mo.None[model.ProviderID](),
 					ModelID:         mo.None[model.ID](),
 					ReasoningChoice: mo.None[model.ReasoningChoice](),
@@ -199,7 +199,7 @@ func (s *ServiceSuite) TestQueriesReturnPublicSnapshotsDuringAcceptedRun() {
 	_, operation, err := service.handle(s.T().Context(), controller.Command{
 		OperationID:     "active",
 		Kind:            controller.CommandUserRequest,
-		UserText:        mo.Some("first"),
+		UserMessage:     mo.Some(model.TextMessage("first")),
 		ProviderID:      mo.None[model.ProviderID](),
 		ModelID:         mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](),

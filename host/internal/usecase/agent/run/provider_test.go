@@ -105,7 +105,7 @@ func TestServiceRunStop(t *testing.T) {
 		events,
 	)
 
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-1", UserText: "hi"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-1", Message: model.TextMessage("hi")})
 
 	require.NoError(t, err)
 	assert.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
@@ -137,7 +137,7 @@ func TestServiceRunStop(t *testing.T) {
 		},
 	)
 	assert.Equal(t, expectedUpdate, update)
-	_, err = service.Run(t.Context(), runcontrol.Request{RunID: "run-2", UserText: "blocked"})
+	_, err = service.Run(t.Context(), runcontrol.Request{RunID: "run-2", Message: model.TextMessage("blocked")})
 	require.ErrorIs(t, err, ErrRunActive)
 	require.NoError(t, service.Settle("run-1"))
 	assert.Equal(t, StatusIdle, service.State().Status)

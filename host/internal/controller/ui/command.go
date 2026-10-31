@@ -53,8 +53,8 @@ type Command struct {
 	Kind CommandKind
 	// AuthenticationMethod selects the interactive sign-in flow for an authentication command.
 	AuthenticationMethod authentication.Method
-	// Text contains submitted user text.
-	Text mo.Option[string]
+	// Message contains the submitted ordered user input.
+	Message mo.Option[model.Message]
 	// ProviderID identifies a requested model provider.
 	ProviderID mo.Option[string]
 	// ModelID identifies a requested provider model.

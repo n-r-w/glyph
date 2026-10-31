@@ -290,9 +290,9 @@ func compactionCompletionFrame(
 func (s *Session) prepareSubmit(
 	command controllerui.Command,
 ) (operation.Prepared[controllerui.Frame, controllerui.Frame], error) {
-	text, textErr := command.SubmittedText()
-	if textErr != nil {
-		return nil, rejectOperation(controllerui.RejectionCodeInvalidArgument, textErr)
+	message, messageErr := command.SubmittedMessage()
+	if messageErr != nil {
+		return nil, rejectOperation(controllerui.RejectionCodeInvalidArgument, messageErr)
 	}
 	if s.operationAvailabilitySnapshot() != AvailabilityIdle {
 		return nil, rejectOperation(
@@ -316,7 +316,7 @@ func (s *Session) prepareSubmit(
 			if deliveryErr := s.output.SetAvailability(AvailabilityRunning); deliveryErr != nil {
 				return controllerui.Frame{}, fmt.Errorf("report running availability: %w", deliveryErr)
 			}
-			_, runErr := s.runner.RunPrepared(ctx, runID, text)
+			_, runErr := s.runner.RunPrepared(ctx, runID, message)
 			terminalRunErr = runErr
 			return controllerui.NewFrame(controllerui.FrameSubmitCompleted), runErr
 		},
@@ -336,7 +336,7 @@ func (s *Session) prepareSubmit(
 	}, nil
 }
 
-// runFailureCode distinguishes history persistence from other accepted-run failures.
+// runFailureCode distinguishes history persistence, invalid final input, and other accepted-run failures.
 func runFailureCode(err error) string {
 	if errors.Is(err, agent.ErrPersistenceUnavailable) {
 		return controllerui.FailureCodePersistence
@@ -346,9 +346,11 @@ func runFailureCode(err error) string {
 	}
 	for current := range errtree.IterateCurrentErrors(err) {
 		//nolint:errorlint // Current-node inspection excludes categories retained only as diagnostic history.
-		if classified, present := current.(errtree.CodedError); present &&
-			classified.Code() == controllerui.FailureCodeExtensionFailed {
-			return controllerui.FailureCodeExtensionFailed
+		if classified, present := current.(errtree.CodedError); present {
+			switch classified.Code() {
+			case controllerui.FailureCodeExtensionFailed, controllerui.FailureCodeInputInvalid:
+				return classified.Code()
+			}
 		}
 	}
 	return controllerui.FailureCodeInternal

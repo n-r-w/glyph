@@ -54,10 +54,11 @@ message ControllerRequest {
     Compact compact = 21;
   }
 }
-// UserRequest starts an agent run for user text.
+// UserRequest submits ordered user input; Host runs the agent for it unless an extension fully handles it.
 message UserRequest {
-  // The user request text.
-  string text = 1;
+  // The ordered user input blocks. At least one block is required.
+  // Each text block contains visible text, and each image has a media type and data.
+  repeated UserContent content = 1;
 }
 // GetRunState requests the current run state.
 message GetRunState {}

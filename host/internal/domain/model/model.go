@@ -153,11 +153,29 @@ type InputContent struct {
 	Data mo.Option[[]byte]
 }
 
+// TextContent creates one text input block.
+func TextContent(text string) InputContent {
+	return InputContent{
+		Kind:      InputContentText,
+		Text:      mo.Some(text),
+		MediaType: mo.None[string](),
+		Data:      mo.None[[]byte](),
+	}
+}
+
+// ImageContent creates one image input block from its media type and encoded data.
+func ImageContent(mediaType string, data []byte) InputContent {
+	return InputContent{
+		Kind:      InputContentImage,
+		Text:      mo.None[string](),
+		MediaType: mo.Some(mediaType),
+		Data:      mo.Some(data),
+	}
+}
+
 // TextMessage creates one text-only user message.
 func TextMessage(text string) Message {
-	return Message{Content: []InputContent{{
-		Kind: InputContentText, Text: mo.Some(text), MediaType: mo.None[string](), Data: mo.None[[]byte](),
-	}}}
+	return Message{Content: []InputContent{TextContent(text)}}
 }
 
 // Outcome identifies why one model response ended.

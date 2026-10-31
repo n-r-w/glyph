@@ -1885,6 +1885,320 @@ func (b0 ReplayableModelContent_builder) Build() *ReplayableModelContent {
 	return m0
 }
 
+// UserInputInvocation supplies the immutable original and composed current user input of one accepted run.
+type UserInputInvocation struct {
+	state               protoimpl.MessageState  `protogen:"opaque.v1"`
+	xxx_hidden_Original *SessionTreeUserMessage `protobuf:"bytes,1,opt,name=original"`
+	xxx_hidden_Current  *SessionTreeUserMessage `protobuf:"bytes,2,opt,name=current"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *UserInputInvocation) Reset() {
+	*x = UserInputInvocation{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[16]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserInputInvocation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserInputInvocation) ProtoMessage() {}
+
+func (x *UserInputInvocation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[16]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *UserInputInvocation) GetOriginal() *SessionTreeUserMessage {
+	if x != nil {
+		return x.xxx_hidden_Original
+	}
+	return nil
+}
+
+func (x *UserInputInvocation) GetCurrent() *SessionTreeUserMessage {
+	if x != nil {
+		return x.xxx_hidden_Current
+	}
+	return nil
+}
+
+func (x *UserInputInvocation) SetOriginal(v *SessionTreeUserMessage) {
+	x.xxx_hidden_Original = v
+}
+
+func (x *UserInputInvocation) SetCurrent(v *SessionTreeUserMessage) {
+	x.xxx_hidden_Current = v
+}
+
+func (x *UserInputInvocation) HasOriginal() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Original != nil
+}
+
+func (x *UserInputInvocation) HasCurrent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Current != nil
+}
+
+func (x *UserInputInvocation) ClearOriginal() {
+	x.xxx_hidden_Original = nil
+}
+
+func (x *UserInputInvocation) ClearCurrent() {
+	x.xxx_hidden_Current = nil
+}
+
+type UserInputInvocation_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The immutable user input submitted by the client.
+	Original *SessionTreeUserMessage
+	// The user input produced by preceding handlers.
+	Current *SessionTreeUserMessage
+}
+
+func (b0 UserInputInvocation_builder) Build() *UserInputInvocation {
+	m0 := &UserInputInvocation{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Original = b.Original
+	x.xxx_hidden_Current = b.Current
+	return m0
+}
+
+// UserInputAction preserves the current input, replaces it, or fully handles it.
+type UserInputAction struct {
+	state             protoimpl.MessageState   `protogen:"opaque.v1"`
+	xxx_hidden_Action isUserInputAction_Action `protobuf_oneof:"action"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *UserInputAction) Reset() {
+	*x = UserInputAction{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UserInputAction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UserInputAction) ProtoMessage() {}
+
+func (x *UserInputAction) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *UserInputAction) GetPreserve() bool {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*userInputAction_Preserve); ok {
+			return x.Preserve
+		}
+	}
+	return false
+}
+
+func (x *UserInputAction) GetReplace() *SessionTreeUserMessage {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*userInputAction_Replace); ok {
+			return x.Replace
+		}
+	}
+	return nil
+}
+
+func (x *UserInputAction) GetHandle() bool {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*userInputAction_Handle); ok {
+			return x.Handle
+		}
+	}
+	return false
+}
+
+func (x *UserInputAction) SetPreserve(v bool) {
+	x.xxx_hidden_Action = &userInputAction_Preserve{v}
+}
+
+func (x *UserInputAction) SetReplace(v *SessionTreeUserMessage) {
+	if v == nil {
+		x.xxx_hidden_Action = nil
+		return
+	}
+	x.xxx_hidden_Action = &userInputAction_Replace{v}
+}
+
+func (x *UserInputAction) SetHandle(v bool) {
+	x.xxx_hidden_Action = &userInputAction_Handle{v}
+}
+
+func (x *UserInputAction) HasAction() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Action != nil
+}
+
+func (x *UserInputAction) HasPreserve() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*userInputAction_Preserve)
+	return ok
+}
+
+func (x *UserInputAction) HasReplace() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*userInputAction_Replace)
+	return ok
+}
+
+func (x *UserInputAction) HasHandle() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*userInputAction_Handle)
+	return ok
+}
+
+func (x *UserInputAction) ClearAction() {
+	x.xxx_hidden_Action = nil
+}
+
+func (x *UserInputAction) ClearPreserve() {
+	if _, ok := x.xxx_hidden_Action.(*userInputAction_Preserve); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+func (x *UserInputAction) ClearReplace() {
+	if _, ok := x.xxx_hidden_Action.(*userInputAction_Replace); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+func (x *UserInputAction) ClearHandle() {
+	if _, ok := x.xxx_hidden_Action.(*userInputAction_Handle); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+const UserInputAction_Action_not_set_case case_UserInputAction_Action = 0
+const UserInputAction_Preserve_case case_UserInputAction_Action = 1
+const UserInputAction_Replace_case case_UserInputAction_Action = 2
+const UserInputAction_Handle_case case_UserInputAction_Action = 3
+
+func (x *UserInputAction) WhichAction() case_UserInputAction_Action {
+	if x == nil {
+		return UserInputAction_Action_not_set_case
+	}
+	switch x.xxx_hidden_Action.(type) {
+	case *userInputAction_Preserve:
+		return UserInputAction_Preserve_case
+	case *userInputAction_Replace:
+		return UserInputAction_Replace_case
+	case *userInputAction_Handle:
+		return UserInputAction_Handle_case
+	default:
+		return UserInputAction_Action_not_set_case
+	}
+}
+
+type UserInputAction_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The handler must select one valid action.
+
+	// Fields of oneof xxx_hidden_Action:
+	// True preserves current input; false is invalid.
+	Preserve *bool
+	// The complete replacement input with at least one block; each text block is nonempty
+	// and each image has a media type and data.
+	Replace *SessionTreeUserMessage
+	// True completes the request without an agent run and skips later input handlers; false is invalid.
+	Handle *bool
+	// -- end of xxx_hidden_Action
+}
+
+func (b0 UserInputAction_builder) Build() *UserInputAction {
+	m0 := &UserInputAction{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Preserve != nil {
+		x.xxx_hidden_Action = &userInputAction_Preserve{*b.Preserve}
+	}
+	if b.Replace != nil {
+		x.xxx_hidden_Action = &userInputAction_Replace{b.Replace}
+	}
+	if b.Handle != nil {
+		x.xxx_hidden_Action = &userInputAction_Handle{*b.Handle}
+	}
+	return m0
+}
+
+type case_UserInputAction_Action protoreflect.FieldNumber
+
+func (x case_UserInputAction_Action) String() string {
+	md := file_api_plugins_extension_v1_middleware_proto_msgTypes[17].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isUserInputAction_Action interface {
+	isUserInputAction_Action()
+}
+
+type userInputAction_Preserve struct {
+	// True preserves current input; false is invalid.
+	Preserve bool `protobuf:"varint,1,opt,name=preserve,oneof"`
+}
+
+type userInputAction_Replace struct {
+	// The complete replacement input with at least one block; each text block is nonempty
+	// and each image has a media type and data.
+	Replace *SessionTreeUserMessage `protobuf:"bytes,2,opt,name=replace,oneof"`
+}
+
+type userInputAction_Handle struct {
+	// True completes the request without an agent run and skips later input handlers; false is invalid.
+	Handle bool `protobuf:"varint,3,opt,name=handle,oneof"`
+}
+
+func (*userInputAction_Preserve) isUserInputAction_Action() {}
+
+func (*userInputAction_Replace) isUserInputAction_Action() {}
+
+func (*userInputAction_Handle) isUserInputAction_Action() {}
+
 var File_api_plugins_extension_v1_middleware_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_middleware_proto_rawDesc = "" +
@@ -1942,9 +2256,17 @@ const file_api_plugins_extension_v1_middleware_proto_rawDesc = "" +
 	"\acontent\x18\x01 \x03(\v22.glyph.plugins.extension.v1.ReplayableModelContentR\acontent\"\x92\x01\n" +
 	"\x16ReplayableModelContent\x12M\n" +
 	"\acontent\x18\x01 \x01(\v23.glyph.plugins.extension.v1.SessionTreeModelContentR\acontent\x12)\n" +
-	"\x10replay_reference\x18\x02 \x01(\tR\x0freplayReferenceB=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
+	"\x10replay_reference\x18\x02 \x01(\tR\x0freplayReference\"\xb3\x01\n" +
+	"\x13UserInputInvocation\x12N\n" +
+	"\boriginal\x18\x01 \x01(\v22.glyph.plugins.extension.v1.SessionTreeUserMessageR\boriginal\x12L\n" +
+	"\acurrent\x18\x02 \x01(\v22.glyph.plugins.extension.v1.SessionTreeUserMessageR\acurrent\"\xa3\x01\n" +
+	"\x0fUserInputAction\x12\x1c\n" +
+	"\bpreserve\x18\x01 \x01(\bH\x00R\bpreserve\x12N\n" +
+	"\areplace\x18\x02 \x01(\v22.glyph.plugins.extension.v1.SessionTreeUserMessageH\x00R\areplace\x12\x18\n" +
+	"\x06handle\x18\x03 \x01(\bH\x00R\x06handleB\b\n" +
+	"\x06actionB=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_middleware_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_api_plugins_extension_v1_middleware_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_api_plugins_extension_v1_middleware_proto_goTypes = []any{
 	(*WireHeaders)(nil),                  // 0: glyph.plugins.extension.v1.WireHeaders
 	(*WireHeaderValues)(nil),             // 1: glyph.plugins.extension.v1.WireHeaderValues
@@ -1962,13 +2284,15 @@ var file_api_plugins_extension_v1_middleware_proto_goTypes = []any{
 	(*ModelContextEntry)(nil),            // 13: glyph.plugins.extension.v1.ModelContextEntry
 	(*ReplayableModelResponse)(nil),      // 14: glyph.plugins.extension.v1.ReplayableModelResponse
 	(*ReplayableModelContent)(nil),       // 15: glyph.plugins.extension.v1.ReplayableModelContent
-	nil,                                  // 16: glyph.plugins.extension.v1.WireHeaders.EntriesEntry
-	(*SessionTreeUserMessage)(nil),       // 17: glyph.plugins.extension.v1.SessionTreeUserMessage
-	(*SessionTreeToolResult)(nil),        // 18: glyph.plugins.extension.v1.SessionTreeToolResult
-	(*SessionTreeModelContent)(nil),      // 19: glyph.plugins.extension.v1.SessionTreeModelContent
+	(*UserInputInvocation)(nil),          // 16: glyph.plugins.extension.v1.UserInputInvocation
+	(*UserInputAction)(nil),              // 17: glyph.plugins.extension.v1.UserInputAction
+	nil,                                  // 18: glyph.plugins.extension.v1.WireHeaders.EntriesEntry
+	(*SessionTreeUserMessage)(nil),       // 19: glyph.plugins.extension.v1.SessionTreeUserMessage
+	(*SessionTreeToolResult)(nil),        // 20: glyph.plugins.extension.v1.SessionTreeToolResult
+	(*SessionTreeModelContent)(nil),      // 21: glyph.plugins.extension.v1.SessionTreeModelContent
 }
 var file_api_plugins_extension_v1_middleware_proto_depIdxs = []int32{
-	16, // 0: glyph.plugins.extension.v1.WireHeaders.entries:type_name -> glyph.plugins.extension.v1.WireHeaders.EntriesEntry
+	18, // 0: glyph.plugins.extension.v1.WireHeaders.entries:type_name -> glyph.plugins.extension.v1.WireHeaders.EntriesEntry
 	0,  // 1: glyph.plugins.extension.v1.ProviderHeadersInvocation.original:type_name -> glyph.plugins.extension.v1.WireHeaders
 	0,  // 2: glyph.plugins.extension.v1.ProviderHeadersInvocation.current:type_name -> glyph.plugins.extension.v1.WireHeaders
 	0,  // 3: glyph.plugins.extension.v1.ProviderHeadersAction.replace:type_name -> glyph.plugins.extension.v1.WireHeaders
@@ -1977,17 +2301,20 @@ var file_api_plugins_extension_v1_middleware_proto_depIdxs = []int32{
 	12, // 6: glyph.plugins.extension.v1.ModelContextInvocation.current:type_name -> glyph.plugins.extension.v1.ModelContextHistory
 	12, // 7: glyph.plugins.extension.v1.ModelContextAction.replace:type_name -> glyph.plugins.extension.v1.ModelContextHistory
 	13, // 8: glyph.plugins.extension.v1.ModelContextHistory.entries:type_name -> glyph.plugins.extension.v1.ModelContextEntry
-	17, // 9: glyph.plugins.extension.v1.ModelContextEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	19, // 9: glyph.plugins.extension.v1.ModelContextEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
 	14, // 10: glyph.plugins.extension.v1.ModelContextEntry.model:type_name -> glyph.plugins.extension.v1.ReplayableModelResponse
-	18, // 11: glyph.plugins.extension.v1.ModelContextEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
+	20, // 11: glyph.plugins.extension.v1.ModelContextEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
 	15, // 12: glyph.plugins.extension.v1.ReplayableModelResponse.content:type_name -> glyph.plugins.extension.v1.ReplayableModelContent
-	19, // 13: glyph.plugins.extension.v1.ReplayableModelContent.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
-	1,  // 14: glyph.plugins.extension.v1.WireHeaders.EntriesEntry.value:type_name -> glyph.plugins.extension.v1.WireHeaderValues
-	15, // [15:15] is the sub-list for method output_type
-	15, // [15:15] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	21, // 13: glyph.plugins.extension.v1.ReplayableModelContent.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
+	19, // 14: glyph.plugins.extension.v1.UserInputInvocation.original:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	19, // 15: glyph.plugins.extension.v1.UserInputInvocation.current:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	19, // 16: glyph.plugins.extension.v1.UserInputAction.replace:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	1,  // 17: glyph.plugins.extension.v1.WireHeaders.EntriesEntry.value:type_name -> glyph.plugins.extension.v1.WireHeaderValues
+	18, // [18:18] is the sub-list for method output_type
+	18, // [18:18] is the sub-list for method input_type
+	18, // [18:18] is the sub-list for extension type_name
+	18, // [18:18] is the sub-list for extension extendee
+	0,  // [0:18] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_middleware_proto_init() }
@@ -2017,13 +2344,18 @@ func file_api_plugins_extension_v1_middleware_proto_init() {
 		(*modelContextEntry_Model)(nil),
 		(*modelContextEntry_ToolResult)(nil),
 	}
+	file_api_plugins_extension_v1_middleware_proto_msgTypes[17].OneofWrappers = []any{
+		(*userInputAction_Preserve)(nil),
+		(*userInputAction_Replace)(nil),
+		(*userInputAction_Handle)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_middleware_proto_rawDesc), len(file_api_plugins_extension_v1_middleware_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   17,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

@@ -249,6 +249,7 @@ message Initialized {}
 
 // SubmitCommand requests one user turn.
 message SubmitCommand {
-  // The user request submitted to the Host.
-  string text = 1;
+  // The ordered user input blocks. At least one block is required.
+  // Each text block is nonempty, and each image has a media type and data.
+  repeated UserContent content = 1;
 }

@@ -154,6 +154,8 @@ const (
 	RawHandlerKindSystemInstructions RawHandlerKind = 29
 	// RawHandlerKindModelContext transforms request-local model history.
 	RawHandlerKindModelContext RawHandlerKind = 30
+	// RawHandlerKindUserInput preserves, replaces, or fully handles the user input of one accepted run.
+	RawHandlerKindUserInput RawHandlerKind = 31
 )
 
 // isCompaction reports whether kind identifies a compaction capability.

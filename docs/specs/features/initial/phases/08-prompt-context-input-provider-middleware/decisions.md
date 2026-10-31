@@ -78,6 +78,28 @@ The composer reports whether a history handler replaced the history in the compo
 
 The public reference for this unit is the separate command `testdata/external-plugins/cmd/context`. A separate command keeps the provider-wire reference scenarios and their assertions unchanged. The command embeds its example project instructions from `project-instructions.md`.
 
+## D8-13: Submit payloads and final-input validation
+
+Programmatic `UserRequest` and UI `SubmitCommand` contain `repeated UserContent content`. Each package already defines `UserContent` as one text or image block for user history, so the submit payload reuses the definition of its own package. Admission rejects a request with `INVALID_ARGUMENT` when it has no blocks, when a block has no payload, when a text block is empty, or when an image has no media type or no data. Both controllers apply these rules through `model.Message.ValidateShape`. Programmatic admission also rejects a text block that contains only whitespace, as it rejected such a text before this phase.
+
+Run control owns the `InputProcessor` interface. `Coordinator.RunPrepared` calls `InputProcessor` after it takes the prepared reservation and before Core. Core appends the message that `InputProcessor` returns. The middleware owner implements the interface and reads the selected descriptor from the active binding of the provider catalogue. When the final message contains an image and the selected model has no image input, the run fails with `INPUT_INVALID` before agent-start. The complete text is `process user input: model gpt-active does not accept image input at content 1` for the second block of a request to the text-only model `gpt-active`.
+
+A run that fails before Core has no settlement. Settlement clears the Programmatic output of a run that Core executed. For every other run, the release of the Programmatic run clears the output of that run; otherwise the next request would be rejected with `BUSY`. UI preparation restores idle availability in its release.
+
+## D8-14: User-input handlers, handled completion and the input reference
+
+The Extension Contract adds `HANDLER_KIND_USER_INPUT`. Its `HandleRequest` payload and `HandleResponse` action are both `user_input`. `UserInputInvocation` carries the immutable `original` and the `current` input as `SessionTreeUserMessage`, the user message of session history, as D8-09 does for history entries. `UserInputAction` is a oneof of `preserve = true`, a complete `replace` value and `handle = true`. A missing action, `preserve = false` or `handle = false` is an invalid action. A replacement must pass `model.Message.ValidateShape`, the rule of D8-13 admission; otherwise it is an invalid replacement.
+
+`middleware.Service.ProcessInput` implements the run-control port of D8-13. It runs the user-input handlers in registration order through the same composition as D8-08, which accepts `handle` only for this kind. A handler error, runtime loss, invalid action or invalid replacement is `EXTENSION_FAILED` with the complete text, for example `middleware handler "input-text" returned invalid user-input action 0`. After the last handler, the final unhandled input is checked as in D8-13. A failure whose current cause is only the cancellation of the owning context keeps no category, and run control reports the aborted outcome for it, so each client follows its existing canceled-operation path. Any other failure keeps its category and the failed outcome, even when the owning context is canceled at the same time.
+
+The port returns no message for handled input. `Coordinator.RunPrepared` then reports a completed outcome without Core execution or settlement. Programmatic release clears the run output as D8-13 describes, UI preparation restores idle availability in its release, and one-shot accepts the completed outcome.
+
+The public reference is the separate command `testdata/external-plugins/cmd/input`. The context reference tests assert the exact order of traced instruction and context handlers, so input handlers in `cmd/context` would change those assertions.
+
+## D8-15: One-shot errors show the current category
+
+The one-shot renderer writes a terminal error as `[error] <CATEGORY>: <complete error text>` when a current cause of the error carries a public category, and as `[error] <complete error text>` otherwise. For example, a failed input handler gives `[error] EXTENSION_FAILED: run headless agent: process user input: middleware handler "input-text": reference input handler failed`. `errtree.CurrentCode` finds the category on current causes only, so a category kept only as diagnostic history is not shown. The error text itself stays without the category, because Programmatic and UI carry the category in a separate field.
+
 ## Terminology check
 
 | Concept | Candidate | Position | Level | Result |
@@ -90,6 +112,7 @@ The public reference for this unit is the separate command `testdata/external-pl
 | Instructions and history after conversation preparation and before middleware | prepared request | Original value of a composition | Implementation detail | Policy observation and overflow recovery receive it; no glossary term |
 | Compaction-policy owner captured for one logical execution | captured conversation owner | Term of the technical solution | Implementation detail | Use in comments instead of "policy owner"; no glossary term |
 | Handler output that changes the history of a composition | history replacement | Selects the failure category of final validation | Implementation detail | Define its category effect in D8-12; no glossary term |
+| Run-control interface that returns the final user message before Core | input-processing port | Term of the technical solution | Implementation detail | Code identifier `InputProcessor` in `host/internal/usecase/host/runcontrol`; no glossary term |
 
 ## Open questions
 

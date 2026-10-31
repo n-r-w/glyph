@@ -16,7 +16,7 @@ func (s *Service) BindMiddleware(owner MiddlewareRegistrar) error {
 
 // isMiddleware reports whether a kind belongs to the ordinary model-facing middleware owner.
 func (kind RawHandlerKind) isMiddleware() bool {
-	return kind >= RawHandlerKindProviderHeaders && kind <= RawHandlerKindModelContext
+	return kind >= RawHandlerKindProviderHeaders && kind <= RawHandlerKindUserInput
 }
 
 // validateMiddlewareHandlers validates the middleware partition without publishing partial registration.

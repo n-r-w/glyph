@@ -47,7 +47,7 @@ func TestEndObserverFailureOverridesAbort(t *testing.T) {
 	)
 
 	// Act through Core after the provider has already chosen an aborted outcome.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "end-abort", UserText: "go"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "end-abort", Message: model.TextMessage("go")})
 
 	// Assert the independent failure remains Failed beside the original abort cause.
 	require.Equal(t, agent.RunOutcomeFailed, result.Outcome)
@@ -106,7 +106,7 @@ func TestToolEndObserverFailureKeepsClientResult(t *testing.T) {
 	)
 
 	// Act through Core's run entry point.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "tool-end", UserText: "go"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "tool-end", Message: model.TextMessage("go")})
 
 	// Assert mandatory result delivery and completed effects survive alongside both independent failures.
 	require.True(t, resultDelivered)

@@ -417,6 +417,15 @@ func (x *HandleRequest) GetModelContext() *ModelContextInvocation {
 	return nil
 }
 
+func (x *HandleRequest) GetUserInput() *UserInputInvocation {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Payload.(*handleRequest_UserInput); ok {
+			return x.UserInput
+		}
+	}
+	return nil
+}
+
 func (x *HandleRequest) SetHandlerId(v string) {
 	x.xxx_hidden_HandlerId = &v
 	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
@@ -589,6 +598,14 @@ func (x *HandleRequest) SetModelContext(v *ModelContextInvocation) {
 		return
 	}
 	x.xxx_hidden_Payload = &handleRequest_ModelContext{v}
+}
+
+func (x *HandleRequest) SetUserInput(v *UserInputInvocation) {
+	if v == nil {
+		x.xxx_hidden_Payload = nil
+		return
+	}
+	x.xxx_hidden_Payload = &handleRequest_UserInput{v}
 }
 
 func (x *HandleRequest) HasHandlerId() bool {
@@ -779,6 +796,14 @@ func (x *HandleRequest) HasModelContext() bool {
 	return ok
 }
 
+func (x *HandleRequest) HasUserInput() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Payload.(*handleRequest_UserInput)
+	return ok
+}
+
 func (x *HandleRequest) ClearHandlerId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_HandlerId = nil
@@ -917,6 +942,12 @@ func (x *HandleRequest) ClearModelContext() {
 	}
 }
 
+func (x *HandleRequest) ClearUserInput() {
+	if _, ok := x.xxx_hidden_Payload.(*handleRequest_UserInput); ok {
+		x.xxx_hidden_Payload = nil
+	}
+}
+
 const HandleRequest_Payload_not_set_case case_HandleRequest_Payload = 0
 const HandleRequest_SessionBeforeTreeRequest_case case_HandleRequest_Payload = 2
 const HandleRequest_SessionBeforeTreeResult_case case_HandleRequest_Payload = 3
@@ -938,6 +969,7 @@ const HandleRequest_ProviderBody_case case_HandleRequest_Payload = 20
 const HandleRequest_ProviderResponse_case case_HandleRequest_Payload = 21
 const HandleRequest_SystemInstructions_case case_HandleRequest_Payload = 22
 const HandleRequest_ModelContext_case case_HandleRequest_Payload = 23
+const HandleRequest_UserInput_case case_HandleRequest_Payload = 24
 
 func (x *HandleRequest) WhichPayload() case_HandleRequest_Payload {
 	if x == nil {
@@ -984,6 +1016,8 @@ func (x *HandleRequest) WhichPayload() case_HandleRequest_Payload {
 		return HandleRequest_SystemInstructions_case
 	case *handleRequest_ModelContext:
 		return HandleRequest_ModelContext_case
+	case *handleRequest_UserInput:
+		return HandleRequest_UserInput_case
 	default:
 		return HandleRequest_Payload_not_set_case
 	}
@@ -1037,6 +1071,8 @@ type HandleRequest_builder struct {
 	SystemInstructions *SystemInstructionsInvocation
 	// The request-local history of one model request.
 	ModelContext *ModelContextInvocation
+	// The user input of one accepted run.
+	UserInput *UserInputInvocation
 	// -- end of xxx_hidden_Payload
 }
 
@@ -1112,6 +1148,9 @@ func (b0 HandleRequest_builder) Build() *HandleRequest {
 	}
 	if b.ModelContext != nil {
 		x.xxx_hidden_Payload = &handleRequest_ModelContext{b.ModelContext}
+	}
+	if b.UserInput != nil {
+		x.xxx_hidden_Payload = &handleRequest_UserInput{b.UserInput}
 	}
 	return m0
 }
@@ -1226,6 +1265,11 @@ type handleRequest_ModelContext struct {
 	ModelContext *ModelContextInvocation `protobuf:"bytes,23,opt,name=model_context,json=modelContext,oneof"`
 }
 
+type handleRequest_UserInput struct {
+	// The user input of one accepted run.
+	UserInput *UserInputInvocation `protobuf:"bytes,24,opt,name=user_input,json=userInput,oneof"`
+}
+
 func (*handleRequest_SessionBeforeTreeRequest) isHandleRequest_Payload() {}
 
 func (*handleRequest_SessionBeforeTreeResult) isHandleRequest_Payload() {}
@@ -1265,6 +1309,8 @@ func (*handleRequest_ProviderResponse) isHandleRequest_Payload() {}
 func (*handleRequest_SystemInstructions) isHandleRequest_Payload() {}
 
 func (*handleRequest_ModelContext) isHandleRequest_Payload() {}
+
+func (*handleRequest_UserInput) isHandleRequest_Payload() {}
 
 // HandleResponse returns one typed action or ordinary handler error.
 type HandleResponse struct {
@@ -1488,6 +1534,15 @@ func (x *HandleResponse) GetModelContext() *ModelContextAction {
 	return nil
 }
 
+func (x *HandleResponse) GetUserInput() *UserInputAction {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Outcome.(*handleResponse_UserInput); ok {
+			return x.UserInput
+		}
+	}
+	return nil
+}
+
 func (x *HandleResponse) SetSessionBeforeTreeRequest(v *SessionBeforeTreeRequestAction) {
 	if v == nil {
 		x.xxx_hidden_Outcome = nil
@@ -1654,6 +1709,14 @@ func (x *HandleResponse) SetModelContext(v *ModelContextAction) {
 		return
 	}
 	x.xxx_hidden_Outcome = &handleResponse_ModelContext{v}
+}
+
+func (x *HandleResponse) SetUserInput(v *UserInputAction) {
+	if v == nil {
+		x.xxx_hidden_Outcome = nil
+		return
+	}
+	x.xxx_hidden_Outcome = &handleResponse_UserInput{v}
 }
 
 func (x *HandleResponse) HasOutcome() bool {
@@ -1831,6 +1894,14 @@ func (x *HandleResponse) HasModelContext() bool {
 	return ok
 }
 
+func (x *HandleResponse) HasUserInput() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Outcome.(*handleResponse_UserInput)
+	return ok
+}
+
 func (x *HandleResponse) ClearOutcome() {
 	x.xxx_hidden_Outcome = nil
 }
@@ -1961,6 +2032,12 @@ func (x *HandleResponse) ClearModelContext() {
 	}
 }
 
+func (x *HandleResponse) ClearUserInput() {
+	if _, ok := x.xxx_hidden_Outcome.(*handleResponse_UserInput); ok {
+		x.xxx_hidden_Outcome = nil
+	}
+}
+
 const HandleResponse_Outcome_not_set_case case_HandleResponse_Outcome = 0
 const HandleResponse_SessionBeforeTreeRequest_case case_HandleResponse_Outcome = 1
 const HandleResponse_SessionBeforeTreeResult_case case_HandleResponse_Outcome = 2
@@ -1983,6 +2060,7 @@ const HandleResponse_ProviderBody_case case_HandleResponse_Outcome = 18
 const HandleResponse_ProviderResponse_case case_HandleResponse_Outcome = 19
 const HandleResponse_SystemInstructions_case case_HandleResponse_Outcome = 20
 const HandleResponse_ModelContext_case case_HandleResponse_Outcome = 21
+const HandleResponse_UserInput_case case_HandleResponse_Outcome = 22
 
 func (x *HandleResponse) WhichOutcome() case_HandleResponse_Outcome {
 	if x == nil {
@@ -2031,6 +2109,8 @@ func (x *HandleResponse) WhichOutcome() case_HandleResponse_Outcome {
 		return HandleResponse_SystemInstructions_case
 	case *handleResponse_ModelContext:
 		return HandleResponse_ModelContext_case
+	case *handleResponse_UserInput:
+		return HandleResponse_UserInput_case
 	default:
 		return HandleResponse_Outcome_not_set_case
 	}
@@ -2079,6 +2159,8 @@ type HandleResponse_builder struct {
 	SystemInstructions *SystemInstructionsAction
 	// The request-local history preservation or replacement action.
 	ModelContext *ModelContextAction
+	// The user-input preservation, replacement, or handling action.
+	UserInput *UserInputAction
 	// -- end of xxx_hidden_Outcome
 }
 
@@ -2148,6 +2230,9 @@ func (b0 HandleResponse_builder) Build() *HandleResponse {
 	}
 	if b.ModelContext != nil {
 		x.xxx_hidden_Outcome = &handleResponse_ModelContext{b.ModelContext}
+	}
+	if b.UserInput != nil {
+		x.xxx_hidden_Outcome = &handleResponse_UserInput{b.UserInput}
 	}
 	return m0
 }
@@ -2266,6 +2351,11 @@ type handleResponse_ModelContext struct {
 	ModelContext *ModelContextAction `protobuf:"bytes,21,opt,name=model_context,json=modelContext,oneof"`
 }
 
+type handleResponse_UserInput struct {
+	// The user-input preservation, replacement, or handling action.
+	UserInput *UserInputAction `protobuf:"bytes,22,opt,name=user_input,json=userInput,oneof"`
+}
+
 func (*handleResponse_SessionBeforeTreeRequest) isHandleResponse_Outcome() {}
 
 func (*handleResponse_SessionBeforeTreeResult) isHandleResponse_Outcome() {}
@@ -2307,6 +2397,8 @@ func (*handleResponse_ProviderResponse) isHandleResponse_Outcome() {}
 func (*handleResponse_SystemInstructions) isHandleResponse_Outcome() {}
 
 func (*handleResponse_ModelContext) isHandleResponse_Outcome() {}
+
+func (*handleResponse_UserInput) isHandleResponse_Outcome() {}
 
 // HandlerError reports one ordinary handler failure without invalidating the extension runtime.
 type HandlerError struct {
@@ -3755,7 +3847,7 @@ var File_api_plugins_extension_v1_session_tree_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\n" +
-	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a)api/plugins/extension/v1/compaction.proto\x1a&api/plugins/extension/v1/context.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a)api/plugins/extension/v1/middleware.proto\x1a$api/plugins/extension/v1/retry.proto\x1a,api/plugins/extension/v1/session_entry.proto\"\xb1\x11\n" +
+	"+api/plugins/extension/v1/session_tree.proto\x12\x1aglyph.plugins.extension.v1\x1a)api/plugins/extension/v1/compaction.proto\x1a&api/plugins/extension/v1/context.proto\x1a(api/plugins/extension/v1/lifecycle.proto\x1a$api/plugins/extension/v1/model.proto\x1a)api/plugins/extension/v1/middleware.proto\x1a$api/plugins/extension/v1/retry.proto\x1a,api/plugins/extension/v1/session_entry.proto\"\x83\x12\n" +
 	"\rHandleRequest\x12\x1d\n" +
 	"\n" +
 	"handler_id\x18\x01 \x01(\tR\thandlerId\x12F\n" +
@@ -3781,8 +3873,10 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\rprovider_body\x18\x14 \x01(\v22.glyph.plugins.extension.v1.ProviderBodyInvocationH\x00R\fproviderBody\x12e\n" +
 	"\x11provider_response\x18\x15 \x01(\v26.glyph.plugins.extension.v1.ProviderResponseInvocationH\x00R\x10providerResponse\x12k\n" +
 	"\x13system_instructions\x18\x16 \x01(\v28.glyph.plugins.extension.v1.SystemInstructionsInvocationH\x00R\x12systemInstructions\x12Y\n" +
-	"\rmodel_context\x18\x17 \x01(\v22.glyph.plugins.extension.v1.ModelContextInvocationH\x00R\fmodelContextB\t\n" +
-	"\apayload\"\x9b\x10\n" +
+	"\rmodel_context\x18\x17 \x01(\v22.glyph.plugins.extension.v1.ModelContextInvocationH\x00R\fmodelContext\x12P\n" +
+	"\n" +
+	"user_input\x18\x18 \x01(\v2/.glyph.plugins.extension.v1.UserInputInvocationH\x00R\tuserInputB\t\n" +
+	"\apayload\"\xe9\x10\n" +
 	"\x0eHandleResponse\x12{\n" +
 	"\x1bsession_before_tree_request\x18\x01 \x01(\v2:.glyph.plugins.extension.v1.SessionBeforeTreeRequestActionH\x00R\x18sessionBeforeTreeRequest\x12x\n" +
 	"\x1asession_before_tree_result\x18\x02 \x01(\v29.glyph.plugins.extension.v1.SessionBeforeTreeResultActionH\x00R\x17sessionBeforeTreeResult\x12R\n" +
@@ -3805,7 +3899,9 @@ const file_api_plugins_extension_v1_session_tree_proto_rawDesc = "" +
 	"\rprovider_body\x18\x12 \x01(\v2..glyph.plugins.extension.v1.ProviderBodyActionH\x00R\fproviderBody\x12a\n" +
 	"\x11provider_response\x18\x13 \x01(\v22.glyph.plugins.extension.v1.ProviderResponseActionH\x00R\x10providerResponse\x12g\n" +
 	"\x13system_instructions\x18\x14 \x01(\v24.glyph.plugins.extension.v1.SystemInstructionsActionH\x00R\x12systemInstructions\x12U\n" +
-	"\rmodel_context\x18\x15 \x01(\v2..glyph.plugins.extension.v1.ModelContextActionH\x00R\fmodelContextB\t\n" +
+	"\rmodel_context\x18\x15 \x01(\v2..glyph.plugins.extension.v1.ModelContextActionH\x00R\fmodelContext\x12L\n" +
+	"\n" +
+	"user_input\x18\x16 \x01(\v2+.glyph.plugins.extension.v1.UserInputActionH\x00R\tuserInputB\t\n" +
 	"\aoutcome\"(\n" +
 	"\fHandlerError\x12\x18\n" +
 	"\amessage\x18\x01 \x01(\tR\amessage\"\x90\x04\n" +
@@ -3900,23 +3996,25 @@ var file_api_plugins_extension_v1_session_tree_proto_goTypes = []any{
 	(*ProviderResponseInvocation)(nil),         // 26: glyph.plugins.extension.v1.ProviderResponseInvocation
 	(*SystemInstructionsInvocation)(nil),       // 27: glyph.plugins.extension.v1.SystemInstructionsInvocation
 	(*ModelContextInvocation)(nil),             // 28: glyph.plugins.extension.v1.ModelContextInvocation
-	(*LifecycleAction)(nil),                    // 29: glyph.plugins.extension.v1.LifecycleAction
-	(*SelectionHandlerAction)(nil),             // 30: glyph.plugins.extension.v1.SelectionHandlerAction
-	(*RetryHandlerAction)(nil),                 // 31: glyph.plugins.extension.v1.RetryHandlerAction
-	(*CompactionRequestAction)(nil),            // 32: glyph.plugins.extension.v1.CompactionRequestAction
-	(*CompactionResult)(nil),                   // 33: glyph.plugins.extension.v1.CompactionResult
-	(*CompactionResultAction)(nil),             // 34: glyph.plugins.extension.v1.CompactionResultAction
-	(*CompactionObserverAction)(nil),           // 35: glyph.plugins.extension.v1.CompactionObserverAction
-	(*CompactionPolicyResult)(nil),             // 36: glyph.plugins.extension.v1.CompactionPolicyResult
-	(*ProviderHeadersAction)(nil),              // 37: glyph.plugins.extension.v1.ProviderHeadersAction
-	(*ProviderBodyAction)(nil),                 // 38: glyph.plugins.extension.v1.ProviderBodyAction
-	(*ProviderResponseAction)(nil),             // 39: glyph.plugins.extension.v1.ProviderResponseAction
-	(*SystemInstructionsAction)(nil),           // 40: glyph.plugins.extension.v1.SystemInstructionsAction
-	(*ModelContextAction)(nil),                 // 41: glyph.plugins.extension.v1.ModelContextAction
-	(*BranchSummaryResult)(nil),                // 42: glyph.plugins.extension.v1.BranchSummaryResult
-	(*CommittedBranchSummary)(nil),             // 43: glyph.plugins.extension.v1.CommittedBranchSummary
-	(*ModelSelection)(nil),                     // 44: glyph.plugins.extension.v1.ModelSelection
-	(*SessionTreeEntry)(nil),                   // 45: glyph.plugins.extension.v1.SessionTreeEntry
+	(*UserInputInvocation)(nil),                // 29: glyph.plugins.extension.v1.UserInputInvocation
+	(*LifecycleAction)(nil),                    // 30: glyph.plugins.extension.v1.LifecycleAction
+	(*SelectionHandlerAction)(nil),             // 31: glyph.plugins.extension.v1.SelectionHandlerAction
+	(*RetryHandlerAction)(nil),                 // 32: glyph.plugins.extension.v1.RetryHandlerAction
+	(*CompactionRequestAction)(nil),            // 33: glyph.plugins.extension.v1.CompactionRequestAction
+	(*CompactionResult)(nil),                   // 34: glyph.plugins.extension.v1.CompactionResult
+	(*CompactionResultAction)(nil),             // 35: glyph.plugins.extension.v1.CompactionResultAction
+	(*CompactionObserverAction)(nil),           // 36: glyph.plugins.extension.v1.CompactionObserverAction
+	(*CompactionPolicyResult)(nil),             // 37: glyph.plugins.extension.v1.CompactionPolicyResult
+	(*ProviderHeadersAction)(nil),              // 38: glyph.plugins.extension.v1.ProviderHeadersAction
+	(*ProviderBodyAction)(nil),                 // 39: glyph.plugins.extension.v1.ProviderBodyAction
+	(*ProviderResponseAction)(nil),             // 40: glyph.plugins.extension.v1.ProviderResponseAction
+	(*SystemInstructionsAction)(nil),           // 41: glyph.plugins.extension.v1.SystemInstructionsAction
+	(*ModelContextAction)(nil),                 // 42: glyph.plugins.extension.v1.ModelContextAction
+	(*UserInputAction)(nil),                    // 43: glyph.plugins.extension.v1.UserInputAction
+	(*BranchSummaryResult)(nil),                // 44: glyph.plugins.extension.v1.BranchSummaryResult
+	(*CommittedBranchSummary)(nil),             // 45: glyph.plugins.extension.v1.CommittedBranchSummary
+	(*ModelSelection)(nil),                     // 46: glyph.plugins.extension.v1.ModelSelection
+	(*SessionTreeEntry)(nil),                   // 47: glyph.plugins.extension.v1.SessionTreeEntry
 }
 var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	14, // 0: glyph.plugins.extension.v1.HandleRequest.context:type_name -> glyph.plugins.extension.v1.ExtensionContext
@@ -3940,53 +4038,55 @@ var file_api_plugins_extension_v1_session_tree_proto_depIdxs = []int32{
 	26, // 18: glyph.plugins.extension.v1.HandleRequest.provider_response:type_name -> glyph.plugins.extension.v1.ProviderResponseInvocation
 	27, // 19: glyph.plugins.extension.v1.HandleRequest.system_instructions:type_name -> glyph.plugins.extension.v1.SystemInstructionsInvocation
 	28, // 20: glyph.plugins.extension.v1.HandleRequest.model_context:type_name -> glyph.plugins.extension.v1.ModelContextInvocation
-	9,  // 21: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
-	10, // 22: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
-	11, // 23: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
-	5,  // 24: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
-	29, // 25: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
-	30, // 26: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	30, // 27: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
-	31, // 28: glyph.plugins.extension.v1.HandleResponse.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerAction
-	32, // 29: glyph.plugins.extension.v1.HandleResponse.compaction_request:type_name -> glyph.plugins.extension.v1.CompactionRequestAction
-	33, // 30: glyph.plugins.extension.v1.HandleResponse.compaction_generate:type_name -> glyph.plugins.extension.v1.CompactionResult
-	34, // 31: glyph.plugins.extension.v1.HandleResponse.compaction_result:type_name -> glyph.plugins.extension.v1.CompactionResultAction
-	35, // 32: glyph.plugins.extension.v1.HandleResponse.compaction_success:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
-	35, // 33: glyph.plugins.extension.v1.HandleResponse.compaction_failure:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
-	36, // 34: glyph.plugins.extension.v1.HandleResponse.compaction_policy:type_name -> glyph.plugins.extension.v1.CompactionPolicyResult
-	35, // 35: glyph.plugins.extension.v1.HandleResponse.completed_conversation:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
-	35, // 36: glyph.plugins.extension.v1.HandleResponse.compaction_outgoing_input:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
-	37, // 37: glyph.plugins.extension.v1.HandleResponse.provider_headers:type_name -> glyph.plugins.extension.v1.ProviderHeadersAction
-	38, // 38: glyph.plugins.extension.v1.HandleResponse.provider_body:type_name -> glyph.plugins.extension.v1.ProviderBodyAction
-	39, // 39: glyph.plugins.extension.v1.HandleResponse.provider_response:type_name -> glyph.plugins.extension.v1.ProviderResponseAction
-	40, // 40: glyph.plugins.extension.v1.HandleResponse.system_instructions:type_name -> glyph.plugins.extension.v1.SystemInstructionsAction
-	41, // 41: glyph.plugins.extension.v1.HandleResponse.model_context:type_name -> glyph.plugins.extension.v1.ModelContextAction
-	12, // 42: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	13, // 43: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	12, // 44: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	13, // 45: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	42, // 46: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	12, // 47: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	13, // 48: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	12, // 49: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	13, // 50: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
-	42, // 51: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	42, // 52: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	43, // 53: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
-	0,  // 54: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
-	12, // 55: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
-	1,  // 56: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	42, // 57: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	1,  // 58: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
-	42, // 59: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
-	2,  // 60: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
-	44, // 61: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
-	45, // 62: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
-	63, // [63:63] is the sub-list for method output_type
-	63, // [63:63] is the sub-list for method input_type
-	63, // [63:63] is the sub-list for extension type_name
-	63, // [63:63] is the sub-list for extension extendee
-	0,  // [0:63] is the sub-list for field type_name
+	29, // 21: glyph.plugins.extension.v1.HandleRequest.user_input:type_name -> glyph.plugins.extension.v1.UserInputInvocation
+	9,  // 22: glyph.plugins.extension.v1.HandleResponse.session_before_tree_request:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeRequestAction
+	10, // 23: glyph.plugins.extension.v1.HandleResponse.session_before_tree_result:type_name -> glyph.plugins.extension.v1.SessionBeforeTreeResultAction
+	11, // 24: glyph.plugins.extension.v1.HandleResponse.session_tree:type_name -> glyph.plugins.extension.v1.SessionTreeAction
+	5,  // 25: glyph.plugins.extension.v1.HandleResponse.error:type_name -> glyph.plugins.extension.v1.HandlerError
+	30, // 26: glyph.plugins.extension.v1.HandleResponse.lifecycle:type_name -> glyph.plugins.extension.v1.LifecycleAction
+	31, // 27: glyph.plugins.extension.v1.HandleResponse.model_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	31, // 28: glyph.plugins.extension.v1.HandleResponse.reasoning_selection:type_name -> glyph.plugins.extension.v1.SelectionHandlerAction
+	32, // 29: glyph.plugins.extension.v1.HandleResponse.retry:type_name -> glyph.plugins.extension.v1.RetryHandlerAction
+	33, // 30: glyph.plugins.extension.v1.HandleResponse.compaction_request:type_name -> glyph.plugins.extension.v1.CompactionRequestAction
+	34, // 31: glyph.plugins.extension.v1.HandleResponse.compaction_generate:type_name -> glyph.plugins.extension.v1.CompactionResult
+	35, // 32: glyph.plugins.extension.v1.HandleResponse.compaction_result:type_name -> glyph.plugins.extension.v1.CompactionResultAction
+	36, // 33: glyph.plugins.extension.v1.HandleResponse.compaction_success:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
+	36, // 34: glyph.plugins.extension.v1.HandleResponse.compaction_failure:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
+	37, // 35: glyph.plugins.extension.v1.HandleResponse.compaction_policy:type_name -> glyph.plugins.extension.v1.CompactionPolicyResult
+	36, // 36: glyph.plugins.extension.v1.HandleResponse.completed_conversation:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
+	36, // 37: glyph.plugins.extension.v1.HandleResponse.compaction_outgoing_input:type_name -> glyph.plugins.extension.v1.CompactionObserverAction
+	38, // 38: glyph.plugins.extension.v1.HandleResponse.provider_headers:type_name -> glyph.plugins.extension.v1.ProviderHeadersAction
+	39, // 39: glyph.plugins.extension.v1.HandleResponse.provider_body:type_name -> glyph.plugins.extension.v1.ProviderBodyAction
+	40, // 40: glyph.plugins.extension.v1.HandleResponse.provider_response:type_name -> glyph.plugins.extension.v1.ProviderResponseAction
+	41, // 41: glyph.plugins.extension.v1.HandleResponse.system_instructions:type_name -> glyph.plugins.extension.v1.SystemInstructionsAction
+	42, // 42: glyph.plugins.extension.v1.HandleResponse.model_context:type_name -> glyph.plugins.extension.v1.ModelContextAction
+	43, // 43: glyph.plugins.extension.v1.HandleResponse.user_input:type_name -> glyph.plugins.extension.v1.UserInputAction
+	12, // 44: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 45: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	12, // 46: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 47: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	44, // 48: glyph.plugins.extension.v1.SessionBeforeTreeRequestInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	12, // 49: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 50: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	12, // 51: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	13, // 52: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_preparation:type_name -> glyph.plugins.extension.v1.SessionTreePreparation
+	44, // 53: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.original_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	44, // 54: glyph.plugins.extension.v1.SessionBeforeTreeResultInvocation.current_result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	45, // 55: glyph.plugins.extension.v1.SessionTreeInvocation.created_summary:type_name -> glyph.plugins.extension.v1.CommittedBranchSummary
+	0,  // 56: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request_action:type_name -> glyph.plugins.extension.v1.RequestAction
+	12, // 57: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.request:type_name -> glyph.plugins.extension.v1.SessionTreeNavigationRequest
+	1,  // 58: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	44, // 59: glyph.plugins.extension.v1.SessionBeforeTreeRequestAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	1,  // 60: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result_action:type_name -> glyph.plugins.extension.v1.ResultAction
+	44, // 61: glyph.plugins.extension.v1.SessionBeforeTreeResultAction.result:type_name -> glyph.plugins.extension.v1.BranchSummaryResult
+	2,  // 62: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_mode:type_name -> glyph.plugins.extension.v1.SummaryMode
+	46, // 63: glyph.plugins.extension.v1.SessionTreeNavigationRequest.summary_model:type_name -> glyph.plugins.extension.v1.ModelSelection
+	47, // 64: glyph.plugins.extension.v1.SessionTreePreparation.abandoned_entries:type_name -> glyph.plugins.extension.v1.SessionTreeEntry
+	65, // [65:65] is the sub-list for method output_type
+	65, // [65:65] is the sub-list for method input_type
+	65, // [65:65] is the sub-list for extension type_name
+	65, // [65:65] is the sub-list for extension extendee
+	0,  // [0:65] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_tree_proto_init() }
@@ -4022,6 +4122,7 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*handleRequest_ProviderResponse)(nil),
 		(*handleRequest_SystemInstructions)(nil),
 		(*handleRequest_ModelContext)(nil),
+		(*handleRequest_UserInput)(nil),
 	}
 	file_api_plugins_extension_v1_session_tree_proto_msgTypes[1].OneofWrappers = []any{
 		(*handleResponse_SessionBeforeTreeRequest)(nil),
@@ -4045,6 +4146,7 @@ func file_api_plugins_extension_v1_session_tree_proto_init() {
 		(*handleResponse_ProviderResponse)(nil),
 		(*handleResponse_SystemInstructions)(nil),
 		(*handleResponse_ModelContext)(nil),
+		(*handleResponse_UserInput)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

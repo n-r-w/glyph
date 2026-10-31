@@ -58,7 +58,11 @@ func TestHostUICanceledTransport(t *testing.T) {
 	}
 	host := <-hosts
 	submit := new(uipb.UIRequest)
-	submit.SetSubmit(uipb.SubmitCommand_builder{Text: new("conversation")}.Build())
+	submit.SetSubmit(
+		uipb.SubmitCommand_builder{
+			Content: []*uipb.UserContent{uipb.UserContent_builder{Text: new("conversation"), Image: nil}.Build()},
+		}.Build(),
+	)
 	original, err := host.Start(t.Context(), "host-ui-canceled", submit)
 	require.NoError(t, err)
 	request, err := stream.Recv()

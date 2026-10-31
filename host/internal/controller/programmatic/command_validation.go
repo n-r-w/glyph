@@ -1,7 +1,10 @@
 package programmatic
 
 import (
+	"slices"
 	"strings"
+
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
 // Valid reports whether the command payload matches its discriminator.
@@ -18,13 +21,13 @@ func (command Command) Valid() bool {
 	case CommandUserRequest:
 		return !command.invalidUserRequest()
 	case CommandCancel, CommandGetRunState, CommandGetMessages, CommandGetModels:
-		return command.UserText.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
+		return command.UserMessage.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
 			command.RetryEnabled.IsNone() && command.CompactionInstructions.IsNone()
 	case CommandSetRetryEnabled:
-		return command.RetryEnabled.IsSome() && command.UserText.IsNone() && !command.hasModelArguments() &&
+		return command.RetryEnabled.IsSome() && command.UserMessage.IsNone() && !command.hasModelArguments() &&
 			!command.hasSessionArguments() && command.CompactionInstructions.IsNone()
 	case CommandCompact:
-		return command.UserText.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
+		return command.UserMessage.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
 			command.RetryEnabled.IsNone()
 	case CommandSelectModel:
 		return !command.invalidModelSelection()
@@ -44,7 +47,7 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 	switch command.Kind {
 	case CommandCreateSession, CommandListSessions, CommandGetSessionInfo, CommandGetSessionEntries,
 		CommandGetSessionStats, CommandGetSessionTree:
-		return command.UserText.IsSome() || command.hasModelArguments() || command.hasSessionArguments(), true
+		return command.UserMessage.IsSome() || command.hasModelArguments() || command.hasSessionArguments(), true
 	case CommandResumeSession:
 		return command.invalidResumeSession(), true
 	case CommandSetSessionName:
@@ -54,7 +57,7 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 	case CommandForkSession:
 		return command.invalidForkSession(), true
 	case CommandCloneSession:
-		return command.UserText.IsSome() || command.hasModelArguments() || command.hasSessionArguments(), true
+		return command.UserMessage.IsSome() || command.hasModelArguments() || command.hasSessionArguments(), true
 	case CommandSetEntryLabel:
 		return command.invalidSetEntryLabel(), true
 	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
@@ -68,14 +71,14 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 // invalidResumeSession reports a malformed session-resume payload.
 func (command Command) invalidResumeSession() bool {
 	id, present := command.SessionID.Get()
-	return !present || id == "" || command.SessionName.IsSome() || command.UserText.IsSome() ||
+	return !present || id == "" || command.SessionName.IsSome() || command.UserMessage.IsSome() ||
 		command.hasModelArguments()
 }
 
 // invalidSessionName reports a malformed session-name payload.
 func (command Command) invalidSessionName() bool {
 	name, present := command.SessionName.Get()
-	return !present || strings.TrimSpace(name) == "" || command.SessionID.IsSome() || command.UserText.IsSome() ||
+	return !present || strings.TrimSpace(name) == "" || command.SessionID.IsSome() || command.UserMessage.IsSome() ||
 		command.hasModelArguments() || command.hasTreeArguments()
 }
 
@@ -90,14 +93,14 @@ func (command Command) invalidTreeNavigation() bool {
 	customFocus := strings.TrimSpace(command.CustomFocus.OrEmpty())
 	invalidFocus := command.SummaryMode == SummaryModeSummarizeWithCustomPrompt && customFocus == "" ||
 		command.SummaryMode != SummaryModeSummarizeWithCustomPrompt && customFocus != ""
-	return !present || targetID == "" || invalidFocus || command.UserText.IsSome() ||
+	return !present || targetID == "" || invalidFocus || command.UserMessage.IsSome() ||
 		command.hasModelArguments() || command.SessionID.IsSome() || command.SessionName.IsSome()
 }
 
 // invalidForkSession reports a malformed fork command.
 func (command Command) invalidForkSession() bool {
 	targetID, present := command.TargetEntryID.Get()
-	return !present || targetID == "" || command.EntryLabel.IsSome() || command.UserText.IsSome() ||
+	return !present || targetID == "" || command.EntryLabel.IsSome() || command.UserMessage.IsSome() ||
 		command.hasModelArguments() || command.SessionID.IsSome() || command.SessionName.IsSome() ||
 		command.CustomFocus.IsSome() || command.SummaryMode != SummaryModeNoSummary
 }
@@ -105,30 +108,34 @@ func (command Command) invalidForkSession() bool {
 // invalidSetEntryLabel reports a malformed label mutation.
 func (command Command) invalidSetEntryLabel() bool {
 	targetID, targetPresent := command.TargetEntryID.Get()
-	return !targetPresent || targetID == "" || command.EntryLabel.IsNone() || command.UserText.IsSome() ||
+	return !targetPresent || targetID == "" || command.EntryLabel.IsNone() || command.UserMessage.IsSome() ||
 		command.hasModelArguments() || command.SessionID.IsSome() || command.SessionName.IsSome() ||
 		command.CustomFocus.IsSome() || command.SummaryMode != SummaryModeNoSummary
 }
 
-// invalidUserRequest reports a malformed user request payload.
+// invalidUserRequest reports a malformed user request payload, including a text block without visible text.
 func (command Command) invalidUserRequest() bool {
-	userText, present := command.UserText.Get()
-	return !present || strings.TrimSpace(userText) == "" || command.hasModelArguments() ||
-		command.hasSessionArguments()
+	message, present := command.UserMessage.Get()
+	if !present || command.hasModelArguments() || command.hasSessionArguments() {
+		return true
+	}
+	return slices.ContainsFunc(message.Content, func(content model.InputContent) bool {
+		return content.Kind == model.InputContentText && strings.TrimSpace(content.Text.OrEmpty()) == ""
+	})
 }
 
 // invalidModelSelection reports a malformed model selection payload.
 func (command Command) invalidModelSelection() bool {
 	providerID, providerPresent := command.ProviderID.Get()
 	modelID, modelPresent := command.ModelID.Get()
-	return command.UserText.IsSome() || !providerPresent || providerID == "" || !modelPresent || modelID == "" ||
+	return command.UserMessage.IsSome() || !providerPresent || providerID == "" || !modelPresent || modelID == "" ||
 		command.ReasoningChoice.IsSome() || command.hasSessionArguments()
 }
 
 // invalidReasoningSelection reports a malformed reasoning selection payload.
 func (command Command) invalidReasoningSelection() bool {
 	reasoningChoice, reasoningPresent := command.ReasoningChoice.Get()
-	return command.UserText.IsSome() || command.ProviderID.IsSome() || command.ModelID.IsSome() ||
+	return command.UserMessage.IsSome() || command.ProviderID.IsSome() || command.ModelID.IsSome() ||
 		!reasoningPresent || !reasoningChoice.Valid() || command.hasSessionArguments()
 }
 

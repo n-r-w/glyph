@@ -24,7 +24,7 @@ import (
 // runCommand creates a valid user request for operation-ordering scenarios.
 func runCommand(id string) controller.Command {
 	return controller.Command{
-		OperationID: id, Kind: controller.CommandUserRequest, UserText: mo.Some("request"),
+		OperationID: id, Kind: controller.CommandUserRequest, UserMessage: mo.Some(model.TextMessage("request")),
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
@@ -73,8 +73,8 @@ func TestAcceptedOperationStartsExplicitlyAndBackpressures(t *testing.T) {
 		writerDone := make(chan error, 1)
 		go func() { writerDone <- writer.Run(t.Context()) }()
 		coordinator.EXPECT().PrepareRun().Return("run-1", nil)
-		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-1", "request").DoAndReturn(
-			func(ctx context.Context, _, _ string) (agent.RunOutcome, error) {
+		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-1", model.TextMessage("request")).DoAndReturn(
+			func(ctx context.Context, _ string, _ model.Message) (agent.RunOutcome, error) {
 				close(started)
 				if err := output.DeliverAgent(ctx, startEvent("run-1")); err != nil {
 					return agent.RunOutcomeFailed, err
@@ -160,8 +160,8 @@ func TestSequentialRunsKeepPreparedRunIDs(t *testing.T) {
 	for _, id := range []string{"first", "second"} {
 		coordinator.EXPECT().PrepareRun().Return(id, nil)
 		coordinator.EXPECT().
-			RunPrepared(gomock.Any(), id, "request").
-			DoAndReturn(func(ctx context.Context, runID, _ string) (agent.RunOutcome, error) {
+			RunPrepared(gomock.Any(), id, model.TextMessage("request")).
+			DoAndReturn(func(ctx context.Context, runID string, _ model.Message) (agent.RunOutcome, error) {
 				return agent.RunOutcomeCompleted, output.DeliverSettled(ctx, runID)
 			})
 		// Act through preparation, execution, settlement, and cleanup.

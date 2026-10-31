@@ -21,7 +21,7 @@ func TestInvalidWireReplacementStopsLaterHandler(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	runtime := NewMockRuntime(ctrl)
 	contexts := NewMockContextIssuer(ctrl)
-	service := New(runtime, contexts)
+	service := New(runtime, contexts, nil)
 	service.CommitMiddlewareHandlers(
 		[]startup.AcceptedRegistration{{ID: "wire", Path: "", Tools: nil, Handlers: []startup.AcceptedHandler{
 			{

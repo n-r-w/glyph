@@ -78,7 +78,11 @@ func runAbortRetryUIFixture(ctx context.Context, host *uisdk.Host) error {
 		return err
 	}
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("first request")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("first request"), Image: nil}.Build()},
+		}.Build(),
+	)
 	target, err := host.Start(ctx, abortTargetID, request)
 	if err != nil {
 		return err
@@ -136,7 +140,11 @@ func runAbortRetryUIFixture(ctx context.Context, host *uisdk.Host) error {
 	}
 
 	// Assert that public idle admits another ordinary request without reconnecting.
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new(abortRecoveryText)}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new(abortRecoveryText), Image: nil}.Build()},
+		}.Build(),
+	)
 	recovery, err := host.Start(ctx, abortRecoveryID, request)
 	if err != nil {
 		return err

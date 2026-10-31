@@ -94,7 +94,7 @@ func TestCoreRetainsConcurrentProviderTimeoutIdentityWithAttemptsRemaining(t *te
 	core := agentrun.New("", execution, tools, events, historyStore)
 
 	// Act through the complete Agent Core run boundary.
-	result, err := core.Run(ctx, runcontrol.Request{RunID: "typed-timeout", UserText: "request"})
+	result, err := core.Run(ctx, runcontrol.Request{RunID: "typed-timeout", Message: model.TextMessage("request")})
 
 	// Assert Core reports a failed INTERNAL logical result and retains every acquired cause.
 	var logical *modelexecution.LogicalFailureError
@@ -209,7 +209,10 @@ func TestCoreDoesNotRestoreDiscardedAttemptAfterRetryProgressFailure(t *testing.
 	core := agentrun.New("", execution, tools, events, historyStore)
 
 	// Act through Agent Core and the actual result returned by backoff.
-	result, err := core.Run(t.Context(), runcontrol.Request{RunID: "progress-failure", UserText: "request"})
+	result, err := core.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "progress-failure", Message: model.TextMessage("request")},
+	)
 
 	// Assert the typed failure keeps both causes while discarded terminal content never returns after reset.
 	var logical *modelexecution.LogicalFailureError

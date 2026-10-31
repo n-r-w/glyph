@@ -61,7 +61,10 @@ func TestServiceRunLogicalFailurePublishesCompleteError(t *testing.T) {
 	)
 
 	// Act through the complete Core failure path.
-	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-complete-logical-error", UserText: "hi"})
+	_, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "run-complete-logical-error", Message: model.TextMessage("hi")},
+	)
 
 	// Assert stored and delivered public errors include provider detail and all logical causes.
 	require.ErrorIs(t, err, attemptErr)
@@ -100,7 +103,7 @@ func TestServiceRunMixedCancellationPreservesIndependentFailure(t *testing.T) {
 	)
 
 	// Act through the logical Core run.
-	_, err := service.Run(ctx, runcontrol.Request{RunID: "run-mixed-cancellation", UserText: "hi"})
+	_, err := service.Run(ctx, runcontrol.Request{RunID: "run-mixed-cancellation", Message: model.TextMessage("hi")})
 
 	// Assert the independent cause produces a failed response rather than a pure cancellation outcome.
 	require.ErrorIs(t, err, independent)

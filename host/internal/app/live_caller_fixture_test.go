@@ -28,6 +28,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
@@ -86,7 +87,9 @@ func startLiveCallerFixture(t *testing.T, paths persistence.Paths, directory str
 	runtimes.Activate(ctx)
 	dispatcher := events.NewDispatcher(delivery, observers)
 	core := agentrun.New(codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active)
-	coordinator := runcontrol.NewCoordinator(core, dispatcher, sessionServices.gate)
+	coordinator := runcontrol.NewCoordinator(
+		core, middleware.New(runtimes, contexts, providerCatalog), dispatcher, sessionServices.gate,
+	)
 	session := hostprogrammatic.New(
 		coordinator, providerCatalog, core, sessionServices.active, sessionServices.tree, sessionServices.gate,
 		delivery, selection, modelExecution,

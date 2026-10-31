@@ -144,3 +144,25 @@ message ReplayableModelContent {
   // The invocation-local reference to private replay owned by reasoning content; empty when absent.
   string replay_reference = 2;
 }
+
+// UserInputInvocation supplies the immutable original and composed current user input of one accepted run.
+message UserInputInvocation {
+  // The immutable user input submitted by the client.
+  SessionTreeUserMessage original = 1;
+  // The user input produced by preceding handlers.
+  SessionTreeUserMessage current = 2;
+}
+
+// UserInputAction preserves the current input, replaces it, or fully handles it.
+message UserInputAction {
+  // The handler must select one valid action.
+  oneof action {
+    // True preserves current input; false is invalid.
+    bool preserve = 1;
+    // The complete replacement input with at least one block; each text block is nonempty
+    // and each image has a media type and data.
+    SessionTreeUserMessage replace = 2;
+    // True completes the request without an agent run and skips later input handlers; false is invalid.
+    bool handle = 3;
+  }
+}

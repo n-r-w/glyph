@@ -16,6 +16,31 @@ func IterateCurrentErrors(err error) iter.Seq[error] {
 	}
 }
 
+// CurrentCode returns the machine-readable category of the first current error node that has one.
+func CurrentCode(err error) (string, bool) {
+	for node := range IterateCurrentErrors(err) {
+		if code, classified := nodeCode(node); classified {
+			return code, true
+		}
+	}
+	return "", false
+}
+
+// nodeCode returns the machine-readable category that one error node itself declares.
+func nodeCode(node error) (string, bool) {
+	//nolint:errorlint // The caller already selected the node, so wrapped categories must not match here.
+	switch classified := node.(type) {
+	case CodedError:
+		return classified.Code(), true
+	case interface{ FailureCode() string }:
+		return classified.FailureCode(), true
+	case interface{ CompactionFailureCode() string }:
+		return classified.CompactionFailureCode(), true
+	default:
+		return "", false
+	}
+}
+
 // visitCurrentErrors traverses current branches for the iterator.
 func visitCurrentErrors(err error, yield func(error) bool) bool {
 	if err == nil {

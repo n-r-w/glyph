@@ -261,10 +261,12 @@ func checkCancellation(err error) error {
 	return nil
 }
 
-// submitRequest creates one public Submit Host request.
+// submitRequest creates one public Submit Host request with one text block.
 func submitRequest(text string) *uiv1.UIRequest {
+	content := new(uiv1.UserContent)
+	content.SetText(text)
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new(text)}.Build())
+	request.SetSubmit(uiv1.SubmitCommand_builder{Content: []*uiv1.UserContent{content}}.Build())
 	return request
 }
 

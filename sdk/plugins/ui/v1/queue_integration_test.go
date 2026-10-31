@@ -23,7 +23,11 @@ func TestHostOutboundQueueOverflowReportsConnectionFailure(t *testing.T) {
 	failure := make(chan error, 1)
 	host := newHost(t.Context(), writer, tracker, func(err error) { failure <- err }, func() {})
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("work")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("work"), Image: nil}.Build()},
+		}.Build(),
+	)
 	var overflowErr error
 
 	// Act by filling the exact production queue without starting its transport loop.

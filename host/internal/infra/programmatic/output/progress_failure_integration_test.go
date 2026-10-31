@@ -79,17 +79,19 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		)
 		coordinator := host.NewMockCoordinator(mockController)
 		coordinator.EXPECT().PrepareRun().Return("run-progress-failure", nil)
-		coordinator.EXPECT().RunPrepared(gomock.Any(), "run-progress-failure", "request").DoAndReturn(
-			func(ctx context.Context, runID, userText string) (agent.RunOutcome, error) {
-				result, err := agentCore.Run(ctx, runcontrol.Request{RunID: runID, UserText: userText})
-				return result.Outcome, err
-			},
-		)
+		coordinator.EXPECT().
+			RunPrepared(gomock.Any(), "run-progress-failure", model.TextMessage("request")).
+			DoAndReturn(
+				func(ctx context.Context, runID string, message model.Message) (agent.RunOutcome, error) {
+					result, err := agentCore.Run(ctx, runcontrol.Request{RunID: runID, Message: message})
+					return result.Outcome, err
+				},
+			)
 		service := host.New(coordinator, nil, agentCore, nil, nil, nil, delivery, nil, nil)
 		command := controller.Command{
 			OperationID:            "progress-failure",
 			Kind:                   controller.CommandUserRequest,
-			UserText:               mo.None[string](),
+			UserMessage:            mo.None[model.Message](),
 			ProviderID:             mo.None[model.ProviderID](),
 			ModelID:                mo.None[model.ID](),
 			ReasoningChoice:        mo.None[model.ReasoningChoice](),
@@ -102,7 +104,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 			RetryEnabled:           mo.None[bool](),
 			CompactionInstructions: mo.None[string](),
 		}
-		command.UserText = mo.Some("request")
+		command.UserMessage = mo.Some(model.TextMessage("request"))
 		prepared, err := service.Prepare(t.Context(), command)
 		require.NoError(t, err)
 

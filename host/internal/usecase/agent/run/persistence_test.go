@@ -81,7 +81,10 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by starting a run whose first durable user entry fails.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "persist-user", UserText: "hello"})
+	result, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "persist-user", Message: model.TextMessage("hello")},
+	)
 
 	// Assert the first-append failure still reports its actual settlement transition and complete cause.
 	require.True(t, result.SettlementRequired)
@@ -172,7 +175,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 			// Act by running until persistence blocks the ToolResult boundary.
 			result, err := service.Run(
 				t.Context(),
-				runcontrol.Request{RunID: "combined-tool-failure", UserText: "write"},
+				runcontrol.Request{RunID: "combined-tool-failure", Message: model.TextMessage("write")},
 			)
 
 			// Assert every independent cause reaches the run and no dependent work follows persistence failure.
@@ -251,7 +254,10 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by running through one completed tool invocation whose result cannot become durable.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "persist-tool", UserText: "write"})
+	result, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "persist-tool", Message: model.TextMessage("write")},
+	)
 	require.True(t, result.SettlementRequired)
 
 	// Assert the external effect remains complete and the persistence cause reaches the terminal result.
@@ -320,7 +326,10 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by completing a provider response that cannot become durable.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "persist-model", UserText: "hello"})
+	result, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "persist-model", Message: model.TextMessage("hello")},
+	)
 	require.True(t, result.SettlementRequired)
 
 	// Assert no terminal model event escapes and the persistence cause reaches the terminal result.

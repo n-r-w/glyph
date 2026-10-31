@@ -77,7 +77,7 @@ func TestCommittedCompactionTerminalCancellation(t *testing.T) {
 				command: controller.Command{
 					OperationID:            compactionTerminalOperationID,
 					Kind:                   controller.CommandCompact,
-					UserText:               mo.None[string](),
+					UserMessage:            mo.None[model.Message](),
 					ProviderID:             mo.None[model.ProviderID](),
 					ModelID:                mo.None[model.ID](),
 					ReasoningChoice:        mo.None[model.ReasoningChoice](),

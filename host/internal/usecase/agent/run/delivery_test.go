@@ -84,12 +84,12 @@ func TestServiceRunEventDeliveryFailure(t *testing.T) {
 		events,
 	)
 
-	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-delivery", UserText: "hi"})
+	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-delivery", Message: model.TextMessage("hi")})
 
 	require.ErrorIs(t, err, deliveryErr)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 	require.Empty(t, service.History())
-	_, err = service.Run(t.Context(), runcontrol.Request{RunID: "blocked", UserText: "no"})
+	_, err = service.Run(t.Context(), runcontrol.Request{RunID: "blocked", Message: model.TextMessage("no")})
 	require.ErrorIs(t, err, ErrRunActive)
 }
 
@@ -145,7 +145,7 @@ func TestServiceRunLengthWithCalls(t *testing.T) {
 		events,
 	)
 
-	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-length", UserText: "go"})
+	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-length", Message: model.TextMessage("go")})
 
 	require.NoError(t, err)
 	require.Len(t, service.History(), 4)

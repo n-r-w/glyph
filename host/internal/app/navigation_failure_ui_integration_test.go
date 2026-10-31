@@ -56,7 +56,11 @@ func runNavigationFailureUIFixture(ctx context.Context, host *uisdk.Host) error 
 		return err
 	}
 	submit := new(uiv1.UIRequest)
-	submit.SetSubmit(uiv1.SubmitCommand_builder{Text: new("root input")}.Build())
+	submit.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("root input"), Image: nil}.Build()},
+		}.Build(),
+	)
 	started, err := host.Start(ctx, "history", submit)
 	if err != nil {
 		return err

@@ -80,5 +80,6 @@ func newCompactionParticipantRequest(
 		ProviderResponse:         nil,
 		SystemInstructions:       nil,
 		ModelContext:             nil,
+		UserInput:                nil,
 	}.Build()
 }

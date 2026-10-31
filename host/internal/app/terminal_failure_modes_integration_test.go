@@ -45,7 +45,11 @@ func runTerminalFailureUIFixture(ctx context.Context, host *uisdk.Host) error {
 		return err
 	}
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("hello")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("hello"), Image: nil}.Build()},
+		}.Build(),
+	)
 	operation, err := host.Start(ctx, "terminal-submit", request)
 	if err != nil {
 		return err

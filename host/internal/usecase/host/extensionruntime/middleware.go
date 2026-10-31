@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 )
 
@@ -46,6 +47,20 @@ func (s *Service) HandleModelContext(
 		ctx, s, extensionID, handlerID, invocation.Context.RuntimeInstanceID,
 		func(runtime ExtensionRuntime) (middleware.Transformed[[]agent.HistoryEntry], error) {
 			return runtime.HandleModelContext(ctx, handlerID, invocation)
+		},
+	)
+}
+
+// HandleUserInput invokes one user-input handler on the exact generation bound by the owner.
+func (s *Service) HandleUserInput(
+	ctx context.Context,
+	extensionID, handlerID string,
+	invocation middleware.Transformation[model.Message],
+) (middleware.Transformed[model.Message], error) {
+	return invokeMiddleware(
+		ctx, s, extensionID, handlerID, invocation.Context.RuntimeInstanceID,
+		func(runtime ExtensionRuntime) (middleware.Transformed[model.Message], error) {
+			return runtime.HandleUserInput(ctx, handlerID, invocation)
 		},
 	)
 }

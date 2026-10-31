@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 )
 
@@ -18,7 +19,7 @@ func TestPrepareRunReturnsDomainBusyError(t *testing.T) {
 	// Arrange an occupied gate with no execution dependencies.
 	gate := NewMockGate(gomock.NewController(t))
 	gate.EXPECT().TryAcquire().Return(nil, false)
-	coordinator := NewCoordinator(nil, nil, gate)
+	coordinator := NewCoordinator(nil, nil, nil, gate)
 	// Act by preparing while another owner holds the gate.
 	_, err := coordinator.PrepareRun()
 	// Assert rejection occurs before execution.
@@ -34,13 +35,13 @@ func TestCancelPreparedReleasesReservationWithoutStartingAgentCore(t *testing.T)
 	executor := NewMockExecutor(controller)
 	released := 0
 	gate.EXPECT().TryAcquire().Return(func() { released++ }, true)
-	coordinator := NewCoordinator(executor, nil, gate)
+	coordinator := NewCoordinator(executor, nil, nil, gate)
 	runID, err := coordinator.PrepareRun()
 	require.NoError(t, err)
 	// Act by canceling twice and attempting to execute the canceled reservation.
 	coordinator.CancelPrepared(runID)
 	coordinator.CancelPrepared(runID)
-	_, err = coordinator.RunPrepared(t.Context(), runID, "request")
+	_, err = coordinator.RunPrepared(t.Context(), runID, model.TextMessage("request"))
 	// Assert no execution starts and release occurs exactly once.
 	require.Equal(t, 1, released)
 	require.ErrorContains(t, err, "run is not prepared")
@@ -54,7 +55,7 @@ func TestPrepareRunReleasesReservationAfterIdentifierFailure(t *testing.T) {
 	released := 0
 	gate.EXPECT().TryAcquire().Return(func() { released++ }, true)
 	cause := errors.New("randomness source failed")
-	coordinator := newCoordinator(nil, nil, func() (string, error) { return "", cause }, gate)
+	coordinator := newCoordinator(nil, nil, nil, func() (string, error) { return "", cause }, gate)
 	// Act by preparing a run without an identifier.
 	_, err := coordinator.PrepareRun()
 	// Assert the full cause survives and admission releases once.

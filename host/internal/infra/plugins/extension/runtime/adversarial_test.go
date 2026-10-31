@@ -317,6 +317,7 @@ func (s *adversarialServer) Open(stream extensionpb.ExtensionService_OpenServer)
 			ProviderResponse:   nil,
 			SystemInstructions: nil,
 			ModelContext:       nil,
+			UserInput:          nil,
 		}.Build())
 		event := new(extensionpb.ExtensionEvent)
 		event.SetCompleted(completedEvent)

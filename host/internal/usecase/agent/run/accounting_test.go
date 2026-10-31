@@ -96,7 +96,10 @@ func TestRunSummaryAfterHistoryReplacement(t *testing.T) {
 			service := New(testInstructions, runtime, tools, events, store)
 
 			// Act by replacing prepared history during provider work and completing the run.
-			result, err := service.Run(t.Context(), runcontrol.Request{RunID: "replaced", UserText: "request"})
+			result, err := service.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "replaced", Message: model.TextMessage("request")},
+			)
 
 			// Assert append order and terminal causes survive replacement and explicit settlement.
 			require.Equal(t, owned, summary.AddedHistory)
@@ -172,7 +175,10 @@ func TestRunSummaryOwnsDetachedEntries(t *testing.T) {
 		AnyTimes()
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		if event.Type == agent.EventMessageEnd {
-			rejected, err := service.Run(t.Context(), runcontrol.Request{RunID: "rejected", UserText: "blocked"})
+			rejected, err := service.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "rejected", Message: model.TextMessage("blocked")},
+			)
 			require.ErrorIs(t, err, ErrRunActive)
 			require.False(t, rejected.SettlementRequired)
 			require.Equal(t, StatusRunning, service.State().Status)
@@ -202,7 +208,7 @@ func TestRunSummaryOwnsDetachedEntries(t *testing.T) {
 
 	// Act through two runs with rejected admission during each run and settlement between them.
 	for _, runID := range []string{"first", "second"} {
-		_, err := service.Run(t.Context(), runcontrol.Request{RunID: runID, UserText: runID})
+		_, err := service.Run(t.Context(), runcontrol.Request{RunID: runID, Message: model.TextMessage(runID)})
 		require.NoError(t, err)
 		require.NoError(t, service.Settle(runID))
 	}

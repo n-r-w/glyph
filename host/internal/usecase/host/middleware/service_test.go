@@ -22,7 +22,7 @@ func TestWireComposition(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	runtime := NewMockRuntime(ctrl)
 	contexts := NewMockContextIssuer(ctrl)
-	service := New(runtime, contexts)
+	service := New(runtime, contexts, nil)
 	service.CommitMiddlewareHandlers(
 		[]startup.AcceptedRegistration{{ID: "wire", Path: "", Tools: nil, Handlers: []startup.AcceptedHandler{
 			{ID: "a", Kind: startup.RawHandlerKind(26)}, {ID: "b", Kind: startup.RawHandlerKind(26)},
@@ -64,7 +64,7 @@ func TestWireFailureStopsChain(t *testing.T) {
 			ctrl := gomock.NewController(t)
 			runtime := NewMockRuntime(ctrl)
 			contexts := NewMockContextIssuer(ctrl)
-			service := New(runtime, contexts)
+			service := New(runtime, contexts, nil)
 			service.CommitMiddlewareHandlers(
 				[]startup.AcceptedRegistration{{ID: "wire", Path: "", Tools: nil, Handlers: []startup.AcceptedHandler{
 					{ID: "a", Kind: startup.RawHandlerKind(28)}, {ID: "b", Kind: startup.RawHandlerKind(28)},

@@ -10,6 +10,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
 // TestSettledFailureOverridesEarlierOutcome verifies terminal delivery failure fails a completed or aborted run.
@@ -33,10 +34,10 @@ func TestSettledFailureOverridesEarlierOutcome(t *testing.T) {
 				Return(Result{Outcome: outcome, SettlementRequired: true}, nil)
 			executor.EXPECT().Settle(gomock.Any()).Return(nil)
 			delivery.EXPECT().DeliverSettled(gomock.Any(), gomock.Any()).Return(cause)
-			coordinator := NewCoordinator(executor, delivery, gate)
+			coordinator := NewCoordinator(executor, newPassThroughInput(controller), delivery, gate)
 
 			// Act through the actual completion owner.
-			actual, err := coordinator.Run(t.Context(), "request")
+			actual, err := coordinator.Run(t.Context(), model.TextMessage("request"))
 
 			// Assert failure overrides the earlier outcome after cleanup releases ownership.
 			require.Equal(t, agent.RunOutcomeFailed, actual)

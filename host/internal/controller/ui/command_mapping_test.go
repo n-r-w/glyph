@@ -49,23 +49,23 @@ func TestMapSessionCommands(t *testing.T) {
 			value := new(uiv1.UIRequest)
 			value.SetCreateSession(new(uiv1.CreateSessionCommand))
 			return value
-		}(), expected: newCommand(CommandCreateSession, mo.None[string]())},
+		}(), expected: newCommand(CommandCreateSession)},
 		{name: "list", response: func() *uiv1.UIRequest {
 			value := new(uiv1.UIRequest)
 			value.SetListSessions(new(uiv1.ListSessionsCommand))
 			return value
-		}(), expected: newCommand(CommandListSessions, mo.None[string]())},
+		}(), expected: newCommand(CommandListSessions)},
 		{name: "information", response: func() *uiv1.UIRequest {
 			value := new(uiv1.UIRequest)
 			value.SetGetSessionInfo(new(uiv1.GetSessionInfoCommand))
 			return value
-		}(), expected: newCommand(CommandGetSessionInfo, mo.None[string]())},
+		}(), expected: newCommand(CommandGetSessionInfo)},
 		{name: "resume", response: func() *uiv1.UIRequest {
 			value := new(uiv1.UIRequest)
 			value.SetResumeSession(uiv1.ResumeSessionCommand_builder{SessionId: new("stored")}.Build())
 			return value
 		}(), expected: func() Command {
-			value := newCommand(CommandResumeSession, mo.None[string]())
+			value := newCommand(CommandResumeSession)
 			value.SessionID = mo.Some("stored")
 			return value
 		}()},
@@ -74,7 +74,7 @@ func TestMapSessionCommands(t *testing.T) {
 			value.SetSetSessionName(uiv1.SetSessionNameCommand_builder{Name: new("named")}.Build())
 			return value
 		}(), expected: func() Command {
-			value := newCommand(CommandSetSessionName, mo.None[string]())
+			value := newCommand(CommandSetSessionName)
 			value.SessionName = mo.Some("named")
 			return value
 		}()},
@@ -103,9 +103,9 @@ func TestMapCommandRequiresSelectedScalarPresence(t *testing.T) {
 		responseIndex int
 		clear         func(*uiv1.OpenResponse)
 	}{
-		"submit text": {
+		"submit content": {
 			responseIndex: 0,
-			clear:         func(response *uiv1.OpenResponse) { response.GetRequest().GetSubmit().ClearText() },
+			clear:         func(response *uiv1.OpenResponse) { response.GetRequest().GetSubmit().SetContent(nil) },
 		},
 		"provider ID": {
 			responseIndex: 2,
@@ -138,17 +138,60 @@ func TestMapCommandRequiresSelectedScalarPresence(t *testing.T) {
 	}
 }
 
-// TestMapCommandPreservesPresentEmptySubmit verifies an explicit empty string remains active.
-func TestMapCommandPreservesPresentEmptySubmit(t *testing.T) {
+// TestMapCommandSubmitContent verifies ordered text and image blocks and the rejection of each malformed block.
+func TestMapCommandSubmitContent(t *testing.T) {
 	t.Parallel()
-	// Arrange response for mapCommand to verify an explicit empty string remains active.
+	text := func(value string) *uiv1.UserContent {
+		return uiv1.UserContent_builder{Text: new(value), Image: nil}.Build()
+	}
+	image := func(mediaType string, data []byte) *uiv1.UserContent {
+		return uiv1.UserContent_builder{
+			Text: nil, Image: uiv1.UserImage_builder{MediaType: new(mediaType), Data: data}.Build(),
+		}.Build()
+	}
+	tests := map[string]struct {
+		content []*uiv1.UserContent
+		err     string
+	}{
+		"text and image": {
+			content: []*uiv1.UserContent{text("look"), image("image/png", []byte{1, 2}), text("done")}, err: "",
+		},
+		"empty text": {
+			content: []*uiv1.UserContent{text("")},
+			err:     "receive UI command: submit: content 0: nonempty text is required",
+		},
+		"block without payload": {
+			content: []*uiv1.UserContent{new(uiv1.UserContent)},
+			err:     "receive UI command: submit: content 0: content payload is required",
+		},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one submit request with the case content.
+			response := operationResponse(uiv1.UIRequest_builder{
+				Submit: uiv1.SubmitCommand_builder{Content: test.content}.Build(),
+			}.Build())
 
-	response := runtimeCommandResponses("", "openrouter", "sonnet")[0]
-	// Act by invoking mapCommand to exercise an explicit empty string remains active.
-	command, err := mapCommand(response)
-	// Assert an explicit empty string remains active.
-	require.NoError(t, err)
-	assert.Equal(t, mo.Some(""), command.Text)
+			// Act by mapping the protobuf response into a controller command.
+			command, err := mapCommand(response)
+
+			// Assert the ordered message or the complete admission error.
+			if test.err != "" {
+				require.EqualError(t, err, test.err)
+				return
+			}
+			require.NoError(t, err)
+			message, present := command.Message.Get()
+			require.True(t, present)
+			require.Len(t, message.Content, 3)
+			assert.Equal(t, "look", message.Content[0].Text.OrEmpty())
+			assert.Equal(t, model.InputContentImage, message.Content[1].Kind)
+			assert.Equal(t, "image/png", message.Content[1].MediaType.OrEmpty())
+			assert.Equal(t, []byte{1, 2}, message.Content[1].Data.OrEmpty())
+			assert.Equal(t, "done", message.Content[2].Text.OrEmpty())
+		})
+	}
 }
 
 // TestMapCommandRejectsEmptySelectedModel verifies Protobuf validation stays at the runtime boundary.
@@ -186,7 +229,11 @@ func operationResponse(request *uiv1.UIRequest) *uiv1.OpenResponse {
 // runtimeCommandResponses creates retained UI operation request fixtures.
 func runtimeCommandResponses(text string, providerID string, modelID string) []*uiv1.OpenResponse {
 	requests := []*uiv1.UIRequest{
-		uiv1.UIRequest_builder{Submit: uiv1.SubmitCommand_builder{Text: new(text)}.Build()}.Build(),
+		uiv1.UIRequest_builder{
+			Submit: uiv1.SubmitCommand_builder{
+				Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new(text), Image: nil}.Build()},
+			}.Build(),
+		}.Build(),
 		uiv1.UIRequest_builder{
 			RetryAuthentication: uiv1.RetryAuthenticationCommand_builder{}.Build(),
 		}.Build(),

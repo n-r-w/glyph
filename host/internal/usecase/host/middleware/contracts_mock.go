@@ -15,6 +15,8 @@ import (
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
+	modelexecution "github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -72,6 +74,21 @@ func (mr *MockRuntimeMockRecorder) HandleSystemInstructions(arg0, arg1, arg2, ar
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSystemInstructions", reflect.TypeOf((*MockRuntime)(nil).HandleSystemInstructions), arg0, arg1, arg2, arg3)
 }
 
+// HandleUserInput mocks base method.
+func (m *MockRuntime) HandleUserInput(arg0 context.Context, arg1, arg2 string, arg3 Transformation[model.Message]) (Transformed[model.Message], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleUserInput", arg0, arg1, arg2, arg3)
+	ret0, _ := ret[0].(Transformed[model.Message])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleUserInput indicates an expected call of HandleUserInput.
+func (mr *MockRuntimeMockRecorder) HandleUserInput(arg0, arg1, arg2, arg3 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleUserInput", reflect.TypeOf((*MockRuntime)(nil).HandleUserInput), arg0, arg1, arg2, arg3)
+}
+
 // HandleWire mocks base method.
 func (m *MockRuntime) HandleWire(arg0 context.Context, arg1, arg2 string, arg3 Invocation) (Action, error) {
 	m.ctrl.T.Helper()
@@ -124,4 +141,42 @@ func (m *MockContextIssuer) IssueContext(arg0 string) (extension.Context, error)
 func (mr *MockContextIssuerMockRecorder) IssueContext(arg0 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueContext", reflect.TypeOf((*MockContextIssuer)(nil).IssueContext), arg0)
+}
+
+// MockSelectedModel is a mock of SelectedModel interface.
+type MockSelectedModel struct {
+	ctrl     *gomock.Controller
+	recorder *MockSelectedModelMockRecorder
+	isgomock struct{}
+}
+
+// MockSelectedModelMockRecorder is the mock recorder for MockSelectedModel.
+type MockSelectedModelMockRecorder struct {
+	mock *MockSelectedModel
+}
+
+// NewMockSelectedModel creates a new mock instance.
+func NewMockSelectedModel(ctrl *gomock.Controller) *MockSelectedModel {
+	mock := &MockSelectedModel{ctrl: ctrl}
+	mock.recorder = &MockSelectedModelMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockSelectedModel) EXPECT() *MockSelectedModelMockRecorder {
+	return m.recorder
+}
+
+// ActiveBinding mocks base method.
+func (m *MockSelectedModel) ActiveBinding() modelexecution.CatalogBinding {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ActiveBinding")
+	ret0, _ := ret[0].(modelexecution.CatalogBinding)
+	return ret0
+}
+
+// ActiveBinding indicates an expected call of ActiveBinding.
+func (mr *MockSelectedModelMockRecorder) ActiveBinding() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ActiveBinding", reflect.TypeOf((*MockSelectedModel)(nil).ActiveBinding))
 }

@@ -106,9 +106,13 @@ func (s *Service) handle(
 		return s.runPreparationRejected(command, err)
 	}
 
-	userText, present := command.UserText.Get()
+	message, present := command.UserMessage.Get()
 	if !present {
-		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("user text is required")), nil, nil
+		return s.rejection(
+			command,
+			controller.RejectionInvalidArgument,
+			errors.New("user message is required"),
+		), nil, nil
 	}
 	if !s.output.Reserve(command.OperationID, runID) {
 		s.coordinator.CancelPrepared(runID)
@@ -116,7 +120,7 @@ func (s *Service) handle(
 	}
 	preparedRun := &runPrepared{
 		coordinator: s.coordinator, output: s.output, operationID: command.OperationID,
-		runID: runID, userText: userText, started: false, release: sync.Once{},
+		runID: runID, message: message, started: false, release: sync.Once{},
 	}
 
 	return emptyResponse(command.OperationID, controller.ResponseUserRequestCompleted), preparedRun, nil

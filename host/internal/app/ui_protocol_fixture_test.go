@@ -87,6 +87,8 @@ func newAppUIService(t *testing.T) *pluginmock.MockUIService {
 			return runNavigationFailureUIFixture(ctx, host)
 		case "extension-message-navigation":
 			return runExtensionMessageNavigationUIFixture(ctx, host)
+		case userInputUIBehavior:
+			return runUserInputUIFixture(ctx, host)
 		default:
 			return host.Close(ctx)
 		}
@@ -139,7 +141,11 @@ func runSemanticFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 		return err
 	}
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("read input.txt")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("read input.txt"), Image: nil}.Build()},
+		}.Build(),
+	)
 	operation, err := host.Start(ctx, "semantic-submit", request)
 	if err != nil {
 		return err

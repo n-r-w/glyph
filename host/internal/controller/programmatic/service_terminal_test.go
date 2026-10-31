@@ -78,6 +78,12 @@ func TestFailureCodeForCommandEnforcesClosedSets(t *testing.T) {
 			expected: FailureCodeInternal,
 		},
 		{
+			name:     "user request accepts invalid input category",
+			command:  CommandUserRequest,
+			proposed: FailureCodeInputInvalid,
+			expected: FailureCodeInputInvalid,
+		},
+		{
 			name:     "model selection rejects agent-run model category",
 			command:  CommandSelectModel,
 			proposed: FailureCodeModelFailed,

@@ -112,16 +112,20 @@ func (*blockedUIService) PrepareInitialize(
 func (service *blockedUIService) Run(ctx context.Context, host *Host) error {
 	<-service.sendProbe
 	probeRequest := new(uipb.UIRequest)
-	probeRequest.SetSubmit(uipb.SubmitCommand_builder{Text: new("reader gate probe")}.Build())
+	probeRequest.SetSubmit(
+		uipb.SubmitCommand_builder{
+			Content: []*uipb.UserContent{uipb.UserContent_builder{Text: new("reader gate probe"), Image: nil}.Build()},
+		}.Build(),
+	)
 	if _, err := host.Start(ctx, "reader-gate-probe", probeRequest); err != nil {
 		return errors.Join(service.runSource, err)
 	}
 	close(service.probeQueued)
 	<-service.sendBlockedOutput
 	largeRequest := new(uipb.UIRequest)
-	largeRequest.SetSubmit(uipb.SubmitCommand_builder{
-		Text: new(strings.Repeat("x", blockedUIPayloadSize)),
-	}.Build())
+	largeRequest.SetSubmit(uipb.SubmitCommand_builder{Content: []*uipb.UserContent{
+		uipb.UserContent_builder{Text: new(strings.Repeat("x", blockedUIPayloadSize)), Image: nil}.Build(),
+	}}.Build())
 	for index := range blockedUIRequestCount {
 		if _, err := host.Start(ctx, fmt.Sprintf("blocked-output-%d", index), largeRequest); err != nil {
 			return errors.Join(service.runSource, err)
@@ -130,7 +134,11 @@ func (service *blockedUIService) Run(ctx context.Context, host *Host) error {
 	close(service.runStarted)
 	<-service.fillWriter
 	fillRequest := new(uipb.UIRequest)
-	fillRequest.SetSubmit(uipb.SubmitCommand_builder{Text: new("fill writer queue")}.Build())
+	fillRequest.SetSubmit(
+		uipb.SubmitCommand_builder{
+			Content: []*uipb.UserContent{uipb.UserContent_builder{Text: new("fill writer queue"), Image: nil}.Build()},
+		}.Build(),
+	)
 	for index := blockedUIRequestCount; ; index++ {
 		if _, err := host.Start(ctx, fmt.Sprintf("fill-output-%d", index), fillRequest); err != nil {
 			service.localFailure <- err
@@ -159,7 +167,8 @@ func (blockedUIInitialize) Release() {}
 // SendMsg observes the actual large raw Send without replacing the real transport.
 func (stream *uiTransportObserver) SendMsg(message any) error {
 	response, isResponse := message.(*uipb.OpenResponse)
-	isLargeRequest := isResponse && len(response.GetRequest().GetSubmit().GetText()) == blockedUIPayloadSize
+	content := response.GetRequest().GetSubmit().GetContent()
+	isLargeRequest := isResponse && len(content) == 1 && len(content[0].GetText()) == blockedUIPayloadSize
 	if !isLargeRequest {
 		return stream.ServerStream.SendMsg(message)
 	}

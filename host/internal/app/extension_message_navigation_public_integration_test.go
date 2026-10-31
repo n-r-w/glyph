@@ -178,7 +178,11 @@ func runExtensionMessageNavigationUIFixture(ctx context.Context, host *uisdk.Hos
 		return err
 	}
 	submit := new(uiv1.UIRequest)
-	submit.SetSubmit(uiv1.SubmitCommand_builder{Text: new("store message")}.Build())
+	submit.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("store message"), Image: nil}.Build()},
+		}.Build(),
+	)
 	submitOperation, err := host.Start(ctx, "append", submit)
 	if err != nil {
 		return err

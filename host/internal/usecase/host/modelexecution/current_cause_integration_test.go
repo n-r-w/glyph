@@ -124,7 +124,10 @@ func TestCoreCurrentCancellationRetainsDiagnostics(t *testing.T) {
 				AnyTimes()
 			core := agentrun.New("", runtime, tools, events, store)
 			// Act through Core response selection, persistence and event delivery.
-			result, err := core.Run(t.Context(), runcontrol.Request{RunID: "current-causes", UserText: "request"})
+			result, err := core.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "current-causes", Message: model.TextMessage("request")},
+			)
 			// Assert diagnostics survive without retrospectively changing selected response outcomes.
 			require.Equal(t, scenario.outcome, result.Outcome)
 			require.ErrorIs(t, err, context.Canceled)

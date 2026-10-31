@@ -8,6 +8,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
 )
 
@@ -21,18 +22,21 @@ type Service struct {
 	runtime Runtime
 	// contexts issues trusted session bindings before each handler.
 	contexts ContextIssuer
+	// models supplies the selected model descriptor for final input validation.
+	models SelectedModel
 }
 
-// Verify the owner implements model-execution callbacks and startup registration contracts.
+// Verify the owner implements model-execution callbacks, run input processing and startup registration contracts.
 var (
 	_ modelexecution.WireMiddleware    = (*Service)(nil)
 	_ modelexecution.ContextMiddleware = (*Service)(nil)
+	_ runcontrol.InputProcessor        = (*Service)(nil)
 	_ startup.MiddlewareRegistrar      = (*Service)(nil)
 )
 
-// New connects ordinary invocation mechanics and trusted context issuance.
-func New(runtime Runtime, contexts ContextIssuer) *Service {
-	return &Service{mutex: sync.RWMutex{}, handlers: nil, runtime: runtime, contexts: contexts}
+// New connects ordinary invocation mechanics, trusted context issuance and the selected model.
+func New(runtime Runtime, contexts ContextIssuer, models SelectedModel) *Service {
+	return &Service{mutex: sync.RWMutex{}, handlers: nil, runtime: runtime, contexts: contexts, models: models}
 }
 
 // mapMiddlewareKind maps only declarations owned by ordinary middleware composition.
@@ -49,6 +53,8 @@ func mapMiddlewareKind(raw startup.RawHandlerKind) (Kind, bool) {
 		return SystemInstructions, true
 	case startup.RawHandlerKindModelContext:
 		return ModelContext, true
+	case startup.RawHandlerKindUserInput:
+		return UserInput, true
 	default:
 		return 0, false
 	}
@@ -115,7 +121,7 @@ func (s *Service) NewWireCallbacks() modelexecution.WireCallbacks {
 // bind issues the trusted generation and session binding for one handler invocation.
 func (s *Service) bind(ctx context.Context, handler Handler) (extension.Context, error) {
 	if err := ctx.Err(); err != nil {
-		return extension.Context{}, err
+		return extension.Context{}, fmt.Errorf("middleware handler %q: %w", handler.HandlerID, err)
 	}
 	binding, err := s.contexts.IssueContext(handler.ExtensionID)
 	if err != nil {

@@ -13,6 +13,8 @@ import (
 	context "context"
 	reflect "reflect"
 
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -67,6 +69,45 @@ func (m *MockExecutor) Settle(runID string) error {
 func (mr *MockExecutorMockRecorder) Settle(runID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Settle", reflect.TypeOf((*MockExecutor)(nil).Settle), runID)
+}
+
+// MockInputProcessor is a mock of InputProcessor interface.
+type MockInputProcessor struct {
+	ctrl     *gomock.Controller
+	recorder *MockInputProcessorMockRecorder
+	isgomock struct{}
+}
+
+// MockInputProcessorMockRecorder is the mock recorder for MockInputProcessor.
+type MockInputProcessorMockRecorder struct {
+	mock *MockInputProcessor
+}
+
+// NewMockInputProcessor creates a new mock instance.
+func NewMockInputProcessor(ctrl *gomock.Controller) *MockInputProcessor {
+	mock := &MockInputProcessor{ctrl: ctrl}
+	mock.recorder = &MockInputProcessorMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockInputProcessor) EXPECT() *MockInputProcessorMockRecorder {
+	return m.recorder
+}
+
+// ProcessInput mocks base method.
+func (m *MockInputProcessor) ProcessInput(arg0 context.Context, arg1 model.Message) (mo.Option[model.Message], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ProcessInput", arg0, arg1)
+	ret0, _ := ret[0].(mo.Option[model.Message])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ProcessInput indicates an expected call of ProcessInput.
+func (mr *MockInputProcessorMockRecorder) ProcessInput(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ProcessInput", reflect.TypeOf((*MockInputProcessor)(nil).ProcessInput), arg0, arg1)
 }
 
 // MockSettledDelivery is a mock of SettledDelivery interface.

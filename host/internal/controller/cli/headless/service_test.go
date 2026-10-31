@@ -11,6 +11,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
 // TestServiceExecuteAcceptsOnlyCompletedRun verifies terminal outcome and error handling.
@@ -30,7 +31,7 @@ func TestServiceExecuteAcceptsOnlyCompletedRun(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			runner := NewMockAgentRunner(gomock.NewController(t))
-			runner.EXPECT().Run(t.Context(), "request").Return(testCase.outcome, testCase.runErr)
+			runner.EXPECT().Run(t.Context(), model.TextMessage("request")).Return(testCase.outcome, testCase.runErr)
 			service := New(runner)
 
 			err := service.Execute(t.Context(), "request")

@@ -12,6 +12,7 @@ import (
 	"go.uber.org/mock/gomock"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
 // TestCoordinatorOrdersTerminalSettlement verifies settlement completes before reservation release, including failures.
@@ -36,8 +37,10 @@ func TestCoordinatorOrdersTerminalSettlement(t *testing.T) {
 			sequence := make([]string, 0, 3)
 			gate.EXPECT().TryAcquire().Return(func() { sequence = append(sequence, "release") }, true)
 			gomock.InOrder(
-				executor.EXPECT().Run(gomock.Any(), Request{RunID: "prepared", UserText: "request"}).Return(
-					Result{Outcome: outcome, SettlementRequired: true}, runErr),
+				executor.EXPECT().
+					Run(gomock.Any(), Request{RunID: "prepared", Message: model.TextMessage("request")}).
+					Return(
+						Result{Outcome: outcome, SettlementRequired: true}, runErr),
 				executor.EXPECT().Settle("prepared").DoAndReturn(func(string) error {
 					sequence = append(sequence, "Core settlement")
 					return settleErr
@@ -50,14 +53,20 @@ func TestCoordinatorOrdersTerminalSettlement(t *testing.T) {
 						return deliveryErr
 					}),
 			)
-			coordinator := newCoordinator(executor, delivery, func() (string, error) { return "prepared", nil }, gate)
+			coordinator := newCoordinator(
+				executor,
+				newPassThroughInput(controller),
+				delivery,
+				func() (string, error) { return "prepared", nil },
+				gate,
+			)
 			ctx, cancel := context.WithCancel(t.Context())
 			cancel()
 
 			// Act through execution after acceptance-time identifier allocation.
 			runID, err := coordinator.PrepareRun()
 			require.NoError(t, err)
-			actual, err := coordinator.RunPrepared(ctx, runID, "request")
+			actual, err := coordinator.RunPrepared(ctx, runID, model.TextMessage("request"))
 
 			// Assert all terminal attempts finish on an uncanceled context before gate release.
 			assert.Equal(t, outcome, actual)
@@ -88,10 +97,10 @@ func TestCoordinatorSkipsSettlementWhenRunNeverBegins(t *testing.T) {
 	gate.EXPECT().TryAcquire().Return(func() { released++ }, true)
 	beginErr := errors.New("another run is active")
 	executor.EXPECT().Run(gomock.Any(), gomock.Any()).Return(Result{}, beginErr)
-	coordinator := NewCoordinator(executor, delivery, gate)
+	coordinator := NewCoordinator(executor, newPassThroughInput(controller), delivery, gate)
 
 	// Act through the one-shot run entry point.
-	_, err := coordinator.Run(t.Context(), "request")
+	_, err := coordinator.Run(t.Context(), model.TextMessage("request"))
 
 	// Assert the reservation releases without any Core or client settlement call.
 	require.ErrorIs(t, err, beginErr)

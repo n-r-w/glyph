@@ -7,6 +7,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
@@ -24,6 +25,8 @@ const (
 	SystemInstructions
 	// ModelContext transforms the request-local history of one model request.
 	ModelContext
+	// UserInput preserves, replaces, or fully handles the user input of one accepted run.
+	UserInput
 )
 
 // String returns the operation name used in failure text.
@@ -39,6 +42,8 @@ func (kind Kind) String() string {
 		return "system-instructions"
 	case ModelContext:
 		return "model-context"
+	case UserInput:
+		return "user-input"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(kind))
 	}
@@ -94,6 +99,8 @@ const (
 	Replace
 	// Acknowledge accepts immutable response metadata.
 	Acknowledge
+	// Handle fully handles the current value and ends its chain.
+	Handle
 )
 
 // Action carries a decoded result whose semantics are validated by the owner.
@@ -118,7 +125,7 @@ type Transformation[T any] struct {
 
 // Transformed carries a decoded transformer result whose semantics are validated by the owner.
 type Transformed[T any] struct {
-	// Kind selects preservation or replacement.
+	// Kind selects preservation, replacement, or handling.
 	Kind ActionKind
 	// Replacement contains the complete value when Kind is Replace.
 	Replacement T
@@ -138,10 +145,20 @@ type Runtime interface {
 	HandleModelContext(
 		context.Context, string, string, Transformation[[]agent.HistoryEntry],
 	) (Transformed[[]agent.HistoryEntry], error)
+	// HandleUserInput invokes one user-input handler.
+	HandleUserInput(
+		context.Context, string, string, Transformation[model.Message],
+	) (Transformed[model.Message], error)
 }
 
 // ContextIssuer binds an invocation to the current extension generation and session.
 type ContextIssuer interface {
 	// IssueContext captures the active runtime generation and session for an extension.
 	IssueContext(string) (extension.Context, error)
+}
+
+// SelectedModel supplies the model descriptor of the current selection.
+type SelectedModel interface {
+	// ActiveBinding returns an atomic snapshot of the active model binding.
+	ActiveBinding() modelexecution.CatalogBinding
 }

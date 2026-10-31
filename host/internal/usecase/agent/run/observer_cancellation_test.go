@@ -50,7 +50,7 @@ func TestOwningObserverCancellationAbortsRun(t *testing.T) {
 	)
 
 	// Act through the actual run entry point.
-	result, err := service.Run(ctx, runcontrol.Request{RunID: "owner-cancel", UserText: "request"})
+	result, err := service.Run(ctx, runcontrol.Request{RunID: "owner-cancel", Message: model.TextMessage("request")})
 
 	// Assert cancellation aborts without a provider call and settlement remains possible.
 	require.ErrorIs(t, err, context.Canceled)

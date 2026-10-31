@@ -33,7 +33,11 @@ func TestChannelRejectsOrdinaryRequestBeforeReadiness(t *testing.T) {
 	controller := gomock.NewController(t)
 	stream := NewMockUIService_OpenClient[uiv1.OpenRequest, uiv1.OpenResponse](controller)
 	ordinary := new(uiv1.UIRequest)
-	ordinary.SetSubmit(uiv1.SubmitCommand_builder{Text: new("hello")}.Build())
+	ordinary.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("hello"), Image: nil}.Build()},
+		}.Build(),
+	)
 	early := uiv1.OpenResponse_builder{
 		OperationId: new("early"), Request: ordinary, Event: nil, Close: nil,
 	}.Build()

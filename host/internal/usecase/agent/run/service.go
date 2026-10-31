@@ -98,7 +98,7 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 	}
 	// The user entry must transfer to history ownership before any turn or provider request can depend on it.
 	if err := s.appendHistory(ctx, agent.HistoryEntry{
-		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage(request.UserText)),
+		Kind: agent.HistoryEntryUser, User: mo.Some(request.Message),
 		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
 	}); err != nil {
 		return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err)

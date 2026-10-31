@@ -69,7 +69,10 @@ func TestServiceRunProviderFailurePreservesStreamedText(t *testing.T) {
 		events,
 	)
 
-	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-failed-partial", UserText: "hi"})
+	_, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "run-failed-partial", Message: model.TextMessage("hi")},
+	)
 
 	require.Error(t, err)
 	history := service.History()
@@ -113,7 +116,10 @@ func TestServiceRunProviderFailureRejectsMalformedRetainedContent(t *testing.T) 
 		events,
 	)
 
-	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-malformed-partial", UserText: "hi"})
+	_, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "run-malformed-partial", Message: model.TextMessage("hi")},
+	)
 
 	require.ErrorContains(t, err, "provider transport failed")
 	require.ErrorContains(t, err, "unknown kind")
@@ -188,7 +194,10 @@ func TestServiceRunProviderFailurePreservesSafeMessage(t *testing.T) {
 	)
 
 	// Act through Core finalization and persisted-history publication.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-safe-error", UserText: "go"})
+	result, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "run-safe-error", Message: model.TextMessage("go")},
+	)
 	// Assert the full provider message survives every Core terminal boundary.
 	require.ErrorIs(t, err, providerErr)
 	require.ErrorContains(t, err, providerErr.Error())
@@ -283,7 +292,7 @@ func TestServiceRunProviderAndContentEndFailurePreservesBothCauses(t *testing.T)
 	// Act by running through the joined provider and recorded delivery failure.
 	result, err := service.Run(
 		t.Context(),
-		runcontrol.Request{RunID: "provider-content-end-failure", UserText: "hello"},
+		runcontrol.Request{RunID: "provider-content-end-failure", Message: model.TextMessage("hello")},
 	)
 
 	// Assert both causes occur once at each surviving local boundary.
@@ -340,7 +349,10 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 	service := New(testInstructions, runtime, tools, events, store)
 
 	// Act by running the combined provider and persistence failure.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "combined-failure", UserText: "hello"})
+	result, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "combined-failure", Message: model.TextMessage("hello")},
+	)
 	require.True(t, result.SettlementRequired)
 
 	// Assert the returned error and terminal Agent event retain both causes.
@@ -398,7 +410,10 @@ func TestServiceRunProviderFailure(t *testing.T) {
 		)
 		outcome := make(chan error, 1)
 		go func() {
-			_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-failed", UserText: "hi"})
+			_, err := service.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "run-failed", Message: model.TextMessage("hi")},
+			)
 			outcome <- err
 		}()
 		select {
@@ -410,7 +425,10 @@ func TestServiceRunProviderFailure(t *testing.T) {
 			require.Len(t, state.PartialResponse.OrEmpty().Content, 1)
 			assert.Equal(t, "partial", state.PartialResponse.OrEmpty().Content[0].Text.OrEmpty())
 			historyBefore := service.History()
-			_, secondErr := service.Run(t.Context(), runcontrol.Request{RunID: "blocked", UserText: "no"})
+			_, secondErr := service.Run(
+				t.Context(),
+				runcontrol.Request{RunID: "blocked", Message: model.TextMessage("no")},
+			)
 			require.ErrorIs(t, secondErr, ErrRunActive)
 			assert.Equal(t, historyBefore, service.History())
 			close(release)
@@ -449,7 +467,10 @@ func TestServiceRunRejectsUnknownTerminalOutcome(t *testing.T) {
 		provider, tools, events,
 	)
 
-	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run-unknown-outcome", UserText: "hi"})
+	_, err := service.Run(
+		t.Context(),
+		runcontrol.Request{RunID: "run-unknown-outcome", Message: model.TextMessage("hi")},
+	)
 
 	require.ErrorContains(t, err, "unsupported terminal model outcome 99")
 	assert.True(t, service.State().PartialResponse.IsNone())

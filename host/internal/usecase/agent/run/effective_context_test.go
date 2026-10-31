@@ -56,7 +56,7 @@ func TestRunStreamsEffectiveContext(t *testing.T) {
 	service := New(testInstructions, contexts, tools, events, newMockHistoryStore(t))
 
 	// Act through one ordinary run.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", UserText: "hi"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", Message: model.TextMessage("hi")})
 
 	// Assert completion and that the request-local entry did not enter persisted history.
 	require.NoError(t, err)
@@ -81,7 +81,7 @@ func TestRunFailsWhenEffectiveContextFails(t *testing.T) {
 	service := New(testInstructions, contexts, tools, events, newMockHistoryStore(t))
 
 	// Act through one ordinary run.
-	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", UserText: "hi"})
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", Message: model.TextMessage("hi")})
 
 	// Assert the failed outcome and the persisted failed response keep the complete cause.
 	require.ErrorIs(t, err, source)

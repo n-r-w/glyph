@@ -16,6 +16,7 @@ import (
 	extension "github.com/n-r-w/glyph/host/internal/controller/extension"
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	extension0 "github.com/n-r-w/glyph/host/internal/domain/extension"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensioncontext "github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	middleware "github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
@@ -231,6 +232,21 @@ func (m *MockExtensionRuntime) HandleSystemInstructions(arg0 context.Context, ar
 func (mr *MockExtensionRuntimeMockRecorder) HandleSystemInstructions(arg0, arg1, arg2 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSystemInstructions", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleSystemInstructions), arg0, arg1, arg2)
+}
+
+// HandleUserInput mocks base method.
+func (m *MockExtensionRuntime) HandleUserInput(arg0 context.Context, arg1 string, arg2 middleware.Transformation[model.Message]) (middleware.Transformed[model.Message], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleUserInput", arg0, arg1, arg2)
+	ret0, _ := ret[0].(middleware.Transformed[model.Message])
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleUserInput indicates an expected call of HandleUserInput.
+func (mr *MockExtensionRuntimeMockRecorder) HandleUserInput(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleUserInput", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleUserInput), arg0, arg1, arg2)
 }
 
 // HandleWire mocks base method.

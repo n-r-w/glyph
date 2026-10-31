@@ -61,7 +61,11 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 	if guidance != manualNoOwnerGuidance {
 		for index, text := range []string{manualOriginalText, manualRetainedText} {
 			request := new(uipb.UIRequest)
-			request.SetSubmit(uipb.SubmitCommand_builder{Text: new(text)}.Build())
+			request.SetSubmit(
+				uipb.SubmitCommand_builder{
+					Content: []*uipb.UserContent{uipb.UserContent_builder{Text: new(text), Image: nil}.Build()},
+				}.Build(),
+			)
 			operationID := manualFixtureManualUiSubmit + strconv.Itoa(index)
 			started, err := host.Start(ctx, operationID, request)
 			if err != nil {
@@ -174,7 +178,11 @@ func runManualUIFixture(ctx context.Context, host *uisdk.Host) (returnErr error)
 func runManualUIFollowup(ctx context.Context, host *uisdk.Host, guidance string) error {
 	const manualFixtureManualUiNext = "manual-ui-next"
 	next := new(uipb.UIRequest)
-	next.SetSubmit(uipb.SubmitCommand_builder{Text: new(manualNextText)}.Build())
+	next.SetSubmit(
+		uipb.SubmitCommand_builder{
+			Content: []*uipb.UserContent{uipb.UserContent_builder{Text: new(manualNextText), Image: nil}.Build()},
+		}.Build(),
+	)
 	operation, err := host.Start(ctx, manualFixtureManualUiNext, next)
 	if err != nil {
 		return err

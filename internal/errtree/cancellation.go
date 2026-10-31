@@ -26,14 +26,7 @@ func classifyCancellation(err error, match func(error) bool) (isCancellation, ha
 	}
 	canceled, diagnostics := true, false
 	for node := range IterateCurrentErrors(err) {
-		if _, classified := node.(interface{ FailureCode() string }); classified {
-			return false, diagnostics
-		}
-		if _, classified := node.(interface{ CompactionFailureCode() string }); classified {
-			return false, diagnostics
-		}
-		//nolint:errorlint // classifyCancellation checks this node directly to exclude diagnostics from classification.
-		if _, classified := node.(CodedError); classified {
+		if _, classified := nodeCode(node); classified {
 			return false, diagnostics
 		}
 		//nolint:errorlint // The iterator traverses only the current branch of this diagnostic boundary.

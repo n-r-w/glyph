@@ -462,7 +462,7 @@ func runPreparedCommand(t *testing.T, service *Session, command controllerui.Com
 func newCommandForPreparedTest(kind controllerui.CommandKind) controllerui.Command {
 	return controllerui.Command{
 		AuthenticationMethod: authentication.MethodUnspecified,
-		OperationID:          "operation", Kind: kind, Text: mo.None[string](), ProviderID: mo.None[string](),
+		OperationID:          "operation", Kind: kind, Message: mo.None[model.Message](), ProviderID: mo.None[string](),
 		ModelID: mo.None[string](), ReasoningChoice: mo.None[model.ReasoningChoice](),
 		SessionID: mo.None[string](), SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
 		SummaryMode: controllerui.SummaryModeNoSummary, CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),

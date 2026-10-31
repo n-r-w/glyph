@@ -339,18 +339,18 @@ func (mr *MockAgentRunnerMockRecorder) PrepareRun() *gomock.Call {
 }
 
 // RunPrepared mocks base method.
-func (m *MockAgentRunner) RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error) {
+func (m *MockAgentRunner) RunPrepared(ctx context.Context, runID string, message model.Message) (agent.RunOutcome, error) {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "RunPrepared", ctx, runID, userText)
+	ret := m.ctrl.Call(m, "RunPrepared", ctx, runID, message)
 	ret0, _ := ret[0].(agent.RunOutcome)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
 
 // RunPrepared indicates an expected call of RunPrepared.
-func (mr *MockAgentRunnerMockRecorder) RunPrepared(ctx, runID, userText any) *gomock.Call {
+func (mr *MockAgentRunnerMockRecorder) RunPrepared(ctx, runID, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockAgentRunner)(nil).RunPrepared), ctx, runID, userText)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockAgentRunner)(nil).RunPrepared), ctx, runID, message)
 }
 
 // MockSelectionFailure is a mock of SelectionFailure interface.

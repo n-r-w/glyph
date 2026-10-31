@@ -18,6 +18,7 @@ import (
 
 	controller "github.com/n-r-w/glyph/host/internal/controller/programmatic"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
 )
@@ -310,11 +311,11 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 			// Arrange a settled prepared run and the configured owner context state.
 			coordinator := NewMockCoordinator(gomock.NewController(t))
 			coordinator.EXPECT().
-				RunPrepared(gomock.Any(), "run", "request").
+				RunPrepared(gomock.Any(), "run", model.TextMessage("request")).
 				Return(agent.RunOutcomeAborted, test.activeErr)
 			prepared := &runPrepared{
 				coordinator: coordinator, output: testRunOutput(t), operationID: "operation", runID: "run",
-				userText: "request", started: false, release: sync.Once{},
+				message: model.TextMessage("request"), started: false, release: sync.Once{},
 			}
 			defer prepared.Release()
 			ctx := t.Context()
@@ -346,4 +347,32 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 			}
 		})
 	}
+}
+
+// TestRunPreparedReleasesOutputAfterRunWithoutSettlement verifies release frees output of a run that failed before Core.
+func TestRunPreparedReleasesOutputAfterRunWithoutSettlement(t *testing.T) {
+	t.Parallel()
+	// Arrange a run that fails before Core and an output that expects exactly one release.
+	mocks := gomock.NewController(t)
+	coordinator := NewMockCoordinator(mocks)
+	output := NewMockRunOutput(mocks)
+	cause := errors.New("process user input: model text does not accept image input at content 0")
+	output.EXPECT().BindProgress("run", gomock.Any()).Return(func() {})
+	coordinator.EXPECT().RunPrepared(gomock.Any(), "run", model.TextMessage("request")).Return(
+		agent.RunOutcomeFailed, cause,
+	)
+	output.EXPECT().ReleaseRun("run").Times(1)
+	prepared := &runPrepared{
+		coordinator: coordinator, output: output, operationID: "operation", runID: "run",
+		message: model.TextMessage("request"), started: false, release: sync.Once{},
+	}
+
+	// Act by running the operation and releasing it twice.
+	outcome := prepared.Run(t.Context(), operation.Reporter[controller.OperationProgress]{})
+	prepared.Release()
+	prepared.Release()
+
+	// Assert the failure and the single output release.
+	require.Equal(t, operation.TerminalStateFailed, outcome.State())
+	require.ErrorIs(t, outcome.Err(), cause)
 }

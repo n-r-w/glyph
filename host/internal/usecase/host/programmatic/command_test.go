@@ -15,7 +15,7 @@ func testProgrammaticCommand(operationID string, kind controller.CommandKind) co
 	return controller.Command{
 		OperationID:     operationID,
 		Kind:            kind,
-		UserText:        mo.None[string](),
+		UserMessage:     mo.None[model.Message](),
 		ProviderID:      mo.None[model.ProviderID](),
 		ModelID:         mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](),
@@ -33,7 +33,7 @@ func testProgrammaticUserCommand(operationID, text string) controller.Command {
 	return controller.Command{
 		OperationID:     operationID,
 		Kind:            controller.CommandUserRequest,
-		UserText:        mo.Some(text),
+		UserMessage:     mo.Some(model.TextMessage(text)),
 		ProviderID:      mo.None[model.ProviderID](),
 		ModelID:         mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](),

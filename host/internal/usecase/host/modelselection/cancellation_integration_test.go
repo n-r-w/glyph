@@ -147,7 +147,7 @@ func TestSelectionOwnerCancellationTerminatesObserverAndReleasesAdmission(t *tes
 func reasoningSelectionCommand(operationID string, choice model.ReasoningChoice) controller.Command {
 	return controller.Command{
 		OperationID: operationID, Kind: controller.CommandSelectReasoningChoice,
-		UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+		UserMessage: mo.None[model.Message](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.Some(choice), SessionID: mo.None[session.ID](), SessionName: mo.None[string](),
 		TargetEntryID: mo.None[string](), SummaryMode: controller.SummaryModeNoSummary,
 		CustomFocus: mo.None[string](), EntryLabel: mo.None[string](),

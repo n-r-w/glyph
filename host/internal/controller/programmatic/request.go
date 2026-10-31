@@ -1,7 +1,9 @@
 package programmatic
 
 import (
+	"bytes"
 	"errors"
+	"fmt"
 
 	"github.com/samber/mo"
 
@@ -34,7 +36,7 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 	command := Command{
 		OperationID:            operationID,
 		Kind:                   CommandUnspecified,
-		UserText:               mo.None[string](),
+		UserMessage:            mo.None[model.Message](),
 		ProviderID:             mo.None[model.ProviderID](),
 		ModelID:                mo.None[model.ID](),
 		ReasoningChoice:        mo.None[model.ReasoningChoice](),
@@ -62,15 +64,12 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 func mapStandardRequest(request *programmaticv1.ControllerRequest, command Command) (Command, error) {
 	switch request.WhichRequest() {
 	case programmaticv1.ControllerRequest_UserRequest_case:
-		userRequest := request.GetUserRequest()
-		if !userRequest.HasText() || userRequest.GetText() == "" {
-			return Command{}, Reject(
-				RejectionCodeInvalidArgument,
-				errors.New("programmatic user request text is required"),
-			)
+		message, err := mapUserRequest(request.GetUserRequest())
+		if err != nil {
+			return Command{}, Reject(RejectionCodeInvalidArgument, fmt.Errorf("programmatic user request: %w", err))
 		}
 		command.Kind = CommandUserRequest
-		command.UserText = mo.Some(userRequest.GetText())
+		command.UserMessage = mo.Some(message)
 	case programmaticv1.ControllerRequest_GetRunState_case:
 		command.Kind = CommandGetRunState
 	case programmaticv1.ControllerRequest_GetMessages_case:
@@ -134,6 +133,28 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 		return Command{}, Reject(RejectionCodeInvalidArgument, errors.New("programmatic request kind is unknown"))
 	}
 	return command, nil
+}
+
+// mapUserRequest maps ordered public input blocks to a user message with a valid shape.
+func mapUserRequest(request *programmaticv1.UserRequest) (model.Message, error) {
+	content := make([]model.InputContent, len(request.GetContent()))
+	for index, item := range request.GetContent() {
+		switch item.WhichContent() {
+		case programmaticv1.UserContent_Text_case:
+			content[index] = model.TextContent(item.GetText())
+		case programmaticv1.UserContent_Image_case:
+			content[index] = model.ImageContent(item.GetImage().GetMediaType(), bytes.Clone(item.GetImage().GetData()))
+		case programmaticv1.UserContent_Content_not_set_case:
+			return model.Message{}, fmt.Errorf("content %d: content payload is required", index)
+		default:
+			return model.Message{}, fmt.Errorf("content %d: content payload is unknown", index)
+		}
+	}
+	message := model.Message{Content: content}
+	if err := message.ValidateShape(); err != nil {
+		return model.Message{}, err
+	}
+	return message, nil
 }
 
 // mapSessionRequest preserves optional lifecycle arguments while mapping the protobuf oneof.

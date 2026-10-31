@@ -24,10 +24,12 @@ func mapCommand(command presentationdomain.Command) (*uiv1.UIRequest, error) {
 		if !ok {
 			return nil, errors.New("UI submit text is missing")
 		}
+		content := new(uiv1.UserContent)
+		content.SetText(text)
 		//nolint:exhaustruct_v5 // uiv1.UIRequest_builder sets only the active Submit field.
 		return uiv1.UIRequest_builder{
 			Submit: uiv1.SubmitCommand_builder{
-				Text: new(text),
+				Content: []*uiv1.UserContent{content},
 			}.Build(),
 		}.Build(), nil
 	case presentationdomain.CommandStop:

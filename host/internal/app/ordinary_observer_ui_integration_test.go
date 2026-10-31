@@ -34,7 +34,11 @@ func runOrdinaryFailureUIFixture(ctx context.Context, host *uisdk.Host) error {
 		return err
 	}
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("first request")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("first request"), Image: nil}.Build()},
+		}.Build(),
+	)
 	started, err := host.Start(ctx, ordinaryFailureUIOperation, request)
 	if err != nil {
 		return err
@@ -81,7 +85,11 @@ func runOrdinaryFailureUIFixture(ctx context.Context, host *uisdk.Host) error {
 		}
 	}
 	request = new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("second request")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("second request"), Image: nil}.Build()},
+		}.Build(),
+	)
 	started, err = host.Start(ctx, ordinaryHealthyUIOperation, request)
 	if err != nil {
 		return err

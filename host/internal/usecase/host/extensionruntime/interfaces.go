@@ -7,6 +7,7 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensioncontext"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
@@ -79,6 +80,10 @@ type ExtensionRuntime interface {
 	HandleModelContext(
 		context.Context, string, middleware.Transformation[[]agent.HistoryEntry],
 	) (middleware.Transformed[[]agent.HistoryEntry], error)
+	// HandleUserInput invokes one user-input handler.
+	HandleUserInput(
+		context.Context, string, middleware.Transformation[model.Message],
+	) (middleware.Transformed[model.Message], error)
 	// BeginInvocationChild admits work owned by one live connection-local Host invocation.
 	BeginInvocationChild(parentID string) (extensioncontroller.InvocationChild, error)
 	// Register invokes extension registration and returns its raw result.

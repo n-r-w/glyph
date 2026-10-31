@@ -129,7 +129,8 @@ func runUIWithPaths(
 		sessionServices.gate,
 	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
-	if bindErr := bindMiddleware(startupService, modelExecution, extensions, contexts); bindErr != nil {
+	inputProcessor, bindErr := bindMiddleware(startupService, modelExecution, extensions, contexts, providerCatalog)
+	if bindErr != nil {
 		return bindErr
 	}
 	if err = startupService.BindCompaction(contexts); err != nil {
@@ -147,7 +148,7 @@ func runUIWithPaths(
 	agentCore := agentrun.New(
 		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active,
 	)
-	coordinator := runcontrol.NewCoordinator(agentCore, dispatcher, sessionServices.gate)
+	coordinator := runcontrol.NewCoordinator(agentCore, inputProcessor, dispatcher, sessionServices.gate)
 	session := hostui.NewSession(
 		transport,
 		coordinator,

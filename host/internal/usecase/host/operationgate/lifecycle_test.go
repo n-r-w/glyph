@@ -78,14 +78,18 @@ func TestRunReservationsBlockReplacementUntilSettlement(t *testing.T) {
 			return nil
 		}),
 	)
-	coordinator := runcontrol.NewCoordinator(executor, events.NewDispatcher(client, observer), gate)
+	input := runcontrol.NewMockInputProcessor(controller)
+	input.EXPECT().
+		ProcessInput(gomock.Any(), model.TextMessage("request")).
+		Return(mo.Some(model.TextMessage("request")), nil)
+	coordinator := runcontrol.NewCoordinator(executor, input, events.NewDispatcher(client, observer), gate)
 	runID, err := coordinator.PrepareRun()
 	require.NoError(t, err)
 	_, acquired = gate.TryAcquire()
 	require.False(t, acquired)
 	runResult := make(chan error, 1)
 	go func() {
-		_, runErr := coordinator.RunPrepared(t.Context(), runID, "request")
+		_, runErr := coordinator.RunPrepared(t.Context(), runID, model.TextMessage("request"))
 		runResult <- runErr
 	}()
 	<-started
@@ -125,7 +129,7 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 	require.True(t, acquired)
 	command := programmaticcontroller.Command{
 		OperationID: "resume", Kind: programmaticcontroller.CommandResumeSession,
-		UserText: mo.None[string](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
+		UserMessage: mo.None[model.Message](), ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.Some(session.ID("stored")),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),
 		SummaryMode: programmaticcontroller.SummaryModeNoSummary, CustomFocus: mo.None[string](),

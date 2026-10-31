@@ -63,7 +63,7 @@ type Compactor interface {
 type AgentRunner interface {
 	PrepareRun() (string, error)
 	CancelPrepared(runID string)
-	RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error)
+	RunPrepared(ctx context.Context, runID string, message model.Message) (agent.RunOutcome, error)
 }
 
 // SelectionFailure preserves the classified cause returned by model selection.

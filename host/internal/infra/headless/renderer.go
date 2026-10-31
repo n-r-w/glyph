@@ -26,6 +26,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelselection"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/sessions"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 // Renderer writes headless model, tool, startup, and terminal output.
@@ -55,6 +56,8 @@ const (
 	extensionIssueFormat = "[extension:issue] extension=%s handler=%s code=%s %s"
 	// retryProgressFormat identifies one pending replacement model attempt.
 	retryProgressFormat = "[model:retry] attempt=%d/%d delay=%s error=%s\n"
+	// errorCategoryFormat places the public category before the complete terminal error text.
+	errorCategoryFormat = "%s: %s"
 	// responseResetText identifies discarded partial model output.
 	responseResetText = "[model:response-reset]\n"
 )
@@ -267,9 +270,13 @@ func (r *Renderer) ReportSummary(_ context.Context, report startup.LoadReport) e
 	return nil
 }
 
-// WriteError renders one terminal command error.
+// WriteError renders one terminal command error with the public category of its current cause, when present.
 func (r *Renderer) WriteError(err error) error {
-	return writePrefixed(r.stderr, "[error] ", err.Error())
+	text := err.Error()
+	if code, found := errtree.CurrentCode(err); found {
+		text = fmt.Sprintf(errorCategoryFormat, code, text)
+	}
+	return writePrefixed(r.stderr, "[error] ", text)
 }
 
 // writeToolResult renders typed terminal tool content without printing image bytes.

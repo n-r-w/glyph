@@ -52,15 +52,15 @@ type RunOutput interface {
 	ActiveOperation() string
 	// BindProgress attaches one admitted operation's reporter before Core execution.
 	BindProgress(runID string, reporter operation.Reporter[controller.OperationProgress]) func()
-	// CancelPrepared clears an association whose application work never started.
-	CancelPrepared(runID string)
+	// ReleaseRun clears the association of a finished or unstarted run that no Core settlement cleared.
+	ReleaseRun(runID string)
 }
 
 // Coordinator owns Host run identifiers, execution, and settlement.
 type Coordinator interface {
 	PrepareRun() (string, error)
 	CancelPrepared(runID string)
-	RunPrepared(ctx context.Context, runID, userText string) (agent.RunOutcome, error)
+	RunPrepared(ctx context.Context, runID string, message model.Message) (agent.RunOutcome, error)
 }
 
 // ActiveSessions provides client session lifecycle operations.

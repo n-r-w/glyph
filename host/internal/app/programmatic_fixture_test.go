@@ -247,7 +247,9 @@ func writeProgrammaticCredentials(t *testing.T, paths persistence.Paths) {
 func userRequest(operationID, text string) *programmaticv1.OpenRequest {
 	return testProgrammaticRequest(operationID, func(request *programmaticv1.ControllerRequest) {
 		payload := new(programmaticv1.UserRequest)
-		payload.SetText(text)
+		payload.SetContent([]*programmaticv1.UserContent{
+			programmaticv1.UserContent_builder{Text: new(text), Image: nil}.Build(),
+		})
 		request.SetUserRequest(payload)
 	})
 }

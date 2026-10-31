@@ -325,7 +325,7 @@ func TestNavigationFailuresUseClosedCodes(t *testing.T) {
 // treeCommand creates one argument-free tree command for focused tests.
 func treeCommand(operationID string, kind controller.CommandKind) controller.Command {
 	return controller.Command{
-		OperationID: operationID, Kind: kind, UserText: mo.None[string](),
+		OperationID: operationID, Kind: kind, UserMessage: mo.None[model.Message](),
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),

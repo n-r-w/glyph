@@ -62,7 +62,13 @@ func newClosingMockService(t *testing.T) *MockService {
 	t.Helper()
 	return newInitializedMockService(t, func(ctx context.Context, host *Host) error {
 		request := new(uiv1.UIRequest)
-		request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("closing request")}.Build())
+		request.SetSubmit(
+			uiv1.SubmitCommand_builder{
+				Content: []*uiv1.UserContent{
+					uiv1.UserContent_builder{Text: new("closing request"), Image: nil}.Build(),
+				},
+			}.Build(),
+		)
 		if _, err := host.Start(ctx, "closing-submit", request); err != nil {
 			return err
 		}
@@ -503,7 +509,11 @@ func newMismatchMockService(t *testing.T) *MockService {
 	t.Helper()
 	return newInitializedMockService(t, func(ctx context.Context, host *Host) error {
 		request := new(uiv1.UIRequest)
-		request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("request")}.Build())
+		request.SetSubmit(
+			uiv1.SubmitCommand_builder{
+				Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("request"), Image: nil}.Build()},
+			}.Build(),
+		)
 		started, err := host.Start(ctx, "submit", request)
 		if err != nil {
 			return err

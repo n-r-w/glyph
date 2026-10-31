@@ -7,13 +7,13 @@ import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 )
 
-// SubmittedText validates a present submit payload at its admission boundary.
-func (command Command) SubmittedText() (string, error) {
-	text, present := command.Text.Get()
-	if !present || text == "" {
-		return "", errors.New("UI submit text is required")
+// SubmittedMessage returns the submitted user input or reports its absence at the admission boundary.
+func (command Command) SubmittedMessage() (model.Message, error) {
+	message, present := command.Message.Get()
+	if !present {
+		return model.Message{}, errors.New("UI submit message is required")
 	}
-	return text, nil
+	return message, nil
 }
 
 // ValidateSession checks required request fields without domain work.

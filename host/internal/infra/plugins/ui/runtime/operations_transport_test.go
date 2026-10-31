@@ -612,6 +612,10 @@ func TestRunOperationsPeerCloseFailsNewRequests(t *testing.T) {
 // operationRequest creates one valid submit request envelope.
 func operationRequest(id, text string) *uiv1.OpenResponse {
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new(text)}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new(text), Image: nil}.Build()},
+		}.Build(),
+	)
 	return uiv1.OpenResponse_builder{OperationId: new(id), Request: request, Event: nil, Close: nil}.Build()
 }

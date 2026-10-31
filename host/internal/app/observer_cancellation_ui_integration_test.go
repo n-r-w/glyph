@@ -84,7 +84,11 @@ func runObserverCancellationUIFixture(t *testing.T, ctx context.Context, host *u
 		return err
 	}
 	request := new(uiv1.UIRequest)
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("first request")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("first request"), Image: nil}.Build()},
+		}.Build(),
+	)
 	first, err := host.Start(ctx, "blocked-observer", request)
 	if err != nil {
 		return err
@@ -126,7 +130,11 @@ func runObserverCancellationUIFixture(t *testing.T, ctx context.Context, host *u
 	treeResult, err := waitUIOperation(ctx, host, "tree-after-cancel", tree, observe)
 	require.NoError(t, err)
 	require.Empty(t, treeResult.GetSessionTree().GetTree().GetEntries())
-	request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("second request")}.Build())
+	request.SetSubmit(
+		uiv1.SubmitCommand_builder{
+			Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("second request"), Image: nil}.Build()},
+		}.Build(),
+	)
 	second, err := host.Start(ctx, "later-run", request)
 	if err != nil {
 		return err

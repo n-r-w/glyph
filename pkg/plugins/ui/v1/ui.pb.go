@@ -4913,12 +4913,10 @@ func (b0 Initialized_builder) Build() *Initialized {
 
 // SubmitCommand requests one user turn.
 type SubmitCommand struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_Text        *string                `protobuf:"bytes,1,opt,name=text"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Content *[]*UserContent        `protobuf:"bytes,1,rep,name=content"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *SubmitCommand) Reset() {
@@ -4946,48 +4944,32 @@ func (x *SubmitCommand) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-func (x *SubmitCommand) GetText() string {
+func (x *SubmitCommand) GetContent() []*UserContent {
 	if x != nil {
-		if x.xxx_hidden_Text != nil {
-			return *x.xxx_hidden_Text
+		if x.xxx_hidden_Content != nil {
+			return *x.xxx_hidden_Content
 		}
-		return ""
 	}
-	return ""
+	return nil
 }
 
-func (x *SubmitCommand) SetText(v string) {
-	x.xxx_hidden_Text = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
-}
-
-func (x *SubmitCommand) HasText() bool {
-	if x == nil {
-		return false
-	}
-	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
-}
-
-func (x *SubmitCommand) ClearText() {
-	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
-	x.xxx_hidden_Text = nil
+func (x *SubmitCommand) SetContent(v []*UserContent) {
+	x.xxx_hidden_Content = &v
 }
 
 type SubmitCommand_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
-	// The user request submitted to the Host.
-	Text *string
+	// The ordered user input blocks. At least one block is required.
+	// Each text block is nonempty, and each image has a media type and data.
+	Content []*UserContent
 }
 
 func (b0 SubmitCommand_builder) Build() *SubmitCommand {
 	m0 := &SubmitCommand{}
 	b, x := &b0, m0
 	_, _ = b, x
-	if b.Text != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
-		x.xxx_hidden_Text = b.Text
-	}
+	x.xxx_hidden_Content = &b.Content
 	return m0
 }
 
@@ -5126,9 +5108,9 @@ const file_api_plugins_ui_v1_ui_proto_rawDesc = "" +
 	"\vinitialized\x18\x01 \x01(\v2 .glyph.plugins.ui.v1.InitializedH\x00R\vinitialized\x12=\n" +
 	"\x06cancel\x18\x02 \x01(\v2#.glyph.operation.v1.CancelCompletedH\x00R\x06cancelB\v\n" +
 	"\tcompleted\"\r\n" +
-	"\vInitialized\"#\n" +
-	"\rSubmitCommand\x12\x12\n" +
-	"\x04text\x18\x01 \x01(\tR\x04text*\x8f\x01\n" +
+	"\vInitialized\"K\n" +
+	"\rSubmitCommand\x12:\n" +
+	"\acontent\x18\x01 \x03(\v2 .glyph.plugins.ui.v1.UserContentR\acontent*\x8f\x01\n" +
 	"\x0fContentSeverity\x12 \n" +
 	"\x1cCONTENT_SEVERITY_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cCONTENT_SEVERITY_INFORMATION\x10\x01\x12\x1a\n" +
@@ -5208,6 +5190,7 @@ var file_api_plugins_ui_v1_ui_proto_goTypes = []any{
 	(*SetEntryLabelCommand)(nil),          // 65: glyph.plugins.ui.v1.SetEntryLabelCommand
 	(*SetRetryEnabledCommand)(nil),        // 66: glyph.plugins.ui.v1.SetRetryEnabledCommand
 	(*CompactCommand)(nil),                // 67: glyph.plugins.ui.v1.CompactCommand
+	(*UserContent)(nil),                   // 68: glyph.plugins.ui.v1.UserContent
 }
 var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	2,  // 0: glyph.plugins.ui.v1.OpenRequest.request:type_name -> glyph.plugins.ui.v1.HostRequest
@@ -5287,13 +5270,14 @@ var file_api_plugins_ui_v1_ui_proto_depIdxs = []int32{
 	26, // 74: glyph.plugins.ui.v1.UIEvent.rejected:type_name -> glyph.operation.v1.Rejected
 	19, // 75: glyph.plugins.ui.v1.UICompleted.initialized:type_name -> glyph.plugins.ui.v1.Initialized
 	33, // 76: glyph.plugins.ui.v1.UICompleted.cancel:type_name -> glyph.operation.v1.CancelCompleted
-	1,  // 77: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
-	15, // 78: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
-	78, // [78:79] is the sub-list for method output_type
-	77, // [77:78] is the sub-list for method input_type
-	77, // [77:77] is the sub-list for extension type_name
-	77, // [77:77] is the sub-list for extension extendee
-	0,  // [0:77] is the sub-list for field type_name
+	68, // 77: glyph.plugins.ui.v1.SubmitCommand.content:type_name -> glyph.plugins.ui.v1.UserContent
+	1,  // 78: glyph.plugins.ui.v1.UIService.Open:input_type -> glyph.plugins.ui.v1.OpenRequest
+	15, // 79: glyph.plugins.ui.v1.UIService.Open:output_type -> glyph.plugins.ui.v1.OpenResponse
+	79, // [79:80] is the sub-list for method output_type
+	78, // [78:79] is the sub-list for method input_type
+	78, // [78:78] is the sub-list for extension type_name
+	78, // [78:78] is the sub-list for extension extendee
+	0,  // [0:78] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_ui_v1_ui_proto_init() }

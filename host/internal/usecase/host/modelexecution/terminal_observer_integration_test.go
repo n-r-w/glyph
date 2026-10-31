@@ -109,7 +109,10 @@ func TestTerminalObserverFailureSelectsFailedRun(t *testing.T) {
 						AnyTimes()
 					core := agentrun.New("", runtime, tools, events, store)
 					// Act through Core's terminal observation and summary construction.
-					result, err := core.Run(ctx, runcontrol.Request{RunID: "terminal-observer", UserText: "request"})
+					result, err := core.Run(
+						ctx,
+						runcontrol.Request{RunID: "terminal-observer", Message: model.TextMessage("request")},
+					)
 					// Assert failed logical state, complete causes and unchanged provider outcome and metadata.
 					require.Equal(t, agent.RunOutcomeFailed, result.Outcome)
 					require.Equal(t, agent.RunOutcomeFailed, summary.Outcome)

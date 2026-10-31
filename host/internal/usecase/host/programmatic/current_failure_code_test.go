@@ -5,6 +5,7 @@ package programmatic
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -32,4 +33,19 @@ func TestRunFailureCodeUsesCurrentExtensionMeaning(t *testing.T) {
 	require.Equal(t, controller.FailureCodeInternal, historicalCode)
 	require.ErrorIs(t, current, cause)
 	require.ErrorIs(t, historical, cause)
+}
+
+// TestRunFailureCodeKeepsInputInvalid verifies final-input incompatibility keeps its category and complete text.
+func TestRunFailureCodeKeepsInputInvalid(t *testing.T) {
+	t.Parallel()
+	// Arrange the input-processing failure as run control returns it.
+	cause := errors.New("model text does not accept image input at content 1")
+	err := fmt.Errorf("process user input: %w", extensionsdk.Fail(controller.FailureCodeInputInvalid, cause))
+
+	// Act through the accepted-run failure mapper.
+	code := failureCode(err)
+
+	// Assert the public category and the complete cause text.
+	require.Equal(t, controller.FailureCodeInputInvalid, code)
+	require.ErrorContains(t, err, cause.Error())
 }

@@ -64,7 +64,7 @@ func testRunOutput(t *testing.T) *MockRunOutput {
 		activeID, activeRunID = id, runID
 		return true
 	}).AnyTimes()
-	output.EXPECT().CancelPrepared(gomock.Any()).DoAndReturn(func(runID string) {
+	output.EXPECT().ReleaseRun(gomock.Any()).DoAndReturn(func(runID string) {
 		mutex.Lock()
 		defer mutex.Unlock()
 		if activeRunID == runID {

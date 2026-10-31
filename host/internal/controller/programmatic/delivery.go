@@ -149,8 +149,8 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 	case CommandUserRequest:
 		switch proposed {
 		case FailureCodePersistenceUnavailable, FailureCodeModelFailed, FailureCodeRetryExhausted,
-			FailureCodeRetryCanceled, FailureCodeExtensionFailed, FailureCodeRetryDelayExceeded,
-			FailureCodeContextLimit, FailureCodeCompactionFailed:
+			FailureCodeRetryCanceled, FailureCodeExtensionFailed, FailureCodeInputInvalid,
+			FailureCodeRetryDelayExceeded, FailureCodeContextLimit, FailureCodeCompactionFailed:
 			return proposed
 		}
 	case CommandSelectModel, CommandSelectReasoningChoice:

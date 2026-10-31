@@ -190,7 +190,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	require.NoError(t, err)
 	firstID := response.GetOperationId()
 	// Assert the first request preserves Unicode input before sending its lifecycle.
-	assert.Equal(t, "héllo🙂", response.GetRequest().GetSubmit().GetText())
+	assert.Equal(t, "héllo🙂", response.GetRequest().GetSubmit().GetContent()[0].GetText())
 	beginHostOperation(t, stream, firstID)
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_RUNNING)
 	sendLifecycle(t, stream, firstID, uiv1.AgentEvent_builder{
@@ -382,7 +382,7 @@ func TestStandardTUIPTYInner(t *testing.T) {
 	response, err = stream.Recv()
 	require.NoError(t, err)
 	secondID := response.GetOperationId()
-	assert.Equal(t, "second request", response.GetRequest().GetSubmit().GetText())
+	assert.Equal(t, "second request", response.GetRequest().GetSubmit().GetContent()[0].GetText())
 	beginHostOperation(t, stream, secondID)
 	sendConnectionError(t, stream, "AUTHENTICATION_FAILED", "Authentication failed safely.")
 	sendAvailability(t, stream, uiv1.Availability_AVAILABILITY_AUTHENTICATION_FAILED)

@@ -212,6 +212,6 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	service := agentrun.New("instructions", runtime, tools, events, restarted)
 
-	_, err = service.Run(t.Context(), runcontrol.Request{RunID: "next", UserText: "second"})
+	_, err = service.Run(t.Context(), runcontrol.Request{RunID: "next", Message: model.TextMessage("second")})
 	require.ErrorIs(t, err, providerErr)
 }

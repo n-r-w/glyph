@@ -52,12 +52,20 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 	initializationOperation.EXPECT().Release()
 	service.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, host *uisdk.Host) error {
 		firstRequest := new(uiv1.UIRequest)
-		firstRequest.SetSubmit(uiv1.SubmitCommand_builder{Text: new("blocked")}.Build())
+		firstRequest.SetSubmit(
+			uiv1.SubmitCommand_builder{
+				Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("blocked"), Image: nil}.Build()},
+			}.Build(),
+		)
 		if _, startErr := host.Start(ctx, "first", firstRequest); startErr != nil {
 			return startErr
 		}
 		laterRequest := new(uiv1.UIRequest)
-		laterRequest.SetSubmit(uiv1.SubmitCommand_builder{Text: new("later")}.Build())
+		laterRequest.SetSubmit(
+			uiv1.SubmitCommand_builder{
+				Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("later"), Image: nil}.Build()},
+			}.Build(),
+		)
 		later, startErr := host.Start(ctx, "second", laterRequest)
 		if startErr != nil {
 			return startErr
@@ -143,7 +151,11 @@ func TestChannelCancellationReportsActualTargetState(t *testing.T) {
 	initializationOperation.EXPECT().Release()
 	service.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, host *uisdk.Host) error {
 		request := new(uiv1.UIRequest)
-		request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("blocked")}.Build())
+		request.SetSubmit(
+			uiv1.SubmitCommand_builder{
+				Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("blocked"), Image: nil}.Build()},
+			}.Build(),
+		)
 		if _, startErr := host.Start(ctx, "target", request); startErr != nil {
 			return startErr
 		}
@@ -209,7 +221,11 @@ func TestChannelPreservesPublicOperationErrors(t *testing.T) {
 		result <- waitErr
 
 		valid := new(uiv1.UIRequest)
-		valid.SetSubmit(uiv1.SubmitCommand_builder{Text: new("accepted")}.Build())
+		valid.SetSubmit(
+			uiv1.SubmitCommand_builder{
+				Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("accepted"), Image: nil}.Build()},
+			}.Build(),
+		)
 		failed, startErr := host.Start(ctx, "failed", valid)
 		if startErr != nil {
 			return startErr
@@ -235,7 +251,7 @@ func TestChannelPreservesPublicOperationErrors(t *testing.T) {
 	var rejection *uisdk.RejectionError
 	require.ErrorAs(t, rejectionErr, &rejection)
 	assert.Equal(t, "INVALID_ARGUMENT", rejection.Code())
-	require.EqualError(t, rejectionErr, "receive UI command: submit text is required")
+	require.EqualError(t, rejectionErr, "receive UI command: submit: at least one content block is required")
 	failureErr := <-result
 	var failure *uisdk.FailureError
 	require.ErrorAs(t, failureErr, &failure)
@@ -273,7 +289,11 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 	initializationOperation.EXPECT().Release()
 	service.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(func(ctx context.Context, host *uisdk.Host) error {
 		request := new(uiv1.UIRequest)
-		request.SetSubmit(uiv1.SubmitCommand_builder{Text: new("blocked")}.Build())
+		request.SetSubmit(
+			uiv1.SubmitCommand_builder{
+				Content: []*uiv1.UserContent{uiv1.UserContent_builder{Text: new("blocked"), Image: nil}.Build()},
+			}.Build(),
+		)
 		_, startErr := host.Start(ctx, "blocked", request)
 		if startErr != nil {
 			return startErr

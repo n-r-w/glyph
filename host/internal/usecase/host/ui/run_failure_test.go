@@ -13,6 +13,7 @@ import (
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/internal/operation"
 )
 
@@ -47,7 +48,9 @@ func TestSubmitClassifiesPersistenceCause(t *testing.T) {
 			runner := NewMockAgentRunner(mocks)
 			auth := NewMockAuthenticator(mocks)
 			runner.EXPECT().PrepareRun().Return("run", nil)
-			runner.EXPECT().RunPrepared(gomock.Any(), "run", "hello").Return(agent.RunOutcomeFailed, test.cause)
+			runner.EXPECT().
+				RunPrepared(gomock.Any(), "run", model.TextMessage("hello")).
+				Return(agent.RunOutcomeFailed, test.cause)
 			runner.EXPECT().CancelPrepared("run")
 			output.EXPECT().BindProgress(gomock.Any(), gomock.Any()).Return(func() {})
 			output.EXPECT().SetAvailability(gomock.Any()).Return(nil).Times(2)
@@ -55,7 +58,7 @@ func TestSubmitClassifiesPersistenceCause(t *testing.T) {
 			service := NewSession(output, runner, auth, nil, nil, nil, nil, nil, nil, nil)
 			service.setOperationAvailability(AvailabilityIdle)
 			command := newCommandForPreparedTest(controllerui.CommandSubmit)
-			command.Text = mo.Some("hello")
+			command.Message = mo.Some(model.TextMessage("hello"))
 			prepared, err := service.Prepare(t.Context(), command)
 			require.NoError(t, err)
 
