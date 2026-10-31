@@ -178,7 +178,7 @@ func (s *Service) handleImmediate(
 		response.RetryPolicy = mo.Some(retryPolicy(s.retryControl))
 		return response, true, nil
 	case controller.CommandUnspecified, controller.CommandCancel,
-		controller.CommandSelectModel, controller.CommandSelectReasoningChoice:
+		controller.CommandSelectModel, controller.CommandSelectReasoningChoice, controller.CommandSteer:
 		return s.rejection(
 			command,
 			controller.RejectionInvalidArgument,
@@ -239,7 +239,7 @@ func (s *Service) handleSessionImmediate(
 	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandCancel,
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
-		controller.CommandNavigateSessionTree:
+		controller.CommandNavigateSessionTree, controller.CommandSteer:
 		return controller.Response{}, false, nil
 	default:
 		return controller.Response{}, false, nil
@@ -626,6 +626,7 @@ func sessionStatisticsResponse(operationID string, statistics session.Statistics
 		CompactionCanceled:    mo.None[bool](),
 		CompactionError:       mo.None[string](),
 		CompactionFailureCode: mo.None[string](),
+		MessageHandled:        mo.None[bool](),
 	}
 }
 
@@ -695,6 +696,7 @@ func emptyResponse(operationID string, kind controller.ResponseKind) controller.
 		CompactionCanceled:    mo.None[bool](),
 		CompactionError:       mo.None[string](),
 		CompactionFailureCode: mo.None[string](),
+		MessageHandled:        mo.None[bool](),
 	}
 }
 

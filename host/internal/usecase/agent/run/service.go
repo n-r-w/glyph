@@ -46,10 +46,12 @@ type Service struct {
 	// finalizer supplies the final value of each terminal model response and completed tool result.
 	finalizer MessageFinalizer
 
-	// mutex protects state and appended-history accounting.
+	// mutex protects state, pending steer messages, and appended-history accounting.
 	mutex sync.RWMutex
 	// state contains the current run snapshot.
 	state State
+	// steering holds the steer messages of the active run that history has not received yet, in arrival order.
+	steering []model.Message
 	// addedHistory owns detached entries appended successfully by the active run.
 	addedHistory []agent.HistoryEntry
 }
@@ -76,6 +78,7 @@ func New(
 		historyStore: historyStore,
 		finalizer:    finalizer,
 		mutex:        sync.RWMutex{},
+		steering:     nil,
 		addedHistory: nil,
 		state: State{
 			Status:          StatusIdle,
@@ -99,10 +102,7 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 		)
 	}
 	// The user entry must transfer to history ownership before any turn or provider request can depend on it.
-	if err := s.appendHistory(ctx, agent.HistoryEntry{
-		Kind: agent.HistoryEntryUser, User: mo.Some(request.Message),
-		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
-	}); err != nil {
+	if err := s.appendUser(ctx, request.Message); err != nil {
 		return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
 	}
 
@@ -113,10 +113,27 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 			)
 		}
 		turnResult, next, runErr := s.runTurn(ctx, request.RunID)
-		if next {
+		var steer mo.Option[model.Message]
+		switch {
+		case next:
+			steer = s.takeSteer()
+		case turnResult.Outcome == agent.RunOutcomeCompleted && runErr == nil:
+			// A final response delivers a pending steer message instead of completing the run.
+			steer = s.takeSteerOrComplete()
+			if steer.IsAbsent() {
+				return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
+			}
+		default:
+			return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
+		}
+		message, present := steer.Get()
+		if !present {
 			continue
 		}
-		return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
+		// The next turn reads history again, so the model receives the message in its next request.
+		if err := s.appendUser(ctx, message); err != nil {
+			return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
+		}
 	}
 }
 
@@ -423,6 +440,8 @@ func (s *Service) finish(
 	s.mutex.Lock()
 	added := s.addedHistory
 	s.addedHistory = nil
+	// The run ends here, so steer messages that it has not delivered are discarded.
+	s.steering = nil
 	s.state = State{
 		Status:          StatusAwaitingSettlement,
 		RunID:           mo.Some(runID),
@@ -485,6 +504,14 @@ func (s *Service) clearPartial() {
 	s.state.PartialResponse = mo.None[model.Response]()
 	clear(s.state.ToolPreviews)
 	s.mutex.Unlock()
+}
+
+// appendUser transfers one user message to canonical history ownership.
+func (s *Service) appendUser(ctx context.Context, message model.Message) error {
+	return s.appendHistory(ctx, agent.HistoryEntry{
+		Kind: agent.HistoryEntryUser, User: mo.Some(message),
+		Model: mo.None[model.Response](), ToolResult: mo.None[agent.ToolResult](),
+	})
 }
 
 // appendModel transfers one finalized model response to canonical history ownership.

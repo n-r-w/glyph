@@ -53,6 +53,8 @@ const (
 	ResponseRetryEnabled
 	// ResponseCompaction reports one terminal manual compaction outcome.
 	ResponseCompaction
+	// ResponseEnqueueMessage reports that Host queued a message or that an extension fully handled it.
+	ResponseEnqueueMessage
 )
 
 // RejectionCode identifies why an operation was not executed.
@@ -134,6 +136,8 @@ type Response struct {
 	CompactionError mo.Option[string]
 	// CompactionFailureCode contains its stable category when CompactionError is present.
 	CompactionFailureCode mo.Option[string]
+	// MessageHandled reports for an enqueue result that an extension fully handled the message.
+	MessageHandled mo.Option[bool]
 }
 
 // SessionReplacement contains public active-session state after fork or clone.

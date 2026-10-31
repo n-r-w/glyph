@@ -161,6 +161,11 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 		default:
 			return FailureCodeInternal
 		}
+	case CommandSteer:
+		switch proposed {
+		case FailureCodeRunNotActive, FailureCodeExtensionFailed, FailureCodeInputInvalid:
+			return proposed
+		}
 	case CommandCreateSession, CommandListSessions, CommandResumeSession, CommandSetSessionName,
 		CommandForkSession, CommandCloneSession, CommandSetEntryLabel:
 		if proposed == FailureCodeSessionUnavailable || proposed == FailureCodePersistenceUnavailable {
@@ -234,6 +239,8 @@ func completionMatches(command CommandKind, response ResponseKind) bool {
 		return response == ResponseRetryEnabled
 	case CommandCompact:
 		return response == ResponseCompaction
+	case CommandSteer:
+		return response == ResponseEnqueueMessage
 	case CommandUnspecified:
 		return false
 	default:

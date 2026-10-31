@@ -1,0 +1,32 @@
+edition = "2023";
+
+package glyph.programmatic.v1;
+
+import "api/programmatic/v1/session.proto";
+
+option go_package = "github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1";
+
+// EnqueueMessage queues user input for the active agent run.
+// The operation completes when Host queues the message, not when the agent receives it.
+// It fails with RUN_NOT_ACTIVE when no agent run is active.
+message EnqueueMessage {
+  // The ordered user input blocks, with the same rules as UserRequest content.
+  repeated UserContent content = 1;
+  // The point at which the agent receives the message.
+  MessageDelivery delivery = 2;
+}
+
+// MessageDelivery identifies when the agent receives a queued message.
+enum MessageDelivery {
+  // No delivery point was provided.
+  MESSAGE_DELIVERY_UNSPECIFIED = 0;
+  // The agent receives the message after all tools of the current turn finish,
+  // or after a final model response, and then makes another model request.
+  MESSAGE_DELIVERY_STEER = 1;
+}
+
+// EnqueueMessageResult reports how Host accepted a queued message.
+message EnqueueMessageResult {
+  // True when an extension fully handled the message, so Host did not queue it.
+  bool handled = 1;
+}

@@ -32,8 +32,11 @@ The executable name selects the scenario. Build or copy the same binary under on
 | `input-original` | `input-text` appends the text block `glyph-input-A` to the current input; `input-images` replaces the input with the original plus the text block `glyph-input-B` |
 | `input-block` | Block the first `input-text` invocation until Host cancels it, then behave as `input` |
 | `input-exit` | Terminate the extension process with status 17 during the first `input-text` invocation |
+| `input-pause` | Behave as `input`, but pause each `input-text` invocation whose text contains `glyph-pause-input` |
 
 When the environment variable `GLYPH_INPUT_SIGNALS` names a directory, the blocked `input-block` invocation writes the empty file `input-blocked` there before it waits.
+
+The `input-pause` scenario requires `GLYPH_INPUT_SIGNALS` to name a directory with the named pipes `input-paused` and `input-resume`. A paused invocation opens `input-paused` for writing, then `input-resume` for reading, and then continues. Each open waits until another process opens the other end, so a test sees the invocation start by reading `input-paused` and releases it by writing `input-resume`.
 
 When the environment variable `GLYPH_INPUT_TRACE` names a file, every invocation appends one line with the handler identifier, a tab and the received `UserInputInvocation` as protobuf JSON. The trace shows which handlers ran and the original and current input of each invocation.
 

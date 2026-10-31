@@ -64,11 +64,25 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 func mapStandardRequest(request *programmaticv1.ControllerRequest, command Command) (Command, error) {
 	switch request.WhichRequest() {
 	case programmaticv1.ControllerRequest_UserRequest_case:
-		message, err := mapUserRequest(request.GetUserRequest())
+		message, err := mapUserContent(request.GetUserRequest().GetContent())
 		if err != nil {
 			return Command{}, Reject(RejectionCodeInvalidArgument, fmt.Errorf("programmatic user request: %w", err))
 		}
 		command.Kind = CommandUserRequest
+		command.UserMessage = mo.Some(message)
+	case programmaticv1.ControllerRequest_EnqueueMessage_case:
+		enqueue := request.GetEnqueueMessage()
+		if enqueue.GetDelivery() != programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER {
+			return Command{}, Reject(
+				RejectionCodeInvalidArgument,
+				fmt.Errorf("programmatic message delivery %s is not supported", enqueue.GetDelivery()),
+			)
+		}
+		message, err := mapUserContent(enqueue.GetContent())
+		if err != nil {
+			return Command{}, Reject(RejectionCodeInvalidArgument, fmt.Errorf("programmatic queued message: %w", err))
+		}
+		command.Kind = CommandSteer
 		command.UserMessage = mo.Some(message)
 	case programmaticv1.ControllerRequest_GetRunState_case:
 		command.Kind = CommandGetRunState
@@ -135,10 +149,10 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 	return command, nil
 }
 
-// mapUserRequest maps ordered public input blocks to a user message with a valid shape.
-func mapUserRequest(request *programmaticv1.UserRequest) (model.Message, error) {
-	content := make([]model.InputContent, len(request.GetContent()))
-	for index, item := range request.GetContent() {
+// mapUserContent maps ordered public input blocks to a user message with a valid shape.
+func mapUserContent(items []*programmaticv1.UserContent) (model.Message, error) {
+	content := make([]model.InputContent, len(items))
+	for index, item := range items {
 		switch item.WhichContent() {
 		case programmaticv1.UserContent_Text_case:
 			content[index] = model.TextContent(item.GetText())

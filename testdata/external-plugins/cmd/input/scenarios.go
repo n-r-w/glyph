@@ -23,6 +23,14 @@ const (
 	blockMode = "input-block"
 	// exitMode terminates the extension process during the first input-text invocation.
 	exitMode = "input-exit"
+	// pauseMode pauses each input-text invocation whose text contains pauseMarker on two named pipes.
+	pauseMode = "input-pause"
+	// pauseMarker is the text that selects a paused input-text invocation in the pause scenario.
+	pauseMarker = "glyph-pause-input"
+	// pausedSignal is the named pipe that a paused invocation opens for writing when it starts.
+	pausedSignal = "input-paused"
+	// resumeSignal is the named pipe that a paused invocation opens for reading before it continues.
+	resumeSignal = "input-resume"
 	// markerA is the text block that input-text appends in the original scenario.
 	markerA = "glyph-input-A"
 	// markerB is the text block that input-images appends to the original input in the original scenario.
@@ -51,6 +59,12 @@ func (o *operation) text(
 		}
 	case exitMode:
 		os.Exit(exitStatus)
+	case pauseMode:
+		if containsText(input.GetCurrent(), pauseMarker) {
+			if err := pause(); err != nil {
+				return nil, err
+			}
+		}
 	}
 	if response, selected := o.scenarioFailure(); selected {
 		return response, nil
@@ -86,6 +100,29 @@ func block(ctx context.Context) error {
 	}
 	<-ctx.Done()
 	return ctx.Err()
+}
+
+// pause opens the paused pipe for writing and the resume pipe for reading; each open waits for the other end,
+// so the invocation continues only after the test has seen it start and released it.
+func pause() (returnErr error) {
+	root, err := os.OpenRoot(os.Getenv(signalsEnvironment))
+	if err != nil {
+		return err
+	}
+	defer func() { returnErr = errors.Join(returnErr, root.Close()) }()
+	for _, barrier := range []struct {
+		name string
+		flag int
+	}{{name: pausedSignal, flag: os.O_WRONLY}, {name: resumeSignal, flag: os.O_RDONLY}} {
+		file, openErr := root.OpenFile(barrier.name, barrier.flag, 0)
+		if openErr != nil {
+			return openErr
+		}
+		if closeErr := file.Close(); closeErr != nil {
+			return closeErr
+		}
+	}
+	return nil
 }
 
 // writeSignal creates the blocked-invocation marker inside the signal directory.

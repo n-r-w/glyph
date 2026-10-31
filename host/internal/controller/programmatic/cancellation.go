@@ -206,6 +206,7 @@ func cancelCompletedResponse(state operation.TerminalState) Response {
 		CompactionCanceled:    mo.None[bool](),
 		CompactionError:       mo.None[string](),
 		CompactionFailureCode: mo.None[string](),
+		MessageHandled:        mo.None[bool](),
 	}
 }
 

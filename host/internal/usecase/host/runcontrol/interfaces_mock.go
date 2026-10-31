@@ -42,6 +42,21 @@ func (m *MockExecutor) EXPECT() *MockExecutorMockRecorder {
 	return m.recorder
 }
 
+// CheckSteer mocks base method.
+func (m *MockExecutor) CheckSteer() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckSteer")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckSteer indicates an expected call of CheckSteer.
+func (mr *MockExecutorMockRecorder) CheckSteer() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckSteer", reflect.TypeOf((*MockExecutor)(nil).CheckSteer))
+}
+
 // Run mocks base method.
 func (m *MockExecutor) Run(arg0 context.Context, arg1 Request) (Result, error) {
 	m.ctrl.T.Helper()
@@ -69,6 +84,20 @@ func (m *MockExecutor) Settle(runID string) error {
 func (mr *MockExecutorMockRecorder) Settle(runID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Settle", reflect.TypeOf((*MockExecutor)(nil).Settle), runID)
+}
+
+// Steer mocks base method.
+func (m *MockExecutor) Steer(runID string, message model.Message) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Steer", runID, message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Steer indicates an expected call of Steer.
+func (mr *MockExecutorMockRecorder) Steer(runID, message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Steer", reflect.TypeOf((*MockExecutor)(nil).Steer), runID, message)
 }
 
 // MockInputProcessor is a mock of InputProcessor interface.

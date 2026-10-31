@@ -49,6 +49,8 @@ const (
 	FailureCodeSessionUnavailable = "SESSION_UNAVAILABLE"
 	// FailureCodePersistenceUnavailable reports unavailable session persistence.
 	FailureCodePersistenceUnavailable = "PERSISTENCE_UNAVAILABLE"
+	// FailureCodeRunNotActive reports a message for an agent run when no agent run is active.
+	FailureCodeRunNotActive = "RUN_NOT_ACTIVE"
 	// FailureCodeInternal reports an unclassified operation failure.
 	FailureCodeInternal = "INTERNAL"
 )

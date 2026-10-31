@@ -56,6 +56,8 @@ const (
 	CommandSetRetryEnabled
 	// CommandCompact requests manual active-conversation compaction.
 	CommandCompact
+	// CommandSteer queues user input as a steer message of the active agent run.
+	CommandSteer
 )
 
 // Command is one transport-independent controller operation.
@@ -64,7 +66,7 @@ type Command struct {
 	OperationID string
 	// Kind identifies the requested controller operation.
 	Kind CommandKind
-	// UserMessage contains the submitted ordered user input.
+	// UserMessage contains the submitted ordered user input of a user request or a queued message.
 	UserMessage mo.Option[model.Message]
 	// ProviderID identifies a requested model provider.
 	ProviderID mo.Option[model.ProviderID]

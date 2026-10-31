@@ -135,6 +135,29 @@ func (c *Coordinator) RunPrepared(ctx context.Context, runID string, message mod
 	return result.Outcome, errors.Join(runErr, settleErr, settledErr)
 }
 
+// Steer processes the message as user input and queues it as a steer message of the active run.
+// It reports true when an extension fully handled the message, so nothing was queued.
+func (c *Coordinator) Steer(ctx context.Context, message model.Message) (bool, error) {
+	// Input handlers run only for a message that a run can receive. Core checks the same run again when it queues
+	// the message, because that run can end and another can start while the handlers run.
+	runID, err := c.executor.CheckSteer()
+	if err != nil {
+		return false, fmt.Errorf("queue steer message: %w", err)
+	}
+	processed, err := c.input.ProcessInput(ctx, message)
+	if err != nil {
+		return false, fmt.Errorf("process user input: %w", err)
+	}
+	final, present := processed.Get()
+	if !present {
+		return true, nil
+	}
+	if steerErr := c.executor.Steer(runID, final); steerErr != nil {
+		return false, fmt.Errorf("queue steer message: %w", steerErr)
+	}
+	return false, nil
+}
+
 // Run executes one Agent Core run, emits Host settlement, and makes Agent Core idle.
 func (c *Coordinator) Run(ctx context.Context, message model.Message) (agent.RunOutcome, error) {
 	runID, err := c.PrepareRun()

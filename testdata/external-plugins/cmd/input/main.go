@@ -130,15 +130,19 @@ func (o *operation) Run(ctx context.Context) (*extensionpb.HandleResponse, error
 //
 //nolint:exhaustruct_v5 // Protobuf oneof builders set only their active action.
 func (o *operation) handle(current *extensionpb.SessionTreeUserMessage) *extensionpb.HandleResponse {
-	recognized := slices.ContainsFunc(current.GetContent(), func(content *extensionpb.SessionTreeUserContent) bool {
-		return strings.Contains(content.GetText(), handledMarker)
-	})
-	if !recognized {
+	if !containsText(current, handledMarker) {
 		return preserve()
 	}
 	return extensionpb.HandleResponse_builder{
 		UserInput: extensionpb.UserInputAction_builder{Handle: new(true)}.Build(),
 	}.Build()
+}
+
+// containsText reports whether a text block of the input contains the marker.
+func containsText(current *extensionpb.SessionTreeUserMessage, marker string) bool {
+	return slices.ContainsFunc(current.GetContent(), func(content *extensionpb.SessionTreeUserContent) bool {
+		return strings.Contains(content.GetText(), marker)
+	})
 }
 
 // transformText appends the reference suffix to every text block.

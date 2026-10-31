@@ -93,6 +93,12 @@ func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
 			return nil, errors.New("map retry enablement: retry policy is absent")
 		}
 		wire.SetRetryEnabled(programmaticv1.RetryEnabledResult_builder{Policy: mapRetryPolicy(policy)}.Build())
+	case ResponseEnqueueMessage:
+		handled, present := response.MessageHandled.Get()
+		if !present {
+			return nil, errors.New("map queued message: handling result is absent")
+		}
+		wire.SetEnqueueMessage(programmaticv1.EnqueueMessageResult_builder{Handled: new(handled)}.Build())
 	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
 		ResponseSessionTree, ResponseSessionTreeNavigation, ResponseForkSession, ResponseCloneSession,
 		ResponseSetEntryLabel:

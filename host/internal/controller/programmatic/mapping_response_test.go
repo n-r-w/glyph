@@ -558,3 +558,37 @@ func TestMapResponsePreservesEveryResult(t *testing.T) {
 	require.NoError(t, err)
 	assert.False(t, mapped.GetRunState().HasActiveOperationId())
 }
+
+// TestMapResponseEnqueueMessage verifies the public enqueue result and its required handling flag.
+func TestMapResponseEnqueueMessage(t *testing.T) {
+	t.Parallel()
+	for name, handled := range map[string]mo.Option[bool]{"handled": mo.Some(true), "absent": mo.None[bool]()} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange an enqueue result with the given handling flag.
+			response := Response{
+				OperationID: "operation", Kind: ResponseEnqueueMessage,
+				State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
+				Selection: mo.None[model.Selection](), SelectionIssues: nil,
+				SessionInfo: mo.None[session.Info](), Sessions: nil, SessionEntries: nil,
+				SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[SessionTree](),
+				TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
+				Rejection: mo.None[Rejection](), CancelTargetState: mo.None[operation.TerminalState](),
+				RetryPolicy: mo.None[RetryPolicy](), CompactionCanceled: mo.None[bool](),
+				CompactionError: mo.None[string](), CompactionFailureCode: mo.None[string](),
+				MessageHandled: handled,
+			}
+
+			// Act through the production Programmatic protobuf mapping.
+			completed, err := mapResponse(response)
+
+			// Assert the handled result is mapped, and an absent flag fails the mapping.
+			if handled.IsAbsent() {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.True(t, completed.GetEnqueueMessage().GetHandled())
+		})
+	}
+}

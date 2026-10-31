@@ -98,6 +98,9 @@ func TestMapOpenRequestMapsEveryOperationKind(t *testing.T) {
 			payload.SetLabel("label")
 			request.SetSetEntryLabel(payload)
 		}, kind: CommandSetEntryLabel},
+		"steer": {set: func(request *programmaticv1.ControllerRequest) {
+			request.SetEnqueueMessage(testEnqueueMessage(programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER))
+		}, kind: CommandSteer},
 	}
 
 	for name, test := range tests {
@@ -313,4 +316,31 @@ func TestUserRequestRejectsBlankText(t *testing.T) {
 
 	// Assert the blank text is not a valid user request.
 	assert.False(t, valid)
+}
+
+// testEnqueueMessage creates one queued text message with the given delivery point.
+func testEnqueueMessage(delivery programmaticv1.MessageDelivery) *programmaticv1.EnqueueMessage {
+	payload := new(programmaticv1.EnqueueMessage)
+	payload.SetContent([]*programmaticv1.UserContent{
+		programmaticv1.UserContent_builder{Text: new("steer"), Image: nil}.Build(),
+	})
+	payload.SetDelivery(delivery)
+	return payload
+}
+
+// TestMapOpenRequestRejectsMissingDelivery verifies that a queued message without a delivery point is rejected.
+func TestMapOpenRequestRejectsMissingDelivery(t *testing.T) {
+	t.Parallel()
+	// Arrange a queued message without a delivery point.
+	request := testRequest("operation", func(request *programmaticv1.ControllerRequest) {
+		request.SetEnqueueMessage(testEnqueueMessage(programmaticv1.MessageDelivery_MESSAGE_DELIVERY_UNSPECIFIED))
+	})
+
+	// Act by mapping the request envelope.
+	_, err := mapOpenRequest(request)
+
+	// Assert the request is rejected as an invalid argument.
+	var rejection *RejectionError
+	require.ErrorAs(t, err, &rejection)
+	assert.Equal(t, RejectionCodeInvalidArgument, rejection.Code())
 }

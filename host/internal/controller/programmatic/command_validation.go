@@ -18,7 +18,7 @@ func (command Command) Valid() bool {
 		return !invalid
 	}
 	switch command.Kind {
-	case CommandUserRequest:
+	case CommandUserRequest, CommandSteer:
 		return !command.invalidUserRequest()
 	case CommandCancel, CommandGetRunState, CommandGetMessages, CommandGetModels:
 		return command.UserMessage.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
@@ -61,7 +61,8 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 	case CommandSetEntryLabel:
 		return command.invalidSetEntryLabel(), true
 	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
-		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice, CommandSetRetryEnabled, CommandCompact:
+		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice, CommandSetRetryEnabled, CommandCompact,
+		CommandSteer:
 		return false, false
 	default:
 		return false, false
@@ -113,7 +114,8 @@ func (command Command) invalidSetEntryLabel() bool {
 		command.CustomFocus.IsSome() || command.SummaryMode != SummaryModeNoSummary
 }
 
-// invalidUserRequest reports a malformed user request payload, including a text block without visible text.
+// invalidUserRequest reports a malformed user request or queued message payload, including a text block without
+// visible text.
 func (command Command) invalidUserRequest() bool {
 	message, present := command.UserMessage.Get()
 	if !present || command.hasModelArguments() || command.hasSessionArguments() {

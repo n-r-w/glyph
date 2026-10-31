@@ -93,6 +93,9 @@ func (p *commandPrepared) Run(
 	if p.command.Kind == controller.CommandNavigateSessionTree {
 		return p.runNavigation(ctx, reporter)
 	}
+	if p.command.Kind == controller.CommandSteer {
+		return p.runSteer(ctx)
+	}
 	var response controller.Response
 	var active *runPrepared
 	var err error
@@ -164,6 +167,22 @@ func (p *commandPrepared) runNavigation(
 	if isCanceledNavigation(response) && errors.Is(ctx.Err(), context.Canceled) {
 		return operation.Canceled[controller.Response]()
 	}
+	return operation.Completed(response)
+}
+
+// runSteer queues the message of the command and completes when the queue accepts it or an extension fully
+// handles it.
+func (p *commandPrepared) runSteer(ctx context.Context) operation.Outcome[controller.Response] {
+	// Preparation validated that the command carries a message.
+	handled, err := p.service.coordinator.Steer(ctx, p.command.UserMessage.OrEmpty())
+	if err != nil {
+		if isOperationCancellation(ctx, err) {
+			return newCanceledCommandOutcome(err)
+		}
+		return operation.Failed[controller.Response](failureCode(err), err)
+	}
+	response := emptyResponse(p.command.OperationID, controller.ResponseEnqueueMessage)
+	response.MessageHandled = mo.Some(handled)
 	return operation.Completed(response)
 }
 
@@ -350,7 +369,7 @@ func isSessionMutation(kind controller.CommandKind) bool {
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice, controller.CommandListSessions,
 		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries, controller.CommandGetSessionStats,
-		controller.CommandGetSessionTree, controller.CommandSetRetryEnabled:
+		controller.CommandGetSessionTree, controller.CommandSetRetryEnabled, controller.CommandSteer:
 		return false
 	default:
 		return false
@@ -391,6 +410,9 @@ func mapPreparationRejection(response controller.Response) error {
 func failureCode(err error) string {
 	if errtree.HasCurrent(err, agent.ErrPersistenceUnavailable, session.ErrPersistenceUnavailable) {
 		return controller.FailureCodePersistenceUnavailable
+	}
+	if errtree.HasCurrent(err, agent.ErrRunNotActive) {
+		return controller.FailureCodeRunNotActive
 	}
 	if code, found := directCompactionFailureCode(err); found {
 		return code

@@ -297,6 +297,21 @@ func (mr *MockCoordinatorMockRecorder) RunPrepared(ctx, runID, message any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockCoordinator)(nil).RunPrepared), ctx, runID, message)
 }
 
+// Steer mocks base method.
+func (m *MockCoordinator) Steer(ctx context.Context, message model.Message) (bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Steer", ctx, message)
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Steer indicates an expected call of Steer.
+func (mr *MockCoordinatorMockRecorder) Steer(ctx, message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Steer", reflect.TypeOf((*MockCoordinator)(nil).Steer), ctx, message)
+}
+
 // MockActiveSessions is a mock of ActiveSessions interface.
 type MockActiveSessions struct {
 	ctrl     *gomock.Controller

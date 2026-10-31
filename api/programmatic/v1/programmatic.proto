@@ -6,6 +6,7 @@ import "api/operation/v1/operation.proto";
 import "api/programmatic/v1/agent.proto";
 import "api/programmatic/v1/compaction.proto";
 import "api/programmatic/v1/model.proto";
+import "api/programmatic/v1/queue.proto";
 import "api/programmatic/v1/retry.proto";
 import "api/programmatic/v1/session.proto";
 
@@ -52,6 +53,8 @@ message ControllerRequest {
     SetRetryEnabled set_retry_enabled = 20;
     // A manual active-conversation compaction request.
     Compact compact = 21;
+    // A message for the active agent run.
+    EnqueueMessage enqueue_message = 22;
   }
 }
 // UserRequest submits ordered user input; Host runs the agent for it unless an extension fully handles it.
@@ -161,6 +164,8 @@ message HostCompleted {
     RetryEnabledResult retry_enabled = 16;
     // The terminal manual compaction outcome.
     CompactionResult compaction = 17;
+    // The acceptance of a queued message.
+    EnqueueMessageResult enqueue_message = 18;
   }
 }
 // UserRequestCompleted acknowledges a settled agent run.

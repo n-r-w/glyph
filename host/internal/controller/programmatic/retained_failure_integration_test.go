@@ -56,6 +56,7 @@ func TestFailedSelectionDeliveryValidatesRetainedResult(t *testing.T) {
 				Rejection: mo.None[Rejection](), CancelTargetState: mo.None[operation.TerminalState](),
 				RetryPolicy: mo.None[RetryPolicy](), CompactionCanceled: mo.None[bool](),
 				CompactionError: mo.None[string](), CompactionFailureCode: mo.None[string](),
+				MessageHandled: mo.None[bool](),
 			}
 			cause := errors.New("complete committed selection observer failure")
 
