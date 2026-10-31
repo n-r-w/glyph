@@ -77,17 +77,21 @@ type retryAcceptanceObservation struct {
 	delays []int64
 	// limits records public effective attempt limits.
 	limits []int64
+	// canceled records whether the operation ended by public cancellation.
+	canceled bool
 	// code records the terminal public failure category.
 	code string
 	// message records the complete public failure text.
 	message string
 }
 
-// runRetryAcceptance invokes the public application against controlled provider HTTP responses.
+// runRetryAcceptance invokes the public application against controlled provider HTTP responses
+// and cancels the operation at its first scheduled retry when cancelOnRetry is set.
 func runRetryAcceptance(
 	t *testing.T,
 	directory, policy, retryAfter string,
 	status, failures int,
+	cancelOnRetry bool,
 ) (retryAcceptanceObservation, string) {
 	t.Helper()
 	var mutex sync.Mutex
@@ -144,12 +148,22 @@ func runRetryAcceptance(
 		if retry := event.GetProgress().GetAgentEvent().GetRetryProgress(); retry != nil {
 			observation.delays = append(observation.delays, retry.GetDelayMilliseconds())
 			observation.limits = append(observation.limits, retry.GetAttemptLimit())
+			if cancelOnRetry {
+				require.NoError(
+					t,
+					fixture.stream.Send(cancelRequest("retry-acceptance-cancel", request.GetOperationId())),
+				)
+			}
 		}
 		if failure := event.GetFailed(); failure != nil {
 			observation.code, observation.message = failure.GetFailure().GetCode(), failure.GetFailure().GetMessage()
 			break
 		}
 		if event.HasCompleted() {
+			break
+		}
+		if cancelOnRetry && event.HasCanceled() {
+			observation.canceled = true
 			break
 		}
 		require.False(t, event.HasRejected() || event.HasCanceled(), retryUnexpectedTerminalFormat, event)
@@ -168,7 +182,7 @@ func TestPublicRetryOverrideComposition(t *testing.T) {
 	t.Setenv(retryHandlerEnvironment, retryComposeMode)
 	policy := "\nretry:\n  enabled: true\n  maxRetries: 0\n  delays: [0s]\n"
 	// Act through Programmatic Control and the real extension runtime.
-	observation, signals := runRetryAcceptance(t, directory, policy, "", http.StatusBadRequest, 3)
+	observation, signals := runRetryAcceptance(t, directory, policy, "", http.StatusBadRequest, 3, false)
 	// Assert the final handler decision permits exactly two repeats and stops at its effective limit.
 	require.Len(t, observation.arrivals, 3)
 	assert.Equal(t, programmatic.FailureCodeModelFailed, observation.code)
@@ -242,6 +256,7 @@ func TestPublicRetryPolicySchedule(t *testing.T) {
 				"",
 				http.StatusServiceUnavailable,
 				10,
+				false,
 			)
 			// Assert retry counts exclude the initial attempt and provider-arrival intervals meet each delay lower bound.
 			require.Len(t, observation.arrivals, len(scenario.delays)+1)
@@ -265,7 +280,8 @@ func TestPublicRetryPolicySchedule(t *testing.T) {
 	}
 }
 
-// TestPublicProviderRetryAfter checks provider-arrival lower bounds and rejection at default and configured thresholds.
+// TestPublicProviderRetryAfter checks provider-arrival lower bounds, scheduled delays, and rejection at default and
+// configured thresholds.
 func TestPublicProviderRetryAfter(t *testing.T) {
 	// Arrange provider-requested delays around Host's accepted maximum.
 	directory := buildPublicExtensionFixture(t)
@@ -276,22 +292,30 @@ func TestPublicProviderRetryAfter(t *testing.T) {
 		policy string
 		// requested is the provider delay in seconds.
 		requested string
-		// accepted determines whether a second attempt runs.
+		// accepted determines whether Host schedules a second attempt.
 		accepted bool
-		// duration is the expected minimum wait.
+		// cancel ends the operation at the scheduled retry instead of waiting for the second attempt.
+		cancel bool
+		// duration is the expected scheduled delay and minimum wait.
 		duration time.Duration
 		// maximum appears in the rejected public error.
 		maximum string
 	}{
-		{name: "default accepts ten", policy: "", requested: "10", accepted: true, duration: 10 * time.Second, maximum: ""},
-		{name: "default rejects sixty", policy: "", requested: "60", accepted: false, duration: 0, maximum: "30s"},
 		{
-			name: "raised maximum accepts sixty", policy: "\nretry:\n  maxProviderDelay: 60s\n",
-			requested: "60", accepted: true, duration: 60 * time.Second, maximum: "",
+			name: "default accepts one", policy: "", requested: "1", accepted: true, cancel: false,
+			duration: time.Second, maximum: "",
+		},
+		{
+			name: "default rejects sixty", policy: "", requested: "60", accepted: false, cancel: false,
+			duration: 0, maximum: "30s",
+		},
+		{
+			name: "raised maximum schedules sixty", policy: "\nretry:\n  maxProviderDelay: 60s\n",
+			requested: "60", accepted: true, cancel: true, duration: 60 * time.Second, maximum: "",
 		},
 		{
 			name: "lowered maximum rejects ten", policy: "\nretry:\n  maxProviderDelay: 5s\n",
-			requested: "10", accepted: false, duration: 0, maximum: "5s",
+			requested: "10", accepted: false, cancel: false, duration: 0, maximum: "5s",
 		},
 	} {
 		t.Run(scenario.name, func(t *testing.T) {
@@ -305,14 +329,20 @@ func TestPublicProviderRetryAfter(t *testing.T) {
 				scenario.requested,
 				http.StatusTooManyRequests,
 				1,
+				scenario.cancel,
 			)
-			// Assert provider-arrival lower bounds and rejection outcomes independently of progress values.
-			if scenario.accepted {
+			// Assert scheduled delays, provider-arrival lower bounds, and rejection outcomes.
+			switch {
+			case scenario.cancel:
+				require.Len(t, observation.arrivals, 1)
+				assert.True(t, observation.canceled)
+				assert.Equal(t, []int64{scenario.duration.Milliseconds()}, observation.delays)
+			case scenario.accepted:
 				require.Len(t, observation.arrivals, 2)
 				assert.Empty(t, observation.code)
 				assert.Equal(t, []int64{scenario.duration.Milliseconds()}, observation.delays)
 				assert.GreaterOrEqual(t, observation.arrivals[1].Sub(observation.arrivals[0]), scenario.duration)
-			} else {
+			default:
 				require.Len(t, observation.arrivals, 1)
 				assert.Empty(t, observation.delays)
 				assert.Equal(t, programmatic.FailureCodeRetryDelayExceeded, observation.code)

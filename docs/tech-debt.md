@@ -10,9 +10,9 @@
 
 ## TD-02: Integration tests are slow
 
-- Status: Open.
-- Location: integration tests of `host/internal/app`; `Taskfile.yml`, tasks `itest` and `test-coverage`.
-- Problem: On commit `1fef01e`, `task itest` took about 9 minutes 40 seconds. Of this time, `host/internal/app` took 400.6 seconds and `host/internal/infra/plugins/extension/runtime` took 48.8 seconds; each other package took 1 to 5 seconds. `task test-coverage` runs all integration tests a second time without the race detector and took about 5 minutes 40 seconds. One run of all mandatory checks and `task build` took about 16 minutes 30 seconds.
-- Suspected contributors: `task itest` runs packages and tests one at a time under the race detector (`-p 1 -parallel 1`); the `Taskfile.yml` comment states that this serial order is intentional because the tests start real plugin, terminal and shell processes. `host/internal/app` has 140 integration-tagged test files. Some of its tests build binaries during the run with `go build` or `go test -c`, for example `buildWireFixture` in `host/internal/app/wire_integration_test.go`.
-- Verification: Package times come from the `task itest` output on commit `1fef01e`. Task durations come from the completion times of the logs of the same run. The file count comes from a count of `//go:build integration` files on the same commit. Per-test times were not measured, so the slowest tests and the share of time spent on in-test builds remain unknown. No speed-up has been tried.
-- Scope: Recorded during PHS-08. The [PHS-08 plan](specs/features/initial/phases/08-prompt-context-input-provider-middleware/plan.md#test-strategy) runs the full check set once per passing unit to limit this cost.
+- Status: Resolved.
+- Location: integration tests of `host/internal/app`; `Taskfile.yml`, task `check`.
+- Problem: `task itest` ran packages and tests one at a time under the race detector and took about 9 minutes 25 seconds; `host/internal/app` took about 440 seconds of this time. `task test-coverage` ran the same tests a second time.
+- Cause: 137 of 170 top-level integration tests of `host/internal/app` call `t.Setenv` to pass settings to plugin processes, so Go runs them serially inside one test process even without `-p 1 -parallel 1`. `TestPublicProviderRetryAfter` waited 70 seconds for provider-requested retry delays. Builds of test binaries took 0.05 to 0.5 seconds each and were not a cause.
+- Resolution: `task check` replaced `task itest` and `task test-coverage`. It runs every test once with the race detector and coverage collection, and runs the integration tests of `host/internal/app` in one process per CPU core. `TestPublicProviderRetryAfter` waits for a 1-second delay and checks the 60-second delay as a scheduled retry that it cancels.
+- Verification: On a 24-core machine, five consecutive runs of `task check` passed in 60 to 67 seconds each, with coverage 85.1% to 85.2%.

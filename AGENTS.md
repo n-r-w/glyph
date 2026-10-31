@@ -55,8 +55,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
     1) `task fmt`
     2) `task fix_dry_run` -> analyze proposal -> `task fix` or manually fix issues
     3) `task lint`
-    4) `task test`, `task itest`
-    5) `task test-coverage`
+    4) `task check`: runs unit and integration tests with the race detector and checks combined coverage
 2. Use pi code ONLY as a source of ideas, but NOT AS a source of algorithms, since this project has a COMPLETELY DIFFERENT ARCHITECTURE.
 3. Empty structs MAY use `T{}`. If any field is set, struct literal MUST initialize every field explicitly. MUST NOT assign fields after `T{}` to bypass `exhaustruct_v5`.
 4. Suppressing `//nolint:exhaustruct_v5` is prohibited except when partial struct initialization is intentional, such as in Protobuf `oneof` builders that set only active field.
@@ -81,7 +80,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 2. Use `github.com/stretchr/testify` and `testify/suite`
 3. Use `t.Parallel()` if possible
 4. Each test MUST have a function comment describing scenario and descriptive `Arrange`, `Act`, and `Assert` comments, e.g.: `// Arrange test dependencies`.
-5. Any test that combines production components or exercises a production adapter against a real filesystem, network, process, or terminal MUST use `//go:build integration` and run through `task itest`.
+5. Any test that combines production components or exercises a production adapter against a real filesystem, network, process, or terminal MUST use `//go:build integration` and run through `task check`.
 6. ALL non integration tests MUST use `//go:build !integration` and run through `task test`.
 7. MUST NEVER test mutable content (like prompts), ONLY logic.
 8. MUST NEVER test logs.
