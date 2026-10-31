@@ -10,6 +10,7 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -29,22 +30,9 @@ func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
 	case ResponseUserRequestCompleted:
 		wire.SetUserRequest(new(programmaticv1.UserRequestCompleted))
 	case ResponseCancelCompleted:
-		state, present := response.CancelTargetState.Get()
-		if !present {
-			return nil, errors.New("map cancellation: target state is absent")
+		if err := mapCancelCompleted(wire, response.CancelTargetState); err != nil {
+			return nil, err
 		}
-		completed := new(operationv1.CancelCompleted)
-		switch state {
-		case operation.TerminalStateCompleted:
-			completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_COMPLETED)
-		case operation.TerminalStateCanceled:
-			completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_CANCELED)
-		case operation.TerminalStateFailed:
-			completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_FAILED)
-		default:
-			return nil, fmt.Errorf("map cancellation: unknown target state %d", state)
-		}
-		wire.SetCancel(completed)
 	case ResponseRunState:
 		if err := mapRunStateCompleted(wire, response.State); err != nil {
 			return nil, err
@@ -99,6 +87,10 @@ func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
 			return nil, errors.New("map queued message: handling result is absent")
 		}
 		wire.SetEnqueueMessage(programmaticv1.EnqueueMessageResult_builder{Handled: new(handled)}.Build())
+	case ResponseQueueMode:
+		if err := mapQueueModeCompleted(wire, response.QueueMode); err != nil {
+			return nil, err
+		}
 	case ResponseSessionInfo, ResponseSessions, ResponseSessionEntries, ResponseSessionStats,
 		ResponseSessionTree, ResponseSessionTreeNavigation, ResponseForkSession, ResponseCloneSession,
 		ResponseSetEntryLabel:
@@ -111,6 +103,41 @@ func mapResponse(response Response) (*programmaticv1.HostCompleted, error) {
 		return nil, fmt.Errorf("map completed response: unknown response kind %d", response.Kind)
 	}
 	return wire, nil
+}
+
+// mapCancelCompleted maps the observed terminal state of a cancellation target.
+func mapCancelCompleted(wire *programmaticv1.HostCompleted, target mo.Option[operation.TerminalState]) error {
+	state, present := target.Get()
+	if !present {
+		return errors.New("map cancellation: target state is absent")
+	}
+	completed := new(operationv1.CancelCompleted)
+	switch state {
+	case operation.TerminalStateCompleted:
+		completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_COMPLETED)
+	case operation.TerminalStateCanceled:
+		completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_CANCELED)
+	case operation.TerminalStateFailed:
+		completed.SetTargetState(operationv1.TerminalState_TERMINAL_STATE_FAILED)
+	default:
+		return fmt.Errorf("map cancellation: unknown target state %d", state)
+	}
+	wire.SetCancel(completed)
+	return nil
+}
+
+// mapQueueModeCompleted maps the selected queue mode of a queue mode result.
+func mapQueueModeCompleted(wire *programmaticv1.HostCompleted, mode mo.Option[agent.QueueMode]) error {
+	selected, present := mode.Get()
+	if !present {
+		return errors.New("map queue mode: mode is absent")
+	}
+	wireMode, err := mapWireQueueMode(selected)
+	if err != nil {
+		return err
+	}
+	wire.SetQueueMode(programmaticv1.QueueModeResult_builder{Mode: new(wireMode)}.Build())
+	return nil
 }
 
 // mapSessionResponse isolates session payload mapping from the core response dispatch.

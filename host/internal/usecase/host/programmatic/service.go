@@ -167,16 +167,9 @@ func (s *Service) handleImmediate(
 		}
 		return response, true, compactErr
 	case controller.CommandSetRetryEnabled:
-		enabled, present := command.RetryEnabled.Get()
-		if !present {
-			return s.rejection(
-				command, controller.RejectionInvalidArgument, errors.New("retry enablement is required"),
-			), true, nil
-		}
-		s.retryControl.SetRetryEnabled(enabled)
-		response := emptyResponse(command.OperationID, controller.ResponseRetryEnabled)
-		response.RetryPolicy = mo.Some(retryPolicy(s.retryControl))
-		return response, true, nil
+		return s.setRetryEnabled(command), true, nil
+	case controller.CommandSetQueueMode:
+		return s.setQueueMode(command), true, nil
 	case controller.CommandUnspecified, controller.CommandCancel,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice, controller.CommandEnqueueMessage:
 		return s.rejection(
@@ -239,11 +232,35 @@ func (s *Service) handleSessionImmediate(
 	case controller.CommandUnspecified, controller.CommandUserRequest, controller.CommandCancel,
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice,
-		controller.CommandNavigateSessionTree, controller.CommandEnqueueMessage:
+		controller.CommandNavigateSessionTree, controller.CommandEnqueueMessage, controller.CommandSetQueueMode:
 		return controller.Response{}, false, nil
 	default:
 		return controller.Response{}, false, nil
 	}
+}
+
+// setRetryEnabled changes runtime retry enablement to the value of the command and reports the updated policy.
+func (s *Service) setRetryEnabled(command controller.Command) controller.Response {
+	enabled, present := command.RetryEnabled.Get()
+	if !present {
+		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("retry enablement is required"))
+	}
+	s.retryControl.SetRetryEnabled(enabled)
+	response := emptyResponse(command.OperationID, controller.ResponseRetryEnabled)
+	response.RetryPolicy = mo.Some(retryPolicy(s.retryControl))
+	return response
+}
+
+// setQueueMode selects the queue mode of the command and reports it as the result.
+func (s *Service) setQueueMode(command controller.Command) controller.Response {
+	mode, present := command.QueueMode.Get()
+	if !present {
+		return s.rejection(command, controller.RejectionInvalidArgument, errors.New("queue mode is required"))
+	}
+	s.coordinator.SetQueueMode(mode)
+	response := emptyResponse(command.OperationID, controller.ResponseQueueMode)
+	response.QueueMode = mo.Some(mode)
+	return response
 }
 
 // runState returns the public run state for one operation query.
@@ -627,6 +644,7 @@ func sessionStatisticsResponse(operationID string, statistics session.Statistics
 		CompactionError:       mo.None[string](),
 		CompactionFailureCode: mo.None[string](),
 		MessageHandled:        mo.None[bool](),
+		QueueMode:             mo.None[agent.QueueMode](),
 	}
 }
 
@@ -697,6 +715,7 @@ func emptyResponse(operationID string, kind controller.ResponseKind) controller.
 		CompactionError:       mo.None[string](),
 		CompactionFailureCode: mo.None[string](),
 		MessageHandled:        mo.None[bool](),
+		QueueMode:             mo.None[agent.QueueMode](),
 	}
 }
 

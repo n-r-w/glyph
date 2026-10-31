@@ -87,6 +87,18 @@ func (mr *MockExecutorMockRecorder) Run(arg0, arg1 any) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Run", reflect.TypeOf((*MockExecutor)(nil).Run), arg0, arg1)
 }
 
+// SetQueueMode mocks base method.
+func (m *MockExecutor) SetQueueMode(mode agent.QueueMode) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetQueueMode", mode)
+}
+
+// SetQueueMode indicates an expected call of SetQueueMode.
+func (mr *MockExecutorMockRecorder) SetQueueMode(mode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetQueueMode", reflect.TypeOf((*MockExecutor)(nil).SetQueueMode), mode)
+}
+
 // Settle mocks base method.
 func (m *MockExecutor) Settle(runID string) error {
 	m.ctrl.T.Helper()

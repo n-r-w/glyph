@@ -33,3 +33,26 @@ message EnqueueMessageResult {
   // True when an extension fully handled the message, so Host did not queue it.
   bool handled = 1;
 }
+
+// SetQueueMode selects the queue mode, a process-level setting for steer and followUp messages.
+// The mode applies from the next delivery point, also during an agent run.
+message SetQueueMode {
+  // The requested queue mode.
+  QueueMode mode = 1;
+}
+
+// QueueMode identifies how many pending messages of one kind the agent receives at a delivery point.
+enum QueueMode {
+  // No queue mode was provided.
+  QUEUE_MODE_UNSPECIFIED = 0;
+  // The agent receives one pending message of the kind at each delivery point. This is the default.
+  QUEUE_MODE_ONE_AT_A_TIME = 1;
+  // The agent receives every pending message of the kind at a delivery point, in arrival order.
+  QUEUE_MODE_ALL = 2;
+}
+
+// QueueModeResult reports the queue mode that is now selected.
+message QueueModeResult {
+  // The selected queue mode.
+  QueueMode mode = 1;
+}

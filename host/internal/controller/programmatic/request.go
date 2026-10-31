@@ -39,6 +39,7 @@ func mapOpenRequest(request *programmaticv1.OpenRequest) (Command, error) {
 		Kind:                   CommandUnspecified,
 		UserMessage:            mo.None[model.Message](),
 		Delivery:               mo.None[agent.MessageDelivery](),
+		QueueMode:              mo.None[agent.QueueMode](),
 		ProviderID:             mo.None[model.ProviderID](),
 		ModelID:                mo.None[model.ID](),
 		ReasoningChoice:        mo.None[model.ReasoningChoice](),
@@ -85,6 +86,13 @@ func mapStandardRequest(request *programmaticv1.ControllerRequest, command Comma
 		command.Kind = CommandEnqueueMessage
 		command.Delivery = mo.Some(delivery)
 		command.UserMessage = mo.Some(message)
+	case programmaticv1.ControllerRequest_SetQueueMode_case:
+		mode, modeErr := mapQueueMode(request.GetSetQueueMode().GetMode())
+		if modeErr != nil {
+			return Command{}, Reject(RejectionCodeInvalidArgument, modeErr)
+		}
+		command.Kind = CommandSetQueueMode
+		command.QueueMode = mo.Some(mode)
 	case programmaticv1.ControllerRequest_GetRunState_case:
 		command.Kind = CommandGetRunState
 	case programmaticv1.ControllerRequest_GetMessages_case:
@@ -252,6 +260,20 @@ func mapMessageDelivery(delivery programmaticv1.MessageDelivery) (agent.MessageD
 		return 0, fmt.Errorf("programmatic message delivery %s is not supported", delivery)
 	default:
 		return 0, fmt.Errorf("programmatic message delivery %s is not supported", delivery)
+	}
+}
+
+// mapQueueMode maps the closed public queue mode.
+func mapQueueMode(mode programmaticv1.QueueMode) (agent.QueueMode, error) {
+	switch mode {
+	case programmaticv1.QueueMode_QUEUE_MODE_ONE_AT_A_TIME:
+		return agent.QueueModeOneAtATime, nil
+	case programmaticv1.QueueMode_QUEUE_MODE_ALL:
+		return agent.QueueModeAll, nil
+	case programmaticv1.QueueMode_QUEUE_MODE_UNSPECIFIED:
+		return 0, fmt.Errorf("programmatic queue mode %s is not supported", mode)
+	default:
+		return 0, fmt.Errorf("programmatic queue mode %s is not supported", mode)
 	}
 }
 

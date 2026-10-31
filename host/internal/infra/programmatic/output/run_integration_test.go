@@ -26,6 +26,7 @@ func runCommand(id string) controller.Command {
 	return controller.Command{
 		OperationID: id, Kind: controller.CommandUserRequest, UserMessage: mo.Some(model.TextMessage("request")),
 		Delivery:   mo.None[agent.MessageDelivery](),
+		QueueMode:  mo.None[agent.QueueMode](),
 		ProviderID: mo.None[model.ProviderID](), ModelID: mo.None[model.ID](),
 		ReasoningChoice: mo.None[model.ReasoningChoice](), SessionID: mo.None[session.ID](),
 		SessionName: mo.None[string](), TargetEntryID: mo.None[string](),

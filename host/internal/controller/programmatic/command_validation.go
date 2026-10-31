@@ -17,6 +17,9 @@ func (command Command) Valid() bool {
 	if command.Kind != CommandEnqueueMessage && command.Delivery.IsSome() {
 		return false
 	}
+	if command.Kind != CommandSetQueueMode && command.QueueMode.IsSome() {
+		return false
+	}
 	if invalid, handled := command.invalidSessionCommand(); handled {
 		return !invalid
 	}
@@ -28,6 +31,9 @@ func (command Command) Valid() bool {
 	case CommandCancel, CommandGetRunState, CommandGetMessages, CommandGetModels:
 		return command.UserMessage.IsNone() && !command.hasModelArguments() && !command.hasSessionArguments() &&
 			command.RetryEnabled.IsNone() && command.CompactionInstructions.IsNone()
+	case CommandSetQueueMode:
+		return command.QueueMode.IsSome() && command.UserMessage.IsNone() && !command.hasModelArguments() &&
+			!command.hasSessionArguments() && command.RetryEnabled.IsNone() && command.CompactionInstructions.IsNone()
 	case CommandSetRetryEnabled:
 		return command.RetryEnabled.IsSome() && command.UserMessage.IsNone() && !command.hasModelArguments() &&
 			!command.hasSessionArguments() && command.CompactionInstructions.IsNone()
@@ -67,7 +73,7 @@ func (command Command) invalidSessionCommand() (invalid, handled bool) {
 		return command.invalidSetEntryLabel(), true
 	case CommandUnspecified, CommandUserRequest, CommandCancel, CommandGetRunState, CommandGetMessages,
 		CommandGetModels, CommandSelectModel, CommandSelectReasoningChoice, CommandSetRetryEnabled, CommandCompact,
-		CommandEnqueueMessage:
+		CommandEnqueueMessage, CommandSetQueueMode:
 		return false, false
 	default:
 		return false, false

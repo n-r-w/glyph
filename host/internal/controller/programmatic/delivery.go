@@ -191,8 +191,8 @@ func failureCodeForCommand(command CommandKind, proposed string) string {
 			return FailureCodeInternal
 		}
 	case CommandUnspecified, CommandCancel, CommandGetRunState, CommandGetMessages,
-		CommandGetModels, CommandSetRetryEnabled, CommandGetSessionInfo, CommandGetSessionEntries, CommandGetSessionStats,
-		CommandGetSessionTree:
+		CommandGetModels, CommandSetRetryEnabled, CommandSetQueueMode, CommandGetSessionInfo, CommandGetSessionEntries,
+		CommandGetSessionStats, CommandGetSessionTree:
 		return FailureCodeInternal
 	default:
 		return FailureCodeInternal
@@ -241,6 +241,8 @@ func completionMatches(command CommandKind, response ResponseKind) bool {
 		return response == ResponseCompaction
 	case CommandEnqueueMessage:
 		return response == ResponseEnqueueMessage
+	case CommandSetQueueMode:
+		return response == ResponseQueueMode
 	case CommandUnspecified:
 		return false
 	default:

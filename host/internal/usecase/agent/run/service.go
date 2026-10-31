@@ -54,6 +54,8 @@ type Service struct {
 	steering []model.Message
 	// followUps holds the followUp messages of the active run that history has not received yet, in arrival order.
 	followUps []model.Message
+	// queueMode selects how many pending messages of one kind a delivery point gives the model.
+	queueMode agent.QueueMode
 	// addedHistory owns detached entries appended successfully by the active run.
 	addedHistory []agent.HistoryEntry
 }
@@ -82,6 +84,7 @@ func New(
 		mutex:        sync.RWMutex{},
 		steering:     nil,
 		followUps:    nil,
+		queueMode:    agent.QueueModeOneAtATime,
 		addedHistory: nil,
 		state: State{
 			Status:          StatusIdle,
@@ -116,26 +119,24 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 			)
 		}
 		turnResult, next, runErr := s.runTurn(ctx, request.RunID)
-		var queued mo.Option[model.Message]
+		var queued []model.Message
 		switch {
 		case next:
 			queued = s.takeSteer()
 		case turnResult.Outcome == agent.RunOutcomeCompleted && runErr == nil:
 			// A final response delivers a pending steer or followUp message instead of completing the run.
 			queued = s.takeQueuedOrComplete()
-			if queued.IsAbsent() {
+			if len(queued) == 0 {
 				return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
 			}
 		default:
 			return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr)
 		}
-		message, present := queued.Get()
-		if !present {
-			continue
-		}
-		// The next turn reads history again, so the model receives the message in its next request.
-		if err := s.appendUser(ctx, message); err != nil {
-			return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
+		// The next turn reads history again, so the model receives the messages in its next request.
+		for _, message := range queued {
+			if err := s.appendUser(ctx, message); err != nil {
+				return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err)
+			}
 		}
 	}
 }

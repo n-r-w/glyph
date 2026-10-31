@@ -137,3 +137,18 @@ func TestCoordinatorEnqueuePassesFollowUpDelivery(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, handled)
 }
+
+// TestCoordinatorSetQueueModePassesModeToCore verifies that the selected queue mode reaches Core.
+func TestCoordinatorSetQueueModePassesModeToCore(t *testing.T) {
+	t.Parallel()
+	// Arrange Core that expects the mode.
+	controller := gomock.NewController(t)
+	executor := NewMockExecutor(controller)
+	executor.EXPECT().SetQueueMode(agent.QueueModeAll)
+	coordinator := NewCoordinator(executor, NewMockInputProcessor(controller), nil, nil)
+
+	// Act by selecting the mode.
+	coordinator.SetQueueMode(agent.QueueModeAll)
+
+	// Assert through the Core mock expectation that the mode reached Core.
+}

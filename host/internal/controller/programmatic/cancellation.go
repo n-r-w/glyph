@@ -7,6 +7,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -207,6 +208,7 @@ func cancelCompletedResponse(state operation.TerminalState) Response {
 		CompactionError:       mo.None[string](),
 		CompactionFailureCode: mo.None[string](),
 		MessageHandled:        mo.None[bool](),
+		QueueMode:             mo.None[agent.QueueMode](),
 	}
 }
 

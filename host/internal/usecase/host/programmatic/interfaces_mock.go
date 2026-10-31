@@ -312,6 +312,18 @@ func (mr *MockCoordinatorMockRecorder) RunPrepared(ctx, runID, message any) *gom
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RunPrepared", reflect.TypeOf((*MockCoordinator)(nil).RunPrepared), ctx, runID, message)
 }
 
+// SetQueueMode mocks base method.
+func (m *MockCoordinator) SetQueueMode(mode agent.QueueMode) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "SetQueueMode", mode)
+}
+
+// SetQueueMode indicates an expected call of SetQueueMode.
+func (mr *MockCoordinatorMockRecorder) SetQueueMode(mode any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetQueueMode", reflect.TypeOf((*MockCoordinator)(nil).SetQueueMode), mode)
+}
+
 // MockActiveSessions is a mock of ActiveSessions interface.
 type MockActiveSessions struct {
 	ctrl     *gomock.Controller

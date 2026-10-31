@@ -151,6 +151,7 @@ func reasoningSelectionCommand(operationID string, choice model.ReasoningChoice)
 		Kind:                   controller.CommandSelectReasoningChoice,
 		UserMessage:            mo.None[model.Message](),
 		Delivery:               mo.None[agent.MessageDelivery](),
+		QueueMode:              mo.None[agent.QueueMode](),
 		ProviderID:             mo.None[model.ProviderID](),
 		ModelID:                mo.None[model.ID](),
 		ReasoningChoice:        mo.Some(choice),

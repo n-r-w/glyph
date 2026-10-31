@@ -70,6 +70,54 @@ func (x MessageDelivery) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
+// QueueMode identifies how many pending messages of one kind the agent receives at a delivery point.
+type QueueMode int32
+
+const (
+	// No queue mode was provided.
+	QueueMode_QUEUE_MODE_UNSPECIFIED QueueMode = 0
+	// The agent receives one pending message of the kind at each delivery point. This is the default.
+	QueueMode_QUEUE_MODE_ONE_AT_A_TIME QueueMode = 1
+	// The agent receives every pending message of the kind at a delivery point, in arrival order.
+	QueueMode_QUEUE_MODE_ALL QueueMode = 2
+)
+
+// Enum value maps for QueueMode.
+var (
+	QueueMode_name = map[int32]string{
+		0: "QUEUE_MODE_UNSPECIFIED",
+		1: "QUEUE_MODE_ONE_AT_A_TIME",
+		2: "QUEUE_MODE_ALL",
+	}
+	QueueMode_value = map[string]int32{
+		"QUEUE_MODE_UNSPECIFIED":   0,
+		"QUEUE_MODE_ONE_AT_A_TIME": 1,
+		"QUEUE_MODE_ALL":           2,
+	}
+)
+
+func (x QueueMode) Enum() *QueueMode {
+	p := new(QueueMode)
+	*p = x
+	return p
+}
+
+func (x QueueMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (QueueMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_programmatic_v1_queue_proto_enumTypes[1].Descriptor()
+}
+
+func (QueueMode) Type() protoreflect.EnumType {
+	return &file_api_programmatic_v1_queue_proto_enumTypes[1]
+}
+
+func (x QueueMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // EnqueueMessage queues user input for the active agent run.
 // The operation completes when Host queues the message, not when the agent receives it.
 // It fails with RUN_NOT_ACTIVE when no agent run is active.
@@ -245,6 +293,165 @@ func (b0 EnqueueMessageResult_builder) Build() *EnqueueMessageResult {
 	return m0
 }
 
+// SetQueueMode selects the queue mode, a process-level setting for steer and followUp messages.
+// The mode applies from the next delivery point, also during an agent run.
+type SetQueueMode struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Mode        QueueMode              `protobuf:"varint,1,opt,name=mode,enum=glyph.programmatic.v1.QueueMode"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *SetQueueMode) Reset() {
+	*x = SetQueueMode{}
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetQueueMode) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetQueueMode) ProtoMessage() {}
+
+func (x *SetQueueMode) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *SetQueueMode) GetMode() QueueMode {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Mode
+		}
+	}
+	return QueueMode_QUEUE_MODE_UNSPECIFIED
+}
+
+func (x *SetQueueMode) SetMode(v QueueMode) {
+	x.xxx_hidden_Mode = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *SetQueueMode) HasMode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *SetQueueMode) ClearMode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Mode = QueueMode_QUEUE_MODE_UNSPECIFIED
+}
+
+type SetQueueMode_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The requested queue mode.
+	Mode *QueueMode
+}
+
+func (b0 SetQueueMode_builder) Build() *SetQueueMode {
+	m0 := &SetQueueMode{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Mode != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Mode = *b.Mode
+	}
+	return m0
+}
+
+// QueueModeResult reports the queue mode that is now selected.
+type QueueModeResult struct {
+	state                  protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Mode        QueueMode              `protobuf:"varint,1,opt,name=mode,enum=glyph.programmatic.v1.QueueMode"`
+	XXX_raceDetectHookData protoimpl.RaceDetectHookData
+	XXX_presence           [1]uint32
+	unknownFields          protoimpl.UnknownFields
+	sizeCache              protoimpl.SizeCache
+}
+
+func (x *QueueModeResult) Reset() {
+	*x = QueueModeResult{}
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *QueueModeResult) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*QueueModeResult) ProtoMessage() {}
+
+func (x *QueueModeResult) ProtoReflect() protoreflect.Message {
+	mi := &file_api_programmatic_v1_queue_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *QueueModeResult) GetMode() QueueMode {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 0) {
+			return x.xxx_hidden_Mode
+		}
+	}
+	return QueueMode_QUEUE_MODE_UNSPECIFIED
+}
+
+func (x *QueueModeResult) SetMode(v QueueMode) {
+	x.xxx_hidden_Mode = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 1)
+}
+
+func (x *QueueModeResult) HasMode() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
+}
+
+func (x *QueueModeResult) ClearMode() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
+	x.xxx_hidden_Mode = QueueMode_QUEUE_MODE_UNSPECIFIED
+}
+
+type QueueModeResult_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The selected queue mode.
+	Mode *QueueMode
+}
+
+func (b0 QueueModeResult_builder) Build() *QueueModeResult {
+	m0 := &QueueModeResult{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Mode != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 1)
+		x.xxx_hidden_Mode = *b.Mode
+	}
+	return m0
+}
+
 var File_api_programmatic_v1_queue_proto protoreflect.FileDescriptor
 
 const file_api_programmatic_v1_queue_proto_rawDesc = "" +
@@ -254,28 +461,41 @@ const file_api_programmatic_v1_queue_proto_rawDesc = "" +
 	"\acontent\x18\x01 \x03(\v2\".glyph.programmatic.v1.UserContentR\acontent\x12B\n" +
 	"\bdelivery\x18\x02 \x01(\x0e2&.glyph.programmatic.v1.MessageDeliveryR\bdelivery\"0\n" +
 	"\x14EnqueueMessageResult\x12\x18\n" +
-	"\ahandled\x18\x01 \x01(\bR\ahandled*o\n" +
+	"\ahandled\x18\x01 \x01(\bR\ahandled\"D\n" +
+	"\fSetQueueMode\x124\n" +
+	"\x04mode\x18\x01 \x01(\x0e2 .glyph.programmatic.v1.QueueModeR\x04mode\"G\n" +
+	"\x0fQueueModeResult\x124\n" +
+	"\x04mode\x18\x01 \x01(\x0e2 .glyph.programmatic.v1.QueueModeR\x04mode*o\n" +
 	"\x0fMessageDelivery\x12 \n" +
 	"\x1cMESSAGE_DELIVERY_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16MESSAGE_DELIVERY_STEER\x10\x01\x12\x1e\n" +
-	"\x1aMESSAGE_DELIVERY_FOLLOW_UP\x10\x02B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
+	"\x1aMESSAGE_DELIVERY_FOLLOW_UP\x10\x02*Y\n" +
+	"\tQueueMode\x12\x1a\n" +
+	"\x16QUEUE_MODE_UNSPECIFIED\x10\x00\x12\x1c\n" +
+	"\x18QUEUE_MODE_ONE_AT_A_TIME\x10\x01\x12\x12\n" +
+	"\x0eQUEUE_MODE_ALL\x10\x02B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
 
-var file_api_programmatic_v1_queue_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_api_programmatic_v1_queue_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
+var file_api_programmatic_v1_queue_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_api_programmatic_v1_queue_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
 var file_api_programmatic_v1_queue_proto_goTypes = []any{
 	(MessageDelivery)(0),         // 0: glyph.programmatic.v1.MessageDelivery
-	(*EnqueueMessage)(nil),       // 1: glyph.programmatic.v1.EnqueueMessage
-	(*EnqueueMessageResult)(nil), // 2: glyph.programmatic.v1.EnqueueMessageResult
-	(*UserContent)(nil),          // 3: glyph.programmatic.v1.UserContent
+	(QueueMode)(0),               // 1: glyph.programmatic.v1.QueueMode
+	(*EnqueueMessage)(nil),       // 2: glyph.programmatic.v1.EnqueueMessage
+	(*EnqueueMessageResult)(nil), // 3: glyph.programmatic.v1.EnqueueMessageResult
+	(*SetQueueMode)(nil),         // 4: glyph.programmatic.v1.SetQueueMode
+	(*QueueModeResult)(nil),      // 5: glyph.programmatic.v1.QueueModeResult
+	(*UserContent)(nil),          // 6: glyph.programmatic.v1.UserContent
 }
 var file_api_programmatic_v1_queue_proto_depIdxs = []int32{
-	3, // 0: glyph.programmatic.v1.EnqueueMessage.content:type_name -> glyph.programmatic.v1.UserContent
+	6, // 0: glyph.programmatic.v1.EnqueueMessage.content:type_name -> glyph.programmatic.v1.UserContent
 	0, // 1: glyph.programmatic.v1.EnqueueMessage.delivery:type_name -> glyph.programmatic.v1.MessageDelivery
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1, // 2: glyph.programmatic.v1.SetQueueMode.mode:type_name -> glyph.programmatic.v1.QueueMode
+	1, // 3: glyph.programmatic.v1.QueueModeResult.mode:type_name -> glyph.programmatic.v1.QueueMode
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_queue_proto_init() }
@@ -289,8 +509,8 @@ func file_api_programmatic_v1_queue_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_programmatic_v1_queue_proto_rawDesc), len(file_api_programmatic_v1_queue_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   2,
+			NumEnums:      2,
+			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

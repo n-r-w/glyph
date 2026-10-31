@@ -55,6 +55,8 @@ message ControllerRequest {
     Compact compact = 21;
     // A message for the active agent run.
     EnqueueMessage enqueue_message = 22;
+    // A queue mode selection.
+    SetQueueMode set_queue_mode = 23;
   }
 }
 // UserRequest submits ordered user input; Host runs the agent for it unless an extension fully handles it.
@@ -166,6 +168,8 @@ message HostCompleted {
     CompactionResult compaction = 17;
     // The acceptance of a queued message.
     EnqueueMessageResult enqueue_message = 18;
+    // The selected queue mode.
+    QueueModeResult queue_mode = 19;
   }
 }
 // UserRequestCompleted acknowledges a settled agent run.

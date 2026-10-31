@@ -59,6 +59,8 @@ const (
 	CommandCompact
 	// CommandEnqueueMessage queues user input as a steer or followUp message of the active agent run.
 	CommandEnqueueMessage
+	// CommandSetQueueMode selects the process-level queue mode for steer and followUp messages.
+	CommandSetQueueMode
 )
 
 // Command is one transport-independent controller operation.
@@ -71,6 +73,8 @@ type Command struct {
 	UserMessage mo.Option[model.Message]
 	// Delivery is present only for a queued message and identifies when the agent receives it.
 	Delivery mo.Option[agent.MessageDelivery]
+	// QueueMode is present only for a queue mode selection.
+	QueueMode mo.Option[agent.QueueMode]
 	// ProviderID identifies a requested model provider.
 	ProviderID mo.Option[model.ProviderID]
 	// ModelID identifies a requested provider model.

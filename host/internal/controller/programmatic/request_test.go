@@ -402,3 +402,76 @@ func TestCommandValidRequiresDeliveryOnlyForEnqueue(t *testing.T) {
 	assert.False(t, enqueueValid)
 	assert.False(t, userRequestValid)
 }
+
+// TestMapOpenRequestMapsQueueMode verifies that each public queue mode maps to its domain mode.
+func TestMapOpenRequestMapsQueueMode(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		wire programmaticv1.QueueMode
+		mode agent.QueueMode
+	}{
+		"one at a time": {wire: programmaticv1.QueueMode_QUEUE_MODE_ONE_AT_A_TIME, mode: agent.QueueModeOneAtATime},
+		"all":           {wire: programmaticv1.QueueMode_QUEUE_MODE_ALL, mode: agent.QueueModeAll},
+	}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange a queue mode selection with the public mode.
+			request := testRequest("operation", func(request *programmaticv1.ControllerRequest) {
+				payload := new(programmaticv1.SetQueueMode)
+				payload.SetMode(test.wire)
+				request.SetSetQueueMode(payload)
+			})
+
+			// Act by mapping the request envelope.
+			command, err := mapOpenRequest(request)
+
+			// Assert the command carries the mode and is valid.
+			require.NoError(t, err)
+			assert.Equal(t, CommandSetQueueMode, command.Kind)
+			assert.Equal(t, mo.Some(test.mode), command.QueueMode)
+			assert.True(t, command.Valid())
+		})
+	}
+}
+
+// TestMapOpenRequestRejectsUnspecifiedQueueMode verifies that a queue mode selection without a mode is rejected.
+func TestMapOpenRequestRejectsUnspecifiedQueueMode(t *testing.T) {
+	t.Parallel()
+	// Arrange a queue mode selection without a mode.
+	request := testRequest("operation", func(request *programmaticv1.ControllerRequest) {
+		request.SetSetQueueMode(new(programmaticv1.SetQueueMode))
+	})
+
+	// Act by mapping the request envelope.
+	_, err := mapOpenRequest(request)
+
+	// Assert the request is rejected as an invalid argument.
+	var rejection *RejectionError
+	require.ErrorAs(t, err, &rejection)
+	assert.Equal(t, RejectionCodeInvalidArgument, rejection.Code())
+}
+
+// TestCommandValidRequiresQueueModeOnlyForSelection verifies that a queue mode belongs to its selection command alone.
+func TestCommandValidRequiresQueueModeOnlyForSelection(t *testing.T) {
+	t.Parallel()
+	// Arrange a selection without a mode and a user request with one.
+	selection, err := mapOpenRequest(testRequest("selection", func(request *programmaticv1.ControllerRequest) {
+		payload := new(programmaticv1.SetQueueMode)
+		payload.SetMode(programmaticv1.QueueMode_QUEUE_MODE_ALL)
+		request.SetSetQueueMode(payload)
+	}))
+	require.NoError(t, err)
+	userRequest := selection
+	userRequest.Kind = CommandUserRequest
+	userRequest.UserMessage = mo.Some(model.TextMessage("text"))
+	selection.QueueMode = mo.None[agent.QueueMode]()
+
+	// Act by validating both payloads.
+	selectionValid := selection.Valid()
+	userRequestValid := userRequest.Valid()
+
+	// Assert both payloads are invalid.
+	assert.False(t, selectionValid)
+	assert.False(t, userRequestValid)
+}

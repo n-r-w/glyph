@@ -296,3 +296,130 @@ func TestEnqueueRejectsUnknownDelivery(t *testing.T) {
 	require.Error(t, enqueueErr)
 	require.NotErrorIs(t, enqueueErr, agent.ErrRunNotActive)
 }
+
+// TestQueueModeAllDeliversEveryPendingMessage checks that mode all gives the model every pending steer message
+// together, then every pending followUp message together, and that steer still takes precedence over followUp.
+func TestQueueModeAllDeliversEveryPendingMessage(t *testing.T) {
+	t.Parallel()
+	// Arrange events that select mode all and queue two followUp and two steer messages at the first turn end.
+	var histories [][]agent.HistoryEntry
+	var service *Service
+	turnEnds := 0
+	events := NewMockEventSink(gomock.NewController(t))
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
+		if event.Type == agent.EventTurnEnd {
+			turnEnds++
+			if turnEnds == 1 {
+				service.SetQueueMode(agent.QueueModeAll)
+				for _, text := range []string{"follow-1", "follow-2"} {
+					require.NoError(t, service.Enqueue("run", agent.MessageDeliveryFollowUp, model.TextMessage(text)))
+				}
+				for _, text := range []string{"steer-1", "steer-2"} {
+					require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage(text)))
+				}
+			}
+		}
+		return nil
+	}).AnyTimes()
+	service = newTestService(
+		t, testInstructions, testModelDescriptor, model.ReasoningChoiceOff,
+		newStopProvider(t, &histories), newNoTools(t), events,
+	)
+
+	// Act by running one request whose first final response is followed by the queued messages.
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", Message: model.TextMessage("request")})
+
+	// Assert the steer messages reach one model request, and the followUp messages reach the next one.
+	require.NoError(t, err)
+	require.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
+	require.Len(t, histories, 3)
+	require.Equal(t, []string{"request"}, userTexts(histories[0]))
+	require.Equal(t, []string{"request", "steer-1", "steer-2"}, userTexts(histories[1]))
+	require.Equal(t, []string{"request", "steer-1", "steer-2", "follow-1", "follow-2"}, userTexts(histories[2]))
+}
+
+// TestQueueModeAppliesFromNextDeliveryPoint checks that a mode selected during an agent run applies at the next
+// delivery point.
+func TestQueueModeAppliesFromNextDeliveryPoint(t *testing.T) {
+	t.Parallel()
+	// Arrange events that queue four steer messages at the first turn end and select mode all at the second.
+	var histories [][]agent.HistoryEntry
+	var service *Service
+	turnEnds := 0
+	events := NewMockEventSink(gomock.NewController(t))
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
+		if event.Type != agent.EventTurnEnd {
+			return nil
+		}
+		turnEnds++
+		switch turnEnds {
+		case 1:
+			for _, text := range []string{"steer-1", "steer-2", "steer-3", "steer-4"} {
+				require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage(text)))
+			}
+		case 2:
+			service.SetQueueMode(agent.QueueModeAll)
+		default:
+		}
+		return nil
+	}).AnyTimes()
+	service = newTestService(
+		t, testInstructions, testModelDescriptor, model.ReasoningChoiceOff,
+		newStopProvider(t, &histories), newNoTools(t), events,
+	)
+
+	// Act by running one request whose final responses are followed by the queued messages.
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", Message: model.TextMessage("request")})
+
+	// Assert the first message came alone, and the remaining messages came together after the mode changed.
+	require.NoError(t, err)
+	require.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
+	require.Len(t, histories, 3)
+	require.Equal(t, []string{"request", "steer-1"}, userTexts(histories[1]))
+	require.Equal(t, []string{"request", "steer-1", "steer-2", "steer-3", "steer-4"}, userTexts(histories[2]))
+}
+
+// TestQueueModeAllDeliversEverySteerAfterToolBatch checks that mode all gives the next model request every steer
+// message that is pending after a tool batch.
+func TestQueueModeAllDeliversEverySteerAfterToolBatch(t *testing.T) {
+	t.Parallel()
+	// Arrange mode all, a provider whose first request queues two steer messages and requests a tool.
+	var histories [][]agent.HistoryEntry
+	var service *Service
+	call := model.ToolCall{ID: "call-1", Name: "first", Arguments: testToolCallArguments(`{}`)}
+	toolUse := emptyModelResponse(model.OutcomeToolUse)
+	toolUse.Content = []model.Content{testCallItem(call)}
+	provider := NewMockModelProvider(gomock.NewController(t))
+	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, request ModelRequest, handle StreamHandler) error {
+			histories = append(histories, request.History)
+			if len(histories) == 1 {
+				for _, text := range []string{"steer-1", "steer-2"} {
+					require.NoError(t, service.Enqueue("run", agent.MessageDeliverySteer, model.TextMessage(text)))
+				}
+				return emitStream(handle, toolUse, nil)
+			}
+			return emitStream(handle, emptyModelResponse(model.OutcomeStop), nil)
+		},
+	).Times(2)
+	tools := NewMockToolRuntime(gomock.NewController(t))
+	tools.EXPECT().Tools().Return(nil).AnyTimes()
+	tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).Return(
+		agent.ToolResult{CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("ok"), IsError: false}, nil,
+	)
+	events := NewMockEventSink(gomock.NewController(t))
+	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
+	service = newTestService(
+		t, testInstructions, testModelDescriptor, model.ReasoningChoiceOff, provider, tools, events,
+	)
+	service.SetQueueMode(agent.QueueModeAll)
+
+	// Act by running one request that uses a tool and then gives a final response.
+	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", Message: model.TextMessage("request")})
+
+	// Assert the request after the tool batch contains both steer messages in arrival order.
+	require.NoError(t, err)
+	require.Equal(t, agent.RunOutcomeCompleted, result.Outcome)
+	require.Len(t, histories, 2)
+	require.Equal(t, []string{"request", "steer-1", "steer-2"}, userTexts(histories[1]))
+}

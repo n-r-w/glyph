@@ -9,6 +9,7 @@ import (
 	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -56,7 +57,7 @@ func TestFailedSelectionDeliveryValidatesRetainedResult(t *testing.T) {
 				Rejection: mo.None[Rejection](), CancelTargetState: mo.None[operation.TerminalState](),
 				RetryPolicy: mo.None[RetryPolicy](), CompactionCanceled: mo.None[bool](),
 				CompactionError: mo.None[string](), CompactionFailureCode: mo.None[string](),
-				MessageHandled: mo.None[bool](),
+				MessageHandled: mo.None[bool](), QueueMode: mo.None[agent.QueueMode](),
 			}
 			cause := errors.New("complete committed selection observer failure")
 

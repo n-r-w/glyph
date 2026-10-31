@@ -162,6 +162,11 @@ func (c *Coordinator) Enqueue(
 	return false, nil
 }
 
+// SetQueueMode passes the queue mode to Agent Core; it needs no active run and does not wait for one.
+func (c *Coordinator) SetQueueMode(mode agent.QueueMode) {
+	c.executor.SetQueueMode(mode)
+}
+
 // Run executes one Agent Core run, emits Host settlement, and makes Agent Core idle.
 func (c *Coordinator) Run(ctx context.Context, message model.Message) (agent.RunOutcome, error) {
 	runID, err := c.PrepareRun()

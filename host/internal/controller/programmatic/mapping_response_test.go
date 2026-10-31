@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -589,6 +590,42 @@ func TestMapResponseEnqueueMessage(t *testing.T) {
 			}
 			require.NoError(t, err)
 			require.True(t, completed.GetEnqueueMessage().GetHandled())
+		})
+	}
+}
+
+// TestMapResponseQueueMode verifies the public queue mode result and its required mode.
+func TestMapResponseQueueMode(t *testing.T) {
+	t.Parallel()
+	for name, mode := range map[string]mo.Option[agent.QueueMode]{
+		"all": mo.Some(agent.QueueModeAll), "absent": mo.None[agent.QueueMode](),
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange a queue mode result with the given mode.
+			response := Response{
+				OperationID: "operation", Kind: ResponseQueueMode,
+				State: mo.None[RunStateResult](), Messages: nil, Models: mo.None[ModelsResult](),
+				Selection: mo.None[model.Selection](), SelectionIssues: nil,
+				SessionInfo: mo.None[session.Info](), Sessions: nil, SessionEntries: nil,
+				SessionStatistics: mo.None[session.Statistics](), SessionTree: mo.None[SessionTree](),
+				TreeNavigation: mo.None[TreeNavigationResult](), Replacement: mo.None[SessionReplacement](),
+				Rejection: mo.None[Rejection](), CancelTargetState: mo.None[operation.TerminalState](),
+				RetryPolicy: mo.None[RetryPolicy](), CompactionCanceled: mo.None[bool](),
+				CompactionError: mo.None[string](), CompactionFailureCode: mo.None[string](),
+				MessageHandled: mo.None[bool](), QueueMode: mode,
+			}
+
+			// Act through the production Programmatic protobuf mapping.
+			completed, err := mapResponse(response)
+
+			// Assert the mode is mapped, and an absent mode fails the mapping.
+			if mode.IsAbsent() {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, programmaticv1.QueueMode_QUEUE_MODE_ALL, completed.GetQueueMode().GetMode())
 		})
 	}
 }

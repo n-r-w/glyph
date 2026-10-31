@@ -38,6 +38,9 @@ type Executor interface {
 	// Enqueue queues a final user message with the given delivery kind for the run with the given ID, or fails with
 	// agent.ErrRunNotActive when that run is no longer running.
 	Enqueue(runID string, delivery agent.MessageDelivery, message model.Message) error
+	// SetQueueMode selects how many pending messages of one kind a delivery point gives the model, from the next
+	// delivery point on.
+	SetQueueMode(mode agent.QueueMode)
 }
 
 // InputProcessor produces the final user message of an accepted run before Core execution.

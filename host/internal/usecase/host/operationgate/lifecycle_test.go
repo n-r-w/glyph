@@ -132,6 +132,7 @@ func TestProgrammaticPreparationReservesSessionMutationBeforeStorage(t *testing.
 		Kind:                   programmaticcontroller.CommandResumeSession,
 		UserMessage:            mo.None[model.Message](),
 		Delivery:               mo.None[agent.MessageDelivery](),
+		QueueMode:              mo.None[agent.QueueMode](),
 		ProviderID:             mo.None[model.ProviderID](),
 		ModelID:                mo.None[model.ID](),
 		ReasoningChoice:        mo.None[model.ReasoningChoice](),

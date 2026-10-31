@@ -376,7 +376,8 @@ func isSessionMutation(kind controller.CommandKind) bool {
 		controller.CommandGetRunState, controller.CommandGetMessages, controller.CommandGetModels,
 		controller.CommandSelectModel, controller.CommandSelectReasoningChoice, controller.CommandListSessions,
 		controller.CommandGetSessionInfo, controller.CommandGetSessionEntries, controller.CommandGetSessionStats,
-		controller.CommandGetSessionTree, controller.CommandSetRetryEnabled, controller.CommandEnqueueMessage:
+		controller.CommandGetSessionTree, controller.CommandSetRetryEnabled, controller.CommandEnqueueMessage,
+		controller.CommandSetQueueMode:
 		return false
 	default:
 		return false

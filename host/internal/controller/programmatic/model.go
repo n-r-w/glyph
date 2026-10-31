@@ -5,6 +5,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/internal/operation"
@@ -55,6 +56,8 @@ const (
 	ResponseCompaction
 	// ResponseEnqueueMessage reports that Host queued a message or that an extension fully handled it.
 	ResponseEnqueueMessage
+	// ResponseQueueMode reports the selected queue mode.
+	ResponseQueueMode
 )
 
 // RejectionCode identifies why an operation was not executed.
@@ -138,6 +141,8 @@ type Response struct {
 	CompactionFailureCode mo.Option[string]
 	// MessageHandled reports for an enqueue result that an extension fully handled the message.
 	MessageHandled mo.Option[bool]
+	// QueueMode is present for a queue mode result.
+	QueueMode mo.Option[agent.QueueMode]
 }
 
 // SessionReplacement contains public active-session state after fork or clone.

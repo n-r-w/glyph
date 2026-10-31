@@ -6,6 +6,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
@@ -20,6 +21,18 @@ func mapRunState(state RunState) (programmaticv1.RunState, error) {
 		return 0, errors.New("map run state: unspecified value")
 	default:
 		return 0, fmt.Errorf("map run state: unknown value %d", state)
+	}
+}
+
+// mapWireQueueMode maps one domain queue mode to its public enum.
+func mapWireQueueMode(mode agent.QueueMode) (programmaticv1.QueueMode, error) {
+	switch mode {
+	case agent.QueueModeOneAtATime:
+		return programmaticv1.QueueMode_QUEUE_MODE_ONE_AT_A_TIME, nil
+	case agent.QueueModeAll:
+		return programmaticv1.QueueMode_QUEUE_MODE_ALL, nil
+	default:
+		return 0, fmt.Errorf("map queue mode: unknown value %d", mode)
 	}
 }
 
