@@ -196,7 +196,7 @@ Documents:
 
 ## PHS-08: Prompt, context, input, and provider middleware
 
-Status: Implemented; awaiting final verification and user acceptance.
+Status: Completed
 
 Added ordered model-facing middleware through provider-neutral Host boundaries and final input validation against model modalities.
 

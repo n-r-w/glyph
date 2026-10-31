@@ -76,7 +76,7 @@
 - Ticket: [Ticket](phases/08-prompt-context-input-provider-middleware/ticket.md)
 - Technical Solution: [Technical Solution](phases/08-prompt-context-input-provider-middleware/solution.md)
 - Author guide: [Model-facing middleware](../../../guidelines/model-middleware.md)
-- Completion status: Implemented; awaiting final verification and user acceptance. The [acceptance report](phases/08-prompt-context-input-provider-middleware/acceptance-report.md) maps each ticket criterion to executed evidence or a recorded verification limit.
+- Completion status: Complete and accepted. The [acceptance report](phases/08-prompt-context-input-provider-middleware/acceptance-report.md) maps each ticket criterion to executed evidence or a recorded verification limit and records the user acceptance.
 
 ### PHS-09. Tool middleware and run control
 - Dependencies: PHS-08

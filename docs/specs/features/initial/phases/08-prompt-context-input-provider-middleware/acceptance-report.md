@@ -1,6 +1,6 @@
 # PHS-08 acceptance report
 
-Status: implemented; awaiting final verification and user acceptance. This report does not record user acceptance.
+Status: complete and accepted. On 2026-10-31, the user accepted PHS-08 at revision `3f7580d` within the verification limits below.
 
 The report maps every criterion of the [ticket](ticket.md) and every acceptance scenario of the [target picture](target-picture.md) to executed evidence or to an identified verification limit. UNT-01 through UNT-04 are committed (`b8e3754`, `ffb3c1c`, `cb63b80`, `c2cf46a`). UNT-05 adds documentation only.
 
@@ -70,4 +70,4 @@ The unit records contain the focused RED and GREEN output and the full project c
 9. **Overflow-recovery persistence failure.** No public fixture injects a persistence failure into an overflow-recovery commit that also has a finalization failure. The category of that combination is checked at unit level only ([UNT-04 round 3](unt-04-evidence.md#c12-every-category-lookup-of-the-accepted-run-classifiers-reads-current-causes)).
 10. **Secret collection without wire callbacks.** Successful-response secret tests install wire callbacks. The no-callback success collector path is checked by source inspection only, and no generic compatible rejection-body capture exists ([UNT-01](unt-01-evidence.md#review-boundary-and-limits)).
 11. **Retained outside-task finding.** `Runtime.context` in `host/internal/infra/plugins/extension/runtime/runtime.go` stores a `context.Context`. UNT-01 reported it without investigation or change ([UNT-01](unt-01-evidence.md#wording-reconciliation-and-limits)).
-12. **No user acceptance yet.** The last full project checks ran on the code of UNT-04 (`c2cf46a`). UNT-05 changes documentation only, so the code of the phase head is the code those checks covered. Final verification and user acceptance remain open.
+12. **Full checks on the code of UNT-04.** The last full project checks ran on the code of UNT-04 (`c2cf46a`). UNT-05 changes documentation only, so the code of the accepted revision is the code those checks covered.
