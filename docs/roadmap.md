@@ -219,6 +219,7 @@ Documents:
 - [Problem Statement](specs/features/initial/phases/09-tool-middleware-run-control/problem.md)
 - [PRD](specs/features/initial/phases/09-tool-middleware-run-control/prd.md)
 - [Technical Solution](specs/features/initial/phases/09-tool-middleware-run-control/solution.md)
+- [Plan](specs/features/initial/phases/09-tool-middleware-run-control/plan.md)
 
 ## PHS-10: Commands, interaction, notifications, and extension events
 
