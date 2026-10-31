@@ -65,6 +65,20 @@ func (s *Service) HandleUserInput(
 	)
 }
 
+// HandleFinalizedMessage invokes one finalized-message transformer on the exact generation bound by the owner.
+func (s *Service) HandleFinalizedMessage(
+	ctx context.Context,
+	extensionID, handlerID string,
+	invocation middleware.Transformation[agent.HistoryEntry],
+) (middleware.Transformed[agent.HistoryEntry], error) {
+	return invokeMiddleware(
+		ctx, s, extensionID, handlerID, invocation.Context.RuntimeInstanceID,
+		func(runtime ExtensionRuntime) (middleware.Transformed[agent.HistoryEntry], error) {
+			return runtime.HandleFinalizedMessage(ctx, handlerID, invocation)
+		},
+	)
+}
+
 // invokeMiddleware runs one middleware operation only while its bound runtime generation is available.
 func invokeMiddleware[A any](
 	ctx context.Context,

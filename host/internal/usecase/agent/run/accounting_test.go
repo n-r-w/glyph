@@ -93,7 +93,7 @@ func TestRunSummaryAfterHistoryReplacement(t *testing.T) {
 					return nil
 				},
 			).AnyTimes()
-			service := New(testInstructions, runtime, tools, events, store)
+			service := New(testInstructions, runtime, tools, events, store, passThroughFinalizer(t))
 
 			// Act by replacing prepared history during provider work and completing the run.
 			result, err := service.Run(
@@ -204,7 +204,7 @@ func TestRunSummaryOwnsDetachedEntries(t *testing.T) {
 		Times(2)
 	tools := NewMockToolRuntime(controller)
 	tools.EXPECT().Tools().Return(nil).Times(2)
-	service = New(testInstructions, runtime, tools, events, store)
+	service = New(testInstructions, runtime, tools, events, store, passThroughFinalizer(t))
 
 	// Act through two runs with rejected admission during each run and settlement between them.
 	for _, runID := range []string{"first", "second"} {

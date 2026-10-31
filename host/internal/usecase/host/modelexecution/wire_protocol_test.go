@@ -78,6 +78,7 @@ func TestWireNeutralProviderAcrossCallers(t *testing.T) {
 			require.NoError(t, execution.BindWireMiddleware(middleware))
 			// Act through the unchanged ordinary and configured caller interfaces.
 			if configured {
+				bindPassThroughFinalizer(t, execution)
 				_, err := execution.RequestConfigured(t.Context(), model.Selection{}, "", nil, nil)
 				require.NoError(t, err)
 			} else {
@@ -156,6 +157,7 @@ func TestSuccessfulWireObserverPreservesProviderRetry(t *testing.T) {
 	)
 	require.NoError(t, execution.BindWireMiddleware(middleware))
 	// Act through configured execution with successful middleware on a retryable provider response.
+	bindPassThroughFinalizer(t, execution)
 	_, err := execution.RequestConfigured(t.Context(), model.Selection{}, "", nil, nil)
 	// Assert the normal retry policy, rather than middleware-failure suppression, controls the provider attempts.
 	require.NoError(t, err)

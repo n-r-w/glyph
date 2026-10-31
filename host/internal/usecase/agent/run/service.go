@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"slices"
-	"strings"
 	"sync"
 
 	"github.com/samber/mo"
@@ -15,7 +14,6 @@ import (
 	"github.com/n-r-w/glyph/internal/errtree"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
-	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 )
@@ -45,6 +43,8 @@ type Service struct {
 	events EventSink
 	// historyStore owns canonical durable conversation history.
 	historyStore HistoryStore
+	// finalizer supplies the final value of each terminal model response and completed tool result.
+	finalizer MessageFinalizer
 
 	// mutex protects state and appended-history accounting.
 	mutex sync.RWMutex
@@ -66,6 +66,7 @@ func New(
 	tools ToolRuntime,
 	events EventSink,
 	historyStore HistoryStore,
+	finalizer MessageFinalizer,
 ) *Service {
 	return &Service{
 		instructions: instructions,
@@ -73,6 +74,7 @@ func New(
 		tools:        tools,
 		events:       events,
 		historyStore: historyStore,
+		finalizer:    finalizer,
 		mutex:        sync.RWMutex{},
 		addedHistory: nil,
 		state: State{
@@ -269,6 +271,14 @@ func (s *Service) runTurn(ctx context.Context, runID string) (turnResult, bool, 
 
 	response = s.normalizeTerminalResponse(response.Clone())
 	s.clearPartial()
+	// Finalization runs outside the persistence wrapper of appendHistory, so its failure keeps its own category.
+	response, finalizeErr := s.finalizer.FinalizeModelResponse(ctx, response)
+	if finalizeErr != nil {
+		return turnResult{
+			Outcome:      agent.RunOutcomeFailed,
+			ErrorMessage: mo.Some(visibleErrorMessage(finalizeErr)),
+		}, false, finalizeErr
+	}
 	// The terminal model response must transfer to history ownership before completion is exposed.
 	if err := s.appendModel(context.WithoutCancel(ctx), response); err != nil {
 		return turnResult{
@@ -322,119 +332,11 @@ func (*Service) normalizeTerminalResponse(response model.Response) model.Respons
 	return response
 }
 
-// finalizeProviderError stores retained partial content and excludes it from later projections.
-func (s *Service) finalizeProviderError(
-	ctx context.Context,
-	runID string,
-	response model.Response,
-	providerErr error,
-) (turnResult, bool, error) {
-	response = response.Clone()
-	if partial, present := s.State().PartialResponse.Get(); len(response.Content) == 0 && present {
-		response.Content = partial.Content
-		finalizeRetainedStreamedContent(response.Content)
-	}
-	outcome := model.OutcomeFailed
-	if isPureCancellation(providerErr) {
-		outcome = model.OutcomeAborted
-	}
-	errorMessage, hasErrorMessage := response.ErrorMessage.Get()
-	if outcome == model.OutcomeAborted || errors.Is(providerErr, context.Canceled) ||
-		errors.Is(providerErr, context.DeadlineExceeded) {
-		errorMessage = visibleErrorMessage(providerErr)
-	} else {
-		// causeMessage keeps the complete logical failure when retained provider text is narrower.
-		causeMessage := providerErr.Error()
-		if hasErrorMessage && errorMessage != "" && !strings.Contains(causeMessage, errorMessage) {
-			errorMessage += "\n" + causeMessage
-		} else {
-			errorMessage = causeMessage
-		}
-	}
-	response.Outcome = mo.Some(outcome)
-	response.ErrorMessage = mo.Some(errorMessage)
-	validationErr := response.ValidateTerminalContent()
-	s.clearPartial()
-	if validationErr != nil {
-		combinedErr := errors.Join(providerErr, fmt.Errorf("validate provider failure response: %w", validationErr))
-		resultMessage := visibleErrorMessage(combinedErr)
-		return turnResult{
-			Outcome:      outcomeToRunOutcome(outcome),
-			ErrorMessage: mo.EmptyableToOption(resultMessage),
-		}, false, combinedErr
-	}
-	terminalContext := context.WithoutCancel(ctx)
-	if err := s.appendModel(terminalContext, response); err != nil {
-		combinedErr := errors.Join(err, providerErr)
-		resultMessage := visibleErrorMessage(combinedErr)
-		return turnResult{
-			Outcome:      outcomeToRunOutcome(outcome),
-			ErrorMessage: mo.Some(resultMessage),
-		}, false, combinedErr
-	}
-	messageEnd := newEvent(agent.EventMessageEnd, runID)
-	messageEnd.Message = mo.Some(response)
-	deliveryErr := s.deliver(terminalContext, messageEnd)
-	turn := agent.TurnSummary{Response: response, ToolResults: nil}
-	turnEnd := newEvent(agent.EventTurnEnd, runID)
-	turnEnd.Turn = mo.Some(turn)
-	deliveryErr = errors.Join(deliveryErr, s.deliver(terminalContext, turnEnd))
-	combinedErr := errors.Join(providerErr, deliveryErr)
-	resultMessage := errorMessage
-	if deliveryErr != nil {
-		resultMessage = visibleErrorMessage(combinedErr)
-	}
-	runOutcome := outcomeToRunOutcome(outcome)
-	for cause := range errtree.IterateCurrentErrors(deliveryErr) {
-		// A classified delivery failure changes the run, while the persisted response keeps its provider outcome.
-		//nolint:errorlint // Inspect only current nodes, excluding historical diagnostic descendants.
-		if _, classified := cause.(errtree.CodedError); classified {
-			runOutcome = agent.RunOutcomeFailed
-			break
-		}
-	}
-	return turnResult{
-		Outcome:      runOutcome,
-		ErrorMessage: mo.EmptyableToOption(resultMessage),
-	}, false, combinedErr
-}
-
-// visibleErrorMessage formats terminal cancellation and failure text.
-func visibleErrorMessage(err error) string {
-	if errtree.IsPlainCancellation(err, func(cause error) bool {
-		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
-	}) {
-		return abortedModelMessage
-	}
-	return err.Error()
-}
-
 // isPureCancellation checks current causes for cancellation markers recognized by Agent Core.
 func isPureCancellation(err error) bool {
 	return errtree.IsCurrentCancellation(err, func(cause error) bool {
 		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
 	})
-}
-
-// finalizeRetainedStreamedContent closes only well-formed streamed content kept after provider failure.
-func finalizeRetainedStreamedContent(content []model.Content) {
-	for position := range content {
-		item := &content[position]
-		if item.Final || !item.Kind.Streamed() {
-			continue
-		}
-		if item.ValidateShape() == nil {
-			item.Final = true
-		}
-	}
-}
-
-// outcomeToRunOutcome maps a model terminal outcome to the run result used for provider failures.
-func outcomeToRunOutcome(outcome model.Outcome) agent.RunOutcome {
-	if outcome == model.OutcomeAborted {
-		return agent.RunOutcomeAborted
-	}
-	return agent.RunOutcomeFailed
 }
 
 // applyOutcome executes the complete behavior for one finalized model outcome.
@@ -454,32 +356,7 @@ func (s *Service) applyOutcome(
 	case model.OutcomeToolUse:
 		return s.executeCalls(ctx, runID, response)
 	case model.OutcomeLength:
-		calls := modelToolCalls(response)
-		if len(calls) == 0 {
-			return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeCompleted, "", nil)
-		}
-		results := make([]agent.ToolResult, 0, len(calls))
-		for _, call := range calls {
-			result := agent.ToolResult{
-				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(lengthCallMessage), IsError: true,
-			}
-			if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
-				return turnResult{
-					Outcome:      agent.RunOutcomeFailed,
-					ErrorMessage: mo.Some(err.Error()),
-				}, false, err
-			}
-			results = append(results, result)
-			toolResult := newEvent(agent.EventToolResult, runID)
-			toolResult.ToolResult = mo.Some(result)
-			if err := s.deliver(context.WithoutCancel(ctx), toolResult); err != nil {
-				return turnResult{
-					Outcome:      agent.RunOutcomeFailed,
-					ErrorMessage: mo.Some(err.Error()),
-				}, false, err
-			}
-		}
-		return s.endTurn(ctx, runID, response, results, 0, "", nil)
+		return s.skipLengthCalls(ctx, runID, response)
 	case model.OutcomeAborted:
 		errorMessage, hasErrorMessage := response.ErrorMessage.Get()
 		if !hasErrorMessage || errorMessage == "" {
@@ -502,83 +379,6 @@ func (s *Service) applyOutcome(
 		err := fmt.Errorf("unknown model response outcome %d", outcome)
 		return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeFailed, err.Error(), err)
 	}
-}
-
-// executeCalls runs finalized tool calls sequentially in model order.
-func (s *Service) executeCalls(
-	ctx context.Context,
-	runID string,
-	response model.Response,
-) (turnResult, bool, error) {
-	results := make([]agent.ToolResult, 0)
-	for _, call := range modelToolCalls(response) {
-		if err := ctx.Err(); err != nil {
-			return s.endTurn(ctx, runID, response, results, agent.RunOutcomeAborted, abortedModelMessage, err)
-		}
-		toolStart := newEvent(agent.EventToolExecutionStart, runID)
-		toolStart.ToolCall = mo.Some(call)
-		if err := s.deliver(ctx, toolStart); err != nil {
-			return turnResult{
-				Outcome:      agent.RunOutcomeFailed,
-				ErrorMessage: mo.Some(err.Error()),
-			}, false, err
-		}
-		var progressDeliveryErr error
-		result, executeErr := s.tools.Execute(ctx, call, func(progress tool.Progress) error {
-			toolUpdate := newEvent(agent.EventToolExecutionUpdate, runID)
-			toolUpdate.ToolCall = mo.Some(call)
-			toolUpdate.Progress = mo.Some(progress)
-			deliveryErr := s.deliver(ctx, toolUpdate)
-			if deliveryErr != nil && progressDeliveryErr == nil {
-				progressDeliveryErr = deliveryErr
-			}
-			return deliveryErr
-		})
-		if executeErr != nil {
-			result = agent.ToolResult{
-				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(executeErr.Error()), IsError: true,
-			}
-		}
-		result.CallID = call.ID
-		result.ToolName = call.Name
-		priorErr := composeErrorWithCause(executeErr, progressDeliveryErr)
-		if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
-			combinedErr := errors.Join(err, priorErr)
-			return turnResult{
-				Outcome:      agent.RunOutcomeFailed,
-				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
-			}, false, combinedErr
-		}
-		results = append(results, result)
-		toolEnd := newEvent(agent.EventToolExecutionEnd, runID)
-		toolEnd.ToolCall = mo.Some(call)
-		toolEnd.ToolResult = mo.Some(result)
-		endErr := s.deliver(context.WithoutCancel(ctx), toolEnd)
-		toolResult := newEvent(agent.EventToolResult, runID)
-		toolResult.ToolResult = mo.Some(result)
-		resultErr := s.deliver(context.WithoutCancel(ctx), toolResult)
-		if endErr != nil || resultErr != nil {
-			combinedErr := errors.Join(priorErr, endErr, resultErr)
-			return turnResult{
-				Outcome:      agent.RunOutcomeFailed,
-				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
-			}, false, combinedErr
-		}
-		if outcome, terminal := classifyToolFailure(ctx, executeErr, progressDeliveryErr).Get(); terminal {
-			return s.endTurn(
-				ctx, runID, response, results, outcome, visibleErrorMessage(priorErr), priorErr,
-			)
-		}
-	}
-	return s.endTurn(ctx, runID, response, results, 0, "", nil)
-}
-
-// composeErrorWithCause adds a cause only when the primary error does not already contain it.
-func composeErrorWithCause(primaryErr, causeErr error) error {
-	if causeErr == nil || errors.Is(primaryErr, causeErr) {
-		return primaryErr
-	}
-	return errors.Join(primaryErr, causeErr)
 }
 
 // endTurn emits the self-contained terminal turn and selects continuation or completion.
@@ -726,4 +526,14 @@ func (s *Service) deliver(ctx context.Context, event agent.Event) error {
 		return fmt.Errorf("deliver agent event: %w", err)
 	}
 	return nil
+}
+
+// visibleErrorMessage formats terminal cancellation and failure text.
+func visibleErrorMessage(err error) string {
+	if errtree.IsPlainCancellation(err, func(cause error) bool {
+		return errors.Is(cause, context.Canceled) || errors.Is(cause, context.DeadlineExceeded)
+	}) {
+		return abortedModelMessage
+	}
+	return err.Error()
 }

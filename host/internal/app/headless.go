@@ -89,7 +89,7 @@ func runHeadlessWithPaths(
 		sessionServices.gate,
 	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
-	inputProcessor, bindErr := bindMiddleware(startupService, modelExecution, extensions, contexts, providerCatalog)
+	middlewareOwner, bindErr := bindMiddleware(startupService, modelExecution, extensions, contexts, providerCatalog)
 	if bindErr != nil {
 		return bindErr
 	}
@@ -103,11 +103,15 @@ func runHeadlessWithPaths(
 		return fmt.Errorf("start headless Host: %w", startupErr)
 	}
 	extensions.Activate(ctx)
+	if middlewareOwner.HasFinalizedMessageHandlers() {
+		// Streamed model text is provisional while extensions can replace the final message.
+		renderer.EnableFinalModelText()
+	}
 	dispatcher := events.NewDispatcher(renderer, lifecycleObservers)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active,
+		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
 	)
-	coordinator := runcontrol.NewCoordinator(agentCore, inputProcessor, dispatcher, sessionServices.gate)
+	coordinator := runcontrol.NewCoordinator(agentCore, middlewareOwner, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
 	if executionErr != nil {

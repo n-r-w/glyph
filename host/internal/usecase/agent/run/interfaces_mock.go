@@ -160,6 +160,60 @@ func (mr *MockEffectiveContextPortMockRecorder) PrepareContext(arg0, arg1 any) *
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "PrepareContext", reflect.TypeOf((*MockEffectiveContextPort)(nil).PrepareContext), arg0, arg1)
 }
 
+// MockMessageFinalizer is a mock of MessageFinalizer interface.
+type MockMessageFinalizer struct {
+	ctrl     *gomock.Controller
+	recorder *MockMessageFinalizerMockRecorder
+	isgomock struct{}
+}
+
+// MockMessageFinalizerMockRecorder is the mock recorder for MockMessageFinalizer.
+type MockMessageFinalizerMockRecorder struct {
+	mock *MockMessageFinalizer
+}
+
+// NewMockMessageFinalizer creates a new mock instance.
+func NewMockMessageFinalizer(ctrl *gomock.Controller) *MockMessageFinalizer {
+	mock := &MockMessageFinalizer{ctrl: ctrl}
+	mock.recorder = &MockMessageFinalizerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMessageFinalizer) EXPECT() *MockMessageFinalizerMockRecorder {
+	return m.recorder
+}
+
+// FinalizeModelResponse mocks base method.
+func (m *MockMessageFinalizer) FinalizeModelResponse(arg0 context.Context, arg1 model.Response) (model.Response, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FinalizeModelResponse", arg0, arg1)
+	ret0, _ := ret[0].(model.Response)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FinalizeModelResponse indicates an expected call of FinalizeModelResponse.
+func (mr *MockMessageFinalizerMockRecorder) FinalizeModelResponse(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeModelResponse", reflect.TypeOf((*MockMessageFinalizer)(nil).FinalizeModelResponse), arg0, arg1)
+}
+
+// FinalizeToolResult mocks base method.
+func (m *MockMessageFinalizer) FinalizeToolResult(arg0 context.Context, arg1 agent.ToolResult) (agent.ToolResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "FinalizeToolResult", arg0, arg1)
+	ret0, _ := ret[0].(agent.ToolResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// FinalizeToolResult indicates an expected call of FinalizeToolResult.
+func (mr *MockMessageFinalizerMockRecorder) FinalizeToolResult(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FinalizeToolResult", reflect.TypeOf((*MockMessageFinalizer)(nil).FinalizeToolResult), arg0, arg1)
+}
+
 // MockModelProvider is a mock of ModelProvider interface.
 type MockModelProvider struct {
 	ctrl     *gomock.Controller

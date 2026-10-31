@@ -91,6 +91,7 @@ func TestWireStreamSecrets(t *testing.T) {
 					}, nil)
 				execution := modelexecution.New(catalog, modelexecution.RetryPolicy{}, nil, nil, nil)
 				require.NoError(t, execution.BindWireMiddleware(owner))
+				require.NoError(t, execution.BindResponseFinalizer(passThroughFinalizer(ctrl)))
 				_, err = execution.RequestConfigured(t.Context(), model.Selection{}, "instructions", nil, nil)
 				failure, ok := errors.AsType[*modelexecution.LogicalFailureError](err)
 				require.True(t, ok)

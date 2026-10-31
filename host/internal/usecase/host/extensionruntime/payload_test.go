@@ -61,6 +61,35 @@ func TestRegistrationBindsDiscoveredIdentity(t *testing.T) {
 	require.Equal(t, startup.RawHandlerKindUnspecified, pending.Handlers[1].Kind)
 }
 
+// TestRegistrationBindsMiddlewareKinds passes every declared middleware kind to startup acceptance unchanged.
+func TestRegistrationBindsMiddlewareKinds(t *testing.T) {
+	t.Parallel()
+	// Arrange one declaration for each middleware kind, from the first wire kind to the last declared kind.
+	kinds := []startup.RawHandlerKind{
+		startup.RawHandlerKindProviderHeaders, startup.RawHandlerKindProviderBody,
+		startup.RawHandlerKindProviderResponse, startup.RawHandlerKindSystemInstructions,
+		startup.RawHandlerKindModelContext, startup.RawHandlerKindUserInput,
+		startup.RawHandlerKindFinalizedMessage,
+	}
+	declarations := make([]mo.Option[HandlerDeclaration], len(kinds))
+	for index, kind := range kinds {
+		declarations[index] = mo.Some(HandlerDeclaration{ID: "handler", Kind: int32(kind)})
+	}
+
+	// Act at the runtime binding boundary before startup capability acceptance.
+	pending := (&Service{}).bindRegistration(
+		Candidate{ID: "extension", Path: "/extension", InstanceID: "instance"},
+		Registration{Tools: nil, Handlers: declarations},
+	)
+
+	// Assert each declared kind reaches startup acceptance.
+	bound := make([]startup.RawHandlerKind, len(pending.Handlers))
+	for index, handler := range pending.Handlers {
+		bound[index] = handler.Kind
+	}
+	require.Equal(t, kinds, bound)
+}
+
 // TestHandlerProjectionPreservesOriginalCurrentAndHidesPrivateData separates capability state from process payloads.
 func TestHandlerProjectionPreservesOriginalCurrentAndHidesPrivateData(t *testing.T) {
 	t.Parallel()

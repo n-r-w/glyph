@@ -31,6 +31,7 @@ func TestServiceLoadPassesContextMiddlewareToRegistrar(t *testing.T) {
 			{Present: true, ID: "instructions", Kind: RawHandlerKindSystemInstructions},
 			{Present: true, ID: "headers", Kind: RawHandlerKindProviderHeaders},
 			{Present: true, ID: "input", Kind: RawHandlerKindUserInput},
+			{Present: true, ID: "finalized", Kind: RawHandlerKindFinalizedMessage},
 		},
 	}
 	middlewareHandlers := []AcceptedHandler{
@@ -38,6 +39,7 @@ func TestServiceLoadPassesContextMiddlewareToRegistrar(t *testing.T) {
 		{ID: "instructions", Kind: RawHandlerKindSystemInstructions},
 		{ID: "headers", Kind: RawHandlerKindProviderHeaders},
 		{ID: "input", Kind: RawHandlerKindUserInput},
+		{ID: "finalized", Kind: RawHandlerKindFinalizedMessage},
 	}
 	runtimes.EXPECT().
 		LoadPending(t.Context(), gomock.Any()).
@@ -56,6 +58,7 @@ func TestServiceLoadPassesContextMiddlewareToRegistrar(t *testing.T) {
 			{Present: true, ID: "instructions", Kind: RawHandlerKindSystemInstructions},
 			{Present: true, ID: "headers", Kind: RawHandlerKindProviderHeaders},
 			{Present: true, ID: "input", Kind: RawHandlerKindUserInput},
+			{Present: true, ID: "finalized", Kind: RawHandlerKindFinalizedMessage},
 		},
 	}).Return(middlewareHandlers, nil)
 	expected := []AcceptedRegistration{{
@@ -66,6 +69,7 @@ func TestServiceLoadPassesContextMiddlewareToRegistrar(t *testing.T) {
 			middlewareHandlers[1],
 			middlewareHandlers[2],
 			middlewareHandlers[3],
+			middlewareHandlers[4],
 		},
 	}}
 	tools.EXPECT().Conflicts(expected).Return(nil)

@@ -129,7 +129,7 @@ func runUIWithPaths(
 		sessionServices.gate,
 	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
-	inputProcessor, bindErr := bindMiddleware(startupService, modelExecution, extensions, contexts, providerCatalog)
+	middlewareOwner, bindErr := bindMiddleware(startupService, modelExecution, extensions, contexts, providerCatalog)
 	if bindErr != nil {
 		return bindErr
 	}
@@ -146,9 +146,9 @@ func runUIWithPaths(
 	transport.BindBrowser(browser.New())
 	dispatcher := events.NewDispatcher(transport, lifecycleObservers)
 	agentCore := agentrun.New(
-		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active,
+		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
 	)
-	coordinator := runcontrol.NewCoordinator(agentCore, inputProcessor, dispatcher, sessionServices.gate)
+	coordinator := runcontrol.NewCoordinator(agentCore, middlewareOwner, dispatcher, sessionServices.gate)
 	session := hostui.NewSession(
 		transport,
 		coordinator,

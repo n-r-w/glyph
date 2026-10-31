@@ -75,7 +75,7 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		tools := agentrun.NewMockToolRuntime(mockController)
 		tools.EXPECT().Tools().Return(nil).AnyTimes()
 		agentCore := agentrun.New(
-			"instructions", runtime, tools, eventSink, historyStore,
+			"instructions", runtime, tools, eventSink, historyStore, passThroughFinalizer(mockController),
 		)
 		coordinator := host.NewMockCoordinator(mockController)
 		coordinator.EXPECT().PrepareRun().Return("run-progress-failure", nil)
@@ -142,4 +142,16 @@ func TestRunPreparedProgressFailureStopsTerminalDeliveryBeforeJoin(t *testing.T)
 		require.ErrorIs(t, owner.Err(), connectionErr)
 		assert.Equal(t, codes.Unavailable, status.Code(owner.Err()))
 	})
+}
+
+// passThroughFinalizer returns an Agent Core finalizer whose final values equal the given values.
+func passThroughFinalizer(controller *gomock.Controller) *agentrun.MockMessageFinalizer {
+	finalizer := agentrun.NewMockMessageFinalizer(controller)
+	finalizer.EXPECT().FinalizeModelResponse(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, response model.Response) (model.Response, error) { return response, nil },
+	).AnyTimes()
+	finalizer.EXPECT().FinalizeToolResult(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, result agent.ToolResult) (agent.ToolResult, error) { return result, nil },
+	).AnyTimes()
+	return finalizer
 }

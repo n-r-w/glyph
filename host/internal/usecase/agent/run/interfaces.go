@@ -67,6 +67,16 @@ type EffectiveContextPort interface {
 	PrepareContext(context.Context, ContextRequest) (EffectiveContext, error)
 }
 
+// MessageFinalizer returns the final value of a terminal model response or a completed tool result before Agent Core
+// appends it; an error means that the value has no final form and must not be appended.
+type MessageFinalizer interface {
+	// FinalizeModelResponse returns the final response with the outcome, provider identity, and tool calls of the
+	// given response.
+	FinalizeModelResponse(context.Context, model.Response) (model.Response, error)
+	// FinalizeToolResult returns the final result with the call identifier and tool name of the given result.
+	FinalizeToolResult(context.Context, agent.ToolResult) (agent.ToolResult, error)
+}
+
 // StreamEventKind identifies one provider-neutral model stream transition.
 type StreamEventKind uint8
 

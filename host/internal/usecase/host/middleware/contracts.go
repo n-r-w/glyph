@@ -27,6 +27,8 @@ const (
 	ModelContext
 	// UserInput preserves, replaces, or fully handles the user input of one accepted run.
 	UserInput
+	// FinalizedMessage preserves or replaces the content of one finalized user message, model response, or tool result.
+	FinalizedMessage
 )
 
 // String returns the operation name used in failure text.
@@ -44,6 +46,8 @@ func (kind Kind) String() string {
 		return "model-context"
 	case UserInput:
 		return "user-input"
+	case FinalizedMessage:
+		return "finalized-message"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(kind))
 	}
@@ -149,6 +153,10 @@ type Runtime interface {
 	HandleUserInput(
 		context.Context, string, string, Transformation[model.Message],
 	) (Transformed[model.Message], error)
+	// HandleFinalizedMessage invokes one finalized-message transformer and restores retained private replay.
+	HandleFinalizedMessage(
+		context.Context, string, string, Transformation[agent.HistoryEntry],
+	) (Transformed[agent.HistoryEntry], error)
 }
 
 // ContextIssuer binds an invocation to the current extension generation and session.

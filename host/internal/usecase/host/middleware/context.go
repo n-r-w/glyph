@@ -8,6 +8,17 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 )
 
+// cancellationBoundary selects the result of a chain whose owning context is canceled before the first handler is
+// admitted.
+type cancellationBoundary uint8
+
+const (
+	// failOnCancellation fails the chain with the cancellation.
+	failOnCancellation cancellationBoundary = iota
+	// keepBeforeAdmission returns the value unchanged, so Agent Core records it as without finalized-message handlers.
+	keepBeforeAdmission
+)
+
 // transformer describes one ordered chain whose handlers preserve or replace a detached value.
 type transformer[T any] struct {
 	// kind selects the handlers of the chain.
@@ -18,6 +29,8 @@ type transformer[T any] struct {
 	accept func(T) (T, error)
 	// handles permits a handler to fully handle the value and end the chain.
 	handles bool
+	// cancellation selects the result when the owning context is canceled before the first handler is admitted.
+	cancellation cancellationBoundary
 	// handle invokes one handler through runtime management.
 	handle func(context.Context, string, string, Transformation[T]) (Transformed[T], error)
 }
@@ -26,18 +39,20 @@ type transformer[T any] struct {
 func (s *Service) NewContextComposer() modelexecution.ContextComposer {
 	handlers := s.snapshotHandlers()
 	instructions := transformer[string]{
-		kind:    SystemInstructions,
-		clone:   func(value string) string { return value },
-		accept:  func(value string) (string, error) { return value, nil },
-		handles: false,
-		handle:  s.runtime.HandleSystemInstructions,
+		kind:         SystemInstructions,
+		clone:        func(value string) string { return value },
+		accept:       func(value string) (string, error) { return value, nil },
+		handles:      false,
+		cancellation: failOnCancellation,
+		handle:       s.runtime.HandleSystemInstructions,
 	}
 	history := transformer[[]agent.HistoryEntry]{
-		kind:    ModelContext,
-		clone:   agent.CloneHistory,
-		accept:  agent.ValidatedCloneHistory,
-		handles: false,
-		handle:  s.runtime.HandleModelContext,
+		kind:         ModelContext,
+		clone:        agent.CloneHistory,
+		accept:       agent.ValidatedCloneHistory,
+		handles:      false,
+		cancellation: failOnCancellation,
+		handle:       s.runtime.HandleModelContext,
 	}
 	return func(
 		ctx context.Context,
@@ -81,14 +96,19 @@ func compose[T any](
 ) (composition[T], error) {
 	original = chain.clone(original)
 	result := composition[T]{value: chain.clone(original), replaced: false, handled: false}
+	admitted := false
 	for _, handler := range handlers {
 		if handler.Kind != chain.kind {
 			continue
 		}
 		binding, err := owner.bind(ctx, handler)
 		if err != nil {
+			if !admitted && chain.cancellation == keepBeforeAdmission && isOwningCancellation(ctx, err) {
+				return result, nil
+			}
 			return composition[T]{}, err
 		}
+		admitted = true
 		action, err := chain.handle(ctx, handler.ExtensionID, handler.HandlerID, Transformation[T]{
 			Context: binding, Original: chain.clone(original), Current: chain.clone(result.value),
 		})

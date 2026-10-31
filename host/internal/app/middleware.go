@@ -12,7 +12,7 @@ import (
 )
 
 // bindMiddleware supplies the same ordinary middleware owner to registration and logical execution and returns it
-// for run input processing.
+// for run input processing and Agent Core message finalization.
 func bindMiddleware(
 	registration *startup.Service,
 	execution *modelexecution.Service,
@@ -29,6 +29,9 @@ func bindMiddleware(
 	}
 	if err := execution.BindContextMiddleware(owner); err != nil {
 		return nil, fmt.Errorf("bind ordinary context execution: %w", err)
+	}
+	if err := execution.BindResponseFinalizer(owner); err != nil {
+		return nil, fmt.Errorf("bind configured response finalization: %w", err)
 	}
 	return owner, nil
 }

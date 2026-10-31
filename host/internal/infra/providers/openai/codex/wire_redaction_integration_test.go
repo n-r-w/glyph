@@ -92,6 +92,7 @@ func TestCodexAcquiredDiagnosticRedaction(t *testing.T) {
 						Enabled: true, MaxRetries: 2, Delays: []time.Duration{0}, MaxProviderDelay: time.Second,
 					}, nil, nil, nil)
 					require.NoError(t, execution.BindWireMiddleware(owner))
+					require.NoError(t, execution.BindResponseFinalizer(passThroughFinalizer(ctrl)))
 					_, err = execution.RequestConfigured(ctx, model.Selection{}, "instructions", nil, nil)
 				} else {
 					err = driver.Stream(ctx, modelexecution.ProviderRequest{
@@ -137,4 +138,13 @@ func assertCodexSafeDiagnostics(t *testing.T, text, token, account string) {
 	assert.NotContains(t, text, token)
 	assert.NotContains(t, text, "synthetic-session-secret")
 	assert.Contains(t, text, "session=[REDACTED]")
+}
+
+// passThroughFinalizer returns a configured-response finalizer that returns each response unchanged.
+func passThroughFinalizer(ctrl *gomock.Controller) *modelexecution.MockResponseFinalizer {
+	finalizer := modelexecution.NewMockResponseFinalizer(ctrl)
+	finalizer.EXPECT().FinalizeConfiguredResponse(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, response model.Response) (model.Response, error) { return response, nil },
+	).AnyTimes()
+	return finalizer
 }

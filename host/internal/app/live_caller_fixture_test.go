@@ -86,10 +86,12 @@ func startLiveCallerFixture(t *testing.T, paths persistence.Paths, directory str
 	require.NoError(t, err)
 	runtimes.Activate(ctx)
 	dispatcher := events.NewDispatcher(delivery, observers)
-	core := agentrun.New(codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active)
-	coordinator := runcontrol.NewCoordinator(
-		core, middleware.New(runtimes, contexts, providerCatalog), dispatcher, sessionServices.gate,
+	middlewareOwner := middleware.New(runtimes, contexts, providerCatalog)
+	require.NoError(t, modelExecution.BindResponseFinalizer(middlewareOwner))
+	core := agentrun.New(
+		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
 	)
+	coordinator := runcontrol.NewCoordinator(core, middlewareOwner, dispatcher, sessionServices.gate)
 	session := hostprogrammatic.New(
 		coordinator, providerCatalog, core, sessionServices.active, sessionServices.tree, sessionServices.gate,
 		delivery, selection, modelExecution,

@@ -289,7 +289,7 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	}, nil)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	service := New(
-		testInstructions, runtime, tools, events, newMockHistoryStore(t),
+		testInstructions, runtime, tools, events, newMockHistoryStore(t), passThroughFinalizer(t),
 	)
 	result := make(chan error, 1)
 

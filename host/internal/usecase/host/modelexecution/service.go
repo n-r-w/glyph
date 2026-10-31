@@ -45,6 +45,8 @@ type Service struct {
 	wire WireMiddleware
 	// contextMiddleware supplies Host-owned instruction and history middleware for each logical execution.
 	contextMiddleware ContextMiddleware
+	// responseFinalizer supplies the final value of each configured terminal model response.
+	responseFinalizer ResponseFinalizer
 	// catalog resolves logical model selections to raw provider bindings.
 	catalog CatalogResolver
 	// policies captures preparation and observation for the admitted owner.
@@ -90,6 +92,7 @@ func New(
 		catalog: catalog, policies: policies,
 		retryPolicy: policy, retryEnabled: atomic.Bool{}, retryHandlers: retryHandlers, retryOutput: retryOutput,
 		manualPreparation: nil, manualTools: nil, manualInstructions: "", wire: nil, contextMiddleware: nil,
+		responseFinalizer: nil,
 	}
 	service.retryEnabled.Store(policy.Enabled)
 	return service
@@ -188,6 +191,9 @@ func (s *Service) RequestConfigured(
 	history []agent.HistoryEntry,
 	progress func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error,
 ) (model.Response, error) {
+	if s.responseFinalizer == nil {
+		return model.Response{}, errors.New("configured model request requires a bound response finalizer")
+	}
 	// binding preserves exact configured selection validation and credential preflight.
 	binding, err := s.catalog.ResolveConfiguredBinding(ctx, selection)
 	if err != nil {
@@ -218,7 +224,7 @@ func (s *Service) RequestConfigured(
 	if err != nil {
 		return model.Response{}, fmt.Errorf("execute model request: %w", err)
 	}
-	return completion.response, nil
+	return s.finalizeConfiguredResponse(ctx, completion.response)
 }
 
 // clone detaches mutable request slices for one raw attempt.

@@ -183,7 +183,7 @@ func TestServiceRunCancellationWithTerminalFailuresPreservesNonCancellationCause
 					return nil
 				}).
 				AnyTimes()
-			service := New(testInstructions, runtime, tools, events, store)
+			service := New(testInstructions, runtime, tools, events, store, passThroughFinalizer(t))
 
 			// Act by running the canceled provider through terminal finalization.
 			result, err := service.Run(

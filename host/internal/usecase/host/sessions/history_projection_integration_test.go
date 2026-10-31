@@ -210,8 +210,20 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 		},
 	)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service := agentrun.New("instructions", runtime, tools, events, restarted)
+	service := agentrun.New("instructions", runtime, tools, events, restarted, passThroughFinalizer(controller))
 
 	_, err = service.Run(t.Context(), runcontrol.Request{RunID: "next", Message: model.TextMessage("second")})
 	require.ErrorIs(t, err, providerErr)
+}
+
+// passThroughFinalizer returns an Agent Core finalizer whose final values equal the given values.
+func passThroughFinalizer(controller *gomock.Controller) *agentrun.MockMessageFinalizer {
+	finalizer := agentrun.NewMockMessageFinalizer(controller)
+	finalizer.EXPECT().FinalizeModelResponse(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, response model.Response) (model.Response, error) { return response, nil },
+	).AnyTimes()
+	finalizer.EXPECT().FinalizeToolResult(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, result agent.ToolResult) (agent.ToolResult, error) { return result, nil },
+	).AnyTimes()
+	return finalizer
 }

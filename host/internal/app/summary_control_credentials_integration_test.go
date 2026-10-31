@@ -78,20 +78,21 @@ func TestRealExtensionChecksCredentialsOnlyAfterClearing(t *testing.T) {
 				}, Provider: provider, CredentialChecker: credentials, Authentication: nil,
 			}}, selection)
 			require.NoError(t, err)
-			service := sessiontree.New(
-				active,
+			execution := modelexecution.New(
 				models,
-				modelexecution.New(
-					models,
-					modelexecution.RetryPolicy{
-						Enabled: false, MaxRetries: 0, Delays: nil, MaxProviderDelay: 0,
-					},
-					nil,
-					nil,
-					nil,
-				),
-				extensions,
+				modelexecution.RetryPolicy{
+					Enabled: false, MaxRetries: 0, Delays: nil, MaxProviderDelay: 0,
+				},
+				nil,
+				nil,
+				nil,
 			)
+			finalizer := modelexecution.NewMockResponseFinalizer(controller)
+			finalizer.EXPECT().FinalizeConfiguredResponse(gomock.Any(), gomock.Any()).DoAndReturn(
+				func(_ context.Context, response model.Response) (model.Response, error) { return response, nil },
+			).AnyTimes()
+			require.NoError(t, execution.BindResponseFinalizer(finalizer))
+			service := sessiontree.New(active, models, execution, extensions)
 			contexts := sessiontree.NewMockContextIssuer(controller)
 			contexts.EXPECT().IssueContext("control").DoAndReturn(func(extensionID string) (extension.Context, error) {
 				instance, _ := extensions.ContextRuntime(extensionID)

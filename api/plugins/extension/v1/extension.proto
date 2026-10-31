@@ -250,6 +250,8 @@ enum HandlerKind {
   HANDLER_KIND_MODEL_CONTEXT = 30;
   // The handler preserves, replaces, or fully handles the user input of one accepted run.
   HANDLER_KIND_USER_INPUT = 31;
+  // The handler preserves or replaces the content of one finalized user message, model response, or tool result.
+  HANDLER_KIND_FINALIZED_MESSAGE = 32;
 }
 
 // RegisterRequest has no fields because registration is fixed at startup.

@@ -156,6 +156,8 @@ const (
 	RawHandlerKindModelContext RawHandlerKind = 30
 	// RawHandlerKindUserInput preserves, replaces, or fully handles the user input of one accepted run.
 	RawHandlerKindUserInput RawHandlerKind = 31
+	// RawHandlerKindFinalizedMessage preserves or replaces the content of one finalized message.
+	RawHandlerKindFinalizedMessage RawHandlerKind = 32
 )
 
 // isCompaction reports whether kind identifies a compaction capability.

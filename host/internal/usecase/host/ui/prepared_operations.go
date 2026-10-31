@@ -338,7 +338,7 @@ func (s *Session) prepareSubmit(
 
 // runFailureCode distinguishes history persistence, invalid final input, and other accepted-run failures.
 func runFailureCode(err error) string {
-	if errors.Is(err, agent.ErrPersistenceUnavailable) {
+	if errtree.HasCurrent(err, agent.ErrPersistenceUnavailable) {
 		return controllerui.FailureCodePersistence
 	}
 	if code, found := modelExecutionFailureCode(err); found && code != controllerui.FailureCodeInternal {
@@ -374,12 +374,10 @@ func directCompactionFailureCode(err error) (string, bool) {
 	}
 }
 
-// modelExecutionFailureCode reads the closed provider-neutral category without replacing its cause.
+// modelExecutionFailureCode reads the closed provider-neutral category of the first current cause that has one,
+// without replacing that cause; categories kept only as diagnostic history do not count.
 func modelExecutionFailureCode(err error) (string, bool) {
-	failure, found := errors.AsType[interface {
-		error
-		FailureCode() string
-	}](err)
+	failure, found := errtree.FirstCurrent[interface{ FailureCode() string }](err)
 	if !found {
 		return "", false
 	}

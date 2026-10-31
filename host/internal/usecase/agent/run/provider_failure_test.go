@@ -346,7 +346,7 @@ func TestServiceRunProviderAndPersistenceFailurePreservesBothCauses(t *testing.T
 		}
 		return nil
 	}).AnyTimes()
-	service := New(testInstructions, runtime, tools, events, store)
+	service := New(testInstructions, runtime, tools, events, store, passThroughFinalizer(t))
 
 	// Act by running the combined provider and persistence failure.
 	result, err := service.Run(

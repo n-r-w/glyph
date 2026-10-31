@@ -6,6 +6,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/samber/mo"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
@@ -96,5 +97,42 @@ func TestUserInputMiddlewareChecksExactRuntimeGeneration(t *testing.T) {
 	// Assert only the exact generation is invoked; strict mocks reject stale invocations.
 	require.NoError(t, err)
 	require.Equal(t, middleware.Handle, action.Kind)
+	require.ErrorIs(t, staleErr, ErrExtensionUnavailable)
+}
+
+// TestFinalizedMessageMiddlewareChecksExactRuntimeGeneration forwards finalized-message handlers only to the bound
+// runtime.
+func TestFinalizedMessageMiddlewareChecksExactRuntimeGeneration(t *testing.T) {
+	t.Parallel()
+	// Arrange one live runtime generation and bindings for the current and a previous generation.
+	mocks := gomock.NewController(t)
+	process := NewMockExtensionRuntime(mocks)
+	service := New(nil, nil, nil)
+	service.runtimes["extension"] = &runtimeState{
+		runtime: process, instanceID: "current", available: true, activeExecutions: 0, exitPending: false,
+		work: sync.WaitGroup{}, closeOnce: sync.Once{}, shutdownDone: make(chan struct{}), observed: false,
+		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
+		invalidateOnce: sync.Once{},
+	}
+	current := extension.Context{
+		ID: "binding", ExtensionID: "extension", RuntimeInstanceID: "current", SessionID: "", WorkingDirectory: "",
+	}
+	entry := agent.HistoryEntry{
+		Kind: agent.HistoryEntryUser, User: mo.Some(model.TextMessage("hello")), Model: mo.None[model.Response](),
+		ToolResult: mo.None[agent.ToolResult](),
+	}
+	input := middleware.Transformation[agent.HistoryEntry]{Context: current, Original: entry, Current: entry}
+	process.EXPECT().HandleFinalizedMessage(gomock.Any(), "finalized", input).Return(
+		middleware.Transformed[agent.HistoryEntry]{Kind: middleware.Preserve, Replacement: agent.HistoryEntry{}}, nil,
+	)
+
+	// Act through the current and the stale generation.
+	action, err := service.HandleFinalizedMessage(t.Context(), "extension", "finalized", input)
+	input.Context.RuntimeInstanceID = "previous"
+	_, staleErr := service.HandleFinalizedMessage(t.Context(), "extension", "finalized", input)
+
+	// Assert only the exact generation is invoked; strict mocks reject stale invocations.
+	require.NoError(t, err)
+	require.Equal(t, middleware.Preserve, action.Kind)
 	require.ErrorIs(t, staleErr, ErrExtensionUnavailable)
 }

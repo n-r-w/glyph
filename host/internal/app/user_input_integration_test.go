@@ -76,6 +76,10 @@ type userInputObservation struct {
 	FollowUpCompleted bool `json:"follow_up_completed"`
 	// Users contains the user messages of the session history in order.
 	Users [][]userInputBlock `json:"users"`
+	// Models contains the text of each model response of the session history in order.
+	Models []string `json:"models"`
+	// FirstMessageEnds contains the response text of each message-end event of the first request.
+	FirstMessageEnds []string `json:"first_message_ends"`
 }
 
 // userInputSettings selects a text-only or an image-capable default model.
@@ -142,6 +146,7 @@ func runProgrammaticUserInput(
 	t.Helper()
 	observation := userInputObservation{
 		FirstCode: "", FirstError: "", FirstAgentEvents: false, FollowUpCompleted: false, Users: nil,
+		Models: nil, FirstMessageEnds: nil,
 	}
 	imageRequest := testProgrammaticRequest("first-request", func(request *programmaticv1.ControllerRequest) {
 		payload := new(programmaticv1.UserRequest)
@@ -198,6 +203,7 @@ func runUserInputUIFixture(ctx context.Context, host *uisdk.Host) error {
 	}
 	observation := userInputObservation{
 		FirstCode: "", FirstError: "", FirstAgentEvents: false, FollowUpCompleted: false, Users: nil,
+		Models: nil, FirstMessageEnds: nil,
 	}
 	request := new(uiv1.UIRequest)
 	first := uiUserContent()
@@ -216,8 +222,12 @@ func runUserInputUIFixture(ctx context.Context, host *uisdk.Host) error {
 		if event := notification.ConnectionEvent(); event != nil {
 			idle = event.GetAvailabilityChanged().GetAvailability() == uiv1.Availability_AVAILABILITY_IDLE
 		}
-		if notification.OperationID() == "image-submit" && notification.Progress().GetAgentEvent() != nil {
+		event := notification.Progress().GetAgentEvent()
+		if notification.OperationID() == "image-submit" && event != nil {
 			observation.FirstAgentEvents = true
+			if event.GetType() == uiv1.LifecycleType_LIFECYCLE_TYPE_MESSAGE_END {
+				observation.FirstMessageEnds = append(observation.FirstMessageEnds, event.GetModelResponse().GetText())
+			}
 		}
 	})
 	if imageErr != nil {
@@ -256,6 +266,9 @@ func runUserInputUIFixture(ctx context.Context, host *uisdk.Host) error {
 		return err
 	}
 	for _, entry := range tree.GetSessionTree().GetTree().GetEntries() {
+		if entry.HasModel() {
+			observation.Models = append(observation.Models, entry.GetModel().GetText())
+		}
 		if !entry.HasUser() {
 			continue
 		}
@@ -282,9 +295,16 @@ func runUserInputUIFixture(ctx context.Context, host *uisdk.Host) error {
 // runUIUserInput runs the UI fixture through the assembled Host and returns its observation.
 func runUIUserInput(t *testing.T, settings, extensions string) (userInputObservation, *requestBodies) {
 	t.Helper()
+	bodies := userInputTransport(t)
+	return runUIUserInputFixture(t, settings, extensions), bodies
+}
+
+// runUIUserInputFixture runs the UI fixture through the assembled Host with the installed provider transport and
+// returns its observation.
+func runUIUserInputFixture(t *testing.T, settings, extensions string) userInputObservation {
+	t.Helper()
 	paths := testPaths(t, settings)
 	writeProgrammaticCredentials(t, paths)
-	bodies := userInputTransport(t)
 	trace := filepath.Join(t.TempDir(), "user-input.json")
 	t.Setenv(appUIBehaviorEnvironment, userInputUIBehavior)
 	t.Setenv(appUITraceEnvironment, trace)
@@ -298,7 +318,7 @@ func runUIUserInput(t *testing.T, settings, extensions string) (userInputObserva
 	require.NoError(t, err)
 	var observation userInputObservation
 	require.NoError(t, json.Unmarshal(encoded, &observation))
-	return observation, bodies
+	return observation
 }
 
 // providerUserContent returns the content of every user message of one provider request in order.

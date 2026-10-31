@@ -166,3 +166,29 @@ message UserInputAction {
     bool handle = 3;
   }
 }
+
+// FinalizedMessageInvocation supplies one finalized message with invocation-local private replay references.
+// The message is a user message, a model response, or a tool result; a replacement must keep that role.
+// A retained reference restores its private replay; removing it discards that replay.
+// Unknown, altered, duplicated, or misplaced references fail the handler.
+message FinalizedMessageInvocation {
+  // The immutable finalized message.
+  ModelContextEntry original = 1;
+  // The message produced by preceding handlers.
+  ModelContextEntry current = 2;
+}
+
+// FinalizedMessageAction preserves the current message or replaces its content.
+message FinalizedMessageAction {
+  // The handler must select one valid action.
+  oneof action {
+    // True preserves the current message; false is invalid.
+    bool preserve = 1;
+    // The complete replacement with the role of the original. A model response keeps its outcome,
+    // provider identity, and usage, and keeps its tool calls in order with their identifiers and names;
+    // only their arguments can change. A tool result keeps its call identifier and tool name, and each
+    // image needs a media type and data. A user message needs at least one block; each text block is
+    // nonempty and each image has a media type and data.
+    ModelContextEntry replace = 2;
+  }
+}

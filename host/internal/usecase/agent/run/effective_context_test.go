@@ -53,7 +53,7 @@ func TestRunStreamsEffectiveContext(t *testing.T) {
 		Diagnostics: nil,
 	}
 	provider.EXPECT().Stream(gomock.Any(), effective, gomock.Any()).DoAndReturn(streamResult(response, nil))
-	service := New(testInstructions, contexts, tools, events, newMockHistoryStore(t))
+	service := New(testInstructions, contexts, tools, events, newMockHistoryStore(t), passThroughFinalizer(t))
 
 	// Act through one ordinary run.
 	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", Message: model.TextMessage("hi")})
@@ -78,7 +78,7 @@ func TestRunFailsWhenEffectiveContextFails(t *testing.T) {
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	source := errors.New("middleware handler \"context\": extension source text")
 	contexts.EXPECT().PrepareContext(gomock.Any(), gomock.Any()).Return(EffectiveContext{}, source)
-	service := New(testInstructions, contexts, tools, events, newMockHistoryStore(t))
+	service := New(testInstructions, contexts, tools, events, newMockHistoryStore(t), passThroughFinalizer(t))
 
 	// Act through one ordinary run.
 	result, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", Message: model.TextMessage("hi")})

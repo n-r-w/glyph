@@ -76,6 +76,7 @@ func TestServiceOversizedProviderDelayRunsHandlersBeforeMaximumEnforcement(t *te
 			}, handlers, nil, newTestConversationObservations(t))
 
 			// Act through one configured request.
+			bindPassThroughFinalizer(t, service)
 			_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
 
 			// Assert the handler terminal result wins before maximum-delay enforcement.
@@ -122,6 +123,7 @@ func TestServiceProviderDelayIsHandlerLowerBound(t *testing.T) {
 	}, handlers, nil, newTestConversationObservations(t))
 
 	// Act through one configured request after the built-in attempt allowance is exhausted.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
 
 	// Assert the invalid undercut stops composition before the next handler.
@@ -163,6 +165,7 @@ func TestServiceStoppedDecisionCannotUndercutProviderDelay(t *testing.T) {
 	}, handlers, nil, newTestConversationObservations(t))
 
 	// Act through one configured request.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
 
 	// Assert the invalid undercut is terminal before the next handler.
@@ -204,6 +207,7 @@ func TestServiceInvalidHandlerDecisionStopsComposition(t *testing.T) {
 	}, handlers, nil, newTestConversationObservations(t))
 
 	// Act through one configured request.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
 
 	// Assert invalid action is terminal and the later handler is not invoked.
@@ -263,6 +267,7 @@ func TestServiceRetryHandlersComposeOriginalAndCurrentInSnapshotOrder(t *testing
 	}, handlers, nil, newTestConversationObservations(t))
 
 	// Act through one logical configured request.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
 
 	// Assert both handlers composed before the successful replacement attempt.

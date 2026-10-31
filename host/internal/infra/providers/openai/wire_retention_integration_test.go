@@ -74,6 +74,7 @@ func TestWireRetainedFailureUsesSecretRedaction(t *testing.T) {
 		nil,
 	)
 	require.NoError(t, execution.BindWireMiddleware(owner))
+	require.NoError(t, execution.BindResponseFinalizer(passThroughFinalizer(ctrl)))
 	// Act through the configured caller and actual SDK failure reduction boundary.
 	_, err := execution.RequestConfigured(t.Context(), model.Selection{}, "", nil, nil)
 	// Assert complete non-secret text and original identity survive without leaking the acquired secret.
@@ -85,4 +86,13 @@ func TestWireRetainedFailureUsesSecretRedaction(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, modelexecution.FailureExtensionFailed, failure.Category)
 	require.Zero(t, calls)
+}
+
+// passThroughFinalizer returns a configured-response finalizer that returns each response unchanged.
+func passThroughFinalizer(ctrl *gomock.Controller) *modelexecution.MockResponseFinalizer {
+	finalizer := modelexecution.NewMockResponseFinalizer(ctrl)
+	finalizer.EXPECT().FinalizeConfiguredResponse(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, response model.Response) (model.Response, error) { return response, nil },
+	).AnyTimes()
+	return finalizer
 }

@@ -80,6 +80,7 @@ func TestRetryCancellationRetainsProviderCause(t *testing.T) {
 				var response model.Response
 				var err error
 				if entry == "configured" {
+					bindPassThroughFinalizer(t, service)
 					response, err = service.RequestConfigured(ctx, selection, "instructions", nil,
 						func(int64, int64, time.Duration, string) error { return cancelProgress() })
 				} else {
@@ -136,6 +137,7 @@ func TestServiceConcurrentNonRetryableFailureKeepsCategoryAndAllCauses(t *testin
 	}, nil, nil, newTestConversationObservations(t))
 
 	// Act through one configured request.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(ctx, selection, "", nil, nil)
 
 	// Assert classification wins and every acquired cause remains inspectable.
@@ -180,6 +182,7 @@ func TestServiceConcurrentProviderTimeoutKeepsExhaustionAndAllCauses(t *testing.
 	}, nil, nil, newTestConversationObservations(t))
 
 	// Act through one configured request.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(ctx, selection, "", nil, nil)
 
 	// Assert typed exhaustion and the prior failure, provider timeout, and caller cancellation all survive.
@@ -224,6 +227,7 @@ func TestServiceConcurrentTransientExhaustionKeepsCategoryAndAllCauses(t *testin
 	}, nil, nil, newTestConversationObservations(t))
 
 	// Act through one configured request.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(ctx, selection, "", nil, nil)
 
 	// Assert exhausted retry classification and every acquired cause remain inspectable.
@@ -299,6 +303,7 @@ func TestServiceCustomCancellationDuringRetryDelayPreservesCause(t *testing.T) {
 		cancellationCause := errors.New("owning operation stopped")
 
 		// Act by canceling with an explicit cause before backoff starts the replacement attempt.
+		bindPassThroughFinalizer(t, service)
 		response, err := service.RequestConfigured(
 			ctx,
 			selection,
@@ -418,6 +423,7 @@ func TestServiceDisabledRetryIgnoresProviderDelayDuringConcurrentCancellation(t 
 			}, nil, nil, newTestConversationObservations(t))
 
 			// Act through the configured-request boundary that owns the normal and concurrent classifications.
+			bindPassThroughFinalizer(t, service)
 			_, err := service.RequestConfigured(ctx, selection, "", nil, nil)
 
 			// Assert disabling repeats keeps MODEL_FAILED and all causes without applying the delay maximum.

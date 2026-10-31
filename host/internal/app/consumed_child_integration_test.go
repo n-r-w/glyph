@@ -23,6 +23,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	extensionmanager "github.com/n-r-w/glyph/host/internal/usecase/host/extensionruntime"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -130,7 +131,11 @@ func assertConsumedCompactionStopsCore(t *testing.T, completeCause string) {
 		})
 	events := agentrun.NewMockEventSink(mocks)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	core := agentrun.New(codingagent.Instructions(), modelRuntime, tools, events, sessionServices.active)
+	middlewareOwner := middleware.New(runtimes, contexts, providerCatalog)
+	require.NoError(t, modelExecution.BindResponseFinalizer(middlewareOwner))
+	core := agentrun.New(
+		codingagent.Instructions(), modelRuntime, tools, events, sessionServices.active, middlewareOwner,
+	)
 
 	// Act through Core while the ordinary tool consumes a nested compaction failure.
 	result, runErr := core.Run(

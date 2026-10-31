@@ -3,7 +3,6 @@ package run
 import (
 	"maps"
 
-	"github.com/samber/lo"
 	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
@@ -63,7 +62,7 @@ func ProjectHistory(history []agent.HistoryEntry) HistoryProjection {
 		}
 
 		appendEntry(entry.Clone(), index)
-		calls := modelToolCalls(response)
+		calls := response.ToolCalls()
 		results := make(map[string]int, len(calls))
 		intervening := make([]int, 0)
 		next := index + 1
@@ -102,12 +101,4 @@ func ProjectHistory(history []agent.HistoryEntry) HistoryProjection {
 		index = next
 	}
 	return projected
-}
-
-// modelToolCalls returns finalized calls in model-provided order.
-func modelToolCalls(response model.Response) []model.ToolCall {
-	return lo.FilterMap(response.Content, func(item model.Content, _ int) (model.ToolCall, bool) {
-		call, present := item.ToolCall.Get()
-		return call, item.Kind == model.ContentToolCall && present
-	})
 }

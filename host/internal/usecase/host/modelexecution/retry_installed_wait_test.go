@@ -47,6 +47,7 @@ func TestServiceCancellationInterruptsInstalledRetryWait(t *testing.T) {
 		service := New(catalog, RetryPolicy{
 			Enabled: true, MaxRetries: 1, Delays: []time.Duration{time.Hour}, MaxProviderDelay: 30 * time.Second,
 		}, nil, nil, newTestConversationObservations(t))
+		bindPassThroughFinalizer(t, service)
 		ctx, cancel := context.WithCancelCause(t.Context())
 		defer cancel(nil)
 		cancellationCause := errors.New("owning operation stopped")

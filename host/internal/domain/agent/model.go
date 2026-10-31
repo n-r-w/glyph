@@ -25,6 +25,20 @@ const (
 	HistoryEntryToolResult
 )
 
+// String returns the message role name used in failure text.
+func (kind HistoryEntryKind) String() string {
+	switch kind {
+	case HistoryEntryUser:
+		return "user"
+	case HistoryEntryModel:
+		return "model"
+	case HistoryEntryToolResult:
+		return "tool-result"
+	default:
+		return fmt.Sprintf("unknown(%d)", uint8(kind))
+	}
+}
+
 // HistoryEntry is one ordered session-history item.
 type HistoryEntry struct {
 	// Kind identifies the entry payload.
@@ -126,6 +140,17 @@ func (result ToolResult) Clone() ToolResult {
 		)
 	}
 	return result
+}
+
+// ValidateImages reports the first image block without its media type or data.
+func (result ToolResult) ValidateImages() error {
+	for index, content := range result.Contents {
+		image, present := content.Image.Get()
+		if present && (image.MediaType == "" || len(image.Data) == 0) {
+			return fmt.Errorf("content %d: image media type and data are required", index)
+		}
+	}
+	return nil
 }
 
 // RunOutcome identifies the terminal Agent Core run state.

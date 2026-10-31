@@ -100,6 +100,61 @@ The public reference is the separate command `testdata/external-plugins/cmd/inpu
 
 The one-shot renderer writes a terminal error as `[error] <CATEGORY>: <complete error text>` when a current cause of the error carries a public category, and as `[error] <complete error text>` otherwise. For example, a failed input handler gives `[error] EXTENSION_FAILED: run headless agent: process user input: middleware handler "input-text": reference input handler failed`. `errtree.CurrentCode` finds the category on current causes only, so a category kept only as diagnostic history is not shown. The error text itself stays without the category, because Programmatic and UI carry the category in a separate field.
 
+## D8-16: Finalized messages are one handler kind with role-preserving entries
+
+The Extension Contract adds `HANDLER_KIND_FINALIZED_MESSAGE`. Its `HandleRequest` payload and `HandleResponse` action are both `finalized_message`. `FinalizedMessageInvocation` carries the immutable `original` and the `current` message as `ModelContextEntry`, the D8-09 entry of a user message, a model response with replay references, or a tool result. `FinalizedMessageAction` is a oneof of `preserve = true` and a complete `replace` entry. A missing action or `preserve = false` is an invalid action.
+
+One kind serves all three roles. An extension registers one handler and preserves the roles that it does not change. Each finalized message runs one chain in registration order. Because the entry can hold any role, a replacement can attempt a role change, and Host rejects it. Separate kinds per role would need three registrations for an extension that changes all roles, and a new message type would repeat `ModelContextEntry`.
+
+The runtime mapping uses the D8-09 replay references: it projects the original and the current message with fresh references for one invocation and restores the references that a replacement keeps. An unknown, duplicated or misplaced reference fails the handler.
+
+`middleware.Service` accepts a replacement only with the role of the original. Each role has its own rule:
+
+- A user message must pass `model.Message.ValidateShape`.
+- A model response takes only content and restored replay from the replacement. The outcome, error message, provider, configured model, reported model, response identifier, usage and diagnostics stay those of the original. The content must pass `Response.ValidateTerminalContent`. The replacement must contain the tool calls of the original in the same order, with the same identifiers and names; only their arguments can change. Agent Core selects tool execution by the outcome and runs the calls of the final response, so a removed, added, renamed or reordered call would contradict the outcome or the results that Core records. For example, a tool-use response whose replacement removes its only call fails with `tool calls [] differ from finalized tool calls [id="call" name="read"]`.
+- A tool result must keep the call identifier and the tool name of the original, and each image needs a media type and data.
+
+A handler error, runtime loss, invalid action, invalid reference or rejected replacement stops the chain and is `EXTENSION_FAILED` with the complete text, for example `middleware handler "finalized-a" finalized-message replacement: tool "write" differs from finalized tool "read"`. A failure whose current cause is only the cancellation of the owning context keeps no category, as in D8-14.
+
+## D8-17: Agent Core finalizes model responses and tool results through its own port
+
+Agent Core declares `MessageFinalizer` with `FinalizeModelResponse` and `FinalizeToolResult`. `middleware.Service` implements both methods with the D8-16 chain, and the three application assemblies pass the same owner to Core and to run control. One method per role keeps user messages out of the Core port. A single method that takes a history entry would accept a user message and would make Core wrap and unwrap each value.
+
+Core finalizes a value immediately before its append and uses the returned value for the append, the completion events, the turn and run summaries, tool execution and the next model request:
+
+- a successful terminal model response in `runTurn`, before `message_end`;
+- a response retained after a provider failure in `finalizeProviderError`;
+- each executed tool result in `executeCalls`, before `tool_execution_end` and `tool_result`;
+- each tool result that `skipLengthCalls` generates for the calls of a length-limited response.
+
+Core calls the finalizer with the run context and outside `appendHistory`, so a finalization failure keeps `EXTENSION_FAILED` and never becomes `PERSISTENCE_UNAVAILABLE`. A failure other than cancellation ends the run as failed with the complete text. Core appends nothing for the failed value and delivers no completion event for it. Entries committed earlier and tool calls that already ran remain. Core does not invoke the chain again for that value. In particular, the failure does not pass to `finalizeProviderError`, which would finalize the same response a second time.
+
+A response retained after a provider failure is finalized only when its outcome is failed. An aborted response, whose provider error is only cancellation, is recorded without finalization. When finalization of a failed response fails, Core records no response and returns the finalization failure as the current cause, with the provider failure as diagnostic history (`diagnostic.NewCurrentCause`). The run is therefore `EXTENSION_FAILED` in every client mode, and its text contains both complete causes. The Programmatic and UI failure mappings read every category from current causes only: the persistence failure, the model-execution category and, in Programmatic, the compaction category. A persistence, provider or compaction failure kept as diagnostic history therefore does not replace the extension category. Such a failure without a finalization failure keeps its own category, for example `PERSISTENCE_UNAVAILABLE`, `MODEL_FAILED` or `COMPACTION_FAILED`.
+
+Cancellation stops new handler work and leaves terminal bookkeeping to its existing owner. Finalization of a model response or a tool result starts when `middleware.Service` admits the first finalized-message handler; admission issues the handler's extension context.
+
+- When the run is canceled before the owner admits the first handler, the owner returns the value unchanged without error, and Core records it as without finalized-message handlers: the response or the tool result is appended and its completion events are delivered.
+- When cancellation arrives after the owner admitted a handler, the chain fails. Core appends no candidate, delivers no completion event for it and does not invoke the chain again. The current cause of the run error is then only cancellation, so the run ends aborted; this includes a response retained after a provider failure, whose provider failure stays as diagnostic history.
+- When cancellation arrives after the chain succeeded, Core records the final value.
+
+The owner applies this rule only to the Agent Core methods `FinalizeModelResponse` and `FinalizeToolResult`. User-message finalization in `ProcessInput` and the configured-model method `FinalizeConfiguredResponse` fail on cancellation, as the other chains of the owner do. Runs without finalized-message handlers behave as before this decision, because the owner returns the value unchanged without starting a handler.
+
+## D8-18: User and configured-model finalization and the finalized-message reference
+
+`middleware.Service.ProcessInput` runs the finalized-message handlers on the user message after the user-input handlers and before the final check against the selected model. Fully handled input reaches no finalized-message handler. Agent Core appends the message that `ProcessInput` returns and does not finalize it again. A finalization failure is `EXTENSION_FAILED`, as in D8-14.
+
+The final check of D8-13 covers an image that a finalized-message handler adds, as it covers an image that a user-input handler adds. The final input is well formed, so the failure is `INPUT_INVALID`, for example `process user input: model gpt-active does not accept image input at content 1`. Only a malformed handler result is `EXTENSION_FAILED`, as D8-04 requires.
+
+Model execution declares `ResponseFinalizer` with `FinalizeConfiguredResponse`, and the application assemblies bind the middleware owner through `BindResponseFinalizer`. `RequestConfigured` rejects a request before binding resolution and provider dispatch when no finalizer is bound, with the text `configured model request requires a bound response finalizer`; a successful configured result therefore always passes through the owner. Rejecting the request is a smaller change than adding the finalizer to the constructor of model execution, whose callers construct it before the middleware owner exists.
+
+`RequestConfigured` finalizes the terminal response of a configured-model request before it returns the response; extension configured-model requests and branch summaries both use it. Model execution persists nothing for these responses. A finalization failure is a logical `EXTENSION_FAILED` failure with the text `finalize configured model response: <complete cause>`. A failure whose current cause is only the cancellation of the owning context keeps no category, as in D8-14.
+
+Programmatic and UI clients receive every streamed event of a model message with provider values: content start, text delta and content end, and tool-call start, delta and end, including the arguments of `tool_call_end`. The client events `message_end`, `tool_execution_start`, `tool_execution_end`, `tool_result` and `turn_end`, session history, tool execution and later model requests carry the final value.
+
+One-shot output is permanent, so it shows only final model text when an extension can replace it. After startup, the headless assembly asks the middleware owner whether an accepted extension registered a finalized-message handler. If one did, the assembly switches the one-shot renderer to final-text output: the renderer ignores streamed text deltas and writes the final text of each model message when `message_end` arrives. Without such a handler, one-shot output streams as before. Final-text output delays the visible answer until the model message is finalized.
+
+The public reference is the separate command `testdata/external-plugins/cmd/finalized`. It registers two finalized-message handlers and one tool, so a single extension process demonstrates user, model and tool-result finalization. The executable name selects the failure scenarios.
+
 ## Terminology check
 
 | Concept | Candidate | Position | Level | Result |

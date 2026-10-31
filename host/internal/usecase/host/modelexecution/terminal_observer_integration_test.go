@@ -107,7 +107,7 @@ func TestTerminalObserverFailureSelectsFailedRun(t *testing.T) {
 							return nil
 						}).
 						AnyTimes()
-					core := agentrun.New("", runtime, tools, events, store)
+					core := agentrun.New("", runtime, tools, events, store, passThroughFinalizer(mocks))
 					// Act through Core's terminal observation and summary construction.
 					result, err := core.Run(
 						ctx,

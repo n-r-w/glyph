@@ -389,7 +389,7 @@ func mapPreparationRejection(response controller.Response) error {
 
 // failureCode distinguishes source-classified history persistence from other Host errors.
 func failureCode(err error) string {
-	if errors.Is(err, agent.ErrPersistenceUnavailable) || errors.Is(err, session.ErrPersistenceUnavailable) {
+	if errtree.HasCurrent(err, agent.ErrPersistenceUnavailable, session.ErrPersistenceUnavailable) {
 		return controller.FailureCodePersistenceUnavailable
 	}
 	if code, found := directCompactionFailureCode(err); found {
@@ -410,12 +410,10 @@ func failureCode(err error) string {
 	return controller.FailureCodeInternal
 }
 
-// directCompactionFailureCode retains the compaction-owned category for manual operations.
+// directCompactionFailureCode retains the compaction-owned category of the first current cause that has one;
+// categories kept only as diagnostic history do not count.
 func directCompactionFailureCode(err error) (string, bool) {
-	failure, found := errors.AsType[interface {
-		error
-		CompactionFailureCode() string
-	}](err)
+	failure, found := errtree.FirstCurrent[interface{ CompactionFailureCode() string }](err)
 	if !found {
 		return "", false
 	}
@@ -428,12 +426,10 @@ func directCompactionFailureCode(err error) (string, bool) {
 	}
 }
 
-// modelExecutionFailureCode reads the closed provider-neutral category without replacing its cause.
+// modelExecutionFailureCode reads the closed provider-neutral category of the first current cause that has one,
+// without replacing that cause; categories kept only as diagnostic history do not count.
 func modelExecutionFailureCode(err error) (string, bool) {
-	failure, found := errors.AsType[interface {
-		error
-		FailureCode() string
-	}](err)
+	failure, found := errtree.FirstCurrent[interface{ FailureCode() string }](err)
 	if !found {
 		return "", false
 	}

@@ -43,6 +43,7 @@ func TestCancellationBeforeFirstAppendReportsSettlement(t *testing.T) {
 		NewMockToolRuntime(controller),
 		events,
 		history,
+		NewMockMessageFinalizer(controller),
 	)
 
 	// Act by finishing the canceled run, then attempting another begin before settlement.

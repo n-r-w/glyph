@@ -78,7 +78,7 @@ func TestServiceRunStopsBeforeProviderWhenUserPersistenceFails(t *testing.T) {
 		}
 		return nil
 	}).Times(2)
-	service := New(testInstructions, runtime, tools, events, store)
+	service := New(testInstructions, runtime, tools, events, store, passThroughFinalizer(t))
 
 	// Act by starting a run whose first durable user entry fails.
 	result, err := service.Run(
@@ -170,7 +170,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 					return agent.ToolResult{}, toolErr
 				},
 			)
-			service := New(testInstructions, runtime, tools, events, store)
+			service := New(testInstructions, runtime, tools, events, store, passThroughFinalizer(t))
 
 			// Act by running until persistence blocks the ToolResult boundary.
 			result, err := service.Run(
@@ -251,7 +251,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 		}
 		return nil
 	}).AnyTimes()
-	service := New(testInstructions, runtime, tools, events, store)
+	service := New(testInstructions, runtime, tools, events, store, passThroughFinalizer(t))
 
 	// Act by running through one completed tool invocation whose result cannot become durable.
 	result, err := service.Run(
@@ -323,7 +323,7 @@ func TestServiceRunHidesMessageEndWhenModelPersistenceFails(t *testing.T) {
 		}
 		return nil
 	}).AnyTimes()
-	service := New(testInstructions, runtime, tools, events, store)
+	service := New(testInstructions, runtime, tools, events, store, passThroughFinalizer(t))
 
 	// Act by completing a provider response that cannot become durable.
 	result, err := service.Run(

@@ -122,7 +122,7 @@ func TestCoreCurrentCancellationRetainsDiagnostics(t *testing.T) {
 					return nil
 				}).
 				AnyTimes()
-			core := agentrun.New("", runtime, tools, events, store)
+			core := agentrun.New("", runtime, tools, events, store, passThroughFinalizer(mocks))
 			// Act through Core response selection, persistence and event delivery.
 			result, err := core.Run(
 				t.Context(),
@@ -143,4 +143,16 @@ func TestCoreCurrentCancellationRetainsDiagnostics(t *testing.T) {
 			}
 		})
 	}
+}
+
+// passThroughFinalizer returns an Agent Core finalizer whose final values equal the given values.
+func passThroughFinalizer(controller *gomock.Controller) *agentrun.MockMessageFinalizer {
+	finalizer := agentrun.NewMockMessageFinalizer(controller)
+	finalizer.EXPECT().FinalizeModelResponse(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, response model.Response) (model.Response, error) { return response, nil },
+	).AnyTimes()
+	finalizer.EXPECT().FinalizeToolResult(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, result agent.ToolResult) (agent.ToolResult, error) { return result, nil },
+	).AnyTimes()
+	return finalizer
 }

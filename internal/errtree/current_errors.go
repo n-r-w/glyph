@@ -1,6 +1,9 @@
 package errtree
 
-import "iter"
+import (
+	"iter"
+	"slices"
+)
 
 // CodedError is an error with a machine-readable failure or rejection category.
 type CodedError interface {
@@ -14,6 +17,28 @@ func IterateCurrentErrors(err error) iter.Seq[error] {
 	return func(yield func(error) bool) {
 		visitCurrentErrors(err, yield)
 	}
+}
+
+// FirstCurrent returns the first current error node of type T; diagnostic history is not searched.
+func FirstCurrent[T any](err error) (T, bool) {
+	for node := range IterateCurrentErrors(err) {
+		if typed, matched := node.(T); matched {
+			return typed, true
+		}
+	}
+	var empty T
+	return empty, false
+}
+
+// HasCurrent reports whether one of the targets is itself a current error node; diagnostic history is not searched.
+func HasCurrent(err error, targets ...error) bool {
+	for node := range IterateCurrentErrors(err) {
+		// Identity of the node itself excludes targets kept as diagnostic history below it.
+		if slices.Contains(targets, node) {
+			return true
+		}
+	}
+	return false
 }
 
 // CurrentCode returns the machine-readable category of the first current error node that has one.

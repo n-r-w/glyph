@@ -91,7 +91,7 @@ func TestCoreRetainsConcurrentProviderTimeoutIdentityWithAttemptsRemaining(t *te
 	execution := modelexecution.New(catalog, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 2, Delays: []time.Duration{0, 0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, retryOutput, observations)
-	core := agentrun.New("", execution, tools, events, historyStore)
+	core := agentrun.New("", execution, tools, events, historyStore, passThroughFinalizer(controller))
 
 	// Act through the complete Agent Core run boundary.
 	result, err := core.Run(ctx, runcontrol.Request{RunID: "typed-timeout", Message: model.TextMessage("request")})
@@ -206,7 +206,7 @@ func TestCoreDoesNotRestoreDiscardedAttemptAfterRetryProgressFailure(t *testing.
 	execution := modelexecution.New(catalog, modelexecution.RetryPolicy{
 		Enabled: true, MaxRetries: 1, Delays: []time.Duration{0}, MaxProviderDelay: 30 * time.Second,
 	}, nil, retryOutput, observations)
-	core := agentrun.New("", execution, tools, events, historyStore)
+	core := agentrun.New("", execution, tools, events, historyStore, passThroughFinalizer(controller))
 
 	// Act through Agent Core and the actual result returned by backoff.
 	result, err := core.Run(
@@ -236,4 +236,16 @@ func TestCoreDoesNotRestoreDiscardedAttemptAfterRetryProgressFailure(t *testing.
 			assert.NotContains(t, response.Text(), "discarded")
 		}
 	}
+}
+
+// passThroughFinalizer returns a finalizer whose final values equal the given values.
+func passThroughFinalizer(controller *gomock.Controller) *agentrun.MockMessageFinalizer {
+	finalizer := agentrun.NewMockMessageFinalizer(controller)
+	finalizer.EXPECT().FinalizeModelResponse(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, response model.Response) (model.Response, error) { return response, nil },
+	).AnyTimes()
+	finalizer.EXPECT().FinalizeToolResult(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, result agent.ToolResult) (agent.ToolResult, error) { return result, nil },
+	).AnyTimes()
+	return finalizer
 }

@@ -65,7 +65,7 @@ func newTestService(
 		PrepareContext(gomock.Any(), gomock.Any()).
 		DoAndReturn(passThroughContext(descriptor, choice, provider)).
 		AnyTimes()
-	return New(instructions, runtime, tools, events, newMockHistoryStore(t))
+	return New(instructions, runtime, tools, events, newMockHistoryStore(t), passThroughFinalizer(t))
 }
 
 // passThroughContext returns effective context that keeps Core request data for one model and provider.

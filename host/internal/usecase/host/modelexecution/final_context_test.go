@@ -128,6 +128,7 @@ func TestConfiguredFinalContextValidation(t *testing.T) {
 			)
 
 			// Act through the configured-model caller contract.
+			bindPassThroughFinalizer(t, service)
 			_, err := service.RequestConfigured(t.Context(), fixture.selection, "base", scenario.input, nil)
 
 			// Assert success or the category selected by the replacement state.

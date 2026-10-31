@@ -37,6 +37,9 @@ type Renderer struct {
 	stderr io.Writer
 	// modelLineOpen reports whether a streamed model line needs a trailing newline.
 	modelLineOpen bool
+	// finalModelText reports whether the renderer writes the final text of each model message at its end instead of
+	// streamed text deltas.
+	finalModelText bool
 }
 
 var (
@@ -64,7 +67,13 @@ const (
 
 // NewRenderer creates the headless output recipient.
 func NewRenderer(stdout, stderr io.Writer) *Renderer {
-	return &Renderer{stdout: stdout, stderr: stderr, modelLineOpen: false}
+	return &Renderer{stdout: stdout, stderr: stderr, modelLineOpen: false, finalModelText: false}
+}
+
+// EnableFinalModelText makes the renderer write the final text of each model message when the message ends instead of
+// its streamed text deltas; call it before the run starts when extensions can replace model messages.
+func (r *Renderer) EnableFinalModelText() {
+	r.finalModelText = true
 }
 
 // PublishSessionEntry accepts a committed extension message when headless mode has no Glyph client.
@@ -134,6 +143,9 @@ func (r *Renderer) DeliverAgent(_ context.Context, event agent.Event) error {
 		r.modelLineOpen = false
 		return errors.Join(newlineErr, writeText(r.stderr, responseResetText))
 	case agent.EventMessageEnd:
+		if r.finalModelText {
+			return r.renderFinalModelText(event)
+		}
 		if !r.modelLineOpen {
 			return nil
 		}
@@ -172,6 +184,9 @@ func (r *Renderer) renderTextDelta(event agent.Event) error {
 	if !present {
 		return errors.New("render text delta event: content is required")
 	}
+	if r.finalModelText {
+		return nil
+	}
 	if content.Kind != model.ContentText && content.Kind != model.ContentRefusal {
 		return nil
 	}
@@ -184,6 +199,22 @@ func (r *Renderer) renderTextDelta(event agent.Event) error {
 		r.modelLineOpen = text[len(text)-1] != '\n'
 	}
 	return writeErr
+}
+
+// renderFinalModelText writes the visible final text of an ended model message with one trailing newline.
+func (r *Renderer) renderFinalModelText(event agent.Event) error {
+	message, present := event.Message.Get()
+	if !present {
+		return errors.New("render message end event: message is required")
+	}
+	text := message.Text()
+	if text == "" {
+		return nil
+	}
+	if !strings.HasSuffix(text, "\n") {
+		text += "\n"
+	}
+	return writeText(r.stdout, text)
 }
 
 // renderToolExecutionStart writes the selected tool name.

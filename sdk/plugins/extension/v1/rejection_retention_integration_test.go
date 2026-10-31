@@ -150,6 +150,7 @@ func TestCanceledServerSendUsesActualConfirmationAtCollection(t *testing.T) {
 						SystemInstructions: nil,
 						ModelContext:       nil,
 						UserInput:          nil,
+						FinalizedMessage:   nil,
 					}.Build())
 					request := new(extensionpb.OpenRequest)
 					request.SetOperationId(id)

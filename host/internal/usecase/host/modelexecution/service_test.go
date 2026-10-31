@@ -216,6 +216,7 @@ func TestServiceConfiguredRequestReturnsDetachedTerminal(t *testing.T) {
 	service := newTestService(t, catalog)
 
 	// Act through the configured-request contract.
+	bindPassThroughFinalizer(t, service)
 	response, err := service.RequestConfigured(t.Context(), selection, "instructions", history, nil)
 
 	// Assert the response is detached and configured requests expose no tools.
@@ -341,6 +342,7 @@ func TestServiceConfiguredRequestRejectsMissingTerminal(t *testing.T) {
 			service := newTestService(t, catalog)
 
 			// Act through terminal reduction.
+			bindPassThroughFinalizer(t, service)
 			response, err := service.RequestConfigured(t.Context(), selection, "instructions", nil, nil)
 
 			// Assert the incomplete stream is rejected with a zero response.

@@ -136,6 +136,7 @@ func TestServiceConfiguredRequestUsesConfiguredRetrySchedule(t *testing.T) {
 		var progressValues []RetryProgress
 
 		// Act through the configured-model path using production delay scheduling.
+		bindPassThroughFinalizer(t, service)
 		response, err := service.RequestConfigured(
 			t.Context(), selection, "instructions", nil,
 			func(completedAttempts, attemptLimit int64, delay time.Duration, failure string) error {
@@ -235,6 +236,7 @@ func TestServiceRejectsProviderDelayAboveMaximum(t *testing.T) {
 	}, nil, nil, newTestConversationObservations(t))
 
 	// Act through one logical configured request.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(t.Context(), selection, "", nil, nil)
 
 	// Assert the delay-specific category and complete provider cause are both preserved.
@@ -312,6 +314,7 @@ func TestServiceConfiguredRequestPreservesProviderFailure(t *testing.T) {
 	service := newTestService(t, catalog)
 
 	// Act through one configured request.
+	bindPassThroughFinalizer(t, service)
 	response, err := service.RequestConfigured(t.Context(), selection, "instructions", nil, nil)
 
 	// Assert complete provider semantics and the zero response are preserved.

@@ -84,6 +84,10 @@ type ExtensionRuntime interface {
 	HandleUserInput(
 		context.Context, string, middleware.Transformation[model.Message],
 	) (middleware.Transformed[model.Message], error)
+	// HandleFinalizedMessage invokes one finalized-message transformer and restores retained private replay.
+	HandleFinalizedMessage(
+		context.Context, string, middleware.Transformation[agent.HistoryEntry],
+	) (middleware.Transformed[agent.HistoryEntry], error)
 	// BeginInvocationChild admits work owned by one live connection-local Host invocation.
 	BeginInvocationChild(parentID string) (extensioncontroller.InvocationChild, error)
 	// Register invokes extension registration and returns its raw result.

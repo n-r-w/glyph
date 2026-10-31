@@ -252,6 +252,7 @@ func TestConfiguredRequestComposesContext(t *testing.T) {
 	)
 
 	// Act through the configured-model caller contract.
+	bindPassThroughFinalizer(t, service)
 	_, err := service.RequestConfigured(
 		t.Context(), fixture.selection, "base", []agent.HistoryEntry{textHistoryEntry("question")}, nil,
 	)

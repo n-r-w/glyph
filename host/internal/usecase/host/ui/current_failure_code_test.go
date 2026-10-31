@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	controllerui "github.com/n-r-w/glyph/host/internal/controller/ui"
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 )
@@ -48,4 +49,75 @@ func TestRunFailureCodeKeepsInputInvalid(t *testing.T) {
 	// Assert the public category and the complete cause text.
 	require.Equal(t, controllerui.FailureCodeInputInvalid, code)
 	require.ErrorContains(t, err, cause.Error())
+}
+
+// providerFailure is a provider failure with its model-execution category.
+type providerFailure struct{}
+
+// Error returns the complete provider failure text.
+func (providerFailure) Error() string { return "provider rejected the request" }
+
+// FailureCode returns the model-execution category of the provider failure.
+func (providerFailure) FailureCode() string { return controllerui.FailureCodeModelFailed }
+
+// TestRunFailureCodePrefersCurrentFinalizationFailure verifies that a current extension failure determines the
+// category when a provider failure is only diagnostic history, and that a provider failure alone keeps its category.
+func TestRunFailureCodePrefersCurrentFinalizationFailure(t *testing.T) {
+	t.Parallel()
+	// Arrange a current finalization failure with the provider failure as diagnostics.
+	finalization := extensionsdk.Fail(
+		controllerui.FailureCodeExtensionFailed,
+		errors.New("finalized-message handler failed"),
+	)
+	combined := diagnostic.NewCurrentCause(finalization, providerFailure{})
+
+	// Act through the accepted-run failure mapper.
+	combinedCode := runFailureCode(combined)
+	providerCode := runFailureCode(fmt.Errorf("execute model request: %w", providerFailure{}))
+
+	// Assert the current category and the complete text of both causes.
+	require.Equal(t, controllerui.FailureCodeExtensionFailed, combinedCode)
+	require.Equal(t, controllerui.FailureCodeModelFailed, providerCode)
+	require.ErrorContains(t, combined, "finalized-message handler failed")
+	require.ErrorContains(t, combined, providerFailure{}.Error())
+}
+
+// TestRunFailureCodeReadsCurrentPersistenceFailure verifies that a persistence failure determines the category only as
+// a current cause, and that a current persistence failure keeps its precedence over another current failure.
+func TestRunFailureCodeReadsCurrentPersistenceFailure(t *testing.T) {
+	t.Parallel()
+	for name, test := range map[string]struct {
+		err  error
+		code string
+	}{
+		"diagnostic persistence failure": {
+			err: diagnostic.NewCurrentCause(
+				extensionsdk.Fail(controllerui.FailureCodeExtensionFailed, errors.New("finalized-message handler failed")),
+				fmt.Errorf("commit overflow recovery: %w", agent.ErrPersistenceUnavailable),
+			),
+			code: controllerui.FailureCodeExtensionFailed,
+		},
+		"wrapped and joined persistence failure": {
+			err: errors.Join(
+				fmt.Errorf("append history: %w", fmt.Errorf("write entry: %w", agent.ErrPersistenceUnavailable)), errors.New("other cause"),
+			),
+			code: controllerui.FailureCodePersistence,
+		},
+		"persistence failure with another current failure": {
+			err: errors.Join(
+				extensionsdk.Fail(controllerui.FailureCodeExtensionFailed, errors.New("finalized-message handler failed")),
+				fmt.Errorf("append history: %w", agent.ErrPersistenceUnavailable),
+			),
+			code: controllerui.FailureCodePersistence,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Act through the accepted-run failure mapper.
+			code := runFailureCode(test.err)
+
+			// Assert the category of the current causes.
+			require.Equal(t, test.code, code)
+		})
+	}
 }

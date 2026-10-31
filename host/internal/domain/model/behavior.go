@@ -242,6 +242,18 @@ func (response Response) Text() string {
 	return builder.String()
 }
 
+// ToolCalls returns the tool calls of the response in content order.
+func (response Response) ToolCalls() []ToolCall {
+	calls := make([]ToolCall, 0)
+	for index := range response.Content {
+		content := &response.Content[index]
+		if call, present := content.ToolCall.Get(); present && content.Kind == ContentToolCall {
+			calls = append(calls, call)
+		}
+	}
+	return calls
+}
+
 // ValidateTerminalContent validates every terminal content discriminator.
 func (response Response) ValidateTerminalContent() error {
 	for position := range response.Content {

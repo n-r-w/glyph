@@ -266,6 +266,7 @@ func newContractService(t *testing.T) Service {
 					SystemInstructions: nil,
 					ModelContext:       nil,
 					UserInput:          nil,
+					FinalizedMessage:   nil,
 				}.Build(), nil
 			}
 			return extensionpb.HandleResponse_builder{
@@ -294,6 +295,7 @@ func newContractService(t *testing.T) Service {
 				SystemInstructions: nil,
 				ModelContext:       nil,
 				UserInput:          nil,
+				FinalizedMessage:   nil,
 			}.Build(), nil
 		},
 	).AnyTimes()

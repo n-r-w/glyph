@@ -133,6 +133,7 @@ func TestServiceOwnerlessOverflowHandlers(t *testing.T) {
 				// Act through ordinary absent-owner or configured production execution.
 				var err error
 				if configured {
+					bindPassThroughFinalizer(t, service)
 					_, err = service.RequestConfigured(t.Context(), selection, "", nil,
 						func(int64, int64, time.Duration, string) error {
 							t.Error("unexpected retry progress")

@@ -1,6 +1,6 @@
 # System-instruction and model-context middleware
 
-Ordinary extensions can replace the system instructions and the history of a model request. Each change applies only to that model request; session entries keep their original content. These operations apply to ordinary agent requests and configured-model requests in headless, Programmatic and UI modes.
+Ordinary extensions can replace the system instructions and the history of a model request. Each change applies only to that model request; session entries keep their original content. These operations apply to ordinary agent requests and configured-model requests in headless, Programmatic and UI modes. To change the stored content of a message, use [finalized-message middleware](finalized-message-middleware.md).
 
 ## Register and handle operations
 

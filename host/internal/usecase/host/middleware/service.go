@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
+	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
@@ -26,12 +27,15 @@ type Service struct {
 	models SelectedModel
 }
 
-// Verify the owner implements model-execution callbacks, run input processing and startup registration contracts.
+// Verify the owner implements model-execution callbacks and response finalization, run input processing, startup
+// registration and Agent Core message finalization contracts.
 var (
 	_ modelexecution.WireMiddleware    = (*Service)(nil)
 	_ modelexecution.ContextMiddleware = (*Service)(nil)
 	_ runcontrol.InputProcessor        = (*Service)(nil)
 	_ startup.MiddlewareRegistrar      = (*Service)(nil)
+	_ agentrun.MessageFinalizer        = (*Service)(nil)
+	_ modelexecution.ResponseFinalizer = (*Service)(nil)
 )
 
 // New connects ordinary invocation mechanics, trusted context issuance and the selected model.
@@ -55,6 +59,8 @@ func mapMiddlewareKind(raw startup.RawHandlerKind) (Kind, bool) {
 		return ModelContext, true
 	case startup.RawHandlerKindUserInput:
 		return UserInput, true
+	case startup.RawHandlerKindFinalizedMessage:
+		return FinalizedMessage, true
 	default:
 		return 0, false
 	}
@@ -95,6 +101,13 @@ func (s *Service) snapshotHandlers() []Handler {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	return slices.Clone(s.handlers)
+}
+
+// HasFinalizedMessageHandlers reports whether an accepted extension can replace finalized messages.
+func (s *Service) HasFinalizedMessageHandlers() bool {
+	return slices.ContainsFunc(s.snapshotHandlers(), func(handler Handler) bool {
+		return handler.Kind == FinalizedMessage
+	})
 }
 
 // NewWireCallbacks captures ordered handlers for one raw provider attempt.

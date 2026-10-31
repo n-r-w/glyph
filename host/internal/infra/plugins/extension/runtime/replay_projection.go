@@ -39,25 +39,33 @@ func newReplayProjection() replayProjection {
 func (projection replayProjection) project(history []agent.HistoryEntry) (*extensionpb.ModelContextHistory, error) {
 	entries := make([]*extensionpb.ModelContextEntry, 0, len(history))
 	for index := range history {
-		entry := &history[index]
-		mapped := new(extensionpb.ModelContextEntry)
-		switch entry.Kind {
-		case agent.HistoryEntryUser:
-			mapped.SetUser(mapUserMessage(entry.User.OrEmpty()))
-		case agent.HistoryEntryModel:
-			response, err := projection.projectResponse(entry.Model.OrEmpty())
-			if err != nil {
-				return nil, fmt.Errorf("history entry %d: %w", index, err)
-			}
-			mapped.SetModel(response)
-		case agent.HistoryEntryToolResult:
-			mapped.SetToolResult(mapTreeToolResult(entry.ToolResult.OrEmpty()))
-		default:
-			return nil, fmt.Errorf("history entry %d has unknown kind %d", index, entry.Kind)
+		mapped, err := projection.projectEntry(&history[index])
+		if err != nil {
+			return nil, fmt.Errorf("history entry %d: %w", index, err)
 		}
 		entries = append(entries, mapped)
 	}
 	return extensionpb.ModelContextHistory_builder{Entries: entries}.Build(), nil
+}
+
+// projectEntry maps one message to its public representation with references in place of private replay.
+func (projection replayProjection) projectEntry(entry *agent.HistoryEntry) (*extensionpb.ModelContextEntry, error) {
+	mapped := new(extensionpb.ModelContextEntry)
+	switch entry.Kind {
+	case agent.HistoryEntryUser:
+		mapped.SetUser(mapUserMessage(entry.User.OrEmpty()))
+	case agent.HistoryEntryModel:
+		response, err := projection.projectResponse(entry.Model.OrEmpty())
+		if err != nil {
+			return nil, err
+		}
+		mapped.SetModel(response)
+	case agent.HistoryEntryToolResult:
+		mapped.SetToolResult(mapTreeToolResult(entry.ToolResult.OrEmpty()))
+	default:
+		return nil, fmt.Errorf("unknown entry kind %d", entry.Kind)
+	}
+	return mapped, nil
 }
 
 // projectResponse maps model-visible content and records private replay of each block.
