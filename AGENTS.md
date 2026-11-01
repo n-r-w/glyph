@@ -85,6 +85,7 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 7. MUST NEVER test mutable content (like prompts), ONLY logic.
 8. MUST NEVER test logs.
 9. MUST investigate causes of flaky tests.
+10. Integration tests MUST NOT slow down `task check`. Before completing changes, compare the wall time of `task check` with its time before the changes, and remove or justify any growth above 10%. Integration tests wait for events through signals, not fixed sleeps.
 
 ### Mocking
 1. Use `go.uber.org/mock` and `//go:generate go tool mockgen ...` to generate.
