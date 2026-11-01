@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -224,17 +223,7 @@ func runPublicExtensionMode(
 func buildPublicExtensionFixture(t *testing.T) string {
 	t.Helper()
 	directory := t.TempDir()
-	command := exec.CommandContext(
-		t.Context(),
-		"go",
-		"build",
-		"-o",
-		filepath.Join(directory, "external"),
-		"./cmd/extension",
-	)
-	command.Dir = filepath.Join(repoRoot(t), "testdata", "external-plugins")
-	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
+	buildExternalCommand(t, directory, "extension", "external")
 	return directory
 }
 

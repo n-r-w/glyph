@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -142,31 +141,9 @@ func requestProgrammaticCompaction(
 
 // buildManualPolicyFixture builds an extension that uses only the public SDK.
 func buildManualPolicyFixture(t *testing.T) string {
-	const manualFixtureTestdata = "testdata"
-
-	const manualFixtureGo = "go"
-
-	const manualFixtureExternalPlugins = "external-plugins"
-
-	const manualFixtureBuild = "build"
-
-	const manualFixtureCmdCompactionPolicy = "./cmd/compaction-policy"
-
-	const manualFixtureO = "-o"
-
 	t.Helper()
 	directory := t.TempDir()
-	command := exec.CommandContext(
-		t.Context(),
-		manualFixtureGo,
-		manualFixtureBuild,
-		manualFixtureO,
-		filepath.Join(directory, manualFixtureReferencePolicy),
-		manualFixtureCmdCompactionPolicy,
-	)
-	command.Dir = filepath.Join(repoRoot(t), manualFixtureTestdata, manualFixtureExternalPlugins)
-	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
+	buildExternalCommand(t, directory, "compaction-policy", manualFixtureReferencePolicy)
 	return directory
 }
 

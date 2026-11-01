@@ -4,6 +4,7 @@ package host
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	pb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
@@ -27,11 +28,11 @@ func (s *Service) Request(
 	if !present {
 		return compaction.RequestAction{}, errors.New("compaction policy authority is required")
 	}
-	operation, err := binding.StartRequestHandler(
-		ctx,
-		extensionwire.EncodeParticipant(participant),
-		extensionwire.EncodeInvocation(state),
-	)
+	invocation, err := extensionwire.EncodeInvocation(state)
+	if err != nil {
+		return compaction.RequestAction{}, err
+	}
+	operation, err := binding.StartRequestHandler(ctx, extensionwire.EncodeParticipant(participant), invocation)
 	if err != nil {
 		return compaction.RequestAction{}, err
 	}
@@ -39,7 +40,7 @@ func (s *Service) Request(
 	if err != nil {
 		return compaction.RequestAction{}, err
 	}
-	return extensionwire.DecodeRequestAction(action), nil
+	return extensionwire.DecodeRequestAction(action)
 }
 
 // Generate invokes the generator.
@@ -52,11 +53,11 @@ func (s *Service) Generate(
 	if !present {
 		return compaction.Result{}, errors.New("compaction policy authority is required")
 	}
-	operation, err := binding.StartGenerator(
-		ctx,
-		extensionwire.EncodeParticipant(participant),
-		extensionwire.EncodeInvocation(state),
-	)
+	invocation, err := extensionwire.EncodeInvocation(state)
+	if err != nil {
+		return compaction.Result{}, err
+	}
+	operation, err := binding.StartGenerator(ctx, extensionwire.EncodeParticipant(participant), invocation)
 	if err != nil {
 		return compaction.Result{}, err
 	}
@@ -81,9 +82,17 @@ func (s *Service) InvokeResultHandler(
 	if !present {
 		return compaction.ResultAction{}, errors.New("compaction policy authority is required")
 	}
+	originalRequest, err := extensionwire.EncodeRequest(state.Original)
+	if err != nil {
+		return compaction.ResultAction{}, fmt.Errorf("encode original request: %w", err)
+	}
+	currentRequest, err := extensionwire.EncodeRequest(state.Current)
+	if err != nil {
+		return compaction.ResultAction{}, fmt.Errorf("encode current request: %w", err)
+	}
 	invocation := pb.CompactionResultInvocation_builder{
-		OriginalRequest: extensionwire.EncodeRequest(state.Original),
-		CurrentRequest:  extensionwire.EncodeRequest(state.Current),
+		OriginalRequest: originalRequest,
+		CurrentRequest:  currentRequest,
 		OriginalResult:  extensionwire.EncodeResult(original),
 		CurrentResult:   extensionwire.EncodeResult(state.Result.OrEmpty()),
 	}.Build()
@@ -112,7 +121,7 @@ func (s *Service) Project(ctx context.Context, candidate compaction.Result) ([]c
 	if err != nil {
 		return nil, err
 	}
-	return extensionwire.DecodeHistory(projection.GetHistory()), nil
+	return extensionwire.DecodeHistory(projection.GetHistory())
 }
 
 // Commit persists a compaction replacement.

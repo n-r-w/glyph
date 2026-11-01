@@ -30,7 +30,7 @@ func TestPurposeMapping(t *testing.T) {
 		// Act through captured policy input decoding.
 		wire := new(pb.CompactionPolicyInvocation)
 		wire.SetPurpose(test.wire)
-		decoded := DecodeInput(wire)
+		decoded := decodeInputOrFail(t, wire)
 		// Assert the extension receives a semantic category.
 		require.Equal(t, test.want, decoded.Purpose)
 		require.Equal(t, test.want, decodePurpose(test.wire))
@@ -58,20 +58,20 @@ func TestTriggerMapping(t *testing.T) {
 		wire.SetTrigger(test.wire)
 		wire.SetRetryIntent(test.wire == pb.CompactionTrigger_COMPACTION_TRIGGER_OVERFLOW)
 		// Act through request decoding, validation, and encoding.
-		decoded := DecodeRequest(wire)
+		decoded := decodeRequestOrFail(t, wire)
 		// Assert valid categories round trip and invalid intent retains its failure text.
 		require.Equal(t, test.want, decoded.Trigger)
 		require.Equal(t, test.want, decodeTrigger(test.wire))
 		if test.valid {
 			require.NoError(t, decoded.Validate())
-			require.Equal(t, test.wire, EncodeRequest(decoded).GetTrigger())
+			require.Equal(t, test.wire, encodeRequestOrFail(t, decoded).GetTrigger())
 			require.Equal(t, test.wire, encodeTrigger(test.want))
 		} else {
 			require.ErrorContains(t, decoded.Validate(), "invalid compaction trigger or retry intent")
 			require.Equal(t, pb.CompactionTrigger_COMPACTION_TRIGGER_UNSPECIFIED, encodeTrigger(test.want))
 		}
 	}
-	request := DecodeRequest(newMappingRequest())
+	request := decodeRequestOrFail(t, newMappingRequest())
 	request.Retry = true
 	require.ErrorContains(t, request.Validate(), "invalid compaction trigger or retry intent")
 }

@@ -138,61 +138,6 @@ func (p *commandPrepared) Run(
 	return operation.Completed(response)
 }
 
-// runNavigation preserves actual navigation commits independently of the terminal failure state.
-func (p *commandPrepared) runNavigation(
-	ctx context.Context,
-	reporter operation.Reporter[controller.OperationProgress],
-) operation.Outcome[controller.Response] {
-	response, err := p.service.navigateSessionTree(
-		ctx,
-		p.command,
-		programmaticNavigationCallback(reporter),
-		programmaticNavigationRetryCallback(reporter),
-	)
-	if err != nil {
-		if navigation, present := response.TreeNavigation.Get(); present && navigation.Committed.IsSome() {
-			if isOperationCancellation(ctx, err) {
-				return operation.CompletedWithSource(response, err)
-			}
-			return operation.FailedWithResult(failureCode(err), err, response)
-		}
-		if isOperationCancellation(ctx, err) {
-			return newCanceledCommandOutcome(err)
-		}
-		return operation.Failed[controller.Response](failureCode(err), err)
-	}
-	if rejection, present := response.Rejection.Get(); present {
-		return operation.Failed[controller.Response](failureCodeForRejection(rejection.Code), rejection.Cause)
-	}
-	if isCanceledNavigation(response) && errors.Is(ctx.Err(), context.Canceled) {
-		return operation.Canceled[controller.Response]()
-	}
-	return operation.Completed(response)
-}
-
-// runEnqueue queues the message of the command and completes when the queue accepts it or an extension fully
-// handles it.
-func (p *commandPrepared) runEnqueue(ctx context.Context) operation.Outcome[controller.Response] {
-	delivery, deliveryPresent := p.command.Delivery.Get()
-	message, messagePresent := p.command.UserMessage.Get()
-	if !deliveryPresent || !messagePresent {
-		return operation.Failed[controller.Response](
-			controller.FailureCodeInternal,
-			errors.New("enqueue command lacks its delivery kind or message after validation"),
-		)
-	}
-	handled, err := p.service.coordinator.Enqueue(ctx, delivery, message)
-	if err != nil {
-		if isOperationCancellation(ctx, err) {
-			return newCanceledCommandOutcome(err)
-		}
-		return operation.Failed[controller.Response](failureCode(err), err)
-	}
-	response := emptyResponse(p.command.OperationID, controller.ResponseEnqueueMessage)
-	response.MessageHandled = mo.Some(handled)
-	return operation.Completed(response)
-}
-
 // runSelection executes one admitted selection and preserves the commit boundary in its terminal outcome.
 func (p *commandPrepared) runSelection(ctx context.Context) operation.Outcome[controller.Response] {
 	result := p.selection.Run(ctx)
@@ -300,13 +245,6 @@ func (p *runPrepared) Release() {
 		// Only Core settlement clears output, so a run that failed before Core execution clears it here.
 		p.output.ReleaseRun(p.runID)
 	})
-}
-
-// isCanceledNavigation reports a domain-canceled navigation result without treating other completed results as
-// cancellation.
-func isCanceledNavigation(response controller.Response) bool {
-	result, present := response.TreeNavigation.Get()
-	return present && result.Status == controller.TreeNavigationStatusCanceled
 }
 
 // prepareSelection validates request shape and delegates shared admission for selection commands.

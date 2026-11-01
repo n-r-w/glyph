@@ -4,10 +4,13 @@ package app
 
 import (
 	"encoding/json/v2"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -15,35 +18,84 @@ import (
 	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
-// buildToolsExecutable compiles the real tools command into a test-owned temporary directory.
-func buildToolsExecutable(t *testing.T) string {
-	t.Helper()
-	root := repoRoot(t)
-	output := filepath.Join(t.TempDir(), "glyph-tools")
-	command := exec.CommandContext(
-		t.Context(),
-		"go",
-		"build",
-		"-o",
-		output,
-		"./plugins/extension/tools/cmd/glyph-tools",
-	)
-	command.Dir = root
-	outputBytes, err := command.CombinedOutput()
-	require.NoError(t, err, string(outputBytes))
-	return filepath.Dir(output)
+// commandCache keeps one build of each command for the whole test process.
+type commandCache struct {
+	// mutex serializes builds, so that concurrent tests never compile the same command twice.
+	mutex sync.Mutex
+	// directory holds the built executables; it is empty until the first build.
+	directory string
+	// paths maps a build key to its executable.
+	paths map[string]string
 }
 
-// buildExternalCommand builds a command of the testdata/external-plugins module into an existing directory under the
+// builtCommands is the command cache of the test process, which TestMain removes at the end.
+var builtCommands = commandCache{mutex: sync.Mutex{}, directory: "", paths: make(map[string]string)}
+
+// TestMain removes the executables that the tests of the process built.
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if err := builtCommands.remove(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		code = 1
+	}
+	os.Exit(code)
+}
+
+// path returns the executable of the package built in the module directory, which the first call compiles.
+func (c *commandCache) path(t *testing.T, moduleDir, pkg string) string {
+	t.Helper()
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	key := moduleDir + "\x00" + pkg
+	if path, built := c.paths[key]; built {
+		return path
+	}
+	if c.directory == "" {
+		directory, err := os.MkdirTemp("", "glyph-test-commands-")
+		require.NoError(t, err)
+		c.directory = directory
+	}
+	path := filepath.Join(c.directory, strconv.Itoa(len(c.paths)))
+	build := exec.CommandContext(t.Context(), "go", "build", "-o", path, pkg)
+	build.Dir = moduleDir
+	output, err := build.CombinedOutput()
+	require.NoError(t, err, string(output))
+	c.paths[key] = path
+	return path
+}
+
+// remove deletes the built executables.
+func (c *commandCache) remove() error {
+	c.mutex.Lock()
+	defer c.mutex.Unlock()
+	if c.directory == "" {
+		return nil
+	}
+	return os.RemoveAll(c.directory)
+}
+
+// linkBuiltCommand makes executableName in directory a hard link to the executable of the package built in the module
+// directory; the process compiles each package once, whatever the number of tests and names.
+func linkBuiltCommand(t *testing.T, directory, moduleDir, pkg, executableName string) {
+	t.Helper()
+	require.NoError(t, os.Link(builtCommands.path(t, moduleDir, pkg), filepath.Join(directory, executableName)))
+}
+
+// buildToolsExecutable provides the real tools command in a new test-owned temporary directory.
+func buildToolsExecutable(t *testing.T) string {
+	t.Helper()
+	directory := t.TempDir()
+	linkBuiltCommand(t, directory, repoRoot(t), "./plugins/extension/tools/cmd/glyph-tools", "glyph-tools")
+	return directory
+}
+
+// buildExternalCommand provides a command of the testdata/external-plugins module in an existing directory under the
 // given executable name.
 func buildExternalCommand(t *testing.T, directory, command, executableName string) {
 	t.Helper()
-	build := exec.CommandContext(
-		t.Context(), "go", "build", "-o", filepath.Join(directory, executableName), "./cmd/"+command,
+	linkBuiltCommand(
+		t, directory, filepath.Join(repoRoot(t), "testdata", "external-plugins"), "./cmd/"+command, executableName,
 	)
-	build.Dir = filepath.Join(repoRoot(t), "testdata", "external-plugins")
-	output, err := build.CombinedOutput()
-	require.NoError(t, err, string(output))
 }
 
 // enableTraceFile makes the extension processes of the test write their trace to a new file named by the

@@ -21,10 +21,17 @@ func DecodeBinding(value *pb.ExtensionContext) compaction.Binding {
 }
 
 // DecodeObservation maps actual conversation input and completed response content.
-func DecodeObservation(value *pb.CompletedConversationObservation, binding compaction.Binding) compaction.Observation {
+func DecodeObservation(
+	value *pb.CompletedConversationObservation,
+	binding compaction.Binding,
+) (compaction.Observation, error) {
+	history, err := DecodeHistory(value.GetHistory())
+	if err != nil {
+		return compaction.Observation{}, err
+	}
 	input := compaction.Input{
 		Binding:  binding,
-		History:  DecodeHistory(value.GetHistory()),
+		History:  history,
 		Previous: mo.None[compaction.Result](),
 		Model: decodeModel(
 			value.GetModel(),
@@ -72,7 +79,9 @@ func DecodeObservation(value *pb.CompletedConversationObservation, binding compa
 		}
 		response.Blocks = append(response.Blocks, block)
 	}
-	return compaction.Observation{Input: input, Response: response, Usage: DecodeUsage(value.GetResponse().GetUsage())}
+	return compaction.Observation{
+		Input: input, Response: response, Usage: DecodeUsage(value.GetResponse().GetUsage()),
+	}, nil
 }
 
 // decodeToolShape preserves tool-definition boundaries for continuation matching.

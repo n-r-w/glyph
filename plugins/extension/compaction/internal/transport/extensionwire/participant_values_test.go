@@ -16,7 +16,7 @@ import (
 func TestParticipantMessagesDetachAcceptedValues(t *testing.T) {
 	t.Parallel()
 	// Arrange captured request and accepted result values with mutable collections.
-	request := DecodeRequest(newMappingRequest())
+	request := decodeRequestOrFail(t, newMappingRequest())
 	request.Model.Modalities = []compaction.Modality{compaction.ModalityText}
 	request.Model.Reasoning = mo.Some(compaction.Reasoning{Supported: true, Choices: []string{"off"}, Default: "off"})
 	request.Model.Pricing = mo.Some(
@@ -44,7 +44,7 @@ func TestParticipantMessagesDetachAcceptedValues(t *testing.T) {
 	}
 	state := compaction.State{Original: request, Current: request, Result: mo.Some(candidate)}
 	// Act by mutating detached outbound and inbound participant messages.
-	invocation := EncodeInvocation(state)
+	invocation := encodeInvocationOrFail(t, state)
 	invocation.GetOriginal().GetModel().GetReasoning().GetChoices()[0] = "participant mutation"
 	invocation.GetCurrent().GetModel().GetInputModalities()[0] = pb.InputModality_INPUT_MODALITY_IMAGE
 	invocation.GetOriginal().GetModel().GetPricing().GetTiers()[0].SetInput(99)

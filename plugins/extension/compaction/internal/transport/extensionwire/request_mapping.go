@@ -2,6 +2,7 @@
 package extensionwire
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/samber/mo"
@@ -11,10 +12,14 @@ import (
 )
 
 // DecodeInput maps captured policy input into policy data.
-func DecodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
+func DecodeInput(value *pb.CompactionPolicyInvocation) (compaction.Input, error) {
+	history, err := DecodeHistory(value.GetHistory())
+	if err != nil {
+		return compaction.Input{}, err
+	}
 	return compaction.Input{
 		Binding:      compaction.Binding{},
-		History:      DecodeHistory(value.GetHistory()),
+		History:      history,
 		Previous:     decodeMarker(value.GetPrevious()),
 		Model:        decodeModel(value.GetModel()),
 		Reasoning:    value.GetReasoningChoice(),
@@ -26,14 +31,18 @@ func DecodeInput(value *pb.CompactionPolicyInvocation) compaction.Input {
 		Requests:     decodeParticipants(value.GetRequestParticipants()),
 		Generators:   decodeParticipants(value.GetGeneratorParticipants()),
 		Results:      decodeParticipants(value.GetResultParticipants()),
-	}
+	}, nil
 }
 
 // DecodeOutgoing maps frozen outgoing conversation input into policy data.
-func DecodeOutgoing(value *pb.CompactionOutgoingInput) compaction.Input {
+func DecodeOutgoing(value *pb.CompactionOutgoingInput) (compaction.Input, error) {
+	history, err := DecodeHistory(value.GetHistory())
+	if err != nil {
+		return compaction.Input{}, err
+	}
 	return compaction.Input{
 		Binding:      compaction.Binding{},
-		History:      DecodeHistory(value.GetHistory()),
+		History:      history,
 		Previous:     mo.None[compaction.Result](),
 		Model:        decodeModel(value.GetModel()),
 		Reasoning:    value.GetReasoningChoice(),
@@ -45,7 +54,7 @@ func DecodeOutgoing(value *pb.CompactionOutgoingInput) compaction.Input {
 		Requests:     nil,
 		Generators:   nil,
 		Results:      nil,
-	}
+	}, nil
 }
 
 // decodeToolText collects textual and JSON contributions of captured tools.
@@ -101,34 +110,50 @@ func EncodeParticipant(value compaction.Participant) *pb.CompactionParticipant {
 }
 
 // DecodeRequest maps a composed compaction request into policy data.
-func DecodeRequest(value *pb.CompactionRequest) compaction.Request {
+func DecodeRequest(value *pb.CompactionRequest) (compaction.Request, error) {
+	prefix, err := DecodeHistory(value.GetPrefix())
+	if err != nil {
+		return compaction.Request{}, fmt.Errorf("decode request prefix: %w", err)
+	}
+	suffix, err := DecodeHistory(value.GetSuffix())
+	if err != nil {
+		return compaction.Request{}, fmt.Errorf("decode request suffix: %w", err)
+	}
 	return compaction.Request{
 		Trigger:       decodeTrigger(value.GetTrigger()),
 		Retry:         value.GetRetryIntent(),
 		Guidance:      value.GetInstructions(),
 		Model:         decodeModel(value.GetModel()),
 		Reasoning:     value.GetReasoningChoice(),
-		Prefix:        DecodeHistory(value.GetPrefix()),
-		Suffix:        DecodeHistory(value.GetSuffix()),
+		Prefix:        prefix,
+		Suffix:        suffix,
 		Previous:      decodeMarker(value.GetPrevious()),
 		ContextTokens: value.GetContextTokens(),
 		Estimated:     value.GetContextTokensEstimated(),
 		Window:        value.GetContextWindow(),
 		Reserve:       value.GetResponseBudget(),
 		Retained:      value.GetRetainedBudget(),
-	}
+	}, nil
 }
 
 // EncodeRequest maps a request to the public participant contract.
-func EncodeRequest(value compaction.Request) *pb.CompactionRequest {
+func EncodeRequest(value compaction.Request) (*pb.CompactionRequest, error) {
+	prefix, err := encodeHistory(value.Prefix)
+	if err != nil {
+		return nil, fmt.Errorf("encode request prefix: %w", err)
+	}
+	suffix, err := encodeHistory(value.Suffix)
+	if err != nil {
+		return nil, fmt.Errorf("encode request suffix: %w", err)
+	}
 	request := pb.CompactionRequest_builder{
 		Trigger:                new(encodeTrigger(value.Trigger)),
 		RetryIntent:            new(value.Retry),
 		Instructions:           new(value.Guidance),
 		Model:                  encodeModel(value.Model),
 		ReasoningChoice:        new(value.Reasoning),
-		Prefix:                 encodeHistory(value.Prefix),
-		Suffix:                 encodeHistory(value.Suffix),
+		Prefix:                 prefix,
+		Suffix:                 suffix,
 		Previous:               nil,
 		ContextTokens:          new(value.ContextTokens),
 		ContextTokensEstimated: new(value.Estimated),
@@ -139,37 +164,58 @@ func EncodeRequest(value compaction.Request) *pb.CompactionRequest {
 	if previous, present := value.Previous.Get(); present {
 		request.SetPrevious(encodeMarker(previous))
 	}
-	return request
+	return request, nil
+}
+
+// encodeRequests maps the original and current requests of a composition state.
+func encodeRequests(value compaction.State) (original, current *pb.CompactionRequest, err error) {
+	original, err = EncodeRequest(value.Original)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode original request: %w", err)
+	}
+	current, err = EncodeRequest(value.Current)
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode current request: %w", err)
+	}
+	return original, current, nil
 }
 
 // EncodeInvocation maps original and current composition state to an invocation.
-func EncodeInvocation(value compaction.State) *pb.CompactionRequestInvocation {
+func EncodeInvocation(value compaction.State) (*pb.CompactionRequestInvocation, error) {
+	original, current, err := encodeRequests(value)
+	if err != nil {
+		return nil, err
+	}
 	invocation := pb.CompactionRequestInvocation_builder{
-		Original:      EncodeRequest(value.Original),
-		Current:       EncodeRequest(value.Current),
+		Original:      original,
+		Current:       current,
 		CurrentResult: nil,
 	}.Build()
 	if result, present := value.Result.Get(); present {
 		invocation.SetCurrentResult(EncodeResult(result))
 	}
-	return invocation
+	return invocation, nil
 }
 
 // EncodeState maps acquired policy state for terminal reporting.
-func EncodeState(value compaction.State) *pb.CompactionPolicyState {
+func EncodeState(value compaction.State) (*pb.CompactionPolicyState, error) {
+	original, current, err := encodeRequests(value)
+	if err != nil {
+		return nil, err
+	}
 	state := pb.CompactionPolicyState_builder{
-		OriginalRequest: EncodeRequest(value.Original),
-		CurrentRequest:  EncodeRequest(value.Current),
+		OriginalRequest: original,
+		CurrentRequest:  current,
 		Result:          nil,
 	}.Build()
 	if result, present := value.Result.Get(); present {
 		state.SetResult(EncodeResult(result))
 	}
-	return state
+	return state, nil
 }
 
 // DecodeRequestAction maps updates to the compaction request and result.
-func DecodeRequestAction(value *pb.CompactionRequestAction) compaction.RequestAction {
+func DecodeRequestAction(value *pb.CompactionRequestAction) (compaction.RequestAction, error) {
 	action := compaction.RequestAction{
 		Cancel:             value.GetCancel(),
 		RequestDisposition: decodeRequestDisposition(value.GetRequestAction()),
@@ -178,12 +224,16 @@ func DecodeRequestAction(value *pb.CompactionRequestAction) compaction.RequestAc
 		Result:             mo.None[compaction.Result](),
 	}
 	if request := value.GetRequest(); request != nil {
-		action.Request = mo.Some(DecodeRequest(request))
+		decoded, err := DecodeRequest(request)
+		if err != nil {
+			return compaction.RequestAction{}, err
+		}
+		action.Request = mo.Some(decoded)
 	}
 	if result := value.GetResult(); result != nil {
 		action.Result = mo.Some(DecodeResult(result))
 	}
-	return action
+	return action, nil
 }
 
 // DecodeResultAction maps an update to an existing compaction result.

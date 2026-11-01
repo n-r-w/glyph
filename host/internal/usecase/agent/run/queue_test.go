@@ -275,33 +275,6 @@ func TestEnqueueFollowUpWaitsForToolBatch(t *testing.T) {
 	require.Equal(t, []string{"request", "follow"}, userTexts(histories[2]))
 }
 
-// TestEnqueueRejectsUnknownDelivery checks that Agent Core refuses a delivery kind that it does not know.
-func TestEnqueueRejectsUnknownDelivery(t *testing.T) {
-	t.Parallel()
-	// Arrange a running run that checks an unknown delivery kind.
-	var enqueueErr error
-	var service *Service
-	provider := NewMockModelProvider(gomock.NewController(t))
-	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
-		func(_ context.Context, _ ModelRequest, handle StreamHandler) error {
-			enqueueErr = service.Enqueue("run", agent.MessageDelivery(0), queuedText("unknown"))
-			return emitStream(handle, emptyModelResponse(model.OutcomeStop), nil)
-		},
-	)
-	events := NewMockEventSink(gomock.NewController(t))
-	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
-	service = newTestService(t, testInstructions, testModelDescriptor, model.ReasoningChoiceOff, provider,
-		newNoTools(t), events)
-
-	// Act by running one request.
-	_, err := service.Run(t.Context(), runcontrol.Request{RunID: "run", Message: model.TextMessage("request")})
-
-	// Assert the enqueue failed with an error other than the inactive-run error.
-	require.NoError(t, err)
-	require.Error(t, enqueueErr)
-	require.NotErrorIs(t, enqueueErr, agent.ErrRunNotActive)
-}
-
 // TestQueueModeAllDeliversEveryPendingMessage checks that mode all gives the model every pending steer message
 // together, then every pending followUp message together, and that steer still takes precedence over followUp.
 func TestQueueModeAllDeliversEveryPendingMessage(t *testing.T) {

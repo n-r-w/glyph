@@ -38,8 +38,8 @@ func TestPreparedHistorySourceKinds(t *testing.T) {
 			wire.SetEstimatedTokens(9)
 			wire.SetUser(newMappingRequest().GetPrefix()[0].GetUser())
 			// Act through policy decoding and participant-request encoding.
-			decoded := DecodeHistory([]*pb.CompactionHistoryRecord{wire})
-			encoded := encodeHistory(decoded)
+			decoded := decodeHistoryOrFail(t, []*pb.CompactionHistoryRecord{wire})
+			encoded := encodeHistoryOrFail(t, decoded)
 			// Assert original kind and other control data survive independently of prepared role.
 			require.Equal(t, scenario.kind, decoded[0].SourceKind)
 			require.Equal(t, compaction.User, decoded[0].Kind)
@@ -60,7 +60,7 @@ func TestComposedRequestRejectsUnknownSourceKind(t *testing.T) {
 	wire := newMappingRequest()
 	wire.GetPrefix()[0].SetSourceKind(pb.CompactionHistorySourceKind(99))
 	// Act through public decoding and policy request validation.
-	request := DecodeRequest(wire)
+	request := decodeRequestOrFail(t, wire)
 	err := request.Validate()
 	// Assert unknown source metadata remains an explicit validation failure.
 	require.Equal(t, compaction.SourceInvalid, request.Prefix[0].SourceKind)

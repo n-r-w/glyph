@@ -6,7 +6,6 @@ import (
 	"encoding/json/v2"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -34,10 +33,7 @@ const (
 func buildContextFixture(t *testing.T, mode string) string {
 	t.Helper()
 	directory := t.TempDir()
-	command := exec.CommandContext(t.Context(), "go", "build", "-o", filepath.Join(directory, mode), "./cmd/context")
-	command.Dir = filepath.Join(repoRoot(t), "testdata", "external-plugins")
-	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
+	buildExternalCommand(t, directory, "context", mode)
 	return directory
 }
 

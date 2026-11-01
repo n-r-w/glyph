@@ -4,7 +4,6 @@ package app
 
 import (
 	"os"
-	"os/exec"
 	"path/filepath"
 	"testing"
 
@@ -40,10 +39,7 @@ var inputHandlers = []string{"input-handle", "input-text", "input-images"}
 func buildInputFixture(t *testing.T, mode string) string {
 	t.Helper()
 	directory := t.TempDir()
-	command := exec.CommandContext(t.Context(), "go", "build", "-o", filepath.Join(directory, mode), "./cmd/input")
-	command.Dir = filepath.Join(repoRoot(t), "testdata", "external-plugins")
-	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
+	buildExternalCommand(t, directory, "input", mode)
 	return directory
 }
 

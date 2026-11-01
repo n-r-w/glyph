@@ -5,7 +5,6 @@ package app
 import (
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -67,10 +66,7 @@ var finalizedPair = []string{finalizedMark, finalizedLater}
 func buildFinalizedFixture(t *testing.T, mode string) string {
 	t.Helper()
 	directory := t.TempDir()
-	command := exec.CommandContext(t.Context(), "go", "build", "-o", filepath.Join(directory, mode), "./cmd/finalized")
-	command.Dir = filepath.Join(repoRoot(t), "testdata", "external-plugins")
-	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
+	buildExternalCommand(t, directory, "finalized", mode)
 	return directory
 }
 

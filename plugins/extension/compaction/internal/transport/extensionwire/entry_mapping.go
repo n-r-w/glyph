@@ -1,6 +1,7 @@
 package extensionwire
 
 import (
+	"fmt"
 	"slices"
 
 	"github.com/samber/mo"
@@ -27,8 +28,9 @@ func newImageBlock(mediaType string, data []byte) compaction.Block {
 	}
 }
 
-// DecodeHistory maps projected provider-neutral history into policy data.
-func DecodeHistory(values []*pb.CompactionHistoryRecord) []compaction.Entry {
+// DecodeHistory maps projected provider-neutral history into policy data. It fails when a record holds a value that the
+// public contract does not define.
+func DecodeHistory(values []*pb.CompactionHistoryRecord) ([]compaction.Entry, error) {
 	history := make([]compaction.Entry, 0, len(values))
 	for _, value := range values {
 		entry := compaction.Entry{
@@ -64,7 +66,11 @@ func DecodeHistory(values []*pb.CompactionHistoryRecord) []compaction.Entry {
 			entry.CallID = result.GetCallId()
 			entry.Tool = result.GetToolName()
 			entry.Failed = result.GetIsError()
-			entry.ErrorCategory = decodeToolErrorCategory(result)
+			category, err := decodeToolErrorCategory(result)
+			if err != nil {
+				return nil, fmt.Errorf("decode history record %q: %w", entry.ID, err)
+			}
+			entry.ErrorCategory = category
 			for _, block := range result.GetContents() {
 				if image := block.GetImage(); image != nil {
 					entry.Blocks = append(entry.Blocks, newImageBlock(image.GetMediaType(), image.GetData()))
@@ -75,11 +81,11 @@ func DecodeHistory(values []*pb.CompactionHistoryRecord) []compaction.Entry {
 		}
 		history = append(history, entry)
 	}
-	return history
+	return history, nil
 }
 
 // encodeHistory maps prepared content and its source correspondence for composition.
-func encodeHistory(entries []compaction.Entry) []*pb.CompactionHistoryRecord {
+func encodeHistory(entries []compaction.Entry) ([]*pb.CompactionHistoryRecord, error) {
 	values := make([]*pb.CompactionHistoryRecord, 0, len(entries))
 	for index := range entries {
 		entry := &entries[index]
@@ -130,19 +136,23 @@ func encodeHistory(entries []compaction.Entry) []*pb.CompactionHistoryRecord {
 				}
 				blocks = append(blocks, content)
 			}
+			category, err := encodeToolErrorCategory(entry.ErrorCategory)
+			if err != nil {
+				return nil, fmt.Errorf("encode history record %q: %w", entry.ID, err)
+			}
 			value.SetToolResult(
 				pb.SessionTreeToolResult_builder{
 					CallId:        new(entry.CallID),
 					ToolName:      new(entry.Tool),
 					IsError:       new(entry.Failed),
-					ErrorCategory: encodeToolErrorCategory(entry.ErrorCategory),
+					ErrorCategory: category,
 					Contents:      blocks,
 				}.Build(),
 			)
 		}
 		values = append(values, value)
 	}
-	return values
+	return values, nil
 }
 
 // decodeModelBlocks maps model text and tool requests into policy data.

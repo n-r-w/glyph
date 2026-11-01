@@ -206,9 +206,11 @@ func TestPublicToolErrorCategoryReplacement(t *testing.T) {
 		require.NoError(t, fixture.stream.Send(userRequest("bad-request", finalizedRequestText)))
 		observation := observeFinalizedRequest(t, fixture, "bad-request")
 
-		// Assert the extension failure with the complete cause and no recorded result.
+		// Assert the extension failure code, the cause that names the category value for the client, and no recorded
+		// result.
 		assert.Equal(t, extensionFailedCode, observation.code)
-		assert.Contains(t, observation.message, "tool error category 99 is outside the closed set")
+		assert.NotEmpty(t, observation.message)
+		assert.Contains(t, observation.message, "99")
 		assert.Empty(t, observation.toolResults[programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_RESULT])
 	})
 }

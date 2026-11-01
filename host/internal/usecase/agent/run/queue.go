@@ -3,7 +3,6 @@ package run
 import (
 	"cmp"
 	"context"
-	"fmt"
 	"slices"
 
 	"github.com/samber/lo"
@@ -48,9 +47,6 @@ func (s *Service) Enqueue(runID string, delivery agent.MessageDelivery, message 
 	defer s.mutex.Unlock()
 	if s.state.Status != StatusRunning || s.state.RunID.OrEmpty() != runID {
 		return agent.ErrRunNotActive
-	}
-	if delivery != agent.MessageDeliverySteer && delivery != agent.MessageDeliveryFollowUp {
-		return fmt.Errorf("message delivery %s is not supported", delivery)
 	}
 	s.nextSequence++
 	s.pending = append(s.pending, queuedMessage{

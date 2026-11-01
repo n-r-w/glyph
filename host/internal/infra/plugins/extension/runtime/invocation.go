@@ -6,9 +6,7 @@ import (
 	"sync"
 
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
-	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
-	"github.com/n-r-w/glyph/internal/errtree"
 )
 
 // invocationLifetime owns accepted children of one Host invocation on this connection.
@@ -39,29 +37,6 @@ type invocationChild struct {
 
 var _ extensioncontroller.InvocationChild = (*invocationChild)(nil)
 
-// fatalInvocationError retains the independent nested cause at the Core tool boundary.
-type fatalInvocationError struct {
-	// cause contains complete nested failure text and identity.
-	cause error
-}
-
-var (
-	_ run.FatalOperationFailure = (*fatalInvocationError)(nil)
-	_ errtree.CodedError        = (*fatalInvocationError)(nil)
-)
-
-// Code preserves fatal failure meaning when the underlying source contains only cancellation.
-func (e *fatalInvocationError) Code() string { return string(modelexecution.FailureExtensionFailed) }
-
-// Error exposes all acquired failure causes.
-func (e *fatalInvocationError) Error() string { return e.cause.Error() }
-
-// Unwrap exposes the retained failure tree.
-func (e *fatalInvocationError) Unwrap() error { return e.cause }
-
-// FatalOperation requires the owning run to stop.
-func (e *fatalInvocationError) FatalOperation() {}
-
 // beginInvocation binds the envelope identifier before the extension can start child work.
 func (r *Runtime) beginInvocation(ctx context.Context, id string) (owned context.Context, finish func(error) error) {
 	owned, cancel := context.WithCancelCause(ctx)
@@ -87,7 +62,7 @@ func (r *Runtime) beginInvocation(ctx context.Context, id string) (owned context
 		lifetime.mutex.Lock()
 		defer lifetime.mutex.Unlock()
 		if lifetime.failure != nil {
-			return &fatalInvocationError{cause: errors.Join(lifetime.failure, source)}
+			return modelexecution.NewFatalExtensionError(errors.Join(lifetime.failure, source))
 		}
 		return source
 	}

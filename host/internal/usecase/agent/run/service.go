@@ -46,7 +46,8 @@ type Service struct {
 	// finalizer supplies the final value of each terminal model response and completed tool result.
 	finalizer MessageFinalizer
 
-	// mutex protects state, pending queued messages, and appended-history accounting.
+	// mutex protects state, pending queued messages, their arrival numbering, the queue mode, and appended-history
+	// accounting.
 	mutex sync.RWMutex
 	// state contains the current run snapshot.
 	state State
@@ -120,32 +121,16 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 			)
 		}
 		turnResult, next, runErr := s.runTurn(ctx, request.RunID)
-		var queued []queuedMessage
-		var cancelErr error
-		switch {
-		case next:
-			queued, cancelErr = s.takeSteer(ctx)
-		case turnResult.Outcome == agent.RunOutcomeCompleted && runErr == nil:
-			// A final response delivers a pending steer or followUp message instead of completing the run.
-			queued, cancelErr = s.takeQueuedOrComplete(ctx)
-			if cancelErr == nil && len(queued) == 0 {
-				return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr, nil)
-			}
-		default:
-			return s.finish(ctx, request.RunID, turnResult.Outcome, turnResult.ErrorMessage, runErr, nil)
-		}
-		if cancelErr != nil {
-			// A canceled run delivers no instruction to a model that a later run could see.
-			return s.finish(
-				ctx, request.RunID, agent.RunOutcomeAborted, mo.Some(abortedModelMessage), cancelErr, nil,
-			)
+		step := s.decideNextStep(ctx, turnResult, next, runErr)
+		if end, finishing := step.end.Get(); finishing {
+			return s.finish(ctx, request.RunID, end.outcome, end.errorMessage, end.err, nil)
 		}
 		// The next turn reads history again, so the model receives the messages in its next request.
-		for index, message := range queued {
+		for index, message := range step.messages {
 			if err := s.appendUser(ctx, message.processed); err != nil {
 				// The failed message and the later ones are not in history, so the client gets them back.
 				return s.finish(
-					ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err, queued[index:],
+					ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err, step.messages[index:],
 				)
 			}
 		}
@@ -524,7 +509,7 @@ func (s *Service) clearPartial() {
 	s.mutex.Unlock()
 }
 
-// appendUser transfers one user message to canonical history ownership.
+// appendUser appends one user message to history.
 func (s *Service) appendUser(ctx context.Context, message model.Message) error {
 	return s.appendHistory(ctx, agent.HistoryEntry{
 		Kind: agent.HistoryEntryUser, User: mo.Some(message),

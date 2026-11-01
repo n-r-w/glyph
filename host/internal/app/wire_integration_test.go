@@ -8,8 +8,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"os/exec"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -23,10 +21,7 @@ import (
 func buildWireFixture(t *testing.T, mode string) string {
 	t.Helper()
 	directory := t.TempDir()
-	command := exec.CommandContext(t.Context(), "go", "build", "-o", filepath.Join(directory, mode), "./cmd/wire")
-	command.Dir = filepath.Join(repoRoot(t), "testdata", "external-plugins")
-	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
+	buildExternalCommand(t, directory, "wire", mode)
 	return directory
 }
 

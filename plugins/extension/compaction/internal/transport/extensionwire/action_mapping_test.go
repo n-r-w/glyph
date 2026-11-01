@@ -72,7 +72,7 @@ func TestResultPayloadValidation(t *testing.T) {
 				result.SetResult(new(pb.CompactionResult))
 			}
 			// Act through optional and existing result action decoding.
-			requestErr := DecodeRequestAction(request).Validate()
+			requestErr := decodeRequestActionOrFail(t, request).Validate()
 			resultErr := DecodeResultAction(result).Validate()
 			// Assert complete validation causes remain unchanged.
 			require.EqualError(t, requestErr, test.optionalError)
@@ -82,7 +82,11 @@ func TestResultPayloadValidation(t *testing.T) {
 	canceled := new(pb.CompactionRequestAction)
 	canceled.SetCancel(true)
 	canceled.SetRequest(newMappingRequest())
-	require.EqualError(t, DecodeRequestAction(canceled).Validate(), "compaction cancellation must be exclusive")
+	require.EqualError(
+		t,
+		decodeRequestActionOrFail(t, canceled).Validate(),
+		"compaction cancellation must be exclusive",
+	)
 }
 
 // TestRequestDispositionMapping checks request decisions and cancellation exclusivity.
@@ -120,7 +124,7 @@ func TestRequestDispositionMapping(t *testing.T) {
 			action.SetRequest(newMappingRequest())
 		}
 		// Act through action decoding and validation.
-		decoded := DecodeRequestAction(action)
+		decoded := decodeRequestActionOrFail(t, action)
 		// Assert unknown decisions remain invalid, including alongside cancellation.
 		require.Equal(t, test.want, decoded.RequestDisposition)
 		require.Equal(t, test.want, decodeRequestDisposition(test.wire))
@@ -132,7 +136,7 @@ func TestRequestDispositionMapping(t *testing.T) {
 		canceled := new(pb.CompactionRequestAction)
 		canceled.SetCancel(true)
 		canceled.SetRequestAction(test.wire)
-		cancelAction := DecodeRequestAction(canceled)
+		cancelAction := decodeRequestActionOrFail(t, canceled)
 		if test.want == compaction.RequestUnspecified {
 			require.NoError(t, cancelAction.Validate())
 		} else {
@@ -144,14 +148,14 @@ func TestRequestDispositionMapping(t *testing.T) {
 	missing.SetResultAction(pb.CompactionResultDisposition_COMPACTION_RESULT_DISPOSITION_PRESERVE)
 	require.ErrorContains(
 		t,
-		DecodeRequestAction(missing).Validate(),
+		decodeRequestActionOrFail(t, missing).Validate(),
 		"compaction request replacement payload does not match disposition",
 	)
 	missing.SetRequestAction(pb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_PRESERVE)
 	missing.SetRequest(newMappingRequest())
 	require.ErrorContains(
 		t,
-		DecodeRequestAction(missing).Validate(),
+		decodeRequestActionOrFail(t, missing).Validate(),
 		"compaction request replacement payload does not match disposition",
 	)
 }
@@ -204,7 +208,7 @@ func TestResultDispositionMapping(t *testing.T) {
 			existing.SetResult(new(pb.CompactionResult))
 		}
 		// Act through both optional-result and existing-result decoding.
-		decodedRequest, decodedExisting := DecodeRequestAction(request), DecodeResultAction(existing)
+		decodedRequest, decodedExisting := decodeRequestActionOrFail(t, request), DecodeResultAction(existing)
 		// Assert valid/invalid handling remains distinct from cancellation.
 		require.Equal(t, test.want, decodedRequest.ResultDisposition)
 		require.Equal(t, test.want, decodedExisting.Disposition)
@@ -227,7 +231,7 @@ func TestResultDispositionMapping(t *testing.T) {
 		canceledRequest.SetResultAction(test.wire)
 		if test.want == compaction.ResultUnspecified {
 			require.NoError(t, DecodeResultAction(canceled).Validate())
-			require.NoError(t, DecodeRequestAction(canceledRequest).Validate())
+			require.NoError(t, decodeRequestActionOrFail(t, canceledRequest).Validate())
 		} else {
 			require.ErrorContains(
 				t,
@@ -236,7 +240,7 @@ func TestResultDispositionMapping(t *testing.T) {
 			)
 			require.ErrorContains(
 				t,
-				DecodeRequestAction(canceledRequest).Validate(),
+				decodeRequestActionOrFail(t, canceledRequest).Validate(),
 				"compaction cancellation must be exclusive",
 			)
 		}

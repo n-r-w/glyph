@@ -110,55 +110,94 @@ func (h *handler) Run(ctx context.Context) (*pb.HandleResponse, error) {
 	response := new(pb.HandleResponse)
 	switch {
 	case h.request.GetCompletedConversation() != nil:
-		if err := h.service.policy.Observe(
-			ctx,
-			extensionwire.DecodeObservation(
-				h.request.GetCompletedConversation(),
-				extensionwire.DecodeBinding(h.request.GetContext()),
-			),
-		); err != nil {
+		if err := h.observe(ctx); err != nil {
 			return nil, err
 		}
 		response.SetCompletedConversation(new(pb.CompactionObserverAction))
 	case h.request.GetCompactionOutgoingInput() != nil:
-		if err := h.service.policy.ValidateOutgoing(
-			ctx,
-			extensionwire.DecodeOutgoing(h.request.GetCompactionOutgoingInput()),
-		); err != nil {
+		if err := h.validateOutgoing(ctx); err != nil {
 			return nil, err
 		}
 		response.SetCompactionOutgoingInput(new(pb.CompactionObserverAction))
 	case h.request.GetCompactionGenerate() != nil:
-		request := extensionwire.DecodeRequest(h.request.GetCompactionGenerate().GetCurrent())
-		if err := request.Validate(); err != nil {
-			return nil, err
-		}
-		result, err := h.service.generator.Generate(ctx, request)
+		result, err := h.generate(ctx)
 		if err != nil {
 			return nil, err
 		}
-		response.SetCompactionGenerate(extensionwire.EncodeResult(result))
+		response.SetCompactionGenerate(result)
 	case h.request.GetCompactionPolicy() != nil:
-		input := extensionwire.DecodeInput(h.request.GetCompactionPolicy())
-		input.Binding = extensionwire.DecodeBinding(h.request.GetContext())
-		outcome, err := h.service.policy.Compact(ctx, input)
-		result := new(pb.CompactionPolicyResult)
-		if state, present := outcome.State.Get(); present {
-			result.SetState(extensionwire.EncodeState(state))
-		}
-		switch {
-		case err != nil:
-			result.SetError(err.Error())
-		case outcome.Canceled:
-			result.SetDisposition(pb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED)
-		case outcome.Preserve:
-			result.SetDisposition(pb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_PRESERVE)
-		default:
-			result.SetDisposition(pb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_REPLACED)
+		result, err := h.compact(ctx)
+		if err != nil {
+			return nil, err
 		}
 		response.SetCompactionPolicy(result)
 	}
 	return response, nil
+}
+
+// observe passes the completed conversation to the policy.
+func (h *handler) observe(ctx context.Context) error {
+	observation, err := extensionwire.DecodeObservation(
+		h.request.GetCompletedConversation(), extensionwire.DecodeBinding(h.request.GetContext()),
+	)
+	if err != nil {
+		return err
+	}
+	return h.service.policy.Observe(ctx, observation)
+}
+
+// validateOutgoing passes the frozen outgoing conversation input to the policy.
+func (h *handler) validateOutgoing(ctx context.Context) error {
+	input, err := extensionwire.DecodeOutgoing(h.request.GetCompactionOutgoingInput())
+	if err != nil {
+		return err
+	}
+	return h.service.policy.ValidateOutgoing(ctx, input)
+}
+
+// generate creates the replacement candidate for the composed request.
+func (h *handler) generate(ctx context.Context) (*pb.CompactionResult, error) {
+	request, err := extensionwire.DecodeRequest(h.request.GetCompactionGenerate().GetCurrent())
+	if err != nil {
+		return nil, err
+	}
+	if validateErr := request.Validate(); validateErr != nil {
+		return nil, validateErr
+	}
+	result, err := h.service.generator.Generate(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return extensionwire.EncodeResult(result), nil
+}
+
+// compact runs the policy and reports its failure in the result, so that Host receives the acquired state.
+func (h *handler) compact(ctx context.Context) (*pb.CompactionPolicyResult, error) {
+	input, err := extensionwire.DecodeInput(h.request.GetCompactionPolicy())
+	if err != nil {
+		return nil, err
+	}
+	input.Binding = extensionwire.DecodeBinding(h.request.GetContext())
+	outcome, err := h.service.policy.Compact(ctx, input)
+	result := new(pb.CompactionPolicyResult)
+	if state, present := outcome.State.Get(); present {
+		encoded, encodeErr := extensionwire.EncodeState(state)
+		if encodeErr != nil {
+			return nil, encodeErr
+		}
+		result.SetState(encoded)
+	}
+	switch {
+	case err != nil:
+		result.SetError(err.Error())
+	case outcome.Canceled:
+		result.SetDisposition(pb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_CANCELED)
+	case outcome.Preserve:
+		result.SetDisposition(pb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_PRESERVE)
+	default:
+		result.SetDisposition(pb.CompactionPolicyDisposition_COMPACTION_POLICY_DISPOSITION_REPLACED)
+	}
+	return result, nil
 }
 
 // Release is the cleanup hook for callback operations.

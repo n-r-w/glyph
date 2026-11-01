@@ -36,8 +36,8 @@ func TestToolResultErrorCategoryRoundTrip(t *testing.T) {
 			}.Build())
 
 			// Act through policy decoding and participant-request encoding.
-			decoded := DecodeHistory([]*pb.CompactionHistoryRecord{wire})
-			encoded := encodeHistory(decoded)
+			decoded := decodeHistoryOrFail(t, []*pb.CompactionHistoryRecord{wire})
+			encoded := encodeHistoryOrFail(t, decoded)
 
 			// Assert the category on both sides of the policy.
 			require.Len(t, encoded, 1)
@@ -51,8 +51,20 @@ func TestToolResultErrorCategoryRoundTrip(t *testing.T) {
 	}
 }
 
-// TestToolResultUnrecognizedErrorCategory verifies that an unspecified or unknown category is not turned into a valid
-// one and returns to Host as the unspecified value, which Host rejects.
+// newInvalidCategoryRecord creates an error tool result of the named history record with a category outside the closed
+// set.
+func newInvalidCategoryRecord(id string, category pb.ToolErrorCategory) *pb.CompactionHistoryRecord {
+	record := new(pb.CompactionHistoryRecord)
+	record.SetSourceEntryId(id)
+	record.SetToolResult(pb.SessionTreeToolResult_builder{
+		CallId: new("call"), ToolName: new("read"), Contents: nil, IsError: new(true),
+		ErrorCategory: new(category),
+	}.Build())
+	return record
+}
+
+// TestToolResultUnrecognizedErrorCategory verifies that an unspecified or unknown category fails decoding with an
+// error that names the category value and the record that holds it.
 func TestToolResultUnrecognizedErrorCategory(t *testing.T) {
 	t.Parallel()
 	for name, category := range map[string]pb.ToolErrorCategory{
@@ -63,24 +75,91 @@ func TestToolResultUnrecognizedErrorCategory(t *testing.T) {
 			t.Parallel()
 
 			// Arrange a prepared error result with a category outside the closed set.
-			wire := new(pb.CompactionHistoryRecord)
-			wire.SetSourceEntryId("source")
-			wire.SetToolResult(pb.SessionTreeToolResult_builder{
-				CallId: new("call"), ToolName: new("read"), Contents: nil, IsError: new(true),
-				ErrorCategory: new(category),
-			}.Build())
+			wire := newInvalidCategoryRecord("source", category)
 
-			// Act through policy decoding and participant-request encoding.
-			decoded := DecodeHistory([]*pb.CompactionHistoryRecord{wire})
-			encoded := encodeHistory(decoded)
+			// Act through policy decoding.
+			decoded, err := DecodeHistory([]*pb.CompactionHistoryRecord{wire})
 
-			// Assert the unrecognized marker and the unspecified value on the wire.
-			assert.Equal(t, mo.Some(compaction.ToolErrorInvalid), decoded[0].ErrorCategory)
-			require.Len(t, encoded, 1)
-			require.True(t, encoded[0].GetToolResult().HasErrorCategory())
-			assert.Equal(
-				t, pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED, encoded[0].GetToolResult().GetErrorCategory(),
-			)
+			// Assert the decoding failure names the category and the record.
+			require.ErrorContains(t, err, category.String())
+			require.ErrorContains(t, err, `"source"`)
+			assert.Nil(t, decoded)
 		})
 	}
+}
+
+// TestRequestUnrecognizedErrorCategory verifies that a category outside the closed set in the prefix or the suffix of
+// a request fails request decoding with an error that names the part, the category value, and the record.
+func TestRequestUnrecognizedErrorCategory(t *testing.T) {
+	t.Parallel()
+	for part, setPart := range map[string]func(*pb.CompactionRequest, []*pb.CompactionHistoryRecord){
+		"prefix": (*pb.CompactionRequest).SetPrefix,
+		"suffix": (*pb.CompactionRequest).SetSuffix,
+	} {
+		t.Run(part, func(t *testing.T) {
+			t.Parallel()
+
+			// Arrange a request whose selected part holds a result with an unknown category.
+			wire := newMappingRequest()
+			setPart(
+				wire,
+				[]*pb.CompactionHistoryRecord{newInvalidCategoryRecord("bad-record", pb.ToolErrorCategory(99))},
+			)
+
+			// Act through request decoding.
+			decoded, err := DecodeRequest(wire)
+
+			// Assert the failure names the part, the category, and the record.
+			require.ErrorContains(t, err, part)
+			require.ErrorContains(t, err, "99")
+			require.ErrorContains(t, err, `"bad-record"`)
+			assert.Zero(t, decoded)
+		})
+	}
+}
+
+// TestEncodeUnrecognizedErrorCategory verifies that a category outside the closed set fails request encoding with an
+// error that names the part, the category value, and the record.
+func TestEncodeUnrecognizedErrorCategory(t *testing.T) {
+	t.Parallel()
+	// Arrange a request whose prefix holds a result with a category that the public contract does not define.
+	request := decodeRequestOrFail(t, newMappingRequest())
+	request.Prefix = []compaction.Entry{{
+		ID: "bad-record", Kind: compaction.ToolResult, Blocks: nil, CallID: "call", Tool: "read", Failed: true,
+		ErrorCategory:   mo.Some(compaction.ToolErrorCategory("not_a_category")),
+		SourcePosition:  0,
+		SourceKind:      compaction.SourceUser,
+		PreviousSummary: false,
+		PrivateBytes:    0,
+		Tokens:          0,
+	}}
+
+	// Act through request encoding.
+	encoded, err := EncodeRequest(request)
+
+	// Assert the failure names the part, the category, and the record.
+	require.ErrorContains(t, err, "prefix")
+	require.ErrorContains(t, err, "not_a_category")
+	require.ErrorContains(t, err, `"bad-record"`)
+	assert.Nil(t, encoded)
+}
+
+// TestRequestActionUnrecognizedErrorCategory verifies that a category outside the closed set in the replacement
+// request of an action fails action decoding with an error that names the category value and the record.
+func TestRequestActionUnrecognizedErrorCategory(t *testing.T) {
+	t.Parallel()
+	// Arrange an action whose replacement request holds a result with an unknown category.
+	request := newMappingRequest()
+	request.SetPrefix([]*pb.CompactionHistoryRecord{newInvalidCategoryRecord("bad-record", pb.ToolErrorCategory(99))})
+	wire := new(pb.CompactionRequestAction)
+	wire.SetRequestAction(pb.CompactionRequestDisposition_COMPACTION_REQUEST_DISPOSITION_REPLACE)
+	wire.SetRequest(request)
+
+	// Act through action decoding.
+	decoded, err := DecodeRequestAction(wire)
+
+	// Assert the failure names the category and the record.
+	require.ErrorContains(t, err, "99")
+	require.ErrorContains(t, err, `"bad-record"`)
+	assert.Zero(t, decoded)
 }
