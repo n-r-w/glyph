@@ -99,7 +99,7 @@ func appendPreparedBranchFixture(
 			CallID:   "source-a",
 			ToolName: "fixture-tool",
 			Contents: tool.TextContents("stored source " + strings.Repeat("r", 600)),
-			IsError:  false,
+			IsError:  false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
 		},
 	)
 	entries[5].User = mo.Some(model.TextMessage(recent))

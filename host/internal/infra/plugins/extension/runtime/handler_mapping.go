@@ -126,7 +126,11 @@ func mapSessionEntry(entry extensionruntime.TreeEntry) (*extensionpb.SessionTree
 		return builder.Build(), nil
 	}
 	if result, present := entry.ToolResult.Get(); present {
-		builder.ToolResult = mapTreeToolResult(result)
+		mapped, err := mapTreeToolResult(result)
+		if err != nil {
+			return nil, fmt.Errorf("map tool result of entry %q: %w", entry.ID, err)
+		}
+		builder.ToolResult = mapped
 		return builder.Build(), nil
 	}
 	if summary, present := entry.BranchSummary.Get(); present {
@@ -209,11 +213,16 @@ func mapModelResponse(response []extensionruntime.Content) *extensionpb.SessionT
 }
 
 // mapTreeToolResult maps one terminal result and all model-visible blocks.
-func mapTreeToolResult(result session.ToolResult) *extensionpb.SessionTreeToolResult {
+func mapTreeToolResult(result session.ToolResult) (*extensionpb.SessionTreeToolResult, error) {
+	category, err := extensioncontroller.EncodeToolErrorCategory(result.ErrorCategory)
+	if err != nil {
+		return nil, err
+	}
 	return extensionpb.SessionTreeToolResult_builder{
 		CallId: new(result.CallID), ToolName: new(result.ToolName),
 		Contents: mapToolResultContentsToProto(result.Contents), IsError: new(result.IsError),
-	}.Build()
+		ErrorCategory: category,
+	}.Build(), nil
 }
 
 // mapToolResultContentsToProto maps ordered text and image terminal blocks.

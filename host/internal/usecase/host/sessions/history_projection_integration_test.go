@@ -98,7 +98,7 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 		Diagnostics:   []model.Diagnostic{{Code: "notice", Message: "safe diagnostic"}},
 	}
 	result := agent.ToolResult{
-		CallID: call.ID, ToolName: call.Name, IsError: false,
+		CallID: call.ID, ToolName: call.Name, IsError: false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
 		Contents: []tool.ResultContent{
 			{Kind: tool.ResultContentText, Text: mo.Some("contents"), Image: mo.None[tool.ResultImage]()},
 			{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{

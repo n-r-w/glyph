@@ -48,6 +48,20 @@ func mapWireMessageDelivery(delivery agent.MessageDelivery) (programmaticv1.Mess
 	}
 }
 
+// mapWireToolErrorCategory maps one domain tool error category to its public enum.
+func mapWireToolErrorCategory(category agent.ToolErrorCategory) (programmaticv1.ToolErrorCategory, error) {
+	switch category {
+	case agent.ToolErrorUnavailableTool:
+		return programmaticv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL, nil
+	case agent.ToolErrorInvalidArguments:
+		return programmaticv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS, nil
+	case agent.ToolErrorFailure:
+		return programmaticv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE, nil
+	default:
+		return 0, fmt.Errorf("map tool error category: unknown value %d", category)
+	}
+}
+
 // mapAgentEventType maps one internal agent event type to its public enum.
 //
 //nolint:gocyclo // The closed event enum is mapped exhaustively.

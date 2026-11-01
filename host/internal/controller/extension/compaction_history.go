@@ -145,9 +145,13 @@ func mapCompactionToolResult(result agent.ToolResult) (*extensionpb.SessionTreeT
 		}
 		contents = append(contents, mapped)
 	}
+	category, err := EncodeToolErrorCategory(result.ErrorCategory)
+	if err != nil {
+		return nil, err
+	}
 	return extensionpb.SessionTreeToolResult_builder{
 		CallId: new(result.CallID), ToolName: new(result.ToolName),
-		Contents: contents, IsError: new(result.IsError),
+		Contents: contents, IsError: new(result.IsError), ErrorCategory: category,
 	}.Build(), nil
 }
 

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -277,10 +278,12 @@ func TestServiceListsAndExecutesAcceptedTools(t *testing.T) {
 	require.NoError(t, invalidErr)
 	assert.True(t, invalid.IsError)
 	assert.Contains(t, invalid.Contents[0].Text.OrEmpty(), `invalid arguments for tool "read"`)
+	assert.Equal(t, mo.Some(agent.ToolErrorInvalidArguments), invalid.ErrorCategory)
 	require.NoError(t, executeErr)
 	assert.Equal(t, "call", result.CallID)
 	assert.Equal(t, "read", result.ToolName)
 	assert.Equal(t, tool.TextContents("content"), result.Contents)
+	assert.True(t, result.ErrorCategory.IsAbsent())
 	assert.Equal(t, []string{"read", "write"}, []string{listed[0].Name, listed[1].Name})
 }
 
@@ -351,6 +354,52 @@ func TestServiceReturnsUnavailableResult(t *testing.T) {
 	require.NoError(t, executeErr)
 	assert.True(t, result.IsError)
 	assert.Equal(t, `tool "read" is unavailable`, result.Contents[0].Text.OrEmpty())
+	assert.Equal(t, mo.Some(agent.ToolErrorUnavailableTool), result.ErrorCategory)
+}
+
+// TestServiceCategorizesReportedError verifies that an error result reported by the tool gets the tool-failure
+// category while a successful result gets none.
+func TestServiceCategorizesReportedError(t *testing.T) {
+	t.Parallel()
+	// Arrange an accepted tool that reports an error on its first call and succeeds on its second call.
+	controller := gomock.NewController(t)
+	runtime := NewMockRuntime(controller)
+	service := New(runtime)
+	contexts := NewMockContextIssuer(controller)
+	contexts.EXPECT().IssueContext("extension").Return(extension.Context{}, nil).Times(2)
+	service.BindContextIssuer(contexts)
+	descriptors, err := service.ValidateLocal(
+		startup.PendingRegistration{
+			ID:       "extension",
+			Path:     "/extension",
+			Tools:    []startup.RawToolDescriptor{rawDescriptor("read", "Read.")},
+			Handlers: nil,
+		},
+	)
+	require.NoError(t, err)
+	service.Commit(
+		[]startup.AcceptedRegistration{{ID: "extension", Path: "/extension", Tools: descriptors, Handlers: nil}},
+	)
+	runtime.EXPECT().ToolRuntimeAvailable("extension").Return(true).Times(2)
+	reported := true
+	runtime.EXPECT().
+		ExecuteTool(t.Context(), "extension", "read", gomock.Any(), gomock.Any(), gomock.Any()).
+		Times(2).
+		DoAndReturn(func(context.Context, string, string, []byte, tool.ProgressHandler, extension.Context) (tool.Result, error) {
+			defer func() { reported = false }()
+			return tool.Result{Contents: tool.TextContents("result"), IsError: reported}, nil
+		})
+	call := model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{ "path":"file" }`)}
+
+	// Act execute the tool twice.
+	failed, failedErr := service.Execute(t.Context(), call, func(tool.Progress) error { return nil })
+	succeeded, succeededErr := service.Execute(t.Context(), call, func(tool.Progress) error { return nil })
+
+	// Assert the category only on the reported error.
+	require.NoError(t, failedErr)
+	require.NoError(t, succeededErr)
+	assert.Equal(t, mo.Some(agent.ToolErrorFailure), failed.ErrorCategory)
+	assert.True(t, succeeded.ErrorCategory.IsAbsent())
 }
 
 // rawDescriptor constructs one valid raw tool descriptor.

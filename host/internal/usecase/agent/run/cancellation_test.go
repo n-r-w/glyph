@@ -407,6 +407,7 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 		require.Len(t, projected, 4)
 		assert.Equal(t, "skipped", projected[3].ToolResult.OrEmpty().CallID)
 		assert.Equal(t, skippedCallError, projected[3].ToolResult.OrEmpty().Contents[0].Text.OrEmpty())
+		assert.True(t, projected[3].ToolResult.OrEmpty().ErrorCategory.IsAbsent())
 		assert.Len(t, service.History(), 3)
 	})
 }

@@ -76,6 +76,58 @@ func (x SessionTreeModelContentKind) Number() protoreflect.EnumNumber {
 	return protoreflect.EnumNumber(x)
 }
 
+// ToolErrorCategory identifies the Glyph kind of an error tool result.
+type ToolErrorCategory int32
+
+const (
+	// No error category was provided.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED ToolErrorCategory = 0
+	// The model called a tool that is not available.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL ToolErrorCategory = 1
+	// The arguments of the call do not match the input schema of the tool.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS ToolErrorCategory = 2
+	// The tool reported an error, or Host could not execute the tool.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE ToolErrorCategory = 3
+)
+
+// Enum value maps for ToolErrorCategory.
+var (
+	ToolErrorCategory_name = map[int32]string{
+		0: "TOOL_ERROR_CATEGORY_UNSPECIFIED",
+		1: "TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL",
+		2: "TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS",
+		3: "TOOL_ERROR_CATEGORY_TOOL_FAILURE",
+	}
+	ToolErrorCategory_value = map[string]int32{
+		"TOOL_ERROR_CATEGORY_UNSPECIFIED":       0,
+		"TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL":  1,
+		"TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS": 2,
+		"TOOL_ERROR_CATEGORY_TOOL_FAILURE":      3,
+	}
+)
+
+func (x ToolErrorCategory) Enum() *ToolErrorCategory {
+	p := new(ToolErrorCategory)
+	*p = x
+	return p
+}
+
+func (x ToolErrorCategory) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ToolErrorCategory) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_plugins_extension_v1_session_entry_proto_enumTypes[1].Descriptor()
+}
+
+func (ToolErrorCategory) Type() protoreflect.EnumType {
+	return &file_api_plugins_extension_v1_session_entry_proto_enumTypes[1]
+}
+
+func (x ToolErrorCategory) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // SessionTreeEntry contains a provider-neutral entry projection for branch-summary and compaction operations.
 type SessionTreeEntry struct {
 	state                  protoimpl.MessageState     `protogen:"opaque.v1"`
@@ -1382,15 +1434,16 @@ func (b0 SessionTreeToolCall_builder) Build() *SessionTreeToolCall {
 
 // SessionTreeToolResult contains one terminal tool result.
 type SessionTreeToolResult struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
-	xxx_hidden_ToolName    *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName"`
-	xxx_hidden_Contents    *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
-	xxx_hidden_IsError     bool                   `protobuf:"varint,4,opt,name=is_error,json=isError"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_CallId        *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
+	xxx_hidden_ToolName      *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName"`
+	xxx_hidden_Contents      *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
+	xxx_hidden_IsError       bool                   `protobuf:"varint,4,opt,name=is_error,json=isError"`
+	xxx_hidden_ErrorCategory ToolErrorCategory      `protobuf:"varint,5,opt,name=error_category,json=errorCategory,enum=glyph.plugins.extension.v1.ToolErrorCategory"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *SessionTreeToolResult) Reset() {
@@ -1454,14 +1507,23 @@ func (x *SessionTreeToolResult) GetIsError() bool {
 	return false
 }
 
+func (x *SessionTreeToolResult) GetErrorCategory() ToolErrorCategory {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 4) {
+			return x.xxx_hidden_ErrorCategory
+		}
+	}
+	return ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
+}
+
 func (x *SessionTreeToolResult) SetCallId(v string) {
 	x.xxx_hidden_CallId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *SessionTreeToolResult) SetToolName(v string) {
 	x.xxx_hidden_ToolName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *SessionTreeToolResult) SetContents(v []*ToolResultContent) {
@@ -1470,7 +1532,12 @@ func (x *SessionTreeToolResult) SetContents(v []*ToolResultContent) {
 
 func (x *SessionTreeToolResult) SetIsError(v bool) {
 	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *SessionTreeToolResult) SetErrorCategory(v ToolErrorCategory) {
+	x.xxx_hidden_ErrorCategory = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
 func (x *SessionTreeToolResult) HasCallId() bool {
@@ -1494,6 +1561,13 @@ func (x *SessionTreeToolResult) HasIsError() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
+func (x *SessionTreeToolResult) HasErrorCategory() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
 func (x *SessionTreeToolResult) ClearCallId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_CallId = nil
@@ -1509,6 +1583,11 @@ func (x *SessionTreeToolResult) ClearIsError() {
 	x.xxx_hidden_IsError = false
 }
 
+func (x *SessionTreeToolResult) ClearErrorCategory() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_ErrorCategory = ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
+}
+
 type SessionTreeToolResult_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -1520,6 +1599,9 @@ type SessionTreeToolResult_builder struct {
 	Contents []*ToolResultContent
 	// Whether tool execution ended with an error.
 	IsError *bool
+	// The Glyph category of the error. A handler that changes the result without replacing it completely keeps the
+	// received value. It is present only for an error result that Host categorized.
+	ErrorCategory *ToolErrorCategory
 }
 
 func (b0 SessionTreeToolResult_builder) Build() *SessionTreeToolResult {
@@ -1527,17 +1609,21 @@ func (b0 SessionTreeToolResult_builder) Build() *SessionTreeToolResult {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.CallId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_CallId = b.CallId
 	}
 	if b.ToolName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_ToolName = b.ToolName
 	}
 	x.xxx_hidden_Contents = &b.Contents
 	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
 		x.xxx_hidden_IsError = *b.IsError
+	}
+	if b.ErrorCategory != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_ErrorCategory = *b.ErrorCategory
 	}
 	return m0
 }
@@ -3356,12 +3442,13 @@ const file_api_plugins_extension_v1_session_entry_proto_rawDesc = "" +
 	"\x13SessionTreeToolCall\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
-	"\x0earguments_json\x18\x03 \x01(\fR\rargumentsJson\"\xb3\x01\n" +
+	"\x0earguments_json\x18\x03 \x01(\fR\rargumentsJson\"\x89\x02\n" +
 	"\x15SessionTreeToolResult\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12I\n" +
 	"\bcontents\x18\x03 \x03(\v2-.glyph.plugins.extension.v1.ToolResultContentR\bcontents\x12\x19\n" +
-	"\bis_error\x18\x04 \x01(\bR\aisError\"4\n" +
+	"\bis_error\x18\x04 \x01(\bR\aisError\x12T\n" +
+	"\x0eerror_category\x18\x05 \x01(\x0e2-.glyph.plugins.extension.v1.ToolErrorCategoryR\rerrorCategory\"4\n" +
 	"\x18SessionTreeBranchSummary\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary\"\xc0\x01\n" +
 	"\x15SessionTreeCompaction\x12\x18\n" +
@@ -3421,69 +3508,76 @@ const file_api_plugins_extension_v1_session_entry_proto_rawDesc = "" +
 	"$SESSION_TREE_MODEL_CONTENT_KIND_TEXT\x10\x01\x12+\n" +
 	"'SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL\x10\x02\x12-\n" +
 	")SESSION_TREE_MODEL_CONTENT_KIND_REASONING\x10\x03\x12-\n" +
-	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
+	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04*\xb3\x01\n" +
+	"\x11ToolErrorCategory\x12#\n" +
+	"\x1fTOOL_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12(\n" +
+	"$TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL\x10\x01\x12)\n" +
+	"%TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS\x10\x02\x12$\n" +
+	" TOOL_ERROR_CATEGORY_TOOL_FAILURE\x10\x03B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_session_entry_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_api_plugins_extension_v1_session_entry_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_api_plugins_extension_v1_session_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_api_plugins_extension_v1_session_entry_proto_goTypes = []any{
 	(SessionTreeModelContentKind)(0),    // 0: glyph.plugins.extension.v1.SessionTreeModelContentKind
-	(*SessionTreeEntry)(nil),            // 1: glyph.plugins.extension.v1.SessionTreeEntry
-	(*SessionTreeExtensionMessage)(nil), // 2: glyph.plugins.extension.v1.SessionTreeExtensionMessage
-	(*SessionTreeUserMessage)(nil),      // 3: glyph.plugins.extension.v1.SessionTreeUserMessage
-	(*SessionTreeUserContent)(nil),      // 4: glyph.plugins.extension.v1.SessionTreeUserContent
-	(*SessionTreeImage)(nil),            // 5: glyph.plugins.extension.v1.SessionTreeImage
-	(*SessionTreeModelResponse)(nil),    // 6: glyph.plugins.extension.v1.SessionTreeModelResponse
-	(*SessionTreeModelContent)(nil),     // 7: glyph.plugins.extension.v1.SessionTreeModelContent
-	(*SessionTreeToolCall)(nil),         // 8: glyph.plugins.extension.v1.SessionTreeToolCall
-	(*SessionTreeToolResult)(nil),       // 9: glyph.plugins.extension.v1.SessionTreeToolResult
-	(*SessionTreeBranchSummary)(nil),    // 10: glyph.plugins.extension.v1.SessionTreeBranchSummary
-	(*SessionTreeCompaction)(nil),       // 11: glyph.plugins.extension.v1.SessionTreeCompaction
-	(*CompactionSource)(nil),            // 12: glyph.plugins.extension.v1.CompactionSource
-	(*CompactionModelRequests)(nil),     // 13: glyph.plugins.extension.v1.CompactionModelRequests
-	(*CompactionModelRequest)(nil),      // 14: glyph.plugins.extension.v1.CompactionModelRequest
-	(*SessionTreeExtensionEntry)(nil),   // 15: glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	(*BranchSummaryResult)(nil),         // 16: glyph.plugins.extension.v1.BranchSummaryResult
-	(*BranchSummarySource)(nil),         // 17: glyph.plugins.extension.v1.BranchSummarySource
-	(*BranchSummaryModelSource)(nil),    // 18: glyph.plugins.extension.v1.BranchSummaryModelSource
-	(*TokenUsage)(nil),                  // 19: glyph.plugins.extension.v1.TokenUsage
-	(*CommittedBranchSummary)(nil),      // 20: glyph.plugins.extension.v1.CommittedBranchSummary
-	(*EstimatedCost)(nil),               // 21: glyph.plugins.extension.v1.EstimatedCost
-	(ClientVisibility)(0),               // 22: glyph.plugins.extension.v1.ClientVisibility
-	(*ToolResultContent)(nil),           // 23: glyph.plugins.extension.v1.ToolResultContent
-	(*ModelSelection)(nil),              // 24: glyph.plugins.extension.v1.ModelSelection
+	(ToolErrorCategory)(0),              // 1: glyph.plugins.extension.v1.ToolErrorCategory
+	(*SessionTreeEntry)(nil),            // 2: glyph.plugins.extension.v1.SessionTreeEntry
+	(*SessionTreeExtensionMessage)(nil), // 3: glyph.plugins.extension.v1.SessionTreeExtensionMessage
+	(*SessionTreeUserMessage)(nil),      // 4: glyph.plugins.extension.v1.SessionTreeUserMessage
+	(*SessionTreeUserContent)(nil),      // 5: glyph.plugins.extension.v1.SessionTreeUserContent
+	(*SessionTreeImage)(nil),            // 6: glyph.plugins.extension.v1.SessionTreeImage
+	(*SessionTreeModelResponse)(nil),    // 7: glyph.plugins.extension.v1.SessionTreeModelResponse
+	(*SessionTreeModelContent)(nil),     // 8: glyph.plugins.extension.v1.SessionTreeModelContent
+	(*SessionTreeToolCall)(nil),         // 9: glyph.plugins.extension.v1.SessionTreeToolCall
+	(*SessionTreeToolResult)(nil),       // 10: glyph.plugins.extension.v1.SessionTreeToolResult
+	(*SessionTreeBranchSummary)(nil),    // 11: glyph.plugins.extension.v1.SessionTreeBranchSummary
+	(*SessionTreeCompaction)(nil),       // 12: glyph.plugins.extension.v1.SessionTreeCompaction
+	(*CompactionSource)(nil),            // 13: glyph.plugins.extension.v1.CompactionSource
+	(*CompactionModelRequests)(nil),     // 14: glyph.plugins.extension.v1.CompactionModelRequests
+	(*CompactionModelRequest)(nil),      // 15: glyph.plugins.extension.v1.CompactionModelRequest
+	(*SessionTreeExtensionEntry)(nil),   // 16: glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	(*BranchSummaryResult)(nil),         // 17: glyph.plugins.extension.v1.BranchSummaryResult
+	(*BranchSummarySource)(nil),         // 18: glyph.plugins.extension.v1.BranchSummarySource
+	(*BranchSummaryModelSource)(nil),    // 19: glyph.plugins.extension.v1.BranchSummaryModelSource
+	(*TokenUsage)(nil),                  // 20: glyph.plugins.extension.v1.TokenUsage
+	(*CommittedBranchSummary)(nil),      // 21: glyph.plugins.extension.v1.CommittedBranchSummary
+	(*EstimatedCost)(nil),               // 22: glyph.plugins.extension.v1.EstimatedCost
+	(ClientVisibility)(0),               // 23: glyph.plugins.extension.v1.ClientVisibility
+	(*ToolResultContent)(nil),           // 24: glyph.plugins.extension.v1.ToolResultContent
+	(*ModelSelection)(nil),              // 25: glyph.plugins.extension.v1.ModelSelection
 }
 var file_api_plugins_extension_v1_session_entry_proto_depIdxs = []int32{
-	3,  // 0: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
-	6,  // 1: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
-	9,  // 2: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
-	10, // 3: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
-	15, // 4: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
-	2,  // 5: glyph.plugins.extension.v1.SessionTreeEntry.extension_message:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionMessage
-	11, // 6: glyph.plugins.extension.v1.SessionTreeEntry.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
-	22, // 7: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
-	4,  // 8: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
-	5,  // 9: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
-	7,  // 10: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
+	4,  // 0: glyph.plugins.extension.v1.SessionTreeEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	7,  // 1: glyph.plugins.extension.v1.SessionTreeEntry.model:type_name -> glyph.plugins.extension.v1.SessionTreeModelResponse
+	10, // 2: glyph.plugins.extension.v1.SessionTreeEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
+	11, // 3: glyph.plugins.extension.v1.SessionTreeEntry.branch_summary:type_name -> glyph.plugins.extension.v1.SessionTreeBranchSummary
+	16, // 4: glyph.plugins.extension.v1.SessionTreeEntry.extension:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionEntry
+	3,  // 5: glyph.plugins.extension.v1.SessionTreeEntry.extension_message:type_name -> glyph.plugins.extension.v1.SessionTreeExtensionMessage
+	12, // 6: glyph.plugins.extension.v1.SessionTreeEntry.compaction:type_name -> glyph.plugins.extension.v1.SessionTreeCompaction
+	23, // 7: glyph.plugins.extension.v1.SessionTreeExtensionMessage.visibility:type_name -> glyph.plugins.extension.v1.ClientVisibility
+	5,  // 8: glyph.plugins.extension.v1.SessionTreeUserMessage.content:type_name -> glyph.plugins.extension.v1.SessionTreeUserContent
+	6,  // 9: glyph.plugins.extension.v1.SessionTreeUserContent.image:type_name -> glyph.plugins.extension.v1.SessionTreeImage
+	8,  // 10: glyph.plugins.extension.v1.SessionTreeModelResponse.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
 	0,  // 11: glyph.plugins.extension.v1.SessionTreeModelContent.kind:type_name -> glyph.plugins.extension.v1.SessionTreeModelContentKind
-	8,  // 12: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
-	23, // 13: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
-	12, // 14: glyph.plugins.extension.v1.SessionTreeCompaction.source:type_name -> glyph.plugins.extension.v1.CompactionSource
-	13, // 15: glyph.plugins.extension.v1.CompactionSource.model_requests:type_name -> glyph.plugins.extension.v1.CompactionModelRequests
-	14, // 16: glyph.plugins.extension.v1.CompactionModelRequests.requests:type_name -> glyph.plugins.extension.v1.CompactionModelRequest
-	24, // 17: glyph.plugins.extension.v1.CompactionModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	19, // 18: glyph.plugins.extension.v1.CompactionModelRequest.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	21, // 19: glyph.plugins.extension.v1.CompactionModelRequest.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	17, // 20: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	18, // 21: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
-	24, // 22: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
-	19, // 23: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
-	17, // 24: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
-	21, // 25: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
-	26, // [26:26] is the sub-list for method output_type
-	26, // [26:26] is the sub-list for method input_type
-	26, // [26:26] is the sub-list for extension type_name
-	26, // [26:26] is the sub-list for extension extendee
-	0,  // [0:26] is the sub-list for field type_name
+	9,  // 12: glyph.plugins.extension.v1.SessionTreeModelContent.tool_call:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
+	24, // 13: glyph.plugins.extension.v1.SessionTreeToolResult.contents:type_name -> glyph.plugins.extension.v1.ToolResultContent
+	1,  // 14: glyph.plugins.extension.v1.SessionTreeToolResult.error_category:type_name -> glyph.plugins.extension.v1.ToolErrorCategory
+	13, // 15: glyph.plugins.extension.v1.SessionTreeCompaction.source:type_name -> glyph.plugins.extension.v1.CompactionSource
+	14, // 16: glyph.plugins.extension.v1.CompactionSource.model_requests:type_name -> glyph.plugins.extension.v1.CompactionModelRequests
+	15, // 17: glyph.plugins.extension.v1.CompactionModelRequests.requests:type_name -> glyph.plugins.extension.v1.CompactionModelRequest
+	25, // 18: glyph.plugins.extension.v1.CompactionModelRequest.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	20, // 19: glyph.plugins.extension.v1.CompactionModelRequest.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
+	22, // 20: glyph.plugins.extension.v1.CompactionModelRequest.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	18, // 21: glyph.plugins.extension.v1.BranchSummaryResult.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	19, // 22: glyph.plugins.extension.v1.BranchSummarySource.model:type_name -> glyph.plugins.extension.v1.BranchSummaryModelSource
+	25, // 23: glyph.plugins.extension.v1.BranchSummaryModelSource.selection:type_name -> glyph.plugins.extension.v1.ModelSelection
+	20, // 24: glyph.plugins.extension.v1.BranchSummaryModelSource.usage:type_name -> glyph.plugins.extension.v1.TokenUsage
+	18, // 25: glyph.plugins.extension.v1.CommittedBranchSummary.source:type_name -> glyph.plugins.extension.v1.BranchSummarySource
+	22, // 26: glyph.plugins.extension.v1.CommittedBranchSummary.estimated_cost:type_name -> glyph.plugins.extension.v1.EstimatedCost
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_session_entry_proto_init() }
@@ -3520,7 +3614,7 @@ func file_api_plugins_extension_v1_session_entry_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_session_entry_proto_rawDesc), len(file_api_plugins_extension_v1_session_entry_proto_rawDesc)),
-			NumEnums:      1,
+			NumEnums:      2,
 			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,

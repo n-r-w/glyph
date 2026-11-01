@@ -48,6 +48,7 @@ func DecodeObservation(value *pb.CompletedConversationObservation, binding compa
 		CallID:          "",
 		Tool:            "",
 		Failed:          false,
+		ErrorCategory:   mo.None[compaction.ToolErrorCategory](),
 		SourcePosition:  0,
 		SourceKind:      compaction.SourceUnspecified,
 		PreviousSummary: false,

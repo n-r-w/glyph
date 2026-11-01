@@ -5,6 +5,7 @@ import (
 
 	"github.com/samber/mo"
 
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
@@ -219,6 +220,8 @@ type toolResultValue struct {
 	Contents []toolResultContentRecord `json:"contents"`
 	// IsError reports whether tool execution failed.
 	IsError bool `json:"isError"`
+	// ErrorCategory identifies the Glyph kind of the error and is absent for a result without a category.
+	ErrorCategory *agent.ToolErrorCategory `json:"errorCategory,omitzero"`
 }
 
 type toolResultContentRecord struct {

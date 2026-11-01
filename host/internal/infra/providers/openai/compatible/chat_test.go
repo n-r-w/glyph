@@ -338,7 +338,11 @@ func (s *serviceSuite) TestOpenRouterReasoningDetailsRoundTrip() {
 	secondRequest := richRequest("openrouter", "demo")
 	replaceHistoryModelContent(&secondRequest, firstResponse.Content)
 	secondRequest.History[2].ToolResult = mo.Some(agent.ToolResult{
-		CallID: "call-new", ToolName: "read", Contents: tool.TextContents("done"), IsError: false,
+		CallID:        "call-new",
+		ToolName:      "read",
+		Contents:      tool.TextContents("done"),
+		IsError:       false,
+		ErrorCategory: mo.None[agent.ToolErrorCategory](),
 	})
 	secondEvents := streamEvents(t, driver, secondRequest)
 

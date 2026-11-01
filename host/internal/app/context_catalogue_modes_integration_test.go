@@ -272,6 +272,22 @@ func catalogueProviderTransport(
 // request.
 func externalToolOutput(t *testing.T, body []byte) string {
 	t.Helper()
+	blocks := externalToolBlocks(t, body)
+	require.Len(t, blocks, 1)
+	return blocks[0]
+}
+
+// externalErrorToolOutput extracts the category block and the text of an external error result.
+func externalErrorToolOutput(t *testing.T, body []byte) (category, text string) {
+	t.Helper()
+	blocks := externalToolBlocks(t, body)
+	require.Len(t, blocks, 2)
+	return blocks[0], blocks[1]
+}
+
+// externalToolBlocks returns the text blocks of the latest tool result of the provider request.
+func externalToolBlocks(t *testing.T, body []byte) []string {
+	t.Helper()
 	var request struct {
 		// Input contains the provider request's ordered history items.
 		Input []struct {
@@ -285,11 +301,13 @@ func externalToolOutput(t *testing.T, body []byte) string {
 		} `json:"input"`
 	}
 	require.NoError(t, json.Unmarshal(body, &request))
-	var latest string
+	var latest []string
 	for _, item := range request.Input {
 		if item.Type == "function_call_output" {
-			require.Len(t, item.Output, 1)
-			latest = item.Output[0].Text
+			latest = latest[:0]
+			for _, block := range item.Output {
+				latest = append(latest, block.Text)
+			}
 		}
 	}
 	require.NotEmpty(t, latest, "provider history has no external tool result")

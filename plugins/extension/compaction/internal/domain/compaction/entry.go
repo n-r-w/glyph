@@ -2,6 +2,8 @@ package compaction
 
 import (
 	"bytes"
+
+	"github.com/samber/mo"
 )
 
 // Block contains one semantic message block.
@@ -36,6 +38,8 @@ type Entry struct {
 	Tool string
 	// Failed indicates tool execution failure.
 	Failed bool
+	// ErrorCategory is the Host error category of a failed tool result.
+	ErrorCategory mo.Option[ToolErrorCategory]
 	// SourcePosition identifies the source's original branch position.
 	SourcePosition int64
 	// SourceKind identifies the kind of original entry associated with the prepared content.

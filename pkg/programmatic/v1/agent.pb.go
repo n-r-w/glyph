@@ -21,6 +21,58 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// ToolErrorCategory identifies the Glyph kind of an error tool result.
+type ToolErrorCategory int32
+
+const (
+	// No error category was provided.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED ToolErrorCategory = 0
+	// The model called a tool that is not available.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL ToolErrorCategory = 1
+	// The arguments of the call do not match the input schema of the tool.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS ToolErrorCategory = 2
+	// The tool reported an error, or Host could not execute the tool.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE ToolErrorCategory = 3
+)
+
+// Enum value maps for ToolErrorCategory.
+var (
+	ToolErrorCategory_name = map[int32]string{
+		0: "TOOL_ERROR_CATEGORY_UNSPECIFIED",
+		1: "TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL",
+		2: "TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS",
+		3: "TOOL_ERROR_CATEGORY_TOOL_FAILURE",
+	}
+	ToolErrorCategory_value = map[string]int32{
+		"TOOL_ERROR_CATEGORY_UNSPECIFIED":       0,
+		"TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL":  1,
+		"TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS": 2,
+		"TOOL_ERROR_CATEGORY_TOOL_FAILURE":      3,
+	}
+)
+
+func (x ToolErrorCategory) Enum() *ToolErrorCategory {
+	p := new(ToolErrorCategory)
+	*p = x
+	return p
+}
+
+func (x ToolErrorCategory) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ToolErrorCategory) Descriptor() protoreflect.EnumDescriptor {
+	return file_api_programmatic_v1_agent_proto_enumTypes[0].Descriptor()
+}
+
+func (ToolErrorCategory) Type() protoreflect.EnumType {
+	return &file_api_programmatic_v1_agent_proto_enumTypes[0]
+}
+
+func (x ToolErrorCategory) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
 // AgentEventType identifies an agent lifecycle event.
 type AgentEventType int32
 
@@ -122,11 +174,11 @@ func (x AgentEventType) String() string {
 }
 
 func (AgentEventType) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_agent_proto_enumTypes[0].Descriptor()
+	return file_api_programmatic_v1_agent_proto_enumTypes[1].Descriptor()
 }
 
 func (AgentEventType) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_agent_proto_enumTypes[0]
+	return &file_api_programmatic_v1_agent_proto_enumTypes[1]
 }
 
 func (x AgentEventType) Number() protoreflect.EnumNumber {
@@ -174,11 +226,11 @@ func (x ModelContentKind) String() string {
 }
 
 func (ModelContentKind) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_agent_proto_enumTypes[1].Descriptor()
+	return file_api_programmatic_v1_agent_proto_enumTypes[2].Descriptor()
 }
 
 func (ModelContentKind) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_agent_proto_enumTypes[1]
+	return &file_api_programmatic_v1_agent_proto_enumTypes[2]
 }
 
 func (x ModelContentKind) Number() protoreflect.EnumNumber {
@@ -226,11 +278,11 @@ func (x ProgressChannel) String() string {
 }
 
 func (ProgressChannel) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_agent_proto_enumTypes[2].Descriptor()
+	return file_api_programmatic_v1_agent_proto_enumTypes[3].Descriptor()
 }
 
 func (ProgressChannel) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_agent_proto_enumTypes[2]
+	return &file_api_programmatic_v1_agent_proto_enumTypes[3]
 }
 
 func (x ProgressChannel) Number() protoreflect.EnumNumber {
@@ -286,11 +338,11 @@ func (x ModelOutcome) String() string {
 }
 
 func (ModelOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_agent_proto_enumTypes[3].Descriptor()
+	return file_api_programmatic_v1_agent_proto_enumTypes[4].Descriptor()
 }
 
 func (ModelOutcome) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_agent_proto_enumTypes[3]
+	return &file_api_programmatic_v1_agent_proto_enumTypes[4]
 }
 
 func (x ModelOutcome) Number() protoreflect.EnumNumber {
@@ -338,11 +390,11 @@ func (x RunOutcome) String() string {
 }
 
 func (RunOutcome) Descriptor() protoreflect.EnumDescriptor {
-	return file_api_programmatic_v1_agent_proto_enumTypes[4].Descriptor()
+	return file_api_programmatic_v1_agent_proto_enumTypes[5].Descriptor()
 }
 
 func (RunOutcome) Type() protoreflect.EnumType {
-	return &file_api_programmatic_v1_agent_proto_enumTypes[4]
+	return &file_api_programmatic_v1_agent_proto_enumTypes[5]
 }
 
 func (x RunOutcome) Number() protoreflect.EnumNumber {
@@ -1939,15 +1991,16 @@ func (b0 ToolProgress_builder) Build() *ToolProgress {
 
 // ToolResult carries the terminal result of one tool call.
 type ToolResult struct {
-	state                  protoimpl.MessageState `protogen:"opaque.v1"`
-	xxx_hidden_CallId      *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
-	xxx_hidden_ToolName    *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName"`
-	xxx_hidden_Contents    *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
-	xxx_hidden_IsError     bool                   `protobuf:"varint,4,opt,name=is_error,json=isError"`
-	XXX_raceDetectHookData protoimpl.RaceDetectHookData
-	XXX_presence           [1]uint32
-	unknownFields          protoimpl.UnknownFields
-	sizeCache              protoimpl.SizeCache
+	state                    protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_CallId        *string                `protobuf:"bytes,1,opt,name=call_id,json=callId"`
+	xxx_hidden_ToolName      *string                `protobuf:"bytes,2,opt,name=tool_name,json=toolName"`
+	xxx_hidden_Contents      *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
+	xxx_hidden_IsError       bool                   `protobuf:"varint,4,opt,name=is_error,json=isError"`
+	xxx_hidden_ErrorCategory ToolErrorCategory      `protobuf:"varint,5,opt,name=error_category,json=errorCategory,enum=glyph.programmatic.v1.ToolErrorCategory"`
+	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
+	XXX_presence             [1]uint32
+	unknownFields            protoimpl.UnknownFields
+	sizeCache                protoimpl.SizeCache
 }
 
 func (x *ToolResult) Reset() {
@@ -2011,14 +2064,23 @@ func (x *ToolResult) GetIsError() bool {
 	return false
 }
 
+func (x *ToolResult) GetErrorCategory() ToolErrorCategory {
+	if x != nil {
+		if protoimpl.X.Present(&(x.XXX_presence[0]), 4) {
+			return x.xxx_hidden_ErrorCategory
+		}
+	}
+	return ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
+}
+
 func (x *ToolResult) SetCallId(v string) {
 	x.xxx_hidden_CallId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *ToolResult) SetToolName(v string) {
 	x.xxx_hidden_ToolName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *ToolResult) SetContents(v []*ToolResultContent) {
@@ -2027,7 +2089,12 @@ func (x *ToolResult) SetContents(v []*ToolResultContent) {
 
 func (x *ToolResult) SetIsError(v bool) {
 	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+}
+
+func (x *ToolResult) SetErrorCategory(v ToolErrorCategory) {
+	x.xxx_hidden_ErrorCategory = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
 func (x *ToolResult) HasCallId() bool {
@@ -2051,6 +2118,13 @@ func (x *ToolResult) HasIsError() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 3)
 }
 
+func (x *ToolResult) HasErrorCategory() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
 func (x *ToolResult) ClearCallId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_CallId = nil
@@ -2066,6 +2140,11 @@ func (x *ToolResult) ClearIsError() {
 	x.xxx_hidden_IsError = false
 }
 
+func (x *ToolResult) ClearErrorCategory() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_ErrorCategory = ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
+}
+
 type ToolResult_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -2077,6 +2156,8 @@ type ToolResult_builder struct {
 	Contents []*ToolResultContent
 	// Whether tool execution failed.
 	IsError *bool
+	// The Glyph category of the error. It is present only for an error result that Host categorized.
+	ErrorCategory *ToolErrorCategory
 }
 
 func (b0 ToolResult_builder) Build() *ToolResult {
@@ -2084,17 +2165,21 @@ func (b0 ToolResult_builder) Build() *ToolResult {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.CallId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_CallId = b.CallId
 	}
 	if b.ToolName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_ToolName = b.ToolName
 	}
 	x.xxx_hidden_Contents = &b.Contents
 	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
 		x.xxx_hidden_IsError = *b.IsError
+	}
+	if b.ErrorCategory != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_ErrorCategory = *b.ErrorCategory
 	}
 	return m0
 }
@@ -3680,13 +3765,14 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\"j\n" +
 	"\fToolProgress\x12@\n" +
 	"\achannel\x18\x01 \x01(\x0e2&.glyph.programmatic.v1.ProgressChannelR\achannel\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"\xa3\x01\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"\xf4\x01\n" +
 	"\n" +
 	"ToolResult\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12D\n" +
 	"\bcontents\x18\x03 \x03(\v2(.glyph.programmatic.v1.ToolResultContentR\bcontents\x12\x19\n" +
-	"\bis_error\x18\x04 \x01(\bR\aisError\"t\n" +
+	"\bis_error\x18\x04 \x01(\bR\aisError\x12O\n" +
+	"\x0eerror_category\x18\x05 \x01(\x0e2(.glyph.programmatic.v1.ToolErrorCategoryR\rerrorCategory\"t\n" +
 	"\x11ToolResultContent\x12\x14\n" +
 	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12>\n" +
 	"\x05image\x18\x02 \x01(\v2&.glyph.programmatic.v1.ToolResultImageH\x00R\x05imageB\t\n" +
@@ -3733,7 +3819,12 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\fAgentSummary\x12;\n" +
 	"\aoutcome\x18\x01 \x01(\x0e2!.glyph.programmatic.v1.RunOutcomeR\aoutcome\x12#\n" +
 	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\x12S\n" +
-	"\x11returned_messages\x18\x03 \x03(\v2&.glyph.programmatic.v1.ReturnedMessageR\x10returnedMessages*\xcf\x05\n" +
+	"\x11returned_messages\x18\x03 \x03(\v2&.glyph.programmatic.v1.ReturnedMessageR\x10returnedMessages*\xb3\x01\n" +
+	"\x11ToolErrorCategory\x12#\n" +
+	"\x1fTOOL_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12(\n" +
+	"$TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL\x10\x01\x12)\n" +
+	"%TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS\x10\x02\x12$\n" +
+	" TOOL_ERROR_CATEGORY_TOOL_FAILURE\x10\x03*\xcf\x05\n" +
 	"\x0eAgentEventType\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_AGENT_START\x10\x01\x12\x1f\n" +
@@ -3779,72 +3870,74 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\x13RUN_OUTCOME_ABORTED\x10\x02\x12\x16\n" +
 	"\x12RUN_OUTCOME_FAILED\x10\x03B;Z9github.com/n-r-w/glyph/pkg/programmatic/v1;programmaticv1b\beditionsp\xe8\a"
 
-var file_api_programmatic_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 5)
+var file_api_programmatic_v1_agent_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
 var file_api_programmatic_v1_agent_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_api_programmatic_v1_agent_proto_goTypes = []any{
-	(AgentEventType)(0),          // 0: glyph.programmatic.v1.AgentEventType
-	(ModelContentKind)(0),        // 1: glyph.programmatic.v1.ModelContentKind
-	(ProgressChannel)(0),         // 2: glyph.programmatic.v1.ProgressChannel
-	(ModelOutcome)(0),            // 3: glyph.programmatic.v1.ModelOutcome
-	(RunOutcome)(0),              // 4: glyph.programmatic.v1.RunOutcome
-	(*AgentEvent)(nil),           // 5: glyph.programmatic.v1.AgentEvent
-	(*ModelContent)(nil),         // 6: glyph.programmatic.v1.ModelContent
-	(*ToolCallPreview)(nil),      // 7: glyph.programmatic.v1.ToolCallPreview
-	(*ToolCallPreviewField)(nil), // 8: glyph.programmatic.v1.ToolCallPreviewField
-	(*FinalToolCall)(nil),        // 9: glyph.programmatic.v1.FinalToolCall
-	(*ToolExecution)(nil),        // 10: glyph.programmatic.v1.ToolExecution
-	(*ToolProgress)(nil),         // 11: glyph.programmatic.v1.ToolProgress
-	(*ToolResult)(nil),           // 12: glyph.programmatic.v1.ToolResult
-	(*ToolResultContent)(nil),    // 13: glyph.programmatic.v1.ToolResultContent
-	(*ToolResultImage)(nil),      // 14: glyph.programmatic.v1.ToolResultImage
-	(*ModelResponse)(nil),        // 15: glyph.programmatic.v1.ModelResponse
-	(*ModelResponseItem)(nil),    // 16: glyph.programmatic.v1.ModelResponseItem
-	(*FinalText)(nil),            // 17: glyph.programmatic.v1.FinalText
-	(*ModelUsage)(nil),           // 18: glyph.programmatic.v1.ModelUsage
-	(*ModelDiagnostic)(nil),      // 19: glyph.programmatic.v1.ModelDiagnostic
-	(*TurnSummary)(nil),          // 20: glyph.programmatic.v1.TurnSummary
-	(*AgentSummary)(nil),         // 21: glyph.programmatic.v1.AgentSummary
-	(*RetryProgress)(nil),        // 22: glyph.programmatic.v1.RetryProgress
-	(*ResponseReset)(nil),        // 23: glyph.programmatic.v1.ResponseReset
-	(*structpb.Value)(nil),       // 24: google.protobuf.Value
-	(*ReturnedMessage)(nil),      // 25: glyph.programmatic.v1.ReturnedMessage
+	(ToolErrorCategory)(0),       // 0: glyph.programmatic.v1.ToolErrorCategory
+	(AgentEventType)(0),          // 1: glyph.programmatic.v1.AgentEventType
+	(ModelContentKind)(0),        // 2: glyph.programmatic.v1.ModelContentKind
+	(ProgressChannel)(0),         // 3: glyph.programmatic.v1.ProgressChannel
+	(ModelOutcome)(0),            // 4: glyph.programmatic.v1.ModelOutcome
+	(RunOutcome)(0),              // 5: glyph.programmatic.v1.RunOutcome
+	(*AgentEvent)(nil),           // 6: glyph.programmatic.v1.AgentEvent
+	(*ModelContent)(nil),         // 7: glyph.programmatic.v1.ModelContent
+	(*ToolCallPreview)(nil),      // 8: glyph.programmatic.v1.ToolCallPreview
+	(*ToolCallPreviewField)(nil), // 9: glyph.programmatic.v1.ToolCallPreviewField
+	(*FinalToolCall)(nil),        // 10: glyph.programmatic.v1.FinalToolCall
+	(*ToolExecution)(nil),        // 11: glyph.programmatic.v1.ToolExecution
+	(*ToolProgress)(nil),         // 12: glyph.programmatic.v1.ToolProgress
+	(*ToolResult)(nil),           // 13: glyph.programmatic.v1.ToolResult
+	(*ToolResultContent)(nil),    // 14: glyph.programmatic.v1.ToolResultContent
+	(*ToolResultImage)(nil),      // 15: glyph.programmatic.v1.ToolResultImage
+	(*ModelResponse)(nil),        // 16: glyph.programmatic.v1.ModelResponse
+	(*ModelResponseItem)(nil),    // 17: glyph.programmatic.v1.ModelResponseItem
+	(*FinalText)(nil),            // 18: glyph.programmatic.v1.FinalText
+	(*ModelUsage)(nil),           // 19: glyph.programmatic.v1.ModelUsage
+	(*ModelDiagnostic)(nil),      // 20: glyph.programmatic.v1.ModelDiagnostic
+	(*TurnSummary)(nil),          // 21: glyph.programmatic.v1.TurnSummary
+	(*AgentSummary)(nil),         // 22: glyph.programmatic.v1.AgentSummary
+	(*RetryProgress)(nil),        // 23: glyph.programmatic.v1.RetryProgress
+	(*ResponseReset)(nil),        // 24: glyph.programmatic.v1.ResponseReset
+	(*structpb.Value)(nil),       // 25: google.protobuf.Value
+	(*ReturnedMessage)(nil),      // 26: glyph.programmatic.v1.ReturnedMessage
 }
 var file_api_programmatic_v1_agent_proto_depIdxs = []int32{
-	0,  // 0: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
-	6,  // 1: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
-	7,  // 2: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
-	9,  // 3: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	10, // 4: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
-	11, // 5: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
-	12, // 6: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
-	15, // 7: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
-	20, // 8: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
-	21, // 9: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
-	22, // 10: glyph.programmatic.v1.AgentEvent.retry_progress:type_name -> glyph.programmatic.v1.RetryProgress
-	23, // 11: glyph.programmatic.v1.AgentEvent.response_reset:type_name -> glyph.programmatic.v1.ResponseReset
-	1,  // 12: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
-	8,  // 13: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
-	24, // 14: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
-	2,  // 15: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
-	13, // 16: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
-	14, // 17: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
-	3,  // 18: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
-	18, // 19: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
-	19, // 20: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
-	16, // 21: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
-	17, // 22: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
-	17, // 23: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
-	17, // 24: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
-	9,  // 25: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
-	15, // 26: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
-	12, // 27: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
-	4,  // 28: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
-	25, // 29: glyph.programmatic.v1.AgentSummary.returned_messages:type_name -> glyph.programmatic.v1.ReturnedMessage
-	30, // [30:30] is the sub-list for method output_type
-	30, // [30:30] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	1,  // 0: glyph.programmatic.v1.AgentEvent.type:type_name -> glyph.programmatic.v1.AgentEventType
+	7,  // 1: glyph.programmatic.v1.AgentEvent.model_content:type_name -> glyph.programmatic.v1.ModelContent
+	8,  // 2: glyph.programmatic.v1.AgentEvent.tool_call_preview:type_name -> glyph.programmatic.v1.ToolCallPreview
+	10, // 3: glyph.programmatic.v1.AgentEvent.final_tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	11, // 4: glyph.programmatic.v1.AgentEvent.tool_execution:type_name -> glyph.programmatic.v1.ToolExecution
+	12, // 5: glyph.programmatic.v1.AgentEvent.tool_progress:type_name -> glyph.programmatic.v1.ToolProgress
+	13, // 6: glyph.programmatic.v1.AgentEvent.tool_result:type_name -> glyph.programmatic.v1.ToolResult
+	16, // 7: glyph.programmatic.v1.AgentEvent.model_response:type_name -> glyph.programmatic.v1.ModelResponse
+	21, // 8: glyph.programmatic.v1.AgentEvent.turn:type_name -> glyph.programmatic.v1.TurnSummary
+	22, // 9: glyph.programmatic.v1.AgentEvent.agent:type_name -> glyph.programmatic.v1.AgentSummary
+	23, // 10: glyph.programmatic.v1.AgentEvent.retry_progress:type_name -> glyph.programmatic.v1.RetryProgress
+	24, // 11: glyph.programmatic.v1.AgentEvent.response_reset:type_name -> glyph.programmatic.v1.ResponseReset
+	2,  // 12: glyph.programmatic.v1.ModelContent.kind:type_name -> glyph.programmatic.v1.ModelContentKind
+	9,  // 13: glyph.programmatic.v1.ToolCallPreview.fields:type_name -> glyph.programmatic.v1.ToolCallPreviewField
+	25, // 14: glyph.programmatic.v1.ToolCallPreviewField.value:type_name -> google.protobuf.Value
+	3,  // 15: glyph.programmatic.v1.ToolProgress.channel:type_name -> glyph.programmatic.v1.ProgressChannel
+	14, // 16: glyph.programmatic.v1.ToolResult.contents:type_name -> glyph.programmatic.v1.ToolResultContent
+	0,  // 17: glyph.programmatic.v1.ToolResult.error_category:type_name -> glyph.programmatic.v1.ToolErrorCategory
+	15, // 18: glyph.programmatic.v1.ToolResultContent.image:type_name -> glyph.programmatic.v1.ToolResultImage
+	4,  // 19: glyph.programmatic.v1.ModelResponse.outcome:type_name -> glyph.programmatic.v1.ModelOutcome
+	19, // 20: glyph.programmatic.v1.ModelResponse.usage:type_name -> glyph.programmatic.v1.ModelUsage
+	20, // 21: glyph.programmatic.v1.ModelResponse.diagnostics:type_name -> glyph.programmatic.v1.ModelDiagnostic
+	17, // 22: glyph.programmatic.v1.ModelResponse.content:type_name -> glyph.programmatic.v1.ModelResponseItem
+	18, // 23: glyph.programmatic.v1.ModelResponseItem.text:type_name -> glyph.programmatic.v1.FinalText
+	18, // 24: glyph.programmatic.v1.ModelResponseItem.refusal:type_name -> glyph.programmatic.v1.FinalText
+	18, // 25: glyph.programmatic.v1.ModelResponseItem.reasoning:type_name -> glyph.programmatic.v1.FinalText
+	10, // 26: glyph.programmatic.v1.ModelResponseItem.tool_call:type_name -> glyph.programmatic.v1.FinalToolCall
+	16, // 27: glyph.programmatic.v1.TurnSummary.response:type_name -> glyph.programmatic.v1.ModelResponse
+	13, // 28: glyph.programmatic.v1.TurnSummary.tool_results:type_name -> glyph.programmatic.v1.ToolResult
+	5,  // 29: glyph.programmatic.v1.AgentSummary.outcome:type_name -> glyph.programmatic.v1.RunOutcome
+	26, // 30: glyph.programmatic.v1.AgentSummary.returned_messages:type_name -> glyph.programmatic.v1.ReturnedMessage
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_api_programmatic_v1_agent_proto_init() }
@@ -3886,7 +3979,7 @@ func file_api_programmatic_v1_agent_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_programmatic_v1_agent_proto_rawDesc), len(file_api_programmatic_v1_agent_proto_rawDesc)),
-			NumEnums:      5,
+			NumEnums:      6,
 			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   0,

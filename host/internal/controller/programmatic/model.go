@@ -474,6 +474,8 @@ type ToolResult struct {
 	Contents []ToolResultContent
 	// IsError reports whether tool execution failed.
 	IsError bool
+	// ErrorCategory is the Glyph category of the error; it is present only for an error result that Host categorized.
+	ErrorCategory mo.Option[agent.ToolErrorCategory]
 }
 
 // ModelOutcome identifies the terminal model response outcome.

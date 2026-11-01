@@ -235,7 +235,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 ### Tool flow
 
 - STP-06: Agent Core submits each model-requested tool call through APC-03. Host resolves the active tool, applies ordered pre-execution handlers, validates final input, and calls the owning extension runtime.
-- STP-07: Host applies ordered result handlers to the original and current tool result, validates the final result, and returns it to Agent Core. Agent Core obtains the final value of that result from finalized-message handlers through APC-04 before it records the result and emits its completion events. Agent Core preserves source-call order when it adds tool results to the next model request.
+- STP-07: Host returns the tool result to Agent Core. Agent Core obtains the final value of that result from finalized-message handlers through APC-04 before it records the result and emits its completion events; these handlers act as the tool-result handlers and receive the original and the current result. Agent Core preserves source-call order when it adds tool results to the next model request. Host gives each error result a Glyph error category from a closed set, and a handler that copies the current value and changes only its text keeps the category; see [D2](phases/09-tool-middleware-run-control/solution.md#d2-error-category-and-the-terminate-flag-in-tool-results).
 
 ### Extension flow
 

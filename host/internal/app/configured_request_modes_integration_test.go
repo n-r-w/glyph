@@ -107,11 +107,13 @@ func TestPublicConfiguredRequestAcrossApplicationModes(t *testing.T) {
 				assertConfiguredProviderRequest(t, actualBodies[1], input.instructions, input.images)
 				outerBody := actualBodies[len(actualBodies)-1]
 				assertOuterRequestUnaffected(t, outerBody)
-				encoded := externalToolOutput(t, outerBody)
 				if input.rejected {
-					assert.Contains(t, encoded, configuredProviderRejectionStatus+configuredProviderRejectionBody)
+					category, text := externalErrorToolOutput(t, outerBody)
+					assert.Contains(t, category, categoryFailureName)
+					assert.Contains(t, text, configuredProviderRejectionStatus+configuredProviderRejectionBody)
 					return
 				}
+				encoded := externalToolOutput(t, outerBody)
 				if input.images {
 					var report struct {
 						ResultJSON string            `json:"result_json"`

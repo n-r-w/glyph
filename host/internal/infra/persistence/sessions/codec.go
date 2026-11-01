@@ -228,6 +228,7 @@ func encodeToolResultEntry(entry session.Entry, result agent.ToolResult) ([]byte
 		CreatedAt: entry.CreatedAt.Format(time.RFC3339Nano),
 		Result: toolResultValue{
 			CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
+			ErrorCategory: result.ErrorCategory.ToPointer(),
 		},
 	})
 }

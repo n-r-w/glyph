@@ -34,6 +34,14 @@ const (
 	imageMode = "finalized-image"
 	// blockMode blocks the first model-response invocation until Host cancels it.
 	blockMode = "finalized-block"
+	// categoryMode replaces the first tool result completely with an error result of the tool-failure category.
+	categoryMode = "finalized-category"
+	// badCategoryMode replaces the first tool result with a category outside the closed set.
+	badCategoryMode = "finalized-bad-category"
+	// replacementText is the text of the complete tool-result replacement of the category scenarios.
+	replacementText = "replaced result"
+	// outsideCategory is a category value that the closed set does not contain.
+	outsideCategory = extensionpb.ToolErrorCategory(99)
 	// preserveMode preserves every message.
 	preserveMode = "finalized-preserve"
 	// failingModelEnvironment names the one-based position of a model response that finalized-mark fails in any mode.
@@ -81,6 +89,9 @@ func (o *operation) mark(
 		firstTool := !o.service.toolSeen.Swap(true)
 		if o.service.mode == failToolMode && firstTool {
 			return handlerError(), nil
+		}
+		if firstTool && (o.service.mode == categoryMode || o.service.mode == badCategoryMode) {
+			return replace(toolEntry(buildReplacementResult(current.GetToolResult(), o.service.mode))), nil
 		}
 		return replace(toolEntry(markTool(current.GetToolResult()))), nil
 	case extensionpb.ModelContextEntry_Model_case, extensionpb.ModelContextEntry_Content_not_set_case:
@@ -173,6 +184,23 @@ func markTool(result *extensionpb.SessionTreeToolResult) *extensionpb.SessionTre
 		}
 	}
 	return marked
+}
+
+// buildReplacementResult builds a new error result for the same call, without copying the current value, that carries
+// the tool-failure category or, in the bad-category scenario, a category outside the closed set.
+func buildReplacementResult(
+	current *extensionpb.SessionTreeToolResult,
+	mode string,
+) *extensionpb.SessionTreeToolResult {
+	category := extensionpb.ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE
+	if mode == badCategoryMode {
+		category = outsideCategory
+	}
+	text := extensionpb.ToolResultContent_builder{Text: new(replacementText), Image: nil}.Build()
+	return extensionpb.SessionTreeToolResult_builder{
+		CallId: new(current.GetCallId()), ToolName: new(current.GetToolName()),
+		Contents: []*extensionpb.ToolResultContent{text}, IsError: new(true), ErrorCategory: new(category),
+	}.Build()
 }
 
 // userEntry wraps a user message in a finalized-message entry.

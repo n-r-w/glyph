@@ -3,6 +3,8 @@ package extensionwire
 import (
 	"slices"
 
+	"github.com/samber/mo"
+
 	pb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	"github.com/n-r-w/glyph/plugins/extension/compaction/internal/domain/compaction"
 )
@@ -36,6 +38,7 @@ func DecodeHistory(values []*pb.CompactionHistoryRecord) []compaction.Entry {
 			CallID:          "",
 			Tool:            "",
 			Failed:          false,
+			ErrorCategory:   mo.None[compaction.ToolErrorCategory](),
 			SourcePosition:  value.GetSourcePosition(),
 			SourceKind:      decodeHistorySourceKind(value.GetSourceKind()),
 			PreviousSummary: value.GetPreviousSummary(),
@@ -61,6 +64,7 @@ func DecodeHistory(values []*pb.CompactionHistoryRecord) []compaction.Entry {
 			entry.CallID = result.GetCallId()
 			entry.Tool = result.GetToolName()
 			entry.Failed = result.GetIsError()
+			entry.ErrorCategory = decodeToolErrorCategory(result)
 			for _, block := range result.GetContents() {
 				if image := block.GetImage(); image != nil {
 					entry.Blocks = append(entry.Blocks, newImageBlock(image.GetMediaType(), image.GetData()))
@@ -128,10 +132,11 @@ func encodeHistory(entries []compaction.Entry) []*pb.CompactionHistoryRecord {
 			}
 			value.SetToolResult(
 				pb.SessionTreeToolResult_builder{
-					CallId:   new(entry.CallID),
-					ToolName: new(entry.Tool),
-					IsError:  new(entry.Failed),
-					Contents: blocks,
+					CallId:        new(entry.CallID),
+					ToolName:      new(entry.Tool),
+					IsError:       new(entry.Failed),
+					ErrorCategory: encodeToolErrorCategory(entry.ErrorCategory),
+					Contents:      blocks,
 				}.Build(),
 			)
 		}

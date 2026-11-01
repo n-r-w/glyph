@@ -300,6 +300,13 @@ func mapToolResult(result ToolResult) (*programmaticv1.ToolResult, error) {
 	mapped.SetToolName(result.ToolName)
 	mapped.SetContents(contents)
 	mapped.SetIsError(result.IsError)
+	if category, present := result.ErrorCategory.Get(); present {
+		wireCategory, categoryErr := mapWireToolErrorCategory(category)
+		if categoryErr != nil {
+			return nil, categoryErr
+		}
+		mapped.SetErrorCategory(wireCategory)
+	}
 	return mapped, nil
 }
 

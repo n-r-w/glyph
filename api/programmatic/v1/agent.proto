@@ -96,6 +96,19 @@ message ToolResult {
   repeated ToolResultContent contents = 3;
   // Whether tool execution failed.
   bool is_error = 4;
+  // The Glyph category of the error. It is present only for an error result that Host categorized.
+  ToolErrorCategory error_category = 5;
+}
+// ToolErrorCategory identifies the Glyph kind of an error tool result.
+enum ToolErrorCategory {
+  // No error category was provided.
+  TOOL_ERROR_CATEGORY_UNSPECIFIED = 0;
+  // The model called a tool that is not available.
+  TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL = 1;
+  // The arguments of the call do not match the input schema of the tool.
+  TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS = 2;
+  // The tool reported an error, or Host could not execute the tool.
+  TOOL_ERROR_CATEGORY_TOOL_FAILURE = 3;
 }
 // ToolResultContent carries one ordered tool result block.
 message ToolResultContent {

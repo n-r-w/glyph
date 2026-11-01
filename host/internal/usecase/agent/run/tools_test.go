@@ -366,12 +366,14 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 			require.Len(t, request.History, 4)
 			assert.Equal(t, "failed", request.History[2].ToolResult.OrEmpty().CallID)
 			assert.True(t, request.History[2].ToolResult.OrEmpty().IsError)
+			assert.Equal(t, mo.Some(agent.ToolErrorFailure), request.History[2].ToolResult.OrEmpty().ErrorCategory)
 			require.ErrorContains(
 				t,
 				errors.New(request.History[2].ToolResult.OrEmpty().Contents[0].Text.OrEmpty()),
 				"tool operation failed",
 			)
 			assert.Equal(t, "succeeded", request.History[3].ToolResult.OrEmpty().CallID)
+			assert.True(t, request.History[3].ToolResult.OrEmpty().ErrorCategory.IsAbsent())
 			return emitStream(update, stop, nil)
 		},
 	)

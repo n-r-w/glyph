@@ -168,6 +168,7 @@ func TestRunFinalizesLengthToolErrors(t *testing.T) {
 	response := finalizationResponse(model.OutcomeLength, testCallItem(call))
 	generated := agent.ToolResult{
 		CallID: "call", ToolName: "read", Contents: tool.TextContents(lengthCallMessage), IsError: true,
+		ErrorCategory: mo.None[agent.ToolErrorCategory](),
 	}
 	finalResult := textResult(call, "final skipped")
 	stop := finalizationResponse(model.OutcomeStop, testTextItem("done"))

@@ -74,7 +74,7 @@ func composeRequest(
 	base ProviderRequest,
 	causes []error,
 ) (preparedRequest, error) {
-	original := RequestContext{Instructions: base.Instructions, History: base.History}
+	original := RequestContext{Instructions: base.Instructions, History: annotateErrorCategories(base.History)}
 	composed := ComposedContext{Context: original, HistoryReplaced: false}
 	if compose, present := composer.Get(); present {
 		var err error

@@ -380,6 +380,71 @@ func TestFinalizeMessageCancellation(t *testing.T) {
 	assert.Empty(t, currentCode(err))
 }
 
+// categorizedToolResultEntry returns an error tool-result entry of the finalized call with the supplied category.
+func categorizedToolResultEntry(category agent.ToolErrorCategory) agent.HistoryEntry {
+	entry := toolResultEntry("call", "read", "replaced")
+	result := entry.ToolResult.MustGet()
+	result.IsError = true
+	result.ErrorCategory = mo.Some(category)
+	entry.ToolResult = mo.Some(result)
+	return entry
+}
+
+// TestFinalizeToolResultReplacementSetsCategory verifies that a complete replacement carries its own category while a
+// replacement that copies the current value keeps the category of the original.
+func TestFinalizeToolResultReplacementSetsCategory(t *testing.T) {
+	t.Parallel()
+	for name, test := range map[string]struct {
+		replace func(current agent.HistoryEntry) agent.HistoryEntry
+		want    agent.ToolErrorCategory
+	}{
+		"copied value with changed text": {
+			replace: func(current agent.HistoryEntry) agent.HistoryEntry {
+				changed := current.Clone()
+				result := changed.ToolResult.MustGet()
+				result.Contents = tool.TextContents("changed text")
+				changed.ToolResult = mo.Some(result)
+				return changed
+			},
+			want: agent.ToolErrorInvalidArguments,
+		},
+		"complete replacement": {
+			replace: func(agent.HistoryEntry) agent.HistoryEntry {
+				return categorizedToolResultEntry(agent.ToolErrorFailure)
+			},
+			want: agent.ToolErrorFailure,
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange one handler that returns the replacement built from the received current value.
+			ctrl := gomock.NewController(t)
+			runtime := NewMockRuntime(ctrl)
+			contexts := NewMockContextIssuer(ctrl)
+			service := New(runtime, contexts, nil)
+			commitFinalizedHandlers(service, "extension", "finalized")
+			contexts.EXPECT().IssueContext("extension").Return(extension.Context{}, nil)
+			runtime.EXPECT().HandleFinalizedMessage(gomock.Any(), "extension", "finalized", gomock.Any()).DoAndReturn(
+				func(_ context.Context, _, _ string, invocation Transformation[agent.HistoryEntry]) (Transformed[agent.HistoryEntry], error) {
+					return Transformed[agent.HistoryEntry]{
+						Kind:        Replace,
+						Replacement: test.replace(invocation.Current),
+					}, nil
+				},
+			)
+			original := categorizedToolResultEntry(agent.ToolErrorInvalidArguments).ToolResult.MustGet()
+
+			// Act by finalizing the categorized error result.
+			result, err := service.FinalizeToolResult(t.Context(), original)
+
+			// Assert the category of the final result.
+			require.NoError(t, err)
+			assert.Equal(t, mo.Some(test.want), result.ErrorCategory)
+			assert.True(t, result.IsError)
+		})
+	}
+}
+
 // TestFinalizeCoreValues verifies the Agent Core finalization methods return the final value of their role.
 func TestFinalizeCoreValues(t *testing.T) {
 	t.Parallel()

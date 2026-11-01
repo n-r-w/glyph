@@ -91,6 +91,7 @@ func ProjectHistory(history []agent.HistoryEntry) HistoryProjection {
 				Model: mo.None[model.Response](),
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(skippedCallError), IsError: true,
+					ErrorCategory: mo.None[agent.ToolErrorCategory](),
 				}),
 			}, index)
 		}

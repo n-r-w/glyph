@@ -218,8 +218,11 @@ func (s *Service) Execute(
 		return agent.ToolResult{
 			CallID:   call.ID,
 			ToolName: call.Name,
-			Contents: tool.TextContents(fmt.Sprintf("invalid arguments for tool %q: %v", call.Name, validationErr)),
-			IsError:  true,
+			Contents: tool.TextContents(
+				fmt.Sprintf("invalid arguments for tool %q: %v", call.Name, validationErr),
+			),
+			IsError:       true,
+			ErrorCategory: mo.Some(agent.ToolErrorInvalidArguments),
 		}, nil
 	}
 	if s.contexts == nil {
@@ -237,21 +240,28 @@ func (s *Service) Execute(
 		handleProgress,
 		binding,
 	)
+	// A result that the tool reported as an error is a tool failure.
+	errorCategory := mo.None[agent.ToolErrorCategory]()
+	if result.IsError {
+		errorCategory = mo.Some(agent.ToolErrorFailure)
+	}
 	return agent.ToolResult{
-		CallID:   call.ID,
-		ToolName: call.Name,
-		Contents: slices.Clone(result.Contents),
-		IsError:  result.IsError,
+		CallID:        call.ID,
+		ToolName:      call.Name,
+		Contents:      slices.Clone(result.Contents),
+		IsError:       result.IsError,
+		ErrorCategory: errorCategory,
 	}, executeErr
 }
 
 // unavailableResult returns the existing model-visible unavailable tool result.
 func unavailableResult(call model.ToolCall) agent.ToolResult {
 	return agent.ToolResult{
-		CallID:   call.ID,
-		ToolName: call.Name,
-		Contents: tool.TextContents(fmt.Sprintf("tool %q is unavailable", call.Name)),
-		IsError:  true,
+		CallID:        call.ID,
+		ToolName:      call.Name,
+		Contents:      tool.TextContents(fmt.Sprintf("tool %q is unavailable", call.Name)),
+		IsError:       true,
+		ErrorCategory: mo.Some(agent.ToolErrorUnavailableTool),
 	}
 }
 

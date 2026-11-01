@@ -192,7 +192,7 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 				CallID:   "call-old",
 				ToolName: "read",
 				Contents: tool.TextContents("old data"),
-				IsError:  false,
+				IsError:  false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
 			}),
 		},
 		{

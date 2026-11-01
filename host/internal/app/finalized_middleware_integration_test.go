@@ -123,6 +123,8 @@ type finalizedObservation struct {
 	events map[programmaticv1.AgentEventType][]string
 	// arguments contains the arguments of each tool call of each message-end event.
 	arguments []string
+	// toolResults contains the tool results of tool-execution-end, tool-result, and turn-end events, keyed by event type.
+	toolResults map[programmaticv1.AgentEventType][]*programmaticv1.ToolResult
 }
 
 // observeFinalizedRequest reads the agent events and the terminal state of one sent user request.
@@ -130,7 +132,7 @@ func observeFinalizedRequest(t *testing.T, fixture *programmaticFixture, operati
 	t.Helper()
 	observation := finalizedObservation{
 		code: "", message: "", canceled: false, events: make(map[programmaticv1.AgentEventType][]string),
-		arguments: nil,
+		arguments: nil, toolResults: make(map[programmaticv1.AgentEventType][]*programmaticv1.ToolResult),
 	}
 	for {
 		_, event := receiveOperationEvent(t, fixture, operationID)
@@ -172,11 +174,15 @@ func (observation *finalizedObservation) record(event *programmaticv1.AgentEvent
 		observation.events[event.GetType()] = append(
 			observation.events[event.GetType()], toolResultText(event.GetToolResult()),
 		)
+		observation.toolResults[event.GetType()] = append(
+			observation.toolResults[event.GetType()], event.GetToolResult(),
+		)
 	case programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TURN_END:
 		turn := event.GetTurn()
 		texts := []string{turn.GetResponse().GetText()}
 		for _, result := range turn.GetToolResults() {
 			texts = append(texts, toolResultText(result))
+			observation.toolResults[event.GetType()] = append(observation.toolResults[event.GetType()], result)
 		}
 		observation.events[event.GetType()] = append(observation.events[event.GetType()], strings.Join(texts, " | "))
 	default:

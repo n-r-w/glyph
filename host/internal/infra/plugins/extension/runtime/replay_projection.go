@@ -61,7 +61,11 @@ func (projection replayProjection) projectEntry(entry *agent.HistoryEntry) (*ext
 		}
 		mapped.SetModel(response)
 	case agent.HistoryEntryToolResult:
-		mapped.SetToolResult(mapTreeToolResult(entry.ToolResult.OrEmpty()))
+		result, err := mapTreeToolResult(entry.ToolResult.OrEmpty())
+		if err != nil {
+			return nil, err
+		}
+		mapped.SetToolResult(result)
 	default:
 		return nil, fmt.Errorf("unknown entry kind %d", entry.Kind)
 	}

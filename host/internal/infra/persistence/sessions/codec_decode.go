@@ -257,13 +257,18 @@ func decodeToolResult(data []byte) (session.Entry, error) {
 		}
 		contents = append(contents, content)
 	}
+	result := agent.ToolResult{
+		CallID: record.Result.CallID, ToolName: record.Result.ToolName,
+		Contents: contents, IsError: record.Result.IsError,
+		ErrorCategory: mo.PointerToOption(record.Result.ErrorCategory),
+	}
+	if categoryErr := result.ValidateErrorCategory(); categoryErr != nil {
+		return session.Entry{}, fmt.Errorf("invalid tool result entry: %w", categoryErr)
+	}
 	return session.Entry{
 		ID: record.ID, ParentID: record.ParentID, CreatedAt: entryTime,
 		Information: mo.None[session.Information](), User: mo.None[session.UserMessage](),
-		Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(agent.ToolResult{
-			CallID: record.Result.CallID, ToolName: record.Result.ToolName,
-			Contents: contents, IsError: record.Result.IsError,
-		}),
+		Model: mo.None[session.ModelResponse](), ToolResult: mo.Some(result),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
 		BranchSummary: mo.None[session.BranchSummaryEntry](), Compaction: mo.None[session.CompactionEntry](),
 		ExtensionMessage: mo.None[session.ExtensionMessage](),

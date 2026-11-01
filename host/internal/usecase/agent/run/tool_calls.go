@@ -25,6 +25,7 @@ func (s *Service) skipLengthCalls(
 	for _, call := range calls {
 		result, finalizeErr := s.finalizer.FinalizeToolResult(ctx, agent.ToolResult{
 			CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(lengthCallMessage), IsError: true,
+			ErrorCategory: mo.None[agent.ToolErrorCategory](),
 		})
 		if finalizeErr != nil {
 			return turnResult{
@@ -84,6 +85,7 @@ func (s *Service) executeCalls(
 		if executeErr != nil {
 			result = agent.ToolResult{
 				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(executeErr.Error()), IsError: true,
+				ErrorCategory: mo.Some(agent.ToolErrorFailure),
 			}
 		}
 		result.CallID = call.ID

@@ -4,11 +4,11 @@ This command imports only Glyph's public protobuf contracts and Extension SDK. I
 
 | Declaration | Kind | Action |
 | --- | --- | --- |
-| `finalized_echo` | Tool | Returns the text `echo output` |
+| `finalized_echo` | Tool | Returns the text `echo output`; its input schema accepts the optional string property `value` |
 | `finalized-mark` | `HANDLER_KIND_FINALIZED_MESSAGE` | Replaces the current message with a copy in which every text block ends with ` [final user]`, ` [final model]` or ` [final tool]`, by role |
 | `finalized-later` | `HANDLER_KIND_FINALIZED_MESSAGE` | Preserves the current message |
 
-`finalized-mark` keeps tool calls, images and replay references unchanged. For example, the request `finalize me` is stored and sent as `finalize me [final user]`. A model response `Calling tool.` with a call of `finalized_echo` becomes `Calling tool. [final model]`, and the tool result becomes `echo output [final tool]`. The session, the completion events and the next model request contain these values.
+`finalized-mark` keeps tool calls, images and replay references unchanged. It copies the received tool result and changes only its text, so the error category of an error result stays unchanged. For example, the request `finalize me` is stored and sent as `finalize me [final user]`. A model response `Calling tool.` with a call of `finalized_echo` becomes `Calling tool. [final model]`, and the tool result becomes `echo output [final tool]`. The session, the completion events and the next model request contain these values.
 
 From `testdata/external-plugins`, build the ordinary reference into a new directory that you name in the shell variable `EXTENSION_DIR`:
 
@@ -32,6 +32,8 @@ The executable name selects the scenario. Build or copy the same binary under on
 | `finalized-bad-reference` | Sets the replay reference `unknown` on the first block of the first model response |
 | `finalized-invalid` | Returns an empty action for the first model response |
 | `finalized-image` | Appends a PNG image block to the first user message |
+| `finalized-category` | Replaces the first tool result completely with the error result `replaced result` of the tool-failure category, then behaves as `finalized` |
+| `finalized-bad-category` | Replaces the first tool result completely with an error result whose category is outside the closed set, then behaves as `finalized` |
 | `finalized-block` | Blocks the first model-response invocation until Host cancels it |
 
 When the environment variable `GLYPH_FINALIZED_FAILING_MODEL` holds a number N, `finalized-mark` returns the ordinary error `reference finalized handler failed` for the Nth model response in any scenario.

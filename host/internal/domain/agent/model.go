@@ -126,6 +126,8 @@ type ToolResult struct {
 	Contents []tool.ResultContent
 	// IsError reports whether tool execution failed.
 	IsError bool
+	// ErrorCategory is the Glyph kind of the error; it is present only for an error result that Host categorized.
+	ErrorCategory mo.Option[ToolErrorCategory]
 }
 
 // Clone returns a deep copy of the tool result.
@@ -140,6 +142,21 @@ func (result ToolResult) Clone() ToolResult {
 		)
 	}
 	return result
+}
+
+// ValidateErrorCategory reports a category outside the closed set and a category on a result that is not an error.
+func (result ToolResult) ValidateErrorCategory() error {
+	category, present := result.ErrorCategory.Get()
+	switch {
+	case !present:
+		return nil
+	case !category.Valid():
+		return fmt.Errorf("tool error category %d is outside the closed set", category)
+	case !result.IsError:
+		return errors.New("tool error category requires an error result")
+	default:
+		return nil
+	}
 }
 
 // ValidateImages reports the first image block without its media type or data.

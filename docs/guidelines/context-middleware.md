@@ -6,6 +6,8 @@ Ordinary extensions can replace the system instructions and the history of a mod
 
 A `ModelContextHistory` lists `ModelContextEntry` values in request order. Each entry contains a user message, a model response or a tool result. User messages and tool results use the session-tree messages `SessionTreeUserMessage` and `SessionTreeToolResult`. A model response is a `ReplayableModelResponse`: each block wraps one `SessionTreeModelContent` and can carry a `replay_reference`.
 
+A tool result with an error category starts with the text block `Glyph error category: <name>`, where `<name>` is `unavailable_tool`, `invalid_arguments` or `tool_failure`. Host adds the block before the handlers run; the session keeps the stored contents without it.
+
 Host gives a replay reference to every model block that owns private provider replay, such as encrypted reasoning. The same block has a different reference in `original` and in `current`. The [overview](model-middleware.md#replay-references) states how to keep, remove and restore a reference.
 
 ## Replacement values

@@ -410,7 +410,11 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 		},
 		{
 			Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
-				CallID: "call-old", ToolName: "sample", Contents: tool.TextContents("done"), IsError: false,
+				CallID:        "call-old",
+				ToolName:      "sample",
+				Contents:      tool.TextContents("done"),
+				IsError:       false,
+				ErrorCategory: mo.None[agent.ToolErrorCategory](),
 			}), User: mo.None[model.Message](),
 			Model: mo.None[model.Response](),
 		},

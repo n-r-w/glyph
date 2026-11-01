@@ -197,6 +197,7 @@ func MapToolResult(result agent.ToolResult) ToolResult {
 	)
 	return ToolResult{
 		CallID: result.CallID, ToolName: result.ToolName, Contents: contents, IsError: result.IsError,
+		ErrorCategory: result.ErrorCategory,
 	}
 }
 

@@ -265,12 +265,21 @@ func DecodeSessionTreeToolResult(result *extensionpb.SessionTreeToolResult) (age
 			})
 		}
 	}
-	return agent.ToolResult{
-		CallID:   result.GetCallId(),
-		ToolName: result.GetToolName(),
-		Contents: contents,
-		IsError:  result.GetIsError(),
-	}, nil
+	category, err := decodeToolErrorCategory(result)
+	if err != nil {
+		return agent.ToolResult{}, err
+	}
+	decoded := agent.ToolResult{
+		CallID:        result.GetCallId(),
+		ToolName:      result.GetToolName(),
+		Contents:      contents,
+		IsError:       result.GetIsError(),
+		ErrorCategory: category,
+	}
+	if validationErr := decoded.ValidateErrorCategory(); validationErr != nil {
+		return agent.ToolResult{}, validationErr
+	}
+	return decoded, nil
 }
 
 // DecodeCompactionSource decodes producer selections and reported usage.
