@@ -33,8 +33,11 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 	mockController := gomock.NewController(t)
 	firstPrepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
 	secondPrepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
+	// firstRunning tells the UI service that the first operation is active before it sends the later request.
+	firstRunning := make(chan struct{})
 	firstPrepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ operation.Reporter[controllerui.Frame]) operation.Outcome[controllerui.Frame] {
+			close(firstRunning)
 			<-ctx.Done()
 			return operation.Canceled[controllerui.Frame]()
 		},
@@ -59,6 +62,11 @@ func TestChannelReceivesLaterRequestWhileOperationRuns(t *testing.T) {
 		)
 		if _, startErr := host.Start(ctx, "first", firstRequest); startErr != nil {
 			return startErr
+		}
+		select {
+		case <-firstRunning:
+		case <-ctx.Done():
+			return ctx.Err()
 		}
 		laterRequest := new(uiv1.UIRequest)
 		laterRequest.SetSubmit(
