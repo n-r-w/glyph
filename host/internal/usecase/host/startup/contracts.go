@@ -86,6 +86,9 @@ type RawToolDescriptor struct {
 	InputSchemaJSON []byte
 	// ConstrainedSampling contains the optional registered constraint.
 	ConstrainedSampling mo.Option[RawConstrainedSampling]
+	// ReplacesTool reports whether the registration declares the tool as a replacement of the same-named tool of
+	// another extension.
+	ReplacesTool bool
 }
 
 // RawHandlerKind preserves the public handler kind before policy validation.
@@ -240,10 +243,23 @@ type RuntimeLoader interface {
 	Accept(registrations []AcceptedRegistration)
 }
 
+// ReplacementConflict reports a tool name that several extensions declare a replacement of.
+type ReplacementConflict struct {
+	// ToolName is the name that the declared replacements share.
+	ToolName string
+	// Issue names the extensions that declared the replacements and holds the complete conflict text.
+	Issue Issue
+}
+
 // ToolRegistrar owns tool registration validation and publication.
 type ToolRegistrar interface {
 	ValidateLocal(registration PendingRegistration) ([]tool.Descriptor, error)
-	Conflicts(registrations []AcceptedRegistration) []Issue
+	// NameConflicts reports every ordinary tool name that several registrations own; Host rejects each named
+	// registration completely.
+	NameConflicts(registrations []AcceptedRegistration) []Issue
+	// ReplacementConflicts reports every tool name that several of the given registrations declare a replacement of;
+	// Host rejects only the replacement tool of each named registration.
+	ReplacementConflicts(registrations []AcceptedRegistration) []ReplacementConflict
 	Commit(registrations []AcceptedRegistration)
 }
 

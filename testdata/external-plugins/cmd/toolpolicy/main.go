@@ -7,7 +7,8 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+
+	"example.com/glyph-external-plugins/internal/tracefile"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -54,8 +55,8 @@ type service struct {
 	mode string
 	// behavior selects the policy through the last dash-separated part of the executable name.
 	behavior string
-	// traceMutex serializes trace file appends.
-	traceMutex sync.Mutex
+	// traceLog appends the trace lines.
+	traceLog *tracefile.Log
 }
 
 // Verify the reference service admits operations through the public SDK contract.
@@ -96,7 +97,7 @@ var _ extensionsdk.ExecuteOperation = (*execution)(nil)
 func main() {
 	mode := filepath.Base(os.Args[0])
 	extensionsdk.Serve(&service{
-		mode: mode, behavior: mode[strings.LastIndex(mode, "-")+1:], traceMutex: sync.Mutex{},
+		mode: mode, behavior: mode[strings.LastIndex(mode, "-")+1:], traceLog: tracefile.New(traceEnvironment),
 	})
 }
 
@@ -143,6 +144,7 @@ func (r *registration) Run(context.Context) (*extensionpb.RegisterResponse, erro
 			`{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`,
 		),
 		ConstrainedSampling: nil,
+		ReplacesTool:        nil,
 	}.Build()
 	return extensionpb.RegisterResponse_builder{
 		Tools: []*extensionpb.ToolDescriptor{tool}, Handlers: nil,

@@ -38,6 +38,7 @@ func TestServiceValidatesLocalDescriptors(t *testing.T) {
 					Description:         "",
 					InputSchemaJSON:     nil,
 					ConstrainedSampling: mo.None[startup.RawConstrainedSampling](),
+					ReplacesTool:        false,
 				},
 			},
 			errorText: "descriptor 0 is missing",
@@ -62,6 +63,7 @@ func TestServiceValidatesLocalDescriptors(t *testing.T) {
 					Description:         "Read.",
 					InputSchemaJSON:     []byte(`{"type":"string"}`),
 					ConstrainedSampling: mo.None[startup.RawConstrainedSampling](),
+					ReplacesTool:        false,
 				},
 			},
 			errorText: `tool "read" input schema: schema root type must be object`,
@@ -85,6 +87,7 @@ func TestServiceValidatesLocalDescriptors(t *testing.T) {
 							},
 						},
 					),
+					ReplacesTool: false,
 				},
 			},
 			errorText: `tool "read" constrained sampling: config is missing`,
@@ -222,13 +225,14 @@ func TestServiceConflictsRejectsEveryOwnerDeterministically(t *testing.T) {
 		{ID: "safe", Path: "/safe", Tools: []tool.Descriptor{descriptor("bash")}, Handlers: nil},
 	}
 	// Act detect global conflicts.
-	issues := service.Conflicts(registrations)
+	issues := service.NameConflicts(registrations)
 	// Assert issue names and owner IDs are deterministic.
 	require.Len(t, issues, 2)
 	assert.EqualError(t, issues[0].Err, `tool name "read" conflicts`)
 	assert.Equal(t, []string{"first", "second"}, issues[0].PluginIDs)
 	assert.EqualError(t, issues[1].Err, `tool name "write" conflicts`)
 	assert.Equal(t, []string{"first", "second"}, issues[1].PluginIDs)
+	assert.Empty(t, service.ReplacementConflicts(registrations))
 }
 
 // TestServiceListsAndExecutesAcceptedTools verifies sorting, availability, argument validation, and result mapping.
@@ -616,6 +620,7 @@ func rawDescriptor(name, description string) startup.RawToolDescriptor {
 		Description:         description,
 		InputSchemaJSON:     []byte(validSchemaJSON),
 		ConstrainedSampling: mo.None[startup.RawConstrainedSampling](),
+		ReplacesTool:        false,
 	}
 }
 
@@ -626,5 +631,6 @@ func descriptor(name string) tool.Descriptor {
 		Description:         name,
 		InputSchemaJSON:     []byte(validSchemaJSON),
 		ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+		ReplacesTool:        false,
 	}
 }

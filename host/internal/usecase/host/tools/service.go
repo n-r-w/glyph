@@ -140,6 +140,7 @@ func (s *Service) ValidateLocal(registration startup.PendingRegistration) ([]too
 				Description:         raw.Description,
 				InputSchemaJSON:     bytes.Clone(raw.InputSchemaJSON),
 				ConstrainedSampling: constraint,
+				ReplacesTool:        raw.ReplacesTool,
 			},
 		)
 		schemas[raw.Name] = schema
@@ -148,50 +149,6 @@ func (s *Service) ValidateLocal(registration startup.PendingRegistration) ([]too
 	s.prepared[registration.ID] = schemas
 	s.mutex.Unlock()
 	return descriptors, nil
-}
-
-// Conflicts returns deterministic issues for every name owned by multiple extensions.
-func (s *Service) Conflicts(registrations []startup.AcceptedRegistration) []startup.Issue {
-	owners := make(map[string][]string)
-	for _, registration := range registrations {
-		for index := range registration.Tools {
-			descriptor := &registration.Tools[index]
-			owners[descriptor.Name] = append(owners[descriptor.Name], registration.ID)
-		}
-	}
-	issues := make([]startup.Issue, 0)
-	for name, pluginIDs := range owners {
-		if len(pluginIDs) < 2 { //nolint:mnd // A conflict needs at least two owners.
-			continue
-		}
-		slices.Sort(pluginIDs)
-		issues = append(
-			issues,
-			startup.Issue{PluginIDs: pluginIDs, Path: "", Err: fmt.Errorf("tool name %q conflicts", name)},
-		)
-	}
-	slices.SortFunc(
-		issues,
-		func(left, right startup.Issue) int { return cmp.Compare(left.Err.Error(), right.Err.Error()) },
-	)
-	return issues
-}
-
-// Commit publishes tools from registrations accepted by every startup validator.
-func (s *Service) Commit(registrations []startup.AcceptedRegistration) {
-	s.mutex.Lock()
-	defer s.mutex.Unlock()
-	for _, registration := range registrations {
-		for index := range registration.Tools {
-			descriptor := &registration.Tools[index]
-			s.owners[descriptor.Name] = &owner{
-				extensionID: registration.ID,
-				descriptor:  *descriptor,
-				schema:      s.prepared[registration.ID][descriptor.Name],
-			}
-		}
-	}
-	s.prepared = make(map[string]map[string]*jsonschema.Schema)
 }
 
 // Tools returns accepted descriptors whose owning runtime is available, sorted by name.

@@ -16,6 +16,10 @@ message ToolDescriptor {
   bytes input_schema_json = 3;
   // The optional provider-side input generation constraint.
   ConstrainedSampling constrained_sampling = 4;
+  // True declares that this tool replaces the tool with the same name from another extension.
+  // The model then sees and calls this tool, and this extension executes its calls.
+  // Host rejects the replacement when another extension declares a replacement of the same name.
+  bool replaces_tool = 5;
 }
 
 // ConstrainedSampling requests provider-side constrained tool input generation.

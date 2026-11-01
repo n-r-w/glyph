@@ -118,6 +118,8 @@ Host applies this duration to request handlers, generators, and result handlers 
 
 `settings.yaml` does not select extensions or individual tools. Glyph treats every regular executable file in the extension catalog directory as an extension candidate. Each started extension reports its own tools.
 
+An extension can replace a tool of another extension, for example the bundled `read`, by declaring `replaces_tool` in the tool descriptor; [D3](../specs/features/initial/phases/09-tool-middleware-run-control/solution.md#d3-tool-replacement) describes the rules, and the [reference extension](../../testdata/external-plugins/cmd/tooloverride/README.md) shows the declaration.
+
 The default extension catalog directory is `~/.glyph/plugins/extension/`. Use `--extension-dir` to replace the default directory for one invocation:
 
 ```bash

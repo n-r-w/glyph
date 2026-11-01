@@ -127,6 +127,7 @@ type ToolDescriptor struct {
 	xxx_hidden_Description         *string                `protobuf:"bytes,2,opt,name=description"`
 	xxx_hidden_InputSchemaJson     []byte                 `protobuf:"bytes,3,opt,name=input_schema_json,json=inputSchemaJson"`
 	xxx_hidden_ConstrainedSampling *ConstrainedSampling   `protobuf:"bytes,4,opt,name=constrained_sampling,json=constrainedSampling"`
+	xxx_hidden_ReplacesTool        bool                   `protobuf:"varint,5,opt,name=replaces_tool,json=replacesTool"`
 	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
 	XXX_presence                   [1]uint32
 	unknownFields                  protoimpl.UnknownFields
@@ -192,14 +193,21 @@ func (x *ToolDescriptor) GetConstrainedSampling() *ConstrainedSampling {
 	return nil
 }
 
+func (x *ToolDescriptor) GetReplacesTool() bool {
+	if x != nil {
+		return x.xxx_hidden_ReplacesTool
+	}
+	return false
+}
+
 func (x *ToolDescriptor) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
 }
 
 func (x *ToolDescriptor) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
 }
 
 func (x *ToolDescriptor) SetInputSchemaJson(v []byte) {
@@ -207,11 +215,16 @@ func (x *ToolDescriptor) SetInputSchemaJson(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_InputSchemaJson = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 4)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
 }
 
 func (x *ToolDescriptor) SetConstrainedSampling(v *ConstrainedSampling) {
 	x.xxx_hidden_ConstrainedSampling = v
+}
+
+func (x *ToolDescriptor) SetReplacesTool(v bool) {
+	x.xxx_hidden_ReplacesTool = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
 }
 
 func (x *ToolDescriptor) HasName() bool {
@@ -242,6 +255,13 @@ func (x *ToolDescriptor) HasConstrainedSampling() bool {
 	return x.xxx_hidden_ConstrainedSampling != nil
 }
 
+func (x *ToolDescriptor) HasReplacesTool() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
+}
+
 func (x *ToolDescriptor) ClearName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Name = nil
@@ -261,6 +281,11 @@ func (x *ToolDescriptor) ClearConstrainedSampling() {
 	x.xxx_hidden_ConstrainedSampling = nil
 }
 
+func (x *ToolDescriptor) ClearReplacesTool() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 4)
+	x.xxx_hidden_ReplacesTool = false
+}
+
 type ToolDescriptor_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -272,6 +297,10 @@ type ToolDescriptor_builder struct {
 	InputSchemaJson []byte
 	// The optional provider-side input generation constraint.
 	ConstrainedSampling *ConstrainedSampling
+	// True declares that this tool replaces the tool with the same name from another extension.
+	// The model then sees and calls this tool, and this extension executes its calls.
+	// Host rejects the replacement when another extension declares a replacement of the same name.
+	ReplacesTool *bool
 }
 
 func (b0 ToolDescriptor_builder) Build() *ToolDescriptor {
@@ -279,18 +308,22 @@ func (b0 ToolDescriptor_builder) Build() *ToolDescriptor {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
 		x.xxx_hidden_Description = b.Description
 	}
 	if b.InputSchemaJson != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 4)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
 		x.xxx_hidden_InputSchemaJson = b.InputSchemaJson
 	}
 	x.xxx_hidden_ConstrainedSampling = b.ConstrainedSampling
+	if b.ReplacesTool != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		x.xxx_hidden_ReplacesTool = *b.ReplacesTool
+	}
 	return m0
 }
 
@@ -1300,12 +1333,13 @@ var File_api_plugins_extension_v1_tool_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"#api/plugins/extension/v1/tool.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\"\xd6\x01\n" +
+	"#api/plugins/extension/v1/tool.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\"\xfb\x01\n" +
 	"\x0eToolDescriptor\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12*\n" +
 	"\x11input_schema_json\x18\x03 \x01(\fR\x0finputSchemaJson\x12b\n" +
-	"\x14constrained_sampling\x18\x04 \x01(\v2/.glyph.plugins.extension.v1.ConstrainedSamplingR\x13constrainedSampling\"\xd1\x01\n" +
+	"\x14constrained_sampling\x18\x04 \x01(\v2/.glyph.plugins.extension.v1.ConstrainedSamplingR\x13constrainedSampling\x12#\n" +
+	"\rreplaces_tool\x18\x05 \x01(\bR\freplacesTool\"\xd1\x01\n" +
 	"\x13ConstrainedSampling\x12\\\n" +
 	"\vjson_schema\x18\x01 \x01(\v29.glyph.plugins.extension.v1.JsonSchemaConstrainedSamplingH\x00R\n" +
 	"jsonSchema\x12R\n" +

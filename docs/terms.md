@@ -19,6 +19,7 @@
 - `tool batch`: The tool calls of one model response.
 - `active tool set`: The registered tools that Host includes in the next model request.
 - `tool policy`: An extension decision to allow, reject, or change one tool call before the tool runs.
+- `tool replacement`: An extension tool that takes the place of the tool with the same name from another extension; the model sees and calls the replacing tool.
 - `Glyph plugin`: A separately delivered Glyph component. The defined Glyph plugin kinds are extension and UI plugin.
 - `extension`: A Glyph plugin that contributes platform or agent capabilities through extension contracts.
 - `UI plugin`: A Glyph plugin that presents Glyph to a person and communicates with Glyph as a Glyph client.

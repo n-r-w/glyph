@@ -3,10 +3,6 @@
 package app
 
 import (
-	"encoding/json/v2"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
@@ -61,34 +57,9 @@ func buildToolPolicyFixture(t *testing.T, names ...string) string {
 	t.Helper()
 	directory := t.TempDir()
 	for _, name := range names {
-		command := exec.CommandContext(
-			t.Context(), "go", "build", "-o", filepath.Join(directory, name), "./cmd/toolpolicy",
-		)
-		command.Dir = filepath.Join(repoRoot(t), "testdata", "external-plugins")
-		output, err := command.CombinedOutput()
-		require.NoError(t, err, string(output))
+		buildExternalCommand(t, directory, "toolpolicy", name)
 	}
 	return directory
-}
-
-// enableToolPolicyTrace makes the tool-policy reference processes record each handler invocation and tool call in
-// one file and returns its path.
-func enableToolPolicyTrace(t *testing.T) string {
-	t.Helper()
-	path := filepath.Join(t.TempDir(), "tool-policy-trace.tsv")
-	t.Setenv(toolPolicyTraceEnvironment, path)
-	return path
-}
-
-// readToolPolicyTrace returns the trace lines in the order in which the processes wrote them.
-func readToolPolicyTrace(t *testing.T, path string) []string {
-	t.Helper()
-	data, err := os.ReadFile(path)
-	if os.IsNotExist(err) {
-		return nil
-	}
-	require.NoError(t, err)
-	return strings.Split(strings.TrimSuffix(string(data), "\n"), "\n")
 }
 
 // toolPolicyTraceLine builds the expected trace line of a handler invocation with its original and current input.
@@ -101,26 +72,15 @@ func toolPolicyToolLine(arguments string) string {
 	return "tool\t" + arguments
 }
 
-// toolPolicyCallSSE requests one call of the reference tool with the given arguments.
-func toolPolicyCallSSE(t *testing.T, callID, arguments string) string {
-	t.Helper()
-	encoded, err := json.Marshal(arguments)
-	require.NoError(t, err)
-	return `data: {"type":"response.completed","response":{"id":"resp-` + callID + `","model":"gpt-active",` +
-		`"status":"completed","output":[` +
-		`{"id":"fc-` + callID + `","type":"function_call","call_id":"` + callID + `","name":"` + toolPolicyToolName +
-		`","arguments":` + string(encoded) + `,"status":"completed"}]}}` + "\n\n" + "data: [DONE]\n\n"
-}
-
 // TestPublicToolPolicyReplacesInput verifies that the second handler receives the original call and the call that the
 // first handler replaced, and that the tool runs with the replaced input and gives the model its result.
 //
 //nolint:paralleltest // The scenario sets the trace environment of the extension processes.
 func TestPublicToolPolicyReplacesInput(t *testing.T) {
 	// Arrange two policy extensions and the tool extension, and a provider that calls the tool once.
-	trace := enableToolPolicyTrace(t)
+	trace := enableTraceFile(t, toolPolicyTraceEnvironment)
 	provider := startQueueProvider(
-		t, 0, toolPolicyCallSSE(t, "call-1", toolPolicyOriginalArguments), finalResponseSSE,
+		t, 0, toolCallSSE(t, "call-1", toolPolicyToolName, toolPolicyOriginalArguments), finalResponseSSE,
 	)
 	fixture := startQueueFixture(
 		t, provider, buildToolPolicyFixture(t, toolPolicyReplaceFirst, toolPolicyAllowSecond, toolPolicyToolOwner),
@@ -137,7 +97,7 @@ func TestPublicToolPolicyReplacesInput(t *testing.T) {
 		toolPolicyTraceLine(toolPolicyReplaceFirst, toolPolicyOriginalArguments, toolPolicyOriginalArguments),
 		toolPolicyTraceLine(toolPolicyAllowSecond, toolPolicyOriginalArguments, toolPolicyReplacedArguments),
 		toolPolicyToolLine(toolPolicyReplacedArguments),
-	}, readToolPolicyTrace(t, trace))
+	}, readTraceLines(t, trace))
 	bodies := provider.snapshot()
 	require.Len(t, bodies, 2)
 	assert.Contains(t, bodies[1], toolPolicyToolOutput+"replaced")
@@ -153,11 +113,11 @@ func TestPublicToolPolicyReplacesInput(t *testing.T) {
 //nolint:paralleltest // The scenario sets the trace environment of the extension processes.
 func TestPublicToolPolicyRejectsCall(t *testing.T) {
 	// Arrange a rejecting first handler, a second handler, and a provider that holds its first request.
-	trace := enableToolPolicyTrace(t)
+	trace := enableTraceFile(t, toolPolicyTraceEnvironment)
 	provider := startQueueProvider(
 		t, 1,
-		toolPolicyCallSSE(t, "call-1", toolPolicyForbiddenArguments),
-		toolPolicyCallSSE(t, "call-2", toolPolicyPermittedArguments),
+		toolCallSSE(t, "call-1", toolPolicyToolName, toolPolicyForbiddenArguments),
+		toolCallSSE(t, "call-2", toolPolicyToolName, toolPolicyPermittedArguments),
 		finalResponseSSE,
 	)
 	fixture := startQueueFixture(
@@ -182,7 +142,7 @@ func TestPublicToolPolicyRejectsCall(t *testing.T) {
 		toolPolicyTraceLine(toolPolicyRejectFirst, toolPolicyPermittedArguments, toolPolicyPermittedArguments),
 		toolPolicyTraceLine(toolPolicyAllowSecond, toolPolicyPermittedArguments, toolPolicyPermittedArguments),
 		toolPolicyToolLine(toolPolicyPermittedArguments),
-	}, readToolPolicyTrace(t, trace))
+	}, readTraceLines(t, trace))
 	results := observation.toolResults[programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_RESULT]
 	require.Len(t, results, 2)
 	assert.True(t, results[0].GetIsError())
@@ -228,9 +188,9 @@ func TestPublicToolPolicyFailureFailsRun(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// Arrange the failing first handler, an allowing second handler, and a provider that calls the tool.
-			trace := enableToolPolicyTrace(t)
+			trace := enableTraceFile(t, toolPolicyTraceEnvironment)
 			provider := startQueueProvider(
-				t, 0, toolPolicyCallSSE(t, "call-1", toolPolicyOriginalArguments), finalResponseSSE,
+				t, 0, toolCallSSE(t, "call-1", toolPolicyToolName, toolPolicyOriginalArguments), finalResponseSSE,
 			)
 			fixture := startQueueFixture(
 				t, provider, buildToolPolicyFixture(t, test.failing, toolPolicyAllowSecond, toolPolicyToolOwner),
@@ -248,7 +208,7 @@ func TestPublicToolPolicyFailureFailsRun(t *testing.T) {
 			assert.NotEmpty(t, observation.message)
 			assert.Equal(t, []string{
 				toolPolicyTraceLine(test.failing, toolPolicyOriginalArguments, toolPolicyOriginalArguments),
-			}, readToolPolicyTrace(t, trace))
+			}, readTraceLines(t, trace))
 			assert.Len(t, provider.snapshot(), 1)
 		})
 	}
@@ -260,9 +220,9 @@ func TestPublicToolPolicyFailureFailsRun(t *testing.T) {
 //nolint:paralleltest // The scenario sets the trace environment of the extension processes.
 func TestPublicToolPolicyInvalidOriginalArguments(t *testing.T) {
 	// Arrange an allowing handler and a provider that calls the tool with schema-invalid arguments.
-	trace := enableToolPolicyTrace(t)
+	trace := enableTraceFile(t, toolPolicyTraceEnvironment)
 	provider := startQueueProvider(
-		t, 0, toolPolicyCallSSE(t, "call-1", toolPolicyInvalidArguments), finalResponseSSE,
+		t, 0, toolCallSSE(t, "call-1", toolPolicyToolName, toolPolicyInvalidArguments), finalResponseSSE,
 	)
 	fixture := startQueueFixture(t, provider, buildToolPolicyFixture(t, toolPolicyAllowFirst, toolPolicyToolOwner))
 	defer fixture.closeOwner(t)
@@ -275,7 +235,7 @@ func TestPublicToolPolicyInvalidOriginalArguments(t *testing.T) {
 	require.Empty(t, observation.code, observation.message)
 	assert.Equal(t, []string{
 		toolPolicyTraceLine(toolPolicyAllowFirst, toolPolicyInvalidArguments, toolPolicyInvalidArguments),
-	}, readToolPolicyTrace(t, trace))
+	}, readTraceLines(t, trace))
 	results := observation.toolResults[programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_RESULT]
 	require.Len(t, results, 1)
 	assert.Equal(

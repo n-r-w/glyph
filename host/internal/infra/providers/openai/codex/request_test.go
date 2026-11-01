@@ -218,6 +218,7 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 						`"description":"File path."}},"required":["path"],` +
 						`"additionalProperties":false}`,
 				),
+				ReplacesTool: false,
 			},
 		}, Wire: mo.None[modelexecution.
 			WireCallbacks](),

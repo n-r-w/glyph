@@ -9,8 +9,6 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	programmaticv1 "github.com/n-r-w/glyph/pkg/programmatic/v1"
 )
 
 // TestProgrammaticClientReceivesStartupIssuesBeforeFirstResult verifies that a tool-name conflict between two
@@ -25,24 +23,7 @@ func TestProgrammaticClientReceivesStartupIssuesBeforeFirstResult(t *testing.T) 
 	defer fixture.closeOwner(t)
 
 	// Act by sending the first request and reading the stream until that request completes.
-	request := new(programmaticv1.OpenRequest)
-	request.SetOperationId("first")
-	programmaticRequest(request).SetGetSessionInfo(new(programmaticv1.GetSessionInfo))
-	require.NoError(t, fixture.stream.Send(request))
-	issues := make([]*programmaticv1.StartupIssue, 0)
-	requestStarted := false
-	for completed := false; !completed; {
-		response, err := fixture.stream.Recv()
-		require.NoError(t, err)
-		if response.GetConnectionEvent().HasStartupIssue() {
-			require.False(t, requestStarted, "startup issue arrived after a message of the first request")
-			issues = append(issues, response.GetConnectionEvent().GetStartupIssue())
-		}
-		if response.GetOperationId() == "first" {
-			requestStarted = true
-			completed = response.GetEvent().HasCompleted()
-		}
-	}
+	issues := receiveStartupIssues(t, fixture, "first")
 
 	// Assert that each conflict names both extensions and holds the complete startup error text.
 	require.NotEmpty(t, issues)

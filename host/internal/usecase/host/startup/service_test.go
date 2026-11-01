@@ -39,13 +39,22 @@ func TestServiceLoadAppliesValidationInApprovedOrder(t *testing.T) {
 		tools.EXPECT().ValidateLocal(pending.Registrations[1]).Return([]tool.Descriptor{}, nil),
 		tools.EXPECT().
 			ValidateLocal(pending.Registrations[2]).
-			Return([]tool.Descriptor{{Name: "shared", Description: "Shared.", InputSchemaJSON: nil, ConstrainedSampling: mo.None[tool.ConstrainedSampling]()}}, nil),
+			Return([]tool.Descriptor{{
+				Name: "shared", Description: "Shared.", InputSchemaJSON: nil,
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+			}}, nil),
 		tools.EXPECT().
 			ValidateLocal(pending.Registrations[3]).
-			Return([]tool.Descriptor{{Name: "shared", Description: "Shared.", InputSchemaJSON: nil, ConstrainedSampling: mo.None[tool.ConstrainedSampling]()}}, nil),
+			Return([]tool.Descriptor{{
+				Name: "shared", Description: "Shared.", InputSchemaJSON: nil,
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+			}}, nil),
 		tools.EXPECT().
 			ValidateLocal(pending.Registrations[4]).
-			Return([]tool.Descriptor{{Name: "safe", Description: "Safe.", InputSchemaJSON: nil, ConstrainedSampling: mo.None[tool.ConstrainedSampling]()}}, nil),
+			Return([]tool.Descriptor{{
+				Name: "safe", Description: "Safe.", InputSchemaJSON: nil,
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+			}}, nil),
 		handlers.EXPECT().ValidateSessionTreeHandlers(pending.Registrations[1]).Return(nil, handlerErr),
 		handlers.EXPECT().ValidateSessionTreeHandlers(pending.Registrations[2]).Return([]AcceptedHandler{}, nil),
 		lifecycle.EXPECT().ValidateLifecycleHandlers(pending.Registrations[2]).Return([]AcceptedHandler{}, nil),
@@ -55,7 +64,8 @@ func TestServiceLoadAppliesValidationInApprovedOrder(t *testing.T) {
 		lifecycle.EXPECT().ValidateLifecycleHandlers(pending.Registrations[4]).Return([]AcceptedHandler{}, nil),
 	)
 	conflict := Issue{PluginIDs: []string{"first", "second"}, Path: "", Err: errors.New(`tool name "shared" conflicts`)}
-	tools.EXPECT().Conflicts(gomock.Any()).Return([]Issue{conflict})
+	tools.EXPECT().NameConflicts(gomock.Any()).Return([]Issue{conflict})
+	tools.EXPECT().ReplacementConflicts(gomock.Any()).Return(nil)
 	runtimes.EXPECT().RejectPending([]string{"first", "handler-invalid", "local-invalid", "second"})
 	accepted := []AcceptedRegistration{
 		{
@@ -67,6 +77,7 @@ func TestServiceLoadAppliesValidationInApprovedOrder(t *testing.T) {
 					Description:         "Safe.",
 					InputSchemaJSON:     nil,
 					ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+					ReplacesTool:        false,
 				},
 			},
 			Handlers: []AcceptedHandler{},
@@ -136,7 +147,8 @@ func TestServiceLoadPartitionsHandlersAndRestoresRegistrationOrder(t *testing.T)
 			{ID: "message", Kind: RawHandlerKindMessageUpdate},
 		},
 	}}
-	tools.EXPECT().Conflicts(expected).Return(nil)
+	tools.EXPECT().NameConflicts(expected).Return(nil)
+	tools.EXPECT().ReplacementConflicts(expected).Return(nil)
 	runtimes.EXPECT().RejectPending([]string{})
 	tools.EXPECT().Commit(expected)
 	sessionTree.EXPECT().CommitSessionTreeHandlers(expected)
@@ -184,7 +196,8 @@ func TestServiceLoadRejectsWholeRegistrationWhenSelectionHandlerIsInvalid(t *tes
 		ID: pending.ID, Path: pending.Path, Tools: nil,
 		Handlers: []RawHandlerDescriptor{{Present: true, ID: "selection", Kind: RawHandlerKindModelSelection}},
 	}).Return(nil, selectionErr)
-	tools.EXPECT().Conflicts([]AcceptedRegistration{}).Return(nil)
+	tools.EXPECT().NameConflicts([]AcceptedRegistration{}).Return(nil)
+	tools.EXPECT().ReplacementConflicts([]AcceptedRegistration{}).Return(nil)
 	runtimes.EXPECT().RejectPending([]string{"extension"})
 	tools.EXPECT().Commit([]AcceptedRegistration{})
 	sessionTree.EXPECT().CommitSessionTreeHandlers([]AcceptedRegistration{})
@@ -245,7 +258,8 @@ func TestServiceStartReportsIssuesAndSummary(t *testing.T) {
 			runtimes.EXPECT().
 				LoadPending(gomock.Any(), gomock.Any()).
 				Return(PendingLoad{Issues: []Issue{issue}, Registrations: nil}, nil)
-			tools.EXPECT().Conflicts([]AcceptedRegistration{}).Return(nil)
+			tools.EXPECT().NameConflicts([]AcceptedRegistration{}).Return(nil)
+			tools.EXPECT().ReplacementConflicts([]AcceptedRegistration{}).Return(nil)
 			runtimes.EXPECT().RejectPending([]string{})
 			tools.EXPECT().Commit([]AcceptedRegistration{})
 			handlers.EXPECT().CommitSessionTreeHandlers([]AcceptedRegistration{})
@@ -270,4 +284,78 @@ func TestServiceStartReportsIssuesAndSummary(t *testing.T) {
 			assert.Equal(t, []Issue{issue}, report.Issues)
 		})
 	}
+}
+
+// TestServiceLoadRemovesOnlyRejectedReplacementTools verifies that a conflicting replacement removes only its tool
+// while the rest of the registration, its handlers, and the other registrations stay accepted.
+func TestServiceLoadRemovesOnlyRejectedReplacementTools(t *testing.T) {
+	t.Parallel()
+
+	// Arrange two registrations that both replace read, each with one more tool and one handler.
+	controller := gomock.NewController(t)
+	runtimes := NewMockRuntimeLoader(controller)
+	tools := NewMockToolRegistrar(controller)
+	sessionTree := NewMockSessionTreeRegistrar(controller)
+	lifecycle := NewMockLifecycleRegistrar(controller)
+	agentHandlers := []RawHandlerDescriptor{{Present: true, ID: "agent", Kind: RawHandlerKindAgentStart}}
+	pending := []PendingRegistration{
+		{ID: "first", Path: "/first", Tools: nil, Handlers: agentHandlers},
+		{ID: "second", Path: "/second", Tools: nil, Handlers: agentHandlers},
+	}
+	runtimes.EXPECT().
+		LoadPending(t.Context(), gomock.Any()).
+		Return(PendingLoad{Issues: nil, Registrations: pending}, nil)
+	read := tool.Descriptor{
+		Name: "read", Description: "Replacement.", InputSchemaJSON: nil,
+		ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: true,
+	}
+	for index, name := range []string{"first", "second"} {
+		other := tool.Descriptor{
+			Name: name + "-tool", Description: "Other.", InputSchemaJSON: nil,
+			ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+		}
+		tools.EXPECT().ValidateLocal(pending[index]).Return([]tool.Descriptor{read, other}, nil)
+		sessionTree.EXPECT().ValidateSessionTreeHandlers(gomock.Any()).Return([]AcceptedHandler{}, nil)
+		lifecycle.EXPECT().ValidateLifecycleHandlers(gomock.Any()).Return(
+			[]AcceptedHandler{{ID: "agent", Kind: RawHandlerKindAgentStart}}, nil,
+		)
+	}
+	replacementIssue := Issue{
+		PluginIDs: []string{
+			"first",
+			"second",
+		},
+		Path: "",
+		Err:  errors.New(`tool name "read" has conflicting replacements`),
+	}
+	tools.EXPECT().NameConflicts(gomock.Any()).Return(nil)
+	tools.EXPECT().ReplacementConflicts(gomock.Any()).Return(
+		[]ReplacementConflict{{ToolName: "read", Issue: replacementIssue}},
+	)
+	expected := make([]AcceptedRegistration, 0, 2)
+	for _, id := range []string{"first", "second"} {
+		expected = append(expected, AcceptedRegistration{
+			ID: id, Path: "/" + id,
+			Tools: []tool.Descriptor{{
+				Name: id + "-tool", Description: "Other.", InputSchemaJSON: nil,
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+			}},
+			Handlers: []AcceptedHandler{{ID: "agent", Kind: RawHandlerKindAgentStart}},
+		})
+	}
+	runtimes.EXPECT().RejectPending([]string{})
+	tools.EXPECT().Commit(expected)
+	sessionTree.EXPECT().CommitSessionTreeHandlers(expected)
+	lifecycle.EXPECT().CommitLifecycleHandlers(expected)
+	runtimes.EXPECT().Accept(expected)
+
+	// Act by loading the registrations.
+	report, err := New(runtimes, tools, sessionTree, lifecycle, nil).Load(t.Context(), Request{
+		DataDirectory: "/data", ExtensionDirectory: "/plugins",
+	})
+
+	// Assert both registrations stay accepted without the replacement, and the conflict is reported once.
+	require.NoError(t, err)
+	assert.Equal(t, expected, report.Extensions)
+	assert.Equal(t, []Issue{replacementIssue}, report.Issues)
 }

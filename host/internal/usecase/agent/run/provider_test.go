@@ -32,6 +32,7 @@ func TestServiceRunStop(t *testing.T) {
 		Description:         "read",
 		InputSchemaJSON:     []byte(`{}`),
 		ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+		ReplacesTool:        false,
 	}
 	tools.EXPECT().Tools().Return([]tool.Descriptor{descriptor})
 	response := model.Response{

@@ -123,5 +123,6 @@ func newConsumedChildTools() []*extensionpb.ToolDescriptor {
 	return []*extensionpb.ToolDescriptor{extensionpb.ToolDescriptor_builder{
 		Name: new(consumedChildToolName), Description: new(consumedChildToolDescription),
 		InputSchemaJson: []byte(consumedChildToolSchema), ConstrainedSampling: nil,
+		ReplacesTool: nil,
 	}.Build()}
 }

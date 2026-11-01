@@ -57,5 +57,6 @@ func newCallerTools(enabled bool) []*extensionpb.ToolDescriptor {
 	return []*extensionpb.ToolDescriptor{extensionpb.ToolDescriptor_builder{
 		Name: new(callerToolName), Description: new(callerToolDescription),
 		InputSchemaJson: []byte(callerToolSchema), ConstrainedSampling: nil,
+		ReplacesTool: nil,
 	}.Build()}
 }

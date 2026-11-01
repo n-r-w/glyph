@@ -503,6 +503,7 @@ func registerCompletedEvent(mode string) *extensionpb.ExtensionEvent {
 	tools := []*extensionpb.ToolDescriptor{extensionpb.ToolDescriptor_builder{
 		Name: new(fixtureToolName), Description: new("Read a project file."),
 		InputSchemaJson: []byte(validSchemaJSON), ConstrainedSampling: nil,
+		ReplacesTool: nil,
 	}.Build()}
 	var handlers []*extensionpb.HandlerDescriptor
 	if mode == "mismatched-handler" || mode == "cancel-handle-transport-error" ||

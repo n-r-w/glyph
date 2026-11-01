@@ -268,7 +268,8 @@ func mapToolDescriptor(descriptor *extensionpb.ToolDescriptor) mo.Option[extensi
 		InputSchemaJSON: bytes.Clone(
 			descriptor.GetInputSchemaJson(),
 		),
-		Constraint: mapRawConstrainedSampling(descriptor.GetConstrainedSampling()),
+		Constraint:   mapRawConstrainedSampling(descriptor.GetConstrainedSampling()),
+		ReplacesTool: descriptor.GetReplacesTool(),
 	})
 }
 

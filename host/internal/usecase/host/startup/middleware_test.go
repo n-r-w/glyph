@@ -76,7 +76,8 @@ func TestServiceLoadPassesContextMiddlewareToRegistrar(t *testing.T) {
 			middlewareHandlers[5],
 		},
 	}}
-	tools.EXPECT().Conflicts(expected).Return(nil)
+	tools.EXPECT().NameConflicts(expected).Return(nil)
+	tools.EXPECT().ReplacementConflicts(expected).Return(nil)
 	runtimes.EXPECT().RejectPending([]string{})
 	tools.EXPECT().Commit(expected)
 	sessionTree.EXPECT().CommitSessionTreeHandlers(expected)

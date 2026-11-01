@@ -275,7 +275,7 @@ Deliver an independent Go agent platform with a UI-free agent core, a plugin-man
 - An extension tool shall be able to report progress and respond to cancellation of the active agent run.
 - Extensions shall be able to intercept a tool call before execution and allow it, reject it, or change its input.
 - Extensions shall be able to change a tool result before it is returned to the model.
-- An extension shall be able to replace a registered tool by registering the same tool name.
+- An extension shall be able to replace a tool of another extension by registering a tool with the same name that it declares as a replacement.
 - A tool execution error shall become a model-visible error result, after which the agent shall continue.
 
 #### Model Runtime

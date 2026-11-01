@@ -27,6 +27,8 @@ type ToolDeclaration struct {
 	InputSchemaJSON []byte
 	// Constraint retains optional sampling configuration without applying policy.
 	Constraint mo.Option[ConstraintDeclaration]
+	// ReplacesTool retains the process declaration that the tool replaces the same-named tool of another extension.
+	ReplacesTool bool
 }
 
 // ConstraintKind identifies the decoded configuration variant.
@@ -89,6 +91,7 @@ func (s *Service) bindRegistration(candidate Candidate, raw Registration) startu
 			Description:         value.Description,
 			InputSchemaJSON:     value.InputSchemaJSON,
 			ConstrainedSampling: constraint,
+			ReplacesTool:        value.ReplacesTool,
 		}
 	}
 	handlers := make([]startup.RawHandlerDescriptor, len(raw.Handlers))

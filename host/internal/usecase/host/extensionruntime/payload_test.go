@@ -38,6 +38,7 @@ func TestRegistrationBindsDiscoveredIdentity(t *testing.T) {
 				Regex:      mo.None[string](),
 			},
 		),
+		ReplacesTool: true,
 	})}, Handlers: []mo.Option[HandlerDeclaration]{
 		mo.None[HandlerDeclaration](),
 		mo.Some(HandlerDeclaration{ID: "declared-handler", Kind: 99}),
@@ -52,6 +53,7 @@ func TestRegistrationBindsDiscoveredIdentity(t *testing.T) {
 	require.Equal(t, "/trusted/executable", pending.Path)
 	require.False(t, pending.Tools[0].Present)
 	require.Equal(t, "declared-name", pending.Tools[1].Name)
+	require.True(t, pending.Tools[1].ReplacesTool)
 	require.Equal(
 		t,
 		startup.RawJSONSchemaStrictness(99),

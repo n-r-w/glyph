@@ -289,6 +289,7 @@ func TestServiceRetryAttemptsDeepCopyToolSchemas(t *testing.T) {
 		Instructions: "", History: nil, Tools: []tool.Descriptor{{
 			Name: "read", Description: "read", InputSchemaJSON: slices.Clone(originalSchema),
 			ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+			ReplacesTool:        false,
 		}},
 	}, func(agentrun.StreamEvent) error { return nil })
 

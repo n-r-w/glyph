@@ -38,6 +38,7 @@ func TestServiceStreamsOneLogicalRequest(t *testing.T) {
 	tools := []tool.Descriptor{{
 		Name: "search", Description: "Search files", InputSchemaJSON: []byte(`{"type":"object"}`),
 		ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+		ReplacesTool:        false,
 	}}
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
 		func(_ context.Context, request ProviderRequest, handle StreamHandler) error {

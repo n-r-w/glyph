@@ -13,6 +13,9 @@ type Descriptor struct {
 	InputSchemaJSON []byte
 	// ConstrainedSampling defines an optional provider-side input constraint.
 	ConstrainedSampling mo.Option[ConstrainedSampling]
+	// ReplacesTool reports whether the owning extension declared that this tool replaces the tool of the same name
+	// from another extension.
+	ReplacesTool bool
 }
 
 // ResultContentKind identifies one terminal tool result content block.

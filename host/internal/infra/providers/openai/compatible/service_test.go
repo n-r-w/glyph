@@ -163,6 +163,7 @@ func richRequest(provider model.ProviderID, modelID model.ID) modelexecution.Pro
 					`{"type":"object","properties":{"path":{"type":"string"}},"required":["path"]}`,
 				),
 				ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
+				ReplacesTool:        false,
 			},
 		}, Wire: mo.None[modelexecution.
 			WireCallbacks](),

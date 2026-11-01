@@ -151,9 +151,9 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	}
 	accepted = handlerAccepted
 
-	conflictIssues := s.tools.Conflicts(accepted)
-	issues = append(issues, conflictIssues...)
-	for _, issue := range conflictIssues {
+	nameConflicts := s.tools.NameConflicts(accepted)
+	issues = append(issues, nameConflicts...)
+	for _, issue := range nameConflicts {
 		for _, pluginID := range issue.PluginIDs {
 			rejected[pluginID] = struct{}{}
 		}
@@ -162,6 +162,11 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 		_, found := rejected[registration.ID]
 		return found
 	})
+	// A registration rejected by an ordinary conflict declares no replacement, so only the others can conflict.
+	for _, conflict := range s.tools.ReplacementConflicts(accepted) {
+		issues = append(issues, conflict.Issue)
+		removeReplacementTool(accepted, conflict)
+	}
 
 	rejectedIDs := make([]string, 0, len(rejected))
 	for pluginID := range rejected {
@@ -185,6 +190,22 @@ func (s *Service) Load(ctx context.Context, request Request) (LoadReport, error)
 	report := LoadReport{Issues: issues, Extensions: accepted}
 	logReport(ctx, directory, report)
 	return report, nil
+}
+
+// removeReplacementTool removes the rejected replacement tool from the registrations that the conflict names and keeps
+// every other tool and handler of them.
+func removeReplacementTool(registrations []AcceptedRegistration, conflict ReplacementConflict) {
+	for index := range registrations {
+		if !slices.Contains(conflict.Issue.PluginIDs, registrations[index].ID) {
+			continue
+		}
+		registrations[index].Tools = slices.DeleteFunc(
+			registrations[index].Tools,
+			func(descriptor tool.Descriptor) bool {
+				return descriptor.Name == conflict.ToolName && descriptor.ReplacesTool
+			},
+		)
+	}
 }
 
 // validateCompactionHandlers validates the optional compaction partition through its capability owner.

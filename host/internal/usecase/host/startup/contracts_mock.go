@@ -167,18 +167,32 @@ func (mr *MockToolRegistrarMockRecorder) Commit(registrations any) *gomock.Call 
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Commit", reflect.TypeOf((*MockToolRegistrar)(nil).Commit), registrations)
 }
 
-// Conflicts mocks base method.
-func (m *MockToolRegistrar) Conflicts(registrations []AcceptedRegistration) []Issue {
+// NameConflicts mocks base method.
+func (m *MockToolRegistrar) NameConflicts(registrations []AcceptedRegistration) []Issue {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Conflicts", registrations)
+	ret := m.ctrl.Call(m, "NameConflicts", registrations)
 	ret0, _ := ret[0].([]Issue)
 	return ret0
 }
 
-// Conflicts indicates an expected call of Conflicts.
-func (mr *MockToolRegistrarMockRecorder) Conflicts(registrations any) *gomock.Call {
+// NameConflicts indicates an expected call of NameConflicts.
+func (mr *MockToolRegistrarMockRecorder) NameConflicts(registrations any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Conflicts", reflect.TypeOf((*MockToolRegistrar)(nil).Conflicts), registrations)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "NameConflicts", reflect.TypeOf((*MockToolRegistrar)(nil).NameConflicts), registrations)
+}
+
+// ReplacementConflicts mocks base method.
+func (m *MockToolRegistrar) ReplacementConflicts(registrations []AcceptedRegistration) []ReplacementConflict {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReplacementConflicts", registrations)
+	ret0, _ := ret[0].([]ReplacementConflict)
+	return ret0
+}
+
+// ReplacementConflicts indicates an expected call of ReplacementConflicts.
+func (mr *MockToolRegistrarMockRecorder) ReplacementConflicts(registrations any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReplacementConflicts", reflect.TypeOf((*MockToolRegistrar)(nil).ReplacementConflicts), registrations)
 }
 
 // ValidateLocal mocks base method.
