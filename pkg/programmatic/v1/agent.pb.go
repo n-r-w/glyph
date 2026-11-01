@@ -33,6 +33,8 @@ const (
 	ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS ToolErrorCategory = 2
 	// The tool reported an error, or Host could not execute the tool.
 	ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE ToolErrorCategory = 3
+	// An extension rejected the call before the tool ran.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_POLICY_REJECTION ToolErrorCategory = 4
 )
 
 // Enum value maps for ToolErrorCategory.
@@ -42,12 +44,14 @@ var (
 		1: "TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL",
 		2: "TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS",
 		3: "TOOL_ERROR_CATEGORY_TOOL_FAILURE",
+		4: "TOOL_ERROR_CATEGORY_POLICY_REJECTION",
 	}
 	ToolErrorCategory_value = map[string]int32{
 		"TOOL_ERROR_CATEGORY_UNSPECIFIED":       0,
 		"TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL":  1,
 		"TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS": 2,
 		"TOOL_ERROR_CATEGORY_TOOL_FAILURE":      3,
+		"TOOL_ERROR_CATEGORY_POLICY_REJECTION":  4,
 	}
 )
 
@@ -3819,12 +3823,13 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\fAgentSummary\x12;\n" +
 	"\aoutcome\x18\x01 \x01(\x0e2!.glyph.programmatic.v1.RunOutcomeR\aoutcome\x12#\n" +
 	"\rerror_message\x18\x02 \x01(\tR\ferrorMessage\x12S\n" +
-	"\x11returned_messages\x18\x03 \x03(\v2&.glyph.programmatic.v1.ReturnedMessageR\x10returnedMessages*\xb3\x01\n" +
+	"\x11returned_messages\x18\x03 \x03(\v2&.glyph.programmatic.v1.ReturnedMessageR\x10returnedMessages*\xdd\x01\n" +
 	"\x11ToolErrorCategory\x12#\n" +
 	"\x1fTOOL_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12(\n" +
 	"$TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL\x10\x01\x12)\n" +
 	"%TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS\x10\x02\x12$\n" +
-	" TOOL_ERROR_CATEGORY_TOOL_FAILURE\x10\x03*\xcf\x05\n" +
+	" TOOL_ERROR_CATEGORY_TOOL_FAILURE\x10\x03\x12(\n" +
+	"$TOOL_ERROR_CATEGORY_POLICY_REJECTION\x10\x04*\xcf\x05\n" +
 	"\x0eAgentEventType\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cAGENT_EVENT_TYPE_AGENT_START\x10\x01\x12\x1f\n" +

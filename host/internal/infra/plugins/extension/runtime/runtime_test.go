@@ -1302,6 +1302,7 @@ func (operation *protocolHandleOperation) Run(
 			ModelContext:       nil,
 			UserInput:          nil,
 			FinalizedMessage:   nil,
+			ToolPolicy:         nil,
 		}.Build(), nil
 	}
 	//nolint:exhaustruct_v5 // The response builder sets only the observer action.

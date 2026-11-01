@@ -88,6 +88,7 @@ func startLiveCallerFixture(t *testing.T, paths persistence.Paths, directory str
 	dispatcher := events.NewDispatcher(delivery, observers)
 	middlewareOwner := middleware.New(runtimes, contexts, providerCatalog)
 	require.NoError(t, modelExecution.BindResponseFinalizer(middlewareOwner))
+	tools.BindToolPolicy(middlewareOwner)
 	core := agentrun.New(
 		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
 	)

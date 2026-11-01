@@ -124,6 +124,8 @@ enum ToolErrorCategory {
   TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS = 2;
   // The tool reported an error, or Host could not execute the tool.
   TOOL_ERROR_CATEGORY_TOOL_FAILURE = 3;
+  // An extension rejected the call before the tool ran.
+  TOOL_ERROR_CATEGORY_POLICY_REJECTION = 4;
 }
 
 // SessionTreeBranchSummary contains one prior persisted summary.

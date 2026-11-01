@@ -29,6 +29,8 @@ const (
 	UserInput
 	// FinalizedMessage preserves or replaces the content of one finalized user message, model response, or tool result.
 	FinalizedMessage
+	// ToolPolicy allows, changes the input of, or rejects one tool call before the tool runs.
+	ToolPolicy
 )
 
 // String returns the operation name used in failure text.
@@ -48,6 +50,8 @@ func (kind Kind) String() string {
 		return "user-input"
 	case FinalizedMessage:
 		return "finalized-message"
+	case ToolPolicy:
+		return "tool-policy"
 	default:
 		return fmt.Sprintf("unknown(%d)", uint8(kind))
 	}
@@ -93,7 +97,8 @@ type Invocation struct {
 	Response modelexecution.WireResponse
 }
 
-// ActionKind identifies the permitted transformer or observer result.
+// ActionKind identifies the permitted transformer or observer result. Tool policy uses Preserve as allowing the call,
+// Replace as replacing its input, and Reject as rejecting it.
 type ActionKind uint8
 
 const (
@@ -105,6 +110,8 @@ const (
 	Acknowledge
 	// Handle fully handles the current value and ends its chain.
 	Handle
+	// Reject refuses the current value with a reason and ends its chain.
+	Reject
 )
 
 // Action carries a decoded result whose semantics are validated by the owner.
@@ -135,6 +142,16 @@ type Transformed[T any] struct {
 	Replacement T
 }
 
+// ToolPolicyAction carries a decoded tool-policy result whose semantics are validated by the owner.
+type ToolPolicyAction struct {
+	// Kind selects Preserve to allow the call, Replace to change its input, or Reject to reject it.
+	Kind ActionKind
+	// Arguments contains the complete replacement input when Kind is Replace.
+	Arguments []byte
+	// Reason contains the reason of the rejection when Kind is Reject.
+	Reason string
+}
+
 //go:generate go tool mockgen -source=contracts.go -destination=contracts_mock.go -package=middleware
 
 // Runtime invokes one exact-generation ordinary middleware operation.
@@ -157,6 +174,10 @@ type Runtime interface {
 	HandleFinalizedMessage(
 		context.Context, string, string, Transformation[agent.HistoryEntry],
 	) (Transformed[agent.HistoryEntry], error)
+	// HandleToolPolicy invokes one tool-policy handler.
+	HandleToolPolicy(
+		context.Context, string, string, Transformation[model.ToolCall],
+	) (ToolPolicyAction, error)
 }
 
 // ContextIssuer binds an invocation to the current extension generation and session.

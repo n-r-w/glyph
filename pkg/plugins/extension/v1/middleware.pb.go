@@ -2480,6 +2480,322 @@ func (*finalizedMessageAction_Preserve) isFinalizedMessageAction_Action() {}
 
 func (*finalizedMessageAction_Replace) isFinalizedMessageAction_Action() {}
 
+// ToolPolicyInvocation supplies the immutable original and composed current call of one tool call before the tool runs.
+// Both calls have the same identifier and tool name; only the arguments can differ.
+type ToolPolicyInvocation struct {
+	state               protoimpl.MessageState `protogen:"opaque.v1"`
+	xxx_hidden_Original *SessionTreeToolCall   `protobuf:"bytes,1,opt,name=original"`
+	xxx_hidden_Current  *SessionTreeToolCall   `protobuf:"bytes,2,opt,name=current"`
+	unknownFields       protoimpl.UnknownFields
+	sizeCache           protoimpl.SizeCache
+}
+
+func (x *ToolPolicyInvocation) Reset() {
+	*x = ToolPolicyInvocation{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolPolicyInvocation) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolPolicyInvocation) ProtoMessage() {}
+
+func (x *ToolPolicyInvocation) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ToolPolicyInvocation) GetOriginal() *SessionTreeToolCall {
+	if x != nil {
+		return x.xxx_hidden_Original
+	}
+	return nil
+}
+
+func (x *ToolPolicyInvocation) GetCurrent() *SessionTreeToolCall {
+	if x != nil {
+		return x.xxx_hidden_Current
+	}
+	return nil
+}
+
+func (x *ToolPolicyInvocation) SetOriginal(v *SessionTreeToolCall) {
+	x.xxx_hidden_Original = v
+}
+
+func (x *ToolPolicyInvocation) SetCurrent(v *SessionTreeToolCall) {
+	x.xxx_hidden_Current = v
+}
+
+func (x *ToolPolicyInvocation) HasOriginal() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Original != nil
+}
+
+func (x *ToolPolicyInvocation) HasCurrent() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Current != nil
+}
+
+func (x *ToolPolicyInvocation) ClearOriginal() {
+	x.xxx_hidden_Original = nil
+}
+
+func (x *ToolPolicyInvocation) ClearCurrent() {
+	x.xxx_hidden_Current = nil
+}
+
+type ToolPolicyInvocation_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The tool call as the model requested it.
+	Original *SessionTreeToolCall
+	// The tool call produced by preceding handlers.
+	Current *SessionTreeToolCall
+}
+
+func (b0 ToolPolicyInvocation_builder) Build() *ToolPolicyInvocation {
+	m0 := &ToolPolicyInvocation{}
+	b, x := &b0, m0
+	_, _ = b, x
+	x.xxx_hidden_Original = b.Original
+	x.xxx_hidden_Current = b.Current
+	return m0
+}
+
+// ToolPolicyAction allows the current call, replaces its input, or rejects the call.
+type ToolPolicyAction struct {
+	state             protoimpl.MessageState    `protogen:"opaque.v1"`
+	xxx_hidden_Action isToolPolicyAction_Action `protobuf_oneof:"action"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
+}
+
+func (x *ToolPolicyAction) Reset() {
+	*x = ToolPolicyAction{}
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ToolPolicyAction) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ToolPolicyAction) ProtoMessage() {}
+
+func (x *ToolPolicyAction) ProtoReflect() protoreflect.Message {
+	mi := &file_api_plugins_extension_v1_middleware_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+func (x *ToolPolicyAction) GetAllow() bool {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*toolPolicyAction_Allow); ok {
+			return x.Allow
+		}
+	}
+	return false
+}
+
+func (x *ToolPolicyAction) GetReplaceArgumentsJson() []byte {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*toolPolicyAction_ReplaceArgumentsJson); ok {
+			return x.ReplaceArgumentsJson
+		}
+	}
+	return nil
+}
+
+func (x *ToolPolicyAction) GetRejectReason() string {
+	if x != nil {
+		if x, ok := x.xxx_hidden_Action.(*toolPolicyAction_RejectReason); ok {
+			return x.RejectReason
+		}
+	}
+	return ""
+}
+
+func (x *ToolPolicyAction) SetAllow(v bool) {
+	x.xxx_hidden_Action = &toolPolicyAction_Allow{v}
+}
+
+func (x *ToolPolicyAction) SetReplaceArgumentsJson(v []byte) {
+	if v == nil {
+		v = []byte{}
+	}
+	x.xxx_hidden_Action = &toolPolicyAction_ReplaceArgumentsJson{v}
+}
+
+func (x *ToolPolicyAction) SetRejectReason(v string) {
+	x.xxx_hidden_Action = &toolPolicyAction_RejectReason{v}
+}
+
+func (x *ToolPolicyAction) HasAction() bool {
+	if x == nil {
+		return false
+	}
+	return x.xxx_hidden_Action != nil
+}
+
+func (x *ToolPolicyAction) HasAllow() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*toolPolicyAction_Allow)
+	return ok
+}
+
+func (x *ToolPolicyAction) HasReplaceArgumentsJson() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*toolPolicyAction_ReplaceArgumentsJson)
+	return ok
+}
+
+func (x *ToolPolicyAction) HasRejectReason() bool {
+	if x == nil {
+		return false
+	}
+	_, ok := x.xxx_hidden_Action.(*toolPolicyAction_RejectReason)
+	return ok
+}
+
+func (x *ToolPolicyAction) ClearAction() {
+	x.xxx_hidden_Action = nil
+}
+
+func (x *ToolPolicyAction) ClearAllow() {
+	if _, ok := x.xxx_hidden_Action.(*toolPolicyAction_Allow); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+func (x *ToolPolicyAction) ClearReplaceArgumentsJson() {
+	if _, ok := x.xxx_hidden_Action.(*toolPolicyAction_ReplaceArgumentsJson); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+func (x *ToolPolicyAction) ClearRejectReason() {
+	if _, ok := x.xxx_hidden_Action.(*toolPolicyAction_RejectReason); ok {
+		x.xxx_hidden_Action = nil
+	}
+}
+
+const ToolPolicyAction_Action_not_set_case case_ToolPolicyAction_Action = 0
+const ToolPolicyAction_Allow_case case_ToolPolicyAction_Action = 1
+const ToolPolicyAction_ReplaceArgumentsJson_case case_ToolPolicyAction_Action = 2
+const ToolPolicyAction_RejectReason_case case_ToolPolicyAction_Action = 3
+
+func (x *ToolPolicyAction) WhichAction() case_ToolPolicyAction_Action {
+	if x == nil {
+		return ToolPolicyAction_Action_not_set_case
+	}
+	switch x.xxx_hidden_Action.(type) {
+	case *toolPolicyAction_Allow:
+		return ToolPolicyAction_Allow_case
+	case *toolPolicyAction_ReplaceArgumentsJson:
+		return ToolPolicyAction_ReplaceArgumentsJson_case
+	case *toolPolicyAction_RejectReason:
+		return ToolPolicyAction_RejectReason_case
+	default:
+		return ToolPolicyAction_Action_not_set_case
+	}
+}
+
+type ToolPolicyAction_builder struct {
+	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
+
+	// The handler must select one valid action.
+
+	// Fields of oneof xxx_hidden_Action:
+	// True allows the current call; false is invalid.
+	Allow *bool
+	// The complete replacement input as a JSON object that satisfies the input schema of the tool;
+	// Host fails the agent run when it does not.
+	ReplaceArgumentsJson []byte
+	// The complete nonempty reason. The tool does not run, no later handler runs,
+	// and the model and the client receive an error result with this reason.
+	RejectReason *string
+	// -- end of xxx_hidden_Action
+}
+
+func (b0 ToolPolicyAction_builder) Build() *ToolPolicyAction {
+	m0 := &ToolPolicyAction{}
+	b, x := &b0, m0
+	_, _ = b, x
+	if b.Allow != nil {
+		x.xxx_hidden_Action = &toolPolicyAction_Allow{*b.Allow}
+	}
+	if b.ReplaceArgumentsJson != nil {
+		x.xxx_hidden_Action = &toolPolicyAction_ReplaceArgumentsJson{b.ReplaceArgumentsJson}
+	}
+	if b.RejectReason != nil {
+		x.xxx_hidden_Action = &toolPolicyAction_RejectReason{*b.RejectReason}
+	}
+	return m0
+}
+
+type case_ToolPolicyAction_Action protoreflect.FieldNumber
+
+func (x case_ToolPolicyAction_Action) String() string {
+	md := file_api_plugins_extension_v1_middleware_proto_msgTypes[21].Descriptor()
+	if x == 0 {
+		return "not set"
+	}
+	return protoimpl.X.MessageFieldStringOf(md, protoreflect.FieldNumber(x))
+}
+
+type isToolPolicyAction_Action interface {
+	isToolPolicyAction_Action()
+}
+
+type toolPolicyAction_Allow struct {
+	// True allows the current call; false is invalid.
+	Allow bool `protobuf:"varint,1,opt,name=allow,oneof"`
+}
+
+type toolPolicyAction_ReplaceArgumentsJson struct {
+	// The complete replacement input as a JSON object that satisfies the input schema of the tool;
+	// Host fails the agent run when it does not.
+	ReplaceArgumentsJson []byte `protobuf:"bytes,2,opt,name=replace_arguments_json,json=replaceArgumentsJson,oneof"`
+}
+
+type toolPolicyAction_RejectReason struct {
+	// The complete nonempty reason. The tool does not run, no later handler runs,
+	// and the model and the client receive an error result with this reason.
+	RejectReason string `protobuf:"bytes,3,opt,name=reject_reason,json=rejectReason,oneof"`
+}
+
+func (*toolPolicyAction_Allow) isToolPolicyAction_Action() {}
+
+func (*toolPolicyAction_ReplaceArgumentsJson) isToolPolicyAction_Action() {}
+
+func (*toolPolicyAction_RejectReason) isToolPolicyAction_Action() {}
+
 var File_api_plugins_extension_v1_middleware_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_middleware_proto_rawDesc = "" +
@@ -2552,9 +2868,17 @@ const file_api_plugins_extension_v1_middleware_proto_rawDesc = "" +
 	"\x16FinalizedMessageAction\x12\x1c\n" +
 	"\bpreserve\x18\x01 \x01(\bH\x00R\bpreserve\x12I\n" +
 	"\areplace\x18\x02 \x01(\v2-.glyph.plugins.extension.v1.ModelContextEntryH\x00R\areplaceB\b\n" +
+	"\x06action\"\xae\x01\n" +
+	"\x14ToolPolicyInvocation\x12K\n" +
+	"\boriginal\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.SessionTreeToolCallR\boriginal\x12I\n" +
+	"\acurrent\x18\x02 \x01(\v2/.glyph.plugins.extension.v1.SessionTreeToolCallR\acurrent\"\x93\x01\n" +
+	"\x10ToolPolicyAction\x12\x16\n" +
+	"\x05allow\x18\x01 \x01(\bH\x00R\x05allow\x126\n" +
+	"\x16replace_arguments_json\x18\x02 \x01(\fH\x00R\x14replaceArgumentsJson\x12%\n" +
+	"\rreject_reason\x18\x03 \x01(\tH\x00R\frejectReasonB\b\n" +
 	"\x06actionB=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
-var file_api_plugins_extension_v1_middleware_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_api_plugins_extension_v1_middleware_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_api_plugins_extension_v1_middleware_proto_goTypes = []any{
 	(*WireHeaders)(nil),                  // 0: glyph.plugins.extension.v1.WireHeaders
 	(*WireHeaderValues)(nil),             // 1: glyph.plugins.extension.v1.WireHeaderValues
@@ -2576,13 +2900,16 @@ var file_api_plugins_extension_v1_middleware_proto_goTypes = []any{
 	(*UserInputAction)(nil),              // 17: glyph.plugins.extension.v1.UserInputAction
 	(*FinalizedMessageInvocation)(nil),   // 18: glyph.plugins.extension.v1.FinalizedMessageInvocation
 	(*FinalizedMessageAction)(nil),       // 19: glyph.plugins.extension.v1.FinalizedMessageAction
-	nil,                                  // 20: glyph.plugins.extension.v1.WireHeaders.EntriesEntry
-	(*SessionTreeUserMessage)(nil),       // 21: glyph.plugins.extension.v1.SessionTreeUserMessage
-	(*SessionTreeToolResult)(nil),        // 22: glyph.plugins.extension.v1.SessionTreeToolResult
-	(*SessionTreeModelContent)(nil),      // 23: glyph.plugins.extension.v1.SessionTreeModelContent
+	(*ToolPolicyInvocation)(nil),         // 20: glyph.plugins.extension.v1.ToolPolicyInvocation
+	(*ToolPolicyAction)(nil),             // 21: glyph.plugins.extension.v1.ToolPolicyAction
+	nil,                                  // 22: glyph.plugins.extension.v1.WireHeaders.EntriesEntry
+	(*SessionTreeUserMessage)(nil),       // 23: glyph.plugins.extension.v1.SessionTreeUserMessage
+	(*SessionTreeToolResult)(nil),        // 24: glyph.plugins.extension.v1.SessionTreeToolResult
+	(*SessionTreeModelContent)(nil),      // 25: glyph.plugins.extension.v1.SessionTreeModelContent
+	(*SessionTreeToolCall)(nil),          // 26: glyph.plugins.extension.v1.SessionTreeToolCall
 }
 var file_api_plugins_extension_v1_middleware_proto_depIdxs = []int32{
-	20, // 0: glyph.plugins.extension.v1.WireHeaders.entries:type_name -> glyph.plugins.extension.v1.WireHeaders.EntriesEntry
+	22, // 0: glyph.plugins.extension.v1.WireHeaders.entries:type_name -> glyph.plugins.extension.v1.WireHeaders.EntriesEntry
 	0,  // 1: glyph.plugins.extension.v1.ProviderHeadersInvocation.original:type_name -> glyph.plugins.extension.v1.WireHeaders
 	0,  // 2: glyph.plugins.extension.v1.ProviderHeadersInvocation.current:type_name -> glyph.plugins.extension.v1.WireHeaders
 	0,  // 3: glyph.plugins.extension.v1.ProviderHeadersAction.replace:type_name -> glyph.plugins.extension.v1.WireHeaders
@@ -2591,23 +2918,25 @@ var file_api_plugins_extension_v1_middleware_proto_depIdxs = []int32{
 	12, // 6: glyph.plugins.extension.v1.ModelContextInvocation.current:type_name -> glyph.plugins.extension.v1.ModelContextHistory
 	12, // 7: glyph.plugins.extension.v1.ModelContextAction.replace:type_name -> glyph.plugins.extension.v1.ModelContextHistory
 	13, // 8: glyph.plugins.extension.v1.ModelContextHistory.entries:type_name -> glyph.plugins.extension.v1.ModelContextEntry
-	21, // 9: glyph.plugins.extension.v1.ModelContextEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	23, // 9: glyph.plugins.extension.v1.ModelContextEntry.user:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
 	14, // 10: glyph.plugins.extension.v1.ModelContextEntry.model:type_name -> glyph.plugins.extension.v1.ReplayableModelResponse
-	22, // 11: glyph.plugins.extension.v1.ModelContextEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
+	24, // 11: glyph.plugins.extension.v1.ModelContextEntry.tool_result:type_name -> glyph.plugins.extension.v1.SessionTreeToolResult
 	15, // 12: glyph.plugins.extension.v1.ReplayableModelResponse.content:type_name -> glyph.plugins.extension.v1.ReplayableModelContent
-	23, // 13: glyph.plugins.extension.v1.ReplayableModelContent.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
-	21, // 14: glyph.plugins.extension.v1.UserInputInvocation.original:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
-	21, // 15: glyph.plugins.extension.v1.UserInputInvocation.current:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
-	21, // 16: glyph.plugins.extension.v1.UserInputAction.replace:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	25, // 13: glyph.plugins.extension.v1.ReplayableModelContent.content:type_name -> glyph.plugins.extension.v1.SessionTreeModelContent
+	23, // 14: glyph.plugins.extension.v1.UserInputInvocation.original:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	23, // 15: glyph.plugins.extension.v1.UserInputInvocation.current:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
+	23, // 16: glyph.plugins.extension.v1.UserInputAction.replace:type_name -> glyph.plugins.extension.v1.SessionTreeUserMessage
 	13, // 17: glyph.plugins.extension.v1.FinalizedMessageInvocation.original:type_name -> glyph.plugins.extension.v1.ModelContextEntry
 	13, // 18: glyph.plugins.extension.v1.FinalizedMessageInvocation.current:type_name -> glyph.plugins.extension.v1.ModelContextEntry
 	13, // 19: glyph.plugins.extension.v1.FinalizedMessageAction.replace:type_name -> glyph.plugins.extension.v1.ModelContextEntry
-	1,  // 20: glyph.plugins.extension.v1.WireHeaders.EntriesEntry.value:type_name -> glyph.plugins.extension.v1.WireHeaderValues
-	21, // [21:21] is the sub-list for method output_type
-	21, // [21:21] is the sub-list for method input_type
-	21, // [21:21] is the sub-list for extension type_name
-	21, // [21:21] is the sub-list for extension extendee
-	0,  // [0:21] is the sub-list for field type_name
+	26, // 20: glyph.plugins.extension.v1.ToolPolicyInvocation.original:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
+	26, // 21: glyph.plugins.extension.v1.ToolPolicyInvocation.current:type_name -> glyph.plugins.extension.v1.SessionTreeToolCall
+	1,  // 22: glyph.plugins.extension.v1.WireHeaders.EntriesEntry.value:type_name -> glyph.plugins.extension.v1.WireHeaderValues
+	23, // [23:23] is the sub-list for method output_type
+	23, // [23:23] is the sub-list for method input_type
+	23, // [23:23] is the sub-list for extension type_name
+	23, // [23:23] is the sub-list for extension extendee
+	0,  // [0:23] is the sub-list for field type_name
 }
 
 func init() { file_api_plugins_extension_v1_middleware_proto_init() }
@@ -2646,13 +2975,18 @@ func file_api_plugins_extension_v1_middleware_proto_init() {
 		(*finalizedMessageAction_Preserve)(nil),
 		(*finalizedMessageAction_Replace)(nil),
 	}
+	file_api_plugins_extension_v1_middleware_proto_msgTypes[21].OneofWrappers = []any{
+		(*toolPolicyAction_Allow)(nil),
+		(*toolPolicyAction_ReplaceArgumentsJson)(nil),
+		(*toolPolicyAction_RejectReason)(nil),
+	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_plugins_extension_v1_middleware_proto_rawDesc), len(file_api_plugins_extension_v1_middleware_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

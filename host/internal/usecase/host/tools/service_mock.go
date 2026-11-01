@@ -14,7 +14,9 @@ import (
 	reflect "reflect"
 
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
+	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
+	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
 
@@ -108,4 +110,44 @@ func (m *MockContextIssuer) IssueContext(extensionID string) (extension.Context,
 func (mr *MockContextIssuerMockRecorder) IssueContext(extensionID any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IssueContext", reflect.TypeOf((*MockContextIssuer)(nil).IssueContext), extensionID)
+}
+
+// MockToolPolicy is a mock of ToolPolicy interface.
+type MockToolPolicy struct {
+	ctrl     *gomock.Controller
+	recorder *MockToolPolicyMockRecorder
+	isgomock struct{}
+}
+
+// MockToolPolicyMockRecorder is the mock recorder for MockToolPolicy.
+type MockToolPolicyMockRecorder struct {
+	mock *MockToolPolicy
+}
+
+// NewMockToolPolicy creates a new mock instance.
+func NewMockToolPolicy(ctrl *gomock.Controller) *MockToolPolicy {
+	mock := &MockToolPolicy{ctrl: ctrl}
+	mock.recorder = &MockToolPolicyMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockToolPolicy) EXPECT() *MockToolPolicyMockRecorder {
+	return m.recorder
+}
+
+// ApplyToolPolicy mocks base method.
+func (m *MockToolPolicy) ApplyToolPolicy(ctx context.Context, call model.ToolCall, validate func([]byte) error) (model.ToolCall, mo.Option[string], error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ApplyToolPolicy", ctx, call, validate)
+	ret0, _ := ret[0].(model.ToolCall)
+	ret1, _ := ret[1].(mo.Option[string])
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// ApplyToolPolicy indicates an expected call of ApplyToolPolicy.
+func (mr *MockToolPolicyMockRecorder) ApplyToolPolicy(ctx, call, validate any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ApplyToolPolicy", reflect.TypeOf((*MockToolPolicy)(nil).ApplyToolPolicy), ctx, call, validate)
 }

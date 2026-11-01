@@ -23,6 +23,8 @@ func EncodeToolErrorCategory(category mo.Option[agent.ToolErrorCategory]) (*exte
 		return new(extensionpb.ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS), nil
 	case agent.ToolErrorFailure:
 		return new(extensionpb.ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE), nil
+	case agent.ToolErrorPolicyRejection:
+		return new(extensionpb.ToolErrorCategory_TOOL_ERROR_CATEGORY_POLICY_REJECTION), nil
 	default:
 		return nil, fmt.Errorf("tool error category %d is outside the closed set", value)
 	}
@@ -41,6 +43,8 @@ func decodeToolErrorCategory(result *extensionpb.SessionTreeToolResult) (mo.Opti
 		return mo.Some(agent.ToolErrorInvalidArguments), nil
 	case extensionpb.ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE:
 		return mo.Some(agent.ToolErrorFailure), nil
+	case extensionpb.ToolErrorCategory_TOOL_ERROR_CATEGORY_POLICY_REJECTION:
+		return mo.Some(agent.ToolErrorPolicyRejection), nil
 	case extensionpb.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED:
 	}
 	return mo.None[agent.ToolErrorCategory](), fmt.Errorf(

@@ -13,6 +13,7 @@ func newToolErrorCategories() map[compaction.ToolErrorCategory]pb.ToolErrorCateg
 		compaction.ToolErrorUnavailableTool:  pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL,
 		compaction.ToolErrorInvalidArguments: pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS,
 		compaction.ToolErrorFailure:          pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE,
+		compaction.ToolErrorPolicyRejection:  pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_POLICY_REJECTION,
 	}
 }
 

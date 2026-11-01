@@ -17,8 +17,10 @@ func TestToolErrorCategoryValid(t *testing.T) {
 	t.Parallel()
 
 	// Arrange the closed set and values outside it.
-	closed := []ToolErrorCategory{ToolErrorUnavailableTool, ToolErrorInvalidArguments, ToolErrorFailure}
-	outside := []ToolErrorCategory{0, ToolErrorFailure + 1, 255}
+	closed := []ToolErrorCategory{
+		ToolErrorUnavailableTool, ToolErrorInvalidArguments, ToolErrorFailure, ToolErrorPolicyRejection,
+	}
+	outside := []ToolErrorCategory{0, ToolErrorPolicyRejection + 1, 255}
 
 	// Act and assert through validity and the model-visible name.
 	names := make(map[string]struct{}, len(closed))

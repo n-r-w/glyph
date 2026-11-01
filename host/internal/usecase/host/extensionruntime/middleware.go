@@ -79,6 +79,20 @@ func (s *Service) HandleFinalizedMessage(
 	)
 }
 
+// HandleToolPolicy invokes one tool-policy handler on the exact generation bound by the owner.
+func (s *Service) HandleToolPolicy(
+	ctx context.Context,
+	extensionID, handlerID string,
+	invocation middleware.Transformation[model.ToolCall],
+) (middleware.ToolPolicyAction, error) {
+	return invokeMiddleware(
+		ctx, s, extensionID, handlerID, invocation.Context.RuntimeInstanceID,
+		func(runtime ExtensionRuntime) (middleware.ToolPolicyAction, error) {
+			return runtime.HandleToolPolicy(ctx, handlerID, invocation)
+		},
+	)
+}
+
 // invokeMiddleware runs one middleware operation only while its bound runtime generation is available.
 func invokeMiddleware[A any](
 	ctx context.Context,

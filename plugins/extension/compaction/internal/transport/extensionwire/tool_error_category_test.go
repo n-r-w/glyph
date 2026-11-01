@@ -22,6 +22,7 @@ func TestToolResultErrorCategoryRoundTrip(t *testing.T) {
 		"unavailable tool":  new(pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL),
 		"invalid arguments": new(pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS),
 		"tool failure":      new(pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE),
+		"policy rejection":  new(pb.ToolErrorCategory_TOOL_ERROR_CATEGORY_POLICY_REJECTION),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

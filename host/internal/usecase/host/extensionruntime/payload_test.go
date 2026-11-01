@@ -69,7 +69,7 @@ func TestRegistrationBindsMiddlewareKinds(t *testing.T) {
 		startup.RawHandlerKindProviderHeaders, startup.RawHandlerKindProviderBody,
 		startup.RawHandlerKindProviderResponse, startup.RawHandlerKindSystemInstructions,
 		startup.RawHandlerKindModelContext, startup.RawHandlerKindUserInput,
-		startup.RawHandlerKindFinalizedMessage,
+		startup.RawHandlerKindFinalizedMessage, startup.RawHandlerKindToolPolicy,
 	}
 	declarations := make([]mo.Option[HandlerDeclaration], len(kinds))
 	for index, kind := range kinds {

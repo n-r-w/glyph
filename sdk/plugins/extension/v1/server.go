@@ -503,6 +503,9 @@ func newHandlerPayloadPredicates() map[extensionpb.HandlerKind]func(*extensionpb
 		extensionpb.HandlerKind_HANDLER_KIND_FINALIZED_MESSAGE: func(request *extensionpb.HandleRequest) bool {
 			return request.GetFinalizedMessage() != nil
 		},
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_POLICY: func(request *extensionpb.HandleRequest) bool {
+			return request.GetToolPolicy() != nil
+		},
 		extensionpb.HandlerKind_HANDLER_KIND_RETRY: func(request *extensionpb.HandleRequest) bool {
 			return request.GetRetry() != nil
 		},

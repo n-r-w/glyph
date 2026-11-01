@@ -11,6 +11,7 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	"github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
 
 // Service owns accepted declarations and sequential middleware composition.
@@ -28,7 +29,7 @@ type Service struct {
 }
 
 // Verify the owner implements model-execution callbacks and response finalization, run input processing, startup
-// registration and Agent Core message finalization contracts.
+// registration, Agent Core message finalization and tool policy contracts.
 var (
 	_ modelexecution.WireMiddleware    = (*Service)(nil)
 	_ modelexecution.ContextMiddleware = (*Service)(nil)
@@ -36,6 +37,7 @@ var (
 	_ startup.MiddlewareRegistrar      = (*Service)(nil)
 	_ agentrun.MessageFinalizer        = (*Service)(nil)
 	_ modelexecution.ResponseFinalizer = (*Service)(nil)
+	_ tools.ToolPolicy                 = (*Service)(nil)
 )
 
 // New connects ordinary invocation mechanics, trusted context issuance and the selected model.
@@ -61,6 +63,8 @@ func mapMiddlewareKind(raw startup.RawHandlerKind) (Kind, bool) {
 		return UserInput, true
 	case startup.RawHandlerKindFinalizedMessage:
 		return FinalizedMessage, true
+	case startup.RawHandlerKindToolPolicy:
+		return ToolPolicy, true
 	default:
 		return 0, false
 	}

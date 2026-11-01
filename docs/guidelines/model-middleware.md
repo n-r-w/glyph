@@ -1,6 +1,6 @@
 # Model-facing middleware
 
-Ordinary extensions change what a model request contains, what Host sends to the provider and which messages Agent Core appends to the session. Each change goes through an extension point, a documented boundary at which a handler can change an operation. The extension registers a handler for the point, and Host invokes it. Seven extension points exist. They work in one-shot (headless), Programmatic and UI modes. This guide holds what they share. Each detailed guide holds what is specific to its extension points.
+Ordinary extensions change what a model request contains, what Host sends to the provider, which messages Agent Core appends to the session and whether a tool call runs. Each change goes through an extension point, a documented boundary at which a handler can change an operation. The extension registers a handler for the point, and Host invokes it. Eight extension points exist. They work in one-shot (headless), Programmatic and UI modes. This guide holds what they share. Each detailed guide holds what is specific to its extension points.
 
 ## Extension points
 
@@ -10,6 +10,7 @@ Ordinary extensions change what a model request contains, what Host sends to the
 | Request-local context | `HANDLER_KIND_MODEL_CONTEXT` | `model_context` | preserve, replace | [Context](context-middleware.md) | [`context`](../../testdata/external-plugins/cmd/context/README.md) |
 | User input | `HANDLER_KIND_USER_INPUT` | `user_input` | preserve, replace, handle | [User input](input-middleware.md) | [`input`](../../testdata/external-plugins/cmd/input/README.md) |
 | Finalized messages | `HANDLER_KIND_FINALIZED_MESSAGE` | `finalized_message` | preserve, replace | [Finalized messages](finalized-message-middleware.md) | [`finalized`](../../testdata/external-plugins/cmd/finalized/README.md) |
+| Tool calls | `HANDLER_KIND_TOOL_POLICY` | `tool_policy` | allow, replace the input, reject | [Tool calls](#tool-calls) | [`toolpolicy`](../../testdata/external-plugins/cmd/toolpolicy/README.md) |
 | Provider headers | `HANDLER_KIND_PROVIDER_HEADERS` | `provider_headers` | preserve, replace | [Provider wire](provider-wire-middleware.md) | [`wire`](../../testdata/external-plugins/cmd/wire/README.md) |
 | Serialized provider request | `HANDLER_KIND_PROVIDER_BODY` | `provider_body` | preserve, replace | [Provider wire](provider-wire-middleware.md) | [`wire`](../../testdata/external-plugins/cmd/wire/README.md) |
 | Provider response | `HANDLER_KIND_PROVIDER_RESPONSE` | `provider_response` | acknowledge | [Provider wire](provider-wire-middleware.md) | [`wire`](../../testdata/external-plugins/cmd/wire/README.md) |
@@ -28,6 +29,7 @@ A handler returns one action:
 | Replace | `replace` | Replaces the current value with a complete new value, derived from the original value, the current value or neither |
 | Handle | `handle: true` | Completes a user request successfully and skips all later user-input handlers |
 | Acknowledge | `acknowledge: true` | Reports that the handler observed the provider response, which it cannot change |
+| Allow, reject | `allow: true`, `reject_reason` | Tool-call handlers only: allow keeps the current call, and reject refuses it with a reason; see [Tool calls](#tool-calls) |
 
 A missing action or a `false` value is an invalid action.
 
@@ -47,9 +49,23 @@ Host treats every regular executable file in the extension directory as an exten
 2. Agent Core appends the user message and asks Host for the effective context: the final instructions and history of the request. Host prepares the conversation, including automatic compaction. It then runs the system-instruction handlers, the model-context handlers, and checks the final history against the input types of the selected model.
 3. For each provider attempt, Host runs the provider-header handlers, then the serialized-request handlers. After the provider returns the response status and headers, it runs the provider-response handlers before the SDK decodes an error or consumes the stream.
 4. After the provider completes the response, Host runs the finalized-message handlers for the model response. Agent Core then appends the final response and sends the client events that complete it.
-5. For each tool call of the final response, Agent Core runs the tool, and Host runs the finalized-message handlers for its result. The next model request repeats step 2 from the request for the effective context.
+5. For each tool call of the final response, Host runs the [tool-call handlers](#tool-calls) before the tool runs. Agent Core runs the tool, and Host runs the finalized-message handlers for its result. The next model request repeats step 2 from the request for the effective context.
 
 A configured-model request, which an extension or a branch summary starts, runs the instruction, context, provider and finalized-message handlers of steps 2 to 4 on the instructions and history that the caller supplies. Host starts no conversation preparation and records no session entry for the response. The [context guide](context-middleware.md#when-handlers-run) states when instruction and context handlers run again, and the [provider-wire guide](provider-wire-middleware.md#failure-and-retry-behavior) states the same for wire handlers.
+
+## Tool calls
+
+A tool-call handler checks one tool call before the tool runs; [D1](../specs/features/initial/phases/09-tool-middleware-run-control/solution.md#d1-tool-policy-through-a-tool-call-handler-chain) describes the design. Host finds the tool and checks that its extension runs, then invokes the handlers one by one in registration order, and only then validates the final arguments against the tool schema and calls the extension that owns the tool. A `ToolPolicyInvocation` carries the immutable `original` call and the `current` call that preceding handlers left, both as `SessionTreeToolCall`. A handler returns one `ToolPolicyAction`:
+
+| Action | Field | Effect |
+| --- | --- | --- |
+| Allow | `allow: true` | Keeps the current call |
+| Replace the input | `replace_arguments_json` | Sets the complete JSON arguments of the call; the identifier and the tool name stay |
+| Reject | `reject_reason` | Ends the chain and the call with a nonempty reason |
+
+The tool runs with the final arguments. After a rejection the tool does not run, and no later handler runs. The model and the client receive an error result with the category `policy_rejection`, and its text is `tool call rejected by extension "<extension>" handler "<handler>": <reason>` with the complete reason. The agent run continues, and the extension stays active.
+
+Host validates each replacement against the tool schema before it invokes the next handler. A replacement that violates the schema, an empty reason, a missing action or a handler error is a failure as in [Failures](#failures): no later handler runs, the tool does not run, and the agent run fails with `EXTENSION_FAILED` and the complete text. When no handler replaced the arguments, Host validates the original arguments after the chain, and the model receives the invalid-arguments result when they violate the schema.
 
 ## Replay references
 

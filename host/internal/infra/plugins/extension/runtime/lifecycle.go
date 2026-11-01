@@ -46,6 +46,7 @@ func (r *Runtime) ObserveLifecycle(
 		ModelContext:       nil,
 		UserInput:          nil,
 		FinalizedMessage:   nil,
+		ToolPolicy:         nil,
 	}.Build()
 	hostRequest := new(extensionpb.HostRequest)
 	hostRequest.SetHandle(request)

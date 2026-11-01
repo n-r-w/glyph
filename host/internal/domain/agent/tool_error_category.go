@@ -10,6 +10,8 @@ const (
 	ToolErrorInvalidArguments
 	// ToolErrorFailure marks an error that the tool reported or that Agent Core created from an execution error.
 	ToolErrorFailure
+	// ToolErrorPolicyRejection marks a call that an extension rejected before the tool ran.
+	ToolErrorPolicyRejection
 )
 
 const (
@@ -19,11 +21,13 @@ const (
 	toolErrorInvalidArgumentsName = "invalid_arguments"
 	// toolErrorFailureName is the model-visible name of ToolErrorFailure.
 	toolErrorFailureName = "tool_failure"
+	// toolErrorPolicyRejectionName is the model-visible name of ToolErrorPolicyRejection.
+	toolErrorPolicyRejectionName = "policy_rejection"
 )
 
 // Valid reports whether the category belongs to the closed set.
 func (category ToolErrorCategory) Valid() bool {
-	return category >= ToolErrorUnavailableTool && category <= ToolErrorFailure
+	return category >= ToolErrorUnavailableTool && category <= ToolErrorPolicyRejection
 }
 
 // Name returns the stable text that tells the model which kind of error a tool result reports.
@@ -35,6 +39,8 @@ func (category ToolErrorCategory) Name() string {
 		return toolErrorInvalidArgumentsName
 	case ToolErrorFailure:
 		return toolErrorFailureName
+	case ToolErrorPolicyRejection:
+		return toolErrorPolicyRejectionName
 	default:
 		return ""
 	}

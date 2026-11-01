@@ -192,3 +192,27 @@ message FinalizedMessageAction {
     ModelContextEntry replace = 2;
   }
 }
+
+// ToolPolicyInvocation supplies the immutable original and composed current call of one tool call before the tool runs.
+// Both calls have the same identifier and tool name; only the arguments can differ.
+message ToolPolicyInvocation {
+  // The tool call as the model requested it.
+  SessionTreeToolCall original = 1;
+  // The tool call produced by preceding handlers.
+  SessionTreeToolCall current = 2;
+}
+
+// ToolPolicyAction allows the current call, replaces its input, or rejects the call.
+message ToolPolicyAction {
+  // The handler must select one valid action.
+  oneof action {
+    // True allows the current call; false is invalid.
+    bool allow = 1;
+    // The complete replacement input as a JSON object that satisfies the input schema of the tool;
+    // Host fails the agent run when it does not.
+    bytes replace_arguments_json = 2;
+    // The complete nonempty reason. The tool does not run, no later handler runs,
+    // and the model and the client receive an error result with this reason.
+    string reject_reason = 3;
+  }
+}

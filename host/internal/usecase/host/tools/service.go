@@ -45,12 +45,26 @@ type ContextIssuer interface {
 	IssueContext(extensionID string) (extension.Context, error)
 }
 
+// ToolPolicy runs the extension handlers that allow, change, or reject one tool call before the tool runs.
+type ToolPolicy interface {
+	// ApplyToolPolicy runs the handlers in registration order. validate checks the arguments of each replacement
+	// against the input schema of the tool before the next handler runs. The result is the final call, or a rejection
+	// message that holds the complete reason of the handler that rejected the call; an error stops the chain.
+	ApplyToolPolicy(
+		ctx context.Context,
+		call model.ToolCall,
+		validate func(arguments []byte) error,
+	) (model.ToolCall, mo.Option[string], error)
+}
+
 // Service owns accepted tools, schemas, ownership, and model-visible results.
 type Service struct {
 	// runtime invokes one tool through its owning extension process.
 	runtime Runtime
 	// contexts supplies session-bound invocation identities.
 	contexts ContextIssuer
+	// policy runs the tool-policy handlers before each tool call.
+	policy ToolPolicy
 	// mutex protects prepared and accepted registration state.
 	mutex sync.RWMutex
 	// prepared contains locally validated schemas before startup commits registrations.
@@ -80,6 +94,7 @@ func New(runtime Runtime) *Service {
 	return &Service{
 		runtime:  runtime,
 		contexts: nil,
+		policy:   nil,
 		mutex:    sync.RWMutex{},
 		prepared: make(map[string]map[string]*jsonschema.Schema),
 		owners:   make(map[string]*owner),
@@ -88,6 +103,9 @@ func New(runtime Runtime) *Service {
 
 // BindContextIssuer completes context composition before tool registration and execution.
 func (s *Service) BindContextIssuer(contexts ContextIssuer) { s.contexts = contexts }
+
+// BindToolPolicy completes the composition of the chain that checks each call before the tool runs.
+func (s *Service) BindToolPolicy(policy ToolPolicy) { s.policy = policy }
 
 // ValidateLocal validates one extension-local tool registration and retains compiled schemas for commit.
 func (s *Service) ValidateLocal(registration startup.PendingRegistration) ([]tool.Descriptor, error) {
@@ -201,26 +219,43 @@ func (s *Service) Tools() []tool.Descriptor {
 	return result
 }
 
-// Execute validates one call and invokes its owning available extension runtime.
+// Execute passes one call through the tool policy, validates its final arguments, and invokes its owning available
+// extension runtime.
 func (s *Service) Execute(
 	ctx context.Context,
 	call model.ToolCall,
 	handleProgress tool.ProgressHandler,
 ) (agent.ToolResult, error) {
-	argumentsJSON := call.Arguments.Bytes()
 	s.mutex.RLock()
 	accepted, exists := s.owners[call.Name]
 	s.mutex.RUnlock()
 	if !exists || !s.runtime.ToolRuntimeAvailable(accepted.extensionID) {
 		return unavailableResult(call), nil
 	}
-	if validationErr := validateArguments(accepted.schema, argumentsJSON); validationErr != nil {
+	if s.policy == nil {
+		return agent.ToolResult{}, errors.New("tool policy is not bound")
+	}
+	final, rejection, policyErr := s.policy.ApplyToolPolicy(ctx, call, func(arguments []byte) error {
+		return validateCallArguments(accepted.schema, call.Name, arguments)
+	})
+	if policyErr != nil {
+		return agent.ToolResult{}, newPolicyFailureError(ctx, policyErr)
+	}
+	if message, rejected := rejection.Get(); rejected {
 		return agent.ToolResult{
-			CallID:   call.ID,
-			ToolName: call.Name,
-			Contents: tool.TextContents(
-				fmt.Sprintf("invalid arguments for tool %q: %v", call.Name, validationErr),
-			),
+			CallID:        call.ID,
+			ToolName:      call.Name,
+			Contents:      tool.TextContents(message),
+			IsError:       true,
+			ErrorCategory: mo.Some(agent.ToolErrorPolicyRejection),
+		}, nil
+	}
+	argumentsJSON := final.Arguments.Bytes()
+	if validationErr := validateCallArguments(accepted.schema, call.Name, argumentsJSON); validationErr != nil {
+		return agent.ToolResult{
+			CallID:        call.ID,
+			ToolName:      call.Name,
+			Contents:      tool.TextContents(validationErr.Error()),
 			IsError:       true,
 			ErrorCategory: mo.Some(agent.ToolErrorInvalidArguments),
 		}, nil
@@ -406,6 +441,14 @@ func compileToolSchema(schemaJSON []byte) (*jsonschema.Schema, error) {
 		return nil, fmt.Errorf("compile JSON Schema: %w", err)
 	}
 	return schema, nil
+}
+
+// validateCallArguments reports arguments of a call that violate the tool schema with the complete cause.
+func validateCallArguments(schema *jsonschema.Schema, toolName string, argumentsJSON []byte) error {
+	if err := validateArguments(schema, argumentsJSON); err != nil {
+		return fmt.Errorf("invalid arguments for tool %q: %w", toolName, err)
+	}
+	return nil
 }
 
 // validateArguments parses one JSON value and applies its compiled schema.

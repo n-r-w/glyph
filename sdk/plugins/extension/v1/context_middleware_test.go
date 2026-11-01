@@ -10,11 +10,11 @@ import (
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
-// TestContextMiddlewareHandlerAdmission accepts only the payload declared by each instruction, context, input or
-// finalized-message handler.
+// TestContextMiddlewareHandlerAdmission accepts only the payload declared by each instruction, context, input,
+// finalized-message or tool-policy handler.
 func TestContextMiddlewareHandlerAdmission(t *testing.T) {
 	t.Parallel()
-	// Arrange the system-instructions, model-context, user-input and finalized-message payloads.
+	// Arrange the system-instructions, model-context, user-input, finalized-message and tool-policy payloads.
 	//nolint:exhaustruct_v5 // Each protobuf oneof builder sets only its active payload.
 	requests := []*extensionpb.HandleRequest{
 		extensionpb.HandleRequest_builder{
@@ -25,12 +25,14 @@ func TestContextMiddlewareHandlerAdmission(t *testing.T) {
 		extensionpb.HandleRequest_builder{
 			FinalizedMessage: extensionpb.FinalizedMessageInvocation_builder{}.Build(),
 		}.Build(),
+		extensionpb.HandleRequest_builder{ToolPolicy: extensionpb.ToolPolicyInvocation_builder{}.Build()}.Build(),
 	}
 	kinds := []extensionpb.HandlerKind{
 		extensionpb.HandlerKind_HANDLER_KIND_SYSTEM_INSTRUCTIONS,
 		extensionpb.HandlerKind_HANDLER_KIND_MODEL_CONTEXT,
 		extensionpb.HandlerKind_HANDLER_KIND_USER_INPUT,
 		extensionpb.HandlerKind_HANDLER_KIND_FINALIZED_MESSAGE,
+		extensionpb.HandlerKind_HANDLER_KIND_TOOL_POLICY,
 	}
 	// Act by checking every kind against every payload.
 	matches := make([][]bool, len(kinds))
@@ -47,9 +49,11 @@ func TestContextMiddlewareHandlerAdmission(t *testing.T) {
 			false,
 			false,
 			false,
+			false,
 		},
-		{false, true, false, false},
-		{false, false, true, false},
-		{false, false, false, true},
+		{false, true, false, false, false},
+		{false, false, true, false, false},
+		{false, false, false, true, false},
+		{false, false, false, false, true},
 	}, matches)
 }

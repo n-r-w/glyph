@@ -57,6 +57,8 @@ func mapWireToolErrorCategory(category agent.ToolErrorCategory) (programmaticv1.
 		return programmaticv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS, nil
 	case agent.ToolErrorFailure:
 		return programmaticv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE, nil
+	case agent.ToolErrorPolicyRejection:
+		return programmaticv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_POLICY_REJECTION, nil
 	default:
 		return 0, fmt.Errorf("map tool error category: unknown value %d", category)
 	}

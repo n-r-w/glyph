@@ -129,7 +129,9 @@ func runUIWithPaths(
 		sessionServices.gate,
 	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
-	middlewareOwner, bindErr := bindMiddleware(startupService, modelExecution, extensions, contexts, providerCatalog)
+	middlewareOwner, bindErr := bindMiddleware(
+		startupService, modelExecution, tools, extensions, contexts, providerCatalog,
+	)
 	if bindErr != nil {
 		return bindErr
 	}

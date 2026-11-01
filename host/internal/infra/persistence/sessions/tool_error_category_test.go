@@ -43,6 +43,7 @@ func TestToolErrorCategoryRoundTrip(t *testing.T) {
 		"unavailable tool":         {isError: true, category: mo.Some(agent.ToolErrorUnavailableTool)},
 		"invalid arguments":        {isError: true, category: mo.Some(agent.ToolErrorInvalidArguments)},
 		"tool failure":             {isError: true, category: mo.Some(agent.ToolErrorFailure)},
+		"policy rejection":         {isError: true, category: mo.Some(agent.ToolErrorPolicyRejection)},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {

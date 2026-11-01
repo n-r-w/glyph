@@ -9,13 +9,15 @@ import (
 	"github.com/n-r-w/glyph/host/internal/usecase/host/modelexecution"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/providers"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/startup"
+	toolservice "github.com/n-r-w/glyph/host/internal/usecase/host/tools"
 )
 
-// bindMiddleware supplies the same ordinary middleware owner to registration and logical execution and returns it
-// for run input processing and Agent Core message finalization.
+// bindMiddleware supplies the same ordinary middleware owner to registration, logical execution and tool policy and
+// returns it for run input processing and Agent Core message finalization.
 func bindMiddleware(
 	registration *startup.Service,
 	execution *modelexecution.Service,
+	tools *toolservice.Service,
 	runtimes *extensionruntime.Service,
 	contexts *extensioncontext.Service,
 	models *providers.Catalog,
@@ -33,5 +35,6 @@ func bindMiddleware(
 	if err := execution.BindResponseFinalizer(owner); err != nil {
 		return nil, fmt.Errorf("bind configured response finalization: %w", err)
 	}
+	tools.BindToolPolicy(owner)
 	return owner, nil
 }

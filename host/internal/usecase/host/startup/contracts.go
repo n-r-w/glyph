@@ -158,6 +158,8 @@ const (
 	RawHandlerKindUserInput RawHandlerKind = 31
 	// RawHandlerKindFinalizedMessage preserves or replaces the content of one finalized message.
 	RawHandlerKindFinalizedMessage RawHandlerKind = 32
+	// RawHandlerKindToolPolicy allows, changes the input of, or rejects one tool call before the tool runs.
+	RawHandlerKindToolPolicy RawHandlerKind = 33
 )
 
 // isCompaction reports whether kind identifies a compaction capability.

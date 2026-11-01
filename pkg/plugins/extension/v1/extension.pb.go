@@ -91,6 +91,8 @@ const (
 	HandlerKind_HANDLER_KIND_USER_INPUT HandlerKind = 31
 	// The handler preserves or replaces the content of one finalized user message, model response, or tool result.
 	HandlerKind_HANDLER_KIND_FINALIZED_MESSAGE HandlerKind = 32
+	// The handler allows, changes the input of, or rejects one tool call before the tool runs.
+	HandlerKind_HANDLER_KIND_TOOL_POLICY HandlerKind = 33
 )
 
 // Enum value maps for HandlerKind.
@@ -129,6 +131,7 @@ var (
 		30: "HANDLER_KIND_MODEL_CONTEXT",
 		31: "HANDLER_KIND_USER_INPUT",
 		32: "HANDLER_KIND_FINALIZED_MESSAGE",
+		33: "HANDLER_KIND_TOOL_POLICY",
 	}
 	HandlerKind_value = map[string]int32{
 		"HANDLER_KIND_UNSPECIFIED":                  0,
@@ -164,6 +167,7 @@ var (
 		"HANDLER_KIND_MODEL_CONTEXT":                30,
 		"HANDLER_KIND_USER_INPUT":                   31,
 		"HANDLER_KIND_FINALIZED_MESSAGE":            32,
+		"HANDLER_KIND_TOOL_POLICY":                  33,
 	}
 )
 
@@ -4251,7 +4255,7 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	"\x0fRegisterRequest\"\x9f\x01\n" +
 	"\x10RegisterResponse\x12@\n" +
 	"\x05tools\x18\x01 \x03(\v2*.glyph.plugins.extension.v1.ToolDescriptorR\x05tools\x12I\n" +
-	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\x8f\t\n" +
+	"\bhandlers\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.HandlerDescriptorR\bhandlers*\xad\t\n" +
 	"\vHandlerKind\x12\x1c\n" +
 	"\x18HANDLER_KIND_UNSPECIFIED\x10\x00\x12,\n" +
 	"(HANDLER_KIND_SESSION_BEFORE_TREE_REQUEST\x10\x01\x12+\n" +
@@ -4286,7 +4290,8 @@ const file_api_plugins_extension_v1_extension_proto_rawDesc = "" +
 	" HANDLER_KIND_SYSTEM_INSTRUCTIONS\x10\x1d\x12\x1e\n" +
 	"\x1aHANDLER_KIND_MODEL_CONTEXT\x10\x1e\x12\x1b\n" +
 	"\x17HANDLER_KIND_USER_INPUT\x10\x1f\x12\"\n" +
-	"\x1eHANDLER_KIND_FINALIZED_MESSAGE\x10 2q\n" +
+	"\x1eHANDLER_KIND_FINALIZED_MESSAGE\x10 \x12\x1c\n" +
+	"\x18HANDLER_KIND_TOOL_POLICY\x10!2q\n" +
 	"\x10ExtensionService\x12]\n" +
 	"\x04Open\x12'.glyph.plugins.extension.v1.OpenRequest\x1a(.glyph.plugins.extension.v1.OpenResponse(\x010\x01B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 

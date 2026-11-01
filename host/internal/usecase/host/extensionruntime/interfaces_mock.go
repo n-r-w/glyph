@@ -249,6 +249,21 @@ func (mr *MockExtensionRuntimeMockRecorder) HandleSystemInstructions(arg0, arg1,
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleSystemInstructions", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleSystemInstructions), arg0, arg1, arg2)
 }
 
+// HandleToolPolicy mocks base method.
+func (m *MockExtensionRuntime) HandleToolPolicy(arg0 context.Context, arg1 string, arg2 middleware.Transformation[model.ToolCall]) (middleware.ToolPolicyAction, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "HandleToolPolicy", arg0, arg1, arg2)
+	ret0, _ := ret[0].(middleware.ToolPolicyAction)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// HandleToolPolicy indicates an expected call of HandleToolPolicy.
+func (mr *MockExtensionRuntimeMockRecorder) HandleToolPolicy(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "HandleToolPolicy", reflect.TypeOf((*MockExtensionRuntime)(nil).HandleToolPolicy), arg0, arg1, arg2)
+}
+
 // HandleUserInput mocks base method.
 func (m *MockExtensionRuntime) HandleUserInput(arg0 context.Context, arg1 string, arg2 middleware.Transformation[model.Message]) (middleware.Transformed[model.Message], error) {
 	m.ctrl.T.Helper()

@@ -297,6 +297,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			ModelContext:       nil,
 			UserInput:          nil,
 			FinalizedMessage:   nil,
+			ToolPolicy:         nil,
 		}.Build(), nil
 	case "refine":
 		return extensionpb.HandleResponse_builder{
@@ -331,6 +332,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			ModelContext:       nil,
 			UserInput:          nil,
 			FinalizedMessage:   nil,
+			ToolPolicy:         nil,
 		}.Build(), nil
 	case "observe":
 		invocation := request.GetSessionTree()
@@ -370,6 +372,7 @@ func (operation *handlerFixtureHandleOperation) Run(
 			ModelContext:       nil,
 			UserInput:          nil,
 			FinalizedMessage:   nil,
+			ToolPolicy:         nil,
 		}.Build(), nil
 	default:
 		return nil, fmt.Errorf("unknown handler %q", request.GetHandlerId())

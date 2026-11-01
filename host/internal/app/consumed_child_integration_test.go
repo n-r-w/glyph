@@ -133,6 +133,7 @@ func assertConsumedCompactionStopsCore(t *testing.T, completeCause string) {
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	middlewareOwner := middleware.New(runtimes, contexts, providerCatalog)
 	require.NoError(t, modelExecution.BindResponseFinalizer(middlewareOwner))
+	tools.BindToolPolicy(middlewareOwner)
 	core := agentrun.New(
 		codingagent.Instructions(), modelRuntime, tools, events, sessionServices.active, middlewareOwner,
 	)

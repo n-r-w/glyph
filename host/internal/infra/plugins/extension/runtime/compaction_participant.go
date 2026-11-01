@@ -82,5 +82,6 @@ func newCompactionParticipantRequest(
 		ModelContext:             nil,
 		UserInput:                nil,
 		FinalizedMessage:         nil,
+		ToolPolicy:               nil,
 	}.Build()
 }

@@ -62,6 +62,8 @@ message HandleRequest {
     UserInputInvocation user_input = 24;
     // One finalized message before it becomes durable history or a configured result.
     FinalizedMessageInvocation finalized_message = 25;
+    // One tool call before the tool runs.
+    ToolPolicyInvocation tool_policy = 26;
   }
 }
 
@@ -110,6 +112,8 @@ message HandleResponse {
     UserInputAction user_input = 22;
     // The finalized-message preservation or replacement action.
     FinalizedMessageAction finalized_message = 23;
+    // The tool-call allow, input replacement, or rejection action.
+    ToolPolicyAction tool_policy = 24;
   }
 }
 

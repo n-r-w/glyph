@@ -107,6 +107,7 @@ func invokeCompactionHandler(
 		ModelContext:       nil,
 		UserInput:          nil,
 		FinalizedMessage:   nil,
+		ToolPolicy:         nil,
 	}
 	if requestHandler {
 		handleBuilder.CompactionRequest = invocation
@@ -173,6 +174,7 @@ func compactionHandlerResponse(requestHandler bool) *extensionpb.HandleResponse 
 		ModelContext:       nil,
 		UserInput:          nil,
 		FinalizedMessage:   nil,
+		ToolPolicy:         nil,
 	}
 	if requestHandler {
 		builder.CompactionRequest = extensionpb.CompactionRequestAction_builder{

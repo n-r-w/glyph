@@ -136,3 +136,36 @@ func TestFinalizedMessageMiddlewareChecksExactRuntimeGeneration(t *testing.T) {
 	require.Equal(t, middleware.Preserve, action.Kind)
 	require.ErrorIs(t, staleErr, ErrExtensionUnavailable)
 }
+
+// TestToolPolicyMiddlewareChecksExactRuntimeGeneration forwards tool-policy handlers only to the bound runtime.
+func TestToolPolicyMiddlewareChecksExactRuntimeGeneration(t *testing.T) {
+	t.Parallel()
+	// Arrange one live runtime generation and bindings for the current and a previous generation.
+	mocks := gomock.NewController(t)
+	process := NewMockExtensionRuntime(mocks)
+	service := New(nil, nil, nil)
+	service.runtimes["extension"] = &runtimeState{
+		runtime: process, instanceID: "current", available: true, activeExecutions: 0, exitPending: false,
+		work: sync.WaitGroup{}, closeOnce: sync.Once{}, shutdownDone: make(chan struct{}), observed: false,
+		monitorDone: make(chan struct{}), commit: sync.RWMutex{}, invalidated: make(chan struct{}),
+		invalidateOnce: sync.Once{},
+	}
+	current := extension.Context{
+		ID: "binding", ExtensionID: "extension", RuntimeInstanceID: "current", SessionID: "", WorkingDirectory: "",
+	}
+	call := model.ToolCall{ID: "call", Name: "read", Arguments: model.ToolCallArguments{}}
+	input := middleware.Transformation[model.ToolCall]{Context: current, Original: call, Current: call}
+	process.EXPECT().HandleToolPolicy(gomock.Any(), "policy", input).Return(
+		middleware.ToolPolicyAction{Kind: middleware.Preserve, Arguments: nil, Reason: ""}, nil,
+	)
+
+	// Act through the current and the stale generation.
+	action, err := service.HandleToolPolicy(t.Context(), "extension", "policy", input)
+	input.Context.RuntimeInstanceID = "previous"
+	_, staleErr := service.HandleToolPolicy(t.Context(), "extension", "policy", input)
+
+	// Assert only the exact generation is invoked; strict mocks reject stale invocations.
+	require.NoError(t, err)
+	require.Equal(t, middleware.Preserve, action.Kind)
+	require.ErrorIs(t, staleErr, ErrExtensionUnavailable)
+}

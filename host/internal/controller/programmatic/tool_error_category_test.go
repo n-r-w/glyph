@@ -35,6 +35,10 @@ func TestMapToolResultPreservesErrorCategory(t *testing.T) {
 			category: mo.Some(agent.ToolErrorFailure),
 			want:     mo.Some(programmaticv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE),
 		},
+		"policy rejection": {
+			category: mo.Some(agent.ToolErrorPolicyRejection),
+			want:     mo.Some(programmaticv1.ToolErrorCategory_TOOL_ERROR_CATEGORY_POLICY_REJECTION),
+		},
 	}
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {

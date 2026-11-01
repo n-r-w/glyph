@@ -37,6 +37,7 @@ func TestToolErrorCategorySurvivesPublicRoundTrip(t *testing.T) {
 		"unavailable tool":  mo.Some(agent.ToolErrorUnavailableTool),
 		"invalid arguments": mo.Some(agent.ToolErrorInvalidArguments),
 		"tool failure":      mo.Some(agent.ToolErrorFailure),
+		"policy rejection":  mo.Some(agent.ToolErrorPolicyRejection),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()

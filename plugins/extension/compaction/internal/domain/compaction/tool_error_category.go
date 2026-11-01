@@ -11,6 +11,8 @@ const (
 	ToolErrorInvalidArguments ToolErrorCategory = "invalid_arguments"
 	// ToolErrorFailure identifies an error that the tool reported or that Host created from an execution error.
 	ToolErrorFailure ToolErrorCategory = "tool_failure"
+	// ToolErrorPolicyRejection identifies a call that an extension rejected before the tool ran.
+	ToolErrorPolicyRejection ToolErrorCategory = "policy_rejection"
 	// ToolErrorInvalid identifies an unrecognized category received from Host.
 	ToolErrorInvalid ToolErrorCategory = "invalid"
 )

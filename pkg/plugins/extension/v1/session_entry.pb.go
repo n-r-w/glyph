@@ -88,6 +88,8 @@ const (
 	ToolErrorCategory_TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS ToolErrorCategory = 2
 	// The tool reported an error, or Host could not execute the tool.
 	ToolErrorCategory_TOOL_ERROR_CATEGORY_TOOL_FAILURE ToolErrorCategory = 3
+	// An extension rejected the call before the tool ran.
+	ToolErrorCategory_TOOL_ERROR_CATEGORY_POLICY_REJECTION ToolErrorCategory = 4
 )
 
 // Enum value maps for ToolErrorCategory.
@@ -97,12 +99,14 @@ var (
 		1: "TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL",
 		2: "TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS",
 		3: "TOOL_ERROR_CATEGORY_TOOL_FAILURE",
+		4: "TOOL_ERROR_CATEGORY_POLICY_REJECTION",
 	}
 	ToolErrorCategory_value = map[string]int32{
 		"TOOL_ERROR_CATEGORY_UNSPECIFIED":       0,
 		"TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL":  1,
 		"TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS": 2,
 		"TOOL_ERROR_CATEGORY_TOOL_FAILURE":      3,
+		"TOOL_ERROR_CATEGORY_POLICY_REJECTION":  4,
 	}
 )
 
@@ -3508,12 +3512,13 @@ const file_api_plugins_extension_v1_session_entry_proto_rawDesc = "" +
 	"$SESSION_TREE_MODEL_CONTENT_KIND_TEXT\x10\x01\x12+\n" +
 	"'SESSION_TREE_MODEL_CONTENT_KIND_REFUSAL\x10\x02\x12-\n" +
 	")SESSION_TREE_MODEL_CONTENT_KIND_REASONING\x10\x03\x12-\n" +
-	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04*\xb3\x01\n" +
+	")SESSION_TREE_MODEL_CONTENT_KIND_TOOL_CALL\x10\x04*\xdd\x01\n" +
 	"\x11ToolErrorCategory\x12#\n" +
 	"\x1fTOOL_ERROR_CATEGORY_UNSPECIFIED\x10\x00\x12(\n" +
 	"$TOOL_ERROR_CATEGORY_UNAVAILABLE_TOOL\x10\x01\x12)\n" +
 	"%TOOL_ERROR_CATEGORY_INVALID_ARGUMENTS\x10\x02\x12$\n" +
-	" TOOL_ERROR_CATEGORY_TOOL_FAILURE\x10\x03B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
+	" TOOL_ERROR_CATEGORY_TOOL_FAILURE\x10\x03\x12(\n" +
+	"$TOOL_ERROR_CATEGORY_POLICY_REJECTION\x10\x04B=Z;github.com/n-r-w/glyph/pkg/plugins/extension/v1;extensionv1b\beditionsp\xe8\a"
 
 var file_api_plugins_extension_v1_session_entry_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_api_plugins_extension_v1_session_entry_proto_msgTypes = make([]protoimpl.MessageInfo, 21)

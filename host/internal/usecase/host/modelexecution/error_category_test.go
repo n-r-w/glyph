@@ -49,6 +49,7 @@ func TestAnnotateErrorCategories(t *testing.T) {
 	// Arrange history with a user message, a plain error result, a successful result, and categorized error results.
 	categories := []agent.ToolErrorCategory{
 		agent.ToolErrorUnavailableTool, agent.ToolErrorInvalidArguments, agent.ToolErrorFailure,
+		agent.ToolErrorPolicyRejection,
 	}
 	history := []agent.HistoryEntry{
 		textHistoryEntry("question"),
