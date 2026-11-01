@@ -500,7 +500,8 @@ func TestServerRejectsRequestAfterClose(t *testing.T) {
 			OperationId: new(""), Request: nil, Close: new(operationpb.CloseConnection),
 		}.Build(), nil),
 		stream.EXPECT().Recv().Return(openExecuteRequest("late"), nil),
-		stream.EXPECT().Recv().Return(nil, io.EOF),
+		// The receiver goroutine may call Recv once more before the rejected request ends the connection.
+		stream.EXPECT().Recv().Return(nil, io.EOF).MaxTimes(1),
 	)
 
 	// Act: run the server against the invalid post-close request.
