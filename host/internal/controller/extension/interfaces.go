@@ -260,6 +260,13 @@ type InvocationChild interface {
 	Release()
 }
 
+// FatalOperationFailure identifies an operation failure that must stop the owning agent run.
+type FatalOperationFailure interface {
+	error
+	// FatalOperation distinguishes operation failure from an ordinary tool-error result.
+	FatalOperation()
+}
+
 // NestedExtensionFailure identifies a qualifying extension failure independently of public result mapping.
 type NestedExtensionFailure interface {
 	error

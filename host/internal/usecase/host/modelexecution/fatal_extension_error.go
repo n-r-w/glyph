@@ -1,6 +1,7 @@
 package modelexecution
 
 import (
+	"github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/internal/errtree"
 )
@@ -13,8 +14,9 @@ type fatalExtensionError struct {
 }
 
 var (
-	_ run.FatalOperationFailure = (*fatalExtensionError)(nil)
-	_ errtree.CodedError        = (*fatalExtensionError)(nil)
+	_ extension.FatalOperationFailure = (*fatalExtensionError)(nil)
+	_ run.FatalOperationFailure       = (*fatalExtensionError)(nil)
+	_ errtree.CodedError              = (*fatalExtensionError)(nil)
 )
 
 // NewFatalExtensionError marks the failure of an extension operation as one that stops the owning agent run.

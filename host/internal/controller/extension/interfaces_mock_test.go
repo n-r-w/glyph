@@ -614,6 +614,56 @@ func (mr *MockInvocationChildMockRecorder) Release() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Release", reflect.TypeOf((*MockInvocationChild)(nil).Release))
 }
 
+// MockFatalOperationFailure is a mock of FatalOperationFailure interface.
+type MockFatalOperationFailure struct {
+	ctrl     *gomock.Controller
+	recorder *MockFatalOperationFailureMockRecorder
+	isgomock struct{}
+}
+
+// MockFatalOperationFailureMockRecorder is the mock recorder for MockFatalOperationFailure.
+type MockFatalOperationFailureMockRecorder struct {
+	mock *MockFatalOperationFailure
+}
+
+// NewMockFatalOperationFailure creates a new mock instance.
+func NewMockFatalOperationFailure(ctrl *gomock.Controller) *MockFatalOperationFailure {
+	mock := &MockFatalOperationFailure{ctrl: ctrl}
+	mock.recorder = &MockFatalOperationFailureMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockFatalOperationFailure) EXPECT() *MockFatalOperationFailureMockRecorder {
+	return m.recorder
+}
+
+// Error mocks base method.
+func (m *MockFatalOperationFailure) Error() string {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Error")
+	ret0, _ := ret[0].(string)
+	return ret0
+}
+
+// Error indicates an expected call of Error.
+func (mr *MockFatalOperationFailureMockRecorder) Error() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Error", reflect.TypeOf((*MockFatalOperationFailure)(nil).Error))
+}
+
+// FatalOperation mocks base method.
+func (m *MockFatalOperationFailure) FatalOperation() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "FatalOperation")
+}
+
+// FatalOperation indicates an expected call of FatalOperation.
+func (mr *MockFatalOperationFailureMockRecorder) FatalOperation() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FatalOperation", reflect.TypeOf((*MockFatalOperationFailure)(nil).FatalOperation))
+}
+
 // MockNestedExtensionFailure is a mock of NestedExtensionFailure interface.
 type MockNestedExtensionFailure struct {
 	ctrl     *gomock.Controller
