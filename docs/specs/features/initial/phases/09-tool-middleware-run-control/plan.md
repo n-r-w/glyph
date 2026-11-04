@@ -44,6 +44,7 @@ No backward compatibility.
 | U7 | SLICE | An extension replaces a tool of another extension | SCN-06, SCN-07 | `workflows:developer-regular` |
 | U8 | SLICE | An extension reads the registered tools and the active tool set | SCN-08 (read) | `workflows:developer-regular` |
 | U9 | SLICE | An extension sets the active tool set | SCN-08 | `workflows:developer-regular` |
+| U9.1 | OTHER TASK | The existing stream-loss integration test waits for its expected SDK close invocation | Existing integration test | Main agent |
 | U10 | SLICE | Calls of concurrent tools in one batch run at the same time | SCN-09 | `workflows:developer-complex` |
 | U11 | SLICE | Tool results with `terminate` end the agent run | SCN-10, SCN-11, SCN-05 | `workflows:developer-regular` |
 | U12 | PREFACTORING | The extension controller stops importing Agent Core | Existing tests | `workflows:developer-simple` |
@@ -327,6 +328,23 @@ Depends on U8.
 
 #### Risks
 A retry of the same model request reads the tool snapshot of its turn, so the test must compare different turns. Impact: LOW.
+
+### U9.1 - OTHER TASK: stream-loss test completion
+
+#### Goal
+The stream-loss integration test finishes after the SDK invokes the expected service close operation.
+
+#### Work
+Add a signal to the generated mock's existing `Close` expectation in `TestChannelStreamLossWaitsForRelease` and await that signal before returning from the test. Retain the existing assertions about Host operation release and keep production shutdown behavior unchanged.
+
+#### Verification
+Run the existing test with the race detector, then run the project checks under the approved verification exceptions. The original failure is the missing `Close` expectation observed during U10 final integration verification; isolated stress runs passed before this correction.
+
+#### Exit criteria
+The focused test, code-quality review, and project checks pass. Commit this correction separately before U10.
+
+#### Relation
+Independent of U10 implementation. U10 final verification follows this correction.
 
 ### U10 - SLICE: concurrent tool batches
 

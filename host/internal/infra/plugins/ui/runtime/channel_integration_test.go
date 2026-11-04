@@ -277,6 +277,7 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 	runStopped := make(chan struct{})
 	releaseGate := make(chan struct{})
 	releaseFinished := make(chan struct{})
+	closeCalled := make(chan struct{})
 	prepared := operationmock.NewMockOperationPrepared[controllerui.Frame, controllerui.Frame](mockController)
 	prepared.EXPECT().Run(gomock.Any(), gomock.Any()).DoAndReturn(
 		func(ctx context.Context, _ operation.Reporter[controllerui.Frame]) operation.Outcome[controllerui.Frame] {
@@ -309,7 +310,7 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 		<-ctx.Done()
 		return context.Cause(ctx)
 	})
-	service.EXPECT().Close().Return(nil)
+	service.EXPECT().Close().Do(func() { close(closeCalled) }).Return(nil)
 	transport := openInitializedIntegrationChannel(t, service)
 	result := make(chan error, 1)
 	go func() {
@@ -335,6 +336,8 @@ func TestChannelStreamLossWaitsForRelease(t *testing.T) {
 	close(releaseGate)
 	<-releaseFinished
 	require.Error(t, <-result)
+	// The SDK closes its service independently of the Host operation.
+	<-closeCalled
 }
 
 // TestChannelDeliversIdleExtensionFailureThroughHostReceive verifies public connection-event delivery.
