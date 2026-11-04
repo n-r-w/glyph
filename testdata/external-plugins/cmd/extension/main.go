@@ -253,7 +253,7 @@ func (s *service) PrepareExecute(
 		return nil, extensionsdk.Reject(invalidArgumentCode, err)
 	}
 	switch arguments.Mode {
-	case ordinaryMode,
+	case ordinaryMode, queuedMessagesMode,
 		cataloguesMode,
 		toolsMode,
 		setToolsMode,
@@ -402,7 +402,7 @@ func (operation *handleOperation) appendMessage(ctx context.Context, text string
 		ctx,
 		extensionv1.AppendExtensionMessageRequest_builder{
 			Context: nil, EntryType: new(observerMessageEntryType), Text: new(text),
-			Visibility: new(extensionv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE),
+			Visibility: new(extensionv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE), Delivery: nil,
 		}.Build(),
 	)
 	if err != nil {
@@ -448,6 +448,8 @@ func (operation *executeOperation) Run(
 			},
 			IsError: new(false), Terminate: nil,
 		}.Build(), nil
+	case queuedMessagesMode:
+		return queueMessages(ctx)
 	case cataloguesMode:
 		return readCatalogues(ctx)
 	case setToolsMode:

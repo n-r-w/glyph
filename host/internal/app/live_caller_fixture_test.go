@@ -79,7 +79,7 @@ func startLiveCallerFixture(t *testing.T, paths persistence.Paths, directory str
 		selection,
 		modelExecution,
 		tools,
-		sessionServices.gate,
+		sessionServices.gate, nil,
 	)
 	startupService := startup.New(runtimes, tools, sessionServices.tree, observers, selection)
 	require.NoError(t, startupService.BindCompaction(contexts))

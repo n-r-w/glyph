@@ -46,6 +46,8 @@ type Service struct {
 	compactionPolicy CompactionPolicyOperations
 	// tools supplies the registered tools.
 	tools ToolCatalog
+	// messages accepts captured extension messages for delayed delivery.
+	messages MessageEnqueuer
 	// extensionID comes from process discovery, never request payloads.
 	extensionID string
 	// runtimeID identifies the exact process incarnation connected to this controller.
@@ -70,9 +72,15 @@ func New(
 		compactionGate:   nil,
 		compactionPolicy: nil,
 		tools:            nil,
+		messages:         nil,
 		extensionID:      extensionID,
 		runtimeID:        runtimeID,
 	}
+}
+
+// BindMessages binds queue acceptance before this controller becomes available to its stream.
+func (s *Service) BindMessages(messages MessageEnqueuer) {
+	s.messages = messages
 }
 
 // BindSelection binds shared selection before this controller becomes available to its stream.

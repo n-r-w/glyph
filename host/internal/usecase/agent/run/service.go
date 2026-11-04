@@ -46,6 +46,8 @@ type Service struct {
 	eventMutex sync.Mutex
 	// historyStore owns canonical durable conversation history.
 	historyStore HistoryStore
+	// extensionMessages persists delayed messages with their accepted origin.
+	extensionMessages ExtensionMessageDelivery
 	// finalizer supplies the final value of each terminal model response and completed tool result.
 	finalizer MessageFinalizer
 
@@ -80,18 +82,19 @@ func New(
 	finalizer MessageFinalizer,
 ) *Service {
 	return &Service{
-		instructions: instructions,
-		contexts:     contexts,
-		tools:        tools,
-		events:       events,
-		eventMutex:   sync.Mutex{},
-		historyStore: historyStore,
-		finalizer:    finalizer,
-		mutex:        sync.RWMutex{},
-		pending:      nil,
-		nextSequence: 0,
-		queueMode:    agent.QueueModeOneAtATime,
-		addedHistory: nil,
+		instructions:      instructions,
+		contexts:          contexts,
+		tools:             tools,
+		events:            events,
+		eventMutex:        sync.Mutex{},
+		historyStore:      historyStore,
+		finalizer:         finalizer,
+		extensionMessages: nil,
+		mutex:             sync.RWMutex{},
+		pending:           nil,
+		nextSequence:      0,
+		queueMode:         agent.QueueModeOneAtATime,
+		addedHistory:      nil,
 		state: State{
 			Status:          StatusIdle,
 			RunID:           mo.None[string](),
@@ -99,6 +102,11 @@ func New(
 			ToolPreviews:    nil,
 		},
 	}
+}
+
+// BindExtensionMessages binds delayed extension persistence before any run starts.
+func (s *Service) BindExtensionMessages(delivery ExtensionMessageDelivery) {
+	s.extensionMessages = delivery
 }
 
 // Run executes one user request through the model/tool loop.
@@ -130,9 +138,10 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 			return s.finish(ctx, request.RunID, end.outcome, end.errorMessage, end.err, nil)
 		}
 		// The next turn reads history again, so the model receives the messages in its next request.
-		for index, message := range step.messages {
-			if err := s.appendUser(ctx, message.processed); err != nil {
-				// The failed message and the later ones are not in history, so the client gets them back.
+		for index := range step.messages {
+			if err := s.deliverQueuedMessage(ctx, step.messages[index]); err != nil {
+				// Return undelivered client originals and discard extension work.
+				// A committed extension entry stays in history.
 				return s.finish(
 					ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err, step.messages[index:],
 				)
@@ -447,7 +456,7 @@ func (s *Service) finish(
 	s.mutex.Lock()
 	added := s.addedHistory
 	s.addedHistory = nil
-	// The run ends here, so queued messages that it has not delivered go back to the client.
+	// Return pending client originals and discard the extension messages of the ended run.
 	returned := s.collectReturnedMessages(undelivered)
 	s.pending = nil
 	s.state = State{

@@ -9,6 +9,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
@@ -33,6 +34,12 @@ type ModelRequest struct {
 	History []agent.HistoryEntry
 	// Tools contains the available model-callable tool catalog.
 	Tools []tool.Descriptor
+}
+
+// ExtensionMessageDelivery persists accepted extension messages or discards stale bindings.
+type ExtensionMessageDelivery interface {
+	// DeliverExtensionMessage commits a captured message when its session and runtime remain current.
+	DeliverExtensionMessage(context.Context, session.QueuedExtensionMessage) error
 }
 
 // HistoryStore owns canonical provider-neutral history for the active session.

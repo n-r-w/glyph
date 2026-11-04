@@ -409,9 +409,46 @@ func TestHiddenAppendAndRecoveryMapExactStoredEntry(t *testing.T) {
 	assert.Equal(t, payload, recovered.GetData())
 }
 
-// TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue verifies exact message metadata and post-commit outcome.
+// TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue checks immediate append and delivery validation.
 func TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue(t *testing.T) {
 	t.Parallel()
+
+	for _, test := range []struct {
+		name     string
+		delivery extensionpb.ExtensionMessageDelivery
+	}{
+		{
+			name:     "explicitly unspecified delivery",
+			delivery: extensionpb.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_UNSPECIFIED,
+		},
+		{name: "unknown delivery", delivery: extensionpb.ExtensionMessageDelivery(99)},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			t.Parallel()
+			// Arrange an otherwise valid request with no allowed capture, append, enqueue, or runtime work.
+			controller := gomock.NewController(t)
+			service := New(NewMockModelOperations(controller), NewMockContextOperations(controller),
+				NewMockRuntimeOperations(controller), "extension", "runtime")
+			service.BindMessages(NewMockMessageEnqueuer(controller))
+			request := new(extensionpb.ExtensionRequest)
+			request.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageRequest_builder{
+				Context: extensionpb.ExtensionContextRef_builder{
+					ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
+				}.Build(),
+				EntryType: new("note"), Text: new("exact\ntext"),
+				Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN), Delivery: new(test.delivery),
+			}.Build())
+
+			// Act through controller admission before any message operation is accepted.
+			prepared, err := service.Prepare(t.Context(), "invalid-delivery", request)
+
+			// Assert the caller receives the defined rejection category without an executable operation.
+			var rejection *extensionsdk.RejectionError
+			require.ErrorAs(t, err, &rejection)
+			require.Equal(t, invalidArgumentCode, rejection.Code())
+			require.Nil(t, prepared)
+		})
+	}
 
 	// Arrange one admitted message append whose client publication fails after commit.
 	controller := gomock.NewController(t)
@@ -448,7 +485,7 @@ func TestExtensionMessageAppendReturnsCommittedEntryAndDeliveryIssue(t *testing.
 			ContextId: new("context"), RuntimeInstanceId: new("runtime"), SessionId: new("session"),
 		}.Build(),
 		EntryType: new("note"), Text: new("exact\ntext"),
-		Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+		Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN), Delivery: nil,
 	}.Build())
 
 	// Act through the production extension request controller.

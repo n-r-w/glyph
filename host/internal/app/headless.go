@@ -84,10 +84,6 @@ func runHeadlessWithPaths(
 	selectionOwner.BindHandlers(extensions, contexts, renderer)
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
-	bindExtensionHostFactory(
-		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution, tools,
-		sessionServices.gate,
-	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	middlewareOwner, bindErr := bindMiddleware(
 		startupService, modelExecution, tools, extensions, contexts, providerCatalog,
@@ -98,6 +94,16 @@ func runHeadlessWithPaths(
 	if err = startupService.BindCompaction(contexts); err != nil {
 		return fmt.Errorf("bind headless compaction registration: %w", err)
 	}
+	dispatcher := events.NewDispatcher(renderer, lifecycleObservers)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
+	)
+	agentCore.BindExtensionMessages(contexts)
+	coordinator := runcontrol.NewCoordinator(agentCore, middlewareOwner, dispatcher, sessionServices.gate)
+	bindExtensionHostFactory(
+		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution, tools,
+		sessionServices.gate, coordinator,
+	)
 	_, startupErr := startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}, renderer)
@@ -109,11 +115,6 @@ func runHeadlessWithPaths(
 		// Streamed model text is provisional while extensions can replace the final message.
 		renderer.EnableFinalModelText()
 	}
-	dispatcher := events.NewDispatcher(renderer, lifecycleObservers)
-	agentCore := agentrun.New(
-		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
-	)
-	coordinator := runcontrol.NewCoordinator(agentCore, middlewareOwner, dispatcher, sessionServices.gate)
 	controller := headless.New(coordinator)
 	executionErr := controller.Execute(ctx, command.UserText)
 	if executionErr != nil {

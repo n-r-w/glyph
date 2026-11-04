@@ -314,7 +314,8 @@ func (o *AppendExtensionOperation) Wait(ctx context.Context) (*extensionpb.Appen
 	return result.GetAppendExtension(), nil
 }
 
-// Wait waits locally for the committed message and delivery issues without canceling remote work.
+// Wait waits locally for an immediate committed entry with post-commit issues or delayed queue acceptance,
+// without canceling remote work.
 func (o *AppendExtensionMessageOperation) Wait(ctx context.Context) (*extensionpb.AppendExtensionMessageResult, error) {
 	result, err := o.operation.wait(ctx, nil)
 	if err != nil {

@@ -82,7 +82,7 @@ func ensureSessionState(
 		ctx,
 		extensionv1.AppendExtensionMessageRequest_builder{
 			Context: nil, EntryType: new(sessionMessageEntryType), Text: new(sessionMessageText),
-			Visibility: new(extensionv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+			Visibility: new(extensionv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN), Delivery: nil,
 		}.Build(),
 	)
 	if err != nil {

@@ -15,6 +15,7 @@ import (
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
+	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -67,6 +68,44 @@ func (m *MockFatalOperationFailure) FatalOperation() {
 func (mr *MockFatalOperationFailureMockRecorder) FatalOperation() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "FatalOperation", reflect.TypeOf((*MockFatalOperationFailure)(nil).FatalOperation))
+}
+
+// MockExtensionMessageDelivery is a mock of ExtensionMessageDelivery interface.
+type MockExtensionMessageDelivery struct {
+	ctrl     *gomock.Controller
+	recorder *MockExtensionMessageDeliveryMockRecorder
+	isgomock struct{}
+}
+
+// MockExtensionMessageDeliveryMockRecorder is the mock recorder for MockExtensionMessageDelivery.
+type MockExtensionMessageDeliveryMockRecorder struct {
+	mock *MockExtensionMessageDelivery
+}
+
+// NewMockExtensionMessageDelivery creates a new mock instance.
+func NewMockExtensionMessageDelivery(ctrl *gomock.Controller) *MockExtensionMessageDelivery {
+	mock := &MockExtensionMessageDelivery{ctrl: ctrl}
+	mock.recorder = &MockExtensionMessageDeliveryMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockExtensionMessageDelivery) EXPECT() *MockExtensionMessageDeliveryMockRecorder {
+	return m.recorder
+}
+
+// DeliverExtensionMessage mocks base method.
+func (m *MockExtensionMessageDelivery) DeliverExtensionMessage(arg0 context.Context, arg1 session.QueuedExtensionMessage) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "DeliverExtensionMessage", arg0, arg1)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// DeliverExtensionMessage indicates an expected call of DeliverExtensionMessage.
+func (mr *MockExtensionMessageDeliveryMockRecorder) DeliverExtensionMessage(arg0, arg1 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "DeliverExtensionMessage", reflect.TypeOf((*MockExtensionMessageDelivery)(nil).DeliverExtensionMessage), arg0, arg1)
 }
 
 // MockHistoryStore is a mock of HistoryStore interface.

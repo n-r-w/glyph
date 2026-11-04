@@ -15,6 +15,7 @@ import (
 
 	agent "github.com/n-r-w/glyph/host/internal/domain/agent"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
+	session "github.com/n-r-w/glyph/host/internal/domain/session"
 	mo "github.com/samber/mo"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -70,6 +71,20 @@ func (m *MockExecutor) Enqueue(runID string, delivery agent.MessageDelivery, mes
 func (mr *MockExecutorMockRecorder) Enqueue(runID, delivery, message any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Enqueue", reflect.TypeOf((*MockExecutor)(nil).Enqueue), runID, delivery, message)
+}
+
+// EnqueueExtension mocks base method.
+func (m *MockExecutor) EnqueueExtension(runID string, delivery agent.MessageDelivery, message session.QueuedExtensionMessage) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnqueueExtension", runID, delivery, message)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnqueueExtension indicates an expected call of EnqueueExtension.
+func (mr *MockExecutorMockRecorder) EnqueueExtension(runID, delivery, message any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnqueueExtension", reflect.TypeOf((*MockExecutor)(nil).EnqueueExtension), runID, delivery, message)
 }
 
 // Run mocks base method.

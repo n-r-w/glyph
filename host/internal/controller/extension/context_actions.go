@@ -118,6 +118,23 @@ func (o *contextOperation) runAppendMessage(
 	message appendMessageRequest,
 ) (*extensionpb.HostCompleted, error) {
 	result := new(extensionpb.HostCompleted)
+	if delivery, queued := message.delivery.Get(); queued {
+		if o.service.messages == nil {
+			return nil, extensionsdk.Fail(internalFailureCode, errors.New("extension message enqueue is not bound"))
+		}
+		captured, err := o.service.contexts.CaptureExtensionMessage(ctx, o.service.extensionID, o.service.runtimeID,
+			o.reference, message.entryType, message.text, message.visibility)
+		if err != nil {
+			return nil, mapContextFailure("capture extension message", err)
+		}
+		if err = o.service.messages.EnqueueExtension(ctx, delivery, captured); err != nil {
+			return nil, mapContextFailure("queue extension message", err)
+		}
+		queuedResult := new(extensionpb.AppendExtensionMessageResult)
+		queuedResult.SetQueued(new(extensionpb.AppendExtensionMessageQueued))
+		result.SetAppendExtensionMessage(queuedResult)
+		return result, nil
+	}
 	appended, err := o.service.contexts.AppendExtensionMessage(
 		ctx, o.service.extensionID, o.service.runtimeID, o.reference,
 		message.entryType, message.text, message.visibility,
@@ -146,7 +163,7 @@ func (o *contextOperation) runAppendMessage(
 		}.Build())
 	}
 	result.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageResult_builder{
-		Entry: mapped, Issues: issues,
+		Entry: mapped, Issues: issues, Queued: nil,
 	}.Build())
 
 	return result, nil

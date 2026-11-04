@@ -513,6 +513,8 @@ For U10, the original RED-before-code chronology was not retained for `TestPubli
 
 For U11, the developer found fitting category round-trip tests before creating separate terminate tests. The developer later consolidated those checks into the existing round trips. The developer added the public copy-and-edit path in `TestPublicTerminateBatch` after production flag propagation, so the original public-level RED chronology for that path is absent. The retained compilation RED and behavioral RED runs cover the other reported changes; they do not establish that missing chronology.
 
+For U13, `TestPublicExtensionQueuedMessages` first failed because its test harness called a nonexistent helper, then failed behaviorally because the real extension rejected the new tool mode. The public test passed after queued delivery was implemented. The delayed-binding tests and the expanded pending-message failure tests had compilation RED runs before their production methods and payload type existed. The coordinator bypass/race-rejection test, the popped extension-delivery failure test, and the added stale-capture and post-commit publication assertions were added after their production behavior; they have no original RED-before-code evidence. The acceptance checks remain mandatory under the verification exception above.
+
 ## References
 
 - [Ticket](ticket.md) - phase scope and acceptance criteria

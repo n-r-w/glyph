@@ -38,6 +38,7 @@ func bindExtensionHostFactory(
 	compaction *modelexecution.Service,
 	toolService *tools.Service,
 	compactionGate extensioncontroller.CompactionGate,
+	messages extensioncontroller.MessageEnqueuer,
 ) {
 	factory.BindHostServiceFactory(func(extensionID, runtimeID string) extensionsdk.HostService {
 		controller := extensioncontroller.New(models, contexts, runtimes, extensionID, runtimeID)
@@ -45,6 +46,7 @@ func bindExtensionHostFactory(
 		controller.BindCompaction(compaction, compactionGate)
 		controller.BindTools(toolService)
 		controller.BindPolicyOperations(contexts)
+		controller.BindMessages(messages)
 		return controller
 	})
 }

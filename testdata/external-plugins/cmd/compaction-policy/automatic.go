@@ -224,7 +224,7 @@ func appendAutomaticMessage(ctx context.Context, message string) error {
 	const entryType = "automatic-observer"
 	operation, err := binding.StartAppendExtensionMessage(ctx, extensionpb.AppendExtensionMessageRequest_builder{
 		Context: nil, EntryType: new(entryType), Text: new(message),
-		Visibility: extensionpb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE.Enum(),
+		Visibility: extensionpb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE.Enum(), Delivery: nil,
 	}.Build())
 	if err != nil {
 		return err

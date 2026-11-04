@@ -11,6 +11,7 @@ import (
 	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	agentrun "github.com/n-r-w/glyph/host/internal/usecase/agent/run"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/extensionmodels"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/lifecycle"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/middleware"
@@ -85,6 +86,7 @@ type Service struct {
 }
 
 var (
+	_ agentrun.ExtensionMessageDelivery = (*Service)(nil)
 	// Service issues trusted contexts for ordinary wire invocations.
 	_ middleware.ContextIssuer = (*Service)(nil)
 	// Service implements the model execution manual preparation contract.

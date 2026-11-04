@@ -91,6 +91,12 @@ type CompactionOperations interface {
 	) (CompactionResult, error)
 }
 
+// MessageEnqueuer accepts extension messages without client input processing.
+type MessageEnqueuer interface {
+	// EnqueueExtension accepts a captured extension message for the active run.
+	EnqueueExtension(context.Context, agent.MessageDelivery, session.QueuedExtensionMessage) error
+}
+
 // ContextOperations supplies binding and session operations without transport policy.
 type ContextOperations interface {
 	// ValidateContext rejects a reference not issued to the connected runtime or no longer active.
@@ -111,6 +117,11 @@ type ContextOperations interface {
 		entryType, text string,
 		visibility session.ClientVisibility,
 	) (AppendMessageResult, error)
+	// CaptureExtensionMessage validates the binding and captures delayed delivery identity.
+	CaptureExtensionMessage(
+		ctx context.Context, extensionID, runtimeID string, reference extensiondomain.ContextRef,
+		entryType, text string, visibility session.ClientVisibility,
+	) (session.QueuedExtensionMessage, error)
 	// ReadSessionState returns one coherent caller-filtered active-branch snapshot.
 	ReadSessionState(
 		ctx context.Context,

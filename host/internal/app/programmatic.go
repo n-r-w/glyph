@@ -97,10 +97,6 @@ func runProgrammaticWithPaths(
 	selectionOwner.BindHandlers(extensions, contexts, delivery)
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
-	bindExtensionHostFactory(
-		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution, tools,
-		sessionServices.gate,
-	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	middlewareOwner, bindErr := bindMiddleware(
 		startupService, modelExecution, tools, extensions, contexts, providerCatalog,
@@ -111,6 +107,16 @@ func runProgrammaticWithPaths(
 	if err = startupService.BindCompaction(contexts); err != nil {
 		return fmt.Errorf("bind Programmatic compaction registration: %w", err)
 	}
+	dispatcher := events.NewDispatcher(delivery, lifecycleObservers)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
+	)
+	agentCore.BindExtensionMessages(contexts)
+	coordinator := runcontrol.NewCoordinator(agentCore, middlewareOwner, dispatcher, sessionServices.gate)
+	bindExtensionHostFactory(
+		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution, tools,
+		sessionServices.gate, coordinator,
+	)
 	report, err := startupService.Load(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	})
@@ -120,11 +126,6 @@ func runProgrammaticWithPaths(
 	delivery.HoldStartupIssues(report.Issues)
 	extensions.Activate(ctx)
 
-	dispatcher := events.NewDispatcher(delivery, lifecycleObservers)
-	agentCore := agentrun.New(
-		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
-	)
-	coordinator := runcontrol.NewCoordinator(agentCore, middlewareOwner, dispatcher, sessionServices.gate)
 	session := hostprogrammatic.New(
 		coordinator,
 		providerCatalog,

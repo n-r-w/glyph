@@ -33,15 +33,37 @@ message AppendExtensionMessageRequest {
   string text = 3;
   // The ordinary client transcript visibility.
   ClientVisibility visibility = 4;
+  // The point at which Host persists the message; omission means immediate.
+  ExtensionMessageDelivery delivery = 5 [default = EXTENSION_MESSAGE_DELIVERY_IMMEDIATE];
 }
 
-// AppendExtensionMessageResult contains the committed message and post-commit delivery issues.
+// ExtensionMessageDelivery selects when Host persists a model-visible extension message.
+enum ExtensionMessageDelivery {
+  // No delivery point was selected.
+  EXTENSION_MESSAGE_DELIVERY_UNSPECIFIED = 0;
+  // Persist the message during the append operation.
+  EXTENSION_MESSAGE_DELIVERY_IMMEDIATE = 1;
+  // Persist after the current tool batch, before the next model request.
+  EXTENSION_MESSAGE_DELIVERY_STEER = 2;
+  // Persist when no tool calls or steer messages remain.
+  EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP = 3;
+}
+
+// AppendExtensionMessageResult contains a committed message or queue acceptance.
 message AppendExtensionMessageResult {
-  // The committed entry with Host-owned identity and metadata.
-  SessionStateEntry entry = 1;
+  // The append operation either commits immediately or accepts delayed delivery.
+  oneof outcome {
+    // The committed entry with Host-owned identity and metadata.
+    SessionStateEntry entry = 1;
+    // Queue acceptance has no committed entry or post-commit issues.
+    AppendExtensionMessageQueued queued = 3;
+  }
   // Delivery issues that did not roll back the committed entry.
   repeated AppendExtensionMessageIssue issues = 2;
 }
+
+// AppendExtensionMessageQueued reports acceptance for delayed delivery.
+message AppendExtensionMessageQueued {}
 
 // AppendExtensionMessageIssue reports one post-commit client delivery failure.
 message AppendExtensionMessageIssue {

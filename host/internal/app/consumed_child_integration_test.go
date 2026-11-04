@@ -77,7 +77,7 @@ func assertConsumedCompactionStopsCore(t *testing.T, completeCause string) {
 	require.NoError(t, sessionServices.tree.BindModels(providerCatalog, modelExecution))
 	observers := lifecycle.New(runtimes, contexts)
 	bindExtensionHostFactory(
-		factory, runtimes, extensionModels, contexts, nil, modelExecution, tools, sessionServices.gate,
+		factory, runtimes, extensionModels, contexts, nil, modelExecution, tools, sessionServices.gate, nil,
 	)
 	startupService := startup.New(runtimes, tools, sessionServices.tree, observers, nil)
 	require.NoError(t, startupService.BindCompaction(contexts))

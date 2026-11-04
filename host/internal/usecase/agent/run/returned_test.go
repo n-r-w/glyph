@@ -12,6 +12,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 )
@@ -23,6 +24,8 @@ const returnedImage = "image/png"
 type returnedHarness struct {
 	// service is the Agent Core service under test.
 	service *Service
+	// extensionDelivery rejects delivery calls unless a scenario explicitly expects them.
+	extensionDelivery *MockExtensionMessageDelivery
 	// summary is the run summary of the agent_end event.
 	summary agent.RunSummary
 	// requests holds the history of each provider request.
@@ -54,6 +57,17 @@ func (h *returnedHarness) queueClientMessages(t *testing.T) {
 		}},
 	} {
 		require.NoError(t, h.service.Enqueue("run", queued.delivery, queued.message))
+	}
+	for _, delivery := range []agent.MessageDelivery{agent.MessageDeliverySteer, agent.MessageDeliveryFollowUp} {
+		require.NoError(t, h.service.EnqueueExtension("run", delivery, session.QueuedExtensionMessage{
+			Session:           session.Identity{ID: "session", WorkingDirectory: "/project", Incarnation: 1},
+			RuntimeInstanceID: "runtime", Message: session.ExtensionMessage{
+				ExtensionID: "extension",
+				EntryType:   "kind",
+				Text:        "extension pending",
+				Visibility:  session.ClientVisibilityHidden,
+			},
+		}))
 	}
 }
 
@@ -134,6 +148,8 @@ func newReturnedHarness(t *testing.T, cancel context.CancelFunc, setup returnedS
 		passThroughContext(testModelDescriptor, model.ReasoningChoiceOff, modelProvider),
 	).AnyTimes()
 	harness.service = New(testInstructions, runtime, setup.tools, events, setup.store, setup.finalizer)
+	harness.extensionDelivery = NewMockExtensionMessageDelivery(gomock.NewController(t))
+	harness.service.BindExtensionMessages(harness.extensionDelivery)
 	return harness
 }
 
@@ -382,6 +398,7 @@ func TestRunCompletionReturnsNoMessages(t *testing.T) {
 	t.Parallel()
 	// Arrange a run whose provider always gives a final response.
 	harness := newReturnedHarness(t, func() {}, newReturnedSetup(t, stopProvider))
+	harness.extensionDelivery.EXPECT().DeliverExtensionMessage(gomock.Any(), gomock.Any()).Return(nil).Times(2)
 
 	// Act by running the request with three pending client messages.
 	result, err := harness.service.Run(

@@ -10,6 +10,7 @@ import (
 	"sync"
 
 	"github.com/n-r-w/glyph/host/internal/controller/cli/headless"
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
@@ -40,9 +41,10 @@ type Coordinator struct {
 }
 
 var (
-	_ hostui.AgentRunner           = (*Coordinator)(nil)
-	_ headless.AgentRunner         = (*Coordinator)(nil)
-	_ hostprogrammatic.Coordinator = (*Coordinator)(nil)
+	_ extensioncontroller.MessageEnqueuer = (*Coordinator)(nil)
+	_ hostui.AgentRunner                  = (*Coordinator)(nil)
+	_ headless.AgentRunner                = (*Coordinator)(nil)
+	_ hostprogrammatic.Coordinator        = (*Coordinator)(nil)
 )
 
 // NewCoordinator creates the production Host run coordinator.
@@ -164,6 +166,25 @@ func (c *Coordinator) Enqueue(
 		return false, fmt.Errorf("queue %s message: %w", delivery, enqueueErr)
 	}
 	return false, nil
+}
+
+// EnqueueExtension accepts an extension message without running client input handlers.
+func (c *Coordinator) EnqueueExtension(
+	ctx context.Context,
+	delivery agent.MessageDelivery,
+	message session.QueuedExtensionMessage,
+) error {
+	if err := ctx.Err(); err != nil {
+		return fmt.Errorf("queue extension %s message: %w", delivery, err)
+	}
+	runID, err := c.executor.CheckEnqueue()
+	if err != nil {
+		return fmt.Errorf("queue extension %s message: %w", delivery, err)
+	}
+	if err = c.executor.EnqueueExtension(runID, delivery, message); err != nil {
+		return fmt.Errorf("queue extension %s message: %w", delivery, err)
+	}
+	return nil
 }
 
 // SetQueueMode passes the queue mode to Agent Core; it needs no active run and does not wait for one.

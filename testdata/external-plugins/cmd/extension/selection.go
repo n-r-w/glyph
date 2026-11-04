@@ -315,7 +315,7 @@ func (operation *handleOperation) runNestedSelectionOperations(ctx context.Conte
 		ctx,
 		extensionv1.AppendExtensionMessageRequest_builder{
 			Context: nil, EntryType: new(nestedSelectionEntryType), Text: new(nestedSelectionEntryText),
-			Visibility: new(extensionv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE),
+			Visibility: new(extensionv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE), Delivery: nil,
 		}.Build(),
 	)
 	if err != nil {

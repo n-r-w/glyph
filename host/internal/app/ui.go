@@ -124,10 +124,6 @@ func runUIWithPaths(
 	selectionOwner.BindHandlers(extensions, contexts, transport)
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
-	bindExtensionHostFactory(
-		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution, tools,
-		sessionServices.gate,
-	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)
 	middlewareOwner, bindErr := bindMiddleware(
 		startupService, modelExecution, tools, extensions, contexts, providerCatalog,
@@ -138,6 +134,16 @@ func runUIWithPaths(
 	if err = startupService.BindCompaction(contexts); err != nil {
 		return fmt.Errorf("bind UI compaction registration: %w", err)
 	}
+	dispatcher := events.NewDispatcher(transport, lifecycleObservers)
+	agentCore := agentrun.New(
+		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
+	)
+	agentCore.BindExtensionMessages(contexts)
+	coordinator := runcontrol.NewCoordinator(agentCore, middlewareOwner, dispatcher, sessionServices.gate)
+	bindExtensionHostFactory(
+		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution, tools,
+		sessionServices.gate, coordinator,
+	)
 	_, err = startupService.Start(ctx, startup.Request{
 		DataDirectory: paths.Directory, ExtensionDirectory: command.ExtensionDirectory,
 	}, transport)
@@ -146,11 +152,6 @@ func runUIWithPaths(
 	}
 
 	transport.BindBrowser(browser.New())
-	dispatcher := events.NewDispatcher(transport, lifecycleObservers)
-	agentCore := agentrun.New(
-		codingagent.Instructions(), modelExecution, tools, dispatcher, sessionServices.active, middlewareOwner,
-	)
-	coordinator := runcontrol.NewCoordinator(agentCore, middlewareOwner, dispatcher, sessionServices.gate)
 	session := hostui.NewSession(
 		transport,
 		coordinator,

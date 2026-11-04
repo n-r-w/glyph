@@ -8,6 +8,9 @@ import (
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 
+	"github.com/samber/mo"
+
+	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
@@ -28,6 +31,8 @@ type appendMessageRequest struct {
 	text string
 	// visibility controls ordinary client transcript presentation.
 	visibility session.ClientVisibility
+	// delivery is absent for immediate persistence.
+	delivery mo.Option[agent.MessageDelivery]
 }
 
 // mapAppendMessageRequest validates and owns one public model-visible message request.
@@ -39,7 +44,24 @@ func mapAppendMessageRequest(request *extensionpb.AppendExtensionMessageRequest)
 	if err != nil {
 		return appendMessageRequest{}, err
 	}
-	return appendMessageRequest{entryType: request.GetEntryType(), text: request.GetText(), visibility: visibility}, nil
+	delivery := mo.None[agent.MessageDelivery]()
+	switch request.GetDelivery() {
+	case extensionpb.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_UNSPECIFIED:
+		return appendMessageRequest{}, errors.New("extension message delivery point is required")
+	case extensionpb.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_IMMEDIATE:
+	case extensionpb.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_STEER:
+		delivery = mo.Some(agent.MessageDeliverySteer)
+	case extensionpb.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP:
+		delivery = mo.Some(agent.MessageDeliveryFollowUp)
+	default:
+		return appendMessageRequest{}, errors.New("extension message delivery point is unknown")
+	}
+	return appendMessageRequest{
+		entryType:  request.GetEntryType(),
+		text:       request.GetText(),
+		visibility: visibility,
+		delivery:   delivery,
+	}, nil
 }
 
 // mapClientVisibility maps the closed public visibility set to the session domain.

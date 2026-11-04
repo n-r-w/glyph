@@ -55,7 +55,7 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 					} else if appendMessage {
 						request.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageRequest_builder{
 							Context: nil, EntryType: new("note"), Text: new("exact message"),
-							Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+							Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN), Delivery: nil,
 						}.Build())
 					} else if completed {
 						request.SetConfiguredModel(extensionpb.ConfiguredModelRequest_builder{
@@ -118,7 +118,7 @@ func TestSendFailureSettlesBothInitiatorNamespaces(t *testing.T) {
 					if appendMessage {
 						response := new(extensionpb.HostCompleted)
 						response.SetAppendExtensionMessage(extensionpb.AppendExtensionMessageResult_builder{
-							Entry: nil,
+							Entry: nil, Queued: nil,
 							Issues: []*extensionpb.AppendExtensionMessageIssue{
 								extensionpb.AppendExtensionMessageIssue_builder{
 									Code: new(

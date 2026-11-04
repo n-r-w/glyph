@@ -223,6 +223,44 @@ func (mr *MockCompactionOperationsMockRecorder) CompactExtension(arg0, arg1, arg
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CompactExtension", reflect.TypeOf((*MockCompactionOperations)(nil).CompactExtension), arg0, arg1, arg2, arg3, arg4)
 }
 
+// MockMessageEnqueuer is a mock of MessageEnqueuer interface.
+type MockMessageEnqueuer struct {
+	ctrl     *gomock.Controller
+	recorder *MockMessageEnqueuerMockRecorder
+	isgomock struct{}
+}
+
+// MockMessageEnqueuerMockRecorder is the mock recorder for MockMessageEnqueuer.
+type MockMessageEnqueuerMockRecorder struct {
+	mock *MockMessageEnqueuer
+}
+
+// NewMockMessageEnqueuer creates a new mock instance.
+func NewMockMessageEnqueuer(ctrl *gomock.Controller) *MockMessageEnqueuer {
+	mock := &MockMessageEnqueuer{ctrl: ctrl}
+	mock.recorder = &MockMessageEnqueuerMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockMessageEnqueuer) EXPECT() *MockMessageEnqueuerMockRecorder {
+	return m.recorder
+}
+
+// EnqueueExtension mocks base method.
+func (m *MockMessageEnqueuer) EnqueueExtension(arg0 context.Context, arg1 agent.MessageDelivery, arg2 session.QueuedExtensionMessage) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "EnqueueExtension", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// EnqueueExtension indicates an expected call of EnqueueExtension.
+func (mr *MockMessageEnqueuerMockRecorder) EnqueueExtension(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "EnqueueExtension", reflect.TypeOf((*MockMessageEnqueuer)(nil).EnqueueExtension), arg0, arg1, arg2)
+}
+
 // MockContextOperations is a mock of ContextOperations interface.
 type MockContextOperations struct {
 	ctrl     *gomock.Controller
@@ -275,6 +313,21 @@ func (m *MockContextOperations) AppendExtensionMessage(ctx context.Context, exte
 func (mr *MockContextOperationsMockRecorder) AppendExtensionMessage(ctx, extensionID, runtimeID, reference, entryType, text, visibility any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "AppendExtensionMessage", reflect.TypeOf((*MockContextOperations)(nil).AppendExtensionMessage), ctx, extensionID, runtimeID, reference, entryType, text, visibility)
+}
+
+// CaptureExtensionMessage mocks base method.
+func (m *MockContextOperations) CaptureExtensionMessage(ctx context.Context, extensionID, runtimeID string, reference extension.ContextRef, entryType, text string, visibility session.ClientVisibility) (session.QueuedExtensionMessage, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CaptureExtensionMessage", ctx, extensionID, runtimeID, reference, entryType, text, visibility)
+	ret0, _ := ret[0].(session.QueuedExtensionMessage)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CaptureExtensionMessage indicates an expected call of CaptureExtensionMessage.
+func (mr *MockContextOperationsMockRecorder) CaptureExtensionMessage(ctx, extensionID, runtimeID, reference, entryType, text, visibility any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CaptureExtensionMessage", reflect.TypeOf((*MockContextOperations)(nil).CaptureExtensionMessage), ctx, extensionID, runtimeID, reference, entryType, text, visibility)
 }
 
 // ReadSessionState mocks base method.

@@ -183,7 +183,7 @@ func expectNestedModelMessageHosts(t *testing.T, host *MockHostService, configur
 				Message: extensionpb.ExtensionMessage_builder{
 					Text: new("exact text"), Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
 				}.Build(),
-			}.Build(), Issues: nil,
+			}.Build(), Issues: nil, Queued: nil,
 		}.Build(),
 
 		ProjectCompaction:         nil,
@@ -325,7 +325,7 @@ func runNestedMessageAppend(t *testing.T, ctx context.Context, bound *ExtensionC
 		ctx,
 		extensionpb.AppendExtensionMessageRequest_builder{
 			Context: nil, EntryType: new("note"), Text: new("exact text"),
-			Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN),
+			Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_HIDDEN), Delivery: nil,
 		}.Build(),
 	)
 	if err != nil {

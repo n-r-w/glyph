@@ -3,12 +3,15 @@ package run
 import (
 	"cmp"
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/samber/lo"
+	"github.com/samber/mo"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/session"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 )
 
@@ -23,7 +26,7 @@ func (s *Service) CheckEnqueue() (string, error) {
 	return s.state.RunID.OrEmpty(), nil
 }
 
-// queuedMessage is one pending client message with the forms that the model and the client need.
+// queuedMessage retains one pending message and its sender-specific delivery data.
 type queuedMessage struct {
 	// sequence orders the message among all pending messages by arrival.
 	sequence uint64
@@ -33,6 +36,8 @@ type queuedMessage struct {
 	original model.Message
 	// processed is the message after input processing, which the model receives.
 	processed model.Message
+	// extension contains a captured extension payload instead of client forms.
+	extension mo.Option[session.QueuedExtensionMessage]
 }
 
 // toReturnedMessage converts the pending message to the form in which the client gets it back.
@@ -43,17 +48,49 @@ func (m queuedMessage) toReturnedMessage() agent.ReturnedMessage {
 // Enqueue queues a message for the run that CheckEnqueue returned; that run appends it to history at the delivery
 // point of the delivery kind. It fails with agent.ErrRunNotActive unless that run is still running.
 func (s *Service) Enqueue(runID string, delivery agent.MessageDelivery, message runcontrol.QueuedMessage) error {
+	return s.enqueue(runID, queuedMessage{
+		sequence: 0, delivery: delivery, original: message.Original.Clone(), processed: message.Processed.Clone(),
+		extension: mo.None[session.QueuedExtensionMessage](),
+	})
+}
+
+// EnqueueExtension accepts a captured extension message for the matching active run.
+func (s *Service) EnqueueExtension(
+	runID string,
+	delivery agent.MessageDelivery,
+	message session.QueuedExtensionMessage,
+) error {
+	return s.enqueue(runID, queuedMessage{
+		sequence:  0,
+		delivery:  delivery,
+		original:  model.Message{},
+		processed: model.Message{},
+		extension: mo.Some(message),
+	})
+}
+
+// enqueue atomically checks run acceptance and assigns arrival order for either sender.
+func (s *Service) enqueue(runID string, message queuedMessage) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.state.Status != StatusRunning || s.state.RunID.OrEmpty() != runID {
 		return agent.ErrRunNotActive
 	}
 	s.nextSequence++
-	s.pending = append(s.pending, queuedMessage{
-		sequence: s.nextSequence, delivery: delivery,
-		original: message.Original.Clone(), processed: message.Processed.Clone(),
-	})
+	message.sequence = s.nextSequence
+	s.pending = append(s.pending, message)
 	return nil
+}
+
+// deliverQueuedMessage appends a client message or delegates origin-preserving extension persistence.
+func (s *Service) deliverQueuedMessage(ctx context.Context, message queuedMessage) error {
+	if payload, present := message.extension.Get(); present {
+		if s.extensionMessages == nil {
+			return errors.New("extension message delivery is not bound")
+		}
+		return s.extensionMessages.DeliverExtensionMessage(ctx, payload)
+	}
+	return s.appendUser(ctx, message.processed)
 }
 
 // SetQueueMode selects how many pending messages of one kind a delivery point gives the model. It applies from the
@@ -102,22 +139,24 @@ func (s *Service) takeQueuedOrComplete(ctx context.Context) ([]queuedMessage, er
 func (s *Service) pop(delivery agent.MessageDelivery) []queuedMessage {
 	var delivered []queuedMessage
 	rest := make([]queuedMessage, 0, len(s.pending))
-	for _, message := range s.pending {
+	for index := range s.pending {
+		message := &s.pending[index]
 		if message.delivery == delivery && (s.queueMode == agent.QueueModeAll || len(delivered) == 0) {
-			delivered = append(delivered, message)
+			delivered = append(delivered, *message)
 			continue
 		}
-		rest = append(rest, message)
+		rest = append(rest, *message)
 	}
 	s.pending = rest
 	return delivered
 }
 
-// collectReturnedMessages converts the messages that the run did not give to the model to the form in which the client
-// gets them back, in arrival order. The messages are the still pending ones and the popped ones that history did
-// not receive; the caller holds the mutex.
+// collectReturnedMessages returns pending and popped undelivered client originals in arrival order,
+// excluding extension messages, while the caller holds the mutex.
 func (s *Service) collectReturnedMessages(undelivered []queuedMessage) []agent.ReturnedMessage {
 	all := slices.Concat(undelivered, s.pending)
 	slices.SortFunc(all, func(a, b queuedMessage) int { return cmp.Compare(a.sequence, b.sequence) })
-	return lo.Map(all, func(message queuedMessage, _ int) agent.ReturnedMessage { return message.toReturnedMessage() })
+	return lo.FilterMap(all, func(message queuedMessage, _ int) (agent.ReturnedMessage, bool) {
+		return message.toReturnedMessage(), message.extension.IsNone()
+	})
 }

@@ -50,7 +50,7 @@ func appendOverflowObservationMessage(ctx context.Context) error {
 	const entryType = "overflow-observation-message"
 	operation, err := binding.StartAppendExtensionMessage(ctx, extensionpb.AppendExtensionMessageRequest_builder{
 		Context: nil, EntryType: new(entryType), Text: new(overflowObservationMessage),
-		Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE),
+		Visibility: new(extensionpb.ClientVisibility_CLIENT_VISIBILITY_VISIBLE), Delivery: nil,
 	}.Build())
 	if err != nil {
 		return err
