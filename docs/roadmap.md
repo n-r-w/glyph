@@ -50,6 +50,18 @@ Track the cross-phase closure of terminal agent-run failure semantics across the
 Documents:
 - [Problem Statement](specs/issues/agent-run-failure-semantics/problem.md)
 
+### One-shot integration tests without HOME overrides
+
+Status: Planned
+
+Execution position: After completion of PHS-09, as a separate corrective task.
+
+Remove child-process `HOME` overrides from `TestPublicFinalizedOneShot` in [finalized_clients_integration_test.go](../host/internal/app/finalized_clients_integration_test.go) and `TestPublicInputMiddlewareOneShot` in [input_middleware_oneshot_integration_test.go](../host/internal/app/input_middleware_oneshot_integration_test.go). Give each scenario isolated settings and persistence while retaining the inherited `HOME` value.
+
+Preserve all eight scenarios and their checks of process exit status, standard output, complete error text, provider request counts, and transformed provider input. For example, a failing input handler must still produce exit code `1` and its complete public error text.
+
+Completion requires both test functions to run without changing `HOME` in the test process or any child process, and all eight scenarios and `task check` to pass. Choose the test-isolation mechanism during this corrective task.
+
 ## PHS-00: Prototype baseline
 
 Status: Completed
