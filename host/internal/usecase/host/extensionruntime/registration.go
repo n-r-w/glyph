@@ -29,6 +29,8 @@ type ToolDeclaration struct {
 	Constraint mo.Option[ConstraintDeclaration]
 	// ReplacesTool retains the process declaration that the tool replaces the same-named tool of another extension.
 	ReplacesTool bool
+	// Concurrent retains the process declaration that calls may run concurrently.
+	Concurrent bool
 }
 
 // ConstraintKind identifies the decoded configuration variant.
@@ -92,6 +94,7 @@ func (s *Service) bindRegistration(candidate Candidate, raw Registration) startu
 			InputSchemaJSON:     value.InputSchemaJSON,
 			ConstrainedSampling: constraint,
 			ReplacesTool:        value.ReplacesTool,
+			Concurrent:          value.Concurrent,
 		}
 	}
 	handlers := make([]startup.RawHandlerDescriptor, len(raw.Handlers))

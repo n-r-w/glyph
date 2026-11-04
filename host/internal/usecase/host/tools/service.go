@@ -145,6 +145,7 @@ func (s *Service) ValidateLocal(registration startup.PendingRegistration) ([]too
 				InputSchemaJSON:     bytes.Clone(raw.InputSchemaJSON),
 				ConstrainedSampling: constraint,
 				ReplacesTool:        raw.ReplacesTool,
+				Concurrent:          raw.Concurrent,
 			},
 		)
 		schemas[raw.Name] = schema

@@ -31,7 +31,7 @@ func TestToolDescriptorReplacementDeclarationCrossesTheWire(t *testing.T) {
 			// Arrange a wire descriptor with the replacement value.
 			descriptor := extensionpb.ToolDescriptor_builder{
 				Name: new("read"), Description: new("Read."), InputSchemaJson: []byte(`{"type":"object"}`),
-				ConstrainedSampling: nil, ReplacesTool: test.replaces,
+				ConstrainedSampling: nil, ReplacesTool: test.replaces, Concurrent: nil,
 			}.Build()
 
 			// Act by decoding the descriptor.

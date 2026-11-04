@@ -31,7 +31,7 @@ func TestManualCompactionUsesCurrentToolSnapshot(t *testing.T) {
 			Description:         "Read.",
 			InputSchemaJSON:     nil,
 			ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
-			ReplacesTool:        false,
+			ReplacesTool:        false, Concurrent: false,
 		},
 	}
 	gomock.InOrder(tools.EXPECT().Tools().Return(selected), tools.EXPECT().Tools().Return(nil))

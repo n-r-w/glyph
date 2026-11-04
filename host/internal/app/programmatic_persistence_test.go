@@ -262,13 +262,13 @@ func (testSuite *ProgrammaticAppSuite) TestTerminalToolResultPersistenceFailureP
 		}
 	}
 
-	// Assert reaching tool-result persistence proves one completed invocation without a terminal result or next request.
+	// Assert the completed invocation emits execution-end before persistence fails, without a result or next request.
 	info, err := os.Stat(named.GetStoragePath())
 	require.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o400), info.Mode().Perm())
 	assert.Equal(t, int32(1), requests.Load())
 	assert.Contains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_START)
-	assert.NotContains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_END)
+	assert.Contains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_EXECUTION_END)
 	assert.NotContains(t, events, programmaticv1.AgentEventType_AGENT_EVENT_TYPE_TOOL_RESULT)
 	assert.Contains(t, terminalText, "session persistence failed")
 	assert.Contains(t, strings.ToLower(terminalText), "permission")

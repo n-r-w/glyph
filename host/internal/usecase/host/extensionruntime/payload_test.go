@@ -39,6 +39,7 @@ func TestRegistrationBindsDiscoveredIdentity(t *testing.T) {
 			},
 		),
 		ReplacesTool: true,
+		Concurrent:   true,
 	})}, Handlers: []mo.Option[HandlerDeclaration]{
 		mo.None[HandlerDeclaration](),
 		mo.Some(HandlerDeclaration{ID: "declared-handler", Kind: 99}),
@@ -54,6 +55,7 @@ func TestRegistrationBindsDiscoveredIdentity(t *testing.T) {
 	require.False(t, pending.Tools[0].Present)
 	require.Equal(t, "declared-name", pending.Tools[1].Name)
 	require.True(t, pending.Tools[1].ReplacesTool)
+	require.True(t, pending.Tools[1].Concurrent)
 	require.Equal(
 		t,
 		startup.RawJSONSchemaStrictness(99),

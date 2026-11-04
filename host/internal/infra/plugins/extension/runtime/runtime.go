@@ -270,6 +270,7 @@ func mapToolDescriptor(descriptor *extensionpb.ToolDescriptor) mo.Option[extensi
 		),
 		Constraint:   mapRawConstrainedSampling(descriptor.GetConstrainedSampling()),
 		ReplacesTool: descriptor.GetReplacesTool(),
+		Concurrent:   descriptor.GetConcurrent(),
 	})
 }
 

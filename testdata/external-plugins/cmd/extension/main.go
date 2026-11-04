@@ -327,7 +327,7 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 		Tools: []*extensionv1.ToolDescriptor{extensionv1.ToolDescriptor_builder{
 			Name: new(toolName), Description: new("Exercise the public Extension SDK."),
 			InputSchemaJson: []byte(`{"type":"object"}`), ConstrainedSampling: nil,
-			ReplacesTool: nil,
+			ReplacesTool: nil, Concurrent: nil,
 		}.Build()},
 		Handlers: handlers,
 	}.Build(), nil

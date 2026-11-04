@@ -52,80 +52,60 @@ func (s *Service) skipLengthCalls(
 	return s.endTurn(ctx, runID, response, results, 0, "", nil)
 }
 
-// executeCalls runs finalized tool calls sequentially in model order.
+// executeCalls joins each contiguous concurrent group before persisting its results in model order.
 func (s *Service) executeCalls(
 	ctx context.Context,
 	runID string,
 	response model.Response,
+	catalog []tool.Descriptor,
 ) (turnResult, bool, error) {
-	results := make([]agent.ToolResult, 0)
-	for _, call := range response.ToolCalls() {
+	concurrent := make(map[string]bool, len(catalog))
+	for index := range catalog {
+		descriptor := &catalog[index]
+		concurrent[descriptor.Name] = descriptor.Concurrent
+	}
+	calls := response.ToolCalls()
+	results := make([]agent.ToolResult, 0, len(calls))
+	for first := 0; first < len(calls); {
 		if err := ctx.Err(); err != nil {
 			return s.endTurn(ctx, runID, response, results, agent.RunOutcomeAborted, abortedModelMessage, err)
 		}
-		toolStart := newEvent(agent.EventToolExecutionStart, runID)
-		toolStart.ToolCall = mo.Some(call)
-		if err := s.deliver(ctx, toolStart); err != nil {
-			return turnResult{
-				Outcome:      agent.RunOutcomeFailed,
-				ErrorMessage: mo.Some(err.Error()),
-			}, false, err
-		}
-		var progressDeliveryErr error
-		result, executeErr := s.tools.Execute(ctx, call, func(progress tool.Progress) error {
-			toolUpdate := newEvent(agent.EventToolExecutionUpdate, runID)
-			toolUpdate.ToolCall = mo.Some(call)
-			toolUpdate.Progress = mo.Some(progress)
-			deliveryErr := s.deliver(ctx, toolUpdate)
-			if deliveryErr != nil && progressDeliveryErr == nil {
-				progressDeliveryErr = deliveryErr
-			}
-			return deliveryErr
-		})
-		if executeErr != nil {
-			result = agent.ToolResult{
-				CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(executeErr.Error()), IsError: true,
-				ErrorCategory: mo.Some(agent.ToolErrorFailure),
+		end := first + 1
+		if concurrent[calls[first].Name] {
+			for end < len(calls) && concurrent[calls[end].Name] {
+				end++
 			}
 		}
-		result.CallID = call.ID
-		result.ToolName = call.Name
-		priorErr := composeErrorWithCause(executeErr, progressDeliveryErr)
-		result, finalizeErr := s.finalizer.FinalizeToolResult(ctx, result)
-		if finalizeErr != nil {
-			combinedErr := errors.Join(finalizeErr, priorErr)
-			return turnResult{
-				Outcome:      agent.RunOutcomeFailed,
-				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
-			}, false, combinedErr
+		completed, outcome, groupErr := s.executeGroup(ctx, runID, calls[first:end])
+		for _, work := range completed {
+			result, finalized := work.result.Get()
+			if !finalized {
+				continue
+			}
+			if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
+				groupErr = errors.Join(err, groupErr)
+				return s.endTurn(
+					ctx,
+					runID,
+					response,
+					results,
+					agent.RunOutcomeFailed,
+					visibleErrorMessage(groupErr),
+					groupErr,
+				)
+			}
+			results = append(results, result)
+			event := newEvent(agent.EventToolResult, runID)
+			event.ToolResult = mo.Some(result)
+			if err := s.deliver(context.WithoutCancel(ctx), event); err != nil {
+				groupErr = errors.Join(groupErr, err)
+				outcome = agent.RunOutcomeFailed
+			}
 		}
-		if err := s.appendToolResult(context.WithoutCancel(ctx), result); err != nil {
-			combinedErr := errors.Join(err, priorErr)
-			return turnResult{
-				Outcome:      agent.RunOutcomeFailed,
-				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
-			}, false, combinedErr
+		if outcome != 0 {
+			return s.endTurn(ctx, runID, response, results, outcome, visibleErrorMessage(groupErr), groupErr)
 		}
-		results = append(results, result)
-		toolEnd := newEvent(agent.EventToolExecutionEnd, runID)
-		toolEnd.ToolCall = mo.Some(call)
-		toolEnd.ToolResult = mo.Some(result)
-		endErr := s.deliver(context.WithoutCancel(ctx), toolEnd)
-		toolResult := newEvent(agent.EventToolResult, runID)
-		toolResult.ToolResult = mo.Some(result)
-		resultErr := s.deliver(context.WithoutCancel(ctx), toolResult)
-		if endErr != nil || resultErr != nil {
-			combinedErr := errors.Join(priorErr, endErr, resultErr)
-			return turnResult{
-				Outcome:      agent.RunOutcomeFailed,
-				ErrorMessage: mo.Some(visibleErrorMessage(combinedErr)),
-			}, false, combinedErr
-		}
-		if outcome, terminal := classifyToolFailure(ctx, executeErr, progressDeliveryErr).Get(); terminal {
-			return s.endTurn(
-				ctx, runID, response, results, outcome, visibleErrorMessage(priorErr), priorErr,
-			)
-		}
+		first = end
 	}
 	return s.endTurn(ctx, runID, response, results, 0, "", nil)
 }

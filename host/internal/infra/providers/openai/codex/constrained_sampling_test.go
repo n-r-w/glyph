@@ -41,7 +41,7 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 				Description:         "Sample.",
 				InputSchemaJSON:     []byte(constrainedToolSchema),
 				ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
-				ReplacesTool:        false,
+				ReplacesTool:        false, Concurrent: false,
 			},
 			capabilities: toolCapabilities{strict: true, lark: true, regex: true},
 			expected: `[{"type":"function","name":"sample","description":"Sample.",` +
@@ -140,7 +140,7 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 						GrammarInputProperty: mo.None[string](),
 					},
 				),
-				ReplacesTool: false,
+				ReplacesTool: false, Concurrent: false,
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "no supported grammar variant", expected: "",
@@ -158,7 +158,7 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 						GrammarInputProperty: mo.None[string](),
 					},
 				),
-				ReplacesTool: false,
+				ReplacesTool: false, Concurrent: false,
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "invalid JSON Schema strictness", expected: "",
@@ -176,7 +176,7 @@ func TestBuildToolsMapsConstrainedSampling(t *testing.T) {
 						GrammarInputProperty: mo.None[string](),
 					},
 				),
-				ReplacesTool: false,
+				ReplacesTool: false, Concurrent: false,
 			},
 			capabilities:  toolCapabilities{strict: true, lark: true, regex: true},
 			errorContains: "invalid constrained sampling kind", expected: "",
@@ -312,7 +312,7 @@ func TestBuildToolsMapsStrictSchemaCompatibility(t *testing.T) {
 			descriptor := tool.Descriptor{
 				Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(testCase.schema),
 				ConstrainedSampling: constraint,
-				ReplacesTool:        false,
+				ReplacesTool:        false, Concurrent: false,
 			}
 			params, err := buildTools(
 				[]tool.Descriptor{descriptor},
@@ -821,7 +821,7 @@ func malformedConstrainedDescriptor(schema string, constraint tool.ConstrainedSa
 		Description:         "Sample.",
 		InputSchemaJSON:     []byte(schema),
 		ConstrainedSampling: mo.Some(constraint),
-		ReplacesTool:        false,
+		ReplacesTool:        false, Concurrent: false,
 	}
 }
 
@@ -843,6 +843,6 @@ func constrainedDescriptor(strictness tool.JSONSchemaStrictness, variants tool.G
 	return tool.Descriptor{
 		Name: "sample", Description: "Sample.", InputSchemaJSON: []byte(constrainedToolSchema),
 		ConstrainedSampling: mo.Some(constraint),
-		ReplacesTool:        false,
+		ReplacesTool:        false, Concurrent: false,
 	}
 }

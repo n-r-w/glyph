@@ -35,7 +35,7 @@ func TestServiceValidatesLocalDescriptors(t *testing.T) {
 					Description:         "",
 					InputSchemaJSON:     nil,
 					ConstrainedSampling: mo.None[startup.RawConstrainedSampling](),
-					ReplacesTool:        false,
+					ReplacesTool:        false, Concurrent: false,
 				},
 			},
 			errorText: "descriptor 0 is missing",
@@ -60,7 +60,7 @@ func TestServiceValidatesLocalDescriptors(t *testing.T) {
 					Description:         "Read.",
 					InputSchemaJSON:     []byte(`{"type":"string"}`),
 					ConstrainedSampling: mo.None[startup.RawConstrainedSampling](),
-					ReplacesTool:        false,
+					ReplacesTool:        false, Concurrent: false,
 				},
 			},
 			errorText: `tool "read" input schema: schema root type must be object`,
@@ -84,7 +84,7 @@ func TestServiceValidatesLocalDescriptors(t *testing.T) {
 							},
 						},
 					),
-					ReplacesTool: false,
+					ReplacesTool: false, Concurrent: false,
 				},
 			},
 			errorText: `tool "read" constrained sampling: config is missing`,
@@ -429,7 +429,7 @@ func rawDescriptor(name, description string) startup.RawToolDescriptor {
 		Description:         description,
 		InputSchemaJSON:     []byte(validSchemaJSON),
 		ConstrainedSampling: mo.None[startup.RawConstrainedSampling](),
-		ReplacesTool:        false,
+		ReplacesTool:        false, Concurrent: false,
 	}
 }
 
@@ -440,6 +440,6 @@ func descriptor(name string) tool.Descriptor {
 		Description:         name,
 		InputSchemaJSON:     []byte(validSchemaJSON),
 		ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
-		ReplacesTool:        false,
+		ReplacesTool:        false, Concurrent: false,
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"github.com/n-r-w/glyph/internal/errtree"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	hostprogrammatic "github.com/n-r-w/glyph/host/internal/usecase/host/programmatic"
 	"github.com/n-r-w/glyph/host/internal/usecase/host/runcontrol"
 )
@@ -41,6 +42,8 @@ type Service struct {
 	tools ToolRuntime
 	// events receives ordered Agent Core lifecycle events.
 	events EventSink
+	// eventMutex serializes calls to Host event consumers.
+	eventMutex sync.Mutex
 	// historyStore owns canonical durable conversation history.
 	historyStore HistoryStore
 	// finalizer supplies the final value of each terminal model response and completed tool result.
@@ -81,6 +84,7 @@ func New(
 		contexts:     contexts,
 		tools:        tools,
 		events:       events,
+		eventMutex:   sync.Mutex{},
 		historyStore: historyStore,
 		finalizer:    finalizer,
 		mutex:        sync.RWMutex{},
@@ -311,7 +315,7 @@ func (s *Service) runTurn(ctx context.Context, runID string) (turnResult, bool, 
 			ErrorMessage: mo.Some(err.Error()),
 		}, false, err
 	}
-	return s.applyOutcome(ctx, runID, response)
+	return s.applyOutcome(ctx, runID, response, tools)
 }
 
 // mergeTerminalResponse validates and completes one terminal response with streamed content.
@@ -361,6 +365,7 @@ func (s *Service) applyOutcome(
 	ctx context.Context,
 	runID string,
 	response model.Response,
+	catalog []tool.Descriptor,
 ) (turnResult, bool, error) {
 	outcome, present := response.Outcome.Get()
 	if !present {
@@ -371,7 +376,7 @@ func (s *Service) applyOutcome(
 	case model.OutcomeStop:
 		return s.endTurn(ctx, runID, response, nil, agent.RunOutcomeCompleted, "", nil)
 	case model.OutcomeToolUse:
-		return s.executeCalls(ctx, runID, response)
+		return s.executeCalls(ctx, runID, response, catalog)
 	case model.OutcomeLength:
 		return s.skipLengthCalls(ctx, runID, response)
 	case model.OutcomeAborted:
@@ -550,8 +555,10 @@ func (s *Service) appendHistory(ctx context.Context, entry agent.HistoryEntry) e
 	return nil
 }
 
-// deliver performs one synchronous Host event call without queuing or retry.
+// deliver serializes synchronous Host event calls without queuing or retry.
 func (s *Service) deliver(ctx context.Context, event agent.Event) error {
+	s.eventMutex.Lock()
+	defer s.eventMutex.Unlock()
 	if err := s.events.Deliver(ctx, event); err != nil {
 		return fmt.Errorf("deliver agent event: %w", err)
 	}

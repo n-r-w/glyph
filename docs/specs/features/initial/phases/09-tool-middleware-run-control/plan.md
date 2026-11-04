@@ -4,7 +4,7 @@ Deliver the [requirements](prd.md) of PHS-09 through behavior slices that can ea
 
 ## Key definitions and abbreviations
 
-The [domain glossary](../../../../../terms.md) defines the run-control terms. A unit is ready when its behavior test passes, `task fmt`, `task fix_dry_run`, `task lint`, and `task check` pass after its last change, it holds no temporary code, and its reviews end without accepted findings.
+The [domain glossary](../../../../../terms.md) defines the run-control terms. A unit is ready when its behavior test passes, `task fmt`, `task fix_dry_run`, `task lint`, and `task check` pass after its last change, it holds no temporary code, and its reviews end without accepted findings. The [approved verification exceptions](#standards-deviations) apply to these checks.
 
 ## Delivery strategy
 
@@ -97,7 +97,7 @@ After each unit, these checks run in parallel:
 - `workflows:code-quality` checks the code quality of the unit's changes against the approved technical solution; for U0, against the issue solution.
 - `SubAgentAnalyst` reviews the behavior of the unit's changes against this plan, the requirements, and the technical solution for U1, U4, U6, U10, U13, U14, and U15. An error in the queue, locks, cancellation, or tool policy of these units causes severe harm after release.
 
-When the reviews end without accepted findings, `workflows:extractor` runs `task fmt`, `task fix_dry_run`, `task lint`, and `task check`, and the unit is committed.
+When the reviews end without accepted findings, `workflows:extractor` runs `task fmt`, `task fix_dry_run`, `task lint`, and `task check`, subject to the [approved verification exceptions](#standards-deviations), and the unit is committed.
 
 ### U0 - SLICE: startup issues in Programmatic Control
 
@@ -505,7 +505,9 @@ None.
 
 ## Standards deviations
 
-None.
+For PHS-09 verification, omit `TestPublicFinalizedOneShot` and `TestPublicInputMiddlewareOneShot` from the integration-test shards of the `task check` procedure. These two functions contain eight scenarios that override child-process `HOME`. Run every other test and retain race detection and the 80 percent minimum for combined coverage. Report the eight omitted scenarios explicitly; a successful filtered run is not a successful unmodified `task check`. Compare warm check times using the same exclusions before and after each remaining unit. The [roadmap](../../../../../roadmap.md#one-shot-integration-tests-without-home-overrides) schedules their correction after PHS-09.
+
+For U10, the original RED-before-code chronology was not retained for `TestPublicConcurrentToolBatch` and the final `TestEventDeliveryIsSerialized` harness. Reconstructed RED runs establish regression sensitivity, and the completed implementations pass GREEN runs. This accepted chronology exception applies only to these two tests; the remaining tests and units retain the TDD requirement.
 
 ## References
 

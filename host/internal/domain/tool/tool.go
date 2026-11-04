@@ -16,6 +16,8 @@ type Descriptor struct {
 	// ReplacesTool reports whether the owning extension declared that this tool replaces the tool of the same name
 	// from another extension.
 	ReplacesTool bool
+	// Concurrent permits calls to run together with contiguous concurrent calls in a tool batch.
+	Concurrent bool
 }
 
 // RegisteredTool describes an available registered tool with its owner and active-set membership.

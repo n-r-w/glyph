@@ -1241,7 +1241,7 @@ func (operation *protocolRegisterOperation) Run(
 	descriptor := extensionpb.ToolDescriptor_builder{
 		Name: new(fixtureToolName), Description: new("Read a project file."),
 		InputSchemaJson: []byte(validSchemaJSON), ConstrainedSampling: nil,
-		ReplacesTool: nil,
+		ReplacesTool: nil, Concurrent: nil,
 	}.Build()
 	response := extensionpb.RegisterResponse_builder{
 		Tools: []*extensionpb.ToolDescriptor{descriptor}, Handlers: nil,

@@ -180,7 +180,7 @@ func mapPolicyTools(descriptors []tool.Descriptor) ([]*extensionpb.CompactionToo
 				Description:         new(descriptor.Description),
 				InputSchemaJson:     bytes.Clone(descriptor.InputSchemaJSON),
 				ConstrainedSampling: sampling,
-				ReplacesTool:        nil,
+				ReplacesTool:        nil, Concurrent: nil,
 			}.Build(), GrammarInputProperty: property}.Build(),
 		)
 	}

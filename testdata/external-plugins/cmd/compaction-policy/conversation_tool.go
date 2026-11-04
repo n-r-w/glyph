@@ -76,6 +76,6 @@ func newConversationObservationTools() []*extensionpb.ToolDescriptor {
 		Description:         new(description),
 		InputSchemaJson:     []byte(inputSchema),
 		ConstrainedSampling: nil,
-		ReplacesTool:        nil,
+		ReplacesTool:        nil, Concurrent: nil,
 	}.Build()}
 }

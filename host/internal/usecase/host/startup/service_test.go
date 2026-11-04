@@ -41,19 +41,19 @@ func TestServiceLoadAppliesValidationInApprovedOrder(t *testing.T) {
 			ValidateLocal(pending.Registrations[2]).
 			Return([]tool.Descriptor{{
 				Name: "shared", Description: "Shared.", InputSchemaJSON: nil,
-				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false, Concurrent: false,
 			}}, nil),
 		tools.EXPECT().
 			ValidateLocal(pending.Registrations[3]).
 			Return([]tool.Descriptor{{
 				Name: "shared", Description: "Shared.", InputSchemaJSON: nil,
-				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false, Concurrent: false,
 			}}, nil),
 		tools.EXPECT().
 			ValidateLocal(pending.Registrations[4]).
 			Return([]tool.Descriptor{{
 				Name: "safe", Description: "Safe.", InputSchemaJSON: nil,
-				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false, Concurrent: false,
 			}}, nil),
 		handlers.EXPECT().ValidateSessionTreeHandlers(pending.Registrations[1]).Return(nil, handlerErr),
 		handlers.EXPECT().ValidateSessionTreeHandlers(pending.Registrations[2]).Return([]AcceptedHandler{}, nil),
@@ -77,7 +77,7 @@ func TestServiceLoadAppliesValidationInApprovedOrder(t *testing.T) {
 					Description:         "Safe.",
 					InputSchemaJSON:     nil,
 					ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
-					ReplacesTool:        false,
+					ReplacesTool:        false, Concurrent: false,
 				},
 			},
 			Handlers: []AcceptedHandler{},
@@ -307,12 +307,12 @@ func TestServiceLoadRemovesOnlyRejectedReplacementTools(t *testing.T) {
 		Return(PendingLoad{Issues: nil, Registrations: pending}, nil)
 	read := tool.Descriptor{
 		Name: "read", Description: "Replacement.", InputSchemaJSON: nil,
-		ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: true,
+		ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: true, Concurrent: false,
 	}
 	for index, name := range []string{"first", "second"} {
 		other := tool.Descriptor{
 			Name: name + "-tool", Description: "Other.", InputSchemaJSON: nil,
-			ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+			ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false, Concurrent: false,
 		}
 		tools.EXPECT().ValidateLocal(pending[index]).Return([]tool.Descriptor{read, other}, nil)
 		sessionTree.EXPECT().ValidateSessionTreeHandlers(gomock.Any()).Return([]AcceptedHandler{}, nil)
@@ -338,7 +338,7 @@ func TestServiceLoadRemovesOnlyRejectedReplacementTools(t *testing.T) {
 			ID: id, Path: "/" + id,
 			Tools: []tool.Descriptor{{
 				Name: id + "-tool", Description: "Other.", InputSchemaJSON: nil,
-				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+				ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false, Concurrent: false,
 			}},
 			Handlers: []AcceptedHandler{{ID: "agent", Kind: RawHandlerKindAgentStart}},
 		})

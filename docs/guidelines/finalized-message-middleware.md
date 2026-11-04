@@ -22,7 +22,7 @@ For example, a handler can append ` [reviewed]` to each text block of a model re
 
 ## When handlers run
 
-Host runs the chain once for each message, immediately before it records the message:
+Host runs the chain once for each message before recording it:
 
 | Message | Moment |
 | --- | --- |
@@ -32,6 +32,8 @@ Host runs the chain once for each message, immediately before it records the mes
 | Configured-model response | After the provider completes the response and before Host returns it to the extension or to the branch summary that requested it. Host stores no session entry for it. |
 
 Agent Core executes the tool calls of the final model response, so a handler can change the arguments of a call before the tool runs.
+
+For concurrent tool groups, Agent Core runs each call's finalized-message chain as soon as the tool returns. Agent Core can run handlers for different calls at the same time. It emits `TOOL_EXECUTION_END` with that call's finalized result. When all calls in the group are complete, Agent Core records the results and emits `TOOL_RESULT` in model call order. If a handler fails, Agent Core cancels sibling calls and waits for them to finish, then records the results whose handlers succeeded. [D5](../specs/features/initial/phases/09-tool-middleware-run-control/solution.md#d5-concurrent-tool-batches) defines concurrency declarations and serial barriers.
 
 Programmatic and UI clients receive the streamed events of a model message as the provider sends them, before finalization: `MODEL_CONTENT_START`, `MODEL_TEXT_DELTA` and `MODEL_CONTENT_END`, and `TOOL_CALL_START`, `TOOL_CALL_DELTA` and `TOOL_CALL_END`, including the arguments of `TOOL_CALL_END`. Treat these values as provisional. The events `MESSAGE_END`, `TOOL_EXECUTION_START`, `TOOL_EXECUTION_END`, `TOOL_RESULT` and `TURN_END`, the session and later model requests carry the final value.
 

@@ -202,7 +202,7 @@ func compatibleToolDescriptor(constraint mo.Option[tool.ConstrainedSampling]) to
 		Description:         "Sample a value",
 		InputSchemaJSON:     []byte(`{"type":"object"}`),
 		ConstrainedSampling: constraint,
-		ReplacesTool:        false,
+		ReplacesTool:        false, Concurrent: false,
 	}
 }
 

@@ -118,7 +118,7 @@ func (r *registration) Run(context.Context) (*extensionpb.RegisterResponse, erro
 	tool := extensionpb.ToolDescriptor_builder{
 		Name: new(echoTool), Description: new("Return a fixed text."),
 		InputSchemaJson: []byte(`{"type":"object","properties":{"value":{"type":"string"}}}`), ConstrainedSampling: nil,
-		ReplacesTool: nil,
+		ReplacesTool: nil, Concurrent: nil,
 	}.Build()
 	return extensionpb.RegisterResponse_builder{
 		Tools: []*extensionpb.ToolDescriptor{tool}, Handlers: handlers,

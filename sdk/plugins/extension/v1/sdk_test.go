@@ -356,7 +356,7 @@ func contractRegistration() *extensionpb.RegisterResponse {
 					Strictness: new(extensionpb.JsonSchemaStrictness_JSON_SCHEMA_STRICTNESS_REQUIRE),
 				}.Build(),
 			}.Build(),
-			ReplacesTool: nil,
+			ReplacesTool: nil, Concurrent: nil,
 		}.Build()},
 		Handlers: []*extensionpb.HandlerDescriptor{extensionpb.HandlerDescriptor_builder{
 			Id: new("observer"), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_SESSION_TREE),

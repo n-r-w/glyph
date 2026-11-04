@@ -20,6 +20,9 @@ message ToolDescriptor {
   // The model then sees and calls this tool, and this extension executes its calls.
   // Host rejects the replacement when another extension declares a replacement of the same name.
   bool replaces_tool = 5;
+  // True allows contiguous calls of concurrent tools to run together within a tool batch.
+  // An omitted or false declaration makes each call a serial barrier.
+  bool concurrent = 6;
 }
 
 // SetActiveToolsRequest replaces the process-local selection of registered tools.

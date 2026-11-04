@@ -28,7 +28,7 @@ func TestRunStreamsEffectiveContext(t *testing.T) {
 	descriptor := tool.Descriptor{
 		Name: "read", Description: "read", InputSchemaJSON: []byte(`{}`),
 		ConstrainedSampling: mo.None[tool.ConstrainedSampling](),
-		ReplacesTool:        false,
+		ReplacesTool:        false, Concurrent: false,
 	}
 	tools.EXPECT().Tools().Return([]tool.Descriptor{descriptor})
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()

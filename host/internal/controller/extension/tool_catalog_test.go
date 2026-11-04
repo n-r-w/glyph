@@ -67,7 +67,7 @@ func TestToolCatalogMapsRegisteredToolsWithoutOperationGate(t *testing.T) {
 func testToolDescriptor(name, description string) tool.Descriptor {
 	return tool.Descriptor{
 		Name: name, Description: description, InputSchemaJSON: nil,
-		ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+		ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false, Concurrent: false,
 	}
 }
 

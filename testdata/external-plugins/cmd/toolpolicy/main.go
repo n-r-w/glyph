@@ -144,7 +144,7 @@ func (r *registration) Run(context.Context) (*extensionpb.RegisterResponse, erro
 			`{"type":"object","properties":{"value":{"type":"string"}},"required":["value"],"additionalProperties":false}`,
 		),
 		ConstrainedSampling: nil,
-		ReplacesTool:        nil,
+		ReplacesTool:        nil, Concurrent: nil,
 	}.Build()
 	return extensionpb.RegisterResponse_builder{
 		Tools: []*extensionpb.ToolDescriptor{tool}, Handlers: nil,

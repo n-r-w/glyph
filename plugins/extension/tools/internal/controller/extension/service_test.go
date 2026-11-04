@@ -53,6 +53,11 @@ func TestServiceRegister(t *testing.T) {
 	assert.Equal(t, "find", response.GetTools()[4].GetName())
 	assert.Equal(t, "ls", response.GetTools()[5].GetName())
 	assert.Equal(t, "bash", response.GetTools()[6].GetName())
+	for _, declared := range response.GetTools() {
+		concurrent := declared.GetName() == "read" || declared.GetName() == "grep" || declared.GetName() == "find" ||
+			declared.GetName() == "ls"
+		assert.Equal(t, concurrent, declared.GetConcurrent(), declared.GetName())
+	}
 }
 
 // TestServiceExecuteRead verifies typed argument decoding and one terminal successful result.

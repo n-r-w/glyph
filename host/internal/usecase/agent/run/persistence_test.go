@@ -191,7 +191,7 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 				assert.Equal(t, 1, strings.Count(text, expectedPriorErr.Error()), text)
 			}
 			assert.True(t, strings.HasPrefix(agentEnd.ErrorMessage.OrEmpty(), agent.ErrPersistenceUnavailable.Error()))
-			assert.NotContains(t, observed, agent.EventToolExecutionEnd)
+			assert.Contains(t, observed, agent.EventToolExecutionEnd)
 			assert.NotContains(t, observed, agent.EventToolResult)
 			require.Len(t, history, 2)
 		})
@@ -265,7 +265,7 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 	require.ErrorIs(t, err, persistErr)
 	assert.Equal(t, err.Error(), agentEnd.ErrorMessage.OrEmpty())
 	require.True(t, toolCompleted)
-	assert.NotContains(t, observed, agent.EventToolExecutionEnd)
+	assert.Contains(t, observed, agent.EventToolExecutionEnd)
 	assert.NotContains(t, observed, agent.EventToolResult)
 	assert.Equal(t, StatusAwaitingSettlement, service.State().Status)
 }

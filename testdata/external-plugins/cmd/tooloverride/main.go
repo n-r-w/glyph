@@ -106,7 +106,7 @@ func (r *registration) Run(context.Context) (*extensionpb.RegisterResponse, erro
 		Name: new(replacedTool), Description: new(replacementDescription),
 		InputSchemaJson:     []byte(replacementSchema),
 		ConstrainedSampling: nil,
-		ReplacesTool:        new(true),
+		ReplacesTool:        new(true), Concurrent: nil,
 	}.Build()
 	handler := extensionpb.HandlerDescriptor_builder{
 		Id: new(observerHandler), Kind: new(extensionpb.HandlerKind_HANDLER_KIND_TOOL_POLICY),

@@ -89,6 +89,8 @@ type RawToolDescriptor struct {
 	// ReplacesTool reports whether the registration declares the tool as a replacement of the same-named tool of
 	// another extension.
 	ReplacesTool bool
+	// Concurrent reports whether calls may run together within a tool batch.
+	Concurrent bool
 }
 
 // RawHandlerKind preserves the public handler kind before policy validation.

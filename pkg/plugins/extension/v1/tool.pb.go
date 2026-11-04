@@ -128,6 +128,7 @@ type ToolDescriptor struct {
 	xxx_hidden_InputSchemaJson     []byte                 `protobuf:"bytes,3,opt,name=input_schema_json,json=inputSchemaJson"`
 	xxx_hidden_ConstrainedSampling *ConstrainedSampling   `protobuf:"bytes,4,opt,name=constrained_sampling,json=constrainedSampling"`
 	xxx_hidden_ReplacesTool        bool                   `protobuf:"varint,5,opt,name=replaces_tool,json=replacesTool"`
+	xxx_hidden_Concurrent          bool                   `protobuf:"varint,6,opt,name=concurrent"`
 	XXX_raceDetectHookData         protoimpl.RaceDetectHookData
 	XXX_presence                   [1]uint32
 	unknownFields                  protoimpl.UnknownFields
@@ -200,14 +201,21 @@ func (x *ToolDescriptor) GetReplacesTool() bool {
 	return false
 }
 
+func (x *ToolDescriptor) GetConcurrent() bool {
+	if x != nil {
+		return x.xxx_hidden_Concurrent
+	}
+	return false
+}
+
 func (x *ToolDescriptor) SetName(v string) {
 	x.xxx_hidden_Name = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *ToolDescriptor) SetDescription(v string) {
 	x.xxx_hidden_Description = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *ToolDescriptor) SetInputSchemaJson(v []byte) {
@@ -215,7 +223,7 @@ func (x *ToolDescriptor) SetInputSchemaJson(v []byte) {
 		v = []byte{}
 	}
 	x.xxx_hidden_InputSchemaJson = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 6)
 }
 
 func (x *ToolDescriptor) SetConstrainedSampling(v *ConstrainedSampling) {
@@ -224,7 +232,12 @@ func (x *ToolDescriptor) SetConstrainedSampling(v *ConstrainedSampling) {
 
 func (x *ToolDescriptor) SetReplacesTool(v bool) {
 	x.xxx_hidden_ReplacesTool = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *ToolDescriptor) SetConcurrent(v bool) {
+	x.xxx_hidden_Concurrent = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *ToolDescriptor) HasName() bool {
@@ -262,6 +275,13 @@ func (x *ToolDescriptor) HasReplacesTool() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *ToolDescriptor) HasConcurrent() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *ToolDescriptor) ClearName() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_Name = nil
@@ -286,6 +306,11 @@ func (x *ToolDescriptor) ClearReplacesTool() {
 	x.xxx_hidden_ReplacesTool = false
 }
 
+func (x *ToolDescriptor) ClearConcurrent() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Concurrent = false
+}
+
 type ToolDescriptor_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -301,6 +326,9 @@ type ToolDescriptor_builder struct {
 	// The model then sees and calls this tool, and this extension executes its calls.
 	// Host rejects the replacement when another extension declares a replacement of the same name.
 	ReplacesTool *bool
+	// True allows contiguous calls of concurrent tools to run together within a tool batch.
+	// An omitted or false declaration makes each call a serial barrier.
+	Concurrent *bool
 }
 
 func (b0 ToolDescriptor_builder) Build() *ToolDescriptor {
@@ -308,21 +336,25 @@ func (b0 ToolDescriptor_builder) Build() *ToolDescriptor {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.Name != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_Name = b.Name
 	}
 	if b.Description != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_Description = b.Description
 	}
 	if b.InputSchemaJson != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 6)
 		x.xxx_hidden_InputSchemaJson = b.InputSchemaJson
 	}
 	x.xxx_hidden_ConstrainedSampling = b.ConstrainedSampling
 	if b.ReplacesTool != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_ReplacesTool = *b.ReplacesTool
+	}
+	if b.Concurrent != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_Concurrent = *b.Concurrent
 	}
 	return m0
 }
@@ -1772,13 +1804,16 @@ var File_api_plugins_extension_v1_tool_proto protoreflect.FileDescriptor
 
 const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"\n" +
-	"#api/plugins/extension/v1/tool.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\"\xfb\x01\n" +
+	"#api/plugins/extension/v1/tool.proto\x12\x1aglyph.plugins.extension.v1\x1a&api/plugins/extension/v1/context.proto\"\x9b\x02\n" +
 	"\x0eToolDescriptor\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12 \n" +
 	"\vdescription\x18\x02 \x01(\tR\vdescription\x12*\n" +
 	"\x11input_schema_json\x18\x03 \x01(\fR\x0finputSchemaJson\x12b\n" +
 	"\x14constrained_sampling\x18\x04 \x01(\v2/.glyph.plugins.extension.v1.ConstrainedSamplingR\x13constrainedSampling\x12#\n" +
-	"\rreplaces_tool\x18\x05 \x01(\bR\freplacesTool\"x\n" +
+	"\rreplaces_tool\x18\x05 \x01(\bR\freplacesTool\x12\x1e\n" +
+	"\n" +
+	"concurrent\x18\x06 \x01(\bR\n" +
+	"concurrent\"x\n" +
 	"\x15SetActiveToolsRequest\x12I\n" +
 	"\acontext\x18\x01 \x01(\v2/.glyph.plugins.extension.v1.ExtensionContextRefR\acontext\x12\x14\n" +
 	"\x05names\x18\x02 \x03(\tR\x05names\"\x16\n" +

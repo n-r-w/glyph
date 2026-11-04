@@ -36,7 +36,7 @@ type finalizationFixture struct {
 }
 
 // newFinalizationFixture creates Core whose effective context keeps the assembled request.
-func newFinalizationFixture(t *testing.T) *finalizationFixture {
+func newFinalizationFixture(t *testing.T, catalog ...tool.Descriptor) *finalizationFixture {
 	t.Helper()
 	controller := gomock.NewController(t)
 	fixture := &finalizationFixture{
@@ -58,7 +58,7 @@ func newFinalizationFixture(t *testing.T) *finalizationFixture {
 		fixture.events = append(fixture.events, event)
 		return nil
 	}).AnyTimes()
-	fixture.tools.EXPECT().Tools().Return(nil).AnyTimes()
+	fixture.tools.EXPECT().Tools().Return(catalog).AnyTimes()
 	fixture.service = New(testInstructions, contexts, fixture.tools, events, newMockHistoryStore(t), fixture.finalizer)
 	return fixture
 }
