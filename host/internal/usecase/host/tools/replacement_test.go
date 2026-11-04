@@ -163,7 +163,7 @@ func TestServiceCommitSelectsReplacementDescriptorSchemaAndOwner(t *testing.T) {
 		service.Commit(accepted)
 		runtime.EXPECT().
 			ExecuteTool(gomock.Any(), "replacer", "read", []byte(`{"value":"x"}`), gomock.Any(), gomock.Any()).
-			Return(tool.Result{Contents: tool.TextContents("replaced"), IsError: false}, nil)
+			Return(tool.Result{Terminate: false, Contents: tool.TextContents("replaced"), IsError: false}, nil)
 
 		// Act by listing the tools, calling read with arguments of the replacement schema, and with arguments of the
 		// original schema.

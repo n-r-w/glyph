@@ -260,7 +260,7 @@ func decodeToolResult(data []byte) (session.Entry, error) {
 	result := agent.ToolResult{
 		CallID: record.Result.CallID, ToolName: record.Result.ToolName,
 		Contents: contents, IsError: record.Result.IsError,
-		ErrorCategory: mo.PointerToOption(record.Result.ErrorCategory),
+		ErrorCategory: mo.PointerToOption(record.Result.ErrorCategory), Terminate: false,
 	}
 	if categoryErr := result.ValidateErrorCategory(); categoryErr != nil {
 		return session.Entry{}, fmt.Errorf("invalid tool result entry: %w", categoryErr)

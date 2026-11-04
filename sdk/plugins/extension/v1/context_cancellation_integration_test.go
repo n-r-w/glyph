@@ -168,7 +168,7 @@ func TestContextStartAndWaitHaveSeparateCancellation(t *testing.T) {
 			cancelThird()
 			_, receivedErr := configured.Wait(ctx)
 			receivedThirdWait <- receivedErr
-			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil
+			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false), Terminate: nil}.Build(), nil
 		})
 	connection := openContextTestConnection(t, service, host)
 	t.Cleanup(releaseAdmission)

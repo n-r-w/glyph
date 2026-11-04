@@ -171,7 +171,8 @@ func (s *ServiceSuite) TestTerminalModelAndToolResultBecomeDurableBeforeSnapshot
 		Diagnostics: nil,
 	}
 	result := agent.ToolResult{
-		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
+		Terminate: false,
+		CallID:    call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
 	}
 	gomock.InOrder(
 		s.ids.EXPECT().NewID().Return("model-entry", nil),
@@ -318,7 +319,8 @@ func (s *ServiceSuite) TestToolResultAppendFailureKeepsDurableAndProviderHistory
 	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 	result := agent.ToolResult{
-		CallID: "call", ToolName: "read", Contents: tool.TextContents("completed effect"), IsError: false,
+		Terminate: false,
+		CallID:    "call", ToolName: "read", Contents: tool.TextContents("completed effect"), IsError: false,
 	}
 	gomock.InOrder(
 		s.ids.EXPECT().NewID().Return("tool-entry", nil),
@@ -349,7 +351,8 @@ func (s *ServiceSuite) TestImageOnlyToolResultBecomesDurable() {
 	active := New(s.repository, s.ids, s.clock, s.pricing, "/project")
 	s.Require().NoError(active.Initialize(s.T().Context()))
 	result := agent.ToolResult{
-		CallID: "call", ToolName: "read",
+		Terminate: false,
+		CallID:    "call", ToolName: "read",
 		Contents: []tool.ResultContent{{
 			Kind: tool.ResultContentImage, Text: mo.None[string](),
 			Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: []byte{1, 2, 3}}),
@@ -417,7 +420,8 @@ func (s *ServiceSuite) TestTerminalToolResultProjectionPreservesContentsSliceSta
 		s.Require().NoError(active.Append(s.T().Context(), agent.HistoryEntry{
 			Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
 			ToolResult: mo.Some(agent.ToolResult{
-				CallID: "call", ToolName: "tool", Contents: contents, IsError: false,
+				Terminate: false,
+				CallID:    "call", ToolName: "tool", Contents: contents, IsError: false,
 			}),
 		}))
 	}

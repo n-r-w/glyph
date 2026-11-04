@@ -161,10 +161,11 @@ func TestServiceRunToolFailureAndPersistenceFailurePreservesCauses(t *testing.T)
 						err := handleProgress(tool.Progress{Channel: tool.ProgressChannelStdout, Content: "partial"})
 						require.ErrorIs(t, err, progressErr)
 						return agent.ToolResult{
-							CallID:   call.ID,
-							ToolName: call.Name,
-							Contents: tool.TextContents("partial"),
-							IsError:  false,
+							Terminate: false,
+							CallID:    call.ID,
+							ToolName:  call.Name,
+							Contents:  tool.TextContents("partial"),
+							IsError:   false,
 						}, fmt.Errorf("runtime propagated progress: %w", err)
 					}
 					return agent.ToolResult{}, toolErr
@@ -234,10 +235,11 @@ func TestServiceRunStopsAfterCompletedToolWhenResultPersistenceFails(t *testing.
 		func(context.Context, model.ToolCall, tool.ProgressHandler) (agent.ToolResult, error) {
 			toolCompleted = true
 			return agent.ToolResult{
-				CallID:   call.ID,
-				ToolName: call.Name,
-				Contents: tool.TextContents("external effect complete"),
-				IsError:  false,
+				Terminate: false,
+				CallID:    call.ID,
+				ToolName:  call.Name,
+				Contents:  tool.TextContents("external effect complete"),
+				IsError:   false,
 			}, nil
 		},
 	)

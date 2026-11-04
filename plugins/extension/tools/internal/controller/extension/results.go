@@ -84,7 +84,7 @@ func imageResult(mediaType string, data []byte) *extensionv1.ToolResult {
 		Image: extensionv1.ToolResultImage_builder{MediaType: new(mediaType), Data: data}.Build(),
 	}.Build()
 	return extensionv1.ToolResult_builder{
-		IsError: new(false), Contents: []*extensionv1.ToolResultContent{content},
+		IsError: new(false), Contents: []*extensionv1.ToolResultContent{content}, Terminate: nil,
 	}.Build()
 }
 
@@ -93,6 +93,6 @@ func textResult(content string, isError bool) *extensionv1.ToolResult {
 	//nolint:exhaustruct_v5 // The content builder sets only the active text field.
 	resultContent := extensionv1.ToolResultContent_builder{Text: new(content)}.Build()
 	return extensionv1.ToolResult_builder{
-		IsError: new(isError), Contents: []*extensionv1.ToolResultContent{resultContent},
+		IsError: new(isError), Contents: []*extensionv1.ToolResultContent{resultContent}, Terminate: nil,
 	}.Build()
 }

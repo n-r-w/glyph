@@ -28,7 +28,8 @@ func TestCloneResultContentsClonesImageBytesInsideOption(t *testing.T) {
 	}}
 	// Act by cloning the result and mutating the cloned image bytes.
 	cloned := (agent.ToolResult{
-		CallID: "", ToolName: "", Contents: original, IsError: false,
+		Terminate: false,
+		CallID:    "", ToolName: "", Contents: original, IsError: false,
 	}).Clone().Contents
 	image, ok := cloned[0].Image.Get()
 	require.True(t, ok)

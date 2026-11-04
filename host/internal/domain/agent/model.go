@@ -118,6 +118,8 @@ func ValidatedCloneHistory(history []HistoryEntry) ([]HistoryEntry, error) {
 
 // ToolResult is one model-visible terminal tool result.
 type ToolResult struct {
+	// Terminate requests completion after this batch when every result agrees and no steer or followUp is pending.
+	Terminate bool
 	// CallID identifies the model-requested tool call.
 	CallID string
 	// ToolName identifies the executed tool.

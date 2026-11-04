@@ -23,7 +23,8 @@ func categorizedToolEntry(isError bool, category mo.Option[agent.ToolErrorCatego
 		Information: mo.None[session.Information](), User: mo.None[model.Message](),
 		Model: mo.None[session.ModelResponse](),
 		ToolResult: mo.Some(agent.ToolResult{
-			CallID: "call", ToolName: "read", Contents: tool.TextContents("text"), IsError: isError,
+			Terminate: false,
+			CallID:    "call", ToolName: "read", Contents: tool.TextContents("text"), IsError: isError,
 			ErrorCategory: category,
 		}),
 		Extension: mo.None[session.ExtensionEnvelope](), EstimatedCost: mo.None[session.EstimatedCost](),
@@ -31,7 +32,7 @@ func categorizedToolEntry(isError bool, category mo.Option[agent.ToolErrorCatego
 	}
 }
 
-// TestToolErrorCategoryRoundTrip verifies that every category and the absence of a category survive JSONL.
+// TestToolErrorCategoryRoundTrip verifies categories survive JSONL while the transient completion flag is omitted.
 func TestToolErrorCategoryRoundTrip(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
@@ -51,6 +52,9 @@ func TestToolErrorCategoryRoundTrip(t *testing.T) {
 
 			// Arrange the entry with the scenario category.
 			entry := categorizedToolEntry(test.isError, test.category)
+			terminating := entry.ToolResult.MustGet()
+			terminating.Terminate = true
+			entry.ToolResult = mo.Some(terminating)
 
 			// Act by encoding and decoding the entry.
 			encoded, err := encodeEntry(entry)
@@ -62,6 +66,8 @@ func TestToolErrorCategoryRoundTrip(t *testing.T) {
 			result := decoded.ToolResult.MustGet()
 			assert.Equal(t, test.category, result.ErrorCategory)
 			assert.Equal(t, test.isError, result.IsError)
+			assert.NotContains(t, string(encoded), "terminate")
+			assert.False(t, result.Terminate)
 		})
 	}
 }

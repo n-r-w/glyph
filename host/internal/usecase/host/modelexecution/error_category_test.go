@@ -24,7 +24,8 @@ func categorizedResultEntry(text string, isError bool, category mo.Option[agent.
 	return agent.HistoryEntry{
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		ToolResult: mo.Some(agent.ToolResult{
-			CallID: "call", ToolName: "read", Contents: tool.TextContents(text), IsError: isError,
+			Terminate: false,
+			CallID:    "call", ToolName: "read", Contents: tool.TextContents(text), IsError: isError,
 			ErrorCategory: category,
 		}),
 	}

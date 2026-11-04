@@ -2001,6 +2001,7 @@ type ToolResult struct {
 	xxx_hidden_Contents      *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
 	xxx_hidden_IsError       bool                   `protobuf:"varint,4,opt,name=is_error,json=isError"`
 	xxx_hidden_ErrorCategory ToolErrorCategory      `protobuf:"varint,5,opt,name=error_category,json=errorCategory,enum=glyph.programmatic.v1.ToolErrorCategory"`
+	xxx_hidden_Terminate     bool                   `protobuf:"varint,6,opt,name=terminate"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -2077,14 +2078,21 @@ func (x *ToolResult) GetErrorCategory() ToolErrorCategory {
 	return ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
 }
 
+func (x *ToolResult) GetTerminate() bool {
+	if x != nil {
+		return x.xxx_hidden_Terminate
+	}
+	return false
+}
+
 func (x *ToolResult) SetCallId(v string) {
 	x.xxx_hidden_CallId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *ToolResult) SetToolName(v string) {
 	x.xxx_hidden_ToolName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *ToolResult) SetContents(v []*ToolResultContent) {
@@ -2093,12 +2101,17 @@ func (x *ToolResult) SetContents(v []*ToolResultContent) {
 
 func (x *ToolResult) SetIsError(v bool) {
 	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
 func (x *ToolResult) SetErrorCategory(v ToolErrorCategory) {
 	x.xxx_hidden_ErrorCategory = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *ToolResult) SetTerminate(v bool) {
+	x.xxx_hidden_Terminate = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *ToolResult) HasCallId() bool {
@@ -2129,6 +2142,13 @@ func (x *ToolResult) HasErrorCategory() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *ToolResult) HasTerminate() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *ToolResult) ClearCallId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_CallId = nil
@@ -2149,6 +2169,11 @@ func (x *ToolResult) ClearErrorCategory() {
 	x.xxx_hidden_ErrorCategory = ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
 }
 
+func (x *ToolResult) ClearTerminate() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Terminate = false
+}
+
 type ToolResult_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -2162,6 +2187,8 @@ type ToolResult_builder struct {
 	IsError *bool
 	// The Glyph category of the error. It is present only for an error result that Host categorized.
 	ErrorCategory *ToolErrorCategory
+	// The transient completion signal of this finalized tool result.
+	Terminate *bool
 }
 
 func (b0 ToolResult_builder) Build() *ToolResult {
@@ -2169,21 +2196,25 @@ func (b0 ToolResult_builder) Build() *ToolResult {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.CallId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_CallId = b.CallId
 	}
 	if b.ToolName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_ToolName = b.ToolName
 	}
 	x.xxx_hidden_Contents = &b.Contents
 	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
 		x.xxx_hidden_IsError = *b.IsError
 	}
 	if b.ErrorCategory != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_ErrorCategory = *b.ErrorCategory
+	}
+	if b.Terminate != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_Terminate = *b.Terminate
 	}
 	return m0
 }
@@ -3769,14 +3800,15 @@ const file_api_programmatic_v1_agent_proto_rawDesc = "" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\"j\n" +
 	"\fToolProgress\x12@\n" +
 	"\achannel\x18\x01 \x01(\x0e2&.glyph.programmatic.v1.ProgressChannelR\achannel\x12\x18\n" +
-	"\acontent\x18\x02 \x01(\tR\acontent\"\xf4\x01\n" +
+	"\acontent\x18\x02 \x01(\tR\acontent\"\x92\x02\n" +
 	"\n" +
 	"ToolResult\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12D\n" +
 	"\bcontents\x18\x03 \x03(\v2(.glyph.programmatic.v1.ToolResultContentR\bcontents\x12\x19\n" +
 	"\bis_error\x18\x04 \x01(\bR\aisError\x12O\n" +
-	"\x0eerror_category\x18\x05 \x01(\x0e2(.glyph.programmatic.v1.ToolErrorCategoryR\rerrorCategory\"t\n" +
+	"\x0eerror_category\x18\x05 \x01(\x0e2(.glyph.programmatic.v1.ToolErrorCategoryR\rerrorCategory\x12\x1c\n" +
+	"\tterminate\x18\x06 \x01(\bR\tterminate\"t\n" +
 	"\x11ToolResultContent\x12\x14\n" +
 	"\x04text\x18\x01 \x01(\tH\x00R\x04text\x12>\n" +
 	"\x05image\x18\x02 \x01(\v2&.glyph.programmatic.v1.ToolResultImageH\x00R\x05imageB\t\n" +

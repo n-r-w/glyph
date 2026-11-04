@@ -305,7 +305,8 @@ func TestServiceRunToolMixedCancellationUsesOriginalTerminalText(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
 	tools.EXPECT().Tools().Return(nil)
 	tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).Return(agent.ToolResult{
-		CallID: call.ID, ToolName: call.Name, Contents: nil, IsError: true,
+		Terminate: false,
+		CallID:    call.ID, ToolName: call.Name, Contents: nil, IsError: true,
 	}, executeErr)
 	var agentEnd agent.RunSummary
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(
@@ -370,7 +371,13 @@ func TestServiceRunCancellationPersistsOnlyActiveToolResult(t *testing.T) {
 			func(ctx context.Context, call model.ToolCall, _ tool.ProgressHandler) (agent.ToolResult, error) {
 				close(started)
 				<-ctx.Done()
-				return agent.ToolResult{CallID: call.ID, ToolName: call.Name, Contents: nil, IsError: false}, ctx.Err()
+				return agent.ToolResult{
+					Terminate: false,
+					CallID:    call.ID,
+					ToolName:  call.Name,
+					Contents:  nil,
+					IsError:   false,
+				}, ctx.Err()
 			},
 		)
 		events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()

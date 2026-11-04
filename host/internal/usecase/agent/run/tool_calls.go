@@ -3,6 +3,7 @@ package run
 import (
 	"context"
 	"errors"
+	"slices"
 
 	"github.com/samber/mo"
 
@@ -24,7 +25,8 @@ func (s *Service) skipLengthCalls(
 	results := make([]agent.ToolResult, 0, len(calls))
 	for _, call := range calls {
 		result, finalizeErr := s.finalizer.FinalizeToolResult(ctx, agent.ToolResult{
-			CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(lengthCallMessage), IsError: true,
+			Terminate: false,
+			CallID:    call.ID, ToolName: call.Name, Contents: tool.TextContents(lengthCallMessage), IsError: true,
 			ErrorCategory: mo.None[agent.ToolErrorCategory](),
 		})
 		if finalizeErr != nil {
@@ -107,7 +109,12 @@ func (s *Service) executeCalls(
 		}
 		first = end
 	}
-	return s.endTurn(ctx, runID, response, results, 0, "", nil)
+	outcome := agent.RunOutcome(0)
+	if len(results) > 0 &&
+		slices.IndexFunc(results, func(result agent.ToolResult) bool { return !result.Terminate }) == -1 {
+		outcome = agent.RunOutcomeCompleted
+	}
+	return s.endTurn(ctx, runID, response, results, outcome, "", nil)
 }
 
 // composeErrorWithCause adds a cause only when the primary error does not already contain it.

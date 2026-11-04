@@ -188,7 +188,8 @@ func TestProgrammaticImageDataPresence(t *testing.T) {
 			}
 			// Act by mapping the tool-result image to Programmatic protobuf.
 			mapped, err := mapToolResult(ToolResult{
-				CallID: "call", ToolName: "render", IsError: false,
+				Terminate: false,
+				CallID:    "call", ToolName: "render", IsError: false,
 				Contents: []ToolResultContent{{
 					Kind: ToolResultContentImage, Text: mo.None[string](), Image: image,
 				}},

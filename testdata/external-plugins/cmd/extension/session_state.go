@@ -169,6 +169,6 @@ func exerciseSessionState(ctx context.Context, service *service) (*extensionv1.T
 			//nolint:exhaustruct_v5 // The public builder sets only the active text field.
 			extensionv1.ToolResultContent_builder{Text: new(string(report))}.Build(),
 		},
-		IsError: new(false),
+		IsError: new(false), Terminate: nil,
 	}.Build(), nil
 }

@@ -35,7 +35,7 @@ func (o *conversationToolOperation) Run(
 	const resultText = "reference tool completed"
 	content.SetText(resultText)
 	result := extensionpb.ToolResult_builder{
-		IsError:  new(false),
+		IsError: new(false), Terminate: nil,
 		Contents: []*extensionpb.ToolResultContent{content},
 	}.Build()
 	encoded, err := protojson.Marshal(result)

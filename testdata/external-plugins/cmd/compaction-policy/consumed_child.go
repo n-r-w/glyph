@@ -68,7 +68,7 @@ func (o *consumedChildOperation) Run(
 	content := new(extensionpb.ToolResultContent)
 	content.SetText(consumedChildToolText)
 	return extensionpb.ToolResult_builder{
-		IsError:  new(false),
+		IsError: new(false), Terminate: nil,
 		Contents: []*extensionpb.ToolResultContent{content},
 	}.Build(), nil
 }

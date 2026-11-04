@@ -416,6 +416,7 @@ func TestDriverStreamMapsGrammarToolLifecycle(t *testing.T) {
 		{
 			Kind: agent.HistoryEntryToolResult, ToolResult: mo.Some(agent.ToolResult{
 				CallID:        "call-old",
+				Terminate:     false,
 				ToolName:      "sample",
 				Contents:      tool.TextContents("done"),
 				IsError:       false,

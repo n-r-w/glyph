@@ -1444,6 +1444,7 @@ type SessionTreeToolResult struct {
 	xxx_hidden_Contents      *[]*ToolResultContent  `protobuf:"bytes,3,rep,name=contents"`
 	xxx_hidden_IsError       bool                   `protobuf:"varint,4,opt,name=is_error,json=isError"`
 	xxx_hidden_ErrorCategory ToolErrorCategory      `protobuf:"varint,5,opt,name=error_category,json=errorCategory,enum=glyph.plugins.extension.v1.ToolErrorCategory"`
+	xxx_hidden_Terminate     bool                   `protobuf:"varint,6,opt,name=terminate"`
 	XXX_raceDetectHookData   protoimpl.RaceDetectHookData
 	XXX_presence             [1]uint32
 	unknownFields            protoimpl.UnknownFields
@@ -1520,14 +1521,21 @@ func (x *SessionTreeToolResult) GetErrorCategory() ToolErrorCategory {
 	return ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
 }
 
+func (x *SessionTreeToolResult) GetTerminate() bool {
+	if x != nil {
+		return x.xxx_hidden_Terminate
+	}
+	return false
+}
+
 func (x *SessionTreeToolResult) SetCallId(v string) {
 	x.xxx_hidden_CallId = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 6)
 }
 
 func (x *SessionTreeToolResult) SetToolName(v string) {
 	x.xxx_hidden_ToolName = &v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 1, 6)
 }
 
 func (x *SessionTreeToolResult) SetContents(v []*ToolResultContent) {
@@ -1536,12 +1544,17 @@ func (x *SessionTreeToolResult) SetContents(v []*ToolResultContent) {
 
 func (x *SessionTreeToolResult) SetIsError(v bool) {
 	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 3, 6)
 }
 
 func (x *SessionTreeToolResult) SetErrorCategory(v ToolErrorCategory) {
 	x.xxx_hidden_ErrorCategory = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 5)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 4, 6)
+}
+
+func (x *SessionTreeToolResult) SetTerminate(v bool) {
+	x.xxx_hidden_Terminate = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 5, 6)
 }
 
 func (x *SessionTreeToolResult) HasCallId() bool {
@@ -1572,6 +1585,13 @@ func (x *SessionTreeToolResult) HasErrorCategory() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 4)
 }
 
+func (x *SessionTreeToolResult) HasTerminate() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 5)
+}
+
 func (x *SessionTreeToolResult) ClearCallId() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_CallId = nil
@@ -1592,6 +1612,11 @@ func (x *SessionTreeToolResult) ClearErrorCategory() {
 	x.xxx_hidden_ErrorCategory = ToolErrorCategory_TOOL_ERROR_CATEGORY_UNSPECIFIED
 }
 
+func (x *SessionTreeToolResult) ClearTerminate() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 5)
+	x.xxx_hidden_Terminate = false
+}
+
 type SessionTreeToolResult_builder struct {
 	_ [0]func() // Prevents comparability and use of unkeyed literals for the builder.
 
@@ -1606,6 +1631,8 @@ type SessionTreeToolResult_builder struct {
 	// The Glyph category of the error. A handler that changes the result without replacing it completely keeps the
 	// received value. It is present only for an error result that Host categorized.
 	ErrorCategory *ToolErrorCategory
+	// The transient completion signal; copy it when changing only the result text.
+	Terminate *bool
 }
 
 func (b0 SessionTreeToolResult_builder) Build() *SessionTreeToolResult {
@@ -1613,21 +1640,25 @@ func (b0 SessionTreeToolResult_builder) Build() *SessionTreeToolResult {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.CallId != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 6)
 		x.xxx_hidden_CallId = b.CallId
 	}
 	if b.ToolName != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 1, 6)
 		x.xxx_hidden_ToolName = b.ToolName
 	}
 	x.xxx_hidden_Contents = &b.Contents
 	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 3, 6)
 		x.xxx_hidden_IsError = *b.IsError
 	}
 	if b.ErrorCategory != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 5)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 4, 6)
 		x.xxx_hidden_ErrorCategory = *b.ErrorCategory
+	}
+	if b.Terminate != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 5, 6)
+		x.xxx_hidden_Terminate = *b.Terminate
 	}
 	return m0
 }
@@ -3446,13 +3477,14 @@ const file_api_plugins_extension_v1_session_entry_proto_rawDesc = "" +
 	"\x13SessionTreeToolCall\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
-	"\x0earguments_json\x18\x03 \x01(\fR\rargumentsJson\"\x89\x02\n" +
+	"\x0earguments_json\x18\x03 \x01(\fR\rargumentsJson\"\xa7\x02\n" +
 	"\x15SessionTreeToolResult\x12\x17\n" +
 	"\acall_id\x18\x01 \x01(\tR\x06callId\x12\x1b\n" +
 	"\ttool_name\x18\x02 \x01(\tR\btoolName\x12I\n" +
 	"\bcontents\x18\x03 \x03(\v2-.glyph.plugins.extension.v1.ToolResultContentR\bcontents\x12\x19\n" +
 	"\bis_error\x18\x04 \x01(\bR\aisError\x12T\n" +
-	"\x0eerror_category\x18\x05 \x01(\x0e2-.glyph.plugins.extension.v1.ToolErrorCategoryR\rerrorCategory\"4\n" +
+	"\x0eerror_category\x18\x05 \x01(\x0e2-.glyph.plugins.extension.v1.ToolErrorCategoryR\rerrorCategory\x12\x1c\n" +
+	"\tterminate\x18\x06 \x01(\bR\tterminate\"4\n" +
 	"\x18SessionTreeBranchSummary\x12\x18\n" +
 	"\asummary\x18\x01 \x01(\tR\asummary\"\xc0\x01\n" +
 	"\x15SessionTreeCompaction\x12\x18\n" +

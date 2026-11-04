@@ -89,7 +89,8 @@ func TestTerminalModelAndToolResultRecordsRoundTripContinuationData(t *testing.T
 	require.Equal(t, modelEntry, decodedModel)
 
 	result := agent.ToolResult{
-		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("tool output"), IsError: false,
+		Terminate: false,
+		CallID:    call.ID, ToolName: call.Name, Contents: tool.TextContents("tool output"), IsError: false,
 	}
 	toolEntry := session.Entry{
 		ParentID:      mo.None[string](),
@@ -279,7 +280,8 @@ func TestFullContentRecordsRoundTrip(t *testing.T) {
 				User:        mo.None[session.UserMessage](),
 				Model:       mo.None[session.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
-					CallID: "call", ToolName: "render", IsError: false,
+					Terminate: false,
+					CallID:    "call", ToolName: "render", IsError: false,
 					Contents: []tool.ResultContent{
 						{Kind: tool.ResultContentText, Text: mo.Some("preview"), Image: mo.None[tool.ResultImage]()},
 						{

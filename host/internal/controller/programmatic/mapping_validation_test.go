@@ -237,6 +237,7 @@ func TestMappingRejectsInvalidValues(t *testing.T) {
 			_, err := mapEvent(AgentEvent{
 				Type: AgentEventToolResult,
 				ToolResult: mo.Some(ToolResult{
+					Terminate: false,
 					Contents: []ToolResultContent{{
 						Kind:  ToolResultContentUnspecified,
 						Text:  mo.None[string](),
@@ -374,7 +375,8 @@ func TestMappingRejectsMissingNestedAlternatives(t *testing.T) {
 		},
 		"tool result text": func() error {
 			_, err := mapToolResult(ToolResult{
-				CallID: "call", ToolName: "tool", IsError: false,
+				Terminate: false,
+				CallID:    "call", ToolName: "tool", IsError: false,
 				Contents: []ToolResultContent{{
 					Kind: ToolResultContentText, Text: mo.None[string](), Image: mo.None[ToolResultImage](),
 				}},

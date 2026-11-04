@@ -339,6 +339,7 @@ func (s *serviceSuite) TestOpenRouterReasoningDetailsRoundTrip() {
 	replaceHistoryModelContent(&secondRequest, firstResponse.Content)
 	secondRequest.History[2].ToolResult = mo.Some(agent.ToolResult{
 		CallID:        "call-new",
+		Terminate:     false,
 		ToolName:      "read",
 		Contents:      tool.TextContents("done"),
 		IsError:       false,

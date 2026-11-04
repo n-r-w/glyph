@@ -29,6 +29,7 @@ func TestCloneToolResultClonesImageBytesInsideOption(t *testing.T) {
 
 	// Arrange a tool result with mutable image data.
 	original := agent.ToolResult{
+		Terminate: false,
 		Contents: []tool.ResultContent{{
 			Kind:  tool.ResultContentImage,
 			Text:  mo.None[string](),

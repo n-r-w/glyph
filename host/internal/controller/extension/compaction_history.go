@@ -151,7 +151,7 @@ func mapCompactionToolResult(result agent.ToolResult) (*extensionpb.SessionTreeT
 	}
 	return extensionpb.SessionTreeToolResult_builder{
 		CallId: new(result.CallID), ToolName: new(result.ToolName),
-		Contents: contents, IsError: new(result.IsError), ErrorCategory: category,
+		Contents: contents, IsError: new(result.IsError), ErrorCategory: category, Terminate: new(result.Terminate),
 	}.Build(), nil
 }
 

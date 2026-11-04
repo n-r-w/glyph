@@ -241,7 +241,7 @@ func (s *Service) Execute(
 			ToolName:      call.Name,
 			Contents:      tool.TextContents(message),
 			IsError:       true,
-			ErrorCategory: mo.Some(agent.ToolErrorPolicyRejection),
+			ErrorCategory: mo.Some(agent.ToolErrorPolicyRejection), Terminate: false,
 		}, nil
 	}
 	argumentsJSON := final.Arguments.Bytes()
@@ -251,7 +251,7 @@ func (s *Service) Execute(
 			ToolName:      call.Name,
 			Contents:      tool.TextContents(validationErr.Error()),
 			IsError:       true,
-			ErrorCategory: mo.Some(agent.ToolErrorInvalidArguments),
+			ErrorCategory: mo.Some(agent.ToolErrorInvalidArguments), Terminate: false,
 		}, nil
 	}
 	if s.contexts == nil {
@@ -280,6 +280,7 @@ func (s *Service) Execute(
 		Contents:      slices.Clone(result.Contents),
 		IsError:       result.IsError,
 		ErrorCategory: errorCategory,
+		Terminate:     result.Terminate,
 	}, executeErr
 }
 
@@ -290,7 +291,7 @@ func unavailableResult(call model.ToolCall) agent.ToolResult {
 		ToolName:      call.Name,
 		Contents:      tool.TextContents(fmt.Sprintf("tool %q is unavailable", call.Name)),
 		IsError:       true,
-		ErrorCategory: mo.Some(agent.ToolErrorUnavailableTool),
+		ErrorCategory: mo.Some(agent.ToolErrorUnavailableTool), Terminate: false,
 	}
 }
 

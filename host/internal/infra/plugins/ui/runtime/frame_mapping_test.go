@@ -212,7 +212,8 @@ func TestRestoredSessionImageDataPresence(t *testing.T) {
 				ID: "tool", CreatedAt: time.Unix(1, 0), Kind: controllerui.SessionEntryToolResult,
 				User: mo.None[model.Message](), Model: mo.None[controllerui.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
-					CallID: "call", ToolName: "render", IsError: false,
+					Terminate: false,
+					CallID:    "call", ToolName: "render", IsError: false,
 					Contents: []tool.ResultContent{{
 						Kind: tool.ResultContentImage, Text: mo.None[string](), Image: image,
 					}},

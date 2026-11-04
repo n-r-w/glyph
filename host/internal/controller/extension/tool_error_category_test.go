@@ -16,7 +16,7 @@ import (
 )
 
 // TestToolErrorCategoryCompactionRoundTrip verifies that the category of a tool result survives the projection to the
-// compaction history and the decoding of the shared session-tree message.
+// compaction history and the decoding of the shared session-tree message together with the transient completion flag.
 func TestToolErrorCategoryCompactionRoundTrip(t *testing.T) {
 	t.Parallel()
 	for name, category := range map[string]mo.Option[agent.ToolErrorCategory]{
@@ -32,7 +32,7 @@ func TestToolErrorCategoryCompactionRoundTrip(t *testing.T) {
 			// Arrange an error result with the scenario category.
 			result := agent.ToolResult{
 				CallID: "call", ToolName: "read", Contents: tool.TextContents("failed"), IsError: true,
-				ErrorCategory: category,
+				ErrorCategory: category, Terminate: true,
 			}
 			history := []agent.HistoryEntry{{
 				Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
@@ -80,7 +80,8 @@ func TestDecodeSessionTreeToolResultRejectsInvalidCategory(t *testing.T) {
 
 			// Arrange a shared message with the invalid category.
 			message := extensionpb.SessionTreeToolResult_builder{
-				CallId: new("call"), ToolName: new("read"), Contents: nil, IsError: new(test.isError),
+				Terminate: nil,
+				CallId:    new("call"), ToolName: new("read"), Contents: nil, IsError: new(test.isError),
 				ErrorCategory: new(test.category),
 			}.Build()
 
@@ -106,7 +107,8 @@ func TestEncodeToolErrorCategoryRejectsUnknownValue(t *testing.T) {
 	_, unknownErr := EncodeToolErrorCategory(unknown)
 	wire, absentErr := EncodeToolErrorCategory(absent)
 	_, projectionErr := mapCompactionToolResult(agent.ToolResult{
-		CallID: "call", ToolName: "read", Contents: tool.TextContents("failed"), IsError: true,
+		Terminate: false,
+		CallID:    "call", ToolName: "read", Contents: tool.TextContents("failed"), IsError: true,
 		ErrorCategory: unknown,
 	})
 

@@ -96,10 +96,11 @@ func appendPreparedBranchFixture(
 	)
 	entries[4].ToolResult = mo.Some(
 		agent.ToolResult{
-			CallID:   "source-a",
-			ToolName: "fixture-tool",
-			Contents: tool.TextContents("stored source " + strings.Repeat("r", 600)),
-			IsError:  false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
+			CallID:    "source-a",
+			Terminate: false,
+			ToolName:  "fixture-tool",
+			Contents:  tool.TextContents("stored source " + strings.Repeat("r", 600)),
+			IsError:   false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
 		},
 	)
 	entries[5].User = mo.Some(model.TextMessage(recent))

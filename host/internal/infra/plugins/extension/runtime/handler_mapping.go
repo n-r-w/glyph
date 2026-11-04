@@ -221,7 +221,7 @@ func mapTreeToolResult(result session.ToolResult) (*extensionpb.SessionTreeToolR
 	return extensionpb.SessionTreeToolResult_builder{
 		CallId: new(result.CallID), ToolName: new(result.ToolName),
 		Contents: mapToolResultContentsToProto(result.Contents), IsError: new(result.IsError),
-		ErrorCategory: category,
+		ErrorCategory: category, Terminate: new(result.Terminate),
 	}.Build(), nil
 }
 

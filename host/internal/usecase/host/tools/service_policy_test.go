@@ -69,7 +69,7 @@ func TestServiceRunsToolWithPolicyInput(t *testing.T) {
 	)
 	runtime.EXPECT().
 		ExecuteTool(t.Context(), "extension", "read", []byte(`{ "path":"replaced" }`), gomock.Any(), gomock.Any()).
-		Return(tool.Result{Contents: tool.TextContents("content"), IsError: false}, nil)
+		Return(tool.Result{Terminate: false, Contents: tool.TextContents("content"), IsError: false}, nil)
 
 	// Act through the execution.
 	result, err := service.Execute(t.Context(), call, func(tool.Progress) error { return nil })

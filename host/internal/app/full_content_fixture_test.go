@@ -154,6 +154,7 @@ func appendFullContentFixtureWithUsage(
 			Model:       mo.None[session.ModelResponse](),
 			ToolResult: mo.Some(agent.ToolResult{
 				CallID: call.ID, ToolName: call.Name, IsError: false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
+				Terminate: false,
 				Contents: []tool.ResultContent{
 					{
 						Kind:  tool.ResultContentText,

@@ -148,4 +148,6 @@ message ToolResult {
   bool is_error = 1;
   // The ordered terminal model-visible result blocks.
   repeated ToolResultContent contents = 2;
+  // Requests completion after the batch when all results agree and no steer or followUp is pending.
+  bool terminate = 3;
 }

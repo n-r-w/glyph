@@ -99,6 +99,7 @@ func TestNextProviderRequestPreservesCompleteRestartedToolHistory(t *testing.T) 
 	}
 	result := agent.ToolResult{
 		CallID: call.ID, ToolName: call.Name, IsError: false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
+		Terminate: false,
 		Contents: []tool.ResultContent{
 			{Kind: tool.ResultContentText, Text: mo.Some("contents"), Image: mo.None[tool.ResultImage]()},
 			{Kind: tool.ResultContentImage, Text: mo.None[string](), Image: mo.Some(tool.ResultImage{

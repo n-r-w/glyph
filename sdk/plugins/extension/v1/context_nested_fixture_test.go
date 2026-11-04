@@ -442,6 +442,6 @@ func expectNestedToolExecution(
 			if err = runNestedCompaction(t, ctx, bound, runningCompactionStage); err != nil {
 				return nil, err
 			}
-			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil
+			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false), Terminate: nil}.Build(), nil
 		})
 }

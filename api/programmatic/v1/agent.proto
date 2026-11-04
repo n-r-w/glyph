@@ -98,6 +98,8 @@ message ToolResult {
   bool is_error = 4;
   // The Glyph category of the error. It is present only for an error result that Host categorized.
   ToolErrorCategory error_category = 5;
+  // The transient completion signal of this finalized tool result.
+  bool terminate = 6;
 }
 // ToolErrorCategory identifies the Glyph kind of an error tool result.
 enum ToolErrorCategory {

@@ -62,7 +62,8 @@ func TestToolResultValidateErrorCategory(t *testing.T) {
 
 			// Arrange a result with the scenario flags.
 			result := ToolResult{
-				CallID: "call", ToolName: "read", Contents: tool.TextContents("text"), IsError: test.isError,
+				Terminate: false,
+				CallID:    "call", ToolName: "read", Contents: tool.TextContents("text"), IsError: test.isError,
 				ErrorCategory: test.category,
 			}
 

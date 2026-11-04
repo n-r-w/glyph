@@ -182,9 +182,12 @@ func contextHistory(t *testing.T, replay mo.Option[model.ProviderContext]) []age
 		},
 		{
 			Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
-			ToolResult: mo.Some(agent.ToolResult{CallID: "call", ToolName: "read", Contents: []tool.ResultContent{{
-				Kind: tool.ResultContentText, Text: mo.Some("file"), Image: mo.None[tool.ResultImage](),
-			}}, IsError: false}),
+			ToolResult: mo.Some(agent.ToolResult{
+				Terminate: false, CallID: "call", ToolName: "read",
+				Contents: []tool.ResultContent{{
+					Kind: tool.ResultContentText, Text: mo.Some("file"), Image: mo.None[tool.ResultImage](),
+				}}, IsError: false,
+			}),
 		},
 	}
 }

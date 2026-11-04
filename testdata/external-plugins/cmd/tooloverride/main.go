@@ -149,5 +149,5 @@ func (e *execution) Run(context.Context, *extensionsdk.ProgressReporter) (*exten
 	return extensionpb.ToolResult_builder{Contents: []*extensionpb.ToolResultContent{
 		//nolint:exhaustruct_v5 // Only the active text result is populated.
 		extensionpb.ToolResultContent_builder{Text: new(toolOutputPrefix + value)}.Build(),
-	}, IsError: new(false)}.Build(), nil
+	}, IsError: new(false), Terminate: nil}.Build(), nil
 }

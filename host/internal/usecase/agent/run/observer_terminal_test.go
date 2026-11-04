@@ -83,7 +83,7 @@ func TestToolEndObserverFailureKeepsClientResult(t *testing.T) {
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(streamResult(response, nil))
 	tools.EXPECT().
 		Execute(gomock.Any(), first, gomock.Any()).
-		Return(agent.ToolResult{CallID: first.ID, ToolName: first.Name, Contents: tool.TextContents("completed effect"), IsError: false}, nil)
+		Return(agent.ToolResult{Terminate: false, CallID: first.ID, ToolName: first.Name, Contents: tool.TextContents("completed effect"), IsError: false}, nil)
 	resultDelivered := false
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		if event.Type == agent.EventToolExecutionEnd {

@@ -42,7 +42,7 @@ func (o *callerToolOperation) Run(
 	content := new(extensionpb.ToolResultContent)
 	content.SetText(callerToolResultText)
 	return extensionpb.ToolResult_builder{
-		IsError: new(false), Contents: []*extensionpb.ToolResultContent{content},
+		IsError: new(false), Contents: []*extensionpb.ToolResultContent{content}, Terminate: nil,
 	}.Build(), nil
 }
 

@@ -265,7 +265,7 @@ func TestServiceListsAndExecutesAcceptedTools(t *testing.T) {
 		ExecuteTool(t.Context(), "extension", "read", []byte(`{ "path":"\u0066ile" }`), gomock.Any(), gomock.Any()).
 		DoAndReturn(func(_ context.Context, _, _ string, _ []byte, _ tool.ProgressHandler, supplied extension.Context) (tool.Result, error) {
 			assert.Equal(t, binding, supplied)
-			return tool.Result{Contents: tool.TextContents("content"), IsError: false}, nil
+			return tool.Result{Terminate: false, Contents: tool.TextContents("content"), IsError: false}, nil
 		})
 	// Act list tools, reject invalid arguments, and execute valid deterministic arguments.
 	listed := service.Tools()
@@ -395,7 +395,7 @@ func TestServiceCategorizesReportedError(t *testing.T) {
 		Times(2).
 		DoAndReturn(func(context.Context, string, string, []byte, tool.ProgressHandler, extension.Context) (tool.Result, error) {
 			defer func() { reported = false }()
-			return tool.Result{Contents: tool.TextContents("result"), IsError: reported}, nil
+			return tool.Result{Terminate: false, Contents: tool.TextContents("result"), IsError: reported}, nil
 		})
 	call := model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{ "path":"file" }`)}
 

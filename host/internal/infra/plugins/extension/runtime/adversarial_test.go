@@ -407,7 +407,7 @@ func (s *adversarialServer) serveShutdownHostWork(
 // sendEmptyToolCompletion supplies a malformed tool completion for protocol-failure tests.
 func sendEmptyToolCompletion(stream extensionpb.ExtensionService_OpenServer, id string) error {
 	completedEvent := new(extensionpb.ExtensionCompleted)
-	completedEvent.SetTool(extensionpb.ToolResult_builder{IsError: new(false), Contents: nil}.Build())
+	completedEvent.SetTool(extensionpb.ToolResult_builder{IsError: new(false), Contents: nil, Terminate: nil}.Build())
 	event := new(extensionpb.ExtensionEvent)
 	event.SetCompleted(completedEvent)
 	if err := stream.Send(extensionResponse(id, event)); err != nil {
@@ -526,7 +526,7 @@ func toolCompletedEvent() *extensionpb.ExtensionEvent {
 	content := extensionpb.ToolResultContent_builder{Text: new("done")}.Build()
 	completed := new(extensionpb.ExtensionCompleted)
 	completed.SetTool(extensionpb.ToolResult_builder{
-		IsError: new(false), Contents: []*extensionpb.ToolResultContent{content},
+		IsError: new(false), Contents: []*extensionpb.ToolResultContent{content}, Terminate: nil,
 	}.Build())
 	event := new(extensionpb.ExtensionEvent)
 	event.SetCompleted(completed)

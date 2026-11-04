@@ -50,10 +50,11 @@ func TestPreparedSourceKindsRoundTrip(t *testing.T) {
 				entry.History.User = mo.None[model.Message]()
 				entry.History.ToolResult = mo.Some(
 					agent.ToolResult{
-						CallID:   "call",
-						ToolName: "fixture",
-						Contents: tool.TextContents("prepared result"),
-						IsError:  scenario.kind == session.HistorySourceModel,
+						Terminate: false,
+						CallID:    "call",
+						ToolName:  "fixture",
+						Contents:  tool.TextContents("prepared result"),
+						IsError:   scenario.kind == session.HistorySourceModel,
 					},
 				)
 			}

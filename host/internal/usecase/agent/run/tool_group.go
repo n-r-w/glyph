@@ -93,7 +93,8 @@ func (s *Service) executeCall(
 	}
 	if executeErr != nil {
 		result = agent.ToolResult{
-			CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(executeErr.Error()), IsError: true,
+			Terminate: false,
+			CallID:    call.ID, ToolName: call.Name, Contents: tool.TextContents(executeErr.Error()), IsError: true,
 			ErrorCategory: mo.Some(agent.ToolErrorFailure),
 		}
 	}

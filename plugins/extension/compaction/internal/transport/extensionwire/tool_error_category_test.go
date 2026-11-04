@@ -31,7 +31,8 @@ func TestToolResultErrorCategoryRoundTrip(t *testing.T) {
 			wire := new(pb.CompactionHistoryRecord)
 			wire.SetSourceEntryId("source")
 			wire.SetToolResult(pb.SessionTreeToolResult_builder{
-				CallId: new("call"), ToolName: new("read"), Contents: nil, IsError: new(true),
+				Terminate: nil,
+				CallId:    new("call"), ToolName: new("read"), Contents: nil, IsError: new(true),
 				ErrorCategory: category,
 			}.Build())
 
@@ -57,7 +58,8 @@ func newInvalidCategoryRecord(id string, category pb.ToolErrorCategory) *pb.Comp
 	record := new(pb.CompactionHistoryRecord)
 	record.SetSourceEntryId(id)
 	record.SetToolResult(pb.SessionTreeToolResult_builder{
-		CallId: new("call"), ToolName: new("read"), Contents: nil, IsError: new(true),
+		Terminate: nil,
+		CallId:    new("call"), ToolName: new("read"), Contents: nil, IsError: new(true),
 		ErrorCategory: new(category),
 	}.Build())
 	return record

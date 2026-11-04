@@ -1711,6 +1711,7 @@ type ToolResult struct {
 	state                  protoimpl.MessageState `protogen:"opaque.v1"`
 	xxx_hidden_IsError     bool                   `protobuf:"varint,1,opt,name=is_error,json=isError"`
 	xxx_hidden_Contents    *[]*ToolResultContent  `protobuf:"bytes,2,rep,name=contents"`
+	xxx_hidden_Terminate   bool                   `protobuf:"varint,3,opt,name=terminate"`
 	XXX_raceDetectHookData protoimpl.RaceDetectHookData
 	XXX_presence           [1]uint32
 	unknownFields          protoimpl.UnknownFields
@@ -1758,13 +1759,25 @@ func (x *ToolResult) GetContents() []*ToolResultContent {
 	return nil
 }
 
+func (x *ToolResult) GetTerminate() bool {
+	if x != nil {
+		return x.xxx_hidden_Terminate
+	}
+	return false
+}
+
 func (x *ToolResult) SetIsError(v bool) {
 	x.xxx_hidden_IsError = v
-	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 2)
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 0, 3)
 }
 
 func (x *ToolResult) SetContents(v []*ToolResultContent) {
 	x.xxx_hidden_Contents = &v
+}
+
+func (x *ToolResult) SetTerminate(v bool) {
+	x.xxx_hidden_Terminate = v
+	protoimpl.X.SetPresent(&(x.XXX_presence[0]), 2, 3)
 }
 
 func (x *ToolResult) HasIsError() bool {
@@ -1774,9 +1787,21 @@ func (x *ToolResult) HasIsError() bool {
 	return protoimpl.X.Present(&(x.XXX_presence[0]), 0)
 }
 
+func (x *ToolResult) HasTerminate() bool {
+	if x == nil {
+		return false
+	}
+	return protoimpl.X.Present(&(x.XXX_presence[0]), 2)
+}
+
 func (x *ToolResult) ClearIsError() {
 	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 0)
 	x.xxx_hidden_IsError = false
+}
+
+func (x *ToolResult) ClearTerminate() {
+	protoimpl.X.ClearPresent(&(x.XXX_presence[0]), 2)
+	x.xxx_hidden_Terminate = false
 }
 
 type ToolResult_builder struct {
@@ -1786,6 +1811,8 @@ type ToolResult_builder struct {
 	IsError *bool
 	// The ordered terminal model-visible result blocks.
 	Contents []*ToolResultContent
+	// Requests completion after the batch when all results agree and no steer or followUp is pending.
+	Terminate *bool
 }
 
 func (b0 ToolResult_builder) Build() *ToolResult {
@@ -1793,10 +1820,14 @@ func (b0 ToolResult_builder) Build() *ToolResult {
 	b, x := &b0, m0
 	_, _ = b, x
 	if b.IsError != nil {
-		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 2)
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 0, 3)
 		x.xxx_hidden_IsError = *b.IsError
 	}
 	x.xxx_hidden_Contents = &b.Contents
+	if b.Terminate != nil {
+		protoimpl.X.SetPresentNonAtomic(&(x.XXX_presence[0]), 2, 3)
+		x.xxx_hidden_Terminate = *b.Terminate
+	}
 	return m0
 }
 
@@ -1853,11 +1884,12 @@ const file_api_plugins_extension_v1_tool_proto_rawDesc = "" +
 	"\x0fToolResultImage\x12\x1d\n" +
 	"\n" +
 	"media_type\x18\x01 \x01(\tR\tmediaType\x12\x12\n" +
-	"\x04data\x18\x02 \x01(\fR\x04data\"r\n" +
+	"\x04data\x18\x02 \x01(\fR\x04data\"\x90\x01\n" +
 	"\n" +
 	"ToolResult\x12\x19\n" +
 	"\bis_error\x18\x01 \x01(\bR\aisError\x12I\n" +
-	"\bcontents\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.ToolResultContentR\bcontents*\x85\x01\n" +
+	"\bcontents\x18\x02 \x03(\v2-.glyph.plugins.extension.v1.ToolResultContentR\bcontents\x12\x1c\n" +
+	"\tterminate\x18\x03 \x01(\bR\tterminate*\x85\x01\n" +
 	"\x14JsonSchemaStrictness\x12&\n" +
 	"\"JSON_SCHEMA_STRICTNESS_UNSPECIFIED\x10\x00\x12!\n" +
 	"\x1dJSON_SCHEMA_STRICTNESS_PREFER\x10\x01\x12\"\n" +

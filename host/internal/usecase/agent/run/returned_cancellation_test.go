@@ -34,7 +34,8 @@ func TestRunCancellationBeforeDeliveryReturnsPendingMessages(t *testing.T) {
 					func(context.Context, model.ToolCall, tool.ProgressHandler) (agent.ToolResult, error) {
 						cancel()
 						return agent.ToolResult{
-							CallID: returnedToolCall.ID, ToolName: returnedToolCall.Name,
+							Terminate: false,
+							CallID:    returnedToolCall.ID, ToolName: returnedToolCall.Name,
 							Contents: tool.TextContents("ok"), IsError: false,
 						}, nil
 					},

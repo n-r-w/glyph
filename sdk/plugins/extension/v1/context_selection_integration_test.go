@@ -105,7 +105,7 @@ func TestContextSelectionStartAndWait(t *testing.T) {
 			if reasoningResult.GetSelection().GetReasoningChoice() != "high" {
 				return nil, errors.New("reasoning selection returned an unexpected typed result")
 			}
-			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil
+			return extensionpb.ToolResult_builder{Contents: nil, IsError: new(false), Terminate: nil}.Build(), nil
 		},
 	)
 	connection := openContextTestConnection(t, service, host)

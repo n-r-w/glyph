@@ -126,7 +126,8 @@ func TestServiceRunToolUse(t *testing.T) {
 					Content: "running " + current.ID,
 				}))
 				return agent.ToolResult{
-					CallID: current.ID, ToolName: current.Name, Contents: tool.TextContents("ok"), IsError: false,
+					Terminate: false,
+					CallID:    current.ID, ToolName: current.Name, Contents: tool.TextContents("ok"), IsError: false,
 				}, nil
 			},
 		)
@@ -285,7 +286,8 @@ func TestServiceReadsRuntimeBeforeEachProviderRequest(t *testing.T) {
 	)
 	tools.EXPECT().Tools().Return(nil).Times(2)
 	tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).Return(agent.ToolResult{
-		CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
+		Terminate: false,
+		CallID:    call.ID, ToolName: call.Name, Contents: tool.TextContents("result"), IsError: false,
 	}, nil)
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
 	service := New(
@@ -355,10 +357,11 @@ func TestServiceRunToolErrorContinues(t *testing.T) {
 	)
 	tools.EXPECT().Execute(gomock.Any(), calls[1], gomock.Any()).Return(
 		agent.ToolResult{
-			CallID:   calls[1].ID,
-			ToolName: calls[1].Name,
-			Contents: tool.TextContents("ok"),
-			IsError:  false,
+			Terminate: false,
+			CallID:    calls[1].ID,
+			ToolName:  calls[1].Name,
+			Contents:  tool.TextContents("ok"),
+			IsError:   false,
 		}, nil,
 	)
 	provider.EXPECT().Stream(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(

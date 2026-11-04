@@ -222,7 +222,7 @@ Documents:
 
 ## PHS-09: Tool middleware and run control
 
-Status: Implementation in progress; [U0-U10](specs/features/initial/phases/09-tool-middleware-run-control/plan.md#plan-units) delivered. Verification follows the [approved PHS-09 exceptions](specs/features/initial/phases/09-tool-middleware-run-control/plan.md#standards-deviations).
+Status: Implementation in progress; [U0-U11](specs/features/initial/phases/09-tool-middleware-run-control/plan.md#plan-units) delivered. Verification follows the [approved PHS-09 exceptions](specs/features/initial/phases/09-tool-middleware-run-control/plan.md#standards-deviations).
 
 Add extension control over tool policy and agent-run continuation.
 

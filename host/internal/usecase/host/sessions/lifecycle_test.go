@@ -297,7 +297,8 @@ func (s *ServiceSuite) TestListCountsStoredToolResultsAsTerminalMessages() {
 					User:        mo.None[session.UserMessage](),
 					Model:       mo.None[session.ModelResponse](),
 					ToolResult: mo.Some(agent.ToolResult{
-						CallID: "call", ToolName: "read", Contents: tool.TextContents("result"), IsError: false,
+						Terminate: false,
+						CallID:    "call", ToolName: "read", Contents: tool.TextContents("result"), IsError: false,
 					}),
 					Extension:     mo.None[session.ExtensionEnvelope](),
 					EstimatedCost: mo.None[session.EstimatedCost](),

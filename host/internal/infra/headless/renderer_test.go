@@ -299,10 +299,11 @@ func TestRendererSeparatesModelAndToolOutput(t *testing.T) {
 				Arguments: testToolCallArguments(`{}`),
 			}),
 			ToolResult: mo.Some(agent.ToolResult{
-				CallID:   "call",
-				ToolName: "bash",
-				Contents: tool.TextContents("done"),
-				IsError:  false,
+				Terminate: false,
+				CallID:    "call",
+				ToolName:  "bash",
+				Contents:  tool.TextContents("done"),
+				IsError:   false,
 			}),
 		},
 		{
@@ -388,9 +389,10 @@ func TestRendererRendersTypedToolResultContents(t *testing.T) {
 			Agent:    mo.None[agent.RunSummary](),
 			Type:     agent.EventToolResult,
 			ToolResult: mo.Some(agent.ToolResult{
-				CallID:   "",
-				ToolName: "",
-				IsError:  false,
+				Terminate: false,
+				CallID:    "",
+				ToolName:  "",
+				IsError:   false,
 				Contents: []tool.ResultContent{
 					{
 						Kind:  tool.ResultContentText,

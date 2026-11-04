@@ -250,7 +250,13 @@ func TestEnqueueFollowUpWaitsForToolBatch(t *testing.T) {
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	tools.EXPECT().Tools().Return(nil).AnyTimes()
 	tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).Return(
-		agent.ToolResult{CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("ok"), IsError: false}, nil,
+		agent.ToolResult{
+			Terminate: false,
+			CallID:    call.ID,
+			ToolName:  call.Name,
+			Contents:  tool.TextContents("ok"),
+			IsError:   false,
+		}, nil,
 	)
 	events := NewMockEventSink(gomock.NewController(t))
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()
@@ -383,7 +389,13 @@ func TestQueueModeAllDeliversEverySteerAfterToolBatch(t *testing.T) {
 	tools := NewMockToolRuntime(gomock.NewController(t))
 	tools.EXPECT().Tools().Return(nil).AnyTimes()
 	tools.EXPECT().Execute(gomock.Any(), call, gomock.Any()).Return(
-		agent.ToolResult{CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents("ok"), IsError: false}, nil,
+		agent.ToolResult{
+			Terminate: false,
+			CallID:    call.ID,
+			ToolName:  call.Name,
+			Contents:  tool.TextContents("ok"),
+			IsError:   false,
+		}, nil,
 	)
 	events := NewMockEventSink(gomock.NewController(t))
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).Return(nil).AnyTimes()

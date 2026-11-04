@@ -507,7 +507,11 @@ None.
 
 For PHS-09 verification, omit `TestPublicFinalizedOneShot` and `TestPublicInputMiddlewareOneShot` from the integration-test shards of the `task check` procedure. These two functions contain eight scenarios that override child-process `HOME`. Run every other test and retain race detection and the 80 percent minimum for combined coverage. Report the eight omitted scenarios explicitly; a successful filtered run is not a successful unmodified `task check`. Compare warm check times using the same exclusions before and after each remaining unit. The [roadmap](../../../../../roadmap.md#one-shot-integration-tests-without-home-overrides) schedules their correction after PHS-09.
 
-For U10, the original RED-before-code chronology was not retained for `TestPublicConcurrentToolBatch` and the final `TestEventDeliveryIsSerialized` harness. Reconstructed RED runs establish regression sensitivity, and the completed implementations pass GREEN runs. This accepted chronology exception applies only to these two tests; the remaining tests and units retain the TDD requirement.
+This plan predates the current TDD rules. For its remaining delivery, record deviations in test selection or RED-before-code chronology without stopping work or requesting separate approval. Continue to use TDD for new work and preserve the actual chronology of each check. For example, when a required public assertion is added after implementation, identify its earlier coverage and any missing original RED evidence. Reviews, required behavior coverage, and project checks remain mandatory.
+
+For U10, the original RED-before-code chronology was not retained for `TestPublicConcurrentToolBatch` and the final `TestEventDeliveryIsSerialized` harness. Reconstructed RED runs establish regression sensitivity, and the completed implementations pass GREEN runs.
+
+For U11, the developer found fitting category round-trip tests before creating separate terminate tests. The developer later consolidated those checks into the existing round trips. The developer added the public copy-and-edit path in `TestPublicTerminateBatch` after production flag propagation, so the original public-level RED chronology for that path is absent. The retained compilation RED and behavioral RED runs cover the other reported changes; they do not establish that missing chronology.
 
 ## References
 

@@ -19,7 +19,8 @@ const (
 	// serialTool identifies the tool whose calls are serial barriers.
 	serialTool = "serial"
 	// inputSchema defines the test signal endpoint and call identity.
-	inputSchema = `{"type":"object","properties":{"url":{"type":"string"},"id":{"type":"string"}},` +
+	inputSchema = `{"type":"object","properties":{"url":{"type":"string"},"id":{"type":"string"},` +
+		`"terminate":{"type":"boolean"}},` +
 		`"required":["url","id"],"additionalProperties":false}`
 )
 
@@ -41,6 +42,8 @@ type execution struct {
 	url string
 	// id identifies the call at the rendezvous endpoint.
 	id string
+	// terminate is the requested run completion signal.
+	terminate bool
 }
 
 // The compile-time assertion checks the fixture execution against the public SDK contract.
@@ -68,13 +71,14 @@ func (s *service) PrepareExecute(
 	request *extensionpb.ExecuteRequest,
 ) (extensionsdk.ExecuteOperation, error) {
 	var arguments struct {
-		URL string `json:"url"`
-		ID  string `json:"id"`
+		URL       string `json:"url"`
+		ID        string `json:"id"`
+		Terminate bool   `json:"terminate"`
 	}
 	if err := json.Unmarshal(request.GetArgumentsJson(), &arguments); err != nil {
 		return nil, err
 	}
-	return &execution{url: arguments.URL, id: arguments.ID}, nil
+	return &execution{url: arguments.URL, id: arguments.ID, terminate: arguments.Terminate}, nil
 }
 
 // Run declares one concurrent tool and one undeclared serial tool.
@@ -120,5 +124,5 @@ func (e *execution) Run(ctx context.Context, _ *extensionsdk.ProgressReporter) (
 	return extensionpb.ToolResult_builder{Contents: []*extensionpb.ToolResultContent{
 		//nolint:exhaustruct_v5 // Only the text content variant is active.
 		extensionpb.ToolResultContent_builder{Text: new(string(body))}.Build(),
-	}, IsError: new(false)}.Build(), nil
+	}, IsError: new(false), Terminate: new(e.terminate)}.Build(), nil
 }

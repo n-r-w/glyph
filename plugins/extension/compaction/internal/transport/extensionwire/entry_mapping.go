@@ -146,6 +146,7 @@ func encodeHistory(entries []compaction.Entry) ([]*pb.CompactionHistoryRecord, e
 					ToolName:      new(entry.Tool),
 					IsError:       new(entry.Failed),
 					ErrorCategory: category,
+					Terminate:     nil,
 					Contents:      blocks,
 				}.Build(),
 			)

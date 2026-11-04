@@ -95,7 +95,8 @@ func compactionModelEntry(id, parentID, callID string) session.Entry {
 func compactionToolEntry(id, parentID, callID string) session.Entry {
 	entry := newCompactionBaseEntry(id, mo.Some(parentID))
 	entry.ToolResult = mo.Some(agent.ToolResult{
-		CallID: callID, ToolName: "tool", Contents: nil, IsError: false,
+		Terminate: false,
+		CallID:    callID, ToolName: "tool", Contents: nil, IsError: false,
 	})
 	return entry
 }

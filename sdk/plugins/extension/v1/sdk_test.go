@@ -367,7 +367,7 @@ func contractRegistration() *extensionpb.RegisterResponse {
 // contractToolResult returns ordered text and image result data.
 func contractToolResult() *extensionpb.ToolResult {
 	return extensionpb.ToolResult_builder{
-		IsError: new(true),
+		IsError: new(true), Terminate: nil,
 		Contents: []*extensionpb.ToolResultContent{
 			//nolint:exhaustruct_v5 // The content builder sets only text.
 			extensionpb.ToolResultContent_builder{Text: new("done")}.Build(),

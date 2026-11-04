@@ -136,7 +136,8 @@ func TestProjectHistoryOrdersStoredAndSkippedResultsByModelCallOrder(t *testing.
 					User:  mo.None[model.Message](),
 					Model: mo.None[model.Response](),
 					ToolResult: mo.Some(agent.ToolResult{
-						CallID: callID, ToolName: "stored-tool", Contents: tool.TextContents("stored-" + callID),
+						Terminate: false,
+						CallID:    callID, ToolName: "stored-tool", Contents: tool.TextContents("stored-" + callID),
 						IsError: false,
 					}),
 				})
@@ -287,7 +288,8 @@ func testHistoryResultEntry(callID, text string) agent.HistoryEntry {
 	return agent.HistoryEntry{
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		ToolResult: mo.Some(agent.ToolResult{
-			CallID: callID, ToolName: "tool-" + callID, Contents: tool.TextContents(text), IsError: false,
+			Terminate: false,
+			CallID:    callID, ToolName: "tool-" + callID, Contents: tool.TextContents(text), IsError: false,
 		}),
 	}
 }

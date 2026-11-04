@@ -58,7 +58,7 @@ func TestReturnedContextFailureDoesNotInvalidateExtension(t *testing.T) {
 	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(second, nil)
 	second.EXPECT().
 		Run(gomock.Any(), gomock.Any()).
-		Return(extensionpb.ToolResult_builder{Contents: nil, IsError: new(false)}.Build(), nil)
+		Return(extensionpb.ToolResult_builder{Contents: nil, IsError: new(false), Terminate: nil}.Build(), nil)
 	second.EXPECT().Release()
 	connection := openContextTestConnection(t, service, host)
 	register := new(extensionpb.HostRequest)

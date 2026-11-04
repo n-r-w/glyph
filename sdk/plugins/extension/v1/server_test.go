@@ -171,7 +171,9 @@ func TestServerPublishesRegistrationBeforeSuccessfulSendReturns(t *testing.T) {
 		register.EXPECT().Release()
 		service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(execute, nil)
 		execute.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-			extensionpb.ToolResult_builder{IsError: new(false), Contents: validTextContents("completed")}.Build(), nil,
+			extensionpb.ToolResult_builder{
+				Terminate: nil, IsError: new(false), Contents: validTextContents("completed"),
+			}.Build(), nil,
 		)
 		execute.EXPECT().Release()
 		stream.EXPECT().Context().AnyTimes().Return(t.Context())
@@ -232,7 +234,8 @@ func TestServerProcessesCancellationWhileTargetRunIsBlocked(t *testing.T) {
 		"completed": {
 			outcome: func(context.Context) (*extensionpb.ToolResult, error) {
 				return extensionpb.ToolResult_builder{
-					IsError: new(false), Contents: validTextContents("completed"),
+					Terminate: nil,
+					IsError:   new(false), Contents: validTextContents("completed"),
 				}.Build(), nil
 			},
 			expectedState: operationpb.TerminalState_TERMINAL_STATE_COMPLETED,

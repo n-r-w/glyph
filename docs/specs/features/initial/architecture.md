@@ -171,7 +171,7 @@ The architecture keeps one `glyph` process and separate project roots for Host a
     - device/ - controlling-terminal file acquisition and cleanup
 - testdata/external-plugins/ - separate Go module of test extensions and a test UI plugin that are built independently of the Host
   - cmd/wire/, cmd/context/, cmd/input/, cmd/finalized/, cmd/toolpolicy/, cmd/tooloverride/ - public middleware reference extensions that import only the generated Extension Contract and the Extension SDK
-  - cmd/toolbatch/ - public tool-concurrency fixture with test-controlled completion signals
+  - cmd/toolbatch/ - public tool-concurrency and terminating-output fixture with test-controlled completion signals
 - docs/specs/features/initial/architecture.md - target architecture authority
 ```
 
@@ -236,7 +236,9 @@ The architecture keeps one `glyph` process and separate project roots for Host a
 ### Tool flow
 
 - STP-06: Agent Core groups model-requested tool calls according to their concurrency declarations ([D5](phases/09-tool-middleware-run-control/solution.md#d5-concurrent-tool-batches)) and submits each call through APC-03. Host resolves the active tool and its availability, applies the ordered tool-policy handlers through CMP-08 with a schema validation of each input replacement, validates the final input, and calls the owning extension runtime. A rejection returns an error result with the policy-rejection category without running the tool, and a handler failure or an invalid action fails the agent run ([D1](phases/09-tool-middleware-run-control/solution.md#d1-tool-policy-through-a-tool-call-handler-chain)).
-- STP-07: Host returns the tool result to Agent Core. Agent Core obtains the final value of that result from finalized-message handlers through APC-04 before it emits that call's execution-end event; these handlers act as the tool-result handlers and receive the original and the current result. Execution-end events carry finalized results as each call finishes. When all calls in the group are complete, Agent Core appends results and emits `tool_result` events in source-call order. Agent Core keeps this order in the next model request. Host gives each error result a Glyph error category from a closed set, and a handler that copies the current value and changes only its text keeps the category; see [D2](phases/09-tool-middleware-run-control/solution.md#d2-error-category-and-the-terminate-flag-in-tool-results).
+- STP-07: Host returns the tool result to Agent Core. Agent Core obtains the final value of that result from finalized-message handlers through APC-04 before it emits that call's execution-end event; these handlers act as the tool-result handlers and receive the original and the current result. Execution-end events carry finalized results as each call finishes. When all calls in the group are complete, Agent Core appends results and emits `tool_result` events in source-call order. Agent Core keeps this order in the next model request. Host gives each error result a Glyph error category from a closed set, and a handler that copies the current value and changes only its text keeps the category and the transient `terminate` flag; see [D2](phases/09-tool-middleware-run-control/solution.md#d2-error-category-and-the-terminate-flag-in-tool-results).
+
+After the complete batch, Agent Core uses the finalized results for the completion decision in [D6](phases/09-tool-middleware-run-control/solution.md#d6-message-queue-in-agent-core). [D2](phases/09-tool-middleware-run-control/solution.md#d2-error-category-and-the-terminate-flag-in-tool-results) defines the transient flag's contract projections and persistence exclusion.
 
 ### Extension flow
 

@@ -109,6 +109,8 @@ func rejectFirstProviderRequest(position int) (*http.Response, error) {
 
 // finalizedObservation is the public result of one Programmatic user request.
 type finalizedObservation struct {
+	// outcome is the terminal Agent Core outcome observed by the client.
+	outcome programmaticv1.RunOutcome
 	// code is the failure category; empty means completion.
 	code string
 	// message is the complete failure text.
@@ -128,6 +130,7 @@ func observeFinalizedRequest(t *testing.T, fixture *programmaticFixture, operati
 	t.Helper()
 	observation := finalizedObservation{
 		code: "", message: "", canceled: false, events: make(map[programmaticv1.AgentEventType][]string),
+		outcome:   programmaticv1.RunOutcome_RUN_OUTCOME_UNSPECIFIED,
 		arguments: nil, toolResults: make(map[programmaticv1.AgentEventType][]*programmaticv1.ToolResult),
 	}
 	for {
@@ -155,6 +158,8 @@ func observeFinalizedRequest(t *testing.T, fixture *programmaticFixture, operati
 func (observation *finalizedObservation) record(event *programmaticv1.AgentEvent) {
 	//nolint:exhaustive // Only completion events carry final message values.
 	switch event.GetType() {
+	case programmaticv1.AgentEventType_AGENT_EVENT_TYPE_AGENT_END:
+		observation.outcome = event.GetAgent().GetOutcome()
 	case programmaticv1.AgentEventType_AGENT_EVENT_TYPE_MESSAGE_END:
 		observation.events[event.GetType()] = append(
 			observation.events[event.GetType()],

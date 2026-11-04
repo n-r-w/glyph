@@ -92,7 +92,13 @@ func finalizationResponse(outcome model.Outcome, content ...model.Content) model
 
 // textResult creates a successful tool result with one text block.
 func textResult(call model.ToolCall, text string) agent.ToolResult {
-	return agent.ToolResult{CallID: call.ID, ToolName: call.Name, Contents: tool.TextContents(text), IsError: false}
+	return agent.ToolResult{
+		Terminate: false,
+		CallID:    call.ID,
+		ToolName:  call.Name,
+		Contents:  tool.TextContents(text),
+		IsError:   false,
+	}
 }
 
 // modelHistory wraps a model response in a history entry.
@@ -167,7 +173,8 @@ func TestRunFinalizesLengthToolErrors(t *testing.T) {
 	call := model.ToolCall{ID: "call", Name: "read", Arguments: testToolCallArguments(`{}`)}
 	response := finalizationResponse(model.OutcomeLength, testCallItem(call))
 	generated := agent.ToolResult{
-		CallID: "call", ToolName: "read", Contents: tool.TextContents(lengthCallMessage), IsError: true,
+		Terminate: false,
+		CallID:    "call", ToolName: "read", Contents: tool.TextContents(lengthCallMessage), IsError: true,
 		ErrorCategory: mo.None[agent.ToolErrorCategory](),
 	}
 	finalResult := textResult(call, "final skipped")

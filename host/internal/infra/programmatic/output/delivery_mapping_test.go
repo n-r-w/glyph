@@ -196,9 +196,10 @@ func TestDeliveryMapsEveryAgentEvent(t *testing.T) {
 	mappedResponse, err := controller.MapModelResponseProjection(response)
 	require.NoError(t, err)
 	toolResult := agent.ToolResult{
-		IsError:  false,
-		CallID:   "call",
-		ToolName: "tool",
+		Terminate: false,
+		IsError:   false,
+		CallID:    "call",
+		ToolName:  "tool",
 		Contents: []tool.ResultContent{
 			{
 				Kind:  tool.ResultContentText,

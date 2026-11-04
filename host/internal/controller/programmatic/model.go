@@ -466,6 +466,8 @@ type ToolResultContent struct {
 
 // ToolResult is one complete public tool result.
 type ToolResult struct {
+	// Terminate is the transient completion signal of the finalized result.
+	Terminate bool
 	// CallID identifies the model-requested tool call.
 	CallID string
 	// ToolName identifies the executed tool.

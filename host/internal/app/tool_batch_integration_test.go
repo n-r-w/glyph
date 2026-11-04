@@ -80,6 +80,7 @@ func TestPublicConcurrentToolBatch(t *testing.T) {
 	done := make(chan finalizedObservation, 1)
 	go func() {
 		observation := finalizedObservation{
+			outcome:     programmaticv1.RunOutcome_RUN_OUTCOME_UNSPECIFIED,
 			code:        "",
 			message:     "",
 			canceled:    false,

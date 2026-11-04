@@ -81,7 +81,8 @@ func TestAppendUsesCurrentActiveLeafForEverySupportedEntry(t *testing.T) {
 	require.NoError(t, service.Append(t.Context(), agent.HistoryEntry{
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		ToolResult: mo.Some(agent.ToolResult{
-			CallID: "call", ToolName: "tool", Contents: tool.TextContents("result"), IsError: false,
+			Terminate: false,
+			CallID:    "call", ToolName: "tool", Contents: tool.TextContents("result"), IsError: false,
 		}),
 	}))
 	service.contextIdentity.Store(&session.Identity{

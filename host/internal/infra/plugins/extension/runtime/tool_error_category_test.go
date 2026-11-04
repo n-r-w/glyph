@@ -22,14 +22,14 @@ func categorizedToolHistory(category mo.Option[agent.ToolErrorCategory]) agent.H
 		Kind: agent.HistoryEntryToolResult, User: mo.None[model.Message](), Model: mo.None[model.Response](),
 		ToolResult: mo.Some(agent.ToolResult{
 			CallID: "call", ToolName: "read", Contents: tool.TextContents("failed"), IsError: true,
-			ErrorCategory: category,
+			ErrorCategory: category, Terminate: true,
 		}),
 	}
 }
 
 // TestToolErrorCategorySurvivesPublicRoundTrip verifies that the category of a tool result reaches a handler through
 // the shared session-tree message, stays with a copy that changes only the text, and comes back with the replay
-// restoration of context history.
+// restoration of context history, together with the transient completion flag.
 func TestToolErrorCategorySurvivesPublicRoundTrip(t *testing.T) {
 	t.Parallel()
 	for name, category := range map[string]mo.Option[agent.ToolErrorCategory]{
@@ -68,6 +68,8 @@ func TestToolErrorCategorySurvivesPublicRoundTrip(t *testing.T) {
 			require.NoError(t, projectErr)
 			require.NoError(t, restoreErr)
 			assert.Equal(t, category.IsPresent(), copied.HasErrorCategory())
+			assert.True(t, copied.GetTerminate())
+			assert.True(t, replaced.Replacement.ToolResult.OrEmpty().Terminate)
 			assert.Equal(t, category, replaced.Replacement.ToolResult.OrEmpty().ErrorCategory)
 			assert.Equal(t, "changed", replaced.Replacement.ToolResult.OrEmpty().Contents[0].Text.OrEmpty())
 			assert.Equal(t, []agent.HistoryEntry{entry}, restored)

@@ -148,6 +148,7 @@ func richRequest(provider model.ProviderID, modelID model.ID) modelexecution.Pro
 				Kind: agent.HistoryEntryToolResult,
 				ToolResult: mo.Some(agent.ToolResult{
 					CallID:        "call-old",
+					Terminate:     false,
 					ToolName:      "read",
 					Contents:      tool.TextContents("done"),
 					IsError:       false,

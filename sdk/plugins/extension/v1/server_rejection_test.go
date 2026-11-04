@@ -168,7 +168,9 @@ func TestServerExecutePreservesAcceptedArgumentBytes(t *testing.T) {
 				},
 			)
 			execute.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-				extensionpb.ToolResult_builder{IsError: new(false), Contents: validTextContents("done")}.Build(), nil,
+				extensionpb.ToolResult_builder{
+					Terminate: nil, IsError: new(false), Contents: validTextContents("done"),
+				}.Build(), nil,
 			)
 			execute.EXPECT().Release()
 			stream.EXPECT().Context().AnyTimes().Return(t.Context())
@@ -258,7 +260,9 @@ func testServerRejectionThenSuccessfulExecute(
 	stream := NewMockExtensionService_OpenServer[extensionpb.OpenRequest, extensionpb.OpenResponse](controller)
 	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(execute, nil)
 	execute.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-		extensionpb.ToolResult_builder{IsError: new(false), Contents: validTextContents("done")}.Build(), nil,
+		extensionpb.ToolResult_builder{
+			Terminate: nil, IsError: new(false), Contents: validTextContents("done"),
+		}.Build(), nil,
 	)
 	execute.EXPECT().Release()
 	stream.EXPECT().Context().AnyTimes().Return(t.Context())
@@ -313,14 +317,17 @@ func testServerRejectsActiveDuplicateThenSucceeds(t *testing.T) {
 			close(runStarted)
 			<-releaseRun
 			return extensionpb.ToolResult_builder{
-				IsError: new(false), Contents: validTextContents("first"),
+				Terminate: nil,
+				IsError:   new(false), Contents: validTextContents("first"),
 			}.Build(), nil
 		},
 	)
 	blocked.EXPECT().Release()
 	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(later, nil)
 	later.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-		extensionpb.ToolResult_builder{IsError: new(false), Contents: validTextContents("later")}.Build(), nil,
+		extensionpb.ToolResult_builder{
+			Terminate: nil, IsError: new(false), Contents: validTextContents("later"),
+		}.Build(), nil,
 	)
 	later.EXPECT().Release()
 	stream.EXPECT().Context().AnyTimes().Return(t.Context())
@@ -385,7 +392,9 @@ func testServerRejectsRepeatedRegisterThenSucceeds(t *testing.T) {
 	register.EXPECT().Release()
 	service.EXPECT().PrepareExecute(gomock.Any(), gomock.Any()).Return(execute, nil)
 	execute.EXPECT().Run(gomock.Any(), gomock.Any()).Return(
-		extensionpb.ToolResult_builder{IsError: new(false), Contents: validTextContents("later")}.Build(), nil,
+		extensionpb.ToolResult_builder{
+			Terminate: nil, IsError: new(false), Contents: validTextContents("later"),
+		}.Build(), nil,
 	)
 	execute.EXPECT().Release()
 	stream.EXPECT().Context().AnyTimes().Return(t.Context())

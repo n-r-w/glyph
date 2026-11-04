@@ -81,10 +81,11 @@ func (s *requestEncodingSuite) TestMalformedConversation() {
 	entry.History.Kind = agent.HistoryEntryToolResult
 	entry.History.ToolResult = mo.Some(
 		agent.ToolResult{
-			CallID:   "",
-			ToolName: "",
-			Contents: []tool.ResultContent{{Kind: 0, Text: mo.None[string](), Image: mo.None[tool.ResultImage]()}},
-			IsError:  false,
+			Terminate: false,
+			CallID:    "",
+			ToolName:  "",
+			Contents:  []tool.ResultContent{{Kind: 0, Text: mo.None[string](), Image: mo.None[tool.ResultImage]()}},
+			IsError:   false,
 		},
 	)
 	_, err = MapPreparedCompactionHistory(session.PreparedHistory{entry})

@@ -36,6 +36,8 @@ const (
 	blockMode = "finalized-block"
 	// categoryMode replaces the first tool result completely with an error result of the tool-failure category.
 	categoryMode = "finalized-category"
+	// terminateCategoryMode supplies a terminating complete replacement.
+	terminateCategoryMode = "finalized-terminate-category"
 	// badCategoryMode replaces the first tool result with a category outside the closed set.
 	badCategoryMode = "finalized-bad-category"
 	// replacementText is the text of the complete tool-result replacement of the category scenarios.
@@ -90,7 +92,8 @@ func (o *operation) mark(
 		if o.service.mode == failToolMode && firstTool {
 			return handlerError(), nil
 		}
-		if firstTool && (o.service.mode == categoryMode || o.service.mode == badCategoryMode) {
+		if firstTool &&
+			(o.service.mode == categoryMode || o.service.mode == badCategoryMode || o.service.mode == terminateCategoryMode) {
 			return replace(toolEntry(buildReplacementResult(current.GetToolResult(), o.service.mode))), nil
 		}
 		return replace(toolEntry(markTool(current.GetToolResult()))), nil
@@ -200,6 +203,7 @@ func buildReplacementResult(
 	return extensionpb.SessionTreeToolResult_builder{
 		CallId: new(current.GetCallId()), ToolName: new(current.GetToolName()),
 		Contents: []*extensionpb.ToolResultContent{text}, IsError: new(true), ErrorCategory: new(category),
+		Terminate: new(mode == terminateCategoryMode),
 	}.Build()
 }
 

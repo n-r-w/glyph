@@ -291,7 +291,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, tool.Result{
 		Contents: tool.TextContents("first\nsecond\n"),
-		IsError:  false,
+		IsError:  false, Terminate: false,
 	}, result)
 
 	// Act: replace one unique fragment through the production edit tool.
@@ -368,7 +368,7 @@ func TestRuntimeWithRealGlyphTools(t *testing.T) {
 	// Assert: active cancellation joins the real bundled process without stopping the extension runtime.
 	select {
 	case execution := <-executionChannel:
-		assert.Equal(t, tool.Result{Contents: nil, IsError: false}, execution.result)
+		assert.Equal(t, tool.Result{Contents: nil, IsError: false, Terminate: false}, execution.result)
 		require.ErrorIs(t, execution.err, context.Canceled)
 	case <-time.After(processOperationTimeout):
 		require.FailNow(t, "glyph-tools did not stop the blocking bash process after cancellation")
@@ -499,7 +499,7 @@ func TestRuntimePropagatesActiveCancellation(t *testing.T) {
 	require.ErrorIs(t, execution.err, context.Canceled)
 	assert.Equal(t, tool.Result{
 		Contents: nil,
-		IsError:  false,
+		IsError:  false, Terminate: false,
 	}, execution.result)
 	assertRuntimeRunning(t, runtime)
 }
@@ -792,7 +792,7 @@ func TestRuntimeRejectsExecutionProtocolViolations(t *testing.T) {
 			}
 
 			// Assert: reject the violating connection and expose the exact protocol cause.
-			assert.Equal(t, tool.Result{Contents: nil, IsError: false}, result)
+			assert.Equal(t, tool.Result{Contents: nil, IsError: false, Terminate: false}, result)
 			require.Error(t, err)
 			require.ErrorIs(t, err, extensionruntime.ErrExtensionUnavailable)
 			require.ErrorContains(t, err, "extension protocol violation")
@@ -1060,7 +1060,7 @@ func TestRuntimeProgressDeliveryFailurePreservesProcess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, tool.Result{
 		Contents: tool.TextContents("done"),
-		IsError:  false,
+		IsError:  false, Terminate: false,
 	}, result)
 }
 
@@ -1110,7 +1110,7 @@ func TestRuntimeForwardsProgress(t *testing.T) {
 	}}, progress)
 	assert.Equal(t, tool.Result{
 		Contents: tool.TextContents("done"),
-		IsError:  false,
+		IsError:  false, Terminate: false,
 	}, result)
 }
 
@@ -1338,7 +1338,7 @@ func (operation *protocolExecuteOperation) Run(
 			//nolint:exhaustruct_v5 // The content builder sets only text.
 			extensionpb.ToolResultContent_builder{Text: new("done")}.Build(),
 		},
-		IsError: new(false),
+		IsError: new(false), Terminate: nil,
 	}.Build()
 
 	switch operation.service.mode {

@@ -15,7 +15,7 @@ import (
 )
 
 // TestMapToolResultPreservesErrorCategory verifies that the public tool result carries the category of every member
-// of the closed set and none for a result without a category.
+// of the closed set and none for a result without a category, together with the transient completion flag.
 func TestMapToolResultPreservesErrorCategory(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
@@ -47,7 +47,7 @@ func TestMapToolResultPreservesErrorCategory(t *testing.T) {
 			// Arrange a domain error result with the scenario category.
 			result := agent.ToolResult{
 				CallID: "call", ToolName: "read", Contents: tool.TextContents("text"), IsError: true,
-				ErrorCategory: test.category,
+				ErrorCategory: test.category, Terminate: true,
 			}
 
 			// Act through the public projection and the protobuf mapping.
@@ -56,6 +56,7 @@ func TestMapToolResultPreservesErrorCategory(t *testing.T) {
 			// Assert the presence and value of the wire category.
 			require.NoError(t, err)
 			assert.True(t, mapped.GetIsError())
+			assert.True(t, mapped.GetTerminate())
 			category, present := test.want.Get()
 			assert.Equal(t, present, mapped.HasErrorCategory())
 			assert.Equal(t, category, mapped.GetErrorCategory())
@@ -69,7 +70,8 @@ func TestMapToolResultRejectsUnknownErrorCategory(t *testing.T) {
 
 	// Arrange a public result with a category outside the closed set.
 	result := MapToolResult(agent.ToolResult{
-		CallID: "call", ToolName: "read", Contents: tool.TextContents("text"), IsError: true,
+		Terminate: false,
+		CallID:    "call", ToolName: "read", Contents: tool.TextContents("text"), IsError: true,
 		ErrorCategory: mo.Some(agent.ToolErrorCategory(99)),
 	})
 

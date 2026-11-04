@@ -69,7 +69,8 @@ func TestImageByteSliceStateRoundTrip(t *testing.T) {
 				User:        mo.None[session.UserMessage](),
 				Model:       mo.None[session.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
-					CallID: "call", ToolName: "render", IsError: false,
+					Terminate: false,
+					CallID:    "call", ToolName: "render", IsError: false,
 					Contents: []tool.ResultContent{{
 						Kind: tool.ResultContentImage, Text: mo.None[string](),
 						Image: mo.Some(tool.ResultImage{MediaType: "image/png", Data: test.data}),
@@ -207,7 +208,8 @@ func TestToolResultContentsSliceStateRoundTrip(t *testing.T) {
 				User:        mo.None[session.UserMessage](),
 				Model:       mo.None[session.ModelResponse](),
 				ToolResult: mo.Some(agent.ToolResult{
-					CallID: "call", ToolName: "tool", Contents: test.contents, IsError: false,
+					Terminate: false,
+					CallID:    "call", ToolName: "tool", Contents: test.contents, IsError: false,
 				}),
 				Extension:        mo.None[session.ExtensionEnvelope](),
 				EstimatedCost:    mo.None[session.EstimatedCost](),

@@ -446,7 +446,7 @@ func (operation *executeOperation) Run(
 				//nolint:exhaustruct_v5 // The public builder sets only the active text field.
 				extensionv1.ToolResultContent_builder{Text: new("ordinary complete")}.Build(),
 			},
-			IsError: new(false),
+			IsError: new(false), Terminate: nil,
 		}.Build(), nil
 	case cataloguesMode:
 		return readCatalogues(ctx)

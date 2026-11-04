@@ -68,7 +68,7 @@ func catalogueTextResult(encoded []byte) *extensionv1.ToolResult {
 	return extensionv1.ToolResult_builder{Contents: []*extensionv1.ToolResultContent{
 		//nolint:exhaustruct_v5 // Only the active text result is populated.
 		extensionv1.ToolResultContent_builder{Text: new(string(encoded))}.Build(),
-	}, IsError: new(false)}.Build()
+	}, IsError: new(false), Terminate: nil}.Build()
 }
 
 // selectWithRetainedContext reports selection rejection through the extension's first binding.

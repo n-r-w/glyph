@@ -337,7 +337,8 @@ func newExecutingTools(t *testing.T) *MockToolRuntime {
 	tools.EXPECT().Tools().Return(nil).AnyTimes()
 	tools.EXPECT().Execute(gomock.Any(), returnedToolCall, gomock.Any()).Return(
 		agent.ToolResult{
-			CallID: returnedToolCall.ID, ToolName: returnedToolCall.Name,
+			Terminate: false,
+			CallID:    returnedToolCall.ID, ToolName: returnedToolCall.Name,
 			Contents: tool.TextContents("ok"), IsError: false,
 		}, nil,
 	)

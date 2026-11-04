@@ -275,6 +275,7 @@ func DecodeSessionTreeToolResult(result *extensionpb.SessionTreeToolResult) (age
 		Contents:      contents,
 		IsError:       result.GetIsError(),
 		ErrorCategory: category,
+		Terminate:     result.GetTerminate(),
 	}
 	if validationErr := decoded.ValidateErrorCategory(); validationErr != nil {
 		return agent.ToolResult{}, validationErr

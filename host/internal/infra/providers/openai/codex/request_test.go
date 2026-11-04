@@ -189,10 +189,11 @@ func TestDriverStreamSendsOrderedStrictRequestAndPreservesOutput(t *testing.T) {
 			Model: mo.None[model.Response](),
 			Kind:  agent.HistoryEntryToolResult,
 			ToolResult: mo.Some(agent.ToolResult{
-				CallID:   "call-old",
-				ToolName: "read",
-				Contents: tool.TextContents("old data"),
-				IsError:  false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
+				CallID:    "call-old",
+				Terminate: false,
+				ToolName:  "read",
+				Contents:  tool.TextContents("old data"),
+				IsError:   false, ErrorCategory: mo.None[agent.ToolErrorCategory](),
 			}),
 		},
 		{

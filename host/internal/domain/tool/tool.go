@@ -120,6 +120,8 @@ type Progress struct {
 
 // Result is one terminal tool-execution outcome.
 type Result struct {
+	// Terminate requests completion of the current run after the tool batch.
+	Terminate bool
 	// Contents contains ordered terminal result blocks.
 	Contents []ResultContent
 	// IsError reports whether tool execution failed.

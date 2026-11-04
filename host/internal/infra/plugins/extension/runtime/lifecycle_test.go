@@ -50,7 +50,13 @@ func TestMapLifecycleEventCoversEveryObserverPayload(t *testing.T) {
 		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
 	call := model.ToolCall{ID: "call", Name: "tool", Arguments: testToolCallArguments(`{}`)}
-	result := agent.ToolResult{CallID: "call", ToolName: "tool", Contents: tool.TextContents("done"), IsError: false}
+	result := agent.ToolResult{
+		Terminate: false,
+		CallID:    "call",
+		ToolName:  "tool",
+		Contents:  tool.TextContents("done"),
+		IsError:   false,
+	}
 	tests := []struct {
 		name  string
 		event extensionruntime.LifecycleInvocation
@@ -213,7 +219,13 @@ func TestMapLifecyclePreservesNestedProviderNeutralContent(t *testing.T) {
 		Provider: mo.None[model.ProviderID](), Model: mo.None[model.ID](), ResponseModel: mo.None[model.ID](),
 		ResponseID: mo.None[string](), Usage: mo.None[model.Usage](), Diagnostics: nil,
 	}
-	result := agent.ToolResult{CallID: "call", ToolName: "tool", Contents: tool.TextContents("done"), IsError: false}
+	result := agent.ToolResult{
+		Terminate: false,
+		CallID:    "call",
+		ToolName:  "tool",
+		Contents:  tool.TextContents("done"),
+		IsError:   false,
+	}
 	turn := lifecycleSourceWithTurn(response)
 	turn.TurnResults = []agent.ToolResult{result}
 	progress := lifecycleSourceWithProgress()

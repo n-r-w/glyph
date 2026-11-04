@@ -12,11 +12,15 @@ A replacement has the role of the original message. Each role has its own replac
 | --- | --- | --- |
 | User message | Contain at least one block; each text block is nonempty, and each image has a media type and data | Nothing else; the replacement is the complete message |
 | Model response | Contain the tool calls of the original in the same order, with the same call identifiers and names; only their arguments can change | Outcome, error message, provider, configured model, reported model, response identifier, usage and diagnostics of the original |
-| Tool result | Keep the call identifier and the tool name of the original; each image has a media type and data | Nothing else; the content and the error flag come from the replacement |
+| Tool result | Keep the call identifier and the tool name of the original; each image has a media type and data | Nothing else; the content, error flag, category and `terminate` come from the replacement |
 
 A replacement of another role, a changed tool call, or an invalid reference is an invalid action.
 
 A tool result carries the Glyph error category of an error result in `SessionTreeToolResult.error_category`, from the closed set unavailable tool, invalid arguments, tool failure and policy rejection (see [D2](../specs/features/initial/phases/09-tool-middleware-run-control/solution.md#d2-error-category-and-the-terminate-flag-in-tool-results)). A handler that copies the current value and changes only the text keeps the category, because a replacement is always complete and sets the category it carries. A category outside the closed set, or a category on a result that is not an error, is an invalid action. Host also adds the category to the model-visible text of the result when it prepares each model request, before the [model-context handlers](context-middleware.md) run, so the model sees it whatever text the handler wrote.
+
+`SessionTreeToolResult.terminate` is a transient completion signal. A handler that copies the current result and changes its text keeps the flag. A complete replacement supplies its own flag and category. For example, copying a result with `terminate=true` and appending ` [reviewed]` keeps `true`; replacing it with a result whose flag is `false` removes the completion signal.
+
+Agent Core applies the completion and queued-message rules in [D6](../specs/features/initial/phases/09-tool-middleware-run-control/solution.md#d6-message-queue-in-agent-core) after the complete batch. [D2](../specs/features/initial/phases/09-tool-middleware-run-control/solution.md#d2-error-category-and-the-terminate-flag-in-tool-results) defines the flag's public projections and persistence exclusion. For example, Programmatic Control can report `terminate=true` in a tool-result event, while the same result restored from session storage has `terminate=false`.
 
 For example, a handler can append ` [reviewed]` to each text block of a model response. The session then stores the marked text, the client events `MESSAGE_END` and `TURN_END` show it, and the next model request contains it. The provider identity and the token usage of the response stay unchanged.
 

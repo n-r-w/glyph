@@ -48,9 +48,10 @@ func maximalFinalToolCall() FinalToolCall {
 
 func maximalToolResult() ToolResult {
 	return ToolResult{
-		CallID:   "call",
-		ToolName: "tool",
-		IsError:  true,
+		Terminate: false,
+		CallID:    "call",
+		ToolName:  "tool",
+		IsError:   true,
 		Contents: []ToolResultContent{
 			{
 				Kind:  ToolResultContentText,

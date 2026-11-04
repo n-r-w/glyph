@@ -133,7 +133,7 @@ func (r *Runtime) Execute(
 	if err != nil {
 		return tool.Result{}, errors.Join(waitErr, r.protocolViolation(err))
 	}
-	return tool.Result{Contents: contents, IsError: result.GetIsError()}, waitErr
+	return tool.Result{Contents: contents, IsError: result.GetIsError(), Terminate: result.GetTerminate()}, waitErr
 }
 
 // executionFailureFormat supplies the tool identifier in execution diagnostics.
