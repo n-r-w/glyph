@@ -125,7 +125,7 @@ func runUIWithPaths(
 	selectionOwner.BindProtection(contexts)
 	selectionOwner.BindObserver(lifecycleObservers)
 	bindExtensionHostFactory(
-		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution,
+		extensionFactory, extensions, extensionModels, contexts, selectionOwner, modelExecution, tools,
 		sessionServices.gate,
 	)
 	startupService := startup.New(extensions, tools, sessionServices.tree, lifecycleObservers, selectionOwner)

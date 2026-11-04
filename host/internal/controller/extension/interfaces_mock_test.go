@@ -17,6 +17,7 @@ import (
 	extension "github.com/n-r-w/glyph/host/internal/domain/extension"
 	model "github.com/n-r-w/glyph/host/internal/domain/model"
 	session "github.com/n-r-w/glyph/host/internal/domain/session"
+	tool "github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionv1 "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionv10 "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
 	mo "github.com/samber/mo"
@@ -90,6 +91,44 @@ func (m *MockModelOperations) Request(ctx context.Context, extensionID, runtimeI
 func (mr *MockModelOperationsMockRecorder) Request(ctx, extensionID, runtimeID, reference, selection, instructions, history, progress any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Request", reflect.TypeOf((*MockModelOperations)(nil).Request), ctx, extensionID, runtimeID, reference, selection, instructions, history, progress)
+}
+
+// MockToolCatalog is a mock of ToolCatalog interface.
+type MockToolCatalog struct {
+	ctrl     *gomock.Controller
+	recorder *MockToolCatalogMockRecorder
+	isgomock struct{}
+}
+
+// MockToolCatalogMockRecorder is the mock recorder for MockToolCatalog.
+type MockToolCatalogMockRecorder struct {
+	mock *MockToolCatalog
+}
+
+// NewMockToolCatalog creates a new mock instance.
+func NewMockToolCatalog(ctrl *gomock.Controller) *MockToolCatalog {
+	mock := &MockToolCatalog{ctrl: ctrl}
+	mock.recorder = &MockToolCatalogMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockToolCatalog) EXPECT() *MockToolCatalogMockRecorder {
+	return m.recorder
+}
+
+// RegisteredTools mocks base method.
+func (m *MockToolCatalog) RegisteredTools() []tool.RegisteredTool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "RegisteredTools")
+	ret0, _ := ret[0].([]tool.RegisteredTool)
+	return ret0
+}
+
+// RegisteredTools indicates an expected call of RegisteredTools.
+func (mr *MockToolCatalogMockRecorder) RegisteredTools() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisteredTools", reflect.TypeOf((*MockToolCatalog)(nil).RegisteredTools))
 }
 
 // MockCompactionGate is a mock of CompactionGate interface.

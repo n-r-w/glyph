@@ -78,6 +78,7 @@ func startLiveCallerFixture(t *testing.T, paths persistence.Paths, directory str
 		contexts,
 		selection,
 		modelExecution,
+		tools,
 		sessionServices.gate,
 	)
 	startupService := startup.New(runtimes, tools, sessionServices.tree, observers, selection)

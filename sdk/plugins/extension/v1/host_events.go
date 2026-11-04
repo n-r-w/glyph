@@ -21,6 +21,8 @@ const (
 	hostRequestModels
 	// hostRequestProviders identifies provider-identifier catalog reads.
 	hostRequestProviders
+	// hostRequestTools identifies reads of the registered tools.
+	hostRequestTools
 	// hostRequestConfiguredModel identifies explicit configured-model requests.
 	hostRequestConfiguredModel
 	// hostRequestAppendExtension identifies model-hidden session appends.
@@ -175,6 +177,14 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 		hostRequestProviders: {
 			requestCase: int(extensionpb.ExtensionRequest_GetProviders_case),
 			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetGetProviders() != nil },
+			validate:    mo.None[hostCompletionValidator](),
+			failures:    nil,
+			progress:    mo.None[hostProgressPredicate](),
+			selection:   false,
+		},
+		hostRequestTools: {
+			requestCase: int(extensionpb.ExtensionRequest_GetTools_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetGetTools() != nil },
 			validate:    mo.None[hostCompletionValidator](),
 			failures:    nil,
 			progress:    mo.None[hostProgressPredicate](),

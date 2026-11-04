@@ -320,13 +320,15 @@ func TestServiceUsesOneAvailabilityDecisionPerExtensionSnapshot(t *testing.T) {
 		return availabilityCalls == 1
 	})
 
-	// Act by taking one tool snapshot.
+	// Act by reading two snapshots across a runtime availability change.
 	listed := service.Tools()
+	registered := service.RegisteredTools()
 
-	// Assert the first availability decision applies to both sorted tools.
+	// Assert each snapshot uses one owner decision and the catalog observes the changed availability.
 	require.Len(t, listed, 2)
 	assert.Equal(t, []string{"read", "write"}, []string{listed[0].Name, listed[1].Name})
-	assert.Equal(t, 1, availabilityCalls)
+	assert.Empty(t, registered)
+	assert.Equal(t, 2, availabilityCalls)
 }
 
 // TestServiceReturnsUnavailableResult verifies missing and unavailable owners remain model-visible errors.

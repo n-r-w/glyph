@@ -26,10 +26,15 @@ type contextRequest struct {
 
 // newContextRequest constructs the operation selector for admission.
 func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
-	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
 	if request == nil {
-		return mapped, errors.New("extension context request is required")
+		return contextRequest{}, errors.New("extension context request is required")
 	}
+	return newSelectedContextRequest(request)
+}
+
+// newSelectedContextRequest maps the selected operation to its context admission and action.
+func newSelectedContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
+	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
 	switch request.WhichRequest() {
 	case extensionpb.ExtensionRequest_GetModels_case:
 		mapped.reference = request.GetGetModels().GetContext()
@@ -40,6 +45,11 @@ func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 		mapped.reference = request.GetGetProviders().GetContext()
 		mapped.prepare = func(o *contextOperation) (contextAction, error) {
 			return contextReadAction(o.runProviderCatalog), nil
+		}
+	case extensionpb.ExtensionRequest_GetTools_case:
+		mapped.reference = request.GetGetTools().GetContext()
+		mapped.prepare = func(o *contextOperation) (contextAction, error) {
+			return contextReadAction(o.runToolCatalog), nil
 		}
 	case extensionpb.ExtensionRequest_ConfiguredModel_case:
 		return newConfiguredContextRequest(mapped, request.GetConfiguredModel())

@@ -246,3 +246,11 @@ func (o *contextOperation) runProviderCatalog(ctx context.Context) (*extensionpb
 	result.SetGetProviders(mapProviderCatalog(providers))
 	return result, nil
 }
+
+// runToolCatalog returns the registered tools with their active state.
+func (o *contextOperation) runToolCatalog(context.Context) (*extensionpb.HostCompleted, error) {
+	result := new(extensionpb.HostCompleted)
+	result.SetGetTools(mapToolCatalog(o.service.tools.RegisteredTools()))
+
+	return result, nil
+}

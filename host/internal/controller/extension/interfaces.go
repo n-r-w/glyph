@@ -14,6 +14,7 @@ import (
 	extensiondomain "github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/host/internal/domain/session"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 )
 
 //go:generate go tool mockgen -source=interfaces.go -destination=interfaces_mock_test.go -package=extension
@@ -54,6 +55,12 @@ type ModelOperations interface {
 		history []agent.HistoryEntry,
 		progress func(ConfiguredRetryProgress) error,
 	) (model.Response, error)
+}
+
+// ToolCatalog supplies the tools registered with Host.
+type ToolCatalog interface {
+	// RegisteredTools returns tools of available runtimes, sorted by name, with their owners and active-set membership.
+	RegisteredTools() []tool.RegisteredTool
 }
 
 // CompactionResult retains durable state across terminal observer or publication failures.

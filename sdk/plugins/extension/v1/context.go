@@ -46,6 +46,12 @@ type ProvidersOperation struct {
 	operation *contextOperation
 }
 
+// ToolsOperation owns one asynchronous read of available registered tools.
+type ToolsOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
 // ConfiguredModelOperation owns one asynchronous configured-model request.
 type ConfiguredModelOperation struct {
 	// operation owns the request lifecycle and local wait state.
@@ -123,6 +129,18 @@ func (c *ExtensionContext) StartGetProviders(ctx context.Context) (*ProvidersOpe
 		return nil, err
 	}
 	return &ProvidersOperation{operation: started}, nil
+}
+
+// StartGetTools starts a read of available registered tools with their active-set membership without waiting for
+// Host acceptance.
+func (c *ExtensionContext) StartGetTools(ctx context.Context) (*ToolsOperation, error) {
+	request := new(extensionpb.ExtensionRequest)
+	request.SetGetTools(extensionpb.GetToolsRequest_builder{Context: c.reference()}.Build())
+	started, err := c.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &ToolsOperation{operation: started}, nil
 }
 
 // StartConfiguredModel starts an explicit configured-model request without waiting for Host acceptance.
@@ -350,6 +368,15 @@ func (o *ProvidersOperation) Wait(ctx context.Context) (*extensionpb.GetProvider
 		return nil, err
 	}
 	return result.GetGetProviders(), nil
+}
+
+// Wait waits locally for the typed registered-tools result without canceling remote work.
+func (o *ToolsOperation) Wait(ctx context.Context) (*extensionpb.GetToolsResult, error) {
+	result, err := o.operation.wait(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return result.GetGetTools(), nil
 }
 
 // reference constructs the exact reference issued to this runtime.

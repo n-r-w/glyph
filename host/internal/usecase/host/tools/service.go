@@ -16,6 +16,7 @@ import (
 	"github.com/samber/mo"
 	"github.com/santhosh-tekuri/jsonschema/v6"
 
+	extensioncontroller "github.com/n-r-w/glyph/host/internal/controller/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/extension"
 	"github.com/n-r-w/glyph/host/internal/domain/model"
@@ -74,6 +75,7 @@ type Service struct {
 }
 
 var (
+	_ extensioncontroller.ToolCatalog      = (*Service)(nil)
 	_ modelexecution.ManualCompactionTools = (*Service)(nil)
 	_ run.ToolRuntime                      = (*Service)(nil)
 	_ startup.ToolRegistrar                = (*Service)(nil)
@@ -153,26 +155,39 @@ func (s *Service) ValidateLocal(registration startup.PendingRegistration) ([]too
 
 // Tools returns accepted descriptors whose owning runtime is available, sorted by name.
 func (s *Service) Tools() []tool.Descriptor {
+	registered := s.RegisteredTools()
+	result := make([]tool.Descriptor, 0, len(registered))
+	for index := range registered {
+		result = append(result, registered[index].Descriptor)
+	}
+	return result
+}
+
+// RegisteredTools returns accepted tools of available runtimes with their owners and active-set membership,
+// sorted by name.
+func (s *Service) RegisteredTools() []tool.RegisteredTool {
 	s.mutex.RLock()
-	owners := make([]*owner, 0, len(s.owners))
+	result := make([]tool.RegisteredTool, 0, len(s.owners))
 	for _, accepted := range s.owners {
-		owners = append(owners, accepted)
+		// Every tool is active until the active tool set can change.
+		result = append(result, tool.RegisteredTool{
+			Descriptor: accepted.descriptor, ExtensionID: accepted.extensionID, Active: true,
+		})
 	}
 	s.mutex.RUnlock()
-	result := make([]tool.Descriptor, 0, len(owners))
 	// Keep every tool from one extension on the same availability decision within this snapshot.
 	availability := make(map[string]bool)
-	for _, accepted := range owners {
-		available, checked := availability[accepted.extensionID]
+	result = slices.DeleteFunc(result, func(entry tool.RegisteredTool) bool {
+		available, checked := availability[entry.ExtensionID]
 		if !checked {
-			available = s.runtime.ToolRuntimeAvailable(accepted.extensionID)
-			availability[accepted.extensionID] = available
+			available = s.runtime.ToolRuntimeAvailable(entry.ExtensionID)
+			availability[entry.ExtensionID] = available
 		}
-		if available {
-			result = append(result, accepted.descriptor)
-		}
-	}
-	slices.SortFunc(result, func(left, right tool.Descriptor) int { return cmp.Compare(left.Name, right.Name) })
+		return !available
+	})
+	slices.SortFunc(result, func(left, right tool.RegisteredTool) int {
+		return cmp.Compare(left.Descriptor.Name, right.Descriptor.Name)
+	})
 	return result
 }
 

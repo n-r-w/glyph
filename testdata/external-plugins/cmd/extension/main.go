@@ -31,6 +31,8 @@ const (
 	ordinaryMode = "ordinary"
 	// cataloguesMode reads model and provider catalogs through the invocation context.
 	cataloguesMode = "catalogs"
+	// toolsMode reads the registered tools through the invocation context.
+	toolsMode = "tools"
 	// staleCataloguesMode exercises a retained binding instead of the current invocation binding.
 	staleCataloguesMode = "stale-catalogs"
 	// staleSelectionMode selects reasoning through a retained binding.
@@ -248,6 +250,7 @@ func (s *service) PrepareExecute(
 	switch arguments.Mode {
 	case ordinaryMode,
 		cataloguesMode,
+		toolsMode,
 		staleCataloguesMode,
 		staleSelectionMode,
 		configuredRequestMode,
@@ -438,6 +441,8 @@ func (operation *executeOperation) Run(
 		}.Build(), nil
 	case cataloguesMode:
 		return readCatalogues(ctx)
+	case toolsMode:
+		return readTools(ctx)
 	case staleCataloguesMode:
 		return operation.readRetainedCatalogues(ctx)
 	case staleSelectionMode:

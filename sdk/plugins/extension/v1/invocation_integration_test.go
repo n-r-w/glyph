@@ -47,10 +47,23 @@ func TestInvocationContextOwnsDifferentCallerContext(t *testing.T) {
 		})).DoAndReturn(func(context.Context, string, *extensionpb.ExtensionRequest) (HostOperation, error) {
 			child := NewMockHostOperation(mocks)
 			child.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
-				GetModels: new(extensionpb.GetModelsResult), GetProviders: nil, ConfiguredModel: nil, Cancel: nil,
-				AppendExtension: nil, GetSessionState: nil, AppendExtensionMessage: nil, Selection: nil, Compact: nil,
-				ProjectCompaction: nil, ReplaceCompaction: nil, InvokeCompactionRequest: nil,
-				InvokeCompactionGenerator: nil, InvokeCompactionResult: nil,
+				GetModels: new(
+					extensionpb.GetModelsResult,
+				),
+				GetProviders:              nil,
+				GetTools:                  nil,
+				ConfiguredModel:           nil,
+				Cancel:                    nil,
+				AppendExtension:           nil,
+				GetSessionState:           nil,
+				AppendExtensionMessage:    nil,
+				Selection:                 nil,
+				Compact:                   nil,
+				ProjectCompaction:         nil,
+				ReplaceCompaction:         nil,
+				InvokeCompactionRequest:   nil,
+				InvokeCompactionGenerator: nil,
+				InvokeCompactionResult:    nil,
 			}.Build(), nil)
 			child.EXPECT().Release()
 			return child, nil

@@ -114,6 +114,8 @@ message ExtensionRequest {
     InvokeCompactionGeneratorRequest invoke_compaction_generator = 15;
     // A request to invoke one captured result handler selected by the policy owner.
     InvokeCompactionResultRequest invoke_compaction_result = 16;
+    // A read of available registered tools with their active-set membership.
+    GetToolsRequest get_tools = 18;
   }
 }
 
@@ -173,6 +175,8 @@ message HostCompleted {
     CompactionResult invoke_compaction_generator = 13;
     // The action returned by the selected result handler.
     CompactionResultAction invoke_compaction_result = 14;
+    // The available registered tools with their active-set membership.
+    GetToolsResult get_tools = 15;
   }
 }
 

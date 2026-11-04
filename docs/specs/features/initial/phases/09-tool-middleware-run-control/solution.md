@@ -53,7 +53,9 @@ No rule depends on load order.
 
 This method serves FRQ-06.
 
-`tools.Service` keeps the set of active tool names in process memory. All tools are active by default. `Tools()` returns the tools that are available and active. Two new extension context operations read the registered tools with their active state and set the active tool set; an unknown name rejects the whole operation. Both operations use the ordinary context admission without the operation gate, so they work during an agent run, also from inside a tool or a handler of the calling extension.
+`tools.Service` keeps the set of active tool names in process memory. All available tools are active by default. `RegisteredTools()` returns only registered tools whose owning extension runtime is available, sorted by name, with their owner and active-set membership. Host makes one availability decision per extension within each snapshot. An unavailable runtime's tools disappear from the catalog. An available tool outside the active tool set remains in the catalog with `active=false`. `Tools()` returns the available tools that belong to the active tool set.
+
+Two new extension context operations read this catalog and set the active tool set; an unknown name rejects the whole update. Both operations use the ordinary context admission without the operation gate, so they work during an agent run, also from inside a tool or a handler of the calling extension. The [delivery plan](plan.md#u8---slice-read-the-tools) separates the catalog read in U8 from active-set updates in U9; until U9, every available tool is active.
 
 Agent Core already reads the tool list once at the start of each turn, and retries and overflow recovery do not read it again. A new set therefore applies from the next model request without another mechanism. A call to an inactive tool, for example from older history, receives the unavailable-tool result.
 

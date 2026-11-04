@@ -44,6 +44,8 @@ type Service struct {
 	compactionGate CompactionGate
 	// compactionPolicy supplies scoped projection, persistence, and nested lifetimes.
 	compactionPolicy CompactionPolicyOperations
+	// tools supplies the registered tools.
+	tools ToolCatalog
 	// extensionID comes from process discovery, never request payloads.
 	extensionID string
 	// runtimeID identifies the exact process incarnation connected to this controller.
@@ -67,6 +69,7 @@ func New(
 		compaction:       nil,
 		compactionGate:   nil,
 		compactionPolicy: nil,
+		tools:            nil,
 		extensionID:      extensionID,
 		runtimeID:        runtimeID,
 	}
@@ -81,6 +84,11 @@ func (s *Service) BindSelection(selection ModelSelection) {
 func (s *Service) BindCompaction(compaction CompactionOperations, gate CompactionGate) {
 	s.compaction = compaction
 	s.compactionGate = gate
+}
+
+// BindTools binds the registered tools before this controller becomes available to its stream.
+func (s *Service) BindTools(tools ToolCatalog) {
+	s.tools = tools
 }
 
 // BindPolicyOperations supplies operation-scoped compaction services.

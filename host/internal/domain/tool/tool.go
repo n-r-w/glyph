@@ -18,6 +18,16 @@ type Descriptor struct {
 	ReplacesTool bool
 }
 
+// RegisteredTool describes an available registered tool with its owner and active-set membership.
+type RegisteredTool struct {
+	// Descriptor describes the tool.
+	Descriptor Descriptor
+	// ExtensionID identifies the extension that owns the tool.
+	ExtensionID string
+	// Active reports whether the active tool set contains the tool.
+	Active bool
+}
+
 // ResultContentKind identifies one terminal tool result content block.
 type ResultContentKind uint8
 

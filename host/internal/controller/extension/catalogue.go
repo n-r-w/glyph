@@ -2,6 +2,7 @@ package extension
 
 import (
 	"github.com/n-r-w/glyph/host/internal/domain/model"
+	"github.com/n-r-w/glyph/host/internal/domain/tool"
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 )
 
@@ -96,4 +97,19 @@ func mapProviderCatalog(providers []Provider) *extensionpb.GetProvidersResult {
 		}.Build()
 	}
 	return extensionpb.GetProvidersResult_builder{Providers: mapped}.Build()
+}
+
+// mapToolCatalog exposes the name, description, owner, and active state of each registered tool.
+func mapToolCatalog(registered []tool.RegisteredTool) *extensionpb.GetToolsResult {
+	mapped := make([]*extensionpb.RegisteredTool, len(registered))
+	for index := range registered {
+		entry := &registered[index]
+		mapped[index] = extensionpb.RegisteredTool_builder{
+			Name:        new(entry.Descriptor.Name),
+			Description: new(entry.Descriptor.Description),
+			ExtensionId: new(entry.ExtensionID),
+			Active:      new(entry.Active),
+		}.Build()
+	}
+	return extensionpb.GetToolsResult_builder{Tools: mapped}.Build()
 }

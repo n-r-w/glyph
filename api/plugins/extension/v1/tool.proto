@@ -22,6 +22,30 @@ message ToolDescriptor {
   bool replaces_tool = 5;
 }
 
+// GetToolsRequest reads available registered tools with their active-set membership.
+message GetToolsRequest {
+  // The issued runtime-to-session binding.
+  ExtensionContextRef context = 1;
+}
+
+// GetToolsResult contains registered tools whose owning runtimes are available, sorted by name.
+message GetToolsResult {
+  // The available registered tools.
+  repeated RegisteredTool tools = 1;
+}
+
+// RegisteredTool describes one available registered tool and its active-set membership.
+message RegisteredTool {
+  // The unique tool name.
+  string name = 1;
+  // The model-visible description of the tool.
+  string description = 2;
+  // The identifier of the extension that owns the tool.
+  string extension_id = 3;
+  // True when the active tool set contains the tool.
+  bool active = 4;
+}
+
 // ConstrainedSampling requests provider-side constrained tool input generation.
 message ConstrainedSampling {
   // The selected constrained sampling strategy.
