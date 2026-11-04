@@ -23,6 +23,8 @@ const (
 	hostRequestProviders
 	// hostRequestTools identifies reads of the registered tools.
 	hostRequestTools
+	// hostRequestSetActiveTools identifies replacement of active tool selection.
+	hostRequestSetActiveTools
 	// hostRequestConfiguredModel identifies explicit configured-model requests.
 	hostRequestConfiguredModel
 	// hostRequestAppendExtension identifies model-hidden session appends.
@@ -181,6 +183,12 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			failures:    nil,
 			progress:    mo.None[hostProgressPredicate](),
 			selection:   false,
+		},
+		hostRequestSetActiveTools: {
+			requestCase: int(extensionpb.ExtensionRequest_SetActiveTools_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetSetActiveTools() != nil },
+			validate:    mo.None[hostCompletionValidator](), failures: nil,
+			progress: mo.None[hostProgressPredicate](), selection: false,
 		},
 		hostRequestTools: {
 			requestCase: int(extensionpb.ExtensionRequest_GetTools_case),

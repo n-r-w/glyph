@@ -61,6 +61,8 @@ type ModelOperations interface {
 type ToolCatalog interface {
 	// RegisteredTools returns tools of available runtimes, sorted by name, with their owners and active-set membership.
 	RegisteredTools() []tool.RegisteredTool
+	// SetActiveTools replaces selection atomically and rejects unknown registered names.
+	SetActiveTools(names []string) error
 }
 
 // CompactionResult retains durable state across terminal observer or publication failures.

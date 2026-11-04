@@ -3,6 +3,7 @@
 package extension
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/samber/mo"
@@ -67,5 +68,58 @@ func testToolDescriptor(name, description string) tool.Descriptor {
 	return tool.Descriptor{
 		Name: name, Description: description, InputSchemaJSON: nil,
 		ConstrainedSampling: mo.None[tool.ConstrainedSampling](), ReplacesTool: false,
+	}
+}
+
+// TestSetActiveToolsUsesOrdinaryAdmission verifies completion and complete owner errors without a gate.
+func TestSetActiveToolsUsesOrdinaryAdmission(t *testing.T) {
+	t.Parallel()
+	for _, rejected := range []bool{false, true} {
+		t.Run(map[bool]string{false: "applied", true: "unknown name"}[rejected], func(t *testing.T) {
+			t.Parallel()
+			// Arrange an invocation with ordinary admission and no operation gate.
+			controller := gomock.NewController(t)
+			contexts := NewMockContextOperations(controller)
+			runtime := NewMockRuntimeOperations(controller)
+			catalog := NewMockToolCatalog(controller)
+			expectInvocationChild(t, runtime, controller)
+			reference := extensiondomain.ContextRef{ID: "context", RuntimeInstanceID: "runtime", SessionID: "session"}
+			contexts.EXPECT().ValidateContext("extension", "runtime", reference).Return(nil)
+			released := false
+			runtime.EXPECT().
+				BeginContextOperation(gomock.Any(), "extension", "runtime").
+				Return(func() { released = true }, nil)
+			var updateErr error
+			if rejected {
+				updateErr = errors.New(`unknown tool "missing"`)
+			}
+			catalog.EXPECT().SetActiveTools([]string{"read"}).Return(updateErr)
+			service := New(nil, contexts, runtime, "extension", "runtime")
+			service.BindTools(catalog)
+			wire := new(extensionpb.ExtensionRequest)
+			wire.SetSetActiveTools(extensionpb.SetActiveToolsRequest_builder{
+				Context: extensionpb.ExtensionContextRef_builder{
+					ContextId:         new("context"),
+					RuntimeInstanceId: new("runtime"),
+					SessionId:         new("session"),
+				}.Build(),
+				Names: []string{"read"},
+			}.Build())
+			// Act by admitting the operation and mutating the transport input after capture.
+			prepared, err := service.Prepare(t.Context(), "operation", wire)
+			require.NoError(t, err)
+			wire.GetSetActiveTools().GetNames()[0] = "mutated"
+			result, err := prepared.Run(t.Context(), nil)
+			prepared.Release()
+			// Assert the accepted snapshot and complete error survive the controller boundary.
+			assert.True(t, released)
+			if rejected {
+				require.ErrorIs(t, err, updateErr)
+				assert.Contains(t, err.Error(), updateErr.Error())
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, result.GetSetActiveTools())
+		})
 	}
 }

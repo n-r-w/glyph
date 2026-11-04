@@ -86,6 +86,7 @@ func (s *Service) Commit(registrations []startup.AcceptedRegistration) {
 				extensionID: registration.ID,
 				descriptor:  *descriptor,
 				schema:      s.prepared[registration.ID][descriptor.Name],
+				active:      true,
 			}
 		}
 	}

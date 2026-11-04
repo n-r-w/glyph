@@ -52,6 +52,12 @@ type ToolsOperation struct {
 	operation *contextOperation
 }
 
+// ActiveToolsOperation owns one asynchronous replacement of the active tool selection.
+type ActiveToolsOperation struct {
+	// operation owns the request lifecycle and local wait state.
+	operation *contextOperation
+}
+
 // ConfiguredModelOperation owns one asynchronous configured-model request.
 type ConfiguredModelOperation struct {
 	// operation owns the request lifecycle and local wait state.
@@ -141,6 +147,25 @@ func (c *ExtensionContext) StartGetTools(ctx context.Context) (*ToolsOperation, 
 		return nil, err
 	}
 	return &ToolsOperation{operation: started}, nil
+}
+
+// StartSetActiveTools starts an asynchronous replacement of the active tool set.
+func (c *ExtensionContext) StartSetActiveTools(ctx context.Context, names []string) (*ActiveToolsOperation, error) {
+	request := new(extensionpb.ExtensionRequest)
+	request.SetSetActiveTools(extensionpb.SetActiveToolsRequest_builder{
+		Context: c.reference(), Names: append([]string(nil), names...),
+	}.Build())
+	started, err := c.start(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	return &ActiveToolsOperation{operation: started}, nil
+}
+
+// Wait waits for Host to apply the tool selection or report the complete failure.
+func (o *ActiveToolsOperation) Wait(ctx context.Context) error {
+	_, err := o.operation.wait(ctx, nil)
+	return err
 }
 
 // StartConfiguredModel starts an explicit configured-model request without waiting for Host acceptance.

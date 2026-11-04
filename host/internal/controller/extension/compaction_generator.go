@@ -66,17 +66,3 @@ func newPolicyGeneratorContextRequest(
 func isParticipantCancellation(err error) bool {
 	return errtree.IsCurrentCancellation(err, func(leaf error) bool { return errors.Is(leaf, context.Canceled) })
 }
-
-// newPolicyParticipantContextRequest selects the decoder for a captured participant's operation.
-func newPolicyParticipantContextRequest(
-	mapped contextRequest,
-	request *extensionpb.ExtensionRequest,
-) (contextRequest, error) {
-	if wire := request.GetInvokeCompactionRequest(); wire != nil {
-		return newPolicyRequestContextRequest(mapped, wire)
-	}
-	if wire := request.GetInvokeCompactionResult(); wire != nil {
-		return newPolicyResultContextRequest(mapped, wire)
-	}
-	return newPolicyGeneratorContextRequest(mapped, request.GetInvokeCompactionGenerator())
-}

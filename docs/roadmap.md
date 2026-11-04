@@ -210,7 +210,7 @@ Documents:
 
 ## PHS-09: Tool middleware and run control
 
-Status: Technical solution approved; implementation not started
+Status: Implementation in progress; [U0-U9](specs/features/initial/phases/09-tool-middleware-run-control/plan.md#plan-units) delivered.
 
 Add extension control over tool policy and agent-run continuation.
 

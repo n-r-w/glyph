@@ -22,6 +22,17 @@ message ToolDescriptor {
   bool replaces_tool = 5;
 }
 
+// SetActiveToolsRequest replaces the process-local selection of registered tools.
+message SetActiveToolsRequest {
+  // The issued invocation binding.
+  ExtensionContextRef context = 1;
+  // The complete selection; an unknown name rejects the whole update.
+  repeated string names = 2;
+}
+
+// SetActiveToolsResult confirms that Host applied the selection for subsequent model requests.
+message SetActiveToolsResult {}
+
 // GetToolsRequest reads available registered tools with their active-set membership.
 message GetToolsRequest {
   // The issued runtime-to-session binding.

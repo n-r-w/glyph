@@ -131,6 +131,20 @@ func (mr *MockToolCatalogMockRecorder) RegisteredTools() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "RegisteredTools", reflect.TypeOf((*MockToolCatalog)(nil).RegisteredTools))
 }
 
+// SetActiveTools mocks base method.
+func (m *MockToolCatalog) SetActiveTools(names []string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SetActiveTools", names)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// SetActiveTools indicates an expected call of SetActiveTools.
+func (mr *MockToolCatalogMockRecorder) SetActiveTools(names any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SetActiveTools", reflect.TypeOf((*MockToolCatalog)(nil).SetActiveTools), names)
+}
+
 // MockCompactionGate is a mock of CompactionGate interface.
 type MockCompactionGate struct {
 	ctrl     *gomock.Controller

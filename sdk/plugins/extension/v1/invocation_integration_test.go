@@ -52,6 +52,7 @@ func TestInvocationContextOwnsDifferentCallerContext(t *testing.T) {
 				),
 				GetProviders:              nil,
 				GetTools:                  nil,
+				SetActiveTools:            nil,
 				ConfiguredModel:           nil,
 				Cancel:                    nil,
 				AppendExtension:           nil,

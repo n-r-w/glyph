@@ -34,62 +34,112 @@ func newContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, e
 
 // newSelectedContextRequest maps the selected operation to its context admission and action.
 func newSelectedContextRequest(request *extensionpb.ExtensionRequest) (contextRequest, error) {
-	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
-	switch request.WhichRequest() {
-	case extensionpb.ExtensionRequest_GetModels_case:
-		mapped.reference = request.GetGetModels().GetContext()
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(o.runModelCatalog), nil
-		}
-	case extensionpb.ExtensionRequest_GetProviders_case:
-		mapped.reference = request.GetGetProviders().GetContext()
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(o.runProviderCatalog), nil
-		}
-	case extensionpb.ExtensionRequest_GetTools_case:
-		mapped.reference = request.GetGetTools().GetContext()
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(o.runToolCatalog), nil
-		}
-	case extensionpb.ExtensionRequest_ConfiguredModel_case:
-		return newConfiguredContextRequest(mapped, request.GetConfiguredModel())
-	case extensionpb.ExtensionRequest_AppendExtension_case:
-		return newAppendContextRequest(mapped, request.GetAppendExtension())
-	case extensionpb.ExtensionRequest_GetSessionState_case:
-		mapped.reference = request.GetGetSessionState().GetContext()
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextReadAction(o.runSessionState), nil
-		}
-	case extensionpb.ExtensionRequest_AppendExtensionMessage_case:
-		return newAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
-	case extensionpb.ExtensionRequest_InvokeCompactionRequest_case,
-		extensionpb.ExtensionRequest_InvokeCompactionGenerator_case,
-		extensionpb.ExtensionRequest_InvokeCompactionResult_case:
-		return newPolicyParticipantContextRequest(mapped, request)
-	case extensionpb.ExtensionRequest_ProjectCompaction_case:
-		return newPolicyCandidateContextRequest(mapped, request.GetProjectCompaction(), policyCandidateProjection)
-	case extensionpb.ExtensionRequest_ReplaceCompaction_case:
-		return newPolicyCandidateContextRequest(mapped, request.GetReplaceCompaction(), policyCandidateReplacement)
-	case extensionpb.ExtensionRequest_Compact_case:
-		compact := request.GetCompact()
-		mapped.reference = compact.GetContext()
-		instructions := mo.TupleToOption(compact.GetInstructions(), compact.HasInstructions())
-		mapped.admission = contextAdmissionManual
-		mapped.prepare = func(o *contextOperation) (contextAction, error) {
-			return contextProgressAction(
-				func(ctx context.Context, reporter *extensionsdk.HostProgressReporter) (*extensionpb.HostCompleted, error) {
-					return o.runManualCompaction(ctx, reporter, instructions)
-				},
-			), nil
-		}
-	case extensionpb.ExtensionRequest_Request_not_set_case, extensionpb.ExtensionRequest_Cancel_case:
+	selected := request.WhichRequest()
+	if selected == extensionpb.ExtensionRequest_Request_not_set_case ||
+		selected == extensionpb.ExtensionRequest_Cancel_case {
 		return contextRequest{}, errors.New("extension context operation request is required")
-	case extensionpb.ExtensionRequest_SelectModel_case:
-		return newModelSelectionContextRequest(mapped, request.GetSelectModel())
-	case extensionpb.ExtensionRequest_SelectReasoning_case:
-		return newReasoningSelectionContextRequest(mapped, request.GetSelectReasoning())
-	default:
+	}
+	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
+	constructors := map[int]func() (contextRequest, error){
+		int(extensionpb.ExtensionRequest_GetModels_case): func() (contextRequest, error) {
+			mapped.reference = request.GetGetModels().GetContext()
+			mapped.prepare = func(o *contextOperation) (contextAction, error) {
+				return contextReadAction(o.runModelCatalog), nil
+			}
+			return mapped, nil
+		},
+		int(extensionpb.ExtensionRequest_GetProviders_case): func() (contextRequest, error) {
+			mapped.reference = request.GetGetProviders().GetContext()
+			mapped.prepare = func(o *contextOperation) (contextAction, error) {
+				return contextReadAction(o.runProviderCatalog), nil
+			}
+			return mapped, nil
+		},
+		int(extensionpb.ExtensionRequest_GetTools_case): func() (contextRequest, error) {
+			mapped.reference = request.GetGetTools().GetContext()
+			mapped.prepare = func(o *contextOperation) (contextAction, error) {
+				return contextReadAction(o.runToolCatalog), nil
+			}
+			return mapped, nil
+		},
+		int(extensionpb.ExtensionRequest_SetActiveTools_case): func() (contextRequest, error) {
+			return newActiveToolsContextRequest(mapped, request.GetSetActiveTools())
+		},
+		int(extensionpb.ExtensionRequest_ConfiguredModel_case): func() (contextRequest, error) {
+			return newConfiguredContextRequest(mapped, request.GetConfiguredModel())
+		},
+		int(extensionpb.ExtensionRequest_AppendExtension_case): func() (contextRequest, error) {
+			return newAppendContextRequest(mapped, request.GetAppendExtension())
+		},
+		int(extensionpb.ExtensionRequest_GetSessionState_case): func() (contextRequest, error) {
+			mapped.reference = request.GetGetSessionState().GetContext()
+			mapped.prepare = func(o *contextOperation) (contextAction, error) {
+				return contextReadAction(o.runSessionState), nil
+			}
+			return mapped, nil
+		},
+		int(extensionpb.ExtensionRequest_AppendExtensionMessage_case): func() (contextRequest, error) {
+			return newAppendMessageContextRequest(mapped, request.GetAppendExtensionMessage())
+		},
+		int(extensionpb.ExtensionRequest_InvokeCompactionRequest_case): func() (contextRequest, error) {
+			return newPolicyRequestContextRequest(mapped, request.GetInvokeCompactionRequest())
+		},
+		int(extensionpb.ExtensionRequest_InvokeCompactionGenerator_case): func() (contextRequest, error) {
+			return newPolicyGeneratorContextRequest(mapped, request.GetInvokeCompactionGenerator())
+		},
+		int(extensionpb.ExtensionRequest_InvokeCompactionResult_case): func() (contextRequest, error) {
+			return newPolicyResultContextRequest(mapped, request.GetInvokeCompactionResult())
+		},
+		int(extensionpb.ExtensionRequest_ProjectCompaction_case): func() (contextRequest, error) {
+			return newPolicyCandidateContextRequest(mapped, request.GetProjectCompaction(), policyCandidateProjection)
+		},
+		int(extensionpb.ExtensionRequest_ReplaceCompaction_case): func() (contextRequest, error) {
+			return newPolicyCandidateContextRequest(mapped, request.GetReplaceCompaction(), policyCandidateReplacement)
+		},
+		int(extensionpb.ExtensionRequest_Compact_case): func() (contextRequest, error) {
+			compact := request.GetCompact()
+			mapped.reference = compact.GetContext()
+			instructions := mo.TupleToOption(compact.GetInstructions(), compact.HasInstructions())
+			mapped.admission = contextAdmissionManual
+			mapped.prepare = func(o *contextOperation) (contextAction, error) {
+				return contextProgressAction(
+					func(ctx context.Context, reporter *extensionsdk.HostProgressReporter) (*extensionpb.HostCompleted, error) {
+						return o.runManualCompaction(ctx, reporter, instructions)
+					},
+				), nil
+			}
+			return mapped, nil
+		},
+		int(extensionpb.ExtensionRequest_SelectModel_case): func() (contextRequest, error) {
+			return newModelSelectionContextRequest(mapped, request.GetSelectModel())
+		},
+		int(extensionpb.ExtensionRequest_SelectReasoning_case): func() (contextRequest, error) {
+			return newReasoningSelectionContextRequest(mapped, request.GetSelectReasoning())
+		},
+	}
+	construct, supported := constructors[int(selected)]
+	if !supported {
 		return contextRequest{}, errors.New("unsupported extension context request")
+	}
+	return construct()
+}
+
+// newActiveToolsContextRequest captures an ordinary active-tool-set update.
+func newActiveToolsContextRequest(
+	mapped contextRequest,
+	request *extensionpb.SetActiveToolsRequest,
+) (contextRequest, error) {
+	mapped.reference = request.GetContext()
+	names := append([]string(nil), request.GetNames()...)
+	mapped.prepare = func(o *contextOperation) (contextAction, error) {
+		return contextReadAction(func(context.Context) (*extensionpb.HostCompleted, error) {
+			if err := o.service.tools.SetActiveTools(names); err != nil {
+				return nil, err
+			}
+			result := new(extensionpb.HostCompleted)
+			result.SetSetActiveTools(new(extensionpb.SetActiveToolsResult))
+			return result, nil
+		}), nil
 	}
 	return mapped, nil
 }

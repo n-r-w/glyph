@@ -89,6 +89,8 @@ type owner struct {
 	descriptor tool.Descriptor
 	// schema validates deterministic invocation arguments.
 	schema *jsonschema.Schema
+	// active records membership in the process-local tool selection.
+	active bool
 }
 
 // New creates the Host tool capability service.
@@ -153,12 +155,14 @@ func (s *Service) ValidateLocal(registration startup.PendingRegistration) ([]too
 	return descriptors, nil
 }
 
-// Tools returns accepted descriptors whose owning runtime is available, sorted by name.
+// Tools returns active descriptors whose owning runtime is available, sorted by name.
 func (s *Service) Tools() []tool.Descriptor {
 	registered := s.RegisteredTools()
 	result := make([]tool.Descriptor, 0, len(registered))
 	for index := range registered {
-		result = append(result, registered[index].Descriptor)
+		if registered[index].Active {
+			result = append(result, registered[index].Descriptor)
+		}
 	}
 	return result
 }
@@ -169,9 +173,8 @@ func (s *Service) RegisteredTools() []tool.RegisteredTool {
 	s.mutex.RLock()
 	result := make([]tool.RegisteredTool, 0, len(s.owners))
 	for _, accepted := range s.owners {
-		// Every tool is active until the active tool set can change.
 		result = append(result, tool.RegisteredTool{
-			Descriptor: accepted.descriptor, ExtensionID: accepted.extensionID, Active: true,
+			Descriptor: accepted.descriptor, ExtensionID: accepted.extensionID, Active: accepted.active,
 		})
 	}
 	s.mutex.RUnlock()
@@ -191,8 +194,25 @@ func (s *Service) RegisteredTools() []tool.RegisteredTool {
 	return result
 }
 
-// Execute passes one call through the tool policy, validates its final arguments, and invokes its owning available
-// extension runtime.
+// SetActiveTools atomically replaces the tool selection after validating every name against the registry.
+func (s *Service) SetActiveTools(names []string) error {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	for _, name := range names {
+		if _, exists := s.owners[name]; !exists {
+			return fmt.Errorf("unknown tool %q", name)
+		}
+	}
+	for _, accepted := range s.owners {
+		accepted.active = false
+	}
+	for _, name := range names {
+		s.owners[name].active = true
+	}
+	return nil
+}
+
+// Execute checks active membership, applies tool policy, validates arguments, and invokes the available owner runtime.
 func (s *Service) Execute(
 	ctx context.Context,
 	call model.ToolCall,
@@ -200,8 +220,9 @@ func (s *Service) Execute(
 ) (agent.ToolResult, error) {
 	s.mutex.RLock()
 	accepted, exists := s.owners[call.Name]
+	active := exists && accepted.active
 	s.mutex.RUnlock()
-	if !exists || !s.runtime.ToolRuntimeAvailable(accepted.extensionID) {
+	if !active || !s.runtime.ToolRuntimeAvailable(accepted.extensionID) {
 		return unavailableResult(call), nil
 	}
 	if s.policy == nil {

@@ -33,6 +33,8 @@ const (
 	cataloguesMode = "catalogs"
 	// toolsMode reads the registered tools through the invocation context.
 	toolsMode = "tools"
+	// setToolsMode changes selection from inside its own tool and then reads the catalog.
+	setToolsMode = "set-tools"
 	// staleCataloguesMode exercises a retained binding instead of the current invocation binding.
 	staleCataloguesMode = "stale-catalogs"
 	// staleSelectionMode selects reasoning through a retained binding.
@@ -205,6 +207,9 @@ func (s *service) PrepareHandle(
 	ctx context.Context,
 	request *extensionv1.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
+	if request.GetHandlerId() == activeToolsHandlerID {
+		return prepareActiveToolsInput(ctx, request)
+	}
 	if request == nil || request.GetHandlerId() != navigationObserverID &&
 		request.GetHandlerId() != navigationRequestHandlerID && request.GetHandlerId() != agentStartObserverID &&
 		request.GetHandlerId() != retryHandlerID && request.GetHandlerId() != retryComposedHandlerID &&
@@ -251,6 +256,7 @@ func (s *service) PrepareExecute(
 	case ordinaryMode,
 		cataloguesMode,
 		toolsMode,
+		setToolsMode,
 		staleCataloguesMode,
 		staleSelectionMode,
 		configuredRequestMode,
@@ -293,6 +299,9 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 			Id: new(navigationObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_TREE),
 		}.Build(),
 	}
+	handlers = append(handlers, extensionv1.HandlerDescriptor_builder{
+		Id: new(activeToolsHandlerID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_USER_INPUT),
+	}.Build())
 	handlers = append(handlers, navigationFailureDescriptors()...)
 	handlers = append(handlers, ordinaryFailureObservers()...)
 	handlers = append(handlers, selectionHandlerDescriptors(operation.selectionComposition)...)
@@ -441,6 +450,8 @@ func (operation *executeOperation) Run(
 		}.Build(), nil
 	case cataloguesMode:
 		return readCatalogues(ctx)
+	case setToolsMode:
+		return setAndReadTools(ctx)
 	case toolsMode:
 		return readTools(ctx)
 	case staleCataloguesMode:

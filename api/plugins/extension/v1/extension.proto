@@ -116,6 +116,8 @@ message ExtensionRequest {
     InvokeCompactionResultRequest invoke_compaction_result = 16;
     // A read of available registered tools with their active-set membership.
     GetToolsRequest get_tools = 18;
+    // Replace the process-local active tool selection.
+    SetActiveToolsRequest set_active_tools = 19;
   }
 }
 
@@ -177,6 +179,8 @@ message HostCompleted {
     CompactionResultAction invoke_compaction_result = 14;
     // The available registered tools with their active-set membership.
     GetToolsResult get_tools = 15;
+    // Confirmation of the active tool selection update.
+    SetActiveToolsResult set_active_tools = 16;
   }
 }
 
