@@ -118,12 +118,11 @@ func (s *Service) takeSteer(ctx context.Context) ([]queuedMessage, error) {
 // takeQueuedOrComplete removes the pending steer messages that the queue mode delivers after a final model
 // response, or the pending followUp messages when no steer message is pending. When neither is pending, it moves
 // the run out of the running state under the same lock, so Enqueue either queues before this check or fails.
-// When the run is canceled and a message is pending, it removes nothing and returns the context error, so that the
-// run ends with the messages still pending.
+// When the run is canceled, it removes nothing and returns the context error so that cancellation wins completion.
 func (s *Service) takeQueuedOrComplete(ctx context.Context) ([]queuedMessage, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if err := ctx.Err(); err != nil && len(s.pending) > 0 {
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
 	messages := s.pop(agent.MessageDeliverySteer)

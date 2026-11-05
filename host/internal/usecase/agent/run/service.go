@@ -12,6 +12,7 @@ import (
 
 	"github.com/n-r-w/glyph/host/internal/domain/model"
 	"github.com/n-r-w/glyph/internal/errtree"
+	"github.com/n-r-w/glyph/internal/errtree/diagnostic"
 
 	"github.com/n-r-w/glyph/host/internal/domain/agent"
 	"github.com/n-r-w/glyph/host/internal/domain/tool"
@@ -52,10 +53,14 @@ type Service struct {
 	finalizer MessageFinalizer
 
 	// mutex protects state, pending queued messages, their arrival numbering, the queue mode, and appended-history
-	// accounting.
+	// accounting, cancellation and accepted abort sources.
 	mutex sync.RWMutex
 	// state contains the current run snapshot.
 	state State
+	// cancelRun cancels only the run identified by state while mutex is held.
+	cancelRun context.CancelCauseFunc
+	// abortSources retains accepted diagnostics independently of the first cancellation cause.
+	abortSources []error
 	// pending holds uncommitted steer, followUp, and nextTurn messages in arrival order.
 	pending []queuedMessage
 	// nextSequence is the arrival number of the latest queued message.
@@ -94,6 +99,8 @@ func New(
 		nextSequence:      0,
 		queueMode:         agent.QueueModeOneAtATime,
 		addedHistory:      nil,
+		cancelRun:         nil,
+		abortSources:      nil,
 		state: State{
 			Status:          StatusIdle,
 			RunID:           mo.None[string](),
@@ -110,7 +117,9 @@ func (s *Service) BindExtensionMessages(delivery ExtensionMessageDelivery) {
 
 // Run executes one user request through the model/tool loop.
 func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontrol.Result, error) {
-	nextTurn, beginErr := s.begin(request)
+	ctx, cancel := context.WithCancelCause(ctx)
+	defer cancel(context.Canceled)
+	nextTurn, beginErr := s.begin(request, cancel)
 	if beginErr != nil {
 		return runcontrol.Result{}, beginErr
 	}
@@ -198,13 +207,14 @@ func (s *Service) ProjectHistory() []agent.HistoryEntry {
 }
 
 // begin reserves the only run slot before the user entry ownership transfer.
-func (s *Service) begin(request runcontrol.Request) ([]queuedMessage, error) {
+func (s *Service) begin(request runcontrol.Request, cancel context.CancelCauseFunc) ([]queuedMessage, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.state.Status != StatusIdle {
 		return nil, ErrRunActive
 	}
 	s.addedHistory = nil
+	s.cancelRun = cancel
 	s.state = State{
 		Status:          StatusRunning,
 		RunID:           mo.Some(request.RunID),
@@ -458,10 +468,21 @@ func (s *Service) finish(
 	runErr error,
 	undelivered []queuedMessage,
 ) (runcontrol.Result, error) {
-	if ctx.Err() != nil && isPureCancellation(runErr) {
-		outcome = agent.RunOutcomeAborted
-	}
 	s.mutex.Lock()
+	if ctx.Err() != nil {
+		if runErr == nil || isPureCancellation(runErr) {
+			outcome = agent.RunOutcomeAborted
+		}
+		runErr = errors.Join(runErr, context.Cause(ctx))
+		for _, source := range s.abortSources {
+			if !errors.Is(runErr, source) {
+				runErr = diagnostic.NewCurrentCause(runErr, source)
+			}
+		}
+		errorMessage = mo.Some(visibleErrorMessage(runErr))
+	}
+	s.abortSources = nil
+	s.cancelRun = nil
 	added := s.addedHistory
 	s.addedHistory = nil
 	// Return client originals, discard run-scoped extension work, and retain next-user attachments.

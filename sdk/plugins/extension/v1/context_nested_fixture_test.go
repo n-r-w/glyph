@@ -38,6 +38,7 @@ func expectNestedCompactionHost(
 			source := new(extensionpb.CompactionSource)
 			source.SetExtensionId("extension")
 			return extensionpb.HostCompleted_builder{
+				AbortRun:               nil,
 				Cancel:                 nil,
 				GetModels:              nil,
 				GetProviders:           nil,
@@ -95,6 +96,7 @@ func expectNestedRecoveryHost(
 				ExtensionId: new("extension"), EntryType: new("checkpoint"), Data: largePayload, Message: nil,
 			}.Build()
 			return extensionpb.HostCompleted_builder{
+				AbortRun:               nil,
 				Compact:                nil,
 				Cancel:                 nil,
 				GetModels:              nil,
@@ -135,6 +137,7 @@ func expectNestedModelMessageHosts(t *testing.T, host *MockHostService, configur
 	content := new(extensionpb.ConfiguredModelContent)
 	content.SetText(extensionpb.ConfiguredModelText_builder{Text: new("answer")}.Build())
 	configured.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
+		AbortRun:               nil,
 		Compact:                nil,
 		Cancel:                 nil,
 		GetModels:              nil,
@@ -166,6 +169,7 @@ func expectNestedModelMessageHosts(t *testing.T, host *MockHostService, configur
 			return message, nil
 		})
 	message.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
+		AbortRun:        nil,
 		Compact:         nil,
 		Cancel:          nil,
 		GetModels:       nil,
@@ -209,6 +213,7 @@ func expectNestedCatalogueHosts(
 			return models, nil
 		})
 	models.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
+		AbortRun:               nil,
 		Compact:                nil,
 		Cancel:                 nil,
 		GetProviders:           nil,
@@ -238,6 +243,7 @@ func expectNestedCatalogueHosts(
 			return providers, nil
 		})
 	providers.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
+		AbortRun:               nil,
 		Compact:                nil,
 		Cancel:                 nil,
 		GetModels:              nil,

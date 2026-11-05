@@ -4,6 +4,7 @@ package glyph.plugins.extension.v1;
 
 import "api/operation/v1/operation.proto";
 import "api/plugins/extension/v1/compaction.proto";
+import "api/plugins/extension/v1/context.proto";
 import "api/plugins/extension/v1/lifecycle.proto";
 import "api/plugins/extension/v1/model.proto";
 import "api/plugins/extension/v1/session.proto";
@@ -118,6 +119,8 @@ message ExtensionRequest {
     GetToolsRequest get_tools = 18;
     // Replace the process-local active tool selection.
     SetActiveToolsRequest set_active_tools = 19;
+    // Request cancellation of the current agent run.
+    AbortRunRequest abort_run = 20;
   }
 }
 
@@ -181,8 +184,19 @@ message HostCompleted {
     GetToolsResult get_tools = 15;
     // Confirmation of the active tool selection update.
     SetActiveToolsResult set_active_tools = 16;
+    // Confirmation of agent-run cancellation acceptance.
+    AbortRunResult abort_run = 17;
   }
 }
+
+// AbortRunRequest stops the current agent run through a live extension binding.
+message AbortRunRequest {
+  // The issued invocation binding.
+  ExtensionContextRef context = 1;
+}
+
+// AbortRunResult confirms cancellation acceptance; the agent run may still be settling.
+message AbortRunResult {}
 
 // HandlerDescriptor registers one implemented extension handler.
 message HandlerDescriptor {

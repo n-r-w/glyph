@@ -23,6 +23,8 @@ const (
 	hostRequestProviders
 	// hostRequestTools identifies reads of the registered tools.
 	hostRequestTools
+	// hostRequestAbortRun identifies agent-run cancellation acceptance.
+	hostRequestAbortRun
 	// hostRequestSetActiveTools identifies replacement of active tool selection.
 	hostRequestSetActiveTools
 	// hostRequestConfiguredModel identifies explicit configured-model requests.
@@ -183,6 +185,12 @@ func newHostRequestDescriptors() map[hostRequestKind]hostRequestDescriptor {
 			failures:    nil,
 			progress:    mo.None[hostProgressPredicate](),
 			selection:   false,
+		},
+		hostRequestAbortRun: {
+			requestCase: int(extensionpb.ExtensionRequest_AbortRun_case),
+			matches:     func(result *extensionpb.HostCompleted) bool { return result.GetAbortRun() != nil },
+			validate:    mo.None[hostCompletionValidator](), failures: nil,
+			progress: mo.None[hostProgressPredicate](), selection: false,
 		},
 		hostRequestSetActiveTools: {
 			requestCase: int(extensionpb.ExtensionRequest_SetActiveTools_case),

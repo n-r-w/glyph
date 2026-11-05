@@ -41,6 +41,27 @@ func newSelectedContextRequest(request *extensionpb.ExtensionRequest) (contextRe
 	}
 	mapped := contextRequest{reference: nil, prepare: nil, admission: contextAdmissionRegular}
 	constructors := map[int]func() (contextRequest, error){
+		int(extensionpb.ExtensionRequest_AbortRun_case): func() (contextRequest, error) {
+			mapped.reference = request.GetAbortRun().GetContext()
+			mapped.prepare = func(o *contextOperation) (contextAction, error) {
+				if o.service.messages == nil {
+					return nil, extensionsdk.Reject(internalFailureCode, errors.New("run control is not bound"))
+				}
+				runID, err := o.service.messages.CheckAbort()
+				if err != nil {
+					return nil, extensionsdk.Reject(invalidArgumentCode, err)
+				}
+				return contextReadAction(func(ctx context.Context) (*extensionpb.HostCompleted, error) {
+					if abortErr := o.service.messages.Abort(ctx, runID, o.service.extensionID); abortErr != nil {
+						return nil, mapContextFailure("abort agent run", abortErr)
+					}
+					result := new(extensionpb.HostCompleted)
+					result.SetAbortRun(new(extensionpb.AbortRunResult))
+					return result, nil
+				}), nil
+			}
+			return mapped, nil
+		},
 		int(extensionpb.ExtensionRequest_GetModels_case): func() (contextRequest, error) {
 			mapped.reference = request.GetGetModels().GetContext()
 			mapped.prepare = func(o *contextOperation) (contextAction, error) {

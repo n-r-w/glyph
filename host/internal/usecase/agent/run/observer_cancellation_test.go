@@ -26,7 +26,7 @@ func TestOwningObserverCancellationAbortsRun(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 	events.EXPECT().
-		Deliver(ctx, gomock.Any()).
+		Deliver(gomock.Any(), gomock.Any()).
 		DoAndReturn(func(context.Context, agent.Event) error { cancel(); return context.Canceled })
 	events.EXPECT().Deliver(gomock.Any(), gomock.Any()).DoAndReturn(func(_ context.Context, event agent.Event) error {
 		require.Equal(t, agent.EventAgentEnd, event.Type)

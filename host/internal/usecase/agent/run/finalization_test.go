@@ -350,8 +350,8 @@ func TestRunCanceledBeforeFinalization(t *testing.T) {
 	// Act through one run.
 	_, err := fixture.service.Run(ctx, runcontrol.Request{RunID: "run", Message: model.TextMessage("hi")})
 
-	// Assert the unchanged response in history and in its completion event.
-	require.NoError(t, err)
+	// Assert cancellation preserves the unchanged response in history and in its completion event.
+	require.ErrorIs(t, err, context.Canceled)
 	require.Equal(t, []agent.HistoryEntry{modelHistory(response)}, fixture.service.History()[1:])
 	assert.Equal(t, mo.Some(response), fixture.eventsOf(agent.EventMessageEnd)[0].Message)
 }

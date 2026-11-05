@@ -91,10 +91,14 @@ type CompactionOperations interface {
 	) (CompactionResult, error)
 }
 
-// MessageEnqueuer accepts extension messages without client input processing.
+// MessageEnqueuer accepts extension messages and aborts without client input processing or the operation gate.
 type MessageEnqueuer interface {
 	// EnqueueExtension accepts a captured message for delayed delivery, including nextTurn while idle.
 	EnqueueExtension(context.Context, agent.MessageDelivery, session.QueuedExtensionMessage) error
+	// CheckAbort captures the active run identity before cancellation admission completes.
+	CheckAbort() (string, error)
+	// Abort cancels only the captured run and records the bound extension as its source.
+	Abort(context.Context, string, string) error
 }
 
 // ContextOperations supplies binding and session operations without transport policy.

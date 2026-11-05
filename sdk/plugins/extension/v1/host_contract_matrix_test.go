@@ -58,6 +58,15 @@ func (s *hostContractMatrixSuite) TestScenario() {
 			value.SetGetProviders(new(extensionpb.GetProvidersResult))
 			return value
 		}(), validationFailure: false},
+		{kind: hostRequestAbortRun, request: func() *extensionpb.ExtensionRequest {
+			value := new(extensionpb.ExtensionRequest)
+			value.SetAbortRun(new(extensionpb.AbortRunRequest))
+			return value
+		}(), completed: func() *extensionpb.HostCompleted {
+			value := new(extensionpb.HostCompleted)
+			value.SetAbortRun(new(extensionpb.AbortRunResult))
+			return value
+		}(), validationFailure: false},
 		{kind: hostRequestSetActiveTools, request: func() *extensionpb.ExtensionRequest {
 			value := new(extensionpb.ExtensionRequest)
 			value.SetSetActiveTools(new(extensionpb.SetActiveToolsRequest))

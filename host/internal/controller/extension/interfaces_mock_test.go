@@ -247,6 +247,35 @@ func (m *MockMessageEnqueuer) EXPECT() *MockMessageEnqueuerMockRecorder {
 	return m.recorder
 }
 
+// Abort mocks base method.
+func (m *MockMessageEnqueuer) Abort(arg0 context.Context, arg1, arg2 string) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Abort", arg0, arg1, arg2)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Abort indicates an expected call of Abort.
+func (mr *MockMessageEnqueuerMockRecorder) Abort(arg0, arg1, arg2 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Abort", reflect.TypeOf((*MockMessageEnqueuer)(nil).Abort), arg0, arg1, arg2)
+}
+
+// CheckAbort mocks base method.
+func (m *MockMessageEnqueuer) CheckAbort() (string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "CheckAbort")
+	ret0, _ := ret[0].(string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// CheckAbort indicates an expected call of CheckAbort.
+func (mr *MockMessageEnqueuerMockRecorder) CheckAbort() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "CheckAbort", reflect.TypeOf((*MockMessageEnqueuer)(nil).CheckAbort))
+}
+
 // EnqueueExtension mocks base method.
 func (m *MockMessageEnqueuer) EnqueueExtension(arg0 context.Context, arg1 agent.MessageDelivery, arg2 session.QueuedExtensionMessage) error {
 	m.ctrl.T.Helper()

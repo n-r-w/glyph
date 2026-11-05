@@ -47,6 +47,7 @@ func TestInvocationContextOwnsDifferentCallerContext(t *testing.T) {
 		})).DoAndReturn(func(context.Context, string, *extensionpb.ExtensionRequest) (HostOperation, error) {
 			child := NewMockHostOperation(mocks)
 			child.EXPECT().Run(gomock.Any(), gomock.Any()).Return(extensionpb.HostCompleted_builder{
+				AbortRun: nil,
 				GetModels: new(
 					extensionpb.GetModelsResult,
 				),

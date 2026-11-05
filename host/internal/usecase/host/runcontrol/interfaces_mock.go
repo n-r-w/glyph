@@ -44,6 +44,20 @@ func (m *MockExecutor) EXPECT() *MockExecutorMockRecorder {
 	return m.recorder
 }
 
+// Abort mocks base method.
+func (m *MockExecutor) Abort(runID string, cause error) error {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Abort", runID, cause)
+	ret0, _ := ret[0].(error)
+	return ret0
+}
+
+// Abort indicates an expected call of Abort.
+func (mr *MockExecutorMockRecorder) Abort(runID, cause any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Abort", reflect.TypeOf((*MockExecutor)(nil).Abort), runID, cause)
+}
+
 // CheckEnqueue mocks base method.
 func (m *MockExecutor) CheckEnqueue() (string, error) {
 	m.ctrl.T.Helper()

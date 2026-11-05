@@ -8,6 +8,9 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sync"
+
+	"github.com/samber/mo"
 
 	extensionpb "github.com/n-r-w/glyph/pkg/plugins/extension/v1"
 	extensionsdk "github.com/n-r-w/glyph/sdk/plugins/extension/v1"
@@ -20,12 +23,17 @@ const (
 	serialTool = "serial"
 	// inputSchema defines the test signal endpoint and call identity.
 	inputSchema = `{"type":"object","properties":{"url":{"type":"string"},"id":{"type":"string"},` +
-		`"terminate":{"type":"boolean"}},` +
+		`"terminate":{"type":"boolean"},"abort":{"type":"boolean"},"observer_abort":{"type":"boolean"}},` +
 		`"required":["url","id"],"additionalProperties":false}`
 )
 
 // service admits the fixture's public tool operations.
-type service struct{}
+type service struct {
+	// mutex protects the one-shot observer target across tool and lifecycle invocations.
+	mutex sync.Mutex
+	// observerURL is the signal endpoint for an armed turn-end abort.
+	observerURL mo.Option[string]
+}
 
 // The compile-time assertion checks the fixture service against the public SDK contract.
 var _ extensionsdk.Service = (*service)(nil)
@@ -44,13 +52,15 @@ type execution struct {
 	id string
 	// terminate is the requested run completion signal.
 	terminate bool
+	// abort requests cancellation after queue acceptance and the test signal.
+	abort bool
 }
 
 // The compile-time assertion checks the fixture execution against the public SDK contract.
 var _ extensionsdk.ExecuteOperation = (*execution)(nil)
 
 // main serves the fixture over the public Extension Contract.
-func main() { extensionsdk.Serve(&service{}) }
+func main() { extensionsdk.Serve(&service{mutex: sync.Mutex{}, observerURL: mo.None[string]()}) }
 
 // PrepareRegister admits registration of both tools.
 func (s *service) PrepareRegister(
@@ -60,9 +70,19 @@ func (s *service) PrepareRegister(
 	return &registration{}, nil
 }
 
-// PrepareHandle rejects handlers because the fixture declares none.
-func (s *service) PrepareHandle(context.Context, *extensionpb.HandleRequest) (extensionsdk.HandleOperation, error) {
-	return nil, errors.New("no handlers registered")
+// PrepareHandle captures and clears the one-shot target for a live turn-end observer.
+func (s *service) PrepareHandle(
+	_ context.Context,
+	request *extensionpb.HandleRequest,
+) (extensionsdk.HandleOperation, error) {
+	if request.GetHandlerId() != turnEndAbortObserverID || request.GetLifecycle().GetTurnEnd() == nil {
+		return nil, errors.New("turn-end observer invocation is required")
+	}
+	s.mutex.Lock()
+	target := s.observerURL
+	s.observerURL = mo.None[string]()
+	s.mutex.Unlock()
+	return &turnEndAbortObserver{url: target}, nil
 }
 
 // PrepareExecute decodes the test-owned signal endpoint.
@@ -71,14 +91,21 @@ func (s *service) PrepareExecute(
 	request *extensionpb.ExecuteRequest,
 ) (extensionsdk.ExecuteOperation, error) {
 	var arguments struct {
-		URL       string `json:"url"`
-		ID        string `json:"id"`
-		Terminate bool   `json:"terminate"`
+		URL           string `json:"url"`
+		ID            string `json:"id"`
+		Terminate     bool   `json:"terminate"`
+		Abort         bool   `json:"abort"`
+		ObserverAbort bool   `json:"observer_abort"`
 	}
 	if err := json.Unmarshal(request.GetArgumentsJson(), &arguments); err != nil {
 		return nil, err
 	}
-	return &execution{url: arguments.URL, id: arguments.ID, terminate: arguments.Terminate}, nil
+	if arguments.ObserverAbort {
+		s.mutex.Lock()
+		s.observerURL = mo.Some(arguments.URL)
+		s.mutex.Unlock()
+	}
+	return &execution{url: arguments.URL, id: arguments.ID, terminate: arguments.Terminate, abort: arguments.Abort}, nil
 }
 
 // Run declares one concurrent tool and one undeclared serial tool.
@@ -95,7 +122,12 @@ func (r *registration) Run(context.Context) (*extensionpb.RegisterResponse, erro
 			ConstrainedSampling: nil, ReplacesTool: nil, Concurrent: concurrent,
 		}.Build())
 	}
-	return extensionpb.RegisterResponse_builder{Tools: tools, Handlers: nil}.Build(), nil
+	return extensionpb.RegisterResponse_builder{Tools: tools, Handlers: []*extensionpb.HandlerDescriptor{
+		extensionpb.HandlerDescriptor_builder{
+			Id:   new(turnEndAbortObserverID),
+			Kind: new(extensionpb.HandlerKind_HANDLER_KIND_TURN_END),
+		}.Build(),
+	}}.Build(), nil
 }
 
 // Release frees registration admission.
@@ -106,6 +138,11 @@ func (e *execution) Release() {}
 
 // Run waits for an HTTP response controlled by the test's completion signal.
 func (e *execution) Run(ctx context.Context, _ *extensionsdk.ProgressReporter) (*extensionpb.ToolResult, error) {
+	if e.abort {
+		if err := e.queueAbortMessages(ctx); err != nil {
+			return nil, err
+		}
+	}
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, e.url+"/"+e.id, http.NoBody)
 	if err != nil {
 		return nil, err
@@ -120,6 +157,9 @@ func (e *execution) Run(ctx context.Context, _ *extensionsdk.ProgressReporter) (
 	}
 	if response.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("signal endpoint: %s: %s", response.Status, string(body))
+	}
+	if e.abort {
+		return nil, e.abortRun(ctx)
 	}
 	return extensionpb.ToolResult_builder{Contents: []*extensionpb.ToolResultContent{
 		//nolint:exhaustruct_v5 // Only the text content variant is active.

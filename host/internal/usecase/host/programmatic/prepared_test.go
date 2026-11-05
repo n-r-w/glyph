@@ -245,7 +245,18 @@ func TestRunPreparedClassifiesCancellationWithAndWithoutIndependentFailure(t *te
 		expectedCause error
 		expectedExact bool
 	}
+	extensionAbort := fmt.Errorf("extension %q: %w", "bound-origin", context.Canceled)
 	tests := []scenario{
+		{
+			name: "extension abort", activeErr: extensionAbort, cancelCaller: false,
+			expectedState: operation.TerminalStateCanceled, expectedCode: "",
+			expectedCause: extensionAbort, expectedExact: false,
+		},
+		{
+			name: "aborted outcome without cause", activeErr: nil, cancelCaller: false,
+			expectedState: operation.TerminalStateCanceled, expectedCode: "",
+			expectedCause: nil, expectedExact: false,
+		},
 		{
 			name: "independent failure", activeErr: independentErr, cancelCaller: true,
 			expectedState: operation.TerminalStateFailed,

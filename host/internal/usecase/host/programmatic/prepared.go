@@ -225,10 +225,10 @@ func (p *runPrepared) Run(
 	if err := filterRunError(outcome, runErr); err != nil {
 		return operation.Failed[controller.Response](failureCode(err), err)
 	}
-	if errors.Is(ctx.Err(), context.Canceled) {
-		if runErr != nil && !errtree.IsPlainCancellation(runErr, func(cause error) bool {
+	if errors.Is(ctx.Err(), context.Canceled) || outcome == agent.RunOutcomeAborted {
+		if runErr != nil && (ctx.Err() == nil || !errtree.IsPlainCancellation(runErr, func(cause error) bool {
 			return errors.Is(cause, context.Canceled)
-		}) {
+		})) {
 			return operation.CanceledWithSource[controller.Response](runErr)
 		}
 		return operation.Canceled[controller.Response]()

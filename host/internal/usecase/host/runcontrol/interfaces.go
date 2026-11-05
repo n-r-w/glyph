@@ -44,6 +44,8 @@ type Executor interface {
 	Settle(runID string) error
 	// CheckEnqueue returns the ID of the run that accepts queued messages, or fails with agent.ErrRunNotActive.
 	CheckEnqueue() (runID string, err error)
+	// Abort accepts cancellation only while the identified run is active.
+	Abort(runID string, cause error) error
 	// Enqueue queues a message with the given delivery kind for the run with the given ID, or fails with
 	// agent.ErrRunNotActive when that run is no longer running.
 	Enqueue(runID string, delivery agent.MessageDelivery, message QueuedMessage) error
