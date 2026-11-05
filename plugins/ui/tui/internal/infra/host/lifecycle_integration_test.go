@@ -94,7 +94,9 @@ func TestApplicationOwnsTerminalAcrossSDKLifecycle(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := presentation.NewMockRuntime(controller)
 	runtime.EXPECT().Open().Return(nil)
+	runStarted := make(chan struct{})
 	runtime.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) presentation.RuntimeResult {
+		close(runStarted)
 		<-ctx.Done()
 		return presentation.RuntimeResult{ProgramExited: false, Err: nil}
 	})
@@ -102,8 +104,9 @@ func TestApplicationOwnsTerminalAcrossSDKLifecycle(t *testing.T) {
 	client := uisdk.TestClient(t, sdkApplication(controller, runtime))
 	stream, err := client.Open(t.Context())
 	require.NoError(t, err)
-	// Act by completing initialization and then closing the owning connection.
+	// Act by completing initialization and then closing the owning connection after runtime entry.
 	sendInitialization(t, stream)
+	<-runStarted
 	require.NoError(t, stream.CloseSend())
 	_, err = stream.Recv()
 	// Assert ordinary stream closure joins application cleanup.
@@ -117,18 +120,21 @@ func TestSequentialSDKConnectionsOwnIndependentRuntimeLifetimes(t *testing.T) {
 	controller := gomock.NewController(t)
 	runtime := presentation.NewMockRuntime(controller)
 	runtime.EXPECT().Open().Times(2).Return(nil)
-	runtime.EXPECT().Run(gomock.Any()).Times(2).DoAndReturn(func(ctx context.Context) presentation.RuntimeResult {
-		<-ctx.Done()
-		return presentation.RuntimeResult{ProgramExited: false, Err: nil}
-	})
 	runtime.EXPECT().Close().Times(2).Return(nil)
 	client := uisdk.TestClient(t, sdkApplication(controller, runtime))
 
 	// Act by opening, initializing, and closing each SDK stream before the next one starts.
 	for range 2 {
+		runStarted := make(chan struct{})
+		runtime.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) presentation.RuntimeResult {
+			close(runStarted)
+			<-ctx.Done()
+			return presentation.RuntimeResult{ProgramExited: false, Err: nil}
+		})
 		stream, err := client.Open(t.Context())
 		require.NoError(t, err)
 		sendInitialization(t, stream)
+		<-runStarted
 		require.NoError(t, stream.CloseSend())
 		_, err = stream.Recv()
 		// Assert each connection joins its independent initialized runtime and closes normally.
@@ -146,7 +152,9 @@ func TestDispatchUsesActiveRunCancellation(t *testing.T) {
 	adapter := sdkApplication(controller, runtime)
 	dispatchResult := make(chan error, 1)
 	cleanupDone := make(chan struct{})
+	runStarted := make(chan struct{})
 	runtime.EXPECT().Run(gomock.Any()).DoAndReturn(func(ctx context.Context) presentation.RuntimeResult {
+		close(runStarted)
 		<-ctx.Done()
 		dispatchResult <- adapter.Send("late", commandFixture(presentation.CommandSubmit, mo.Some("late")), "")
 		return presentation.RuntimeResult{ProgramExited: false, Err: context.Cause(ctx)}
@@ -158,7 +166,8 @@ func TestDispatchUsesActiveRunCancellation(t *testing.T) {
 	stream, err := client.Open(ctx)
 	require.NoError(t, err)
 	sendInitialization(t, stream)
-	// Act by canceling the SDK stream and waiting for application cleanup.
+	// Act by awaiting runtime entry, canceling the SDK stream, and waiting for application cleanup.
+	<-runStarted
 	cancel()
 	<-cleanupDone
 	// Assert cancellation reaches the adapter before resources finish closing.

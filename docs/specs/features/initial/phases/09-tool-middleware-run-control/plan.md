@@ -50,6 +50,7 @@ No backward compatibility.
 | U12 | PREFACTORING | The extension controller stops importing Agent Core | Existing tests | `workflows:developer-simple` |
 | U13 | SLICE | An extension sends `steer` and `followUp` | SCN-12 (steer, followUp) | `workflows:developer-complex` |
 | U14 | SLICE | An extension sends `nextTurn` | SCN-12 (nextTurn), SCN-18 | `workflows:developer-regular` |
+| U14.1 | OTHER TASK | Active-runtime lifecycle tests await runtime startup before closing their SDK connections | Existing integration tests | `workflows:developer-simple` |
 | U15 | SLICE | An extension aborts the current agent run | SCN-15 | `workflows:developer-complex` |
 
 ### Unit tree
@@ -457,6 +458,23 @@ Depends on U13.
 
 #### Risks
 A message delivered into another session would expose data of one session to another. Impact: HIGH. The test checks session create and resume with a pending message.
+
+### U14.1 - OTHER TASK: lifecycle-test runtime startup
+
+#### Goal
+Active-runtime lifecycle tests reach their intended runtime before the client closes or cancels its SDK connection.
+
+#### Work
+Add runtime-start signals to `TestDispatchUsesActiveRunCancellation`, `TestApplicationOwnsTerminalAcrossSDKLifecycle`, and `TestSequentialSDKConnectionsOwnIndependentRuntimeLifetimes`. Await the corresponding signal before each shutdown action, including each sequential lifetime. Preserve every cancellation, dispatch, cleanup, and public-result assertion. Keep production SDK and runtime behavior unchanged.
+
+#### Verification
+Run the existing integration tests with the race detector, including repeated runs, then run the project checks under the approved verification exceptions. The original U15 verification timed out while `TestDispatchUsesActiveRunCancellation` awaited its dispatch result after cleanup. Source tracing and an independent check identified the missing runtime-start observation; isolated stress runs passed before correction.
+
+#### Exit criteria
+The focused tests, code-quality review, and project checks pass. Commit the correction separately before final U15 verification.
+
+#### Relation
+Independent of U15 implementation. U15 final verification follows this correction; its uncommitted changes are held separately while U14.1 runs.
 
 ### U15 - SLICE: extension abort
 
