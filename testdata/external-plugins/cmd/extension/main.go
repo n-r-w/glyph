@@ -99,6 +99,8 @@ type service struct {
 	savedMessageID string
 	// savedCheckpointID identifies the target that activates and cancels from the request handler.
 	savedCheckpointID string
+	// queueOnSettled requests one attachment from the next settled observer.
+	queueOnSettled bool
 	// lifecycleEnabled reports whether this process registers the agent-start observer scenario.
 	lifecycleEnabled bool
 	// retryHandlerEnabled reports whether this process registers the retry-handler scenario.
@@ -180,8 +182,13 @@ var (
 // main serves the external Extension fixture through the public SDK.
 func main() {
 	extensionsdk.Serve(&service{
-		signals: os.Getenv(signalsEnvironment), contextMutex: sync.Mutex{}, savedContext: nil,
-		savedMessageID: "", savedCheckpointID: "", lifecycleEnabled: os.Getenv(lifecycleEnvironment) == "1",
+		signals:                 os.Getenv(signalsEnvironment),
+		contextMutex:            sync.Mutex{},
+		savedContext:            nil,
+		savedMessageID:          "",
+		savedCheckpointID:       "",
+		queueOnSettled:          false,
+		lifecycleEnabled:        os.Getenv(lifecycleEnvironment) == "1",
 		retryHandlerEnabled:     os.Getenv(retryHandlerEnvironment) != "",
 		selectionComposition:    os.Getenv(selectionCompositionEnvironment) == "1",
 		selectionNested:         os.Getenv(selectionNestedEnvironment) == "1",
@@ -202,8 +209,8 @@ func (s *service) PrepareRegister(
 	}, nil
 }
 
-// PrepareHandle admits the fixture's committed-navigation observer.
-func (s *service) PrepareHandle(
+// prepareHandle admits navigation, lifecycle, and policy fixture handlers.
+func (s *service) prepareHandle(
 	ctx context.Context,
 	request *extensionv1.HandleRequest,
 ) (extensionsdk.HandleOperation, error) {
@@ -253,7 +260,7 @@ func (s *service) PrepareExecute(
 		return nil, extensionsdk.Reject(invalidArgumentCode, err)
 	}
 	switch arguments.Mode {
-	case ordinaryMode, queuedMessagesMode,
+	case ordinaryMode, queuedMessagesMode, queuedSettledMode,
 		cataloguesMode,
 		toolsMode,
 		setToolsMode,
@@ -299,9 +306,14 @@ func (operation *registerOperation) Run(context.Context) (*extensionv1.RegisterR
 			Id: new(navigationObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_SESSION_TREE),
 		}.Build(),
 	}
-	handlers = append(handlers, extensionv1.HandlerDescriptor_builder{
-		Id: new(activeToolsHandlerID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_USER_INPUT),
-	}.Build())
+	handlers = append(handlers,
+		extensionv1.HandlerDescriptor_builder{
+			Id: new(activeToolsHandlerID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_USER_INPUT),
+		}.Build(),
+		extensionv1.HandlerDescriptor_builder{
+			Id: new(queuedSettledObserverID), Kind: new(extensionv1.HandlerKind_HANDLER_KIND_AGENT_SETTLED),
+		}.Build(),
+	)
 	handlers = append(handlers, navigationFailureDescriptors()...)
 	handlers = append(handlers, ordinaryFailureObservers()...)
 	handlers = append(handlers, selectionHandlerDescriptors(operation.selectionComposition)...)
@@ -448,6 +460,11 @@ func (operation *executeOperation) Run(
 			},
 			IsError: new(false), Terminate: nil,
 		}.Build(), nil
+	case queuedSettledMode:
+		operation.service.contextMutex.Lock()
+		operation.service.queueOnSettled = true
+		operation.service.contextMutex.Unlock()
+		return catalogueTextResult([]byte(queuedAcceptanceText)), nil
 	case queuedMessagesMode:
 		return queueMessages(ctx)
 	case cataloguesMode:

@@ -515,6 +515,8 @@ For U11, the developer found fitting category round-trip tests before creating s
 
 For U13, `TestPublicExtensionQueuedMessages` first failed because its test harness called a nonexistent helper, then failed behaviorally because the real extension rejected the new tool mode. The public test passed after queued delivery was implemented. The delayed-binding tests and the expanded pending-message failure tests had compilation RED runs before their production methods and payload type existed. The coordinator bypass/race-rejection test, the popped extension-delivery failure test, and the added stale-capture and post-commit publication assertions were added after their production behavior; they have no original RED-before-code evidence. The acceptance checks remain mandatory under the verification exception above.
 
+For U14, the developer retained behavioral RED runs for the public SCN-12 and SCN-18 paths and the Core and coordinator nextTurn tests. The developer added `TestNextTurnDeliveryFailureRespectsCommit`, `TestNextTurnStartFailurePreservesSnapshot`, and commitment-status assertions in `TestQueuedMessageBinding` after the corresponding implementation. The developer also strengthened provider-history assertions during review. The passing regression results do not establish original RED-before-code chronology for those additions. The verification exception above covers this chronology gap; independent reviews, required behavior coverage, and final project gates remain mandatory.
+
 ## References
 
 - [Ticket](ticket.md) - phase scope and acceptance criteria

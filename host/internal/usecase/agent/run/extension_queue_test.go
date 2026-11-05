@@ -53,7 +53,7 @@ func TestExtensionDeliveryFailureReturnsOnlyClientMessages(t *testing.T) {
 	service.SetQueueMode(agent.QueueModeAll)
 	delivery := NewMockExtensionMessageDelivery(gomock.NewController(t))
 	cause := errors.New("queued append failed: disk cause")
-	delivery.EXPECT().DeliverExtensionMessage(gomock.Any(), message).Return(cause)
+	delivery.EXPECT().DeliverExtensionMessage(gomock.Any(), message).Return(false, cause)
 	service.BindExtensionMessages(delivery)
 
 	// Act by running through a delayed commit failure with a popped client message behind it.

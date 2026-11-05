@@ -93,7 +93,7 @@ type CompactionOperations interface {
 
 // MessageEnqueuer accepts extension messages without client input processing.
 type MessageEnqueuer interface {
-	// EnqueueExtension accepts a captured extension message for the active run.
+	// EnqueueExtension accepts a captured message for delayed delivery, including nextTurn while idle.
 	EnqueueExtension(context.Context, agent.MessageDelivery, session.QueuedExtensionMessage) error
 }
 

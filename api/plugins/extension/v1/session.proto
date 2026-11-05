@@ -47,6 +47,8 @@ enum ExtensionMessageDelivery {
   EXTENSION_MESSAGE_DELIVERY_STEER = 2;
   // Persist when no tool calls or steer messages remain.
   EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP = 3;
+  // Persist before the next user message without starting an agent run.
+  EXTENSION_MESSAGE_DELIVERY_NEXT_TURN = 4;
 }
 
 // AppendExtensionMessageResult contains a committed message or queue acceptance.

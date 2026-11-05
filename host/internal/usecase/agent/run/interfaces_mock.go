@@ -95,11 +95,12 @@ func (m *MockExtensionMessageDelivery) EXPECT() *MockExtensionMessageDeliveryMoc
 }
 
 // DeliverExtensionMessage mocks base method.
-func (m *MockExtensionMessageDelivery) DeliverExtensionMessage(arg0 context.Context, arg1 session.QueuedExtensionMessage) error {
+func (m *MockExtensionMessageDelivery) DeliverExtensionMessage(arg0 context.Context, arg1 session.QueuedExtensionMessage) (bool, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "DeliverExtensionMessage", arg0, arg1)
-	ret0, _ := ret[0].(error)
-	return ret0
+	ret0, _ := ret[0].(bool)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
 }
 
 // DeliverExtensionMessage indicates an expected call of DeliverExtensionMessage.

@@ -54,7 +54,7 @@ func (s *Service) Enqueue(runID string, delivery agent.MessageDelivery, message 
 	})
 }
 
-// EnqueueExtension accepts a captured extension message for the matching active run.
+// EnqueueExtension accepts nextTurn work at any time and other captured messages for the matching active run.
 func (s *Service) EnqueueExtension(
 	runID string,
 	delivery agent.MessageDelivery,
@@ -73,7 +73,8 @@ func (s *Service) EnqueueExtension(
 func (s *Service) enqueue(runID string, message queuedMessage) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
-	if s.state.Status != StatusRunning || s.state.RunID.OrEmpty() != runID {
+	if message.delivery != agent.MessageDeliveryNextTurn &&
+		(s.state.Status != StatusRunning || s.state.RunID.OrEmpty() != runID) {
 		return agent.ErrRunNotActive
 	}
 	s.nextSequence++
@@ -83,18 +84,19 @@ func (s *Service) enqueue(runID string, message queuedMessage) error {
 }
 
 // deliverQueuedMessage appends a client message or delegates origin-preserving extension persistence.
-func (s *Service) deliverQueuedMessage(ctx context.Context, message queuedMessage) error {
+func (s *Service) deliverQueuedMessage(ctx context.Context, message queuedMessage) (committed bool, err error) {
 	if payload, present := message.extension.Get(); present {
 		if s.extensionMessages == nil {
-			return errors.New("extension message delivery is not bound")
+			return false, errors.New("extension message delivery is not bound")
 		}
 		return s.extensionMessages.DeliverExtensionMessage(ctx, payload)
 	}
-	return s.appendUser(ctx, message.processed)
+	err = s.appendUser(ctx, message.processed)
+	return err == nil, err
 }
 
-// SetQueueMode selects how many pending messages of one kind a delivery point gives the model. It applies from the
-// next delivery point, also while a run is active, and holds for every later run of the process.
+// SetQueueMode selects how many pending steer or followUp messages of each kind a delivery point gives the model,
+// starting at the next delivery point and persisting across runs, without limiting nextTurn delivery.
 func (s *Service) SetQueueMode(mode agent.QueueMode) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -134,14 +136,15 @@ func (s *Service) takeQueuedOrComplete(ctx context.Context) ([]queuedMessage, er
 	return messages, nil
 }
 
-// pop removes the pending messages of one delivery kind that the queue mode delivers, in arrival order; the caller
-// holds the mutex.
+// pop removes messages of one delivery kind in arrival order, selecting steer or followUp by queue mode and all
+// pending nextTurn messages, while the caller holds the mutex.
 func (s *Service) pop(delivery agent.MessageDelivery) []queuedMessage {
 	var delivered []queuedMessage
 	rest := make([]queuedMessage, 0, len(s.pending))
 	for index := range s.pending {
 		message := &s.pending[index]
-		if message.delivery == delivery && (s.queueMode == agent.QueueModeAll || len(delivered) == 0) {
+		if message.delivery == delivery &&
+			(delivery == agent.MessageDeliveryNextTurn || s.queueMode == agent.QueueModeAll || len(delivered) == 0) {
 			delivered = append(delivered, *message)
 			continue
 		}
@@ -149,6 +152,14 @@ func (s *Service) pop(delivery agent.MessageDelivery) []queuedMessage {
 	}
 	s.pending = rest
 	return delivered
+}
+
+// preserveNextTurn retains uncommitted attachments in arrival order while the caller holds the mutex.
+func (s *Service) preserveNextTurn(undelivered []queuedMessage) {
+	// Undelivered start attachments predate every nextTurn message still pending.
+	s.pending = lo.Filter(slices.Concat(undelivered, s.pending), func(message queuedMessage, _ int) bool {
+		return message.delivery == agent.MessageDeliveryNextTurn
+	})
 }
 
 // collectReturnedMessages returns pending and popped undelivered client originals in arrival order,

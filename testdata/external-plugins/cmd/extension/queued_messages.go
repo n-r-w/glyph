@@ -17,6 +17,8 @@ const (
 	queuedSteerText = "extension queued steer exact\ntext"
 	// queuedFollowUpText is the exact followUp payload.
 	queuedFollowUpText = "extension queued followUp exact\ntext"
+	// queuedNextTurnText is the exact attachment for the next user message.
+	queuedNextTurnText = "extension queued nextTurn exact\ntext"
 	// queuedAcceptanceText reports acceptance before any extension entry exists.
 	queuedAcceptanceText = "extension messages accepted without entries"
 )
@@ -32,6 +34,10 @@ func queueMessages(ctx context.Context) (*extensionv1.ToolResult, error) {
 		text       string
 		visibility extensionv1.ClientVisibility
 	}{
+		{
+			extensionv1.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_NEXT_TURN,
+			queuedNextTurnText, extensionv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN,
+		},
 		{
 			extensionv1.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP,
 			queuedFollowUpText, extensionv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN,

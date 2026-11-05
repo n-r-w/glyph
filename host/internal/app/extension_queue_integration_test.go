@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	// extensionQueueSSE requests a tool that waits for acceptance of both extension messages.
+	// extensionQueueSSE requests a tool that waits for acceptance of three extension messages.
 	extensionQueueSSE = `data: {"type":"response.completed","response":{"id":"resp-extension-queue",` +
 		`"model":"gpt-active","status":"completed","output":[{"id":"fc-1","type":"function_call",` +
 		`"call_id":"call-1","name":"external","arguments":"{\"mode\":\"queue-messages\"}",` +
@@ -21,6 +21,8 @@ const (
 	extensionSteerText = "extension queued steer exact\ntext"
 	// extensionFollowUpText identifies the extension task delivered after the final response.
 	extensionFollowUpText = "extension queued followUp exact\ntext"
+	// extensionNextTurnText identifies the attachment delivered with the next user message.
+	extensionNextTurnText = "extension queued nextTurn exact\ntext"
 	// extensionQueueAccepted identifies a tool result produced only after queue acceptance.
 	extensionQueueAccepted = "extension messages accepted without entries"
 )
@@ -28,8 +30,8 @@ const (
 // TestPublicExtensionQueuedMessages checks nonblocking tool acceptance, delivery priority, and persisted origin.
 func TestPublicExtensionQueuedMessages(t *testing.T) {
 	t.Parallel()
-	// Arrange a real extension whose tool waits for both append operations before returning.
-	provider := startQueueProvider(t, 0, extensionQueueSSE, finalResponseSSE, finalResponseSSE)
+	// Arrange a real extension whose tool waits for all three append operations before returning.
+	provider := startQueueProvider(t, 0, extensionQueueSSE, finalResponseSSE, finalResponseSSE, finalResponseSSE)
 	fixture := startQueueFixture(t, provider, buildPublicExtensionFixture(t))
 	defer fixture.closeOwner(t)
 
@@ -50,6 +52,15 @@ func TestPublicExtensionQueuedMessages(t *testing.T) {
 		strings.Index(bodies[1], "extension queued steer"),
 	)
 	require.Contains(t, bodies[2], `extension queued followUp exact\ntext`)
+	for _, body := range bodies {
+		require.NotContains(t, body, "extension queued nextTurn")
+	}
+	require.NoError(t, fixture.stream.Send(userRequest("next-user", "second request")))
+	require.True(t, waitForTerminalEvent(t, fixture, "next-user").HasCompleted())
+	bodies = provider.snapshot()
+	require.Len(t, bodies, 4)
+	require.Contains(t, bodies[3], `extension queued nextTurn exact\ntext`)
+	require.Less(t, strings.Index(bodies[3], "extension queued nextTurn"), strings.Index(bodies[3], "second request"))
 	entries := sendProgrammaticOperation(t, fixture, "queued-history", func(request *programmaticv1.OpenRequest) {
 		programmaticRequest(request).SetGetSessionEntries(new(programmaticv1.GetSessionEntries))
 	}).GetSessionEntries().GetEntries()
@@ -59,13 +70,15 @@ func TestPublicExtensionQueuedMessages(t *testing.T) {
 			messages = append(messages, message)
 		}
 	}
-	require.Len(t, messages, 2)
+	require.Len(t, messages, 3)
 	require.Equal(t, extensionSteerText, messages[0].GetText())
 	require.Equal(t, extensionFollowUpText, messages[1].GetText())
+	require.Equal(t, extensionNextTurnText, messages[2].GetText())
 	for _, message := range messages {
 		require.Equal(t, "external", message.GetExtensionId())
 		require.Equal(t, "queued-message", message.GetEntryType())
 	}
 	require.Equal(t, programmaticv1.ClientVisibility_CLIENT_VISIBILITY_VISIBLE, messages[0].GetVisibility())
 	require.Equal(t, programmaticv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN, messages[1].GetVisibility())
+	require.Equal(t, programmaticv1.ClientVisibility_CLIENT_VISIBILITY_HIDDEN, messages[2].GetVisibility())
 }

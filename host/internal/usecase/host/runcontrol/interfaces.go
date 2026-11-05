@@ -47,10 +47,10 @@ type Executor interface {
 	// Enqueue queues a message with the given delivery kind for the run with the given ID, or fails with
 	// agent.ErrRunNotActive when that run is no longer running.
 	Enqueue(runID string, delivery agent.MessageDelivery, message QueuedMessage) error
-	// EnqueueExtension queues an extension message with its captured session and runtime binding.
+	// EnqueueExtension queues a captured message; nextTurn requires no active run ID.
 	EnqueueExtension(runID string, delivery agent.MessageDelivery, message session.QueuedExtensionMessage) error
-	// SetQueueMode selects how many pending messages of one kind a delivery point gives the model, from the next
-	// delivery point on.
+	// SetQueueMode selects how many pending steer or followUp messages of each kind a delivery point gives the model,
+	// from the next delivery point onward, without limiting nextTurn delivery.
 	SetQueueMode(mode agent.QueueMode)
 }
 

@@ -398,7 +398,7 @@ func TestRunCompletionReturnsNoMessages(t *testing.T) {
 	t.Parallel()
 	// Arrange a run whose provider always gives a final response.
 	harness := newReturnedHarness(t, func() {}, newReturnedSetup(t, stopProvider))
-	harness.extensionDelivery.EXPECT().DeliverExtensionMessage(gomock.Any(), gomock.Any()).Return(nil).Times(2)
+	harness.extensionDelivery.EXPECT().DeliverExtensionMessage(gomock.Any(), gomock.Any()).Return(true, nil).Times(2)
 
 	// Act by running the request with three pending client messages.
 	result, err := harness.service.Run(

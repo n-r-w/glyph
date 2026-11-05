@@ -32,31 +32,34 @@ func (s *Service) CaptureExtensionMessage(
 }
 
 // DeliverExtensionMessage persists the accepted payload while its runtime and session incarnation remain current.
-func (s *Service) DeliverExtensionMessage(ctx context.Context, queued session.QueuedExtensionMessage) error {
+func (s *Service) DeliverExtensionMessage(
+	ctx context.Context,
+	queued session.QueuedExtensionMessage,
+) (committed bool, err error) {
 	instance, available := s.runtime.ContextRuntime(queued.Message.ExtensionID)
 	current := s.session.ContextSession()
 	if !available || instance != queued.RuntimeInstanceID || current.ID != queued.Session.ID ||
 		current.Incarnation != queued.Session.Incarnation {
-		return nil
+		return false, nil
 	}
 	entry, err := s.session.AppendExtensionMessage(ctx, queued.Session, queued.Message,
 		func() (func(), error) {
 			return s.runtime.BeginContextCommit(queued.Message.ExtensionID, queued.RuntimeInstanceID)
 		})
 	if err == nil {
-		return nil
+		return entry.ID != "", nil
 	}
 	// Replacement can race the initial check; the session owner and runtime guard decide at commit.
 	if entry.ID == "" {
 		if errors.Is(err, session.ErrUnavailable) {
-			return nil
+			return false, nil
 		}
 		if failure, found := errors.AsType[extensioncontroller.ContextFailure](
 			err,
 		); found &&
 			failure.ContextCode() == staleContextCode {
-			return nil
+			return false, nil
 		}
 	}
-	return fmt.Errorf("deliver queued extension message: %w", err)
+	return entry.ID != "", fmt.Errorf("deliver queued extension message: %w", err)
 }

@@ -38,8 +38,8 @@ type ModelRequest struct {
 
 // ExtensionMessageDelivery persists accepted extension messages or discards stale bindings.
 type ExtensionMessageDelivery interface {
-	// DeliverExtensionMessage commits a captured message when its session and runtime remain current.
-	DeliverExtensionMessage(context.Context, session.QueuedExtensionMessage) error
+	// DeliverExtensionMessage reports whether the message committed, including when later publication fails.
+	DeliverExtensionMessage(context.Context, session.QueuedExtensionMessage) (committed bool, err error)
 }
 
 // HistoryStore owns canonical provider-neutral history for the active session.

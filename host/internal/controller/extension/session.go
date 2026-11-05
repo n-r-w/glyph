@@ -53,6 +53,8 @@ func mapAppendMessageRequest(request *extensionpb.AppendExtensionMessageRequest)
 		delivery = mo.Some(agent.MessageDeliverySteer)
 	case extensionpb.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP:
 		delivery = mo.Some(agent.MessageDeliveryFollowUp)
+	case extensionpb.ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_NEXT_TURN:
+		delivery = mo.Some(agent.MessageDeliveryNextTurn)
 	default:
 		return appendMessageRequest{}, errors.New("extension message delivery point is unknown")
 	}

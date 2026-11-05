@@ -43,9 +43,10 @@ func mapWireMessageDelivery(delivery agent.MessageDelivery) (programmaticv1.Mess
 		return programmaticv1.MessageDelivery_MESSAGE_DELIVERY_STEER, nil
 	case agent.MessageDeliveryFollowUp:
 		return programmaticv1.MessageDelivery_MESSAGE_DELIVERY_FOLLOW_UP, nil
-	default:
-		return 0, fmt.Errorf("map message delivery: unknown value %d", delivery)
+	case agent.MessageDeliveryNextTurn:
+		// Extensions retain nextTurn work, so clients have no returned-message representation.
 	}
+	return 0, fmt.Errorf("map message delivery: unknown value %d", delivery)
 }
 
 // mapWireToolErrorCategory maps one domain tool error category to its public enum.

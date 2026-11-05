@@ -177,11 +177,15 @@ func (c *Coordinator) EnqueueExtension(
 	if err := ctx.Err(); err != nil {
 		return fmt.Errorf("queue extension %s message: %w", delivery, err)
 	}
-	runID, err := c.executor.CheckEnqueue()
-	if err != nil {
-		return fmt.Errorf("queue extension %s message: %w", delivery, err)
+	var runID string
+	if delivery != agent.MessageDeliveryNextTurn {
+		var err error
+		runID, err = c.executor.CheckEnqueue()
+		if err != nil {
+			return fmt.Errorf("queue extension %s message: %w", delivery, err)
+		}
 	}
-	if err = c.executor.EnqueueExtension(runID, delivery, message); err != nil {
+	if err := c.executor.EnqueueExtension(runID, delivery, message); err != nil {
 		return fmt.Errorf("queue extension %s message: %w", delivery, err)
 	}
 	return nil

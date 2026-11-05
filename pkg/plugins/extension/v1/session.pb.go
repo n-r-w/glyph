@@ -33,6 +33,8 @@ const (
 	ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_STEER ExtensionMessageDelivery = 2
 	// Persist when no tool calls or steer messages remain.
 	ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP ExtensionMessageDelivery = 3
+	// Persist before the next user message without starting an agent run.
+	ExtensionMessageDelivery_EXTENSION_MESSAGE_DELIVERY_NEXT_TURN ExtensionMessageDelivery = 4
 )
 
 // Enum value maps for ExtensionMessageDelivery.
@@ -42,12 +44,14 @@ var (
 		1: "EXTENSION_MESSAGE_DELIVERY_IMMEDIATE",
 		2: "EXTENSION_MESSAGE_DELIVERY_STEER",
 		3: "EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP",
+		4: "EXTENSION_MESSAGE_DELIVERY_NEXT_TURN",
 	}
 	ExtensionMessageDelivery_value = map[string]int32{
 		"EXTENSION_MESSAGE_DELIVERY_UNSPECIFIED": 0,
 		"EXTENSION_MESSAGE_DELIVERY_IMMEDIATE":   1,
 		"EXTENSION_MESSAGE_DELIVERY_STEER":       2,
 		"EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP":   3,
+		"EXTENSION_MESSAGE_DELIVERY_NEXT_TURN":   4,
 	}
 )
 
@@ -1674,12 +1678,13 @@ const file_api_plugins_extension_v1_session_proto_rawDesc = "" +
 	"\x04text\x18\x01 \x01(\tR\x04text\x12L\n" +
 	"\n" +
 	"visibility\x18\x02 \x01(\x0e2,.glyph.plugins.extension.v1.ClientVisibilityR\n" +
-	"visibility*\xc0\x01\n" +
+	"visibility*\xea\x01\n" +
 	"\x18ExtensionMessageDelivery\x12*\n" +
 	"&EXTENSION_MESSAGE_DELIVERY_UNSPECIFIED\x10\x00\x12(\n" +
 	"$EXTENSION_MESSAGE_DELIVERY_IMMEDIATE\x10\x01\x12$\n" +
 	" EXTENSION_MESSAGE_DELIVERY_STEER\x10\x02\x12(\n" +
-	"$EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP\x10\x03*r\n" +
+	"$EXTENSION_MESSAGE_DELIVERY_FOLLOW_UP\x10\x03\x12(\n" +
+	"$EXTENSION_MESSAGE_DELIVERY_NEXT_TURN\x10\x04*r\n" +
 	"\x10ClientVisibility\x12!\n" +
 	"\x1dCLIENT_VISIBILITY_UNSPECIFIED\x10\x00\x12\x1d\n" +
 	"\x19CLIENT_VISIBILITY_VISIBLE\x10\x01\x12\x1c\n" +

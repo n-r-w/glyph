@@ -48,22 +48,25 @@ func TestMapAgentSummaryReturnsClientMessages(t *testing.T) {
 	require.Equal(t, "follow-up text", returned[1].GetContent()[0].GetText())
 }
 
-// TestMapAgentSummaryRejectsUnknownDelivery verifies that a returned message with an unknown delivery kind fails
-// the mapping instead of reaching the client with a wrong kind.
+// TestMapAgentSummaryRejectsUnknownDelivery checks rejection of delivery kinds outside the client contract.
 func TestMapAgentSummaryRejectsUnknownDelivery(t *testing.T) {
 	t.Parallel()
-	// Arrange a summary whose returned message has no delivery kind.
-	summary := AgentSummary{
-		Outcome:      RunOutcomeFailed,
-		ErrorMessage: mo.None[string](),
-		ReturnedMessages: []agent.ReturnedMessage{
-			{Delivery: agent.MessageDelivery(0), Message: model.TextMessage("text")},
-		},
+	for _, delivery := range []agent.MessageDelivery{0, agent.MessageDeliveryNextTurn} {
+		t.Run(delivery.String(), func(t *testing.T) {
+			t.Parallel()
+			// Arrange a summary with an unknown or extension-only returned delivery kind.
+			summary := AgentSummary{
+				Outcome: RunOutcomeFailed, ErrorMessage: mo.None[string](),
+				ReturnedMessages: []agent.ReturnedMessage{
+					{Delivery: delivery, Message: model.TextMessage("text")},
+				},
+			}
+
+			// Act by mapping the summary.
+			_, err := mapAgentSummary(summary)
+
+			// Assert no unsupported delivery kind reaches the client.
+			require.Error(t, err)
+		})
 	}
-
-	// Act by mapping the summary.
-	_, err := mapAgentSummary(summary)
-
-	// Assert the mapping fails.
-	require.Error(t, err)
 }

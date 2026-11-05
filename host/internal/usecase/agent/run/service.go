@@ -56,8 +56,7 @@ type Service struct {
 	mutex sync.RWMutex
 	// state contains the current run snapshot.
 	state State
-	// pending holds the steer and followUp messages of the active run that history has not received yet, in
-	// arrival order.
+	// pending holds uncommitted steer, followUp, and nextTurn messages in arrival order.
 	pending []queuedMessage
 	// nextSequence is the arrival number of the latest queued message.
 	nextSequence uint64
@@ -111,15 +110,24 @@ func (s *Service) BindExtensionMessages(delivery ExtensionMessageDelivery) {
 
 // Run executes one user request through the model/tool loop.
 func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontrol.Result, error) {
-	beginErr := s.begin(request)
+	nextTurn, beginErr := s.begin(request)
 	if beginErr != nil {
 		return runcontrol.Result{}, beginErr
 	}
 	deliveryErr := s.deliver(ctx, newEvent(agent.EventAgentStart, request.RunID))
 	if deliveryErr != nil {
 		return s.finish(
-			ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(deliveryErr.Error()), deliveryErr, nil,
+			ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(deliveryErr.Error()), deliveryErr, nextTurn,
 		)
+	}
+	for index := range nextTurn {
+		committed, err := s.deliverQueuedMessage(ctx, nextTurn[index])
+		if err != nil {
+			if committed {
+				index++
+			}
+			return s.finish(ctx, request.RunID, agent.RunOutcomeFailed, mo.Some(err.Error()), err, nextTurn[index:])
+		}
 	}
 	// The user entry must transfer to history ownership before any turn or provider request can depend on it.
 	if err := s.appendUser(ctx, request.Message); err != nil {
@@ -139,7 +147,7 @@ func (s *Service) Run(ctx context.Context, request runcontrol.Request) (runcontr
 		}
 		// The next turn reads history again, so the model receives the messages in its next request.
 		for index := range step.messages {
-			if err := s.deliverQueuedMessage(ctx, step.messages[index]); err != nil {
+			if _, err := s.deliverQueuedMessage(ctx, step.messages[index]); err != nil {
 				// Return undelivered client originals and discard extension work.
 				// A committed extension entry stays in history.
 				return s.finish(
@@ -190,11 +198,11 @@ func (s *Service) ProjectHistory() []agent.HistoryEntry {
 }
 
 // begin reserves the only run slot before the user entry ownership transfer.
-func (s *Service) begin(request runcontrol.Request) error {
+func (s *Service) begin(request runcontrol.Request) ([]queuedMessage, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	if s.state.Status != StatusIdle {
-		return ErrRunActive
+		return nil, ErrRunActive
 	}
 	s.addedHistory = nil
 	s.state = State{
@@ -203,7 +211,7 @@ func (s *Service) begin(request runcontrol.Request) error {
 		PartialResponse: mo.Some(model.Response{}),
 		ToolPreviews:    make(map[string]model.ToolCallPreview),
 	}
-	return nil
+	return s.pop(agent.MessageDeliveryNextTurn), nil
 }
 
 // runTurn performs one provider request and applies its terminal outcome.
@@ -456,9 +464,9 @@ func (s *Service) finish(
 	s.mutex.Lock()
 	added := s.addedHistory
 	s.addedHistory = nil
-	// Return pending client originals and discard the extension messages of the ended run.
+	// Return client originals, discard run-scoped extension work, and retain next-user attachments.
 	returned := s.collectReturnedMessages(undelivered)
-	s.pending = nil
+	s.preserveNextTurn(undelivered)
 	s.state = State{
 		Status:          StatusAwaitingSettlement,
 		RunID:           mo.Some(runID),

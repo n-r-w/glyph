@@ -82,23 +82,24 @@ func TestQueuedMessageBinding(t *testing.T) {
 							if change == "persistence" {
 								return session.Entry{}, cause
 							}
-							if change == "committed-delivery" {
-								return session.Entry{
-									ID:               "committed",
-									ParentID:         mo.None[string](),
-									CreatedAt:        time.Time{},
-									Information:      mo.None[session.Information](),
-									User:             mo.None[session.UserMessage](),
-									Model:            mo.None[session.ModelResponse](),
-									EstimatedCost:    mo.None[session.EstimatedCost](),
-									ToolResult:       mo.None[session.ToolResult](),
-									Extension:        mo.None[session.ExtensionEnvelope](),
-									ExtensionMessage: mo.None[session.ExtensionMessage](),
-									BranchSummary:    mo.None[session.BranchSummaryEntry](),
-									Compaction:       mo.None[session.CompactionEntry](),
-								}, cause
+							entry := session.Entry{
+								ID:               "committed",
+								ParentID:         mo.None[string](),
+								CreatedAt:        time.Time{},
+								Information:      mo.None[session.Information](),
+								User:             mo.None[session.UserMessage](),
+								Model:            mo.None[session.ModelResponse](),
+								EstimatedCost:    mo.None[session.EstimatedCost](),
+								ToolResult:       mo.None[session.ToolResult](),
+								Extension:        mo.None[session.ExtensionEnvelope](),
+								ExtensionMessage: mo.None[session.ExtensionMessage](),
+								BranchSummary:    mo.None[session.BranchSummaryEntry](),
+								Compaction:       mo.None[session.CompactionEntry](),
 							}
-							return session.Entry{}, nil
+							if change == "committed-delivery" {
+								return entry, cause
+							}
+							return entry, nil
 						})
 			}
 
@@ -110,7 +111,8 @@ func TestQueuedMessageBinding(t *testing.T) {
 			}
 
 			// Act after the originating invocation could have completed.
-			err = service.DeliverExtensionMessage(t.Context(), message)
+			committed, err := service.DeliverExtensionMessage(t.Context(), message)
+			require.Equal(t, change == "current" || change == "committed-delivery", committed)
 
 			// Assert stale work is discarded and persistence failures retain their cause.
 			if change == "persistence" || change == "committed-delivery" {
