@@ -1,5 +1,7 @@
 # Ticket: PHS-09 - Tool middleware and run control
 
+Status: Complete and accepted under the [final acceptance record](acceptance-report.md#final-user-acceptance).
+
 Allow extensions to control tool policy and agent-run continuation.
 
 ## Key definitions and abbreviations

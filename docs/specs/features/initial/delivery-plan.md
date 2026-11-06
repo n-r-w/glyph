@@ -82,6 +82,7 @@
 - Dependencies: PHS-08
 - Ticket: [Ticket](phases/09-tool-middleware-run-control/ticket.md)
 - Technical Solution: [Technical Solution](phases/09-tool-middleware-run-control/solution.md)
+- Completion status: Complete and accepted under the [final acceptance record](phases/09-tool-middleware-run-control/acceptance-report.md#final-user-acceptance).
 
 ### PHS-10. Commands, interaction, notifications, and extension events
 - Dependencies: PHS-09

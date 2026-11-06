@@ -1,5 +1,7 @@
 # Technical Solution: PHS-09 tool middleware and run control
 
+Status: Complete and accepted under the [final acceptance record](acceptance-report.md#final-user-acceptance).
+
 ## Problem Statement
 
 The [problem statement](problem.md) describes problems PRB-01 through PRB-07, and the [requirements](prd.md) define FRQ-01 through FRQ-13, NRQ-01, and critical scenarios SCN-01 through SCN-18. The [domain glossary](../../../../../terms.md) defines the run-control terms.

@@ -1,5 +1,7 @@
 # Delivery plan: PHS-09
 
+Status: Complete and accepted under the [final acceptance record](acceptance-report.md#final-user-acceptance).
+
 Deliver the [requirements](prd.md) of PHS-09 through behavior slices that can each be verified on their own. The [technical solution](solution.md) defines the mechanisms, and this plan defines their delivery order and checks. Unit U0 first corrects the [startup issues in Programmatic Control](../../../../issues/programmatic-startup-issues/solution.md), because PHS-09 adds rejected tool replacements as a new kind of startup issue.
 
 ## Key definitions and abbreviations

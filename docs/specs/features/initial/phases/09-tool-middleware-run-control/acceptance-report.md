@@ -1,6 +1,6 @@
 # PHS-09 acceptance report
 
-Implementation verification is complete. Final cross-unit scenario review and phase acceptance are pending.
+Status: Complete and accepted under the [final user acceptance](#final-user-acceptance). Implementation verification and [final cross-unit review](#final-cross-unit-review) are complete within the [approved verification exclusions](#approved-verification-exclusions) and the recorded historical limits.
 
 ## Delivered scope
 
@@ -115,6 +115,34 @@ The Go compiler includes the consumers' implementation packages in the physical 
 
 The report author checked the referenced contract declarations separately and traversed the remaining 143-package Core/data closure, including domain/session. That closure has no prohibited package. This conclusion depends on the complete reference inventory and the neutral types actually used. The independent advisor confirmed that interpretation from the supplied primary outputs and declarations; the advisor did not independently inspect the repository. The author retained all requirements, assertions, dependency edges and source rules.
 
+## Final cross-unit review
+
+The final reviewer checked all 13 functional requirements, NRQ-01 and SCN-01 through SCN-18 against the delivered code and caller-visible test assertions at `39c0d6a660b9955540390ed6dbba5c7011d2bb66`. The reviewer traced tool policies, result transformations, replacement registration, active-tool snapshots, concurrent groups, ordered persistence, queue delivery, `terminate` and cancellation through their public entry points and consumers. The reviewer identified no new implementation violation. This was a cross-unit behavior review; the reviewer did not repeat the earlier complete diff-wide code-quality and documentation reviews.
+
+The focused checks selected all 21 public test functions in the [scenario matrix](#requirements-and-critical-scenarios), the U0 startup-issue test and four additional functions:
+
+- `TestPublicToolPolicyInvalidOriginalArguments`
+- `TestPublicExtensionSetsActiveToolsInsideOwnTool`
+- `TestPublicToolErrorCategoryInvalidArguments`
+- `TestPublicToolErrorCategoryKeptByHandler`
+
+Both focused runs used `go test -race -count=1 -tags=integration ./host/internal/app` with an anchored `-run` expression containing exactly those 26 function names and `-timeout=3m`. The test runner executed all 17 external critical scenarios. The reviewer repeated the static dependency inspection for SCN-17 and obtained the same contract inventory and package counts described in [Agent Core dependency inspection](#agent-core-dependency-inspection).
+
+The reviewer also repeated the [approved filtered procedure](#project-gates). The following results are in execution order:
+
+| Check | Exit | Wall time | Observed result |
+| --- | --- | --- | --- |
+| Focused public-scenario check | 0 | 4.987 s | Package `github.com/n-r-w/glyph/host/internal/app` reported `ok` |
+| Complete filtered check | 0 | 60.456406 s | 24 app processes; coverage 85.5%, required 80.0% |
+| Complete filtered recheck | 0 | 56.224234 s | 24 app processes; coverage 85.4%, required 80.0% |
+| Focused public-scenario recheck | 0 | 4.684 s | Package `github.com/n-r-w/glyph/host/internal/app` reported `ok` |
+
+Both complete checks retained race detection, unit and integration tests, external-fixture module tests and the combined-coverage threshold. The same two top-level functions remained excluded. No unmodified `task check` run is claimed.
+
+Before these documentation updates, the reviewer compared the retained 1,751-file source manifest with the 1,752 current regular files. Only four Markdown files differed and this acceptance report had been added. Executable and generated source bytes matched the retained check inputs. Generation, formatting, fix-preview, lint and build were not rerun during the final review; their [retained results](#project-gates) remain evidence for those source inputs. Source identity establishes neither identical tool versions and environment nor identical ignored configuration and binaries.
+
+A separate advisor checked the bounded review conclusions against the supplied primary excerpts and command outputs. The advisor identified no additional concrete implementation defect. The advisor did not independently access the repository.
+
 ## Approved verification exclusions
 
 Final verification deliberately omitted exactly these eight scenarios because their two top-level functions override child-process `HOME`:
@@ -176,10 +204,14 @@ Additional corrective and policy commits are `27ae9332`, `9393fc41`, `223b3c9c`,
 - Unrelated default-tag lint debt remains deferred: five pre-existing Core/Programmatic whole-file findings and twenty untouched SDK test-line findings. The required `task lint` passed; no broader default-tag cleanup is claimed.
 - The protected `glyph-A4-before-run-accounting` stash remains intact. The temporary U15 stash was removed only after confirming that its restored content was safely committed.
 
+## Final user acceptance
+
+On 2026-11-07, the project owner accepted PHS-09 closure after the final review and test rechecks and authorized the roadmap and phase-status updates. Acceptance retains the [eight excluded one-shot scenarios](#approved-verification-exclusions), the [historical RED limits](plan.md#standards-deviations) and the [remaining debt](#remaining-debt-and-scope-boundaries). Their separate follow-up does not leave PHS-09 open.
+
 ## Assumptions
 
 No unresolved product assumption. The recorded source identity and explicit verification selection bound the results above.
 
 ## Open questions
 
-None. Final cross-unit scenario review and phase acceptance remain workflow actions, not unanswered product decisions.
+None.

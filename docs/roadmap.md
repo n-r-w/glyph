@@ -222,9 +222,9 @@ Documents:
 
 ## PHS-09: Tool middleware and run control
 
-Status: [U0-U15](specs/features/initial/phases/09-tool-middleware-run-control/plan.md#plan-units) delivered; phase verification and acceptance in progress. Verification follows the [approved PHS-09 exceptions](specs/features/initial/phases/09-tool-middleware-run-control/plan.md#standards-deviations).
+Status: Completed and accepted. The [acceptance report](specs/features/initial/phases/09-tool-middleware-run-control/acceptance-report.md#final-user-acceptance) records final cross-unit review, test rechecks and acceptance within the approved verification limits.
 
-Add extension control over tool policy and agent-run continuation.
+Added extension control over tool policy and agent-run continuation.
 
 Documents:
 - [Ticket](specs/features/initial/phases/09-tool-middleware-run-control/ticket.md)
@@ -232,6 +232,7 @@ Documents:
 - [PRD](specs/features/initial/phases/09-tool-middleware-run-control/prd.md)
 - [Technical Solution](specs/features/initial/phases/09-tool-middleware-run-control/solution.md)
 - [Plan](specs/features/initial/phases/09-tool-middleware-run-control/plan.md)
+- [Acceptance report](specs/features/initial/phases/09-tool-middleware-run-control/acceptance-report.md)
 
 ## PHS-10: Commands, interaction, notifications, and extension events
 
