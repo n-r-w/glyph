@@ -52,15 +52,15 @@ Documents:
 
 ### One-shot integration tests without HOME overrides
 
-Status: Planned
+Status: Completed
 
-Execution position: After completion of PHS-09, as a separate corrective task.
+Completed after PHS-09 as a separate corrective task.
 
-Remove child-process `HOME` overrides from `TestPublicFinalizedOneShot` in [finalized_clients_integration_test.go](../host/internal/app/finalized_clients_integration_test.go) and `TestPublicInputMiddlewareOneShot` in [input_middleware_oneshot_integration_test.go](../host/internal/app/input_middleware_oneshot_integration_test.go). Give each scenario isolated settings and persistence while retaining the inherited `HOME` value.
+`TestPublicFinalizedOneShot` in [finalized_clients_integration_test.go](../host/internal/app/finalized_clients_integration_test.go) and `TestPublicInputMiddlewareOneShot` in [input_middleware_oneshot_integration_test.go](../host/internal/app/input_middleware_oneshot_integration_test.go) use `testPaths` for isolated settings and persistence. Their shared [child-process fixture](../host/internal/app/oneshot_process_fixture_test.go) inherits `HOME` and invokes the production CLI parser, `runWithPaths` composition and error renderer.
 
-Preserve all eight scenarios and their checks of process exit status, standard output, complete error text, provider request counts, and transformed provider input. For example, a failing input handler must still produce exit code `1` and its complete public error text.
+All eight scenarios pass with race detection and retain their checks of process exit status, standard output, complete error text, provider request counts and transformed provider input. For example, a failing input handler still produces exit code `1` and its complete public error text. The unmodified `task check` passes with combined coverage of 85.5 percent against the 80 percent minimum. Its warm wall time is 55.11 seconds, compared with 56.34 seconds for the pre-change check with these two test functions excluded.
 
-Completion requires both test functions to run without changing `HOME` in the test process or any child process, and all eight scenarios and `task check` to pass. Choose the test-isolation mechanism during this corrective task.
+These scenarios now launch a child test process. The fixture maps the application outcome to its process exit status; the production executable's outcome mapping remains covered separately by [execute_test.go](../host/cmd/glyph/execute_test.go).
 
 ## PHS-00: Prototype baseline
 

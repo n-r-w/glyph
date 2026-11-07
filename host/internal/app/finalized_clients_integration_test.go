@@ -142,8 +142,6 @@ func TestPublicFinalizedConfiguredResult(t *testing.T) {
 // TestPublicFinalizedOneShot verifies one-shot model output and failure output with finalized-message handlers.
 func TestPublicFinalizedOneShot(t *testing.T) {
 	t.Parallel()
-	// Arrange the production executable once for all scenarios.
-	binary := buildGlyphBinary(t)
 	for _, test := range []struct {
 		// name identifies the scenario.
 		name string
@@ -175,7 +173,7 @@ func TestPublicFinalizedOneShot(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange a local provider endpoint, an isolated home, and the selected reference scenario.
+			// Arrange a local provider endpoint, isolated persistence paths, and the selected reference scenario.
 			bodies := new(requestBodies)
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				body, readErr := io.ReadAll(request.Body)
@@ -194,26 +192,14 @@ func TestPublicFinalizedOneShot(t *testing.T) {
 				_, _ = writer.Write([]byte(finalResponseSSE))
 			}))
 			t.Cleanup(server.Close)
-			home := t.TempDir()
-			require.NoError(t, os.Mkdir(filepath.Join(home, ".glyph"), 0o700))
-			require.NoError(t, os.WriteFile(
-				filepath.Join(home, ".glyph", "settings.yaml"), []byte(oneShotSettings(server.URL)), 0o600,
-			))
+			paths := testPaths(t, oneShotSettings(server.URL))
 			directory := t.TempDir()
 			if test.mode != "" {
 				directory = buildFinalizedFixture(t, test.mode)
 			}
 
-			// Act by running the production executable in one-shot mode.
-			command := exec.CommandContext(
-				t.Context(),
-				binary,
-				"run",
-				"--extension-dir",
-				directory,
-				finalizedRequestText,
-			)
-			command.Env = append(os.Environ(), "HOME="+home)
+			// Act by running the one-shot application in a child test process.
+			command := newOneShotCommand(t, paths, directory, finalizedRequestText)
 			var stdout, stderr bytes.Buffer
 			command.Stdout = &stdout
 			command.Stderr = &stderr

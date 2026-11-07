@@ -8,26 +8,13 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// buildGlyphBinary builds the production one-shot executable.
-func buildGlyphBinary(t *testing.T) string {
-	t.Helper()
-	binary := filepath.Join(t.TempDir(), "glyph")
-	command := exec.CommandContext(t.Context(), "go", "build", "-o", binary, "./host/cmd/glyph")
-	command.Dir = repoRoot(t)
-	output, err := command.CombinedOutput()
-	require.NoError(t, err, string(output))
-	return binary
-}
 
 // oneShotSettings adds a local Responses provider with the configured models and selects its text-only model.
 func oneShotSettings(baseURL string) string {
@@ -44,8 +31,6 @@ func oneShotSettings(baseURL string) string {
 // TestPublicInputMiddlewareOneShot verifies one-shot output, exit status and provider requests of the input chain.
 func TestPublicInputMiddlewareOneShot(t *testing.T) {
 	t.Parallel()
-	// Arrange the production executable once for all scenarios.
-	binary := buildGlyphBinary(t)
 	for _, test := range []struct {
 		// name identifies the scenario.
 		name string
@@ -73,7 +58,7 @@ func TestPublicInputMiddlewareOneShot(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			// Arrange a local provider endpoint, an isolated home and the selected reference scenario.
+			// Arrange a local provider endpoint, isolated persistence paths and the selected reference scenario.
 			bodies := new(requestBodies)
 			server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				body, err := io.ReadAll(request.Body)
@@ -86,16 +71,11 @@ func TestPublicInputMiddlewareOneShot(t *testing.T) {
 				_, _ = writer.Write([]byte(finalResponseSSE))
 			}))
 			t.Cleanup(server.Close)
-			home := t.TempDir()
-			require.NoError(t, os.Mkdir(filepath.Join(home, ".glyph"), 0o700))
-			require.NoError(t, os.WriteFile(
-				filepath.Join(home, ".glyph", "settings.yaml"), []byte(oneShotSettings(server.URL)), 0o600,
-			))
+			paths := testPaths(t, oneShotSettings(server.URL))
 			directory := buildInputFixture(t, test.mode)
 
-			// Act by running the production executable in one-shot mode.
-			command := exec.CommandContext(t.Context(), binary, "run", "--extension-dir", directory, test.text)
-			command.Env = append(os.Environ(), "HOME="+home)
+			// Act by running the one-shot application in a child test process.
+			command := newOneShotCommand(t, paths, directory, test.text)
 			var stdout, stderr bytes.Buffer
 			command.Stdout = &stdout
 			command.Stderr = &stderr
