@@ -234,14 +234,35 @@ Documents:
 - [Plan](specs/features/initial/phases/09-tool-middleware-run-control/plan.md)
 - [Acceptance report](specs/features/initial/phases/09-tool-middleware-run-control/acceptance-report.md)
 
-## PHS-10: Commands, interaction, notifications, and extension events
+## PHS-10: Extension actions, user interaction, coordination, and provider authentication
+
+Status: Planned. Problem descriptions are recorded separately for four subphases. Requirements and technical solutions have not been prepared.
+
+The [parent ticket](specs/features/initial/phases/10-commands-interaction-notifications-events/ticket.md) records the phase structure and the rejected main-session-control problem.
+
+### PHS-10.1: Extension-defined slash commands
 
 Status: Planned
 
-Add extension-defined user actions, command-initiated session control, interactions, notifications, extension events, and client-neutral provider authentication.
+- [Problem statement](specs/features/initial/phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_problem.md)
 
-Documents:
-- [Ticket](specs/features/initial/phases/10-commands-interaction-notifications-events/ticket.md)
+### PHS-10.2: Direct extension interaction with users
+
+Status: Planned
+
+- [Problem statement](specs/features/initial/phases/10-commands-interaction-notifications-events/02-extension-user-interaction/user-interaction_problem.md)
+
+### PHS-10.3: Coordinated behavior of an extension set
+
+Status: Planned
+
+- [Problem statement](specs/features/initial/phases/10-commands-interaction-notifications-events/03-coordinated-extension-behavior/extension-coordination_problem.md)
+
+### PHS-10.4: Provider authentication through Programmatic Control
+
+Status: Planned
+
+- [Problem statement](specs/features/initial/phases/10-commands-interaction-notifications-events/04-programmatic-provider-authentication/provider-authentication_problem.md)
 
 ## PHS-11: Resource contributions
 

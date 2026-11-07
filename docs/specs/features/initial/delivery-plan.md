@@ -84,9 +84,14 @@
 - Technical Solution: [Technical Solution](phases/09-tool-middleware-run-control/solution.md)
 - Completion status: Complete and accepted under the [final acceptance record](phases/09-tool-middleware-run-control/acceptance-report.md#final-user-acceptance).
 
-### PHS-10. Commands, interaction, notifications, and extension events
+### PHS-10. Extension actions, user interaction, coordination, and provider authentication
 - Dependencies: PHS-09
-- Ticket: [Ticket](phases/10-commands-interaction-notifications-events/ticket.md)
+- Parent ticket: [Phase structure and scope decision](phases/10-commands-interaction-notifications-events/ticket.md)
+- PHS-10.1: [Extension-defined slash commands](phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_problem.md)
+- PHS-10.2: [Direct extension interaction with users](phases/10-commands-interaction-notifications-events/02-extension-user-interaction/user-interaction_problem.md)
+- PHS-10.3: [Coordinated behavior of an extension set](phases/10-commands-interaction-notifications-events/03-coordinated-extension-behavior/extension-coordination_problem.md)
+- PHS-10.4: [Provider authentication through Programmatic Control](phases/10-commands-interaction-notifications-events/04-programmatic-provider-authentication/provider-authentication_problem.md)
+- Internal subphase order and dependencies: Not defined. Only the problem split is recorded; PHS-10 remains the aggregate dependency of PHS-11.
 
 ### PHS-11. Resource contributions
 - Dependencies: PHS-10

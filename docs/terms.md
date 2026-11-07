@@ -83,6 +83,7 @@
 - `nested operation`: An operation whose result is consumed by a parent operation and does not determine the parent result without an explicit parent semantic rule.
 - `external error data`: Detail received from outside Glyph and retained in full except secret redaction; transport message-size and queue limits remain separate constraints.
 - `secret redaction`: Removal of secret values from error data while preserving the remaining text, category, and cause information.
+- `slash command`: A text command that a user enters in a Glyph client's input to invoke an action, with `/` before the command name and optional arguments. For example, `/model` opens model selection in the standard TUI.
 - `client command`: A command sent by a Glyph client to request Host behavior.
 - `client session`: One active connection between a Glyph client and a Glyph host.
 - `contract operation`: Work requested across the UI Plugin Contract, Extension Contract, or Programmatic Control in either direction.
