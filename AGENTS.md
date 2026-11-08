@@ -49,6 +49,8 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 4. Errors MUST preserve and expose complete error text, including original cause, across every layer and public contract. Machine-readable codes MUST supplement, never replace, that text. Only secrets MAY be redacted.
 5. All operations that may take a noticeable amount of time must be asynchronous. Always prefer async over sync APIs.
 6. Keep UI responsive at all times.
+7. Interfaces and their contract types belong to the consuming package.
+8. If an import cycle appears, stop and inspect the full dependency chain and responsibility boundaries. Resolve the architectural cause; do not bypass the cycle, for example by moving interfaces away from consumers.
 
 ## Coding rules
 1. MUST run before completing changes in code:
@@ -93,6 +95,5 @@ MUST NOT duplicate information. Instead, provide links to existing documents.
 3. MUST NOT create interfaces or production abstractions solely for tests or mocking. Mocks MUST target interfaces consumed by PRODUCTION CODE.
 
 ## Pi Documentation (use for feature comparison ONLY, NOT for architecture extraction)
-1. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/README.md
-2. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/docs/
-3. /opt/homebrew/lib/node_modules/@earendil-works/pi-coding-agent/examples/README.md
+1. Locate the active Pi installation with `command -v pi`, following symlinks and its launcher to the package root. Use `README.md`, `docs/`, and `examples/README.md` relative to that root.
+2. For a separate source checkout, compare its version with the active installation and keep findings from different versions separate.

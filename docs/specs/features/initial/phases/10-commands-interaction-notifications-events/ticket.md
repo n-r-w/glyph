@@ -2,7 +2,7 @@
 
 ## Status
 
-The four problem definitions are agreed. Delivery is planned. PHS-10 is divided into the subphases below. Requirements, acceptance scenarios, technical solutions, and implementation order have not been defined for these subphases.
+The four problem definitions are agreed. Delivery is planned. PHS-10 is divided into the subphases below. PHS-10.1 has agreed [requirements and critical scenarios](01-extension-slash-commands/slash-commands_prd.md); its [technical solution](01-extension-slash-commands/slash-commands_solution.md) is a draft pending approval. Subphase implementation order remains undefined.
 
 ## Phase structure
 

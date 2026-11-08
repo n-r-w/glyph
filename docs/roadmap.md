@@ -236,15 +236,17 @@ Documents:
 
 ## PHS-10: Extension actions, user interaction, coordination, and provider authentication
 
-Status: Planned. Problem descriptions are recorded separately for four subphases. Requirements and technical solutions have not been prepared.
+Status: Planned. Problem descriptions are recorded separately for four subphases.
 
 The [parent ticket](specs/features/initial/phases/10-commands-interaction-notifications-events/ticket.md) records the phase structure and the rejected main-session-control problem.
 
 ### PHS-10.1: Extension-defined slash commands
 
-Status: Planned
+Status: Technical solution in progress.
 
 - [Problem statement](specs/features/initial/phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_problem.md)
+- [PRD and critical scenarios](specs/features/initial/phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_prd.md)
+- [Technical solution draft](specs/features/initial/phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_solution.md)
 
 ### PHS-10.2: Direct extension interaction with users
 
