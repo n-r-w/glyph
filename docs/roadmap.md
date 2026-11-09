@@ -242,11 +242,11 @@ The [parent ticket](specs/features/initial/phases/10-commands-interaction-notifi
 
 ### PHS-10.1: Extension-defined slash commands
 
-Status: Technical solution in progress.
+Status: Ready for implementation.
 
 - [Problem statement](specs/features/initial/phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_problem.md)
 - [PRD and critical scenarios](specs/features/initial/phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_prd.md)
-- [Technical solution draft](specs/features/initial/phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_solution.md)
+- [Technical solution](specs/features/initial/phases/10-commands-interaction-notifications-events/01-extension-slash-commands/slash-commands_solution.md)
 
 ### PHS-10.2: Direct extension interaction with users
 
